@@ -46,7 +46,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
@@ -279,7 +278,7 @@ public class KeyValueCursorTest {
             assertEquals(Arrays.asList(Tuple.from(3L, 3L), Tuple.from(3L, 4L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
-            assertNotNull(cursor.getContinuation());
+            assertNull(cursor.getContinuation());
 
             return null;
         });

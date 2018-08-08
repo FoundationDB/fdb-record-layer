@@ -161,7 +161,6 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -1151,12 +1150,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                         break;
                     }
                 }
-                CompletableFuture<Boolean> hasNextFuture = cursor.onHasNext(); // fire off but don't wait for an on-has-next
                 continuation = cursor.getContinuation();
+                CompletableFuture<Boolean> hasNextFuture = cursor.onHasNext(); // fire off but don't wait for an on-has-next
                 assertEquals(hasNextFuture.get(), cursor.hasNext()); // wait for the same on-has-next
-                if (cursor.hasNext() || cursor.getContinuation() != null) {
-                    assertArrayEquals(continuation, cursor.getContinuation());
-                } else {
+                if (!cursor.hasNext()) {
                     assertThat(cursor.getNoNextReason().isSourceExhausted(), is(true));
                 }
             } while (continuation != null);

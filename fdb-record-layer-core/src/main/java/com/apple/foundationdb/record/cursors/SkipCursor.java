@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
@@ -38,9 +39,11 @@ public class SkipCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final RecordCursor<T> inner;
     private int skipRemaining;
-    private boolean hasNext;
     @Nullable
     private CompletableFuture<Boolean> nextFuture;
+
+    @Nullable
+    private RecordCursorResult<T> nextResult;
 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
@@ -52,34 +55,35 @@ public class SkipCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> onHasNext() {
-        mayGetContinuation = false;
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (skipRemaining <= 0) {
-            return inner.onHasNext().thenApply(has -> {
-                mayGetContinuation = !has;
-                return has;
+            return inner.onNext().thenApply(result -> {
+                mayGetContinuation = !result.hasNext();
+                nextResult = result;
+                return result;
             });
         }
-        if (nextFuture == null) {
-            nextFuture = AsyncUtil.whileTrue(() -> inner.onHasNext()
-                    .thenApply(innerHasNext -> {
-                        if (!innerHasNext) {
-                            hasNext = false;
-                            return false; // Exhausted while skipping
-                        } else if (skipRemaining > 0) {
-                            inner.next();
-                            skipRemaining--;
-                            return true;
-                        } else {
-                            hasNext = true;
-                            return false;
-                        }
-                    }), getExecutor()).thenApply(vignore -> hasNext);
-        }
-        return nextFuture.thenApply(has -> {
-            mayGetContinuation = !has;
-            return has;
+        return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
+            nextResult = innerResult;
+            if (innerResult.hasNext() && skipRemaining > 0) {
+                skipRemaining--;
+                return true;
+            }
+            return false; // Exhausted while skipping or found the result
+        }), getExecutor()).thenApply(vignore -> {
+            mayGetContinuation = !nextResult.hasNext();
+            return nextResult;
         });
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> onHasNext() {
+        if (nextFuture == null) {
+            mayGetContinuation = false;
+            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
+        }
+        return nextFuture;
     }
 
 
@@ -90,19 +94,20 @@ public class SkipCursor<T> implements RecordCursor<T> {
             throw new NoSuchElementException();
         }
         mayGetContinuation = true;
-        return inner.next();
+        nextFuture = null;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return inner.getContinuation();
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return inner.getNoNextReason();
+        return nextResult.getNoNextReason();
     }
 
     @Override

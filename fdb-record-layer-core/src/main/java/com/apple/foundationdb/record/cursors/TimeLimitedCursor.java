@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import org.slf4j.Logger;
@@ -48,7 +48,14 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
 
     private final long startTime;
     private final long timeLimitMillis;
-    private boolean isTimedOut;
+    @Nullable
+    private RecordCursorResult<T> timedOutResult;
+
+    // needed for supporting old API
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
+    @Nullable
+    private RecordCursorResult<T> nextResult;
 
     public TimeLimitedCursor(@Nonnull RecordCursor<T> inner, long timeLimitMillis) {
         this(inner, System.currentTimeMillis(), timeLimitMillis);
@@ -59,17 +66,41 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
         this.timeLimitMillis = (timeLimitMillis <= 0L ? ExecuteProperties.UNLIMITED_TIME : timeLimitMillis);
         this.inner = inner;
         // In order to ensure that we always make progress, do not time out before the first record.
-        this.isTimedOut = false;
+        this.timedOutResult = null;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        if (timedOutResult != null) {
+            nextResult = timedOutResult;
+            return CompletableFuture.completedFuture(nextResult);
+        } else {
+            return inner.onNext().thenApply(innerResult -> {
+                if (timeLimitMillis != ExecuteProperties.UNLIMITED_TIME) {
+                    final long now = System.currentTimeMillis();
+                    if ((now - startTime) >= timeLimitMillis) {
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug(KeyValueLogMessage.of("Cursor time limit exceeded",
+                                    "cursorElapsedMillis", (now - startTime),
+                                    "cursorTimeLimitMillis", timeLimitMillis));
+                        }
+                        timedOutResult = RecordCursorResult.withoutNextValue(innerResult.getContinuation(), NoNextReason.TIME_LIMIT_REACHED);
+                    }
+                }
+                nextResult = innerResult;
+                return nextResult;
+            });
+        }
     }
 
     @Nonnull
     @Override
     public CompletableFuture<Boolean> onHasNext() {
-        if (isTimedOut) {
-            return AsyncUtil.READY_FALSE;
-        } else {
-            return inner.onHasNext();
+        if (hasNextFuture == null) {
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
+        return hasNextFuture;
     }
 
     @Nullable
@@ -77,39 +108,27 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
-        } else {
-            if (timeLimitMillis != ExecuteProperties.UNLIMITED_TIME) {
-                final long now = System.currentTimeMillis();
-                if ((now - startTime) >= timeLimitMillis) {
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(KeyValueLogMessage.of("Cursor time limit exceeded",
-                                "cursorElapsedMillis", (now - startTime),
-                                "cursorTimeLimitMillis", timeLimitMillis));
-                    }
-                    isTimedOut = true;
-                }
-            }
-            return inner.next();
         }
+        hasNextFuture = null;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
-        return inner.getContinuation();
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        if (isTimedOut) {
-            return NoNextReason.TIME_LIMIT_REACHED;
-        } else {
-            return inner.getNoNextReason();
-        }
+        return nextResult.getNoNextReason();
     }
 
     @Override
     public void close() {
+        if (hasNextFuture != null) {
+            hasNextFuture.cancel(false);
+        }
         inner.close();
     }
 

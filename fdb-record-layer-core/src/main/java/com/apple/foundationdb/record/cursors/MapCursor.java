@@ -21,10 +21,12 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -40,6 +42,10 @@ public class MapCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private final Function<T, V> func;
 
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
+    @Nullable
+    private RecordCursorResult<V> nextResult;
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
 
@@ -50,31 +56,46 @@ public class MapCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> onHasNext() {
+    public CompletableFuture<RecordCursorResult<V>> onNext() {
         mayGetContinuation = false;
-        return inner.onHasNext().thenApply(hasNext -> {
-            mayGetContinuation = !hasNext;
-            return hasNext;
-        });
+        return inner.onNext().thenApply(result -> result.map(func))
+                .thenApply(result -> {
+                    mayGetContinuation = !result.hasNext();
+                    nextResult = result;
+                    return result;
+                });
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> onHasNext() {
+        if (hasNextFuture == null) {
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
+        }
+        return hasNextFuture;
     }
 
     @Nullable
     @Override
     public V next() {
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
+        hasNextFuture = null;
         mayGetContinuation = true;
-        return func.apply(inner.next());
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return inner.getContinuation();
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return inner.getNoNextReason();
+        return nextResult.getNoNextReason();
     }
 
     @Override

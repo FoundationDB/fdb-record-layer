@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
@@ -39,6 +40,12 @@ public class EmptyCursor<T> implements RecordCursor<T> {
 
     public EmptyCursor(@Nonnull Executor executor) {
         this.executor = executor;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
     }
 
     @Nonnull

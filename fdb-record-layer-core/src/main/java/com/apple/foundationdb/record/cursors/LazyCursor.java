@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -52,6 +54,10 @@ public class LazyCursor<T> implements RecordCursor<T> {
     private RecordCursor<T> inner;
     private Executor executor;
 
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
+    @Nullable
+    private RecordCursorResult<T> nextResult;
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
 
@@ -74,47 +80,58 @@ public class LazyCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> onHasNext() {
-        mayGetContinuation = false;
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (inner == null) {
-            return futureCursor.thenApply( cursor -> {
-                inner = cursor;
-                return cursor;
-            } ).thenCompose(RecordCursor::onHasNext).thenApply(hasNext -> {
-                mayGetContinuation = !hasNext;
-                return hasNext;
-            });
+            return futureCursor.thenAccept(cursor -> inner = cursor).thenCompose(vignore -> this.onNext());
         } else {
-            return inner.onHasNext().thenApply(hasNext -> {
-                mayGetContinuation = !hasNext;
-                return hasNext;
+            return inner.onNext().thenApply(result -> {
+                nextResult = result;
+                mayGetContinuation = !result.hasNext();
+                return result;
             });
         }
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> onHasNext() {
+        if (hasNextFuture == null) {
+            mayGetContinuation = false;
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
+        }
+        return hasNextFuture;
     }
 
     @Nullable
     @Override
     public T next() {
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
         mayGetContinuation = true;
-        return getInner().next();
+        hasNextFuture = null;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return getInner().getContinuation();
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return getInner().getNoNextReason();
+        return nextResult.getNoNextReason();
     }
 
     @Override
     public void close() {
         if (inner != null) {
             inner.close();
+        }
+        if (hasNextFuture != null) {
+            hasNextFuture.cancel(false);
         }
     }
 

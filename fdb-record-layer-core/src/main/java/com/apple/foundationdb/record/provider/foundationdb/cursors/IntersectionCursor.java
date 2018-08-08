@@ -51,7 +51,7 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
 
     @Override
     T getNextResult(@Nonnull List<CursorState<T>> cursorStates) {
-        return cursorStates.get(0).getElement();
+        return cursorStates.get(0).getResult().get();
     }
 
     /**

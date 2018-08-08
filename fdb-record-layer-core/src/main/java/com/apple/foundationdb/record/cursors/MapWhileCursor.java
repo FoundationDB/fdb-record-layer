@@ -21,6 +21,10 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 
@@ -41,7 +45,7 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
     /**
      * What to return for {@link #getContinuation()} after stopping.
      */
-    public static enum StopContinuation {
+    public enum StopContinuation {
         /**
          * Return {@code null}.
          */
@@ -62,16 +66,11 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private final Function<T, Optional<V>> func;
     @Nonnull
-    StopContinuation stopContinuation;
+    private final StopContinuation stopContinuation;
     @Nullable
     private CompletableFuture<Boolean> nextFuture;
-    @Nullable
-    private byte[] continuationBefore;
-    @Nullable
-    private byte[] continuationAfter;
-    private NoNextReason noNextReason;
-    @Nullable
-    private V record;
+    @Nonnull
+    private RecordCursorResult<V> nextResult = RecordCursorResult.withNextValue(null, RecordCursorStartContinuation.START);
 
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     public MapWhileCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, Optional<V>> func,
@@ -80,41 +79,46 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
         this.inner = inner;
         this.func = func;
         this.stopContinuation = stopContinuation;
-        this.continuationAfter = initialContinuation;
-        this.noNextReason = noNextReason;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<RecordCursorResult<V>> onNext() {
+        return inner.onNext().thenApply(innerResult -> {
+            if (!innerResult.hasNext()) {
+                nextResult = RecordCursorResult.withoutNextValue(innerResult);
+                return nextResult;
+            }
+            final Optional<V> maybeRecord = func.apply(innerResult.get());
+            if (maybeRecord.isPresent()) {
+                nextResult = RecordCursorResult.withNextValue(maybeRecord.get(), innerResult.getContinuation());
+                return nextResult;
+            }
+            // return no record, handle special cases for continuation
+            final RecordCursorContinuation continuation;
+            switch (stopContinuation) {
+                case NONE:
+                    continuation = RecordCursorEndContinuation.END;
+                    break;
+                case BEFORE:
+                    continuation = nextResult.getContinuation(); // previous saved result
+                    break;
+                case AFTER:
+                default:
+                    continuation = innerResult.getContinuation();
+                    break;
+            }
+            // TODO what should the NoNextReason be here?
+            nextResult = RecordCursorResult.withoutNextValue(continuation, NoNextReason.SCAN_LIMIT_REACHED);
+            return nextResult;
+        });
     }
 
     @Nonnull
     @Override
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
-            nextFuture = inner.onHasNext()
-                    .thenApply(innerHasNext -> {
-                        if (!innerHasNext) {
-                            continuationAfter = inner.getContinuation();
-                            noNextReason = inner.getNoNextReason();
-                            return false;
-                        }
-                        continuationBefore = continuationAfter;
-                        Optional<V> maybeRecord = func.apply(inner.next());
-                        continuationAfter = inner.getContinuation();
-                        if (maybeRecord.isPresent()) {
-                            record = maybeRecord.get();
-                            return true;
-                        }
-                        switch (stopContinuation) {
-                            case NONE:
-                                continuationAfter = null;
-                                break;
-                            case BEFORE:
-                                continuationAfter = continuationBefore;
-                                break;
-                            case AFTER:
-                            default:
-                                break;
-                        }
-                        return false;
-                    });
+            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
         return nextFuture;
     }
@@ -126,19 +130,19 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
             throw new NoSuchElementException();
         }
         nextFuture = null;
-        return record;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public byte[] getContinuation() {
-        return continuationAfter;
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return noNextReason;
+        return nextResult.getNoNextReason();
     }
 
     @Override

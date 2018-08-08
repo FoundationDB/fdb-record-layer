@@ -21,10 +21,13 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.map.BunchedMapMultiIterator;
 import com.apple.foundationdb.map.BunchedMapScanEntry;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
@@ -35,6 +38,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -59,6 +63,8 @@ class TextCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private CompletableFuture<Boolean> hasNextFuture;
     private int limitRemaining;
+    @Nullable
+    private RecordCursorResult<IndexEntry> nextResult;
 
     TextCursor(@Nonnull BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying,
                @Nonnull Executor executor,
@@ -73,14 +79,52 @@ class TextCursor implements BaseCursor<IndexEntry> {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture != null) {
-            return hasNextFuture;
+    public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
+        if (limitRemaining > 0 && limitManager.tryRecordScan()) {
+            return underlying.onHasNext().thenApply(hasNext -> {
+                if (hasNext) {
+                    BunchedMapScanEntry<Tuple, List<Integer>, Tuple> nextItem = underlying.next();
+                    Tuple k = nextItem.getKey();
+                    Tuple subspaceTag = nextItem.getSubspaceTag();
+                    if (subspaceTag != null) {
+                        k = subspaceTag.addAll(k);
+                    }
+                    if (limitRemaining != Integer.MAX_VALUE) {
+                        limitRemaining--;
+                    }
+                    nextResult = RecordCursorResult.withNextValue(
+                            new IndexEntry(k, Tuple.from(nextItem.getValue())), continuationHelper());
+                } else {
+                    // Source iterator is exhausted
+                    nextResult = RecordCursorResult.exhausted();
+                }
+                return nextResult;
+            });
+        } else { // a limit was exceeded
+            if (limitRemaining <= 0) {
+                nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), NoNextReason.RETURN_LIMIT_REACHED);
+            } else {
+                final Optional<NoNextReason> stoppedReason = limitManager.getStoppedReason();
+                if (!stoppedReason.isPresent()) {
+                    throw new RecordCoreException("limit manager stopped TextCursor but did not report a reason");
+                } else {
+                    nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), stoppedReason.get());
+                }
+            }
+            return CompletableFuture.completedFuture(nextResult);
         }
-        if (limitRemaining != 0 && limitManager.tryRecordScan()) {
-            hasNextFuture = underlying.onHasNext();
-        } else {
-            hasNextFuture = AsyncUtil.READY_FALSE;
+    }
+
+    @Nonnull
+    private RecordCursorContinuation continuationHelper() {
+        return ByteArrayContinuation.fromNullable(underlying.getContinuation());
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> onHasNext() {
+        if (hasNextFuture == null) {
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
         return hasNextFuture;
     }
@@ -88,42 +132,31 @@ class TextCursor implements BaseCursor<IndexEntry> {
     @Nullable
     @Override
     public IndexEntry next() {
-        BunchedMapScanEntry<Tuple, List<Integer>, Tuple> nextItem = underlying.next();
-        Tuple k = nextItem.getKey();
-        Tuple subspaceTag = nextItem.getSubspaceTag();
-        if (subspaceTag != null) {
-            k = subspaceTag.addAll(k);
+        if (!hasNext()) {
+            throw new NoSuchElementException();
         }
         hasNextFuture = null;
-        if (limitRemaining != Integer.MAX_VALUE) {
-            limitRemaining--;
-        }
-        return new IndexEntry(k, Tuple.from(nextItem.getValue()));
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
-        return underlying.getContinuation();
+        return nextResult.getContinuation().toBytes();
     }
 
     @Nonnull
     @Override
     public NoNextReason getNoNextReason() {
-        Optional<NoNextReason> reason = limitManager.getStoppedReason();
-        if (reason.isPresent()) {
-            return reason.get();
-        }
-        if (limitRemaining == 0) {
-            return NoNextReason.RETURN_LIMIT_REACHED;
-        } else {
-            return NoNextReason.SOURCE_EXHAUSTED;
-        }
+        return nextResult.getNoNextReason();
     }
 
     @Override
     public void close() {
         underlying.cancel();
+        if (hasNextFuture != null) {
+            hasNextFuture.cancel(false);
+        }
     }
 
     @Nonnull

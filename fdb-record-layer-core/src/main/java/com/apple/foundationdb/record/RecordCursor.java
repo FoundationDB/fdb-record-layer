@@ -58,26 +58,48 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * An asynchronous extension of {@link Iterator}.
+ * An asynchronous iterator that supports continuations.
+ *
+ * Much like an {@code Iterator}, a {@code RecordCursor} provides one-item-at-a-time access to an ordered collection.
+ * It differs in three primary respects:
+ *
+ * <ol>
+ * <li>
+ * A {@code RecordCursor} is <em>asynchronous</em>. Instead of the synchronous {@link Iterator#hasNext()} and
+ * {@link Iterator#next()} methods, {@code RecordCursor} advances the iteration using the asynchronous {@link #onNext()}
+ * method, which returns a {@link CompletableFuture}.
+ * </li>
+ *
+ * <li>
+ * {@code RecordCursor} supports <em>continuations</em>, which are opaque tokens that represent the position of the
+ * cursor between records. Continuations can be used to restart the iteration at the same point later. Continuations
+ * represent all of the state needed to do this restart, even if the original objects no longer exist.
+ * </li>
+ *
+ * <li>
+ * Finally, {@code RecordCursor}'s API offers <em>correctness by construction</em>. In contrast to the {@code hasNext()}/
+ * {@code next()} API used by {@code Iterator}, {@code RecordCursor}'s primary API is{@link RecordCursor#onNext()} which
+ * produces the next value if one is present, or an object indicating that there is no such record. The presence of a
+ * next value is instead indicated by {@link RecordCursorResult#hasNext()}. This API serves to bundle a continuation
+ * (and possible a {@link NoNextReason}) with the result, ensuring that a continuation is obtained only when it is valid.
+ * For compatibility with {@code Iterator}, {@code RecordCursor} also supports {@link RecordCursor#onHasNext()} and
+ * {@link RecordCursor#next()}, but continuations must be used carefully with this API, as described below.
+ * </li>
+ * </ol>
  *
  * <p>
- * To the ordinary synchronous {@code Iterator} behavior, a {@code RecordCursor} adds an {@link #onHasNext()} method,
- * which returns a future that completes when it is known whether the next element is available. When this completes to
- * to {@code true}, {@code #next} will return another element without blocking the calling thread.
+ * {@code RecordCursor} supports {@link #getContinuation} for use with the {@code Iterator}-style API. A cursor is
+ * between records and valid for getting its continuation after calling {@link #next} or after {@link #hasNext} returns
+ * {@code false}.
  * </p>
  *
  * <p>
- * {@code RecordCursor} also supports {@link #getContinuation}. A continuation is an opaque byte array representing the
- * position between records that can be used to restart iteration at the same point later. A cursor is between records
- * and valid for getting its continuation after calling {@link #next} or after {@link #hasNext} returns false.
- * </p>
- *
- * <p>
- * When a cursor is done, that is, {@link #hasNext} returns {@code false}, {@link #getNoNextReason} can be used to determine
- * why it stopped. No-next-reasons are fundamentally distinguished between those that are due to the data itself (in-band)
- * and those that are due to the environment / context (out-of-band). For example, running out of data or having returned
- * the maximum number of records requested are in-band, while reaching a limit on the number of key-value pairs scanned
- * by the transaction or the time that a transaction has been open are out-of-band.
+ * When a cursor stops producing values, it can report why using a {@link NoNextReason}. This can be returned as part of
+ * a {@link RecordCursorResult} if using the {@link #onNext()} API or using {@link #getNoNextReason()} if using the
+ * {@code Iterator}-style API. No-next-reasons are fundamentally distinguished between those that are due to the data
+ * itself (in-band) and those that are due to the environment / context (out-of-band). For example, running out of data
+ * or having returned the maximum number of records requested are in-band, while reaching a limit on the number of
+ * key-value pairs scanned by the transaction or the time that a transaction has been open are out-of-band.
  * </p>
  *
  * @param <T> the type of elements of the cursor
@@ -208,6 +230,39 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return the reason that the cursor stopped
      */
     NoNextReason getNoNextReason();
+
+    /**
+     * Asynchronously return the next result from this cursor. When complete, the future will contain a
+     * {@link RecordCursorResult}, which represents exactly one of the following:
+     * <ol>
+     *     <li>
+     *         The next object of type {@code T} produced by the cursor. In addition to the next record, this result
+     *         includes a {@link RecordCursorContinuation} that can be used to continue the cursor after the last record
+     *         returned. The returned continuation is guaranteed not to be an "end continuation" representing the end of
+     *         the cursor: specifically, {@link RecordCursorContinuation#isEnd()} is always {@code false} on the returned
+     *         continuation.
+     *     </li>
+     *     <li>
+     *         The fact that the cursor is stopped and cannot produce another record and a {@link NoNextReason} that
+     *         explains why no record could be produced. The result include a continuation that can be used to continue
+     *         the cursor after the last record returned.
+     *
+     *         If the result's {@code NoNextReason} is anything other than {@link NoNextReason#SOURCE_EXHAUSTED}, the
+     *         returned continuation must not be an end continuation. Conversely, if the result's {@code NoNextReason}
+     *         is {@code SOURCE_EXHAUSTED}, then the returned continuation must be an an "end continuation".
+     *     </li>
+     * </ol>
+     * In either case, the returned {@code RecordCursorContinuation} can be serialized to an opaque byte array using
+     * {@link RecordCursorContinuation#toBytes()}. This can be passed back into a new cursor of the same type, with all
+     * other parameters remaining the same.
+     *
+     * @return a future for the next result from this cursor representing either the next record or an indication of
+     *         why the cursor stopped
+     * @see RecordCursorResult
+     * @see RecordCursorContinuation
+     */
+    @Nonnull
+    CompletableFuture<RecordCursorResult<T>> onNext();
 
     @Override
     void close();
@@ -696,7 +751,6 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
         int position = 0;
         if (continuation != null) {
             position = ByteBuffer.wrap(continuation).getInt();
-            list = list.subList(position, list.size());
         }
         return new ListCursor<>(executor, list, position);
     }

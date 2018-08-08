@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
@@ -41,8 +43,16 @@ public class FutureCursor<T> implements RecordCursor<T> {
     private final CompletableFuture<T> future;
     private boolean done;
 
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
+    @Nullable
+    private RecordCursorResult<T> nextResult;
+
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
+
+    @Nonnull
+    private static final RecordCursorContinuation notDoneContinuation = ByteArrayContinuation.fromNullable(new byte[] {0});
 
     public FutureCursor(@Nonnull Executor executor, @Nonnull CompletableFuture<T> future) {
         this.executor = executor;
@@ -51,34 +61,37 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> onHasNext() {
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (done) {
-            mayGetContinuation = true;
-            return AsyncUtil.READY_FALSE;
-        } else {
-            mayGetContinuation = false;
-            return future.thenApply(t -> {
-                mayGetContinuation = false;
-                return true;
-            });
+            nextResult = RecordCursorResult.exhausted();
+            return CompletableFuture.completedFuture(nextResult);
         }
+        mayGetContinuation = false;
+        return future.thenApply(t -> {
+            done = true;
+            nextResult = RecordCursorResult.withNextValue(t, notDoneContinuation);
+            return nextResult;
+        });
     }
 
+    @Nonnull
     @Override
-    public boolean hasNext() {
-        return !done;
+    public CompletableFuture<Boolean> onHasNext() {
+        if (hasNextFuture == null) {
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
+        }
+        return hasNextFuture;
     }
 
     @Nullable
     @Override
     public T next() {
-        if (done) {
+        if (!hasNext()) {
             throw new NoSuchElementException();
-        } else {
-            mayGetContinuation = true;
-            done = true;
-            return future.join();
         }
+        mayGetContinuation = true;
+        hasNextFuture = null;
+        return nextResult.get();
     }
 
     @Override
@@ -90,12 +103,12 @@ public class FutureCursor<T> implements RecordCursor<T> {
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return null;
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return NoNextReason.SOURCE_EXHAUSTED;
+        return nextResult.getNoNextReason();
     }
 
     @Override

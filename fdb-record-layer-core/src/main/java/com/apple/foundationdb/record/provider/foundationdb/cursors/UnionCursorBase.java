@@ -22,18 +22,23 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.cursors.EmptyCursor;
 import com.apple.foundationdb.record.cursors.IllegalContinuationAccessChecker;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -49,6 +54,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Common implementation code for performing a union shared between
@@ -60,9 +66,12 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 abstract class UnionCursorBase<T> implements RecordCursor<T> {
     @Nonnull
-    private final Function<? super T, ? extends List<Object>> comparisonKeyFunction;
-    @Nonnull
     private final List<CursorState<T>> cursorStates;
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
+    @Nullable
+    private RecordCursorResult<T> nextResult;
+
     @Nonnull
     private final Executor executor;
     @Nullable
@@ -80,125 +89,68 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
     protected boolean mayGetContinuation = false;
 
     protected static class CursorState<T> {
-        private static final RecordCursorProto.UnionContinuation.CursorState EXHAUSTED_PROTO = RecordCursorProto.UnionContinuation.CursorState.newBuilder()
-                .setExhausted(true)
-                .build();
-
         @Nonnull
-        protected final RecordCursor<T> cursor;
+        private final RecordCursor<T> cursor;
         @Nullable
-        private CompletableFuture<Void> onHasNextFuture;
-        protected boolean hasNext;
+        private CompletableFuture<RecordCursorResult<T>> onNextFuture;
+        @Nonnull
+        private RecordCursorContinuation continuation;
         @Nullable
-        protected T element;
-        protected List<Object> key;
-        @Nullable
-        private byte[] continuationBefore;
-        @Nullable
-        private byte[] continuationAfter;
-        @Nullable
-        protected byte[] continuation;
-        private boolean exhausted;
+        private RecordCursorResult<T> result;
 
-        @SpotBugsSuppressWarnings(value = {"EI_EXPOSE_REP2"}, justification = "copying byte arrays is expensive")
-        public CursorState(@Nonnull RecordCursor<T> cursor, @Nullable byte[] continuationStart) {
+        public CursorState(@Nonnull RecordCursor<T> cursor, @Nonnull RecordCursorContinuation continuationStart) {
             this.cursor = cursor;
             this.continuation = continuationStart;
-            this.continuationAfter = continuationStart;
         }
 
         @Nonnull
-        public CompletableFuture<Void> getOnHasNextFuture() {
-            if (exhausted) {
-                return AsyncUtil.DONE;
-            } else if (onHasNextFuture == null) {
-                onHasNextFuture = cursor.onHasNext().thenAccept(cursorHasNext -> {
-                    this.hasNext = cursorHasNext;
-                    if (!cursorHasNext && cursor.getNoNextReason().isSourceExhausted()) {
-                        continuationBefore = continuationAfter;
-                        continuation = cursor.getContinuation();
-                        continuationAfter = continuation;
-                        exhausted = true;
+        public CompletableFuture<RecordCursorResult<T>> getOnNextFuture() {
+            if (onNextFuture == null) {
+                onNextFuture = cursor.onNext().thenApply(cursorResult -> {
+                    result = cursorResult;
+                    if (!result.hasNext()) {
+                        continuation = result.getContinuation(); // no result, so we can advance the cached continuation
                     }
+                    return cursorResult;
                 });
             }
-            return onHasNextFuture;
-        }
-
-        public void ready(@Nonnull Function<? super T, ? extends List<Object>> keyFunction) {
-            if (element == null && hasNext) {
-                continuationBefore = continuationAfter;
-                element = cursor.next();
-                continuationAfter = cursor.getContinuation();
-                key = keyFunction.apply(element);
-            }
+            return onNextFuture;
         }
 
         public void consume() {
-            onHasNextFuture = null;
-            element = null;
-            hasNext = false;
-            continuation = continuationAfter;
-            if (continuation == null) {
-                // Some cursors, if they know they are at the end, wil return null for
-                // their continuation *before* returning "false" from "hasNext" to signal
-                // that they are done. Take that into account now if possible.
-                exhausted = true;
-            }
+            onNextFuture = null;
+            continuation = result.getContinuation();
         }
 
         public boolean isExhausted() {
-            return exhausted;
+            return result != null && !result.hasNext() && result.getNoNextReason().isSourceExhausted();
         }
 
         @Nonnull
-        public RecordCursorProto.UnionContinuation.CursorState getContinuationProto() {
-            if (continuation != null) {
-                return RecordCursorProto.UnionContinuation.CursorState.newBuilder()
-                        .setContinuation(ByteString.copyFrom(continuation))
-                        .build();
-            } else if (isExhausted()) {
-                return EXHAUSTED_PROTO;
-            } else {
-                return RecordCursorProto.UnionContinuation.CursorState.getDefaultInstance();
+        public RecordCursorResult<T> getResult() {
+            if (result == null) {
+                throw new RecordCoreException("tried to get result before any result was ready");
             }
-        }
-
-        @Nonnull
-        public static <T> CursorState<T> exhausted() {
-            return new CursorState<>(RecordCursor.empty(), null);
-        }
-
-        @Nonnull
-        public static <T> CursorState<T> fromProto(
-                @Nonnull Function<byte[], RecordCursor<T>> cursorFunction,
-                @Nonnull RecordCursorProto.UnionContinuation.CursorStateOrBuilder proto) {
-            if (proto.getExhausted()) {
-                return exhausted();
-            } else {
-                byte[] continuation = proto.hasContinuation() ? proto.getContinuation().toByteArray() : null;
-                RecordCursor<T> cursor = cursorFunction.apply(continuation);
-                return new CursorState<>(cursor, continuation);
-            }
+            return result;
         }
 
         @Nonnull
         public static <T> CursorState<T> from(
                 @Nonnull Function<byte[], RecordCursor<T>> cursorFunction,
-                boolean exhausted, @Nullable byte[] continuation) {
-            if (exhausted) {
-                return exhausted();
+                @Nonnull RecordCursorContinuation continuation) {
+            if (continuation.isEnd()) {
+                return new CursorState<>(RecordCursor.empty(), RecordCursorEndContinuation.END);
             } else {
-                return new CursorState<>(cursorFunction.apply(continuation), continuation);
+                return new CursorState<>(cursorFunction.apply(continuation.toBytes()), continuation);
             }
         }
     }
 
-    private static <T> CompletableFuture<?>[] getOnHasNextFutures(@Nonnull List<CursorState<T>> cursorStates) {
+    private static <T> CompletableFuture<?>[] getOnNextFutures(@Nonnull List<CursorState<T>> cursorStates) {
         CompletableFuture<?>[] futures = new CompletableFuture<?>[cursorStates.size()];
         int i = 0;
         for (CursorState<T> cursorState : cursorStates) {
-            futures[i] = cursorState.getOnHasNextFuture();
+            futures[i] = cursorState.getOnNextFuture();
             i++;
         }
         return futures;
@@ -214,7 +166,7 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
         List<CursorState<T>> nonExhausted = new ArrayList<>(cursorStates.size());
         for (CursorState<T> cursorState : cursorStates) {
             if (!cursorState.isExhausted()) {
-                if (cursorState.getOnHasNextFuture().isDone()) {
+                if (cursorState.getOnNextFuture().isDone()) {
                     // Short-circuit and return immediately if we find a state that is already done.
                     return AsyncUtil.DONE;
                 } else {
@@ -226,19 +178,16 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
             // Everything is exhausted. Can return immediately.
             return AsyncUtil.DONE;
         } else {
-            return CompletableFuture.anyOf(getOnHasNextFutures(nonExhausted));
+            return CompletableFuture.anyOf(getOnNextFutures(nonExhausted));
         }
     }
 
     @Nonnull
     protected static <T> CompletableFuture<Void> whenAll(@Nonnull List<CursorState<T>> cursorStates) {
-        return CompletableFuture.allOf(getOnHasNextFutures(cursorStates));
+        return CompletableFuture.allOf(getOnNextFutures(cursorStates));
     }
 
-    protected UnionCursorBase(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-                              @Nonnull List<CursorState<T>> cursorStates,
-                              @Nullable FDBStoreTimer timer) {
-        this.comparisonKeyFunction = comparisonKeyFunction;
+    protected UnionCursorBase(@Nonnull List<CursorState<T>> cursorStates, @Nullable FDBStoreTimer timer) {
         this.cursorStates = cursorStates;
         this.timer = timer;
 
@@ -265,12 +214,45 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> onHasNext() {
-        mayGetContinuation = false;
-        return getIfAnyHaveNext(cursorStates).thenApply(doesHaveNext -> {
-            mayGetContinuation = !doesHaveNext;
-            return doesHaveNext;
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        return getIfAnyHaveNext(cursorStates).thenApply(hasNext -> {
+            if (hasNext) {
+                final long startTime = System.nanoTime();
+                List<CursorState<T>> chosenStates = new ArrayList<>(cursorStates.size());
+                List<CursorState<T>> otherStates = new ArrayList<>(cursorStates.size());
+                chooseStates(cursorStates, chosenStates, otherStates);
+                logDuplicates(chosenStates);
+                // Advance each chosen state
+                chosenStates.forEach(CursorState::consume);
+                final T result = getNextResult(chosenStates);
+                if (result == null) {
+                    throw new RecordCoreException("minimum element had null result");
+                }
+                nextResult = RecordCursorResult.withNextValue(result, UnionContinuation.from(this));
+                if (timer != null) {
+                    timer.record(duringEvents, System.nanoTime() - startTime);
+                }
+            } else {
+                mayGetContinuation = true;
+                nextResult = RecordCursorResult.withoutNextValue(UnionContinuation.from(this), mergeNoNextReasons());
+            }
+            return nextResult;
         });
+    }
+
+    private void logDuplicates(List<?> chosenStates) {
+        if (chosenStates.isEmpty()) {
+            throw new RecordCoreException("union with additional items had no next states");
+        }
+        if (timer != null) {
+            if (chosenStates.size() == 1) {
+                timer.increment(uniqueCounts);
+            } else {
+                // The number of duplicates is the number of minimum states
+                // for this value except for the first one (hence the "- 1").
+                timer.increment(duplicateCounts, chosenStates.size() - 1);
+            }
+        }
     }
 
     /**
@@ -298,7 +280,17 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
      * @return the result to return from this cursor given these elements appear in the union
      */
     T getNextResult(@Nonnull List<CursorState<T>> chosenStates) {
-        return chosenStates.get(0).element;
+        return chosenStates.get(0).result.get();
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> onHasNext() {
+        if (hasNextFuture == null) {
+            mayGetContinuation = false;
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
+        }
+        return hasNextFuture;
     }
 
     @Nonnull
@@ -308,70 +300,20 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
             throw new NoSuchElementException();
         }
         mayGetContinuation = true;
-        for (CursorState<T> cursorState : cursorStates) {
-            cursorState.ready(comparisonKeyFunction);
-        }
-        final long startTime = System.nanoTime();
-        List<CursorState<T>> chosenStates = new ArrayList<>(cursorStates.size());
-        List<CursorState<T>> otherStates = new ArrayList<>(cursorStates.size());
-        chooseStates(cursorStates, chosenStates, otherStates);
-        if (chosenStates.isEmpty()) {
-            throw new RecordCoreException("union with additional items had no next states");
-        }
-        if (timer != null) {
-            if (chosenStates.size() == 1) {
-                timer.increment(uniqueCounts);
-            } else {
-                // The number of duplicates is the number of minimum states
-                // for this value except for the first one (hence the "- 1").
-                timer.increment(duplicateCounts, chosenStates.size() - 1);
-            }
-        }
-        final T result = getNextResult(chosenStates);
-        if (result == null) {
-            throw new RecordCoreException("minimum element had null result");
-        }
-        // Advance each returned state.
-        chosenStates.forEach(CursorState::consume);
-        if (timer != null) {
-            timer.record(duringEvents, System.nanoTime() - startTime);
-        }
-        return result;
+        hasNextFuture = null;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        boolean allExhausted = cursorStates.stream().allMatch(CursorState::isExhausted);
-        if (allExhausted) {
-            return null;
-        }
-        final RecordCursorProto.UnionContinuation.Builder builder = RecordCursorProto.UnionContinuation.newBuilder();
-        final Iterator<CursorState<T>> cursorStateIterator = cursorStates.iterator();
-        // The first two continuations are special (essentially for compatibility reasons)
-        final CursorState<T> firstCursorState = cursorStateIterator.next();
-        if (firstCursorState.isExhausted()) {
-            builder.setFirstExhausted(true);
-        } else if (firstCursorState.continuation != null) {
-            builder.setFirstContinuation(ByteString.copyFrom(firstCursorState.continuation));
-        }
-        final CursorState<T> secondCursorState = cursorStateIterator.next();
-        if (secondCursorState.isExhausted()) {
-            builder.setSecondExhausted(true);
-        } else if (secondCursorState.continuation != null) {
-            builder.setSecondContinuation(ByteString.copyFrom(secondCursorState.continuation));
-        }
-        // The rest of the cursor states get written as elements in a repeated message field
-        while (cursorStateIterator.hasNext()) {
-            builder.addOtherChildState(cursorStateIterator.next().getContinuationProto());
-        }
-        return builder.build().toByteArray();
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return mergeNoNextReasons();
+        return nextResult.getNoNextReason();
     }
 
     /**
@@ -381,15 +323,15 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
      * @return the strongest reason for stopping
      */
     private NoNextReason mergeNoNextReasons() {
-        if (cursorStates.stream().allMatch(cursorState -> cursorState.hasNext)) {
+        if (cursorStates.stream().allMatch(cursorState -> cursorState.result.hasNext())) {
             throw new RecordCoreException("mergeNoNextReason should not be called when all children have next");
         }
         NoNextReason reason = null;
         for (CursorState<T> cursorState : cursorStates) {
-            if (!cursorState.getOnHasNextFuture().isDone()) {
+            if (!cursorState.getOnNextFuture().isDone()) {
                 continue;
             }
-            if (!cursorState.hasNext) {
+            if (!cursorState.result.hasNext()) {
                 // Combine the current reason so far with this child's reason.
                 // In particular, choose the child reason if it is at least as strong
                 // as the current one. This guarantees that it will choose an
@@ -407,6 +349,9 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
     @Override
     public void close() {
         cursorStates.forEach(cursorState -> cursorState.cursor.close());
+        if (hasNextFuture != null) {
+            hasNextFuture.cancel(false);
+        }
     }
 
     @Nonnull
@@ -427,85 +372,160 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
         return visitor.visitLeave(this);
     }
 
-    @Nonnull
-    private static RecordCursorProto.UnionContinuation parseContinuation(@Nonnull byte[] continuation) {
-        try {
-            return RecordCursorProto.UnionContinuation.parseFrom(continuation);
-        } catch (InvalidProtocolBufferException ex) {
-            throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(continuation));
+
+    private static class UnionContinuation implements RecordCursorContinuation {
+        private static final RecordCursorProto.UnionContinuation.CursorState EXHAUSTED_PROTO = RecordCursorProto.UnionContinuation.CursorState.newBuilder()
+                .setExhausted(true)
+                .build();
+        private static final RecordCursorProto.UnionContinuation.CursorState START_PROTO = RecordCursorProto.UnionContinuation.CursorState.newBuilder()
+                .setExhausted(false)
+                .build();
+
+        @Nonnull
+        private final List<RecordCursorContinuation> continuations; // all continuations must themselves be immutable
+        @Nullable
+        private RecordCursorProto.UnionContinuation cachedProto;
+
+        private UnionContinuation(@Nonnull List<RecordCursorContinuation> continuations) {
+            this(continuations, null);
         }
-    }
 
-    private static <T> void addFirstTwoCursorStates(
-            @Nullable RecordCursorProto.UnionContinuation parsed,
-            @Nonnull Function<byte[], RecordCursor<T>> first,
-            @Nonnull Function<byte[], RecordCursor<T>> second,
-            @Nonnull List<CursorState<T>> destination) {
-        if (parsed != null) {
-            byte[] firstContinuation = null;
-            boolean firstExhausted = false;
+        private UnionContinuation(@Nonnull List<RecordCursorContinuation> continuations, @Nullable RecordCursorProto.UnionContinuation proto) {
+            this.continuations = continuations;
+            this.cachedProto = proto;
+        }
+
+        public static UnionContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
+            if (bytes == null) {
+                return new UnionContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));
+            }
+            try {
+                return UnionContinuation.from(RecordCursorProto.UnionContinuation.parseFrom(bytes), numberOfChildren);
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreException("invalid continuation", ex)
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+            } catch (RecordCoreArgumentException ex) {
+                throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+            }
+        }
+
+        public static UnionContinuation from(@Nonnull RecordCursorProto.UnionContinuation parsed, int numberOfChildren) {
+            ImmutableList.Builder<RecordCursorContinuation> builder = ImmutableList.builder();
             if (parsed.hasFirstContinuation()) {
-                firstContinuation = parsed.getFirstContinuation().toByteArray();
+                builder.add(ByteArrayContinuation.fromNullable(parsed.getFirstContinuation().toByteArray()));
+            } else if (parsed.getFirstExhausted()) {
+                builder.add(RecordCursorEndContinuation.END);
             } else {
-                firstExhausted = parsed.getFirstExhausted();
+                builder.add(RecordCursorStartContinuation.START);
             }
-            destination.add(CursorState.from(first, firstExhausted, firstContinuation));
-
-            byte[] secondContinuation = null;
-            boolean secondExhausted = false;
             if (parsed.hasSecondContinuation()) {
-                secondContinuation = parsed.getSecondContinuation().toByteArray();
+                builder.add(ByteArrayContinuation.fromNullable(parsed.getSecondContinuation().toByteArray()));
+            } else if (parsed.getSecondExhausted()) {
+                builder.add(RecordCursorEndContinuation.END);
             } else {
-                secondExhausted = parsed.getSecondExhausted();
+                builder.add(RecordCursorStartContinuation.START);
             }
-            destination.add(CursorState.from(second, secondExhausted, secondContinuation));
-        } else {
-            destination.add(CursorState.from(first, false, null));
-            destination.add(CursorState.from(second, false, null));
+            for (RecordCursorProto.UnionContinuation.CursorState state : parsed.getOtherChildStateList()) {
+                if (state.hasContinuation()) {
+                    builder.add(ByteArrayContinuation.fromNullable(state.getContinuation().toByteArray()));
+                } else if (state.getExhausted()) {
+                    builder.add(RecordCursorEndContinuation.END);
+                } else {
+                    builder.add(RecordCursorStartContinuation.START);
+                }
+            }
+            ImmutableList<RecordCursorContinuation> children = builder.build();
+            if (children.size() != numberOfChildren) {
+                throw new RecordCoreArgumentException("invalid continuation (expected continuation count does not match read)")
+                        .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, numberOfChildren)
+                        .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, children.size());
+            }
+            return new UnionContinuation(children, parsed);
+        }
+
+        public static <T> UnionContinuation from(@Nonnull UnionCursorBase<T> cursor) {
+            return new UnionContinuation(cursor.cursorStates.stream().map(cursorState -> cursorState.continuation).collect(Collectors.toList()));
+        }
+
+        public RecordCursorProto.UnionContinuation toProto() {
+            if (cachedProto == null) {
+                final RecordCursorProto.UnionContinuation.Builder builder = RecordCursorProto.UnionContinuation.newBuilder();
+                final Iterator<RecordCursorContinuation> continuationIterator = continuations.iterator();
+                // The first two continuations are special (essentially for compatibility reasons)
+                final RecordCursorContinuation firstContinuation = continuationIterator.next();
+                if (firstContinuation.isEnd()) {
+                    builder.setFirstExhausted(true);
+                } else {
+                    final byte[] asBytes = firstContinuation.toBytes();
+                    if (asBytes != null) {
+                        builder.setFirstContinuation(ByteString.copyFrom(asBytes));
+                    }
+                }
+                final RecordCursorContinuation secondContinuation = continuationIterator.next();
+                if (secondContinuation.isEnd()) {
+                    builder.setSecondExhausted(true);
+                } else {
+                    final byte[] asBytes = secondContinuation.toBytes();
+                    if (asBytes != null) {
+                        builder.setSecondContinuation(ByteString.copyFrom(asBytes));
+                    }
+                }
+                // The rest of the cursor states get written as elements in a repeated message field
+                while (continuationIterator.hasNext()) {
+                    RecordCursorProto.UnionContinuation.CursorState cursorState;
+                    RecordCursorContinuation continuation = continuationIterator.next();
+                    if (continuation.isEnd()) {
+                        cursorState = EXHAUSTED_PROTO;
+                    } else {
+                        final byte[] asBytes = continuation.toBytes();
+                        if (asBytes == null) {
+                            cursorState = START_PROTO;
+                        } else {
+                            cursorState = RecordCursorProto.UnionContinuation.CursorState.newBuilder()
+                                    .setContinuation(ByteString.copyFrom(asBytes))
+                                    .build();
+                        }
+                    }
+                    builder.addOtherChildState(cursorState);
+                }
+                cachedProto = builder.build();
+            }
+            return cachedProto;
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (isEnd()) {
+                return null;
+            }
+            return toProto().toByteArray();
+        }
+
+        @Override
+        public boolean isEnd() {
+            return continuations.stream().allMatch(RecordCursorContinuation::isEnd);
         }
     }
 
     @Nonnull
     protected static <T> List<CursorState<T>> createCursorStates(@Nonnull Function<byte[], RecordCursor<T>> left, @Nonnull Function<byte[], RecordCursor<T>> right,
-                                                                 @Nullable byte[] continuation) {
-        final List<CursorState<T>> cursorStates = new ArrayList<>(2);
-        final RecordCursorProto.UnionContinuation parsed;
-        if (continuation != null) {
-            parsed = parseContinuation(continuation);
-            if (parsed.getOtherChildStateCount() != 0) {
-                throw new RecordCoreArgumentException("invalid continuation (extraneous child state information present)")
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(continuation))
-                        .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, 0)
-                        .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, parsed.getOtherChildStateCount());
-            }
-        } else {
-            parsed = null;
-        }
-        addFirstTwoCursorStates(parsed, left, right, cursorStates);
-        return cursorStates;
+                                                                 @Nullable byte[] byteContinuation) {
+        final UnionContinuation continuation = UnionContinuation.from(byteContinuation, 2);
+        return ImmutableList.of(
+                CursorState.from(left, continuation.continuations.get(0)),
+                CursorState.from(right, continuation.continuations.get(1)));
     }
 
     @Nonnull
-    protected static <T> List<CursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions, @Nullable byte[] continuation) {
+    protected static <T> List<CursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+                                                                 @Nullable byte[] byteContinuation) {
         final List<CursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
-        if (continuation != null) {
-            final RecordCursorProto.UnionContinuation parsed = parseContinuation(continuation);
-            if (cursorFunctions.size() != parsed.getOtherChildStateCount() + 2) {
-                throw new RecordCoreArgumentException("invalid continuation (expected continuation count does not match read)")
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(continuation))
-                        .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, cursorFunctions.size() - 2)
-                        .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, parsed.getOtherChildStateCount());
-            }
-            addFirstTwoCursorStates(parsed, cursorFunctions.get(0), cursorFunctions.get(1), cursorStates);
-            Iterator<RecordCursorProto.UnionContinuation.CursorState> protoStateIterator = parsed.getOtherChildStateList().iterator();
-            for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions.subList(2, cursorFunctions.size())) {
-                cursorStates.add(CursorState.fromProto(cursorFunction, protoStateIterator.next()));
-            }
-        } else {
-            for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
-                cursorStates.add(CursorState.from(cursorFunction, false, null));
-            }
+        final UnionContinuation continuation = UnionContinuation.from(byteContinuation, cursorFunctions.size());
+        int i = 0;
+        for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
+            cursorStates.add(CursorState.from(cursorFunction, continuation.continuations.get(i)));
+            i++;
         }
         return cursorStates;
     }
