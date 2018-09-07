@@ -34,7 +34,8 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A simple rule that looks for a filter (with an equality comparison on a field) and a trivial but compatibly
@@ -56,12 +57,11 @@ public class FilterWithScanRule extends PlannerRule<LogicalFilterExpression> {
         Comparisons.SimpleComparison comparison = call.get(comparisonMatcher);
         FieldWithComparison filter = call.get(filterMatcher);
 
-        Optional<Index> index = call.getContext().getIndexByName(indexScan.getIndexName());
-
-        if (!index.isPresent()) {
+        Set<String> indexNames = call.getContext().getIndexes().stream().map(Index::getName).collect(Collectors.toSet());
+        if (!indexNames.contains(indexScan.getIndexName())) {
             return;
         }
-        KeyExpression indexExpression = index.get().getRootExpression();
+        KeyExpression indexExpression = call.getContext().getIndexByName(indexScan.getIndexName()).getRootExpression();
 
         if (indexScan.getComparisons().isEmpty() &&
                 comparison.getType().equals(Comparisons.Type.EQUALS) &&

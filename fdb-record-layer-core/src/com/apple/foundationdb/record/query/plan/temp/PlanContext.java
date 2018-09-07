@@ -20,39 +20,29 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 
 import javax.annotation.Nonnull;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * A basic context object that stores all of the metadata about a record store, such as the available indexes.
  * It provides access to this information to the planner and the
  * {@link PlannerRule#onMatch(PlannerRuleCall)} method.
  */
-public class PlanContext {
+public interface PlanContext {
     @Nonnull
-    private final Map<String, Index> indexes = new HashMap<>();
-
-    public PlanContext(@Nonnull List<Index> indexes) {
-        for (Index index : indexes) {
-            this.indexes.put(index.getName(), index);
-        }
-    }
+    Set<Index> getIndexes();
 
     @Nonnull
-    public Map<String, Index> getIndexes() {
-        return indexes;
-    }
+    Index getIndexByName(@Nonnull String name);
+
+    @Nullable
+    KeyExpression getCommonPrimaryKey();
 
     @Nonnull
-    public Optional<Index> getIndexByName(String name) {
-        if (!indexes.containsKey(name)) {
-            return Optional.empty();
-        }
-        return Optional.of(indexes.get(name));
-    }
+    RecordMetaData getMetaData();
 }

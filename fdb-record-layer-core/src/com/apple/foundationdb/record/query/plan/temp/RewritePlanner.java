@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
@@ -43,12 +45,17 @@ public class RewritePlanner {
     @Nonnull
     private static final PlannerRuleSet rules = PlannerRuleSet.DEFAULT_REWRITE;
     @Nonnull
-    private final PlanContext context;
+    private final RecordMetaData metaData;
+    @Nonnull
+    private final RecordStoreState recordStoreState;
     @Nullable
     private SingleExpressionRef<PlannerExpression> current;
+    @Nullable
+    private PlanContext context;
 
-    public RewritePlanner(@Nonnull PlanContext context) {
-        this.context = context;
+    public RewritePlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
+        this.metaData = metaData;
+        this.recordStoreState = recordStoreState;
     }
 
     /**
@@ -61,6 +68,7 @@ public class RewritePlanner {
      */
     @Nonnull
     public RecordQueryPlan plan(@Nonnull RecordQuery query) {
+        context = new MetaDataPlanContext(metaData, recordStoreState, query);
         current = SingleExpressionRef.of(RelationalPlannerExpression.fromRecordQuery(query));
         RewriteRuleCall nextRuleCall = getNextRuleCall();
         while (nextRuleCall != null) {
@@ -68,6 +76,7 @@ public class RewritePlanner {
             nextRuleCall = getNextRuleCall();
         }
 
+        context = null;
         if (current.get() instanceof RecordQueryPlan) { // turned into a concrete plan
             return (RecordQueryPlan)current.get();
         } else {

@@ -49,7 +49,7 @@ public class FilterWithScanRuleTest {
     private static PlannerRule<LogicalFilterExpression> rule = new FilterWithScanRule();
     private static Index singleFieldIndex = new Index("singleField", field("aField"));
     private static Index concatIndex = new Index("concat", concat(field("aField"), field("anotherField")));
-    private static PlanContext context = new PlanContext(ImmutableList.of(singleFieldIndex, concatIndex));
+    private static PlanContext context = new FakePlanContext(ImmutableList.of(singleFieldIndex, concatIndex));
 
     @Test
     public void pushDownFilterToSingleFieldIndex() {
