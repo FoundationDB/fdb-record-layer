@@ -472,7 +472,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
     public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
         if (state.index.getRootExpression() instanceof GroupingKeyExpression) {
             final QueryToKeyMatcher.Match match = matcher.matches(((GroupingKeyExpression) state.index.getRootExpression()).getGroupingSubKey());
-            return canDeleteWhere(match, evaluated, state.index.getName());
+            return canDeleteWhere(state, match, evaluated);
         } else {
             return false;
         }

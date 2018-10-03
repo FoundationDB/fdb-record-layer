@@ -72,8 +72,10 @@ import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
@@ -545,9 +547,9 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     }
 
     public void addUniquenessCheck(@Nonnull AsyncIterable<KeyValue> kvs,
-                                      @Nonnull Index index,
-                                      @Nonnull IndexEntry indexEntry,
-                                      @Nonnull Tuple primaryKey) {
+                                   @Nonnull Index index,
+                                   @Nonnull IndexEntry indexEntry,
+                                   @Nonnull Tuple primaryKey) {
         getRecordContext().addCommitCheck(new IndexUniquenessCheck(kvs, index, indexEntry, primaryKey));
     }
 
@@ -822,7 +824,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
                     LogMessageKeys.PRIMARY_KEY, primaryKey);
             if (LOGGER.isDebugEnabled()) {
                 ex2.addLogInfo("serialized", ByteArrayUtil2.loggable(serialized),
-                               "descriptor", metaData.getUnionDescriptor().getFile().toProto());
+                        "descriptor", metaData.getUnionDescriptor().getFile().toProto());
             }
             throw ex2;
         }
@@ -848,9 +850,9 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     }
 
     public void countKeyValue(@Nonnull final FDBStoreTimer.Count key,
-                                 @Nonnull final FDBStoreTimer.Count keyBytes,
-                                 @Nonnull final FDBStoreTimer.Count valueBytes,
-                                 @Nonnull final byte[] k, @Nonnull final byte[] v) {
+                              @Nonnull final FDBStoreTimer.Count keyBytes,
+                              @Nonnull final FDBStoreTimer.Count valueBytes,
+                              @Nonnull final byte[] k, @Nonnull final byte[] v) {
         final FDBStoreTimer timer = getTimer();
         if (timer != null) {
             timer.increment(key);
@@ -999,18 +1001,18 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
     @Nonnull
     public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanType scanType,
-                                                 @Nonnull TupleRange range,
-                                                 @Nullable byte[] continuation,
-                                                 @Nonnull ScanProperties scanProperties) {
+                                              @Nonnull TupleRange range,
+                                              @Nullable byte[] continuation,
+                                              @Nonnull ScanProperties scanProperties) {
         return scanIndex(index, scanType, range, continuation, scanProperties, null);
     }
 
     @Nonnull
     public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanType scanType,
-                                                 @Nonnull TupleRange range,
-                                                 @Nullable byte[] continuation,
-                                                 @Nonnull ScanProperties scanProperties,
-                                                 @Nullable RecordScanLimiter recordScanLimiter) {
+                                              @Nonnull TupleRange range,
+                                              @Nullable byte[] continuation,
+                                              @Nonnull ScanProperties scanProperties,
+                                              @Nullable RecordScanLimiter recordScanLimiter) {
         if (!isIndexReadable(index)) {
             throw new RecordCoreException("Cannot scan non-readable index " + index.getName());
         }
@@ -1177,7 +1179,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         RecordCursor<IndexEntry> tupleCursor = getIndexMaintainer(index).scanUniquenessViolations(range, continuation, scanProperties);
         return tupleCursor.map(entry -> {
             int indexColumns = index.getColumnSize();
-            Tuple valueKey =  TupleHelpers.subTuple(entry.getKey(), 0, indexColumns);
+            Tuple valueKey = TupleHelpers.subTuple(entry.getKey(), 0, indexColumns);
             Tuple primaryKey = TupleHelpers.subTuple(entry.getKey(), indexColumns, entry.getKey().size());
             Tuple existingKey = entry.getValue();
             return new RecordIndexUniquenessViolation(index, new IndexEntry(valueKey, entry.getValue()), primaryKey, existingKey);
@@ -1438,92 +1440,269 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
     /**
      * Delete the record with the given primary key.
+     *
      * @param primaryKey the primary key for the record to be deleted
+     *
      * @return true if something was there to delete, false if the record didn't exist
      */
     public boolean deleteRecord(@Nonnull Tuple primaryKey) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_RECORD, deleteRecordAsync(primaryKey));
     }
 
+    /**
+     * Delete all the data in the record store.
+     * <p>
+     * Everything except the store header is cleared from the database.
+     * This is an efficient operation, since all the data is contiguous.
+     */
     public void deleteAllRecords() {
         Transaction tr = ensureContextActive();
         tr.clear(recordsSubspace().getKey(),
                  getSubspace().range().end);
     }
 
-    public void deleteRecordsWhere(QueryComponent component) {
+    /**
+     * Delete records and associated index entries matching a query filter.
+     * <p>
+     * Throws an exception if the operation cannot be done efficiently in a small number of contiguous range
+     * clears. In practice, this means that the query filter must constrain a prefix of all record types' primary keys
+     * and of all indexes' root expressions.
+     *
+     * @param component the query filter for records to delete efficiently
+     */
+    public void deleteRecordsWhere(@Nonnull QueryComponent component) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_RECORD, deleteRecordsWhereAsync(component));
     }
 
-    public CompletableFuture<Void> deleteRecordsWhereAsync(QueryComponent component) {
-        final Transaction tr = ensureContextActive();
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(component);
-        Key.Evaluated evaluated = null;
-        for (RecordType recordType : getRecordMetaData().getRecordTypes().values()) {
-            final QueryToKeyMatcher.Match match = matcher.matches(recordType.getPrimaryKey());
-            if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
-                throw new Query.InvalidExpressionException("deleteRecordsWhere not matching primary key " +
-                        recordType.getName());
+    /**
+     * Delete records and associated index entries matching a query filter.
+     * <p>
+     * Throws an exception if the operation cannot be done efficiently in a small number of contiguous range
+     * clears. In practice, this means both that all record types must have a record type key prefix and
+     * that the query filter must constrain a prefix of all record types' primary keys and of all indexes' root
+     * expressions.
+     *
+     * @param recordType the type of records to delete
+     * @param component the query filter for records to delete efficiently or {@code null} to delete all records of the given type
+     */
+    public void deleteRecordsWhere(@Nonnull String recordType, @Nullable QueryComponent component) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_RECORD, deleteRecordsWhereAsync(recordType, component));
+    }
+
+    /**
+     * Async version of {@link #deleteRecordsWhereAsync}.
+     *
+     * @param component the query filter for records to delete efficiently
+     * @return a future that will be complete when the delete is done
+     */
+    public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component) {
+        return new RecordsWhereDeleter(component).run();
+    }
+
+    /**
+     * Async version of {@link #deleteRecordsWhere(String, QueryComponent)}.
+     * @param recordType the type of records to delete
+     * @param component the query filter for records to delete efficiently or {@code null} to delete all records of the given type
+     * @return a future that will be complete when the delete is done
+     */
+    public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull String recordType, @Nullable QueryComponent component) {
+        return deleteRecordsWhereAsync(mergeRecordTypeAndComponent(recordType, component));
+    }
+
+    private static QueryComponent mergeRecordTypeAndComponent(@Nonnull String recordType, @Nullable QueryComponent component) {
+        if (component == null) {
+            return new RecordTypeKeyComparison(recordType);
+        }
+        List<QueryComponent> components = new ArrayList<>();
+        components.add(new RecordTypeKeyComparison(recordType));
+        if (component instanceof AndComponent) {
+            components.addAll(((AndComponent)component).getChildren());
+        } else {
+            components.add(component);
+        }
+        return Query.and(components);
+    }
+
+    class RecordsWhereDeleter {
+        @Nonnull final RecordMetaData recordMetaData;
+        @Nullable final RecordType recordType;
+
+        @Nonnull final QueryToKeyMatcher matcher;
+        @Nullable final QueryToKeyMatcher indexMatcher;
+
+        @Nonnull final Collection<RecordType> allRecordTypes;
+        @Nonnull final Collection<Index> allIndexes;
+
+        @Nonnull final List<IndexMaintainer<M>> indexMaintainers;
+
+        @Nullable final Key.Evaluated evaluated;
+        @Nullable final Key.Evaluated indexEvaluated;
+
+        public RecordsWhereDeleter(@Nonnull QueryComponent component) {
+            final RecordTypeKeyComparison recordTypeKeyComparison;
+            final QueryComponent remainingComponent;
+            if (component instanceof RecordTypeKeyComparison) {
+                recordTypeKeyComparison = (RecordTypeKeyComparison)component;
+                remainingComponent = null;
+            } else if (component instanceof AndComponent && ((AndComponent)component).getChildren().get(0) instanceof RecordTypeKeyComparison) {
+                final List<QueryComponent> children = ((AndComponent)component).getChildren();
+                recordTypeKeyComparison = (RecordTypeKeyComparison)children.get(0);
+                if (children.size() == 2) {
+                    remainingComponent = children.get(1);
+                } else {
+                    remainingComponent = Query.and(children.subList(1, children.size()));
+                }
+            } else {
+                recordTypeKeyComparison = null;
+                remainingComponent = null;
+            }
+            if (recordTypeKeyComparison != null && !getRecordMetaData().primaryKeyHasRecordTypePrefix()) {
+                throw new RecordCoreException("record type version of deleteRecordsWhere can only be used when all record types have a type prefix");
+            }
+
+            matcher = new QueryToKeyMatcher(component);
+            recordMetaData = getRecordMetaData();
+            if (recordTypeKeyComparison == null) {
+                indexMatcher = matcher;
+                allRecordTypes = recordMetaData.getRecordTypes().values();
+                allIndexes = recordMetaData.getAllIndexes();
+                recordType = null;
+            } else {
+                recordType = recordMetaData.getRecordType(recordTypeKeyComparison.getName());
+                if (remainingComponent == null) {
+                    indexMatcher = null;
+                } else {
+                    indexMatcher = new QueryToKeyMatcher(remainingComponent);
+                }
+                allRecordTypes = Collections.singletonList(recordType);
+                allIndexes = recordType.getAllIndexes();
+            }
+
+            indexMaintainers = allIndexes.stream().map(FDBRecordStoreBase.this::getIndexMaintainer).collect(Collectors.toList());
+
+            evaluated = deleteRecordsWhereCheckRecordTypes();
+            if (recordTypeKeyComparison == null) {
+                indexEvaluated = evaluated;
+            } else {
+                indexEvaluated = Key.Evaluated.concatenate(evaluated.values().subList(1, evaluated.values().size()));
+            }
+            deleteRecordsWhereCheckIndexes();
+        }
+
+        private Key.Evaluated deleteRecordsWhereCheckRecordTypes() {
+            final FDBEvaluationContext<M> evaluationContext = emptyEvaluationContext();
+            Key.Evaluated evaluated = null;
+
+            for (RecordType recordType : allRecordTypes) {
+                final QueryToKeyMatcher.Match match = matcher.matches(recordType.getPrimaryKey());
+                if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
+                    throw new Query.InvalidExpressionException("deleteRecordsWhere not matching primary key " +
+                                                               recordType.getName());
+                }
+                if (evaluated == null) {
+                    evaluated = match.getEquality(evaluationContext);
+                } else if (!evaluated.equals(match.getEquality(evaluationContext))) {
+                    throw new RecordCoreException("Primary key prefixes don't align",
+                            "initialPrefix", evaluated,
+                            "secondPrefix", match.getEquality(evaluationContext),
+                            "recordType", recordType.getName());
+                }
             }
             if (evaluated == null) {
-                evaluated = match.getEquality();
-            } else if (!evaluated.equals(match.getEquality())) {
-                throw new RecordCoreException("Primary key prefixes don't align",
-                        "initialPrefix", evaluated,
-                        "secondPrefix", match.getEquality(),
-                        "recordType", recordType.getName());
+                return null;
             }
-        }
-        if (evaluated == null) {
-            // no record types
-            LOGGER.warn("Tried to delete prefix with no record types");
-            return AsyncUtil.DONE;
-        }
-        final List<IndexMaintainer<M>> indexMaintainers = getRecordMetaData().getAllIndexes()
-                .stream().map(this::getIndexMaintainer).collect(Collectors.toList());
-        for (IndexMaintainer<M> index : indexMaintainers) {
-            if (!index.canDeleteWhere(matcher, evaluated)) {
-                throw new Query.InvalidExpressionException("deleteRecordsWhere not supported by index " +
-                        index.state.index.getName());
-            }
-        }
-        final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
 
-        if (recordCountKey != null) {
-            final QueryToKeyMatcher.Match match = matcher.matches(recordCountKey);
-            if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
-                throw new Query.InvalidExpressionException("Record count key not matching for deleteRecordsWhere");
+            final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
+            if (recordCountKey != null) {
+                final QueryToKeyMatcher.Match match = matcher.matches(recordCountKey);
+                if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
+                    throw new Query.InvalidExpressionException("Record count key not matching for deleteRecordsWhere");
+                }
+                final Key.Evaluated subkey = match.getEquality(evaluationContext);
+                if (!evaluated.equals(subkey)) {
+                    throw new RecordCoreException("Record count key prefix doesn't align",
+                            "initialPrefix", evaluated,
+                            "secondPrefix", match.getEquality());
+                }
             }
-            final Key.Evaluated subkey = match.getEquality();
-            if (!evaluated.equals(subkey)) {
-                throw new RecordCoreException("Record count key prefix doesn't align",
-                        "initialPrefix", evaluated,
-                        "secondPrefix", match.getEquality());
+
+            return evaluated;
+        }
+
+        private void deleteRecordsWhereCheckIndexes() {
+            if (evaluated == null) {
+                return;
             }
-            final List<Object> rcPrefix = subkey.toTupleAppropriateList();
-            if (rcPrefix.size() == recordCountKey.getColumnSize()) {
-                // Delete a single record used for counting
-                tr.clear(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(rcPrefix)));
-            } else {
-                // Delete multiple records used for counting
-                tr.clear(getSubspace().subspace(Tuple.from(RECORD_COUNT_KEY)).subspace(Tuple.fromList(rcPrefix)).range());
+            for (IndexMaintainer<M> index : indexMaintainers) {
+                boolean canDelete;
+                if (recordType == null) {
+                    canDelete = index.canDeleteWhere(matcher, evaluated);
+                } else {
+                    if (Key.Expressions.hasRecordTypePrefix(index.state.index.getRootExpression())) {
+                        canDelete = index.canDeleteWhere(matcher, evaluated);
+                    } else {
+                        if (recordMetaData.recordTypesForIndex(index.state.index).size() > 1) {
+                            throw new RecordCoreException("Index " + index.state.index.getName() +
+                                                          " applies to more record types than just " + recordType.getName());
+                        }
+                        if (indexMatcher != null) {
+                            canDelete = index.canDeleteWhere(indexMatcher, indexEvaluated);
+                        } else {
+                            canDelete = true;
+                        }
+                    }
+                }
+                if (!canDelete) {
+                    throw new Query.InvalidExpressionException("deleteRecordsWhere not supported by index " +
+                                                               index.state.index.getName());
+                }
             }
         }
-        final Tuple prefix = evaluated.toTuple();
-        final Subspace recordSubspace = recordsSubspace().subspace(prefix);
-        tr.clear(recordSubspace.range());
-        if (useOldVersionFormat() && getRecordMetaData().isStoreRecordVersions()) {
-            final Subspace versionSubspace = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY).addAll(prefix));
-            tr.clear(versionSubspace.range());
-        }
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-        for (IndexMaintainer<M> index : indexMaintainers) {
-            final CompletableFuture<Void> future = index.deleteWhere(tr, prefix);
-            if (!MoreAsyncUtil.isCompletedNormally(future)) {
-                futures.add(future);
+
+        private CompletableFuture<Void> run() {
+            if (evaluated == null) {
+                // no record types
+                LOGGER.warn("Tried to delete prefix with no record types");
+                return AsyncUtil.DONE;
             }
+
+            final Transaction tr = ensureContextActive();
+
+            final Tuple prefix = evaluated.toTuple();
+            final Subspace recordSubspace = recordsSubspace().subspace(prefix);
+            tr.clear(recordSubspace.range());
+            if (getRecordMetaData().isStoreRecordVersions()) {
+                final Subspace versionSubspace = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY).addAll(prefix));
+                tr.clear(versionSubspace.range());
+            }
+
+            final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
+            if (recordCountKey != null) {
+                if (prefix.size() == recordCountKey.getColumnSize()) {
+                    // Delete a single record used for counting
+                    tr.clear(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(prefix)));
+                } else {
+                    // Delete multiple records used for counting
+                    tr.clear(getSubspace().subspace(Tuple.from(RECORD_COUNT_KEY)).subspace(prefix).range());
+                }
+            }
+
+            final List<CompletableFuture<Void>> futures = new ArrayList<>();
+            final Tuple indexPrefix = indexEvaluated.toTuple();
+            for (IndexMaintainer<M> index : indexMaintainers) {
+                final CompletableFuture<Void> future;
+                // Only need to check key expression in the case where a normal index has a different prefix.
+                if (prefix == indexPrefix || Key.Expressions.hasRecordTypePrefix(index.state.index.getRootExpression())) {
+                    future = index.deleteWhere(tr, prefix);
+                } else {
+                    future = index.deleteWhere(tr, indexPrefix);
+                }
+                if (!MoreAsyncUtil.isCompletedNormally(future)) {
+                    futures.add(future);
+                }
+            }
+            return AsyncUtil.whenAll(futures);
         }
-        return AsyncUtil.whenAll(futures);
     }
 
     /**
@@ -2893,6 +3072,32 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         }
         return evaluateAggregateFunction(Collections.emptyList(), IndexFunctionHelper.count(key), value, IsolationLevel.SNAPSHOT)
                 .thenApply(tuple -> tuple.getLong(0));
+    }
+
+    /**
+     * Get the number of records in the record store of the given record type.
+     *
+     * The record type must have a {@code COUNT} index defined for it.
+     * @param recordTypeName record type for which to count records
+     * @return a future that will complete to the number of records
+     */
+    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName) {
+        IndexAggregateFunction aggregateFunction = IndexFunctionHelper.count(EmptyKeyExpression.EMPTY);
+        Optional<IndexMaintainer<M>> indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.singletonList(recordTypeName));
+        if (indexMaintainer.isPresent()) {
+            return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT)
+                    .thenApply(tuple -> tuple.getLong(0));
+        }
+        RecordType recordType = getRecordMetaData().getRecordType(recordTypeName);
+        if (recordType.primaryKeyHasRecordTypePrefix()) {
+            aggregateFunction = IndexFunctionHelper.count(Key.Expressions.recordType());
+            indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.emptyList());
+            if (indexMaintainer.isPresent()) {
+                return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.allOf(Tuple.from(recordType.getRecordTypeKey())), IsolationLevel.SNAPSHOT)
+                        .thenApply(tuple -> tuple.getLong(0));
+            }
+        }
+        throw new RecordCoreException("Require a COUNT index on " + recordTypeName);
     }
 
     public static long decodeRecordCount(@Nullable byte[] bytes) {
