@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.Descriptors;
 
@@ -111,11 +112,11 @@ public class RecordTypeBuilder implements RecordTypeOrBuilder {
         this.sinceVersion = sinceVersion;
     }
 
-    public RecordType build() {
+    public RecordType build(@Nonnull RecordMetaData metaData) {
         if (primaryKey == null) {
             throw new NonbuildableException("Missing primary key");
         }
-        return new RecordType(descriptor, primaryKey, indexes, multiTypeIndexes, sinceVersion);
+        return new RecordType(metaData, descriptor, primaryKey, indexes, multiTypeIndexes, sinceVersion);
     }
 
     /**

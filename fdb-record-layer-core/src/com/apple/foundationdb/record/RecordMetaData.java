@@ -109,7 +109,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     public Descriptors.FieldDescriptor getUnionFieldForRecordType(@Nonnull RecordType recordType) {
         final Descriptors.FieldDescriptor unionField = getUnionFieldForRecordType(recordType.getName());
         if (unionField == null) {
-            throw new MetaDataException("RecordType is not in the union");
+            throw new MetaDataException("Record type " + recordType.getName() + " is not in the union");
         }
         return unionField;
     }

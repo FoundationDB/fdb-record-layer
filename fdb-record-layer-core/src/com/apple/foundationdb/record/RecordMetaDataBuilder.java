@@ -482,10 +482,13 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             return recordMetaData;
         }
         Map<String, RecordType> recordTypeBuilders = new HashMap<>();
+        recordMetaData = new RecordMetaData(recordsDescriptor, unionDescriptor, recordTypeBuilders,
+                indexes, universalIndexes, formerIndexes,
+                splitLongRecords, storeRecordVersions, version, recordCountKey);
         for (RecordTypeBuilder recordTypeBuilder : this.recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();
             if (primaryKey != null) {
-                recordTypeBuilders.put(recordTypeBuilder.getName(), recordTypeBuilder.build());
+                recordTypeBuilders.put(recordTypeBuilder.getName(), recordTypeBuilder.build(recordMetaData));
                 for (Index index : recordTypeBuilder.getIndexes()) {
                     index.setPrimaryKeyComponentPositions(buildPrimaryKeyComponentPositions(index.getRootExpression(), primaryKey));
                 }
@@ -500,8 +503,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 }
             }
         }
-        recordMetaData = new RecordMetaData(recordsDescriptor, unionDescriptor, recordTypeBuilders, indexes, universalIndexes, formerIndexes,
-                                            splitLongRecords, storeRecordVersions, version, recordCountKey);
         return recordMetaData;
     }
 

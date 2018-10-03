@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.Descriptors;
 
@@ -32,7 +34,9 @@ import java.util.List;
  *
  * A record type corresponds to a Protobuf {@link com.google.protobuf.Descriptors.Descriptor} and specifies a primary key expression and any number of secondary {@link Index}es.
  */
-public class RecordType implements RecordTypeOrBuilder {
+public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
+    @Nonnull
+    private final RecordMetaData metaData;
     @Nonnull
     private final String name;
     @Nonnull
@@ -46,8 +50,9 @@ public class RecordType implements RecordTypeOrBuilder {
     @Nullable
     private Integer sinceVersion;
 
-    public RecordType(@Nonnull Descriptors.Descriptor descriptor, @Nonnull KeyExpression primaryKey,
+    public RecordType(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.Descriptor descriptor, @Nonnull KeyExpression primaryKey,
                       @Nonnull List<Index> indexes, @Nonnull List<Index> multiTypeIndexes, @Nullable Integer sinceVersion) {
+        this.metaData = metaData;
         this.descriptor = descriptor;
         this.primaryKey = primaryKey;
         this.name = descriptor.getName();
@@ -95,5 +100,15 @@ public class RecordType implements RecordTypeOrBuilder {
     @Override
     public Integer getSinceVersion() {
         return sinceVersion;
+    }
+
+    /**
+     * Get the meta-data of which this record type is a part.
+     * @return owning meta-data
+     */
+    @Nonnull
+    @Override
+    public RecordMetaData getRecordMetaData() {
+        return metaData;
     }
 }
