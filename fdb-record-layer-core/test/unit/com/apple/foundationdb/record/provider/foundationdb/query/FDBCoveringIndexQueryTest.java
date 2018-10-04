@@ -45,13 +45,11 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasNoDescendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -139,8 +137,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
-     * Verify that a record scan is used when there is no appropriate index, even when the returned fields are
-     * restricted.
+     * Verify that some other index scan is used when there is no appropriate index for the returned fields.
      */
     @Test
     public void notCoveringRecordScan() throws Exception {
@@ -151,8 +148,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRequiredResults(Arrays.asList(Key.Expressions.field("num_value_3_indexed")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, descendant(scan(bounds(unbounded()))));
-        assertEquals(1623132305, plan.planHash());
+        assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
+        assertEquals(324762954, plan.planHash());
     }
 
     /**

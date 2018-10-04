@@ -105,6 +105,8 @@ public class RecordQueryPlanner {
     @Nonnull
     private final PlannableIndexTypes indexTypes;
 
+    private boolean preferIndexToScan;
+
     public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
         this(metaData, recordStoreState, null);
     }
@@ -131,6 +133,30 @@ public class RecordQueryPlanner {
         this.indexTypes = indexTypes;
         this.timer = timer;
         this.complexityThreshold = complexityThreshold;
+
+        // If we are going to need type filters on Scan, index is safer without knowing any cardinalities.
+        preferIndexToScan = metaData.getRecordTypes().size() > 1;
+    }
+
+    /**
+     * Get whether {@link RecordQueryIndexPlan} is preferred over {@link RecordQueryScanPlan} even when it does not
+     * satisfy any additional conditions.
+     * @return whether to prefer index scan over record scan
+     */
+    public boolean isPreferIndexToScan() {
+        return preferIndexToScan;
+    }
+
+    /**
+     * Set whether {@link RecordQueryIndexPlan} is preferred over {@link RecordQueryScanPlan} even when it does not
+     * satisfy any additional conditions.
+     * Scanning without an index is more efficient, but will have to skip over unrelated record types.
+     * For that reason, it is safer to use an index, except when there is only one record type.
+     * If the meta-data has more than one record type but the record store does not, this can be overridden.
+     * @param preferIndexToScan whether to prefer index scan over record scan
+     */
+    public void setPreferIndexToScan(boolean preferIndexToScan) {
+        this.preferIndexToScan = preferIndexToScan;
     }
 
     /**
@@ -187,27 +213,28 @@ public class RecordQueryPlanner {
 
     @Nullable
     private RecordQueryPlan planNoFilter(PlanContext planContext, KeyExpression sort, boolean sortReverse) {
-        if (sort == null) {
-            return planNoFilterNoSort(planContext);
-        }
-
         ScoredPlan bestPlan = null;
-        if (planContext.commonPrimaryKey != null) {
+        Index bestIndex = null;
+        if (sort == null) {
+            bestPlan = planNoFilterNoSort(planContext, null);
+        } else if (planContext.commonPrimaryKey != null) {
             bestPlan = planSortOnly(new CandidateScan(planContext, null, sortReverse), planContext.commonPrimaryKey, sort);
         }
         for (Index index : planContext.indexes) {
-            ScoredPlan p = planSortOnly(new CandidateScan(planContext, index, sortReverse),
-                    index.getRootExpression(), sort);
+            ScoredPlan p;
+            if (sort == null) {
+                p = planNoFilterNoSort(planContext, index);
+            } else {
+                p = planSortOnly(new CandidateScan(planContext, index, sortReverse), index.getRootExpression(), sort);
+            }
             if (p != null) {
-                // Better score for fewer stored columns.
-                int size = (planContext.commonPrimaryKey == null) ? index.getColumnSize() : index.getEntrySize(planContext.commonPrimaryKey);
-                p = p.withScore(-size);
-                if (bestPlan == null || p.score > bestPlan.score) {
+                if (bestPlan == null || p.score > bestPlan.score ||
+                        (p.score == bestPlan.score && compareIndexes(planContext, index, bestIndex) > 0)) {
                     bestPlan = p;
+                    bestIndex = index;
                 }
             }
         }
-
         if (bestPlan != null) {
             bestPlan = planRemoveDuplicates(planContext, bestPlan);
             if (bestPlan == null) {
@@ -219,18 +246,34 @@ public class RecordQueryPlanner {
     }
 
     @Nullable
-    private RecordQueryPlan planNoFilterNoSort(PlanContext planContext) {
-        if (metaData.getRecordTypes().size() > 1) {
-            // If there is more than one record type and an _explicit_ index on
-            // the primary key, then use it: it requires a join to get the records
-            // but does not need to skip over the other record types.
-            for (Index index : planContext.indexes) {
-                if (index.getRootExpression().equals(planContext.commonPrimaryKey)) {
-                    return planScan(new CandidateScan(planContext, index, false));
-                }
-            }
+    private ScoredPlan planNoFilterNoSort(PlanContext planContext, @Nullable Index index) {
+        if (index != null && !indexTypes.getValueTypes().contains(index.getType())) {
+            return null;
         }
-        return null;
+        return new ScoredPlan(0, planScan(new CandidateScan(planContext, index, false)));
+    }
+
+    private int compareIndexes(PlanContext planContext, @Nullable Index index1, @Nullable Index index2) {
+        if (index1 == null) {
+            if (index2 == null) {
+                return 0;
+            } else {
+                return preferIndexToScan ? -1 : +1;
+            }
+        } else if (index2 == null) {
+            return preferIndexToScan ? +1 : -1;
+        } else {
+            // Better for fewer stored columns.
+            return Integer.compare(indexSizeOverhead(planContext, index2), indexSizeOverhead(planContext, index1));
+        }
+    }
+
+    private int indexSizeOverhead(PlanContext planContext, @Nonnull Index index) {
+        if (planContext.commonPrimaryKey == null) {
+            return index.getColumnSize();
+        } else {
+            return index.getEntrySize(planContext.commonPrimaryKey);
+        }
     }
 
     @Nullable
@@ -268,6 +311,7 @@ public class RecordQueryPlanner {
         planContext.rankComparisons = new RankComparisons(filter, planContext.indexes);
         List<ScoredPlan> intersectionCandidates = new ArrayList<>();
         ScoredPlan bestPlan = null;
+        Index bestIndex = null;
         if (planContext.commonPrimaryKey != null) {
             bestPlan = planIndex(planContext, filter, null, planContext.commonPrimaryKey, intersectionCandidates);
         }
@@ -278,20 +322,15 @@ public class RecordQueryPlanner {
             }
 
             ScoredPlan p = planIndex(planContext, filter, index, indexKeyExpression, intersectionCandidates);
-            if (bestPlan == null) {
-                bestPlan = p;
-            } else if (p != null) {
-                if (p.score > bestPlan.score) {
+            if (p != null) {
+                // TODO: Consider more organized score / cost:
+                // * predicates handled / unhandled.
+                // * size of row.
+                // * need for type filtering if row scan with multiple types.
+                if (bestPlan == null || p.score > bestPlan.score ||
+                        (p.score == bestPlan.score && compareIndexes(planContext, index, bestIndex) > 0)) {
                     bestPlan = p;
-                } else if (p.score == bestPlan.score &&
-                        // TODO: Consider more organized score / cost:
-                        // * predicates handled / unhandled.
-                        // * size of row.
-                        // * need for type filtering if row scan with multiple types.
-                        index.getRootExpression().equals(planContext.commonPrimaryKey) &&
-                        metaData.getRecordTypes().size() > 1) {
-                    // Again prefer an explicit index on primary key if otherwise equivalent.
-                    bestPlan = p;
+                    bestIndex = index;
                 }
             }
         }

@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
@@ -137,7 +138,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
     public void testComplexLimits6() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
-        RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").build();
+        RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded()))));
         assertEquals(1623132305, plan.planHash());

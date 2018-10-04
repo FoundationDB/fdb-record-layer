@@ -51,6 +51,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -216,7 +217,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, null);
 
-            RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").build();
+            RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded()))));
             assertEquals(1623132305, plan.planHash());
@@ -426,6 +427,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(
                         Query.field("str_value_indexed").equalsValue("even"))
+                .setAllowedIndexes(Collections.emptyList())
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertTrue(plan.hasRecordScan(), "should use scan");
