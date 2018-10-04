@@ -72,6 +72,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nullable
     private final KeyExpression recordCountKey;
 
+    @SuppressWarnings("squid:S00107") // There is a Builder.
     public RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
                           @Nonnull Descriptors.Descriptor unionDescriptor,
                           @Nonnull Map<String, RecordType> recordTypes,
