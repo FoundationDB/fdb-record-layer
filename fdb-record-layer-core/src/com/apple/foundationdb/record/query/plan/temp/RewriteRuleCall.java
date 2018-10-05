@@ -53,9 +53,10 @@ public class RewriteRuleCall implements PlannerRuleCall {
 
     /**
      * Run this rule call by calling the rule's {@link PlannerRule#onMatch(PlannerRuleCall)} method.
+     * @return a {@link PlannerRule.ChangesMade} that indicates whether the running the rule yielded a new expression
      */
-    public void run() {
-        rule.onMatch(this);
+    public PlannerRule.ChangesMade run() {
+        return rule.onMatch(this);
     }
 
     @Override

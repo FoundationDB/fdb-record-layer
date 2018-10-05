@@ -29,6 +29,7 @@ import com.google.common.collect.MultimapBuilder;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -37,17 +38,14 @@ import java.util.Optional;
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
  */
 public class PlannerRuleSet {
-    private static final List<PlannerRule<? extends PlannerExpression>> ALL_RULES = ImmutableList.of(
-            new FilterWithScanRule(),
-            new CombineFilterRule()
-    );
     private static final List<PlannerRule<? extends PlannerExpression>> REWRITE_RULES = ImmutableList.of(
             new FilterWithScanRule(),
             new CombineFilterRule()
     );
+    private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = Collections.emptyList();
 
-    public static final PlannerRuleSet DEFAULT = new PlannerRuleSet(ALL_RULES);
-    public static final PlannerRuleSet DEFAULT_REWRITE = new PlannerRuleSet(REWRITE_RULES);
+    public static final PlannerRuleSet REWRITE = new PlannerRuleSet(REWRITE_RULES);
+    public static final PlannerRuleSet IMPLEMENTATION = new PlannerRuleSet(IMPLEMENTATION_RULES);
 
     @Nonnull
     private final Multimap<Class<? extends PlannerExpression>, PlannerRule<? extends PlannerExpression>> ruleIndex =
