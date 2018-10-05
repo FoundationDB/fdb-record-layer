@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithFieldWithComparisonRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.RemoveRedundantTypeFilterRule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
@@ -30,7 +32,6 @@ import com.google.common.collect.MultimapBuilder;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -41,11 +42,13 @@ import java.util.Optional;
 public class PlannerRuleSet {
     private static final List<PlannerRule<? extends PlannerExpression>> REWRITE_RULES = ImmutableList.of(
             new FilterWithScanRule(),
-            new CombineFilterRule()
             new CombineFilterRule(),
-            new FilterWithFieldWithComparisonRule()
+            new FilterWithFieldWithComparisonRule(),
+            new RemoveRedundantTypeFilterRule()
     );
-    private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = Collections.emptyList();
+    private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
+            new ImplementTypeFilterRule()
+    );
 
     public static final PlannerRuleSet REWRITE = new PlannerRuleSet(REWRITE_RULES);
     public static final PlannerRuleSet IMPLEMENTATION = new PlannerRuleSet(IMPLEMENTATION_RULES);
