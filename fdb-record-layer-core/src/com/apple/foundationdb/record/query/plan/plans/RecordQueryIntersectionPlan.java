@@ -200,4 +200,9 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     public int getComplexity() {
         return 1 + getChildren().stream().mapToInt(RecordQueryPlan::getComplexity).sum();
     }
+
+    @Override
+    public int getRelationalChildCount() {
+        return children.size();
+    }
 }

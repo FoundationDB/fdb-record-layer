@@ -1,5 +1,5 @@
 /*
- * RecordQueryPlanWithChildren.java
+ * RelationalExpressionWithChildren.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,12 +18,12 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
-
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
+package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 /**
- * A query plan with child plans.
+ * A parent interface for {@link RelationalPlannerExpression}s that have relational children (as opposed to non-relation
+ * children, such as {@link com.apple.foundationdb.record.query.expressions.QueryComponent}s).
  */
-public interface RecordQueryPlanWithChildren extends RecordQueryPlan, RelationalExpressionWithChildren {
+public interface RelationalExpressionWithChildren extends RelationalPlannerExpression {
+    int getRelationalChildCount();
 }

@@ -213,4 +213,9 @@ public class RecordQueryUnionPlan implements RecordQueryPlanWithChildren {
         }
         return complexity;
     }
+
+    @Override
+    public int getRelationalChildCount() {
+        return children.size();
+    }
 }

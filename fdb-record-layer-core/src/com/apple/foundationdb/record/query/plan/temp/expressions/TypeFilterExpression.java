@@ -1,5 +1,5 @@
 /*
- * RecordQueryPlanWithChildren.java
+ * TypeFilterExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,12 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
+package com.apple.foundationdb.record.query.plan.temp.expressions;
 
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
+import javax.annotation.Nonnull;
+import java.util.Collection;
 
 /**
- * A query plan with child plans.
+ * A relational planner expression that represents a type filter. This includes both logical and physical type filtering
+ * expressions.
  */
-public interface RecordQueryPlanWithChildren extends RecordQueryPlan, RelationalExpressionWithChildren {
+public interface TypeFilterExpression extends RelationalExpressionWithChildren {
+    @Nonnull
+    Collection<String> getRecordTypes();
 }

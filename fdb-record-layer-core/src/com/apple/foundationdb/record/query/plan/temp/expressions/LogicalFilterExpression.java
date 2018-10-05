@@ -36,7 +36,7 @@ import java.util.Objects;
  * relational planner expression.
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
  */
-public class LogicalFilterExpression implements RelationalPlannerExpression {
+public class LogicalFilterExpression implements RelationalExpressionWithChildren {
     @Nonnull
     private final ExpressionRef<QueryComponent> filter;
     @Nonnull
@@ -58,6 +58,11 @@ public class LogicalFilterExpression implements RelationalPlannerExpression {
     @Override
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
+    }
+
+    @Override
+    public int getRelationalChildCount() {
+        return 1;
     }
 
     @Nonnull

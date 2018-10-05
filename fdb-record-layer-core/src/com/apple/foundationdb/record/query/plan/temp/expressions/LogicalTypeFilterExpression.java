@@ -35,7 +35,7 @@ import java.util.List;
  * relational planner expression.
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan for the fallback implementation
  */
-public class LogicalTypeFilterExpression implements RelationalPlannerExpression {
+public class LogicalTypeFilterExpression implements TypeFilterExpression {
     @Nonnull
     private final Collection<String> recordTypes;
     @Nonnull
@@ -62,6 +62,11 @@ public class LogicalTypeFilterExpression implements RelationalPlannerExpression 
     @Nonnull
     public Collection<String> getRecordTypes() {
         return recordTypes;
+    }
+
+    @Override
+    public int getRelationalChildCount() {
+        return 1;
     }
 
     @Nonnull

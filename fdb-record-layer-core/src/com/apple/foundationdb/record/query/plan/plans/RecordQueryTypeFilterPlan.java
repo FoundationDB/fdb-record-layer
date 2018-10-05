@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
@@ -46,7 +47,7 @@ import java.util.Set;
 /**
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
  */
-public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild {
+public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, TypeFilterExpression {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryTypeFilterPlan.class);
 
     @Nonnull
@@ -152,6 +153,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild {
         return getInner();
     }
 
+    @Override
     @Nonnull
     public Collection<String> getRecordTypes() {
         return recordTypes;
