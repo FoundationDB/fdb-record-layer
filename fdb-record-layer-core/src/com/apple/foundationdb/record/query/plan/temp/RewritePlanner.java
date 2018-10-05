@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +44,7 @@ import java.util.Optional;
  *
  * TODO this planner might have bugs since we don't currently have enough rules to write good tests for it.
  */
-public class RewritePlanner {
+public class RewritePlanner implements QueryPlanner {
     @Nonnull
     private static final List<PlannerRuleSet> PHASES = ImmutableList.of(PlannerRuleSet.REWRITE, PlannerRuleSet.IMPLEMENTATION);
     @Nonnull
@@ -69,6 +70,7 @@ public class RewritePlanner {
      * @throws RecordCoreException if the planner could not plan the given query
      */
     @Nonnull
+    @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query) {
         context = new MetaDataPlanContext(metaData, recordStoreState, query);
         currentRoot = SingleExpressionRef.of(RelationalPlannerExpression.fromRecordQuery(query));
@@ -85,6 +87,11 @@ public class RewritePlanner {
                     .addLogInfo("query", query)
                     .addLogInfo("finalExpression", currentRoot.get());
         }
+    }
+
+    @Override
+    public void setPreferIndexToScan(boolean preferIndexToScan) {
+        // nothing to do here, yet
     }
 
     @SuppressWarnings("unchecked")

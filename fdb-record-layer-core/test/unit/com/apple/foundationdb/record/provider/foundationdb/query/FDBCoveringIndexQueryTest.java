@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -398,7 +399,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         // This is here since the main planner doesn't currently support planning aggregates, so it's basically a
         // separate "mini-planner".
         // TODO: Support aggregate planning in the main query planner (https://github.com/FoundationDB/fdb-record-layer/issues/14)
-        RecordQueryPlan plan = planner.planCoveringAggregateIndex(query, "value3sum");
+        RecordQueryPlan plan = ((RecordQueryPlanner) planner).planCoveringAggregateIndex(query, "value3sum");
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
