@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithFieldWithComparisonRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithScanRule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -41,6 +42,8 @@ public class PlannerRuleSet {
     private static final List<PlannerRule<? extends PlannerExpression>> REWRITE_RULES = ImmutableList.of(
             new FilterWithScanRule(),
             new CombineFilterRule()
+            new CombineFilterRule(),
+            new FilterWithFieldWithComparisonRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = Collections.emptyList();
 
