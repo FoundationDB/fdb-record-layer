@@ -160,6 +160,11 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
         return getInnerKey().versionColumns();
     }
 
+    @Override
+    public boolean hasRecordTypeKey() {
+        return getInnerKey().hasRecordTypeKey();
+    }
+
     public int getSplitPoint() {
         return splitPoint;
     }

@@ -27,6 +27,8 @@ import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -48,10 +50,14 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     @Nonnull
     private final List<Index> multiTypeIndexes;
     @Nullable
-    private Integer sinceVersion;
+    private final Integer sinceVersion;
+    @Nullable
+    private final Object explicitRecordTypeKey;
+    @Nullable
+    private Object recordTypeKey;
 
     public RecordType(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.Descriptor descriptor, @Nonnull KeyExpression primaryKey,
-                      @Nonnull List<Index> indexes, @Nonnull List<Index> multiTypeIndexes, @Nullable Integer sinceVersion) {
+                      @Nonnull List<Index> indexes, @Nonnull List<Index> multiTypeIndexes, @Nullable Integer sinceVersion, @Nullable Object recordTypeKey) {
         this.metaData = metaData;
         this.descriptor = descriptor;
         this.primaryKey = primaryKey;
@@ -59,6 +65,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
         this.indexes = indexes;
         this.multiTypeIndexes = multiTypeIndexes;
         this.sinceVersion = sinceVersion;
+        this.recordTypeKey = this.explicitRecordTypeKey = recordTypeKey;
     }
 
     @Override
@@ -90,6 +97,24 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
         return multiTypeIndexes;
     }
 
+    /**
+     * Gets the list of all indexes that apply for this type.
+     * <ul>
+     * <li>{@link #getIndexes()}</li>
+     * <li>{@link #getMultiTypeIndexes()}</li>
+     * <li>{@link RecordMetaData#getUniversalIndexes()}</li>
+     * </ul>
+     * @return the list of indexes for this type
+     */
+    @Nonnull
+    public List<Index> getAllIndexes() {
+        List<Index> allIndexes = new ArrayList<>();
+        allIndexes.addAll(getIndexes());
+        allIndexes.addAll(getMultiTypeIndexes());
+        allIndexes.addAll(getRecordMetaData().getUniversalIndexes());
+        return allIndexes;
+    }
+
     @Override
     @Nonnull
     public KeyExpression getPrimaryKey() {
@@ -103,6 +128,46 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     }
 
     /**
+     * Get whether this record type implement {@link #getRecordTypeKey} using an explicit value.
+     * If there is no explicit value, the {@code #getRecordTypeKey} will use the union message field number.
+     * @return {@code} true if there is an explicit record type key value
+     */
+    public boolean hasExplicitRecordTypeKey() {
+        return explicitRecordTypeKey != null;
+    }
+
+    /**
+     * Get any explicit record type key value.
+     * @return the explicit record type key value or {@code null} if {@link #getRecordTypeKey} would return a union field number
+     */
+    @Nullable
+    public Object getExplicitRecordTypeKey() {
+        return explicitRecordTypeKey;
+    }
+
+    @Nonnull
+    @Override
+    public Object getRecordTypeKey() {
+        if (recordTypeKey == null) {
+            // Taking the smallest matching field makes this stable if fields are deprecated and not removed.
+            recordTypeKey = metaData.getUnionDescriptor().getFields().stream()
+                    .filter(f -> f.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE && f.getMessageType() == descriptor)
+                    .min(Comparator.comparing(Descriptors.FieldDescriptor::getNumber))
+                    .orElseThrow(() -> new MetaDataException("no matching fields in union"))
+                    .getNumber();
+        }
+        return recordTypeKey;
+    }
+
+    /**
+     * Determine whether this record type has a {@link com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression} prefix in the primary key.
+     * @return {@code true} if start of the primary key is the unique record type key
+     */
+    public boolean primaryKeyHasRecordTypePrefix() {
+        return Key.Expressions.hasRecordTypePrefix(primaryKey);
+    }
+
+    /**
      * Get the meta-data of which this record type is a part.
      * @return owning meta-data
      */
@@ -110,5 +175,17 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder str = new StringBuilder();
+        str.append("RecordType {'").append(name).append("'");
+        str.append(", ").append(primaryKey);
+        str.append("}");
+        if (explicitRecordTypeKey != null) {
+            str.append("#").append(explicitRecordTypeKey);
+        }
+        return str.toString();
     }
 }

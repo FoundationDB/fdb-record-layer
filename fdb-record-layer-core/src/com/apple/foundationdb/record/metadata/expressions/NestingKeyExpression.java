@@ -125,6 +125,11 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
     }
 
     @Override
+    public boolean hasRecordTypeKey() {
+        return getChild().hasRecordTypeKey();
+    }
+
+    @Override
     public KeyExpression getSubKeyImpl(int start, int end) {
         KeyExpression childKey = getChild().getSubKey(start, end);
         return new NestingKeyExpression(parent, childKey);

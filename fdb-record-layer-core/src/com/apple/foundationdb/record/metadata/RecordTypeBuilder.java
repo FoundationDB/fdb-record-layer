@@ -53,6 +53,8 @@ public class RecordTypeBuilder implements RecordTypeOrBuilder {
     private final List<Index> multiTypeIndexes;
     @Nullable
     private Integer sinceVersion;
+    @Nullable
+    private Object recordTypeKey;
 
     public RecordTypeBuilder(@Nonnull Descriptors.Descriptor descriptor) {
         this.descriptor = descriptor;
@@ -95,12 +97,6 @@ public class RecordTypeBuilder implements RecordTypeOrBuilder {
         return primaryKey;
     }
 
-    @Nullable
-    @Override
-    public Integer getSinceVersion() {
-        return sinceVersion;
-    }
-
     public void setPrimaryKey(@Nonnull KeyExpression primaryKey) {
         if (primaryKey.versionColumns() != 0) {
             throw new MetaDataException("Version in primary key not supported");
@@ -108,15 +104,32 @@ public class RecordTypeBuilder implements RecordTypeOrBuilder {
         this.primaryKey = primaryKey;
     }
 
+    @Nullable
+    @Override
+    public Integer getSinceVersion() {
+        return sinceVersion;
+    }
+
     public void setSinceVersion(@Nullable Integer sinceVersion) {
         this.sinceVersion = sinceVersion;
+    }
+
+    @Nullable
+    @Override
+    public Object getRecordTypeKey() {
+        return recordTypeKey;
+    }
+
+    public RecordTypeBuilder setRecordTypeKey(@Nullable Object recordTypeKey) {
+        this.recordTypeKey = recordTypeKey;
+        return this;
     }
 
     public RecordType build(@Nonnull RecordMetaData metaData) {
         if (primaryKey == null) {
             throw new NonbuildableException("Missing primary key");
         }
-        return new RecordType(metaData, descriptor, primaryKey, indexes, multiTypeIndexes, sinceVersion);
+        return new RecordType(metaData, descriptor, primaryKey, indexes, multiTypeIndexes, sinceVersion, recordTypeKey);
     }
 
     /**

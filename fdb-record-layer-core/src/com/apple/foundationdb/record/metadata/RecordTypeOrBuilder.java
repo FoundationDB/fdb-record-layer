@@ -81,4 +81,12 @@ public interface RecordTypeOrBuilder {
      */
     @Nullable
     Integer getSinceVersion();
+
+    /**
+     * Gets the {@link com.apple.foundationdb.tuple.Tuple} element value that will be used by xxx for this record type.
+     * The value should be unique among record types and stable in the face of meta-data changes.
+     * @return stable and unique key for record type
+     */
+    @Nullable
+    Object getRecordTypeKey();
 }

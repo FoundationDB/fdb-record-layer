@@ -118,6 +118,11 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getWholeKey().versionColumns();
     }
 
+    @Override
+    public boolean hasRecordTypeKey() {
+        return getWholeKey().hasRecordTypeKey();
+    }
+
     @Nonnull
     public KeyExpression getWholeKey() {
         return wholeKey.get();

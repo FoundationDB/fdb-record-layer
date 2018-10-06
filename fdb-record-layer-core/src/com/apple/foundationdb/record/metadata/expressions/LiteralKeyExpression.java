@@ -53,7 +53,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     public LiteralKeyExpression(@Nullable T value) {
         // getProto() performs validation that it is a type we can serialize
-        this(value, getProto(value));
+        this(value, toProtoValue(value));
     }
 
     private LiteralKeyExpression(@Nullable T value, @Nonnull RecordMetaDataProto.Value proto) {
@@ -102,35 +102,39 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     public static LiteralKeyExpression<?> fromProto(RecordMetaDataProto.Value proto) {
+        return new LiteralKeyExpression<>(fromProtoValue(proto), proto);
+    }
+
+    @Nullable
+    public static Object fromProtoValue(RecordMetaDataProto.Value proto) {
         int found = 0;
-        LiteralKeyExpression<?> value = null;
+        Object value = null;
         if (proto.hasDoubleValue()) {
             ++found;
-            value = new LiteralKeyExpression<>(proto.getDoubleValue(), proto);
+            value = proto.getDoubleValue();
         }
         if (proto.hasFloatValue()) {
             ++found;
-            value = new LiteralKeyExpression<>(proto.getFloatValue(), proto);
+            value = proto.getFloatValue();
         }
         if (proto.hasLongValue()) {
             ++found;
-            value = new LiteralKeyExpression<>(proto.getLongValue(), proto);
+            value = proto.getLongValue();
         }
         if (proto.hasBoolValue()) {
             ++found;
-            value = new LiteralKeyExpression<>(proto.getBoolValue(), proto);
+            value = proto.getBoolValue();
         }
         if (proto.hasStringValue()) {
             ++found;
-            value = new LiteralKeyExpression<>(proto.getStringValue(), proto);
+            value = proto.getStringValue();
         }
         if (proto.hasBytesValue()) {
             ++found;
-            value = new LiteralKeyExpression<>(proto.getBytesValue(), proto);
+            value = proto.getBytesValue();
         }
         if (found == 0) {
             ++found;
-            value = new LiteralKeyExpression<>(null, proto);
         }
         if (found > 1) {
             throw new RecordCoreException("More than one value encoded in value")
@@ -140,7 +144,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     }
 
     @Nonnull
-    private static RecordMetaDataProto.Value getProto(@Nullable Object value) {
+    public static RecordMetaDataProto.Value toProtoValue(@Nullable Object value) {
         RecordMetaDataProto.Value.Builder builder = RecordMetaDataProto.Value.newBuilder();
         if (value instanceof Double) {
             builder.setDoubleValue((Double) value);

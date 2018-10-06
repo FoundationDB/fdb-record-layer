@@ -201,6 +201,16 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
+    public boolean hasRecordTypeKey() {
+        for (KeyExpression subkey : getChildren()) {
+            if (subkey.hasRecordTypeKey()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public KeyExpression getSubKeyImpl(int start, int end) {
         List<KeyExpression> childrenForSubKey = new ArrayList<>(getChildren());
         int childStart = splitGroupingKeys(childrenForSubKey, start);

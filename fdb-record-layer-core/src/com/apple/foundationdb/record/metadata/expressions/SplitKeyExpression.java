@@ -128,6 +128,11 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return getJoined().versionColumns();
     }
 
+    @Override
+    public boolean hasRecordTypeKey() {
+        return getJoined().hasRecordTypeKey();
+    }
+
     @Nonnull
     public KeyExpression getJoined() {
         return joined.get();

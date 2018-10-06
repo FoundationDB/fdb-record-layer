@@ -40,11 +40,13 @@ public class MetaDataValidator implements RecordMetaDataProvider {
     @Nonnull
     protected final IndexValidatorRegistry indexRegistry;
     protected final Map<Object, Index> assignedPrefixes;
+    protected final Map<Object, RecordType> recordTypeKeys;
 
     public MetaDataValidator(@Nonnull RecordMetaDataProvider metaData, @Nonnull IndexValidatorRegistry indexRegistry) {
         this.metaData = metaData.getRecordMetaData();
         this.indexRegistry = indexRegistry;
         this.assignedPrefixes = new HashMap<>();
+        this.recordTypeKeys = new HashMap<>();
     }
 
     public void validate() {
@@ -55,6 +57,13 @@ public class MetaDataValidator implements RecordMetaDataProvider {
     protected void validateRecordType(@Nonnull RecordType recordType) {
         metaData.getUnionFieldForRecordType(recordType);    // Throws if missing.
         validatePrimaryKeyForRecordType(recordType.getPrimaryKey(), recordType);
+        if (recordType.getPrimaryKey().hasRecordTypeKey()) {
+            RecordType otherRecordType = recordTypeKeys.put(recordType.getRecordTypeKey(), recordType);
+            if (otherRecordType != null) {
+                throw new MetaDataException("Same record type key " + recordType.getRecordTypeKey() +
+                                            " used by both " + recordType.getName() + " and " + otherRecordType.getName());
+            }
+        }
     }
 
     protected void validatePrimaryKeyForRecordType(@Nonnull KeyExpression primaryKey, @Nonnull RecordType recordType) {
@@ -69,7 +78,7 @@ public class MetaDataValidator implements RecordMetaDataProvider {
         final Index otherIndex = assignedPrefixes.put(index.getSubspaceKey(), index);
         if (otherIndex != null) {
             throw new MetaDataException("Same subspace key " + index.getSubspaceKey() +
-                                        " used by both " + index + " and " + otherIndex);
+                                        " used by both " + index.getName() + " and " + otherIndex.getName());
         }
     }
 

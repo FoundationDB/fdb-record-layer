@@ -1,5 +1,5 @@
 /*
- * EmptyKeyExpression.java
+ * RecordTypeKeyExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
@@ -36,21 +37,26 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * A single empty key.
+ * A key expression that indicates that a serialized {@link FDBRecordVersion} should
+ * be contained within the key. This should then be used within version indexes to include data
+ * sorted by version.
  */
-public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpression, KeyExpressionWithoutChildren {
-    public static final EmptyKeyExpression EMPTY = new EmptyKeyExpression();
-    public static final RecordMetaDataProto.KeyExpression EMPTY_PROTO =
-            RecordMetaDataProto.KeyExpression.newBuilder().setEmpty(new EmptyKeyExpression().toProto()).build();
+public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
+    public static final RecordTypeKeyExpression RECORD_TYPE_KEY = new RecordTypeKeyExpression();
+    public static final RecordMetaDataProto.KeyExpression RECORD_TYPE_KEY_PROTO =
+            RecordMetaDataProto.KeyExpression.newBuilder().setRecordTypeKey(RECORD_TYPE_KEY.toProto()).build();
 
-    public EmptyKeyExpression() {
+    private static final GroupingKeyExpression UNGROUPED = new GroupingKeyExpression(new RecordTypeKeyExpression(), 0);
+
+    public RecordTypeKeyExpression() {
         // nothing to initialize
     }
 
     @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return Collections.singletonList(Key.Evaluated.EMPTY);
+        final Key.Evaluated recordType = record != null ? Key.Evaluated.scalar(record.getRecordType().getRecordTypeKey()) : Key.Evaluated.NULL;
+        return Collections.singletonList(recordType);
     }
 
     @Override
@@ -65,19 +71,34 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
 
     @Override
     public int getColumnSize() {
-        return 0;
+        return 1;
     }
+
+    @Override
+    public boolean hasRecordTypeKey() {
+        return true;
+    }
+
+    /**
+     * A <code>RecordType</code> expression with no grouping keys (mostly for evaluating record functions).
+     * @return a {@link GroupingKeyExpression} with no grouping keys
+     */
+    @Nonnull
+    public GroupingKeyExpression ungrouped() {
+        return UNGROUPED;
+    }
+
 
     @Nonnull
     @Override
-    public RecordMetaDataProto.Empty toProto() throws SerializationException {
-        return RecordMetaDataProto.Empty.getDefaultInstance();
+    public RecordMetaDataProto.RecordTypeKey toProto() throws SerializationException {
+        return RecordMetaDataProto.RecordTypeKey.getDefaultInstance();
     }
 
     @Nonnull
     @Override
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
-        return EMPTY_PROTO;
+        return RECORD_TYPE_KEY_PROTO;
     }
 
     @Nonnull
@@ -87,29 +108,27 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
     }
 
     @Override
-    public String toString() {
-        return "Empty";
-    }
-
-    @Override
     public boolean equals(Object o) {
-        if (o == this) {
-            return true;
-        }
-
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        return true;
+        return o == this || !(o == null || getClass() != o.getClass());
     }
 
     @Override
     public int hashCode() {
-        return 0;
+        return 2;
     }
 
     @Override
     public int planHash() {
-        return 0;
+        return 2;
+    }
+
+    @Override
+    public boolean equalsAtomic(AtomKeyExpression other) {
+        return equals(other);
+    }
+
+    @Override
+    public String toString() {
+        return "RecordTypeKey";
     }
 }
