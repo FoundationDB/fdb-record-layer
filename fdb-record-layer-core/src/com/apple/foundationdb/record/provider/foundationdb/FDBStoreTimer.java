@@ -386,7 +386,11 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of records filtered out as not matching or duplicate. */
         QUERY_DISCARDED("number of records loaded but filtered out", false),
         /** The number of times the read version was taken from the cache of the last seen version. */
-        SET_READ_VERSION_TO_LAST_SEEN("set read version to last seen version", false);
+        SET_READ_VERSION_TO_LAST_SEEN("set read version to last seen version", false),
+        /** The number of records scanned by {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexBuilder}. */
+        ONLINE_INDEX_BUILDER_RECORDS_SCANNED("number of records scanned by online index build", false),
+        /** The number of records indexed by {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexBuilder}. */
+        ONLINE_INDEX_BUILDER_RECORDS_INDEXED("number of records indexed by online index build", false);
 
         private final String title;
         private final boolean isSize;

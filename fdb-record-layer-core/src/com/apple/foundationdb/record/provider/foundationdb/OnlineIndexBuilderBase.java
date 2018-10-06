@@ -118,6 +118,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
     @Nonnull private final FDBRecordStoreBuilder<M, ? extends FDBRecordStoreBase<M>> recordStoreBuilder;
     @Nonnull private final Index index;
     @Nonnull private final Collection<RecordType> recordTypes;
+    @Nonnull private final TupleRange recordsRange;
     private int limit;
     private int maxRetries;
     private int recordsPerSecond;
@@ -157,6 +158,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
         this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setContext(null);
         this.index = index;
         this.recordTypes = validateIndex(recordTypes);
+        this.recordsRange = computeRecordsRange();
         this.limit = limit;
         this.maxRetries = maxRetries;
         this.recordsPerSecond = recordsPerSecond;
@@ -289,6 +291,34 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
     private static void checkPositive(int value, String desc) {
         if (value <= 0) {
             throw new RecordCoreException("Non-positive value " + value + " given for " + desc);
+        }
+    }
+
+    private TupleRange computeRecordsRange() {
+        Tuple low = null;
+        Tuple high = null;
+        for (RecordType recordType : recordTypes) {
+            if (!recordType.primaryKeyHasRecordTypePrefix()) {
+                // If any of the types to build for does not have a prefix, give up.
+                return TupleRange.ALL;
+            }
+            Tuple prefix = Tuple.from(recordType.getRecordTypeKey());
+            if (low == null) {
+                low = high = prefix;
+            } else {
+                if (low.compareTo(prefix) > 0) {
+                    low = prefix;
+                }
+                if (high.compareTo(prefix) < 0) {
+                    high = prefix;
+                }
+            }
+        }
+        if (low == null) {
+            return TupleRange.ALL;
+        } else {
+            // Both ends inclusive.
+            return new TupleRange(low, high, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
         }
     }
 
@@ -511,27 +541,39 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
     @Nonnull
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStoreBase<M> store,
                                                     @Nullable Tuple start, @Nullable Tuple end) {
+        return buildRangeOnly(store, TupleRange.between(start, end)).thenApply(realEnd -> realEnd == null ? end : realEnd);
+    }
+
+    // TupleRange version of above.
+    @Nonnull
+    private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStoreBase<M> store, @Nonnull TupleRange range) {
         // Test whether the same up to store state by checking something that is pointer-copied but not normally
         // otherwise shared.
         if (store.getRecordMetaData().getRecordTypes() != recordStoreBuilder.getMetaDataProvider().getRecordMetaData().getRecordTypes()) {
             throw new MetaDataException("Store does not have the same metadata");
         }
-        IndexMaintainer<M> maintainer = store.getIndexMaintainer(index);
-        EndpointType startEndpoint = (start == null) ? EndpointType.TREE_START : EndpointType.RANGE_INCLUSIVE;
-        EndpointType endEndpoint = (end == null) ? EndpointType.TREE_END : EndpointType.RANGE_EXCLUSIVE;
-        final ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+        final IndexMaintainer<M> maintainer = store.getIndexMaintainer(index);
+        final ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(limit)
                 .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                .build());
-        RecordCursor<FDBStoredRecord<M>> cursor = store.scanRecords(start, end, startEndpoint, endEndpoint, null, scanProperties);
-        AtomicBoolean empty = new AtomicBoolean(true);
+                .build();
+        final ScanProperties scanProperties = new ScanProperties(executeProperties);
+        final RecordCursor<FDBStoredRecord<M>> cursor = store.scanRecords(range, null, scanProperties);
+        final AtomicBoolean empty = new AtomicBoolean(true);
+        final FDBStoreTimer timer = getTimer();
 
         // Note: This runs all of the updates in serial in order to not invoke a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
         return cursor.forEachAsync(rec -> {
             empty.set(false);
+            if (timer != null) {
+                timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+            }
             if (recordTypes.contains(rec.getRecordType())) {
+                if (timer != null) {
+                    timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+                }
                 return maintainer.update(null, rec);
             } else {
                 return AsyncUtil.DONE;
@@ -539,20 +581,21 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
         }, 1).thenCompose(vignore -> {
             byte[] nextCont = empty.get() ? null : cursor.getContinuation();
             if (nextCont == null) {
-                return CompletableFuture.completedFuture(end);
+                return CompletableFuture.completedFuture(null);
             } else {
                 // Get the next record and return its primary key.
-                final ScanProperties scanProperties2 = new ScanProperties(ExecuteProperties.newBuilder()
+                final ExecuteProperties executeProperties2 = ExecuteProperties.newBuilder()
                         .setReturnedRowLimit(1)
                         .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                        .build());
-                RecordCursor<FDBStoredRecord<M>> nextCursor = store.scanRecords(start, end, startEndpoint, endEndpoint, nextCont, scanProperties2);
+                        .build();
+                final ScanProperties scanProperties2 = new ScanProperties(executeProperties2);
+                RecordCursor<FDBStoredRecord<M>> nextCursor = store.scanRecords(range, nextCont, scanProperties2);
                 return nextCursor.onHasNext().thenApply(hasNext -> {
                     if (hasNext) {
                         FDBStoredRecord<M> rec = nextCursor.next();
                         return rec.getPrimaryKey();
                     } else {
-                        return end;
+                        return null;
                     }
                 });
             }
@@ -572,6 +615,10 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
                     Tuple rangeStart = Arrays.equals(range.begin, START_BYTES) ? null : Tuple.fromBytes(range.begin);
                     Tuple rangeEnd = Arrays.equals(range.end, END_BYTES) ? null : Tuple.fromBytes(range.end);
                     return CompletableFuture.allOf(
+                            // TODO: This isn't generally correct, since buildRangeOnly might hit its limit first.
+                            // Should insertRange only up to the returned endpoint (or rangeEnd), like buildUnbuiltRange.
+                            // This method works because it is only called for the endpoint ranges, which are empty and
+                            // one long, respectively.
                             buildRangeOnly(store, rangeStart, rangeEnd),
                             rangeSet.insertRange(store.ensureContextActive(), range, true)
                     ).thenCompose(vignore -> ranges.onHasNext());
@@ -785,15 +832,16 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
      * Transactionally rebuild an entire index. This will (1) delete any data in the index that is
      * already there and (2) rebuild the entire key range for the given index. It will attempt to
      * do this within a single transaction, and it may fail if there are too many records, so this
-     * is only safe to do for small record stores. Many large use-cases should use the
-     * {@link OnlineIndexBuilderBase#buildIndex() buildIndex()} method along with temporarily
+     * is only safe to do for small record stores.
+     *
+     * Many large use-cases should use the {@link #buildIndexAsync} method along with temporarily
      * changing an index to write-only mode while the index is being rebuilt.
      *
      * @param store the record store in which to rebuild the index
      * @return a future that will be ready when the build has completed
      */
     @Nonnull
-    public CompletableFuture<Void> rebuildIndex(@Nonnull FDBRecordStoreBase<M> store) {
+    public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStoreBase<M> store) {
         Transaction tr = store.ensureContextActive();
         store.clearIndexData(index);
 
@@ -806,18 +854,29 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
                 .thenCompose(vignore -> rangeSet.insertRange(tr, null, null));
 
         // Rebuild the index by going through all of the records in a transaction.
-        AtomicReference<Tuple> startTuple = new AtomicReference<>(null);
+        AtomicReference<TupleRange> rangeToGo = new AtomicReference<>(recordsRange);
         CompletableFuture<Void> buildFuture = AsyncUtil.whileTrue(() ->
-                buildRangeOnly(store, startTuple.get(), null).thenApply(nextStart -> {
+                buildRangeOnly(store, rangeToGo.get()).thenApply(nextStart -> {
                     if (nextStart == null) {
                         return false;
                     } else {
-                        startTuple.set(nextStart);
+                        rangeToGo.set(new TupleRange(nextStart, rangeToGo.get().getHigh(), EndpointType.RANGE_INCLUSIVE, rangeToGo.get().getHighEndpoint()));
                         return true;
                     }
                 }), store.getExecutor());
 
         return CompletableFuture.allOf(rangeFuture, buildFuture);
+    }
+
+    /**
+     * Transactionally rebuild an entire index.
+     * Synchronous version of {@link #rebuildIndexAsync}
+     *
+     * @param store the record store in which to rebuild the index
+     * @see #buildIndex
+     */
+    public void rebuildIndex(@Nonnull FDBRecordStoreBase<M> store) {
+        asyncToSync(rebuildIndexAsync(store));
     }
 
     /**
@@ -840,13 +899,26 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
      */
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStoreBase<M> store) {
-        RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
+        final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
+        if (TupleRange.ALL.equals(recordsRange)) {
+            return buildEndpoints(store, rangeSet);
+        }
+        // If records do not occupy whole range, first mark outside as built.
+        final Range asRange = recordsRange.toRange();
+        return CompletableFuture.allOf(
+                rangeSet.insertRange(store.ensureContextActive(), null, asRange.begin),
+                rangeSet.insertRange(store.ensureContextActive(), asRange.end, null))
+                .thenCompose(vignore -> buildEndpoints(store, rangeSet));
+    }
 
-        RecordCursor<FDBStoredRecord<M>> beginCursor = store.scanRecords(
-                null, new ScanProperties(ExecuteProperties.newBuilder()
-                        .setReturnedRowLimit(1)
-                        .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                        .build()));
+    @Nonnull
+    private CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStoreBase<M> store, @Nonnull RangeSet rangeSet) {
+        final ExecuteProperties limit1 = ExecuteProperties.newBuilder()
+                .setReturnedRowLimit(1)
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                .build();
+        final ScanProperties forward = new ScanProperties(limit1);
+        RecordCursor<FDBStoredRecord<M>> beginCursor = store.scanRecords(recordsRange, null, forward);
         CompletableFuture<Tuple> begin = beginCursor.onHasNext().thenCompose(present -> {
             if (present) {
                 Tuple firstTuple = beginCursor.next().getPrimaryKey();
@@ -857,11 +929,8 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
             }
         });
 
-        RecordCursor<FDBStoredRecord<M>> endCursor = store.scanRecords(null, new ScanProperties(
-                ExecuteProperties.newBuilder()
-                        .setReturnedRowLimit(1)
-                        .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                        .build(), true));
+        final ScanProperties backward = new ScanProperties(limit1, true);
+        RecordCursor<FDBStoredRecord<M>> endCursor = store.scanRecords(recordsRange, null, backward);
         CompletableFuture<Tuple> end = endCursor.onHasNext().thenCompose(present -> {
             if (present) {
                 Tuple lastTuple = endCursor.next().getPrimaryKey();
@@ -905,7 +974,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
      * @return a future that will be ready when the build has completed
      */
     @Nonnull
-    public CompletableFuture<Void> buildIndex(boolean markReadable) {
+    public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         CompletableFuture<Void> buildFuture = buildEndpoints().thenCompose(tupleRange -> {
             if (tupleRange != null) {
                 return buildRange(Key.Evaluated.fromTuple(tupleRange.getLow()), Key.Evaluated.fromTuple(tupleRange.getHigh()));
@@ -934,13 +1003,32 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
      * @return a future that will be ready when the build has completed
      */
     @Nonnull
-    public CompletableFuture<Void> buildIndex() {
-        return buildIndex(true);
+    public CompletableFuture<Void> buildIndexAsync() {
+        return buildIndexAsync(true);
+    }
+
+    /**
+     * Builds an index across multiple transactions.
+     * Synchronous version of {@link #buildIndexAsync}.
+     * @param markReadable whether to mark the index as readable after building the index
+     */
+    @Nonnull
+    public void buildIndex(boolean markReadable) {
+        asyncToSync(buildIndexAsync(markReadable));
+    }
+
+    /**
+     * Builds an index across multiple transactions.
+     * Synchronous version of {@link #buildIndexAsync}.
+     */
+    @Nonnull
+    public void buildIndex() {
+        asyncToSync(buildIndexAsync());
     }
 
     /**
      * Wait for asynchronous index build to complete.
-     * @param buildIndexFuture the result of {@link #buildIndex}
+     * @param buildIndexFuture the result of {@link #buildIndexAsync}
      */
     public void asyncToSync(@Nonnull CompletableFuture<Void> buildIndexFuture) {
         runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);

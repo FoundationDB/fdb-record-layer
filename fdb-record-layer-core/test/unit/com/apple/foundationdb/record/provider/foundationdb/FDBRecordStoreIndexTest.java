@@ -1843,7 +1843,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
         // Build the index to make it actually usable.
         try (OnlineIndexBuilder onlineIndexBuilder = new OnlineIndexBuilder(fdb, recordMetaData, index.getName(), recordStore.getSubspace())) {
-            onlineIndexBuilder.buildIndex().get();
+            onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(recordMetaData).setKeySpacePath(path).createOrOpen();
@@ -1910,7 +1910,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         try (OnlineIndexBuilder onlineIndexBuilder = new OnlineIndexBuilder(recordStore, "index-1")) {
-            onlineIndexBuilder.buildIndex().get();
+            onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).setKeySpacePath(path).open(); // does not disable anything
