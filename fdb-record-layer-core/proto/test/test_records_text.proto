@@ -1,0 +1,60 @@
+/*
+ * test_records_text.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record.testtext;
+
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestRecordsTextProto";
+
+import "record_metadata_options.proto";
+
+message SimpleDocument {
+    optional int64 doc_id = 1 [(field).primary_key = true];
+    optional string text = 2 [(field).index = { type: "text" }];
+    optional int64 group = 3;
+}
+
+message ComplexDocument {
+    optional int64 group = 1;
+    optional int64 doc_id = 2;
+    optional string text = 3;
+    repeated string tag = 4;
+}
+
+message MultiDocument {
+    optional int64 doc_id = 1 [(field).primary_key = true];
+    repeated string text = 2;
+}
+
+message MapDocument {
+    optional int64 doc_id = 1 [(field).primary_key = true];
+    message Entry {
+        optional string key = 1;
+        optional string value = 2;
+    }
+    repeated Entry entry = 2;
+}
+
+message RecordTypeUnion {
+    optional SimpleDocument _SimpleDocument = 1;
+    optional ComplexDocument _ComplexDocument = 2;
+    optional MapDocument _MapDocument = 3;
+}

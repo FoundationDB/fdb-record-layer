@@ -1,0 +1,109 @@
+/*
+ * ValueIndexMaintainer.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.provider.foundationdb.indexes;
+
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.protobuf.Message;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * An index maintainer for an ordinary index by value, implementing ordered enumeration of records within a range of indexed values.
+ *
+ * When more than one field is indexed, records are ordered lexicographically.
+ *
+ * @param <M> type used to represent stored records
+ */
+public class ValueIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
+    public ValueIndexMaintainer(IndexMaintainerState<M> state) {
+        super(state);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
+                                         @Nonnull TupleRange range,
+                                         @Nullable byte[] continuation,
+                                         @Nonnull ScanProperties scanProperties) {
+        if (scanType != IndexScanType.BY_VALUE) {
+            throw new RecordCoreException("Can only scan standard index by value.");
+        }
+        return scan(range, continuation, scanProperties);
+    }
+
+    @Override
+    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+        return (function.getName().equals(FunctionNames.MIN) ||
+                function.getName().equals(FunctionNames.MAX)) &&
+                ungroupedAggregateOperand(function.getOperand()).isPrefixKey(state.index.getRootExpression());
+    }
+
+    protected static KeyExpression ungroupedAggregateOperand(@Nonnull KeyExpression key) {
+        if (key instanceof GroupingKeyExpression) {
+            return ((GroupingKeyExpression)key).getWholeKey();
+        } else {
+            return key;
+        }
+    }
+
+    @Override
+    @Nonnull
+    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
+                                                              @Nonnull TupleRange range,
+                                                              @Nonnull final IsolationLevel isolationLevel) {
+        final boolean reverse;
+        if (function.getName().equals(FunctionNames.MIN)) {
+            reverse = false;
+        } else if (function.getName().equals(FunctionNames.MAX)) {
+            reverse = true;
+        } else {
+            throw new MetaDataException("do not index aggregate function: " + function);
+        }
+        final int totalSize = function.getOperand().getColumnSize();
+        final int groupSize = totalSize - (function.getOperand() instanceof GroupingKeyExpression ?
+                ((GroupingKeyExpression) function.getOperand()).getGroupedCount() :
+                1);
+        return scan(IndexScanType.BY_VALUE, range, null, new ScanProperties(ExecuteProperties.newBuilder()
+                .setReturnedRowLimit(1)
+                .setIsolationLevel(isolationLevel)
+                .build(), reverse))
+                .first()
+                .thenApply(kvo -> kvo.map(kv -> TupleHelpers.subTuple(kv.getKey(), groupSize, totalSize)).orElse(null));
+    }
+
+}

@@ -1,0 +1,158 @@
+/*
+ * testing.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+if (hasProperty('testEnableCoverage')) {
+    apply plugin: 'jacoco'
+    tasks.withType(Test) { task ->
+        finalizedBy "jacoco${task.name.capitalize()}Report"
+    }
+}
+
+sourceSets {
+    integrationTest {
+        java {
+            srcDir 'test/functional'
+        }
+    }
+}
+
+dependencies {
+    integrationTestCompile sourceSets.main.output
+    integrationTestCompile configurations.testCompile
+    integrationTestCompile sourceSets.test.output
+    integrationTestRuntime configurations.testRuntime
+}
+
+task integrationTest(type: Test, dependsOn: integrationTestClasses) {
+    group = 'Verification'
+    description = 'Run integration and functional tests.'
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    testClassesDirs = sourceSets.integrationTest.output
+}
+
+test {
+    useJUnit {
+    }
+}
+
+task jenkinsUnitTest(type: Test) {
+    apply plugin: "jacoco"
+    useJUnit {
+    }
+    if (project.hasProperty('testsToRun')) {
+        include testsToRun
+    }
+    outputs.upToDateWhen { false } // always re-run test tasks
+    jacoco.append false
+    jacoco.destinationFile = file("$buildDir/jacoco/${project.name}.jacocoTest.exec")
+}
+
+jacoco {
+    toolVersion = jacocoVersion
+}
+
+def configureTestTask = { propertyPrefix, task ->
+    def handled = [propertyPrefix + '.ignoreFailures',
+                   propertyPrefix + '.debug',
+                   propertyPrefix + '.single',
+                   propertyPrefix + '.maxParallelForks',
+                   propertyPrefix + '.exclude',
+                   propertyPrefix + '.forkEvery']
+    System.properties.each { prop ->
+        def prefix = "${propertyPrefix}.sysProp."
+        if (!prop.key.startsWith(prefix.toString()))
+            return;
+        def setkey = prop.key.substring(prefix.length())
+        task.systemProperties[setkey] = prop.value
+        logger.debug "Set system property ${setkey} = ${prop.value} on ${propertyPrefix}"
+        handled.add(prop.key)
+    }
+
+    def tmpdir = file("$buildDir/tmp-${task.name}")
+    task.doFirst {
+        delete tmpdir
+        tmpdir.mkdirs()
+    }
+    task.systemProperties['java.io.tmpdir'] = tmpdir.absolutePath
+
+    // configure test logging
+    task.systemProperties['log4j.configuration'] = rootProject.file('gradle/scripts/log4j-test.properties').toURI()
+    task.systemProperties['mme.app.useLog4jPropertyConfigurator'] = 'false'
+
+    task.maxParallelForks = Integer.getInteger(propertyPrefix + '.maxParallelForks', 1)
+    task.forkEvery = Integer.getInteger(propertyPrefix + '.forkEvery', 0)
+
+    task.debug = Boolean.getBoolean(propertyPrefix + '.debug')
+    task.ignoreFailures = Boolean.getBoolean(propertyPrefix + '.ignoreFailures')
+
+    def excludes = System.getProperty(propertyPrefix + '.exclude')
+    if (excludes != null) {
+        task.exclude excludes
+    }
+
+    def reportsDirProperty = "${task.name}.reportsDir".toString()
+    handled.add(reportsDirProperty)
+    def reportsDir = System.getProperty(reportsDirProperty)
+    if (reportsDir != null) {
+        task.reports.junitXml.destination = reportsDir
+    }
+
+    System.properties.each { prop ->
+        if (prop.key.startsWith(propertyPrefix + '.') && !handled.contains(prop.key)) {
+            logger.warn "Unknown system property that looks like it was intended to configure this task: ${prop.key}=${prop.value}"
+        }
+    }
+}
+
+tasks.withType(Test) { task ->
+    configureTestTask('allTest', task)
+    configureTestTask(task.name, task)
+    testLogging {
+        events 'started', 'passed', 'failed', 'skipped'
+        exceptionFormat = 'full'
+    }
+    reports {
+        junitXml.outputPerTestCase = true
+    }
+}
+
+task testJar(type: Jar, dependsOn: testClasses) {
+    group = 'Build'
+    description = 'Build a jar file of test classes as an exported artifact'
+    baseName = "${project.archivesBaseName}-test"
+    from sourceSets.test.output
+}
+
+configurations {
+    tests {
+        extendsFrom testRuntime
+    }
+}
+
+artifacts {
+    tests testJar
+}
+
+task quickCheck {
+    group = 'Verification'
+    description = 'Perform fast build verification'
+
+    dependsOn testClasses, integrationTestClasses
+}

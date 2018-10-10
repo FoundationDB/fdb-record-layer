@@ -1,0 +1,2108 @@
+/*
+ * TextIndexTest.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.provider.foundationdb.indexes;
+
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.map.BunchedMap;
+import com.apple.foundationdb.map.BunchedMapMultiIterator;
+import com.apple.foundationdb.map.BunchedMapScanEntry;
+import com.apple.foundationdb.map.SubspaceSplitter;
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsTextProto;
+import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
+import com.apple.foundationdb.record.TestRecordsTextProto.MapDocument;
+import com.apple.foundationdb.record.TestRecordsTextProto.SimpleDocument;
+import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.MetaDataValidator;
+import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
+import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
+import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
+import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
+import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
+import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizerFactory;
+import com.apple.foundationdb.record.provider.common.text.FilteringTextTokenizer;
+import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
+import com.apple.foundationdb.record.provider.common.text.TextSamples;
+import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
+import com.apple.foundationdb.record.provider.common.text.TextTokenizerFactory;
+import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.AndComponent;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
+import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
+import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.foundationdb.util.LoggableException;
+import com.apple.test.Tags;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
+import org.hamcrest.Matcher;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+import static com.apple.foundationdb.record.IndexScanType.BY_GROUP;
+import static com.apple.foundationdb.record.IndexScanType.BY_RANK;
+import static com.apple.foundationdb.record.IndexScanType.BY_TEXT_TOKEN;
+import static com.apple.foundationdb.record.IndexScanType.BY_TIME_WINDOW;
+import static com.apple.foundationdb.record.IndexScanType.BY_VALUE;
+import static com.apple.foundationdb.record.RecordCursor.NoNextReason.RETURN_LIMIT_REACHED;
+import static com.apple.foundationdb.record.RecordCursor.NoNextReason.SCAN_LIMIT_REACHED;
+import static com.apple.foundationdb.record.RecordCursor.NoNextReason.SOURCE_EXHAUSTED;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexBunchedSerializerTest.entryOf;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.groupingBounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.textComparison;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.textIndexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+/**
+ * Tests for {@code TEXT} type indexes.
+ */
+@Tag(Tags.RequiresFDB)
+@SuppressWarnings({"squid:S1192", "squid:S00112"}) // constant definition, throwing "Exception"
+public class TextIndexTest extends FDBRecordStoreTestBase {
+    private static final TextTokenizerFactory FILTERING_TOKENIZER = FilteringTextTokenizer.create(
+            "filter_by_length$" + TextIndexTest.class.getCanonicalName(),
+            new DefaultTextTokenizerFactory(),
+            (token, version) -> token.length() < 10
+    );
+    private static final Logger LOGGER = LoggerFactory.getLogger(TextIndexTest.class);
+    private static final BunchedMap<Tuple, List<Integer>> BUNCHED_MAP = new BunchedMap<>(TextIndexBunchedSerializer.instance(), Comparator.naturalOrder(), 20);
+    private static final Index COMPLEX_TEXT_BY_GROUP = new Index("Complex$text_by_group", field("text").groupBy(field("group")), IndexTypes.TEXT);
+    private static final String SIMPLE_DEFAULT_NAME = "SimpleDocument$text";
+    private static final Index SIMPLE_TEXT_PREFIX = new Index("Simple$text_prefix", field("text"), IndexTypes.TEXT,
+            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "1"));
+    private static final Index SIMPLE_TEXT_FILTERING = new Index("Simple$text_filter", field("text"), IndexTypes.TEXT,
+            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, FILTERING_TOKENIZER.getName()));
+    private static final Index SIMPLE_TEXT_PREFIX_LEGACY = new Index("Simple$text_prefix", field("text"), IndexTypes.TEXT,
+            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME)); // no version -- default to zero
+    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes", field("text"), IndexTypes.TEXT,
+            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+    private static final Index COMBINED_TEXT_BY_GROUP = new Index("Combined$text_by_group", field("text").groupBy(field("group")), IndexTypes.TEXT);
+    private static final Index COMPLEX_MULTI_TAG_INDEX = new Index("Complex$multi_tag", field("text").groupBy(field("tag", FanType.FanOut)), IndexTypes.TEXT);
+    private static final Index COMPLEX_THEN_TAG_INDEX = new Index("Complex$text_tag", concat(field("text"), field("tag", FanType.FanOut)), IndexTypes.TEXT);
+    private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT);
+    private static final Index MAP_ON_VALUE_PREFIX_LEGACY = new Index("Map$entry-value_prefix", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT,
+            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "0"));
+    private static final Index MAP_ON_VALUE_PREFIX = new Index("Map$entry-value_prefix", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT,
+            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "1"));
+    private static final TransformedRecordSerializer<Message> COMPRESSING_SERIALIZER = TransformedRecordSerializer.newDefaultBuilder().setCompressWhenSerializing(true).build();
+    private static final String SIMPLE_DOC = "SimpleDocument";
+    private static final String COMPLEX_DOC = "ComplexDocument";
+    private static final String MAP_DOC = "MapDocument";
+
+    @BeforeEach
+    public void resetRegistry() {
+        TextTokenizerRegistryImpl.instance().reset();
+    }
+
+    protected void openRecordStore(FDBRecordContext context) throws Exception {
+        openRecordStore(context, NO_HOOK);
+    }
+
+    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook) throws Exception {
+        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsTextProto.getDescriptor());
+        metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
+        hook.apply(metaDataBuilder);
+        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        recordStore = recordStore.asBuilder().setSerializer(COMPRESSING_SERIALIZER).build();
+        evaluationContext = recordStore.emptyEvaluationContext();
+    }
+
+    private static int getSaveIndexKeyCount(@Nonnull FDBRecordStore recordStore) {
+        return recordStore.getTimer().getCount(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
+    }
+
+    private static void validateSorted(@Nonnull List<IndexEntry> entryList) {
+        if (entryList.isEmpty()) {
+            return;
+        }
+        IndexEntry last = null;
+        for (IndexEntry entry : entryList) {
+            if (last != null) {
+                assertThat(entry.getKey(), greaterThan(last.getKey()));
+            }
+            last = entry;
+        }
+    }
+
+    @Nonnull
+    private static List<IndexEntry> scanIndex(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull TupleRange range, @Nonnull ScanProperties scanProperties) throws ExecutionException, InterruptedException {
+        return store.scanIndex(index, BY_TEXT_TOKEN, range, null, scanProperties).asList().get();
+    }
+
+    @Nonnull
+    private static List<IndexEntry> scanIndex(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull TupleRange range) throws ExecutionException, InterruptedException {
+        List<IndexEntry> results = scanIndex(store, index, range, ScanProperties.FORWARD_SCAN);
+        validateSorted(results);
+        List<IndexEntry> backwardResults = new ArrayList<>(scanIndex(store, index, range, ScanProperties.REVERSE_SCAN));
+        Collections.reverse(backwardResults);
+        assertEquals(results, backwardResults);
+
+        // Validate that
+        final int limit = 3;
+        for (int i = 0; i < 8; i++) {
+            ExecuteProperties.Builder propertiesBuilder = ExecuteProperties.newBuilder();
+            if (i < 4) {
+                propertiesBuilder.setReturnedRowLimit(limit);
+            } else {
+                propertiesBuilder.setScannedRecordsLimit(limit);
+            }
+            List<IndexEntry> paginatedResults = new ArrayList<>(results.size());
+            boolean done = false;
+            byte[] continuation = null;
+            do {
+                if (i >= 2 && i < 4) {
+                    // Use skip instead of continuation to achieve the same results.
+                    continuation = null;
+                    propertiesBuilder.setSkip(paginatedResults.size());
+                }
+                ScanProperties scanProperties = propertiesBuilder.build().asScanProperties(i % 2 == 0);
+                int retrieved = 0;
+                RecordCursor<IndexEntry> cursor = store.scanIndex(index, BY_TEXT_TOKEN, range, continuation, scanProperties);
+                while (cursor.hasNext()) {
+                    paginatedResults.add(cursor.next());
+                    retrieved++;
+                }
+                if (done) {
+                    assertEquals(0, retrieved);
+                    assertNull(cursor.getContinuation());
+                }
+                if (retrieved < limit) {
+                    assertEquals(SOURCE_EXHAUSTED, cursor.getNoNextReason());
+                } else {
+                    assertEquals(limit, retrieved);
+                    assertEquals(i < 4 ? RETURN_LIMIT_REACHED : SCAN_LIMIT_REACHED, cursor.getNoNextReason());
+                }
+                done = cursor.getNoNextReason().isSourceExhausted();
+                continuation = cursor.getContinuation();
+            } while (continuation != null);
+
+            if (i % 2 == 0) {
+                Collections.reverse(paginatedResults);
+            }
+            assertEquals(results, paginatedResults);
+        }
+
+        return results;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    private List<Map.Entry<Tuple, List<Integer>>> toMapEntries(@Nonnull List<IndexEntry> indexEntries, @Nullable Tuple prefix) {
+        List<Map.Entry<Tuple, List<Integer>>> mapEntries = new ArrayList<>(indexEntries.size());
+        for (IndexEntry entry : indexEntries) {
+            List<Integer> positionList = (List<Integer>)entry.getValue().get(0);
+            if (prefix == null) {
+                mapEntries.add(entryOf(entry.getKey(), positionList));
+            } else {
+                assertEquals(TupleHelpers.subTuple(entry.getKey(), 0, prefix.size()), prefix);
+                mapEntries.add(entryOf(TupleHelpers.subTuple(entry.getKey(), prefix.size(), entry.getKey().size()), positionList));
+            }
+        }
+        return mapEntries;
+    }
+
+    @Nonnull
+    private List<Map.Entry<Tuple, List<Integer>>> scanMapEntries(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull Tuple prefix) throws ExecutionException, InterruptedException {
+        return toMapEntries(scanIndex(store, index, TupleRange.allOf(prefix)), prefix);
+    }
+
+    @Nonnull
+    private List<BunchedMapScanEntry<Tuple, List<Integer>, String>> scanMulti(@Nonnull FDBRecordStore store, @Nonnull Subspace mapSubspace) throws ExecutionException, InterruptedException {
+        SubspaceSplitter<String> splitter = new SubspaceSplitter<String>() {
+            @Nonnull
+            @Override
+            public Subspace subspaceOf(@Nonnull byte[] keyBytes) {
+                Tuple t = mapSubspace.unpack(keyBytes);
+                return mapSubspace.subspace(TupleHelpers.subTuple(t, 0, 1));
+            }
+
+            @Nonnull
+            @Override
+            public String subspaceTag(@Nonnull Subspace subspace) {
+                return mapSubspace.unpack(subspace.getKey()).getString(0);
+            }
+        };
+        BunchedMapMultiIterator<Tuple, List<Integer>, String> iterator = BUNCHED_MAP.scanMulti(store.ensureContextActive(), mapSubspace, splitter);
+        return AsyncUtil.collectRemaining(iterator).get();
+    }
+
+    @Nonnull
+    private List<Pair<Tuple, Integer>> scanTokenizerVersions(@Nonnull FDBRecordStore store, @Nonnull Index index) throws ExecutionException, InterruptedException {
+        final Subspace tokenizerVersionSubspace = store.indexSecondarySubspace(index).subspace(TextIndexMaintainer.TOKENIZER_VERSION_SUBSPACE_TUPLE);
+        return recordStore.ensureContextActive().getRange(tokenizerVersionSubspace.range()).asList().get().stream()
+                .map(kv -> Pair.of(tokenizerVersionSubspace.unpack(kv.getKey()), (int)Tuple.fromBytes(kv.getValue()).getLong(0)))
+                .collect(Collectors.toList());
+    }
+
+    @Test
+    public void saveSimpleDocuments() throws Exception {
+        final SimpleDocument simpleDocument = SimpleDocument.newBuilder()
+                .setDocId(1066L)
+                .setText("This is a simple document. There isn't much going on here, if I'm honest.")
+                .setGroup(0)
+                .build();
+        final SimpleDocument buffaloDocument = SimpleDocument.newBuilder()
+                .setDocId(1415L)
+                .setText("Buffalo buffalo Buffalo buffalo buffalo buffalo Buffalo buffalo Buffalo buffalo buffalo.")
+                .setGroup(1)
+                .build();
+        final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
+                .setDocId(1623L)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .setGroup(2)
+                .build();
+        final SimpleDocument noTextDocument = SimpleDocument.newBuilder()
+                .setDocId(0L)
+                .setGroup(0)
+                .build();
+        final SimpleDocument emptyDocument = SimpleDocument.newBuilder()
+                .setDocId(1L)
+                .setGroup(1)
+                .setText("")
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            Index index = recordStore.getRecordMetaData().getIndex(SIMPLE_DEFAULT_NAME);
+
+            recordStore.saveRecord(simpleDocument);
+            int firstKeys = getSaveIndexKeyCount(recordStore);
+            assertEquals(simpleDocument.getText().split(" ").length, firstKeys);
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, index, Tuple.from("document"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1066L), Collections.singletonList(4))), entryList);
+
+            recordStore.saveRecord(buffaloDocument);
+            int secondKeys = getSaveIndexKeyCount(recordStore) - firstKeys;
+            assertEquals(1, secondKeys);
+            entryList = scanMapEntries(recordStore, index, Tuple.from("buffalo"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1415L), IntStream.range(0, 11).boxed().collect(Collectors.toList()))), entryList);
+
+            recordStore.saveRecord(shakespeareDocument);
+            int thirdKeys = getSaveIndexKeyCount(recordStore) - secondKeys - firstKeys;
+            assertEquals(82, thirdKeys);
+            entryList = scanMapEntries(recordStore, index, Tuple.from("parents"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Arrays.asList(57, 72))), entryList);
+
+            entryList = toMapEntries(scanIndex(recordStore, index, TupleRange.prefixedBy("h")), null);
+            assertEquals(Arrays.asList(
+                    entryOf(Tuple.from("hands", 1623), Collections.singletonList(26)),
+                    entryOf(Tuple.from("here", 1066), Collections.singletonList(10)),
+                    entryOf(Tuple.from("here", 1623), Collections.singletonList(101)),
+                    entryOf(Tuple.from("honest", 1066), Collections.singletonList(13)),
+                    entryOf(Tuple.from("hours", 1623), Collections.singletonList(87)),
+                    entryOf(Tuple.from("households", 1623), Collections.singletonList(1))
+            ), entryList);
+            List<Message> recordList = recordStore.scanIndexRecords(index.getName(), BY_TEXT_TOKEN, TupleRange.prefixedBy("h"), null, ScanProperties.FORWARD_SCAN)
+                    .map(FDBIndexedRecord::getRecord)
+                    .asList()
+                    .get();
+            assertEquals(Arrays.asList(shakespeareDocument, simpleDocument, shakespeareDocument, simpleDocument, shakespeareDocument, shakespeareDocument), recordList);
+
+            recordStore.saveRecord(noTextDocument);
+            int fourthKeys = getSaveIndexKeyCount(recordStore) - thirdKeys - secondKeys - firstKeys;
+            assertEquals(0, fourthKeys);
+
+            recordStore.saveRecord(emptyDocument);
+            int fifthKeys = getSaveIndexKeyCount(recordStore) - fourthKeys - thirdKeys - secondKeys - firstKeys;
+            assertEquals(0, fifthKeys);
+
+            recordStore.deleteRecord(Tuple.from(1623L));
+            entryList = scanMapEntries(recordStore, index, Tuple.from("parents"));
+            assertEquals(Collections.emptyList(), entryList);
+
+            recordStore.saveRecord(simpleDocument.toBuilder().setDocId(1707L).build());
+            entryList = scanMapEntries(recordStore, index, Tuple.from("document"));
+            assertEquals(Arrays.asList(entryOf(Tuple.from(1066L), Collections.singletonList(4)), entryOf(Tuple.from(1707L), Collections.singletonList(4))), entryList);
+
+            recordStore.deleteRecord(Tuple.from(1066L));
+            entryList = scanMapEntries(recordStore, index, Tuple.from("document"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1707L), Collections.singletonList(4))), entryList);
+
+            commit(context);
+        }
+    }
+
+    // An older implementation did reverse range scan to find the keys before and after in order
+    // to find where insertions should go. This was able to reproduce an error where two keys could
+    // be returned after the scan that were both greater than the map key due to a race condition.
+    // This was able to reproduce the error when run alone.
+    @Test
+    public void backwardsRangeScanRaceCondition() throws Exception {
+        final Random r = new Random(0x5ca1ab1e);
+        final List<String> lexicon = Arrays.asList(TextSamples.ROMEO_AND_JULIET_PROLOGUE.split(" "));
+        final SimpleDocument bigDocument = getRandomRecords(r, 1, lexicon, 100, 0).get(0);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.setSplitLongRecords(true));
+            LOGGER.info(KeyValueLogMessage.of("saving document", "document", bigDocument));
+            recordStore.saveRecord(bigDocument);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.setSplitLongRecords(true));
+            recordStore.deleteRecord(Tuple.from(bigDocument.getDocId()));
+            recordStore.saveRecord(bigDocument);
+            // do not commit
+        } catch (RuntimeException e) {
+            Throwable err = e;
+            while (!(err instanceof LoggableException) && err != null) {
+                err = err.getCause();
+            }
+            if (err != null) {
+                LoggableException logE = (LoggableException) err;
+                LOGGER.error(KeyValueLogMessage.build("unable to save record")
+                        .addKeysAndValues(logE.getLogInfo())
+                        .toString(), err);
+                throw logE;
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    @Test
+    public void saveSimpleDocumentsWithPrefix() throws Exception {
+        final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
+                .setDocId(1623L)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .setGroup(2)
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_PREFIX_LEGACY);
+            });
+            recordStore.saveRecord(shakespeareDocument);
+            assertEquals(74, getSaveIndexKeyCount(recordStore));
+
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, SIMPLE_TEXT_PREFIX_LEGACY, Tuple.from("par"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Arrays.asList(57, 72))), entryList);
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.deleteStore(context, recordStore.getSubspace());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_PREFIX);
+            });
+            recordStore.saveRecord(shakespeareDocument);
+            assertEquals(79, getSaveIndexKeyCount(recordStore));
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, SIMPLE_TEXT_PREFIX, Tuple.from("par"));
+            assertEquals(Collections.emptyList(), entryList);
+            entryList = scanMapEntries(recordStore, SIMPLE_TEXT_PREFIX, Tuple.from("pare"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Arrays.asList(57, 72))), entryList);
+            commit(context);
+        }
+    }
+
+    @Test
+    public void saveSimpleDocumentsWithFilter() throws Exception {
+        final SimpleDocument russianDocument = SimpleDocument.newBuilder()
+                .setDocId(1547L)
+                .setText(TextSamples.RUSSIAN)
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            // Because missing tokenizer
+            assertThrows(MetaDataException.class, () -> openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_FILTERING);
+            }));
+        }
+        TextTokenizerRegistryImpl.instance().register(FILTERING_TOKENIZER);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_FILTERING);
+            });
+            recordStore.saveRecord(russianDocument);
+            // Note that достопримечательности has been filtered out, so it's probably a
+            // lot less interesting to visit.
+            assertEquals(4, getSaveIndexKeyCount(recordStore));
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, SIMPLE_TEXT_FILTERING, Tuple.from("достопримечательности"));
+            assertEquals(Collections.emptyList(), entryList);
+            entryList = scanMapEntries(recordStore, SIMPLE_TEXT_FILTERING, Tuple.from("москвы"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1547L), Collections.singletonList(4))), entryList);
+            commit(context);
+        }
+    }
+
+    @Test
+    public void saveSimpleDocumentsWithSuffixes() throws Exception {
+        final SimpleDocument germanDocument = SimpleDocument.newBuilder()
+                .setDocId(1623L)
+                .setText(TextSamples.GERMAN)
+                .setGroup(2)
+                .build();
+        final SimpleDocument russianDocument = SimpleDocument.newBuilder()
+                .setDocId(1547L)
+                .setText(TextSamples.RUSSIAN)
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_SUFFIXES);
+            });
+            recordStore.saveRecord(germanDocument);
+            assertEquals(82, getSaveIndexKeyCount(recordStore));
+            recordStore.saveRecord(russianDocument);
+            assertEquals(82 + 45, getSaveIndexKeyCount(recordStore));
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, SIMPLE_TEXT_SUFFIXES, Tuple.from("mannschaft"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Collections.singletonList(11))), entryList);
+            entryList = scanMapEntries(recordStore, SIMPLE_TEXT_SUFFIXES, Tuple.from("schaft"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Arrays.asList(15, 38))), entryList);
+            entryList = scanMapEntries(recordStore, SIMPLE_TEXT_SUFFIXES, Tuple.from("ности"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1547L), Collections.singletonList(34))), entryList);
+            commit(context);
+        }
+    }
+
+    @Test
+    public void saveComplexDocuments() throws Exception {
+        ComplexDocument complexDocument = ComplexDocument.newBuilder()
+                .setGroup(0)
+                .setDocId(1066L)
+                .setText("Very complex. Not to be trifled with.")
+                .build();
+        ComplexDocument shakespeareDocument = ComplexDocument.newBuilder()
+                .setGroup(0)
+                .setDocId(1623L)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .addTag("a")
+                .addTag("b")
+                .build();
+        ComplexDocument yiddishDocument = ComplexDocument.newBuilder()
+                .setGroup(1)
+                .setDocId(1944L)
+                .setText(TextSamples.YIDDISH)
+                .addTag("c")
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(COMPLEX_DOC), COMPLEX_TEXT_BY_GROUP));
+            recordStore.saveRecord(complexDocument);
+            int firstKeys = getSaveIndexKeyCount(recordStore);
+            assertEquals(complexDocument.getText().split(" ").length, firstKeys);
+
+            recordStore.saveRecord(shakespeareDocument);
+            int secondKeys = getSaveIndexKeyCount(recordStore) - firstKeys;
+            assertEquals(82, secondKeys);
+
+            recordStore.saveRecord(yiddishDocument);
+            int thirdKeys = getSaveIndexKeyCount(recordStore) - secondKeys - firstKeys;
+            assertEquals(9, thirdKeys);
+
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, COMPLEX_TEXT_BY_GROUP, Tuple.from(0L, "to"));
+            assertEquals(Arrays.asList(
+                    entryOf(Tuple.from(1066L), Collections.singletonList(3)),
+                    entryOf(Tuple.from(1623L), Arrays.asList(18, 108))
+            ), entryList);
+            List<Message> recordList = recordStore.scanIndexRecords(COMPLEX_TEXT_BY_GROUP.getName(), BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(0L, "to")), null, ScanProperties.FORWARD_SCAN)
+                    .map(FDBIndexedRecord::getRecord)
+                    .asList()
+                    .get();
+            assertEquals(Arrays.asList(complexDocument, shakespeareDocument), recordList);
+
+            entryList = toMapEntries(scanIndex(recordStore, COMPLEX_TEXT_BY_GROUP, TupleRange.prefixedBy("א").prepend(Tuple.from(1L))), null);
+            assertEquals(Arrays.asList(
+                    entryOf(Tuple.from(1L, "א", 1944L), Arrays.asList(0, 3)),
+                    entryOf(Tuple.from(1L, "און", 1944L), Collections.singletonList(8)),
+                    entryOf(Tuple.from(1L, "איז", 1944L), Collections.singletonList(2)),
+                    entryOf(Tuple.from(1L, "אן", 1944L), Collections.singletonList(6)),
+                    entryOf(Tuple.from(1L, "ארמיי", 1944L), Collections.singletonList(7))
+            ), entryList);
+
+            // Read the whole store and make sure the values come back in a somewhat sensible way
+            entryList = toMapEntries(scanIndex(recordStore, COMPLEX_TEXT_BY_GROUP, TupleRange.ALL), null);
+            assertEquals(firstKeys + secondKeys + thirdKeys, entryList.size());
+            int i = 0;
+            String last = null;
+            for (Map.Entry<Tuple, List<Integer>> entry : entryList) {
+                assertEquals(3, entry.getKey().size());
+                if (i < firstKeys + secondKeys) {
+                    assertEquals(0L, entry.getKey().getLong(0));
+                    assertThat(entry.getKey().getLong(2), anyOf(is(1066L), is(1623L)));
+                } else {
+                    assertEquals(1L, entry.getKey().getLong(0));
+                    assertEquals(1944L, entry.getKey().getLong(2));
+                    if (i == firstKeys + secondKeys) {
+                        last = null;
+                    }
+                }
+                if (last != null) {
+                    assertThat(entry.getKey().getString(1), greaterThanOrEqualTo(last));
+                }
+                last = entry.getKey().getString(1);
+                i++;
+            }
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void saveComplexMultiDocuments() throws Exception {
+        final ComplexDocument shakespeareDocument = ComplexDocument.newBuilder()
+                .setGroup(0)
+                .setDocId(1623L)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .addTag("a")
+                .addTag("b")
+                .build();
+
+        // First, repeated key comes *before* text.
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(COMPLEX_DOC), COMPLEX_MULTI_TAG_INDEX));
+            recordStore.saveRecord(shakespeareDocument);
+            int indexKeys = getSaveIndexKeyCount(recordStore);
+            assertEquals(164, indexKeys);
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, COMPLEX_MULTI_TAG_INDEX, Tuple.from("a", "civil"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(0L, 1623L), Arrays.asList(22, 25))), entryList);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.deleteStore(context, recordStore.getSubspace());
+            commit(context);
+        }
+        // Then, repeated key comes *after* text.
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(COMPLEX_DOC), COMPLEX_THEN_TAG_INDEX));
+            recordStore.saveRecord(shakespeareDocument);
+            int indexKeys = getSaveIndexKeyCount(recordStore);
+            assertEquals(164, indexKeys);
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, COMPLEX_THEN_TAG_INDEX, Tuple.from("civil"));
+            assertEquals(Arrays.asList(
+                    entryOf(Tuple.from("a", 0L, 1623L), Arrays.asList(22, 25)),
+                    entryOf(Tuple.from("b", 0L, 1623L), Arrays.asList(22, 25))
+            ), entryList);
+            commit(context);
+        }
+    }
+
+    @Test
+    public void saveMapDocuments() throws Exception {
+        final MapDocument firstDocument = MapDocument.newBuilder()
+                .setDocId(1066L)
+                .addEntry(MapDocument.Entry.newBuilder()
+                        .setKey("a")
+                        .setValue(TextSamples.ANGSTROM)
+                )
+                .addEntry(MapDocument.Entry.newBuilder()
+                        .setKey("b")
+                        .setValue(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                )
+                .build();
+        final MapDocument secondDocument = MapDocument.newBuilder()
+                .setDocId(1415L)
+                .addEntry(MapDocument.Entry.newBuilder()
+                        .setKey("a")
+                        .setValue(TextSamples.OLD_S)
+                )
+                .addEntry(MapDocument.Entry.newBuilder()
+                        .setKey("c")
+                        .setValue(TextSamples.FRENCH)
+                )
+                .build();
+
+        final MapDocument documentWithEmpties = MapDocument.newBuilder()
+                .setDocId(1815L)
+                .addEntry(MapDocument.Entry.newBuilder()
+                        .setKey("a") // value intentionally left unset
+                )
+                .addEntry(MapDocument.Entry.newBuilder()
+                        .setKey("b")
+                        .setValue("")
+                )
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_INDEX);
+            });
+
+            recordStore.saveRecord(firstDocument);
+            recordStore.saveRecord(secondDocument);
+            recordStore.saveRecord(documentWithEmpties);
+
+            assertEquals(Arrays.asList(entryOf(Tuple.from(1066L), Collections.singletonList(0)), entryOf(Tuple.from(1415L), Collections.singletonList(7))),
+                    scanMapEntries(recordStore, MAP_ON_VALUE_INDEX, Tuple.from("a", "the")));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1066L), Arrays.asList(22, 25))),
+                    scanMapEntries(recordStore, MAP_ON_VALUE_INDEX, Tuple.from("b", "civil")));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1415L), Collections.singletonList(4))),
+                    scanMapEntries(recordStore, MAP_ON_VALUE_INDEX, Tuple.from("c", "a")));
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void saveCombinedByGroup() throws Exception {
+        final SimpleDocument simpleDocument = SimpleDocument.newBuilder()
+                .setGroup(0)
+                .setDocId(1907L)
+                .setText(TextSamples.ANGSTROM)
+                .build();
+        final ComplexDocument complexDocument = ComplexDocument.newBuilder()
+                .setGroup(0)
+                .setDocId(966L)
+                .setText(TextSamples.AETHELRED)
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addMultiTypeIndex(
+                        Arrays.asList(metaDataBuilder.getRecordType(COMPLEX_DOC), metaDataBuilder.getRecordType(SIMPLE_DOC)),
+                        COMBINED_TEXT_BY_GROUP
+                );
+            });
+            recordStore.saveRecord(simpleDocument);
+            int firstKeys = getSaveIndexKeyCount(recordStore);
+            assertEquals(8, firstKeys);
+            recordStore.saveRecord(complexDocument);
+            int secondKeys = getSaveIndexKeyCount(recordStore) - firstKeys;
+            assertEquals(11, secondKeys);
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, COMBINED_TEXT_BY_GROUP, Tuple.from(0, "was"));
+            assertEquals(Arrays.asList(
+                    entryOf(Tuple.from(0L, 966L), Collections.singletonList(7)),
+                    entryOf(Tuple.from(1907L), Collections.singletonList(4))
+            ), entryList);
+            commit(context);
+        }
+    }
+
+    @Test
+    private void saveTwoRecordsConcurrently(@Nonnull RecordMetaDataHook hook, @Nonnull Message record1, @Nonnull Message record2, boolean shouldSucceed) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            recordStore.saveRecord(record1);
+            try (FDBRecordContext context2 = openContext()) {
+                openRecordStore(context2, hook);
+                recordStore.saveRecord(record2);
+                commit(context2);
+            }
+            if (shouldSucceed) {
+                commit(context);
+            } else {
+                assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(context));
+            }
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            Set<Message> records = new HashSet<>(recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+                    .map(FDBStoredRecord::getRecord)
+                    .asList()
+                    .get());
+            Set<Message> expectedRecords = shouldSucceed ? ImmutableSet.of(record1, record2) : Collections.singleton(record2);
+            assertEquals(expectedRecords, records);
+            commit(context);
+        }
+    }
+
+    @Test
+    public void saveSimpleWithAggressiveConflictRanges() throws Exception {
+        // These two documents are from different languages and thus have no conflicts, so
+        // without the aggressive conflict ranges, they wouldn't conflict if not
+        // for the aggressive conflict ranges
+        final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
+                .setDocId(1623L)
+                .setGroup(0)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .build();
+        final SimpleDocument yiddishDocument = SimpleDocument.newBuilder()
+                .setDocId(1945L)
+                .setGroup(0)
+                .setText(TextSamples.YIDDISH)
+                .build();
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            final Index oldIndex = metaDataBuilder.getIndex(SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+            final Index newIndex = new Index(SIMPLE_DEFAULT_NAME + "-new", oldIndex.getRootExpression(), IndexTypes.TEXT,
+                    ImmutableMap.of(Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
+            metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), newIndex);
+        };
+        saveTwoRecordsConcurrently(hook, shakespeareDocument, yiddishDocument, false);
+    }
+
+    @Test
+    public void saveComplexWithAggressiveConflictRanges() throws Exception {
+        // These two documents are in different groups, so even with aggressive conflict
+        // ranges, they should be able to be committed concurrently.
+        final ComplexDocument zeroGroupDocument = ComplexDocument.newBuilder()
+                .setGroup(0)
+                .setDocId(1623L)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .build();
+        final ComplexDocument oneGroupDocument = ComplexDocument.newBuilder()
+                .setGroup(1)
+                .setDocId(1623L)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .build();
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            final Index newIndex = new Index(COMPLEX_TEXT_BY_GROUP.getName(), COMBINED_TEXT_BY_GROUP.getRootExpression(), IndexTypes.TEXT,
+                    ImmutableMap.of(Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
+            metaDataBuilder.addIndex(metaDataBuilder.getRecordType(COMPLEX_DOC), newIndex);
+        };
+        saveTwoRecordsConcurrently(hook, zeroGroupDocument, oneGroupDocument, true);
+    }
+
+    @Test
+    public void tokenizerVersionChange() throws Exception {
+        final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
+                .setDocId(1623L)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .build();
+        final SimpleDocument aethelredDocument1 = SimpleDocument.newBuilder()
+                .setDocId(966L)
+                .setText(TextSamples.AETHELRED)
+                .build();
+        final SimpleDocument aethelredDocument2 = SimpleDocument.newBuilder()
+                .setDocId(1016L)
+                .setText(TextSamples.AETHELRED)
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            // Use a version of the prefix filter that only keeps first 3 letters
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_PREFIX_LEGACY);
+            });
+            recordStore.saveRecord(shakespeareDocument);
+            recordStore.saveRecord(aethelredDocument1);
+            List<Map.Entry<Tuple, List<Integer>>> scannedEntries = scanMapEntries(recordStore, SIMPLE_TEXT_PREFIX_LEGACY, Tuple.from("the"));
+            assertEquals(Arrays.asList(entryOf(Tuple.from(966L), Arrays.asList(2, 5)), entryOf(Tuple.from(1623L), Arrays.asList(30, 34, 44, 53, 56, 59, 63, 68, 71, 76, 85, 92))), scannedEntries);
+            assertEquals(Arrays.asList(Pair.of(Tuple.from(966L), 0), Pair.of(Tuple.from(1623L), 0)),
+                    scanTokenizerVersions(recordStore, SIMPLE_TEXT_PREFIX_LEGACY));
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            // Use a version of the prefix filter that keeps the first 4 letters instead
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_PREFIX);
+            });
+            // check saving new document
+            recordStore.saveRecord(aethelredDocument2);
+            List<Map.Entry<Tuple, List<Integer>>> scannedEntries = toMapEntries(scanIndex(recordStore, SIMPLE_TEXT_PREFIX, TupleRange.prefixedBy("enc")), TupleHelpers.EMPTY);
+            assertEquals(Arrays.asList(entryOf(Tuple.from("enc", 966L), Collections.singletonList(3)), entryOf(Tuple.from("ency", 1016L), Collections.singletonList(3))), scannedEntries);
+            assertEquals(Arrays.asList(Pair.of(Tuple.from(966L), 0), Pair.of(Tuple.from(1016L), 1), Pair.of(Tuple.from(1623L), 0)),
+                    scanTokenizerVersions(recordStore, SIMPLE_TEXT_PREFIX));
+
+            // check document is re-indexed
+            recordStore.saveRecord(aethelredDocument1);
+            scannedEntries = scanMapEntries(recordStore, SIMPLE_TEXT_PREFIX, Tuple.from("ency"));
+            assertEquals(Arrays.asList(entryOf(Tuple.from(966L), Collections.singletonList(3)), entryOf(Tuple.from(1016L), Collections.singletonList(3))), scannedEntries);
+            scannedEntries = scanMapEntries(recordStore, SIMPLE_TEXT_PREFIX, Tuple.from("enc"));
+            assertEquals(Collections.emptyList(), scannedEntries);
+            assertEquals(Arrays.asList(Pair.of(Tuple.from(966L), 1), Pair.of(Tuple.from(1016L), 1), Pair.of(Tuple.from(1623L), 0)),
+                    scanTokenizerVersions(recordStore, SIMPLE_TEXT_PREFIX));
+
+            // check document that matches tokenizer version is *not* re-indexed
+            int beforeSaveKeys = getSaveIndexKeyCount(recordStore);
+            recordStore.saveRecord(aethelredDocument1);
+            int afterSaveKeys = getSaveIndexKeyCount(recordStore);
+            assertEquals(afterSaveKeys, beforeSaveKeys);
+            assertEquals(Arrays.asList(Pair.of(Tuple.from(966L), 1), Pair.of(Tuple.from(1016L), 1), Pair.of(Tuple.from(1623L), 0)),
+                    scanTokenizerVersions(recordStore, SIMPLE_TEXT_PREFIX));
+
+            // check old index entries are the ones deleted
+            scannedEntries = scanMapEntries(recordStore, SIMPLE_TEXT_PREFIX, Tuple.from("civ"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Arrays.asList(22, 25))), scannedEntries);
+            recordStore.deleteRecord(Tuple.from(1623L));
+            scannedEntries = scanMapEntries(recordStore, SIMPLE_TEXT_PREFIX, Tuple.from("civ"));
+            assertEquals(Collections.emptyList(), scannedEntries);
+            assertEquals(Arrays.asList(Pair.of(Tuple.from(966L), 1), Pair.of(Tuple.from(1016L), 1)),
+                    scanTokenizerVersions(recordStore, SIMPLE_TEXT_PREFIX));
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void tokenizerVersionChangeWithMultipleEntries() throws Exception {
+        final MapDocument map1 = MapDocument.newBuilder()
+                .setDocId(1066L)
+                .addEntry(MapDocument.Entry.newBuilder().setKey("fr").setValue(TextSamples.FRENCH))
+                .addEntry(MapDocument.Entry.newBuilder().setKey("de").setValue(TextSamples.GERMAN))
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_PREFIX_LEGACY);
+            });
+            recordStore.saveRecord(map1);
+            List<Map.Entry<Tuple, List<Integer>>> scannedEntries = scanMapEntries(recordStore, MAP_ON_VALUE_PREFIX_LEGACY, Tuple.from("fr", "rec"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1066L), Collections.singletonList(5))), scannedEntries);
+            scannedEntries = scanMapEntries(recordStore, MAP_ON_VALUE_PREFIX_LEGACY, Tuple.from("de", "wah"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1066L), Collections.singletonList(8))), scannedEntries);
+            assertEquals(Collections.singletonList(Pair.of(Tuple.from(1066L), 0)),
+                    scanTokenizerVersions(recordStore, MAP_ON_VALUE_PREFIX_LEGACY));
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_PREFIX);
+            });
+
+            // save an document where most of the source entries remain the same but are re-indexed because of the tokenizer version change
+            final MapDocument map1prime = map1.toBuilder()
+                    .addEntry(MapDocument.Entry.newBuilder().setKey("yi").setValue(TextSamples.YIDDISH))
+                    .build();
+            recordStore.saveRecord(map1prime);
+            List<Map.Entry<Tuple, List<Integer>>> scannedEntries = scanMapEntries(recordStore, MAP_ON_VALUE_PREFIX, Tuple.from("yi", "שפרא"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1066L), Collections.singletonList(1))), scannedEntries);
+            scannedEntries = toMapEntries(scanIndex(recordStore, MAP_ON_VALUE_PREFIX, TupleRange.prefixedBy("rec").prepend(Tuple.from("fr"))), Tuple.from("fr"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from("recu", 1066L), Collections.singletonList(5))), scannedEntries);
+            scannedEntries = toMapEntries(scanIndex(recordStore, MAP_ON_VALUE_PREFIX, TupleRange.prefixedBy("wah").prepend(Tuple.from("de"))), Tuple.from("de"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from("wahr", 1066L), Collections.singletonList(8))), scannedEntries);
+            assertEquals(Collections.singletonList(Pair.of(Tuple.from(1066L), 1)),
+                    scanTokenizerVersions(recordStore, MAP_ON_VALUE_PREFIX_LEGACY));
+
+            commit(context);
+        }
+    }
+
+    private void scanWithZeroScanRecordLimit(@Nonnull Index index, @Nonnull String token, boolean reverse) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            ScanProperties scanProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(0).build().asScanProperties(reverse);
+            RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), null, scanProperties);
+            if (!cursor.hasNext()) {
+                assertEquals(SOURCE_EXHAUSTED, cursor.getNoNextReason());
+                return;
+            }
+            cursor.next();
+            assertThat(cursor.hasNext(), is(false));
+            assertEquals(SCAN_LIMIT_REACHED, cursor.getNoNextReason());
+        }
+    }
+
+    private void scanMultipleWithScanRecordLimits(@Nonnull Index index, @Nonnull List<String> tokens, int scanRecordLimit, boolean reverse) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            ScanProperties scanProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(scanRecordLimit).build().asScanProperties(reverse);
+
+            List<RecordCursor<IndexEntry>> cursors = tokens.stream()
+                    .map(token -> recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), null, scanProperties))
+                    .collect(Collectors.toList());
+
+            int cursorIndex = 0;
+            int retrieved = 0;
+            while (!cursors.isEmpty()) {
+                RecordCursor<IndexEntry> cursor = cursors.get(cursorIndex);
+                if (cursor.hasNext()) {
+                    cursor.next();
+                    retrieved++;
+                    cursorIndex = (cursorIndex + 1) % cursors.size();
+                } else {
+                    if (!cursor.getNoNextReason().isSourceExhausted()) {
+                        assertEquals(SCAN_LIMIT_REACHED, cursor.getNoNextReason());
+                    }
+                    cursors.remove(cursorIndex);
+                    if (cursorIndex == cursors.size()) {
+                        cursorIndex = 0;
+                    }
+                }
+            }
+            // With the order that they are retrieved, the maximum value is the scanRecordLimit
+            // or the number of tokens.
+            assertThat(retrieved, lessThanOrEqualTo(Math.max(scanRecordLimit, tokens.size())));
+        }
+    }
+
+    private void scanWithContinuations(@Nonnull Index index, @Nonnull String token, int limit, boolean reverse) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final List<IndexEntry> firstResults = scanIndex(recordStore, index, TupleRange.allOf(Tuple.from(token)));
+            validateSorted(firstResults);
+            List<IndexEntry> scanResults = new ArrayList<>(firstResults.size());
+            byte[] continuation = null;
+
+            do {
+                RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), continuation, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN);
+                for (int i = 0; i < limit || limit == 0; i++) {
+                    if (cursor.hasNext()) {
+                        scanResults.add(cursor.next());
+                    } else {
+                        break;
+                    }
+                }
+                CompletableFuture<Boolean> hasNextFuture = cursor.onHasNext(); // fire off but don't wait for an on-has-next
+                continuation = cursor.getContinuation();
+                assertEquals(hasNextFuture.get(), cursor.hasNext()); // wait for the same on-has-next
+                if (cursor.hasNext() || cursor.getContinuation() != null) {
+                    assertArrayEquals(continuation, cursor.getContinuation());
+                } else {
+                    assertThat(cursor.getNoNextReason().isSourceExhausted(), is(true));
+                }
+            } while (continuation != null);
+
+            if (reverse) {
+                Collections.reverse(scanResults);
+            }
+            assertEquals(firstResults, scanResults);
+        }
+    }
+
+    public void scanWithSkip(@Nonnull Index index, @Nonnull String token, int skip, int limit, boolean reverse) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final List<IndexEntry> fullResults = scanIndex(recordStore, index, TupleRange.allOf(Tuple.from(token)));
+            validateSorted(fullResults);
+            final ScanProperties scanProperties = ExecuteProperties.newBuilder().setReturnedRowLimit(limit).setSkip(skip).build().asScanProperties(reverse);
+            final RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), null, scanProperties);
+            List<IndexEntry> scanResults = cursor.asList().get();
+            assertThat(cursor.hasNext(), is(false));
+            assertEquals((limit != ReadTransaction.ROW_LIMIT_UNLIMITED && scanResults.size() == limit) ? RETURN_LIMIT_REACHED : SOURCE_EXHAUSTED, cursor.getNoNextReason());
+            List<IndexEntry> expectedResults;
+            if (reverse) {
+                scanResults = new ArrayList<>(scanResults);
+                Collections.reverse(scanResults);
+                expectedResults = fullResults.subList(
+                        (limit == ReadTransaction.ROW_LIMIT_UNLIMITED || limit == Integer.MAX_VALUE) ? 0 : Math.max(0, fullResults.size() - skip - limit),
+                        Math.max(0, fullResults.size() - skip));
+            } else {
+                expectedResults = fullResults.subList(Math.min(fullResults.size(), skip),
+                        (limit == ReadTransaction.ROW_LIMIT_UNLIMITED || limit == Integer.MAX_VALUE) ? fullResults.size() : Math.min(fullResults.size(), skip + limit));
+            }
+            assertEquals(expectedResults, scanResults);
+        }
+    }
+
+    @Test
+    public void scan() throws Exception {
+        final Random r = new Random(0x5ca1ab1e);
+        List<SimpleDocument> records = getRandomRecords(r, 50);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            records.forEach(recordStore::saveRecord);
+            commit(context);
+        }
+        final Index index = recordStore.getRecordMetaData().getIndex(SIMPLE_DEFAULT_NAME);
+
+        scanWithZeroScanRecordLimit(index, "angstrom", false); // existing token
+        scanWithZeroScanRecordLimit(index, "angstrom", true); // existing token
+        scanWithZeroScanRecordLimit(index, "asdfasdf", false); // non-existent token
+        scanWithZeroScanRecordLimit(index, "asdfasdf", true); // non-existent token
+
+        final List<Integer> limits = Arrays.asList(0, 1, 2, Integer.MAX_VALUE);
+        final List<Integer> skips = Arrays.asList(0, 1, 10, 1000);
+        final List<String> tokens = Arrays.asList("angstrom", "the", "not_a_token_in_the_lexicon", "שפראך");
+        for (int limit : limits) {
+            scanMultipleWithScanRecordLimits(index, tokens, limit, false);
+            scanMultipleWithScanRecordLimits(index, tokens, limit, true);
+            scanWithContinuations(index, "достопримечательности", limit, false);
+            scanWithContinuations(index, "достопримечательности", limit, false);
+            for (int skip : skips) {
+                scanWithSkip(index, "toil", skip, limit, false);
+                scanWithSkip(index, "toil", skip, limit, true);
+            }
+        }
+    }
+
+    @Test
+    public void invalidScans() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final Index index = recordStore.getRecordMetaData().getIndex(SIMPLE_DEFAULT_NAME);
+            assertThrows(RecordCoreException.class, () -> recordStore.scanIndex(index, BY_VALUE, TupleRange.ALL, null, ScanProperties.REVERSE_SCAN));
+            assertThrows(RecordCoreException.class, () -> recordStore.scanIndex(index, BY_GROUP, TupleRange.ALL, null, ScanProperties.REVERSE_SCAN));
+            assertThrows(RecordCoreException.class, () -> recordStore.scanIndex(index, BY_RANK, TupleRange.ALL, null, ScanProperties.REVERSE_SCAN));
+            assertThrows(RecordCoreException.class, () -> recordStore.scanIndex(index, BY_TIME_WINDOW, TupleRange.ALL, null, ScanProperties.REVERSE_SCAN));
+        }
+    }
+
+    @Nonnull
+    private List<SimpleDocument> toSimpleDocuments(@Nonnull List<String> textSamples) {
+        return IntStream.range(0, textSamples.size())
+                .mapToObj(i -> SimpleDocument.newBuilder().setDocId(i).setGroup(i % 2).setText(textSamples.get(i)).build())
+                .collect(Collectors.toList());
+    }
+
+    @Nonnull
+    private RecordCursor<Tuple> queryDocuments(@Nullable List<String> recordTypes, @Nullable List<KeyExpression> requiredResults, @Nonnull QueryComponent filter, int planHash,
+                                               @Nonnull Matcher<RecordQueryPlan> planMatcher) {
+        RecordQuery.Builder queryBuilder = RecordQuery.newBuilder();
+        if (recordTypes != null) {
+            if (recordTypes.size() == 1) {
+                queryBuilder.setRecordType(recordTypes.get(0));
+            } else {
+                queryBuilder.setRecordTypes(recordTypes);
+            }
+        }
+        queryBuilder.setFilter(filter);
+        queryBuilder.setRemoveDuplicates(true);
+        if (requiredResults != null) {
+            queryBuilder.setRequiredResults(requiredResults);
+        }
+        final RecordQuery query = queryBuilder.build();
+        final RecordQueryPlan plan = planner.plan(query);
+        LOGGER.info(KeyValueLogMessage.of("planned query",
+                "query", query,
+                "plan", plan,
+                "planHash", plan.planHash()));
+        assertThat(plan, planMatcher);
+        if (planHash == 0) {
+            LOGGER.warn(KeyValueLogMessage.of("unset plan hash",
+                    "planHash", plan.planHash(),
+                    "filter", filter));
+        } else {
+            assertEquals(planHash, plan.planHash(), "Mismatched hash for: " + filter);
+        }
+        return recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey);
+    }
+
+    @Nonnull
+    private List<Long> querySimpleDocumentsWithScan(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
+        return queryDocuments(Collections.singletonList(SIMPLE_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
+                    filter(equalTo(BooleanNormalizer.normalize(filter)), typeFilter(contains(SIMPLE_DOC), PlanMatchers.scan(bounds(unbounded())))))
+                .map(t -> t.getLong(0))
+                .asList()
+                .get();
+    }
+
+    @Nonnull
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, int planHash,
+                                                     @Nonnull Matcher<? super Comparisons.TextComparison> comparisonMatcher) throws InterruptedException, ExecutionException {
+        return queryDocuments(Collections.singletonList(SIMPLE_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
+                    descendant(textIndexScan(allOf(PlanMatchers.indexName(indexName), textComparison(comparisonMatcher)))))
+                .map(t -> t.getLong(0))
+                .asList()
+                .get();
+    }
+
+    @Nonnull
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash,
+                                                     @Nonnull Matcher<? super Comparisons.TextComparison> comparisonMatcher) throws InterruptedException, ExecutionException {
+        return querySimpleDocumentsWithIndex(filter, SIMPLE_DEFAULT_NAME, planHash, comparisonMatcher);
+    }
+
+    @Nullable
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, @Nonnull QueryComponent textFilter, int planHash) throws InterruptedException, ExecutionException {
+        if (textFilter instanceof ComponentWithComparison && ((ComponentWithComparison)textFilter).getComparison() instanceof Comparisons.TextComparison) {
+            return querySimpleDocumentsWithIndex(filter, indexName, planHash, equalTo(((ComponentWithComparison)textFilter).getComparison()));
+        } else if (textFilter instanceof AndComponent) {
+            for (QueryComponent childFilter : ((AndComponent)textFilter).getChildren()) {
+                List<Long> childResults = querySimpleDocumentsWithIndex(filter, indexName, childFilter, planHash);
+                if (childResults != null) {
+                    return childResults;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Nonnull
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, int planHash) throws InterruptedException, ExecutionException {
+        List<Long> queryResults = querySimpleDocumentsWithIndex(filter, indexName, filter, planHash);
+        if (queryResults != null) {
+            return queryResults;
+        } else {
+            throw new RecordCoreArgumentException("no text filter found");
+        }
+    }
+
+    @Nonnull
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
+        return querySimpleDocumentsWithIndex(filter, SIMPLE_DEFAULT_NAME, planHash);
+    }
+
+    @Test
+    public void querySimpleDocuments() throws Exception {
+        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+                TextSamples.ANGSTROM,
+                TextSamples.AETHELRED,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.YIDDISH,
+                TextSamples.CHINESE_SIMPLIFIED,
+                TextSamples.KOREAN,
+                "a b a b a b c"
+        ));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            documents.forEach(recordStore::saveRecord);
+
+            // Contains
+            assertEquals(Arrays.asList(0L, 1L, 2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("the"), 329921958));
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("angstrom"), -1859676822));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("Ångström"), 2028628575));
+            assertEquals(Collections.singletonList(3L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("שפראך"), 1151275308));
+
+            // Contains all
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström"), 1999999424));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Collections.singletonList("Ångström")), 2028628575));
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("the angstrom"), 865061914));
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Arrays.asList("the", "angstrom")), 4380219));
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Arrays.asList("", "angstrom")), -1000802292));
+            assertEquals(Collections.singletonList(5L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("한국어를"), -1046915537));
+
+            // Contains all within a distance
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström named", 4), -1408252035));
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström named", 3), -1408252996));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström named", 2), -1408253957));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Arrays.asList("Ångström", "named"), 4), -2041874864));
+            assertEquals(Collections.singletonList(6L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("a c", 2), 2135218554));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("a c", 1), 2135217593));
+            assertEquals(Collections.singletonList(6L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("b c", 2), -416938407));
+            assertEquals(Collections.singletonList(6L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("b c", 1), -416939368));
+
+            // Contains any
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("Ångström"), -147781547));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny(Collections.singletonList("Ångström")), -119152396));
+            assertEquals(Arrays.asList(0L, 1L, 2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("the angstrom"), -1282719057));
+            assertEquals(Arrays.asList(0L, 1L, 2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny(Arrays.asList("the", "angstrom")), -2143400752));
+
+            // Contains phrase
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("Civil blood makes. Civil hands unclean"), -993768059));
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase(Arrays.asList("civil", "blood", "makes", "civil", "", "unclean")), 1855137352));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase(Arrays.asList("Civil", "blood", "makes", "civil", "", "unclean")), 853144168));
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase(Arrays.asList("", "civil", "blood", "makes", "civil", "", "unclean", "")), 930039198));
+            assertEquals(Collections.singletonList(6L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("a b a b c"), -623744405));
+
+            // Contains prefix
+            assertEquals(Arrays.asList(2L, 0L, 1L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("un"), 1067159426));
+            assertEquals(Collections.singletonList(3L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("א"), -1009839303));
+            assertEquals(Collections.singletonList(4L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("苹果"), -1529274452));
+            assertEquals(Collections.singletonList(5L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix(Normalizer.normalize("한국", Normalizer.Form.NFKD)), -1860545817));
+            assertEquals(Collections.singletonList(5L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("한구"), 1377518291)); // note that the second character is only 2 of the 3 Jamo components
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void querySimpleDocumentsWithAdditionalFilters() throws Exception {
+        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.AETHELRED,
+                TextSamples.ANGSTROM
+        ));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            documents.forEach(recordStore::saveRecord);
+
+            // Equality text predicates
+            assertEquals(Collections.singletonList(3L),
+                    querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("group").equalsValue(1L),
+                            Query.field("text").text().contains("was")
+                    ), 661433949));
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("group").equalsValue(0L),
+                            Query.field("text").text().containsPhrase("bury their parents' strife")
+                    ), -1454788243));
+            assertEquals(Collections.singletonList(1L),
+                    querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("group").equalsValue(1L),
+                            Query.field("text").text().containsPhrase("bury their parents' strife")
+                    ), -1454788242));
+            assertEquals(Arrays.asList(0L, 1L),
+                    querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("group").lessThanOrEquals(2L),
+                            Query.field("text").text().containsAny("bury their parents' strife")
+                    ), -1259238340));
+            // FIXME: the planner should be smart enough to turn this into an index scan on one or both of the text filters
+            // FIXME: Text: Query.or leads to record rather than index scan (https://github.com/FoundationDB/fdb-record-layer/issues/19)
+            assertEquals(Arrays.asList(0L, 2L),
+                    querySimpleDocumentsWithScan(Query.and(
+                            Query.field("group").equalsValue(0L),
+                            Query.or(
+                                Query.field("text").text().containsAll("civil unclean blood", 4),
+                                Query.field("text").text().containsAll("king was 1016")
+                            )
+                    ), 290979239));
+
+            // Prefix text predicates
+
+            assertEquals(Arrays.asList(0L, 1L),
+                    querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("group").lessThanOrEquals(2L),
+                            Query.field("text").text().containsPrefix("par"),
+                            Query.field("text").text().containsPrefix("blo")
+                    ), 1486418234));
+            assertEquals(Arrays.asList(1L, 3L),
+                    querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("group").equalsValue(1L),
+                            Query.field("text").text().containsPrefix("an")
+                    ), -1648947883));
+            assertEquals(Arrays.asList(0L, 1L),
+                    querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("text").text().containsAll("civil unclean blood"),
+                            Query.field("text").text().containsPrefix("blo")
+                    ), 912028198));
+
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void querySimpleDocumentsWithDifferentTokenizers() throws Exception {
+        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.RUSSIAN,
+                TextSamples.GERMAN,
+                TextSamples.KOREAN
+        ));
+        TextTokenizerRegistryImpl.instance().register(FILTERING_TOKENIZER);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                final RecordTypeBuilder simpleDocRecordType = metaDataBuilder.getRecordType(SIMPLE_DOC);
+                metaDataBuilder.addIndex(simpleDocRecordType, SIMPLE_TEXT_PREFIX);
+                metaDataBuilder.addIndex(simpleDocRecordType, SIMPLE_TEXT_FILTERING);
+                metaDataBuilder.addIndex(simpleDocRecordType, SIMPLE_TEXT_SUFFIXES);
+            });
+            documents.forEach(recordStore::saveRecord);
+
+            // Filtering tokenizer
+            final String filteringTokenizerName = FILTERING_TOKENIZER.getName();
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("weltmeisterschaft"), SIMPLE_DEFAULT_NAME, -1172646540));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).contains("weltmeisterschaft"), SIMPLE_TEXT_FILTERING.getName(), 835135314));
+            assertEquals(Collections.singletonList(1L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("достопримечательности"), SIMPLE_DEFAULT_NAME , -1291535616));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).contains("достопримечательности"), SIMPLE_TEXT_FILTERING.getName(), 716246238));
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll("Weltmeisterschaft gewonnen"), SIMPLE_TEXT_FILTERING.getName(), 696188882));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll(Arrays.asList("weltmeisterschaft", "gewonnen")), SIMPLE_TEXT_FILTERING.getName(), 1945779923));
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("Weltmeisterschaft Nationalmannschaft Friedrichstraße"), SIMPLE_DEFAULT_NAME, 625333664));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll("Weltmeisterschaft Nationalmannschaft Friedrichstraße"), SIMPLE_TEXT_FILTERING.getName(), -1661851778));
+
+            // Prefix tokenizer
+            final String prefixTokenizerName = PrefixTextTokenizer.NAME;
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAny("civic lover"), SIMPLE_DEFAULT_NAME, 1358697044));
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(prefixTokenizerName).containsAll("civic lover"), SIMPLE_TEXT_PREFIX.getName(), 2070491434));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("못핵"), SIMPLE_DEFAULT_NAME, -1414597326));
+            assertEquals(Collections.singletonList(3L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(prefixTokenizerName).containsAll("못핵"), SIMPLE_TEXT_PREFIX.getName(), 1444383389));
+
+            // Suffixes tokenizer
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsPrefix("meister"), SIMPLE_DEFAULT_NAME, -2049073113));
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsPrefix("meister"), SIMPLE_TEXT_SUFFIXES.getName(), -628393471));
+            assertEquals(Arrays.asList(0L, 2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAny("y e"), SIMPLE_TEXT_SUFFIXES.getName(), -1665999070));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAny("bloody civilize"), SIMPLE_TEXT_SUFFIXES.getName(), 1290016358));
+            assertEquals(Collections.singletonList(0L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAll("ood ivil nds"), SIMPLE_TEXT_SUFFIXES.getName(), -1619880168));
+
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private List<Tuple> queryComplexDocumentsWithPlan(@Nonnull QueryComponent filter, int planHash, Matcher<RecordQueryPlan> planMatcher) throws InterruptedException, ExecutionException {
+        return queryDocuments(Collections.singletonList(COMPLEX_DOC), Arrays.asList(field("group"), field("doc_id")), filter, planHash, planMatcher)
+                .asList()
+                .get();
+
+    }
+
+    @Nonnull
+    private List<Tuple> queryComplexDocumentsWithScan(@Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+        final Matcher<RecordQueryPlan> planMatcher = filter(equalTo(textFilter),
+                typeFilter(equalTo(Collections.singleton(COMPLEX_DOC)), PlanMatchers.scan(bounds(hasTupleString("[[" + group + "],[" + group + "]]")))));
+        return queryComplexDocumentsWithPlan(Query.and(Query.field("group").equalsValue(group), textFilter), planHash, planMatcher);
+    }
+
+    @Nonnull
+    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+        if (!(textFilter instanceof ComponentWithComparison)) {
+            throw new RecordCoreArgumentException("filter without comparison provided as text filter");
+        }
+        final Matcher<RecordQueryPlan> planMatcher = descendant(textIndexScan(allOf(
+                indexName(COMPLEX_TEXT_BY_GROUP.getName()),
+                groupingBounds(allOf(notNullValue(), hasTupleString("[[" + group + "],[" + group + "]]"))),
+                textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison()))
+        )));
+        return queryComplexDocumentsWithPlan(Query.and(Query.field("group").equalsValue(group), textFilter), planHash, planMatcher);
+    }
+
+    @Test
+    public void queryComplexDocuments() throws Exception {
+        final List<String> textSamples = Arrays.asList(
+                TextSamples.ANGSTROM,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.AETHELRED,
+                TextSamples.FRENCH
+        );
+        final List<ComplexDocument> documents = IntStream.range(0, textSamples.size())
+                .mapToObj(i -> ComplexDocument.newBuilder().setDocId(i).setGroup(i % 2).setText(textSamples.get(i)).build())
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                final RecordTypeBuilder complexDocRecordType = metaDataBuilder.getRecordType(COMPLEX_DOC);
+                metaDataBuilder.addIndex(complexDocRecordType, COMPLEX_TEXT_BY_GROUP);
+            });
+            documents.forEach(recordStore::saveRecord);
+
+            assertEquals(Collections.singletonList(Tuple.from(0L, 0L)),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().contains("angstrom"), 0, 372972877));
+            assertEquals(Collections.emptyList(),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsAll("civil blood parents' strife"), 0L, -1615886689));
+            assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsAll("civil blood parents' strife"), 1L, -1615886658));
+            assertEquals(Collections.emptyList(),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsAll("civil blood parents' strife", 4), 1L, -1436111364));
+            assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsAll("civil blood parents' strife", 35), 1L, -1436081573));
+            assertEquals(Arrays.asList(Tuple.from(0L, 0L), Tuple.from(0L, 2L)),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsAny("angstrom parents king napoleons"), 0L, -1092421072));
+            assertEquals(Collections.singletonList(Tuple.from(1L, 3L)),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsPhrase("recu un Thiers"), 1L, 1395848801));
+            assertEquals(Collections.singletonList(Tuple.from(0L, 0L)),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("ang"), 0L, -1013515738));
+            assertEquals(Arrays.asList(Tuple.from(1L, 3L), Tuple.from(1L, 1L)),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("un"), 1L, -995158140));
+
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private List<Long> queryMapDocuments(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
+        // TODO: When the planner starts using text indexes, this will need to be updated to match against the right index scan
+        return queryDocuments(Collections.singletonList(MAP_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
+                filter(equalTo(filter), typeFilter(equalTo(Collections.singleton(MAP_DOC)), PlanMatchers.scan(bounds(unbounded())))))
+                .map(t -> t.getLong(0))
+                .asList()
+                .get();
+    }
+
+    @Test
+    public void queryMapDocuments() throws Exception {
+        final List<String> textSamples = Arrays.asList(
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.AETHELRED,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.ANGSTROM,
+                TextSamples.AETHELRED,
+                TextSamples.FRENCH
+        );
+        final List<MapDocument> documents = IntStream.range(0, textSamples.size() / 2)
+                .mapToObj(i -> MapDocument.newBuilder()
+                        .setDocId(i)
+                        .addEntry(MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)).build())
+                        .addEntry(MapDocument.Entry.newBuilder().setKey("b").setValue(textSamples.get(i * 2 + 1)).build())
+                        .build()
+                )
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_INDEX));
+            documents.forEach(recordStore::saveRecord);
+
+            assertEquals(Collections.singletonList(2L),
+                    queryMapDocuments(Query.field("entry").oneOfThem().matches(
+                            Query.and(Query.field("key").equalsValue("a"), Query.field("value").text().containsAny("king unknown_token"))
+                    ), 687021885));
+            assertEquals(Arrays.asList(0L, 1L),
+                    queryMapDocuments(Query.field("entry").oneOfThem().matches(
+                            Query.and(Query.field("key").equalsValue("a"), Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"))
+                    ), -1131944366));
+            assertEquals(Collections.emptyList(),
+                    queryMapDocuments(Query.field("entry").oneOfThem().matches(
+                            Query.and(Query.field("key").equalsValue("b"), Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"))
+                    ), -1131944335));
+            assertEquals(Arrays.asList(1L, 2L),
+                    queryMapDocuments(Query.field("entry").oneOfThem().matches(
+                            Query.and(Query.field("key").equalsValue("b"), Query.field("value").text().containsPrefix("na"))
+                    ), 1920608017));
+
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private Set<Long> performQueryWithRecordStoreScan(@Nonnull RecordMetaDataHook hook, @Nonnull QueryComponent filter) throws Exception {
+        final ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder().setTimeLimit(3000).build());
+        Set<Long> results = new HashSet<>();
+        byte[] continuation = null;
+        do {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context);
+                try (RecordCursor<Long> cursor = recordStore.scanRecords(continuation, scanProperties)
+                        .filter(record -> record.getRecordType().getName().equals(SIMPLE_DOC))
+                        .filter(record -> filter.eval(evaluationContext, record) == Boolean.TRUE)
+                        .map(record -> record.getPrimaryKey().getLong(0))) {
+                    while (cursor.hasNext()) {
+                        results.add(cursor.next());
+                    }
+
+                    if (!cursor.getNoNextReason().isSourceExhausted()) {
+                        continuation = cursor.getContinuation();
+                    } else {
+                        continuation = null;
+                    }
+                }
+            }
+        } while (continuation != null);
+        return results;
+    }
+
+    @Nonnull
+    private Set<Long> performQueryWithIndexScan(@Nonnull RecordMetaDataHook hook, @Nonnull Index index, @Nonnull QueryComponent filter) throws Exception {
+        final ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setTimeLimit(3000).build();
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType(SIMPLE_DOC)
+                .setRequiredResults(Collections.singletonList(field("doc_id")))
+                .setFilter(filter)
+                .build();
+        Set<Long> results = new HashSet<>();
+        RecordQueryPlan plan;
+        byte[] continuation;
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            RecordQueryPlanner planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+            plan = planner.plan(query);
+            assertThat(plan, descendant(textIndexScan(indexName(index.getName()))));
+
+            try (RecordCursor<Long> cursor = plan.execute(evaluationContext, null, executeProperties)
+                    .map(record -> record.getPrimaryKey().getLong(0))) {
+                while (cursor.hasNext()) {
+                    results.add(cursor.next());
+                }
+                if (!cursor.getNoNextReason().isSourceExhausted()) {
+                    continuation = cursor.getContinuation();
+                } else {
+                    continuation = null;
+                }
+            }
+        }
+
+        while (continuation != null) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context, hook);
+                try (RecordCursor<Long> cursor = plan.execute(evaluationContext, continuation, executeProperties)
+                        .map(record -> record.getPrimaryKey().getLong(0))) {
+                    while (cursor.hasNext()) {
+                        results.add(cursor.next());
+                    }
+
+                    if (!cursor.getNoNextReason().isSourceExhausted()) {
+                        continuation = cursor.getContinuation();
+                    } else {
+                        continuation = null;
+                    }
+                }
+            }
+        }
+
+        return results;
+    }
+
+    @Nonnull
+    public static Stream<Arguments> indexArguments() {
+        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsTextProto.getDescriptor());
+        Index simpleIndex = metaDataBuilder.getIndex(SIMPLE_DEFAULT_NAME);
+        return Stream.of(simpleIndex, SIMPLE_TEXT_FILTERING, SIMPLE_TEXT_PREFIX, SIMPLE_TEXT_SUFFIXES)
+                .map(Arguments::of);
+    }
+
+    /**
+     * Generate random documents and then make sure that querying them using the index
+     * produces the same result as performing a full scan of all records.
+     */
+    @MethodSource("indexArguments")
+    @ParameterizedTest
+    public void queryScanEquivalence(@Nonnull Index index) throws Exception {
+        final Random r = new Random(0xba5eba1L + index.getName().hashCode());
+        final int recordCount = 100;
+        final int recordBatch = 25;
+        final int queryCount = 25;
+        final List<String> lexicon = getStandardLexicon();
+
+        TextTokenizerRegistryImpl.instance().register(FILTERING_TOKENIZER);
+        final TextTokenizer tokenizer = TextIndexMaintainer.getTokenizer(index);
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), index);
+        };
+
+        long seed = r.nextLong();
+        LOGGER.info(KeyValueLogMessage.of("initializing random number generator", "seed", seed));
+        r.setSeed(seed);
+
+        for (int i = 0; i < recordCount; i += recordBatch) {
+            List<SimpleDocument> records = getRandomRecords(r, recordBatch, lexicon);
+            LOGGER.info(KeyValueLogMessage.of("creating and saving random records", "batch_size", recordBatch));
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context, hook);
+                records.forEach(recordStore::saveRecord);
+                commit(context);
+            }
+        }
+
+        double[] proportions = getZipfProportions(lexicon);
+        long totalScanningTime = 0;
+        long totalQueryingTime = 0;
+        long totalResults = 0;
+
+        for (int i = 0; i < queryCount; i++) {
+            // Generate a random text query
+            List<String> tokens = getRandomWords(r, lexicon, proportions, 6, 3);
+            String tokenString = String.join(" ", tokens);
+            double filterChoice = r.nextDouble();
+            final QueryComponent filter;
+            if (filterChoice < 0.2) {
+                filter = Query.field("text").text(tokenizer.getName()).containsAll(tokenString);
+            } else if (filterChoice < 0.4) {
+                filter = Query.field("text").text(tokenizer.getName()).containsAny(tokenString);
+            } else if (filterChoice < 0.6) {
+                filter = Query.field("text").text(tokenizer.getName()).containsPhrase(tokenString);
+            } else if (filterChoice < 0.8) {
+                int maxDistance = r.nextInt(10) + tokens.size();
+                filter = Query.field("text").text(tokenizer.getName()).containsAll(tokenString, maxDistance);
+            } else {
+                if (tokens.isEmpty()) {
+                    continue;
+                }
+                // Choose the first non-empty token from the iterator
+                Iterator<? extends CharSequence> tokenIterator = tokenizer.tokenize(tokenString, tokenizer.getMaxVersion(), TextTokenizer.TokenizerMode.QUERY);
+                String firstToken = null;
+                while (tokenIterator.hasNext()) {
+                    String nextToken = tokenIterator.next().toString();
+                    if (!nextToken.isEmpty()) {
+                        firstToken = nextToken;
+                        break;
+                    }
+                }
+                if (firstToken == null) {
+                    continue;
+                }
+                int prefixEnd;
+                if (firstToken.length() > 1) {
+                    prefixEnd = r.nextInt(firstToken.length() - 1) + 1;
+                } else {
+                    prefixEnd = 1;
+                }
+                filter = Query.field("text").text(tokenizer.getName()).containsPrefix(firstToken.substring(0, prefixEnd));
+            }
+            LOGGER.info(KeyValueLogMessage.of("generated random filter", "iteration", i, "filter", filter));
+
+            // Manual scan all of the records
+            long startTime = System.nanoTime();
+            final Set<Long> manualRecordIds = performQueryWithRecordStoreScan(hook, filter);
+            long endTime = System.nanoTime();
+            LOGGER.info(KeyValueLogMessage.of("manual scan completed", "scan_millis", TimeUnit.MILLISECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS)));
+            totalScanningTime += endTime - startTime;
+
+            // Generate a query and use the index
+            startTime = System.nanoTime();
+            final Set<Long> queryRecordIds = performQueryWithIndexScan(hook, index, filter);
+            endTime = System.nanoTime();
+            LOGGER.info(KeyValueLogMessage.of("query completed", "scan_millis", TimeUnit.MILLISECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS)));
+            totalQueryingTime += endTime - startTime;
+
+            assertEquals(manualRecordIds, queryRecordIds);
+            LOGGER.info(KeyValueLogMessage.of("results matched", "filter", filter, "result_count", manualRecordIds.size()));
+            totalResults += queryRecordIds.size();
+        }
+
+        LOGGER.info(KeyValueLogMessage.of("test completed",
+                "total_scan_millis", TimeUnit.MILLISECONDS.convert(totalScanningTime, TimeUnit.NANOSECONDS),
+                "total_query_millis", TimeUnit.MILLISECONDS.convert(totalQueryingTime, TimeUnit.NANOSECONDS),
+                "total_result_count", totalResults));
+    }
+
+    @Test
+    public void invalidQueries() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC),
+                    new Index("SimpleDocument$max_group", field("group").ungrouped(), IndexTypes.MAX_EVER_TUPLE)));
+            List<RecordQuery> queries = Arrays.asList(
+                    RecordQuery.newBuilder()
+                            .setRecordType(SIMPLE_DOC)
+                            .setFilter(Query.field("text").equalsValue("asdf"))
+                            .build(),
+                    RecordQuery.newBuilder()
+                            .setRecordType(SIMPLE_DOC)
+                            .setFilter(Query.field("text").startsWith("asdf"))
+                            .build()
+            // FIXME: This query requires improving the planner to not pick incorrect indexes for sorting
+            /*
+                    RecordQuery.newBuilder()
+                            .setRecordType(SIMPLE_DOC)
+                            .setSort(field("text"))
+                            .build()
+             */
+            );
+            for (RecordQuery query : queries) {
+                try {
+                    RecordQueryPlan plan = planner.plan(query);
+                    assertThat(plan.getUsedIndexes(), not(contains(SIMPLE_DEFAULT_NAME)));
+                } catch (RecordCoreException e) {
+                    assertThat(e.getMessage(), containsString("Cannot sort without appropriate index"));
+                }
+            }
+        }
+    }
+
+    @Nonnull
+    private <T extends Exception> T invalidateIndex(@Nonnull Class<T> clazz, @Nonnull String recordType, @Nonnull Index index) {
+        return assertThrows(clazz, () -> {
+            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsTextProto.getDescriptor());
+            metaDataBuilder.addIndex(metaDataBuilder.getRecordType(recordType), index);
+            RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
+            MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
+            validator.validate();
+        });
+    }
+
+    @Nonnull
+    private <T extends Exception> T invalidateIndex(@Nonnull Class<T> clazz, @Nonnull Index index) {
+        return invalidateIndex(clazz, SIMPLE_DOC, index);
+    }
+
+    @Test
+    public void invalidIndexes() {
+        final String testIndex = "test_index";
+        List<KeyExpression> expressions = Arrays.asList(
+                // VersionKeyExpression.VERSION, // no version expression allowed
+                concat(field("text"), VersionKeyExpression.VERSION), // Version but not where text is
+                field("group"), // not on text field
+                field("group").groupBy(field("text")),
+                concatenateFields("group", "text"),
+                field("text", FanType.FanOut)
+        );
+        for (KeyExpression expression : expressions) {
+            LOGGER.info(KeyValueLogMessage.of("testing index expression", "keyExpression", expression));
+            invalidateIndex(KeyExpression.InvalidExpressionException.class,
+                    new Index(testIndex, expression, IndexTypes.TEXT));
+        }
+
+        // Verify doesn't work with repeated fields but in a case where a repeated field is possible.
+        invalidateIndex(KeyExpression.InvalidExpressionException.class, "MultiDocument",
+                new Index(testIndex, field("text", FanType.FanOut), IndexTypes.TEXT));
+
+        // Verify that unique indexes are invalid
+        invalidateIndex(MetaDataException.class,
+                new Index(testIndex, field("text"), EmptyKeyExpression.EMPTY, IndexTypes.TEXT, Index.UNIQUE_OPTIONS));
+
+        // Verify that it fails when there is a value expression
+        invalidateIndex(KeyExpression.InvalidExpressionException.class,
+                new Index(testIndex, field("text"), field("group"), IndexTypes.TEXT, Index.EMPTY_OPTIONS));
+        invalidateIndex(KeyExpression.InvalidExpressionException.class,
+                new Index(testIndex, field("text").groupBy(field("group")), field("group"), IndexTypes.TEXT, Index.EMPTY_OPTIONS));
+
+        // Tokenizer does not exist
+        invalidateIndex(MetaDataException.class,
+                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, "not_a_real_tokenizer")));
+
+        // Invalid tokenizer versions
+        invalidateIndex(MetaDataException.class,
+                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "-1")));
+        invalidateIndex(MetaDataException.class,
+                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "1000")));
+        invalidateIndex(MetaDataException.class,
+                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "one")));
+    }
+
+    @Nonnull
+    private List<String> getStandardLexicon() {
+        List<String> words = new ArrayList<>();
+        for (String sample : TextSamples.ALL) {
+            words.addAll(Arrays.asList(sample.split(" ")));
+        }
+        return words;
+    }
+
+    @Nonnull
+    private double[] getZipfProportions(@Nonnull List<String> lexicon) {
+        // Use a zipf distribution for tokens. This is roughly the distribution of words in human
+        // text, though in real text, the more common words are also shorter, so this is somewhat bogus.
+        double hN = 0.0;
+        for (int i = 0; i < lexicon.size(); i++) {
+            hN += 1.0 / (i + 1);
+        }
+        if (hN == 0.0) {
+            // An empty lexicon was provided.
+            throw new IllegalArgumentException("cannot generate words with an empty lexicon");
+        }
+        double[] proportions = new double[lexicon.size()];
+        double hI = 0.0;
+        for (int i = 0; i < lexicon.size(); i++) {
+            hI += 1.0 / (i + 1);
+            proportions[i] = hI / hN;
+        }
+        return proportions;
+    }
+
+    @Nonnull
+    private List<String> getRandomWords(@Nonnull Random r, @Nonnull List<String> lexicon, @Nonnull double[] proportions, int tokenAverage, int tokenSd) {
+        int tokenCount = (int)Math.abs(r.nextGaussian() * tokenSd + tokenAverage);
+        List<String> words = new ArrayList<>(tokenCount);
+        for (int j = 0; j < tokenCount; j++) {
+            double tokenChoice = r.nextDouble();
+            int tokenIndex = Arrays.binarySearch(proportions, tokenChoice);
+            if (tokenIndex < 0) {
+                // If Arrays.binarySearch returns a negative number, it gives us
+                // i = (-insertion_point) - 1. We want to find the insertion point,
+                // i.e., the first value greater than our random choice, so
+                // we find insertion_point = -i - 1;
+                tokenIndex = -tokenIndex - 1;
+            }
+            words.add(lexicon.get(tokenIndex));
+        }
+        return words;
+    }
+
+    @Nonnull
+    private List<SimpleDocument> getRandomRecords(@Nonnull Random r, int count, @Nonnull List<String> lexicon, int tokenAverage, int tokenSd) {
+        List<SimpleDocument> list = new ArrayList<>(count);
+
+        double[] proportions = getZipfProportions(lexicon);
+
+        for (int i = 0; i < count; i++) {
+            long id = r.nextLong();
+            List<String> words = getRandomWords(r, lexicon, proportions, tokenAverage, tokenSd);
+            SimpleDocument document = SimpleDocument.newBuilder()
+                    .setDocId(id)
+                    .setText(String.join(" ", words))
+                    .build();
+            list.add(document);
+        }
+
+        return list;
+    }
+
+    @Nonnull
+    private List<SimpleDocument> getRandomRecords(@Nonnull Random r, int count, @Nonnull List<String> lexicon) {
+        return getRandomRecords(r, count, lexicon, 1000, 100);
+    }
+
+    @Nonnull
+    private List<SimpleDocument> getRandomRecords(@Nonnull Random r, int count) {
+        return getRandomRecords(r, count, getStandardLexicon());
+    }
+
+    private void printUsage() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            Subspace indexSubspace = recordStore.getIndexMaintainer(recordStore.getRecordMetaData().getIndex(SIMPLE_DEFAULT_NAME)).getIndexSubspace();
+            final int indexSuspaceLength = indexSubspace.getKey().length;
+            int subspaceOverhead = 0;
+            int keySize = 0;
+            int valueSize = 0;
+            for (KeyValue kv : context.ensureActive().getRange(indexSubspace.range())) {
+                subspaceOverhead += indexSuspaceLength;
+                keySize += kv.getKey().length - indexSuspaceLength;
+                valueSize += kv.getValue().length;
+            }
+
+            int textSize = 0;
+            RecordCursor<String> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+                    .map(record -> {
+                        Message msg = record.getRecord();
+                        Descriptors.FieldDescriptor fd = msg.getDescriptorForType().findFieldByName("text");
+                        return msg.getField(fd).toString();
+                    });
+            while (cursor.hasNext()) {
+                textSize += cursor.next().length();
+            }
+
+            LOGGER.info("Usage:");
+            LOGGER.info("  Subspace: {} kB", subspaceOverhead * 1e-3);
+            LOGGER.info("  Keys:     {} kB", keySize * 1e-3);
+            LOGGER.info("  Values:   {} kB", valueSize * 1e-3);
+            LOGGER.info("  Text:     {} kB", textSize * 1e-3);
+            LOGGER.info("  Overhead: {}", textSize == 0.0 ? Double.POSITIVE_INFINITY : ((subspaceOverhead + keySize + valueSize) * 1.0 / textSize));
+        }
+    }
+
+    @Tag(Tags.Performance)
+    @Test
+    public void textIndexPerf1000SerialInsert() throws Exception {
+        // Create 1000 records
+        Random r = new Random();
+        List<SimpleDocument> records = getRandomRecords(r, 1000);
+
+        long startTime = System.nanoTime();
+
+        for (int i = 0; i < records.size(); i += 10) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context);
+                for (SimpleDocument document : records.subList(i, i + 10)) {
+                    recordStore.saveRecord(document);
+                }
+                commit(context);
+            }
+        }
+
+        long endTime = System.nanoTime();
+        LOGGER.info("performed 1000 serial insertions in {} seconds.", (endTime - startTime) * 1e-9);
+        printUsage();
+    }
+
+    @Tag(Tags.Performance)
+    @Test
+    public void textIndexPerf100InsertOneBatch() throws Exception {
+        // Create 1000 records
+        Random r = new Random();
+        List<SimpleDocument> records = getRandomRecords(r, 100);
+
+        long startTime = System.nanoTime();
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            for (int i = 0; i < records.size(); i ++) {
+                recordStore.saveRecord(records.get(i));
+            }
+            commit(context);
+        }
+
+        long endTime = System.nanoTime();
+        LOGGER.info("performed 100 serial insertions in {} seconds.", (endTime - startTime) * 1e-9);
+        printUsage();
+    }
+
+    @Tag(Tags.Performance)
+    @Test
+    public void textIndexPerf1000SerialInsertNoBatching() throws Exception {
+        // Create 1000 records
+        Random r = new Random();
+        List<SimpleDocument> records = getRandomRecords(r, 1000);
+
+        long startTime = System.nanoTime();
+
+        for (int i = 0; i < records.size(); i ++) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context);
+                recordStore.saveRecord(records.get(i));
+                commit(context);
+            }
+        }
+
+        long endTime = System.nanoTime();
+        LOGGER.info("performed 1000 serial insertions in {} seconds.", (endTime - startTime) * 1e-9);
+        printUsage();
+    }
+
+    @Tag(Tags.Performance)
+    @Test
+    public void textIndexPerf1000ParallelInsert() throws Exception {
+        // Create 1000 records
+        Random r = new Random();
+        List<SimpleDocument> records = getRandomRecords(r, 1000);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            recordStore.asBuilder().create();
+            commit(context);
+        }
+        final FDBRecordStore.Builder storeBuilder = recordStore.asBuilder();
+
+        long startTime = System.nanoTime();
+
+        int oldMaxAttempts = FDBDatabaseFactory.instance().getMaxAttempts();
+        FDBDatabaseFactory.instance().setMaxAttempts(Integer.MAX_VALUE);
+
+        try {
+            CompletableFuture<?>[] workerFutures = new CompletableFuture<?>[10];
+            int recordsPerWorker = records.size() / workerFutures.length;
+            for (int i = 0; i < workerFutures.length; i++) {
+                List<SimpleDocument> workerDocs = records.subList(i * recordsPerWorker, (i + 1) * recordsPerWorker);
+                CompletableFuture<Void> workerFuture = new CompletableFuture<>();
+                Thread workerThread = new Thread(() -> {
+                    try {
+                        for (int j = 0; j < workerDocs.size(); j += 10) {
+                            // Use retry loop to catch not_committed errors
+                            List<SimpleDocument> batchDocuments = workerDocs.subList(j, j + 10);
+                            fdb.run(context -> {
+                                try {
+                                    FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+                                    for (SimpleDocument document : batchDocuments) {
+                                        store.saveRecord(document);
+                                    }
+                                    return null;
+                                } catch (RecordCoreException e) {
+                                    throw e;
+                                } catch (Exception e) {
+                                    throw new RecordCoreException(e);
+                                }
+                            });
+                        }
+                        workerFuture.complete(null);
+                    } catch (RuntimeException e) {
+                        workerFuture.completeExceptionally(e);
+                    }
+                });
+                workerThread.setName("insert-worker-" + i);
+                workerThread.start();
+                workerFutures[i] = workerFuture;
+            }
+            CompletableFuture.allOf(workerFutures).get();
+
+            long endTime = System.nanoTime();
+            LOGGER.info("performed 1000 parallel insertions in {} seconds.", (endTime - startTime) * 1e-9);
+            printUsage();
+        } finally {
+            FDBDatabaseFactory.instance().setMaxAttempts(oldMaxAttempts);
+        }
+    }
+}

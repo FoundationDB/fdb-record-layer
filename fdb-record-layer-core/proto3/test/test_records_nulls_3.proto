@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package com.apple.foundationdb.record.testnulls3;
+
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestRecordsNulls3Proto";
+
+import "record_metadata_options.proto";
+
+message NullableInt32 {
+  option (com.apple.foundationdb.record.record).usage = NESTED;
+  int32 value = 1;
+}
+
+message NullableString {
+  option (com.apple.foundationdb.record.record).usage = NESTED;
+  string value = 1;
+}
+
+message MyNullRecord {
+  string name = 1 [(field).primary_key = true];
+  string string_value = 2;
+  int32 int_value = 3;
+  NullableString nullable_string_value = 4;
+  NullableInt32 nullable_int_value = 5;
+}
+
+message RecordTypeUnion {
+  MyNullRecord _MyNullRecord = 1;
+}

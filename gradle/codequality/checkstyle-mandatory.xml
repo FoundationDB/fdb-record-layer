@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Puppy Crawl//DTD Check Configuration 1.2//EN"
+        "http://www.puppycrawl.com/dtds/configuration_1_2.dtd">
+
+<!-- Record Layer Mandatory: for quick check. -->
+<!-- Main site: http://checkstyle.sf.net -->
+<!-- http://checkstyle.sourceforge.net/config.html -->
+
+<module name="Checker">
+  <module name="SuppressionFilter">
+    <property name="file" value="${projectDir}/gradle/codequality/suppressions.xml"/>
+  </module>
+  <module name="SuppressionCommentFilter"/>
+  <property name="charset" value="UTF-8"/>
+  <module name="TreeWalker">
+    <module name="FileContentsHolder"/>
+    <module name="IllegalImport">
+      <property name="illegalPkgs" value="${bannedImports}"/>
+    </module>
+    <module name="UnusedImports"/>
+    <module name="RedundantImport"/>
+    <module name="EmptyStatement"/>
+  </module>
+</module>

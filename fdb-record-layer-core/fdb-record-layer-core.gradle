@@ -1,0 +1,100 @@
+/*
+ * fdb-record-layer-core.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply plugin: 'com.github.johnrengelman.shadow'
+apply from: rootProject.file('gradle/proto.gradle')
+if (!hasProperty('coreNotStrict')) {
+    apply from: rootProject.file('gradle/strict.gradle')
+}
+
+dependencies {
+    compile project(':fdb-extensions')
+
+    compile "com.google.protobuf:protobuf-java:${protobufVersion}"
+    compile "org.slf4j:slf4j-api:${slf4jVersion}"
+    compile "org.apache.commons:commons-lang3:${commonsLang3Version}"
+    compile "com.google.guava:guava:${guavaVersion}"
+    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
+    compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
+
+    testCompile project(path: ':fdb-extensions', configuration: 'tests')
+    testCompile "org.hamcrest:hamcrest-all:1.3"
+    testCompile "com.beust:jcommander:1.71"
+    testCompile "org.apache.commons:commons-math3:3.6.1"
+    testCompile "org.apache.commons:commons-lang3:${commonsLang3Version}"
+    testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
+    testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
+    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
+    testRuntime "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
+
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testCompile "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+}
+
+test {
+    useJUnitPlatform {
+        if (System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true') {
+            excludeTags 'RequiresFDB'
+        }
+        if (System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true') {
+            excludeTags 'Slow'
+        }
+
+        // We need the destructive tests to be available in the 'test' task, so that IntelliJ's gradle test runner can
+        // find them. However, we _only_ want to run them as part of the 'test' task if we're running from IntelliJ.
+        // This isn't a great way to detect it, but it's the only one I could find. If this ever breaks, I'd look here first.
+        if (System.getenv('XPC_SERVICE_NAME') == null || !(System.getenv('XPC_SERVICE_NAME').contains("intellij") || System.getenv('XPC_SERVICE_NAME').contains("idea"))) {
+            excludeTags 'WipesFDB'
+            excludeTags 'Performance'
+        }
+    }
+}
+
+task destructiveTest(type: Test) {
+    useJUnitPlatform {
+        if (System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true') {
+            excludeTags 'RequiresFDB'
+        }
+        if (System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true') {
+            excludeTags 'Slow'
+        }
+        excludeTags 'Performance'
+
+        includeTags 'WipesFDB'
+        maxParallelForks = 1
+    }
+    reports {
+        junitXml.destination = file("${buildDir}/test-results/destructive")
+    }
+}
+
+task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    classifier = 'standalone-tests'
+    from sourceSets.main.output
+    from sourceSets.test.output
+    configurations = [ project.configurations.testRuntime ]
+    manifest {
+        inheritFrom project.tasks.jar.manifest
+        attributes 'Main-Class': 'com.apple.foundationdb.record.provider.foundationdb.FDBRecordStorePerformanceTest'
+    }
+    mergeServiceFiles()
+    exclude 'log4j.properties'
+}

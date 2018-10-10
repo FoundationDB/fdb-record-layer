@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <resourceExtensions>
+      <entry name=".+\\.(properties|xml|html|dtd|tld)" />
+      <entry name=".+\\.(gif|png|jpeg|jpg)" />
+    </resourceExtensions>
+    <wildcardResourcePatterns>
+      <entry name="?*.properties" />
+      <entry name="?*.xml" />
+      <entry name="?*.gif" />
+      <entry name="?*.png" />
+      <entry name="?*.jpeg" />
+      <entry name="?*.jpg" />
+      <entry name="?*.html" />
+      <entry name="?*.dtd" />
+      <entry name="?*.tld" />
+      <entry name="?*.properties" />
+      <entry name="?*.xml" />
+      <entry name="?*.html" />
+      <entry name="?*.dtd" />
+      <entry name="?*.tld" />
+      <entry name="?*.gif" />
+      <entry name="?*.png" />
+      <entry name="?*.jpeg" />
+      <entry name="?*.jpg" />
+      <entry name="?*.met" />
+      <entry name="?*.sim" />
+      <entry name="?*.csv" />
+      <entry name="?*.cer" />
+      <entry name="?*.json" />
+      <entry name="?*.template" />
+      <entry name="?*.vcf" />
+      <entry name="?*.plist" />
+      <entry name="?*.p12" />
+      <entry name="?*.index" />
+      <entry name="?*.ics" />
+      <entry name="?*.desc" />
+      <entry name="**/*.avsc" />
+    </wildcardResourcePatterns>
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="fdb-extensions_integrationTest" target="1.8" />
+      <module name="fdb-extensions_main" target="1.8" />
+      <module name="fdb-extensions_test" target="1.8" />
+      <module name="fdb-record-layer-core_integrationTest" target="1.8" />
+      <module name="fdb-record-layer-core_main" target="1.8" />
+      <module name="fdb-record-layer-core_test" target="1.8" />
+      <module name="fdb-record-layer_main" target="1.8" />
+      <module name="fdb-record-layer_test" target="1.8" />
+    </bytecodeTargetLevel>
+  </component>
+</project>

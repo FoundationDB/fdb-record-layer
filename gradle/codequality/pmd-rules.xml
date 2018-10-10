@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<ruleset name="Record Layer ruleset"
+         xmlns="http://pmd.sf.net/ruleset/1.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
+         xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+    <description>
+        Record Layer PMD ruleset
+    </description>
+
+    <rule ref="rulesets/java/basic.xml">
+        <exclude name="CollapsibleIfStatements"/>
+    </rule>    
+
+    <rule ref="rulesets/java/braces.xml"/>
+
+    <rule ref="rulesets/java/empty.xml"/>
+
+    <rule ref="rulesets/java/imports.xml"/>
+
+    <rule ref="rulesets/java/unnecessary.xml">
+        <exclude name="UselessParentheses"/>
+    </rule>
+
+    <rule ref="rulesets/java/strings.xml">
+        <exclude name="AppendCharacterWithChar"/>
+        <exclude name="AvoidDuplicateLiterals"/>
+        <exclude name="ConsecutiveLiteralAppends"/>
+    </rule>
+
+    <rule ref="rulesets/java/logging-java.xml"/>
+</ruleset>

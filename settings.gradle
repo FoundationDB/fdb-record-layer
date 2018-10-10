@@ -1,0 +1,51 @@
+/*
+ * settings.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+rootProject.name='fdb-record-layer'
+
+include 'fdb-extensions'
+include 'fdb-record-layer-core'
+
+
+// It's confusing to have dozens of files called build.gradle scattered around the project
+// The following renames these the <project-name>.gradle following the same convention established
+// by the build for Gradle itself.
+
+def recursiveRenameBuildfiles(prefix, project) {
+    project.buildFileName = prefix + project.name + '.gradle'
+    project.children.each { subproject ->
+        recursiveRenameBuildfiles(project.name + '-', subproject)
+    }
+}
+
+rootProject.children.each { project ->
+    recursiveRenameBuildfiles('', project)
+}
+
+// Prepare build for gradle 5.0 by turning on normal evaluation of publishing block
+// https://docs.gradle.org/4.8/userguide/publishing_maven.html#publishing_maven:deferred_configuration
+enableFeaturePreview('STABLE_PUBLISHING')
+
+if ( System.getenv('PROTO_VERSION') != null) {
+    def protoMajorVersion = System.getenv('PROTO_VERSION')
+    if (protoMajorVersion != "2") {
+        project(':fdb-record-layer-core').name = "fdb-record-layer-core-pb${protoMajorVersion}"
+    }
+}

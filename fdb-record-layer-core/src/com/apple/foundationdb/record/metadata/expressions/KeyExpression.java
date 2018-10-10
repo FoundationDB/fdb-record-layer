@@ -1,0 +1,327 @@
+/*
+ * KeyExpression.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.metadata.expressions;
+
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Interface for expressions that evaluate to keys.
+ * While Java will let you extend this class, you probably shouldn't because the planner does lots of instanceof
+ * calls to figure out what query to use. If you're ok with always just doing a scan of all records, and evaluating
+ * the expression on that, I guess that's ok.
+ *
+ * When implementing a new key expression, care should be taken to implement at least one (and possibly both) of
+ * the interfaces Key.AtomExpression and Key.ExpressionWithChildren.
+ */
+public interface KeyExpression extends PlanHashable, PlannerExpression {
+    /**
+     * Evaluate against a given record producing a list of evaluated keys. These are extracted from the
+     * fields within the record according to the rules of each implementing class.
+     *
+     * Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
+     * Protobuf messages, so that they interact properly with expressions that do.
+     * @param <M> the type of record
+     * @param context context for bound expressions
+     * @param record the record
+     * @return the list of evaluated keys for the given record
+     * @throws InvalidResultException if any returned result has some number of columns other
+     *         than the return value of {@link #getColumnSize()}
+     */
+    @Nonnull
+    default <M extends Message> List<Key.Evaluated> evaluate(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record) {
+        return evaluateMessage(context, record, record == null ? null : record.getRecord());
+    }
+
+    /**
+     * Evaluate this expression with the expectation of getting exactly one result.
+     * @param <M> the type of record
+     * @param context context for bound expressions
+     * @param record the record
+     * @return the evaluated keys for the given record
+     */
+    @Nonnull
+    default <M extends Message> Key.Evaluated evaluateSingleton(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record) {
+        final List<Key.Evaluated> keys = evaluate(context, record);
+        if (keys.size() != 1) {
+            throw new RecordCoreException("Should evaluate to single key only");
+        }
+        return keys.get(0);
+    }
+
+    /**
+     * Evaluate this expression against a record or a Protobuf message.
+     *
+     * The message might be the Protobuf form of a record or a piece of that record.
+     * If the key expression is meaningful against a subrecord, it should evaluate against the message.
+     * Otherwise, it should evaluate against the record and ignore what part of that record is being considered.
+     *
+     * There should not be any reason to call this method outside of the implementation of another {@code evaluateMessage}.
+     * Under ordinary circumstances, if {@code record} is {@code null}, then {@code message} will be {@code null}.
+     * Otherwise, {@code message} will be {@code record.getRecord()} or some submessage of that, possibly {@code null} if
+     * the corresponding field is missing.
+     * @see #evaluate
+     * @param <M> the type of record
+     * @param context context for bound expressions
+     * @param record the record
+     * @param message the Protobuf message to evaluate against
+     * @return the evaluated keys for the given record
+     */
+    @Nonnull
+    <M extends Message> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message);
+
+    /**
+     * This states whether the given expression type is capable of evaluating more to more than
+     * one value when applied to a single record. In practice, this can happen if this expression
+     * is evaluated on a repeated field with {@link FanType#FanOut FanType.FanOut} set (either directly
+     * or indirectly).
+     *
+     * @return <code>true</code> if this expression can evaluate to multiple values and <code>false</code>
+     * otherwise
+     */
+    boolean createsDuplicates();
+
+    /**
+     * Validate this expression against a given record type descriptor.
+     * @param descriptor the descriptor for the record type or submessage
+     * @return a list of fields that this key applies to
+     * @throws InvalidExpressionException
+     * if the expression is not valid for the given descriptor
+     */
+    List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor);
+
+    /**
+     * Returns the number of items in each KeyValue that will be returned.
+     * When we support concatenate, this will the count of non-nested lists, i.e.
+     * this will be value of evaluate(r).get(i).toList().size() for any i or r.
+     * @return the number of elements that will be produced for every key
+     */
+    int getColumnSize();
+
+    /**
+     * How should repeated fields be handled.
+     * These names don't technically meet our naming convention but changing them is a lot of work because of all of
+     * the string constants.
+     */
+    @SuppressWarnings("squid:S00115")
+    enum FanType {
+        /**
+         * Convert a repeated field into a single list.
+         * This does not cause the number of index values to increase.
+         */
+        Concatenate(RecordMetaDataProto.Field.FanType.CONCATENATE),
+        /**
+         * Create an index value for each value of the field.
+         */
+        FanOut(RecordMetaDataProto.Field.FanType.FAN_OUT),
+        /**
+         * Nothing, only allowed with scalar fields.
+         */
+        None(RecordMetaDataProto.Field.FanType.SCALAR);
+
+        private RecordMetaDataProto.Field.FanType proto;
+
+        FanType(RecordMetaDataProto.Field.FanType fanType) {
+
+            proto = fanType;
+        }
+
+        RecordMetaDataProto.Field.FanType toProto() {
+            return proto;
+        }
+
+        public static FanType valueOf(RecordMetaDataProto.Field.FanType fanType) throws DeserializationException {
+            switch (fanType) {
+                case SCALAR:
+                    return None;
+                case FAN_OUT:
+                    return FanOut;
+                case CONCATENATE:
+                    return Concatenate;
+                default:
+                    throw new DeserializationException("Invalid fan type " + fanType);
+            }
+        }
+    }
+
+    @Nonnull
+    Message toProto() throws SerializationException;
+
+    @Nonnull
+    RecordMetaDataProto.KeyExpression toKeyExpression();
+
+    /**
+     * Get key in normalized form for comparing field-by-field.
+     * Does not take account of fan-type, so only valid
+     * when this has already been taken care of, such as individual index entries.
+     * @return a list of key expressions in order
+     */
+    @Nonnull
+    default List<KeyExpression> normalizeKeyForPositions() {
+        return Collections.singletonList(this);
+    }
+
+    /**
+     * Returns the number of version columns produced by this key expression.
+     * @return the number of version columns
+     */
+    default int versionColumns() {
+        return 0;
+    }
+
+    /**
+     * Returns a sub-set of the key expression.
+     * @param start starting position
+     * @param end ending position
+     * @return a key expression for the subkey between {@code start} and {@code end}
+     */
+    @Nonnull
+    KeyExpression getSubKey(int start, int end);
+
+    /**
+     * Check whether a key is a prefix of another key.
+     * @param key the whole key to check
+     * @return {@code true} if {@code prefix} is a left subset of {@code key}
+     */
+    boolean isPrefixKey(KeyExpression key);
+
+    default boolean hasProperInterfaces() {
+        return this instanceof KeyExpressionWithChildren || this instanceof KeyExpressionWithoutChildren;
+    }
+
+    static KeyExpression fromProto(RecordMetaDataProto.KeyExpression expression)
+            throws DeserializationException {
+        KeyExpression root = null;
+        int found = 0;
+        if (expression.hasField()) {
+            found++;
+            root = new FieldKeyExpression(expression.getField());
+        }
+        if (expression.hasNesting()) {
+            found++;
+            root = new NestingKeyExpression(expression.getNesting());
+        }
+        if (expression.hasThen()) {
+            found++;
+            root = new ThenKeyExpression(expression.getThen());
+        }
+        if (expression.hasGrouping()) {
+            found++;
+            root = new GroupingKeyExpression(expression.getGrouping());
+        }
+        if (expression.hasSplit()) {
+            found++;
+            root = new SplitKeyExpression(expression.getSplit());
+        }
+        if (expression.hasEmpty()) {
+            found++;
+            root = new EmptyKeyExpression();
+        }
+        if (expression.hasVersion()) {
+            found++;
+            root = new VersionKeyExpression();
+        }
+        if (expression.hasValue()) {
+            found++;
+            root = LiteralKeyExpression.fromProto(expression.getValue());
+        }
+        if (expression.hasFunction()) {
+            found++;
+            root = FunctionKeyExpression.fromProto(expression.getFunction());
+        }
+        if (expression.hasKeyWithValue()) {
+            found++;
+            root = new KeyWithValueExpression(expression.getKeyWithValue());
+        }
+        if (root == null || found > 1) {
+            throw new DeserializationException("Exactly one root must be specified for an index");
+        }
+        return root;
+    }
+
+    /**
+     * Exception thrown when there is a problem serializing a key expression.
+     */
+    @SuppressWarnings("serial")
+    class SerializationException extends RecordCoreException {
+        public SerializationException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Exception thrown when there is a problem deserializing a key expression.
+     */
+    @SuppressWarnings("serial")
+    class DeserializationException extends RecordCoreException {
+        public DeserializationException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Exception thrown when there is a problem with using a key expression in a certain context.
+     */
+    @SuppressWarnings("serial")
+    class InvalidExpressionException extends RecordCoreException {
+        public InvalidExpressionException(String message) {
+            super(message);
+        }
+
+        public InvalidExpressionException(String message, @Nullable Object... keyValues) {
+            super(message, keyValues);
+        }
+    }
+
+    /**
+     * This is a runtime exception (i.e. when the expression is evaluated, not when it is being constructed)
+     * that indicates that a child of an expression has returned a value that is not of the shape that is
+     * expected.
+     */
+    @SuppressWarnings("serial")
+    class InvalidResultException extends RecordCoreException {
+        public InvalidResultException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Exception thrown when a function key expression does not have an argument.
+     */
+    @SuppressWarnings("serial")
+    class NoSuchArgumentException extends RecordCoreException {
+        public NoSuchArgumentException(String message) {
+            super(message);
+        }
+    }
+}

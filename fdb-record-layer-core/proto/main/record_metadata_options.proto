@@ -1,0 +1,64 @@
+/*
+ * record_metadata_options.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record;
+option java_outer_classname = "RecordMetaDataOptionsProto";
+
+import "google/protobuf/descriptor.proto";
+import "record_metadata.proto";
+
+message SchemaOptions {
+  optional bool split_long_records = 3;
+  optional bool store_record_versions = 4;
+}
+
+extend google.protobuf.FileOptions {
+  optional SchemaOptions schema = 1233;
+}
+
+message RecordTypeOptions {
+  enum Usage {
+    RECORD = 1;
+    UNION = 2;
+    NESTED = 3;
+  }
+  optional Usage usage = 1 [default = RECORD];
+  optional int32 since_version = 2; // This record_type is introduced on this metadata version
+}
+
+extend google.protobuf.MessageOptions {
+  optional RecordTypeOptions record = 1233;
+}
+
+message FieldOptions {
+  optional Index.Type indexed = 1 [deprecated = true]; // Use index.type.
+  optional bool primary_key = 2;
+  message IndexOption {
+    optional string type = 1 [default = "value"];
+    optional bool unique = 2;
+    repeated Index.Option options = 3; // Note: there is no way to specify these in a .proto file.
+  }
+  optional IndexOption index = 3;
+}
+
+extend google.protobuf.FieldOptions {
+  optional FieldOptions field = 1233;
+}

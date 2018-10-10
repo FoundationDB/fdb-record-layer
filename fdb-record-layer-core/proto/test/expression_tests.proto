@@ -1,0 +1,83 @@
+/*
+ * expression_tests.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record.metadata;
+
+option java_outer_classname = "ExpressionTestsProto";
+
+import "record_metadata_options.proto";
+import "tuple_fields.proto";
+
+message TestScalarFieldAccess {
+  optional string field = 1;
+  repeated string repeat_me = 2;
+  optional bytes bytes_field = 3;
+  optional UUID uuid_field = 4;
+}
+
+message NestedField {
+  optional NestedField nesty = 1;
+  repeated NestedField repeated_nesty = 2;
+  optional string regular_old_field = 3;
+  repeated string repeated_field = 4;
+  optional OtherNested nesty2 = 5;
+  optional int32 regular_int_field = 6;
+  message OtherNested {
+    optional ThirdNested nesty3 = 1;
+    message ThirdNested {
+      optional string last_field = 1;
+    }
+  }
+}
+
+message SubString {
+  required string content = 1;
+  required int32 start = 2;
+  required int32 end = 3;
+}
+
+message SubStrings {
+  repeated SubString substrings = 1;
+}
+
+message Customer {
+  required string id = 1;
+  optional string first_name = 2;
+  optional string last_name = 3;
+  repeated Order order = 4;
+
+  message Order {
+    required string id = 1;
+    repeated Item item = 2;
+
+    message Item {
+      required string id = 1;
+      optional string name = 2;
+    }
+  }
+}
+
+message RecordTypeUnion {
+  optional TestScalarFieldAccess _TestScalarFieldAccess = 1;
+  optional NestedField _NestedField = 2;
+  optional Customer _Customer = 3;
+  optional SubStrings _SubStrings = 4;
+}

@@ -1,0 +1,70 @@
+/*
+ * test_records_with_union.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record.testunion;
+
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestRecordsWithUnionProto";
+
+import "record_metadata_options.proto";
+
+message UnionDescriptor {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  // TODO RecordMetaData should do thorough checks of this type
+  optional MySimpleRecord _MySimpleRecord = 1;
+  optional MySimpleRecord2 _MySimpleRecord2 = 2;
+  optional MySimpleRecord3 _MySimpleRecord3 = 3;
+}
+
+message MySimpleRecord {
+  required int64 rec_no = 1 [(field).primary_key = true];
+  optional string str_value_indexed = 2 [(field).index = {}];
+  optional int32 num_value_unique = 3 [(field).index = { unique: true }];
+  optional int32 num_value_2 = 4;
+  optional int32 num_value_3_indexed = 5 [(field).index = {}];
+  optional int32 etag = 6;
+  optional Nested nested = 7;
+}
+
+message MySimpleRecord2 {
+  required string str_value_indexed = 1 [(field).primary_key = true];
+  optional int32 num_value_unique = 2 [(field).index = { unique: true }];
+  optional NotInUnion not_in_union = 3;
+  optional int32 etag = 4;
+  optional Nested nested = 5;
+}
+
+message MySimpleRecord3 {
+  required string str_value_indexed = 1 [(field).primary_key = true];
+  optional int32 etag = 3;
+  optional Nested nested = 4;
+}
+
+message NotInUnion {
+  option (com.apple.foundationdb.record.record).usage = NESTED;
+  required string str_value_indexed = 1 [(field).primary_key = true];
+  optional int32 num_value_unique = 2 [(field).index = { unique: true }];
+}
+
+message Nested {
+  option (com.apple.foundationdb.record.record).usage = NESTED;
+  optional int32 etag = 1;
+}

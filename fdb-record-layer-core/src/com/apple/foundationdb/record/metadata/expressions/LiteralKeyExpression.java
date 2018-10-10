@@ -1,0 +1,210 @@
+/*
+ * LiteralKeyExpression.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.metadata.expressions;
+
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+
+/**
+ * Expression to allow a static value to be utilized in a key expression.  This primary use case for this
+ * is for passing static arguments to functions (see {@link FunctionKeyExpression} for details).
+ * @param <T> the type of the literal value
+ */
+public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKeyExpression {
+    @Nullable
+    private final T value;
+    @Nonnull
+    private final List<Key.Evaluated> evaluated;
+    @Nonnull
+    private final RecordMetaDataProto.Value proto;
+
+    public LiteralKeyExpression(@Nullable T value) {
+        // getProto() performs validation that it is a type we can serialize
+        this(value, getProto(value));
+    }
+
+    private LiteralKeyExpression(@Nullable T value, @Nonnull RecordMetaDataProto.Value proto) {
+        this.value = value;
+        this.evaluated = ImmutableList.of(value == null ? Key.Evaluated.NULL : Key.Evaluated.scalar(value));
+        this.proto = proto;
+    }
+
+    @Nullable
+    public T getValue() {
+        return value;
+    }
+
+    @Nonnull
+    @Override
+    public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+        return evaluated;
+    }
+
+    @Override
+    public boolean createsDuplicates() {
+        return false;
+    }
+
+    @Override
+    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public int getColumnSize() {
+        return 1;
+    }
+
+    @Nonnull
+    @Override
+    public RecordMetaDataProto.Value toProto() throws SerializationException {
+        return proto;
+    }
+
+    @Nonnull
+    @Override
+    public RecordMetaDataProto.KeyExpression toKeyExpression() {
+        return RecordMetaDataProto.KeyExpression.newBuilder().setValue(toProto()).build();
+    }
+
+    @Nonnull
+    public static LiteralKeyExpression<?> fromProto(RecordMetaDataProto.Value proto) {
+        int found = 0;
+        LiteralKeyExpression<?> value = null;
+        if (proto.hasDoubleValue()) {
+            ++found;
+            value = new LiteralKeyExpression<>(proto.getDoubleValue(), proto);
+        }
+        if (proto.hasFloatValue()) {
+            ++found;
+            value = new LiteralKeyExpression<>(proto.getFloatValue(), proto);
+        }
+        if (proto.hasLongValue()) {
+            ++found;
+            value = new LiteralKeyExpression<>(proto.getLongValue(), proto);
+        }
+        if (proto.hasBoolValue()) {
+            ++found;
+            value = new LiteralKeyExpression<>(proto.getBoolValue(), proto);
+        }
+        if (proto.hasStringValue()) {
+            ++found;
+            value = new LiteralKeyExpression<>(proto.getStringValue(), proto);
+        }
+        if (proto.hasBytesValue()) {
+            ++found;
+            value = new LiteralKeyExpression<>(proto.getBytesValue(), proto);
+        }
+        if (found == 0) {
+            ++found;
+            value = new LiteralKeyExpression<>(null, proto);
+        }
+        if (found > 1) {
+            throw new RecordCoreException("More than one value encoded in value")
+                    .addLogInfo("encoded_value", proto);
+        }
+        return value;
+    }
+
+    @Nonnull
+    private static RecordMetaDataProto.Value getProto(@Nullable Object value) {
+        RecordMetaDataProto.Value.Builder builder = RecordMetaDataProto.Value.newBuilder();
+        if (value instanceof Double) {
+            builder.setDoubleValue((Double) value);
+        } else if (value instanceof Float) {
+            builder.setFloatValue((Float) value);
+        } else if (value instanceof Number) {
+            builder.setFloatValue(((Number) value).longValue());
+        } else if (value instanceof Boolean) {
+            builder.setBoolValue((Boolean) value);
+        } else if (value instanceof String) {
+            builder.setStringValue((String) value);
+        } else if (value instanceof byte[]) {
+            builder.setBytesValue(ByteString.copyFrom((byte[]) value));
+        } else if (value != null) {
+            throw new RecordCoreException("Unsupported value type").addLogInfo(
+                    "value_type", value.getClass().getName());
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+        return Collections.emptyIterator();
+    }
+
+    @Override
+    public boolean equalsAtomic(AtomKeyExpression other) {
+        return equals(other);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof LiteralKeyExpression)) {
+            return false;
+        }
+
+        LiteralKeyExpression<?> other = (LiteralKeyExpression<?>) o;
+        return proto.equals(other.proto);
+    }
+
+    @Override
+    public int hashCode() {
+        return proto.hashCode();
+    }
+
+    @Override
+    public int planHash() {
+        return proto.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder();
+        sb.append("value(");
+        if (value instanceof String) {
+            sb.append('"').append(value).append('"');
+        } else {
+            sb.append(value);
+        }
+        sb.append(')');
+        return sb.toString();
+    }
+}

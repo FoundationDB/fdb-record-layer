@@ -1,0 +1,105 @@
+version: "3"
+
+services:
+  common: &common
+    image: fdb-record-layer-build:0.0.1
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+    networks: [test-net]
+
+  build-setup: &build-setup
+    <<: *common
+    volumes:
+      - ..:/code
+    working_dir: /code
+    environment:
+      - FDBHOSTNAME=fdbserver
+
+  fdbserver:
+    image: foundationdb-server:5.2.5-2
+    environment:
+      - FDBSTARTOPT=2
+      - HOST_IP=0.0.0.0
+      - FDBPORT
+    build:
+      context: .
+      dockerfile: Dockerfile.fdbserver
+    expose:
+      - "${FDBPORT}"
+    networks: [test-net]
+
+  build-release:
+    <<: *build-setup
+    command: /bin/bash -cl "python build.py release --publish"
+    environment:
+      - SKIP_FDB_TESTS=true
+      - RELEASE_BUILD=true
+      - CODE_QUALITY=true
+      - BUILD_NUMBER
+      - RECORD_LAYER_BUILD_NUMBER=${BUILD_NUMBER}.0
+      - BINTRAY_USER
+      - BINTRAY_KEY
+
+  build-snapshot:
+    <<: *build-setup
+    depends_on: [fdbserver]
+    command: /bin/bash -cl "fdb_create_cluster_file.bash 2 && python build.py snapshot"
+    environment:
+      - SKIP_FDB_TESTS=false
+      - RELEASE_BUILD=false
+      - CODE_QUALITY=true
+      - GRADLE_OPTS="-Dorg.gradle.parallel=false -Dorg.gradle.daemon.idletimeout=600"
+      - FDBPORT
+    links:
+      - fdbserver
+
+  build-prb-proto2:
+    <<: *build-setup
+    depends_on: [fdbserver]
+    command: /bin/bash -cl "fdb_create_cluster_file.bash 2 && python build.py snapshot --proto2"
+    environment:
+      - SKIP_FDB_TESTS=false
+      - CODE_QUALITY=true
+      - GRADLE_OPTS="-Dorg.gradle.parallel=false -Dorg.gradle.daemon.idletimeout=600"
+      - FDBPORT
+    links:
+      - fdbserver
+
+  build-prb-proto3:
+    <<: *build-setup
+    depends_on: [fdbserver]
+    command: /bin/bash -cl "fdb_create_cluster_file.bash 2 && python build.py snapshot --proto3"
+    environment:
+      - SKIP_FDB_TESTS=false
+      - CODE_QUALITY=true
+      - GRADLE_OPTS="-Dorg.gradle.parallel=false -Dorg.gradle.daemon.idletimeout=600"
+      - FDBPORT
+    links:
+      - fdbserver
+
+  shell:
+    <<: *build-setup
+    environment:
+      - BINTRAY_USER
+      - BINTRAY_KEY
+    entrypoint: /bin/bash
+    networks: [test-net]
+    environment:
+      - FDBPORT
+    links:
+      - fdbserver
+
+  test:
+    <<: *build-setup
+    command: /bin/bash -cl "date; env; date"
+
+  test-fdbserver:
+    <<: *build-setup
+    depends_on: [fdbserver]
+    command: /bin/bash -cl "fdb_create_cluster_file.bash 2"
+    links:
+      - fdbserver
+
+networks:
+  test-net:

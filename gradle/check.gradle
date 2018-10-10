@@ -1,0 +1,165 @@
+/*
+ * check.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// Checkstyle
+apply plugin: 'checkstyle'
+
+// add any new banned imports to .idea/checkstyle-idea.xml as well
+def BANNED_IMPORTS = [
+    'awt',
+    'com.sun',
+    'sun',
+    'edu.emory.mathcs.backport.java.util.concurrent',
+    'org.codehaus.jackson',
+    'scala',
+    'org.jetbrains.annotations',                 // annotations imports, use javax.annotation
+    'com.drew.lang.annotations',                 // annotations imports, use javax.annotation
+    'junit.framework',
+    'org.junit.Assert',                          // JUnit4 assertions
+    'org.junit.Test',                            // JUnit4 tests
+    'org.apache.log4j'                           // log4j logging: use slf4j instead
+]
+
+task checkstyleAll
+
+tasks.withType(Checkstyle) { task ->
+    checkstyleAll.dependsOn task
+    task.exclude '**/protogen/**'
+    task.configProperties = ["projectDir" : rootProject.projectDir, 'bannedImports': BANNED_IMPORTS.join(',')]
+}
+
+checkstyle {
+    ignoreFailures = false
+    configFile = rootProject.file('gradle/codequality/checkstyle.xml')
+    toolVersion = "7.5.1"
+}
+
+task checkstyleMandatory(type: Checkstyle) { task ->
+    group = 'Verification'
+    description = 'Perform subset of Checkstyle checks that must pass in order for the build to be successful'
+
+    configFile = rootProject.file('gradle/codequality/checkstyle-mandatory.xml')
+    ignoreFailures = false
+    sourceSets.all { ss ->
+        task.source ss.allJava
+        task.classpath = ss.output
+    }
+}
+
+quickCheck.dependsOn checkstyleMandatory
+
+// SpotBugs
+apply plugin: 'com.github.spotbugs'
+
+spotbugs {
+    toolVersion = '3.1.7'
+    ignoreFailures = false
+    effort = 'max'
+    sourceSets = [sourceSets.main]
+    excludeFilter = rootProject.file('gradle/codequality/spotbugs_exclude.xml')
+}
+
+def spotbugsFailed = false
+
+def printInstructionsOnRunningWithHtmlOutput = task('printInstructionsOnRunningWithHtmlOutput') {
+    doLast {
+        if (spotbugsFailed) {
+            logger.error "*** SPOTBUGS FAILED: you can generate the HTML report by adding -PspotbugsEnableHtmlReport"
+        }
+    }
+}
+
+tasks.withType(rootProject.SpotBugsTask) { task ->
+    task.exclude '**/protogen/**'
+    if (project.hasProperty('spotbugsEnableHtmlReport')) {
+        // SpotBugs task can only have one report type enabled at a time
+        reports {
+            xml.enabled false
+            html.enabled true
+        }
+    } else {
+        task.finalizedBy printInstructionsOnRunningWithHtmlOutput
+    }
+
+    task.doFirst {
+        spotbugsFailed = true
+        def  ft = task.classes
+        if (task.classes == null) {
+            return
+        }
+        task.classes = files(ft.files).filter {
+          !(it.path.contains('Proto$')
+            || it.path.contains('Proto.class'))
+        }
+    }
+    task.doLast {
+        spotbugsFailed = false
+    }
+}
+
+// PMD
+apply plugin: 'pmd'
+pmd {
+    ignoreFailures = false
+    targetJdk = '1.7'
+    sourceSets = [sourceSets.main]
+    toolVersion = '5.1.2'
+    // an annoying hack to get around Gradle defaults
+    // See https://ncona.com/2015/01/unable-to-exclude-pmd-rule-after-upgrading-to-gradle-2/
+    ruleSets = []
+    ruleSetFiles = rootProject.files("gradle/codequality/pmd-rules.xml")
+}
+tasks.withType(Pmd) { t ->
+    // the PMD plugin doesn't respect exclusions, so we manually set the source directory instead
+    // this might mess with Gradle's caching/change detection, but it works
+    t.setSource 'src'
+    t.exclude '**/protogen/**'
+}
+
+afterEvaluate {
+    if (!hasProperty('performIgnoredChecks')) {
+        // disable the check tasks that can't ever fail the build
+        [rootProject.SpotBugsTask, Pmd, Checkstyle].each { taskType ->
+            tasks.withType(taskType) { t ->
+                if (System.getenv('CODE_QUALITY') != null) {
+                    t.enabled = true
+                } else {
+                    t.enabled = !t.ignoreFailures
+                }
+            }
+        }
+    }
+}
+
+task banSnapshots {
+    doLast {
+        // configurations.compile is included in runtime & we don't really care about snapshots in testCompile and testRuntime
+        def resolved = configurations.runtime.resolvedConfiguration
+        resolved.resolvedArtifacts.each { artifact ->
+            if (artifact.moduleVersion.id.version.contains('SNAPSHOT')) {
+                throw new RuntimeException("Snapshots not allowed: $artifact.moduleVersion.id -> $artifact.file")
+            }
+        }
+    }
+}
+
+if (!Boolean.parseBoolean(allowSnapshots)) {
+    quickCheck.dependsOn banSnapshots
+}
