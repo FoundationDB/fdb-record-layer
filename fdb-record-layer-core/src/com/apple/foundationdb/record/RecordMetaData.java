@@ -73,16 +73,16 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final KeyExpression recordCountKey;
 
     @SuppressWarnings("squid:S00107") // There is a Builder.
-    public RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
-                          @Nonnull Descriptors.Descriptor unionDescriptor,
-                          @Nonnull Map<String, RecordType> recordTypes,
-                          @Nonnull Map<String, Index> indexes,
-                          @Nonnull Map<String, Index> universalIndexes,
-                          @Nonnull List<FormerIndex> formerIndexes,
-                          boolean splitLongRecords,
-                          boolean storeRecordVersions,
-                          int version,
-                          @Nullable KeyExpression recordCountKey) {
+    protected RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
+                             @Nonnull Descriptors.Descriptor unionDescriptor,
+                             @Nonnull Map<String, RecordType> recordTypes,
+                             @Nonnull Map<String, Index> indexes,
+                             @Nonnull Map<String, Index> universalIndexes,
+                             @Nonnull List<FormerIndex> formerIndexes,
+                             boolean splitLongRecords,
+                             boolean storeRecordVersions,
+                             int version,
+                             @Nullable KeyExpression recordCountKey) {
         this.recordsDescriptor = recordsDescriptor;
         this.unionDescriptor = unionDescriptor;
         this.recordTypes = recordTypes;
