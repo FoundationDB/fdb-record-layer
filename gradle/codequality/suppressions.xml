@@ -5,7 +5,7 @@
 
 <suppressions>
     <suppress checks=".*"
-        files=".*/protogen/.*"/>
+        files=".*[\\/]protogen[\\/].*"/>
     <suppress checks="JavadocPackage"
-        files="fdb-extensions/.*|.*/test/.*"/>
+        files="fdb-extensions[\\/].*|.*[\\/]test[\\/].*"/>
 </suppressions>
