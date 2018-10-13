@@ -133,21 +133,6 @@ tasks.withType(Pmd) { t ->
     t.exclude '**/protogen/**'
 }
 
-afterEvaluate {
-    if (!hasProperty('performIgnoredChecks')) {
-        // disable the check tasks that can't ever fail the build
-        [rootProject.SpotBugsTask, Pmd, Checkstyle].each { taskType ->
-            tasks.withType(taskType) { t ->
-                if (System.getenv('CODE_QUALITY') != null) {
-                    t.enabled = true
-                } else {
-                    t.enabled = !t.ignoreFailures
-                }
-            }
-        }
-    }
-}
-
 task banSnapshots {
     doLast {
         // configurations.compile is included in runtime & we don't really care about snapshots in testCompile and testRuntime

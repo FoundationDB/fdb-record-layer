@@ -121,9 +121,7 @@ subprojects {
     }
 }
 
-if (hasProperty('performIgnoredChecks')) {
-    jacoco {
-        toolVersion = jacocoVersion
-    }
-    check.dependsOn tasks.withType(JacocoReport)
+jacoco {
+    toolVersion = jacocoVersion
 }
+check.dependsOn tasks.withType(JacocoReport)
