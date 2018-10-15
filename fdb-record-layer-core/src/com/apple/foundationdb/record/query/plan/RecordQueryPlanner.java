@@ -143,7 +143,7 @@ public class RecordQueryPlanner {
      * satisfy any additional conditions.
      * @return whether to prefer index scan over record scan
      */
-    public boolean isPreferIndexToScan() {
+    public boolean prefersIndexToScan() {
         return preferIndexToScan;
     }
 
@@ -258,10 +258,10 @@ public class RecordQueryPlanner {
             if (index2 == null) {
                 return 0;
             } else {
-                return preferIndexToScan ? -1 : +1;
+                return prefersIndexToScan() ? -1 : +1;
             }
         } else if (index2 == null) {
-            return preferIndexToScan ? +1 : -1;
+            return prefersIndexToScan() ? +1 : -1;
         } else {
             // Better for fewer stored columns.
             return Integer.compare(indexSizeOverhead(planContext, index2), indexSizeOverhead(planContext, index1));
