@@ -45,7 +45,7 @@ def print_with_date(text):
 # Constructs the gradle run path given the gradle args.
 def run_gradle(proto_version, *args):
     env = dict(os.environ)
-    full_args = [os.path.join(dir_path, 'gradlew'), '--console=plain', '-b', os.path.join(dir_path, 'build.gradle'), '-PperformIgnoredChecks', ] + list(args)
+    full_args = [os.path.join(dir_path, 'gradlew'), '--console=plain', '-b', os.path.join(dir_path, 'build.gradle'), ] + list(args)
     print_with_date('Running gradle build: {0}; Proto version: {1}'.format(' '.join(full_args), proto_version))
     env['PROTO_VERSION'] = str(proto_version)
     proc = subprocess.Popen(full_args, env=env)

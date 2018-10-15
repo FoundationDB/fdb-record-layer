@@ -35,7 +35,6 @@ services:
     environment:
       - SKIP_FDB_TESTS=true
       - RELEASE_BUILD=true
-      - CODE_QUALITY=true
       - BUILD_NUMBER
       - RECORD_LAYER_BUILD_NUMBER=${BUILD_NUMBER}.0
       - BINTRAY_USER
@@ -48,7 +47,6 @@ services:
     environment:
       - SKIP_FDB_TESTS=false
       - RELEASE_BUILD=false
-      - CODE_QUALITY=true
       - GRADLE_OPTS="-Dorg.gradle.parallel=false -Dorg.gradle.daemon.idletimeout=600"
       - FDBPORT
     links:
@@ -60,7 +58,6 @@ services:
     command: /bin/bash -cl "fdb_create_cluster_file.bash 2 && python build.py snapshot --proto2"
     environment:
       - SKIP_FDB_TESTS=false
-      - CODE_QUALITY=true
       - GRADLE_OPTS="-Dorg.gradle.parallel=false -Dorg.gradle.daemon.idletimeout=600"
       - FDBPORT
     links:
@@ -72,7 +69,6 @@ services:
     command: /bin/bash -cl "fdb_create_cluster_file.bash 2 && python build.py snapshot --proto3"
     environment:
       - SKIP_FDB_TESTS=false
-      - CODE_QUALITY=true
       - GRADLE_OPTS="-Dorg.gradle.parallel=false -Dorg.gradle.daemon.idletimeout=600"
       - FDBPORT
     links:
