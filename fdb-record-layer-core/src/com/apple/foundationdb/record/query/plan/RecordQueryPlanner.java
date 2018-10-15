@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithComparison;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
+import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.planning.InExtractor;
 import com.apple.foundationdb.record.query.plan.planning.RankComparisons;
 import com.apple.foundationdb.record.query.plan.planning.TextScan;
@@ -1010,23 +1011,12 @@ public class RecordQueryPlanner implements QueryPlanner {
     private ScoredPlan planText(@Nonnull CandidateScan candidateScan,
                                 @Nonnull Index index, @Nonnull QueryComponent filter,
                                 @Nullable KeyExpression sort) {
-        if (filter instanceof AndComponent) {
-            return planTextWithAnd(candidateScan, index, ((AndComponent)filter).getChildren(), sort);
-        } else {
-            return planTextWithAnd(candidateScan, index, Collections.singletonList(filter), sort);
-        }
-    }
-
-    @Nullable
-    private ScoredPlan planTextWithAnd(@Nonnull CandidateScan candidateScan,
-                                       @Nonnull Index index, @Nonnull List<QueryComponent> filters,
-                                       @Nullable KeyExpression sort) {
         if (sort != null) {
-            // TODO: Support sorts with text queries
+            // TODO: Full Text: Sorts are not supported with full text queries (https://github.com/FoundationDB/fdb-record-layer/issues/55)
             return null;
         }
-        final List<QueryComponent> unsatisfiedFilters = new ArrayList<>(filters.size());
-        final TextScan scan = TextScan.getScanForQuery(index, filters, false, unsatisfiedFilters);
+        FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
+        final TextScan scan = TextScan.getScanForQuery(index, filter, false, filterMask);
         if (scan == null) {
             return null;
         }
@@ -1035,7 +1025,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         // This weight is fairly arbitrary, but it is supposed to be higher than for most indexes because
         // most of the time, the full text scan is believed to be more selective (and expensive to run as a post-filter)
         // than other indexes.
-        return new ScoredPlan(10, plan, unsatisfiedFilters, scan.createsDuplicates(), null);
+        return new ScoredPlan(10, plan, filterMask.getUnsatisfiedFilters(), scan.createsDuplicates(), null);
     }
 
     @Nonnull

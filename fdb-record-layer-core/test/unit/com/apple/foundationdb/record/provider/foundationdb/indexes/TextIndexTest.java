@@ -1661,10 +1661,26 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private List<Long> queryMapDocuments(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
-        // TODO: When the planner starts using text indexes, this will need to be updated to match against the right index scan
+    private List<Long> queryMapDocumentsWithScan(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(MAP_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
                 filter(equalTo(filter), typeFilter(equalTo(Collections.singleton(MAP_DOC)), PlanMatchers.scan(bounds(unbounded())))))
+                .map(t -> t.getLong(0))
+                .asList()
+                .get();
+    }
+
+    @Nonnull
+    private List<Long> queryMapDocumentsWithIndex(@Nonnull String key, @Nonnull QueryComponent textFilter, int planHash) throws InterruptedException, ExecutionException {
+        if (!(textFilter instanceof ComponentWithComparison)) {
+            throw new RecordCoreArgumentException("filter without comparison provided as text filter");
+        }
+        final QueryComponent filter = Query.field("entry").oneOfThem().matches(Query.and(Query.field("key").equalsValue(key), textFilter));
+        final Matcher<RecordQueryPlan> planMatcher = descendant(textIndexScan(allOf(
+                indexName(MAP_ON_VALUE_INDEX.getName()),
+                groupingBounds(allOf(notNullValue(), hasTupleString("[[" + key + "],[" + key + "]]"))),
+                textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison()))
+        )));
+        return queryDocuments(Collections.singletonList(MAP_DOC), Collections.singletonList(field("doc_id")), filter, planHash, planMatcher)
                 .map(t -> t.getLong(0))
                 .asList()
                 .get();
@@ -1694,21 +1710,30 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             documents.forEach(recordStore::saveRecord);
 
             assertEquals(Collections.singletonList(2L),
-                    queryMapDocuments(Query.field("entry").oneOfThem().matches(
-                            Query.and(Query.field("key").equalsValue("a"), Query.field("value").text().containsAny("king unknown_token"))
-                    ), 687021885));
+                    queryMapDocumentsWithIndex("a", Query.field("value").text().containsAny("king unknown_token"), 1059912699));
             assertEquals(Arrays.asList(0L, 1L),
-                    queryMapDocuments(Query.field("entry").oneOfThem().matches(
-                            Query.and(Query.field("key").equalsValue("a"), Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"))
-                    ), -1131944366));
+                    queryMapDocumentsWithIndex("a", Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"), 1085034960));
             assertEquals(Collections.emptyList(),
-                    queryMapDocuments(Query.field("entry").oneOfThem().matches(
-                            Query.and(Query.field("key").equalsValue("b"), Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"))
-                    ), -1131944335));
+                    queryMapDocumentsWithIndex("b", Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"), 1085034991));
             assertEquals(Arrays.asList(1L, 2L),
-                    queryMapDocuments(Query.field("entry").oneOfThem().matches(
-                            Query.and(Query.field("key").equalsValue("b"), Query.field("value").text().containsPrefix("na"))
-                    ), 1920608017));
+                    queryMapDocumentsWithIndex("b", Query.field("value").text().containsPrefix("na"), 1125182095));
+
+            // Planner bug that can happen with certain malformed queries. This plan actually
+            // returns records where the key and the value match in the same entry, but it is
+            // asking for all records where *any* entry has a key matching "a" and *any* entry
+            // has a value matching the text predicate. In reality, this is probably a sign
+            // the user didn't input their query correctly, but it requires more work from the
+            // planner not to plan this kind of query.
+            // FIXME: Full Text: The Planner doesn't always correctly handle ands with nesteds (https://github.com/FoundationDB/fdb-record-layer/issues/53)
+            final QueryComponent malformedMapFilter = Query.and(
+                    Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue("a")),
+                    Query.field("entry").oneOfThem().matches(Query.field("value").text().containsAll("civil hands unclean")));
+            RecordQueryPlan malformedMapPlan = planner.plan(RecordQuery.newBuilder().setRecordType(MAP_DOC).setFilter(malformedMapFilter).build());
+            assertThat(malformedMapPlan, descendant(textIndexScan(allOf(
+                    indexName(MAP_ON_VALUE_INDEX.getName()),
+                    groupingBounds(allOf(notNullValue(), hasTupleString("[[a],[a]]"))),
+                    textComparison(equalTo(new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_ALL, "civil hands unclean", null, DefaultTextTokenizer.NAME)))
+            ))));
 
             commit(context);
         }
