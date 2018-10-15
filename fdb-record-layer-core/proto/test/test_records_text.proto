@@ -39,11 +39,6 @@ message ComplexDocument {
     repeated string tag = 4;
 }
 
-message MultiDocument {
-    optional int64 doc_id = 1 [(field).primary_key = true];
-    repeated string text = 2;
-}
-
 message MapDocument {
     optional int64 doc_id = 1 [(field).primary_key = true];
     message Entry {
@@ -53,8 +48,14 @@ message MapDocument {
     repeated Entry entry = 2;
 }
 
+message MultiDocument {
+    optional int64 doc_id = 1 [(field).primary_key = true];
+    repeated string text = 2;
+}
+
 message RecordTypeUnion {
     optional SimpleDocument _SimpleDocument = 1;
     optional ComplexDocument _ComplexDocument = 2;
     optional MapDocument _MapDocument = 3;
+    optional MultiDocument _MultiDocument = 4;
 }

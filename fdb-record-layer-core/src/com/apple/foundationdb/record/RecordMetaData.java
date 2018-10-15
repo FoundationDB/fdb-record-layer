@@ -72,16 +72,17 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nullable
     private final KeyExpression recordCountKey;
 
-    public RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
-                          @Nonnull Descriptors.Descriptor unionDescriptor,
-                          @Nonnull Map<String, RecordType> recordTypes,
-                          @Nonnull Map<String, Index> indexes,
-                          @Nonnull Map<String, Index> universalIndexes,
-                          @Nonnull List<FormerIndex> formerIndexes,
-                          boolean splitLongRecords,
-                          boolean storeRecordVersions,
-                          int version,
-                          @Nullable KeyExpression recordCountKey) {
+    @SuppressWarnings("squid:S00107") // There is a Builder.
+    protected RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
+                             @Nonnull Descriptors.Descriptor unionDescriptor,
+                             @Nonnull Map<String, RecordType> recordTypes,
+                             @Nonnull Map<String, Index> indexes,
+                             @Nonnull Map<String, Index> universalIndexes,
+                             @Nonnull List<FormerIndex> formerIndexes,
+                             boolean splitLongRecords,
+                             boolean storeRecordVersions,
+                             int version,
+                             @Nullable KeyExpression recordCountKey) {
         this.recordsDescriptor = recordsDescriptor;
         this.unionDescriptor = unionDescriptor;
         this.recordTypes = recordTypes;
@@ -108,7 +109,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     public Descriptors.FieldDescriptor getUnionFieldForRecordType(@Nonnull RecordType recordType) {
         final Descriptors.FieldDescriptor unionField = getUnionFieldForRecordType(recordType.getName());
         if (unionField == null) {
-            throw new MetaDataException("RecordType is not in the union");
+            throw new MetaDataException("Record type " + recordType.getName() + " is not in the union");
         }
         return unionField;
     }

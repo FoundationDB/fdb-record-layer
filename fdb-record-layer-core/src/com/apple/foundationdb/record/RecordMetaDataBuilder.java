@@ -142,13 +142,25 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param fileDescriptor a file descriptor to be loaded, containing all the record types in the metadata
      */
     public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
-        Descriptors.Descriptor union = null;
         recordsDescriptor = fileDescriptor;
         recordTypes = new HashMap<>(fileDescriptor.getMessageTypes().size());
         indexes = new HashMap<>();
         universalIndexes = new HashMap<>();
         formerIndexes = new ArrayList<>();
         validateRecords(fileDescriptor);
+        unionDescriptor = initRecordTypes(fileDescriptor);
+        RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
+                .getExtension(RecordMetaDataOptionsProto.schema);
+        if ((schemaOptions != null) && schemaOptions.hasSplitLongRecords()) {
+            splitLongRecords = schemaOptions.getSplitLongRecords();
+        }
+        if ((schemaOptions != null) && schemaOptions.hasStoreRecordVersions()) {
+            storeRecordVersions = schemaOptions.getStoreRecordVersions();
+        }
+    }
+
+    private Descriptors.Descriptor initRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        Descriptors.Descriptor union = null;
         for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
             @Nullable Integer sinceVersion = null;
             RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
@@ -196,15 +208,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             // having one record type
             throw new MetaDataException("Union descriptor is required");
         }
-        unionDescriptor = union;
-        RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
-                .getExtension(RecordMetaDataOptionsProto.schema);
-        if ((schemaOptions != null) && schemaOptions.hasSplitLongRecords()) {
-            splitLongRecords = schemaOptions.getSplitLongRecords();
-        }
-        if ((schemaOptions != null) && schemaOptions.hasStoreRecordVersions()) {
-            storeRecordVersions = schemaOptions.getStoreRecordVersions();
-        }
+        return union;
     }
 
     @SuppressWarnings("deprecation")
@@ -426,6 +430,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
+    /**
+     * Get the record count key, if any.
+     * @return the record count key of {@code null}
+     * @deprecated use {@code COUNT} type indexes instead
+     */
+    @Nullable
     @Deprecated
     public KeyExpression getRecordCountKey() {
         return recordCountKey;
@@ -435,6 +445,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * Set the key used for maintaining record counts.
      * @deprecated Use a <code>COUNT</code> type index instead.
      * @param recordCountKey grouping key for counting
+     * @deprecated use {@code COUNT} type indexes instead
      */
     @Deprecated
     public void setRecordCountKey(KeyExpression recordCountKey) {
@@ -471,10 +482,13 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             return recordMetaData;
         }
         Map<String, RecordType> recordTypeBuilders = new HashMap<>();
+        recordMetaData = new RecordMetaData(recordsDescriptor, unionDescriptor, recordTypeBuilders,
+                indexes, universalIndexes, formerIndexes,
+                splitLongRecords, storeRecordVersions, version, recordCountKey);
         for (RecordTypeBuilder recordTypeBuilder : this.recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();
             if (primaryKey != null) {
-                recordTypeBuilders.put(recordTypeBuilder.getName(), recordTypeBuilder.build());
+                recordTypeBuilders.put(recordTypeBuilder.getName(), recordTypeBuilder.build(recordMetaData));
                 for (Index index : recordTypeBuilder.getIndexes()) {
                     index.setPrimaryKeyComponentPositions(buildPrimaryKeyComponentPositions(index.getRootExpression(), primaryKey));
                 }
@@ -489,13 +503,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 }
             }
         }
-        recordMetaData = new RecordMetaData(recordsDescriptor, unionDescriptor, recordTypeBuilders, indexes, universalIndexes, formerIndexes,
-                                            splitLongRecords, storeRecordVersions, version, recordCountKey);
         return recordMetaData;
     }
 
-    // Note that there is no harm in this returning null for very complex overlaps;
-    // that just results in some duplication.
+    // Note that there is no harm in this returning null for very complex overlaps; that just results in some duplication.
+    @Nullable
     public static int[] buildPrimaryKeyComponentPositions(@Nonnull KeyExpression indexKey, @Nonnull KeyExpression primaryKey) {
         List<KeyExpression> indexKeys = indexKey.normalizeKeyForPositions();
         List<KeyExpression> primaryKeys = primaryKey.normalizeKeyForPositions();

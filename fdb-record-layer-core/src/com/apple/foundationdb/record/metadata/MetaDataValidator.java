@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -47,7 +48,20 @@ public class MetaDataValidator implements RecordMetaDataProvider {
     }
 
     public void validate() {
+        metaData.getRecordTypes().values().stream().forEach(this::validateRecordType);
         metaData.getAllIndexes().stream().forEach(this::validateIndex);
+    }
+
+    protected void validateRecordType(@Nonnull RecordType recordType) {
+        metaData.getUnionFieldForRecordType(recordType);    // Throws if missing.
+        validatePrimaryKeyForRecordType(recordType.getPrimaryKey(), recordType);
+    }
+
+    protected void validatePrimaryKeyForRecordType(@Nonnull KeyExpression primaryKey, @Nonnull RecordType recordType) {
+        if (primaryKey.createsDuplicates()) {
+            throw new MetaDataException("Primary key for " + recordType.getName() +
+                                        " can generate more than one entry");
+        }
     }
 
     protected void validateIndex(@Nonnull Index index) {
