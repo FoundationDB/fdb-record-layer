@@ -60,6 +60,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Descriptors.Descriptor unionDescriptor;
     @Nonnull
+    private final Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields;
+    @Nonnull
     private final Map<String, RecordType> recordTypes;
     @Nonnull
     private final Map<String, Index> indexes;
@@ -76,6 +78,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @SuppressWarnings("squid:S00107") // There is a Builder.
     protected RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
                              @Nonnull Descriptors.Descriptor unionDescriptor,
+                             @Nonnull Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields,
                              @Nonnull Map<String, RecordType> recordTypes,
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
@@ -86,6 +89,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nullable KeyExpression recordCountKey) {
         this.recordsDescriptor = recordsDescriptor;
         this.unionDescriptor = unionDescriptor;
+        this.unionFields = unionFields;
         this.recordTypes = recordTypes;
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
@@ -108,16 +112,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     @Nonnull
     public Descriptors.FieldDescriptor getUnionFieldForRecordType(@Nonnull RecordType recordType) {
-        final Descriptors.FieldDescriptor unionField = getUnionFieldForRecordType(recordType.getName());
+        final Descriptors.FieldDescriptor unionField = unionFields.get(recordType.getDescriptor());
         if (unionField == null) {
             throw new MetaDataException("Record type " + recordType.getName() + " is not in the union");
         }
         return unionField;
-    }
-
-    @Nullable
-    private Descriptors.FieldDescriptor getUnionFieldForRecordType(@Nonnull String recordType) {
-        return unionDescriptor.findFieldByName("_" + recordType);
     }
 
     @Nonnull

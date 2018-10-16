@@ -76,6 +76,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Descriptors.Descriptor unionDescriptor;
     @Nonnull
+    private final Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields;
+    @Nonnull
     private final Map<String, RecordTypeBuilder> recordTypes;
     @Nonnull
     private final Map<String, Index> indexes;
@@ -149,6 +151,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         universalIndexes = new HashMap<>();
         formerIndexes = new ArrayList<>();
         validateRecords(fileDescriptor);
+        unionFields = new HashMap<>();
         unionDescriptor = initRecordTypes(fileDescriptor);
         RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
                 .getExtension(RecordMetaDataOptionsProto.schema);
@@ -200,27 +203,55 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             recordType.setSinceVersion(sinceVersion);
             recordType.setRecordTypeKey(recordTypeKey);
             recordTypes.put(recordType.getName(), recordType);
-            // Add indexes from custom options.
-            for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
-                RecordMetaDataOptionsProto.FieldOptions fieldOptions = fieldDescriptor.getOptions()
-                        .getExtension(RecordMetaDataOptionsProto.field);
-                if (fieldOptions != null) {
-                    protoFieldOptions(recordType, descriptor, fieldDescriptor, fieldOptions);
-                }
-            }
+            protoFieldOptions(recordType, descriptor);
         }
         if (union == null) {
             // Having an opinion here; if you don't have a union descriptor, the metadata is fixed at
             // having one record type
             throw new MetaDataException("Union descriptor is required");
         }
+        fillUnionFields(union);
         return union;
     }
 
+    private void fillUnionFields(Descriptors.Descriptor union) {
+        for (Descriptors.FieldDescriptor unionField : union.getFields()) {
+            if (unionField.getType() != Descriptors.FieldDescriptor.Type.MESSAGE) {
+                throw new MetaDataException("Union field " + unionField.getName() +
+                                            " is not a message");
+            }
+            Descriptors.Descriptor descriptor = unionField.getMessageType();
+            if (!unionFields.containsKey(descriptor)) {
+                RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
+                        .getExtension(RecordMetaDataOptionsProto.record);
+                if (recordTypeOptions != null &&
+                        recordTypeOptions.getUsage() != RecordMetaDataOptionsProto.RecordTypeOptions.Usage.RECORD) {
+                    throw new MetaDataException("Union field " + unionField.getName() +
+                                                " has type " + descriptor.getName() +
+                                                " which is not a record");
+                }
+                unionFields.put(descriptor, unionField);
+            } else {
+                // The preferred field is the last one, except if there is one whose name matches.
+                unionFields.compute(descriptor, (d, f) -> f != null && f.getName().equals("_" + d.getName()) ? f : unionField);
+            }
+        }
+    }
+
+    private void protoFieldOptions(RecordTypeBuilder recordType, Descriptors.Descriptor descriptor) {
+        // Add indexes from custom options.
+        for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
+            RecordMetaDataOptionsProto.FieldOptions fieldOptions = fieldDescriptor.getOptions()
+                    .getExtension(RecordMetaDataOptionsProto.field);
+            if (fieldOptions != null) {
+                protoFieldOptions(recordType, descriptor, fieldDescriptor, fieldOptions);
+            }
+        }
+    }
+
     @SuppressWarnings("deprecation")
-    private void protoFieldOptions(RecordTypeBuilder recordType,
-                                   Descriptors.Descriptor descriptor, Descriptors.FieldDescriptor fieldDescriptor,
-                                   RecordMetaDataOptionsProto.FieldOptions fieldOptions) {
+    private void protoFieldOptions(RecordTypeBuilder recordType, Descriptors.Descriptor descriptor,
+                                   Descriptors.FieldDescriptor fieldDescriptor, RecordMetaDataOptionsProto.FieldOptions fieldOptions) {
         if (fieldOptions.hasIndex() || fieldOptions.hasIndexed()) {
             String type;
             Map<String, String> options;
@@ -497,7 +528,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             return recordMetaData;
         }
         Map<String, RecordType> recordTypeBuilders = new HashMap<>();
-        recordMetaData = new RecordMetaData(recordsDescriptor, unionDescriptor, recordTypeBuilders,
+        recordMetaData = new RecordMetaData(recordsDescriptor, unionDescriptor, unionFields, recordTypeBuilders,
                 indexes, universalIndexes, formerIndexes,
                 splitLongRecords, storeRecordVersions, version, recordCountKey);
         for (RecordTypeBuilder recordTypeBuilder : this.recordTypes.values()) {
