@@ -111,8 +111,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("s1").equalsValue(Arrays.asList("aaa", "bbb")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(allOf(indexName("rep_strings"), bounds(hasTupleString("[[[aaa, bbb]],[[aaa, bbb]]]")))));
-        assertEquals(-1993731046, plan.planHash());
+        assertThat(plan, indexScan(allOf(indexName("s1$concat"), bounds(hasTupleString("[[[aaa, bbb]],[[aaa, bbb]]]")))));
+        assertEquals(2088320916, plan.planHash());
         assertEquals(Arrays.asList(1L), fetchResultValues(plan,
                 TestRecords6Proto.MyRepeatedRecord.REC_NO_FIELD_NUMBER,
                 this::openDoublyRepeatedRecordStore,
@@ -167,9 +167,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         plan = planner.plan(query);
         assertThat(plan, union(
                 filter(equalTo(Query.field("s2").notEmpty()),
-                        indexScan(allOf(indexName("rep_strings"), bounds(hasTupleString("[[[aba]],[[aba]]]"))))),
-                indexScan(allOf(indexName("rep_strings"), bounds(hasTupleString("[[[aaa, bbb]],[[aaa, bbb]]]"))))));
-        assertEquals(-804137319, plan.planHash());
+                        indexScan(allOf(indexName("s1$concat"), bounds(hasTupleString("[[[aba]],[[aba]]]"))))),
+                indexScan(allOf(indexName("s1$concat"), bounds(hasTupleString("[[[aaa, bbb]],[[aaa, bbb]]]"))))));
+        assertEquals(1376647244, plan.planHash());
         assertEquals(Arrays.asList(1L, 2L), fetchResultValues(plan, TestRecords6Proto.MyRepeatedRecord.REC_NO_FIELD_NUMBER,
                 this::openDoublyRepeatedRecordStore,
                 context -> assertDiscardedAtMost(1, context)));
