@@ -230,6 +230,22 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                                                 " has type " + descriptor.getName() +
                                                 " which is not a record");
                 }
+
+                if (descriptor.getFile() != recordsDescriptor) {
+                    // An imported record type.
+                    RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
+                    if (recordTypes.putIfAbsent(recordType.getName(), recordType) != null) {
+                        throw new MetaDataException("There is already a record type named" + recordType.getName());
+                    }
+                    // TODO: This has issues with toProto.
+                    // Perhaps there is no need for getAdjustedRecordsDescriptor and building from a RecordMetaDataProto.MetaData
+                    // should never process options, assuming them to have been copied into the MetaData.
+                    // Or perhaps there should be a way to serialize more than one file, such as by giving the same list
+                    // of dependencies as will be used to load.
+                    // That might also help https://github.com/FoundationDB/fdb-record-layer/issues/3 in some way.
+                    protoFieldOptions(recordType, descriptor);
+                }
+
                 unionFields.put(descriptor, unionField);
             } else {
                 // The preferred field is the last one, except if there is one whose name matches.

@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords7Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
+import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.TupleRange;
@@ -2394,4 +2395,29 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             commit(context);
         }
     }
+
+    @Test
+    public void importedRecordType() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openAnyRecordStore(TestRecordsImportProto.getDescriptor(), context);
+            recordStore.deleteAllRecords();
+
+            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+            recBuilder.setRecNo(1);
+            recBuilder.setStrValueIndexed("abc");
+            recBuilder.setNumValueUnique(123);
+            recordStore.saveRecord(recBuilder.build());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openAnyRecordStore(TestRecordsImportProto.getDescriptor(), context);
+            FDBStoredRecord<Message> rec1 = recordStore.loadRecord(Tuple.from(1L));
+            assertNotNull(rec1);
+            TestRecords1Proto.MySimpleRecord.Builder myrec1 = TestRecords1Proto.MySimpleRecord.newBuilder();
+            myrec1.mergeFrom(rec1.getRecord());
+            assertEquals(123, myrec1.getNumValueUnique());
+            commit(context);
+        }
+    }
+    
 }
