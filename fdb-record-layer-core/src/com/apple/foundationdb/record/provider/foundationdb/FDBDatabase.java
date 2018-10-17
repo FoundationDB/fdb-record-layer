@@ -789,10 +789,9 @@ public class FDBDatabase {
      * </p>
      *
      * <p>
-     * The causal read risky flag indicates that the transaction does not require the strict causal consistency
-     * guarantee that FoundationDB provides by default. The read version of the transaction will be a committed version,
-     * and usually will be the latest committed, but it might be an older version in the event of a fault or
-     * network partition.
+     * Setting the causal read risky flag leads to a lower latency at the cost of weaker semantics in case of failures.
+     * The read version of the transaction will be a committed version, and usually will be the latest committed,
+     * but it might be an older version in the event of a fault on network partition.
      * </p>
      */
     public static class WeakReadSemantics {
@@ -807,9 +806,7 @@ public class FDBDatabase {
 
         @Deprecated
         public WeakReadSemantics(long minVersion, long stalenessBoundMillis) {
-            this.minVersion = minVersion;
-            this.stalenessBoundMillis = stalenessBoundMillis;
-            this.isCausalReadRisky = false;
+            this(minVersion, stalenessBoundMillis, false);
         }
 
         public WeakReadSemantics(long minVersion, long stalenessBoundMillis, boolean isCausalReadRisky) {
