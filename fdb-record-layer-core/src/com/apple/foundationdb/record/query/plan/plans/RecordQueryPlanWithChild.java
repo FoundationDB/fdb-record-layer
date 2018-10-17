@@ -35,4 +35,9 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     }
 
     RecordQueryPlan getChild();
+
+    @Override
+    default int getRelationalChildCount() {
+        return 1;
+    }
 }

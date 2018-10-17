@@ -40,6 +40,8 @@ public interface ExpressionRef<T extends PlannerExpression> extends Bindable {
     @Nonnull
     T get();
 
+    boolean acceptPropertyVisitor(@Nonnull PlannerProperty property);
+
     /**
      * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.
      * A client that encounters this exception is buggy and should not try to recover any information from the reference

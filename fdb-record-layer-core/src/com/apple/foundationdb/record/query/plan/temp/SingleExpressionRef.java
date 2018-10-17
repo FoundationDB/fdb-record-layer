@@ -54,6 +54,14 @@ public class SingleExpressionRef<T extends PlannerExpression> implements Mutable
         expression = newValue;
     }
 
+    @Override
+    public boolean acceptPropertyVisitor(@Nonnull PlannerProperty visitor) {
+        if (visitor.visitEnter(this)) {
+            expression.acceptPropertyVisitor(visitor);
+        }
+        return visitor.visitLeave(this);
+    }
+
     public static <T extends PlannerExpression> SingleExpressionRef<T> of(@Nonnull T expression) {
         return new SingleExpressionRef<>(expression);
     }

@@ -1,5 +1,5 @@
 /*
- * RecordQueryPlanWithChildren.java
+ * DualPlannerTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,12 +18,21 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
+package com.apple.foundationdb.record.provider.foundationdb.query;
 
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
+import org.junit.jupiter.api.TestTemplate;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * A query plan with child plans.
+ * An annotation used to indicate that a test should be run using the old {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner}
+ * and the new, experimental {@link com.apple.foundationdb.record.query.plan.temp.RewritePlanner}.
  */
-public interface RecordQueryPlanWithChildren extends RecordQueryPlan, RelationalExpressionWithChildren {
+@Target({ ElementType.ANNOTATION_TYPE, ElementType.METHOD })
+@Retention(RetentionPolicy.RUNTIME)
+@TestTemplate
+public @interface DualPlannerTest {
 }

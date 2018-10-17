@@ -52,12 +52,13 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         ExpressionRef<QueryComponent> first = call.get(firstMatcher);
         ExpressionRef<QueryComponent> second = call.get(secondMatcher);
         ExpressionRef<RelationalPlannerExpression> child = call.get(childMatcher);
 
         ExpressionRef<QueryComponent> combined = call.ref(new AndComponent(ImmutableList.of(first, second)));
         call.yield(call.ref(new LogicalFilterExpression(combined, child)));
+        return ChangesMade.MADE_CHANGES;
     }
 }

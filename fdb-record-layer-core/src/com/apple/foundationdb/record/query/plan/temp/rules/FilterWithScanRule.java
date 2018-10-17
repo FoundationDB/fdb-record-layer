@@ -34,14 +34,15 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A simple rule that looks for a filter (with an equality comparison on a field) and a trivial but compatibly
  * ordered index scan with no existing comparisons and pushes the equality comparison down to the index scan.
  */
 public class FilterWithScanRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<Comparisons.SimpleComparison> comparisonMatcher = TypeMatcher.of(Comparisons.SimpleComparison.class);
+    private static final ExpressionMatcher<Comparisons.Comparison> comparisonMatcher = TypeMatcher.of(Comparisons.Comparison.class);
     private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class, comparisonMatcher);
     private static final ExpressionMatcher<RecordQueryIndexPlan> indexScanMatcher = TypeMatcher.of(RecordQueryIndexPlan.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, filterMatcher, indexScanMatcher);
@@ -51,17 +52,16 @@ public class FilterWithScanRule extends PlannerRule<LogicalFilterExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull PlannerRuleCall call) {
+    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         RecordQueryIndexPlan indexScan = call.get(indexScanMatcher);
-        Comparisons.SimpleComparison comparison = call.get(comparisonMatcher);
+        Comparisons.Comparison comparison = call.get(comparisonMatcher);
         FieldWithComparison filter = call.get(filterMatcher);
 
-        Optional<Index> index = call.getContext().getIndexByName(indexScan.getIndexName());
-
-        if (!index.isPresent()) {
-            return;
+        Set<String> indexNames = call.getContext().getIndexes().stream().map(Index::getName).collect(Collectors.toSet());
+        if (!indexNames.contains(indexScan.getIndexName())) {
+            return ChangesMade.NO_CHANGE;
         }
-        KeyExpression indexExpression = index.get().getRootExpression();
+        KeyExpression indexExpression = call.getContext().getIndexByName(indexScan.getIndexName()).getRootExpression();
 
         if (indexScan.getComparisons().isEmpty() &&
                 comparison.getType().equals(Comparisons.Type.EQUALS) &&
@@ -71,6 +71,8 @@ public class FilterWithScanRule extends PlannerRule<LogicalFilterExpression> {
                     indexScan.getScanType(),
                     ScanComparisons.from(new Comparisons.SimpleComparison(comparison.getType(), comparison.getComparand(null))),
                     indexScan.isReverse())));
+            return ChangesMade.MADE_CHANGES;
         }
+        return ChangesMade.NO_CHANGE;
     }
 }

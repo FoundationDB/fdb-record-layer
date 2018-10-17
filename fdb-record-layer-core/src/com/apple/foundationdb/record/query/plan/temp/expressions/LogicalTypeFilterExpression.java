@@ -1,5 +1,5 @@
 /*
- * LogicalFilterExpression.java
+ * LogicalTypeFilterExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,38 +20,37 @@
 
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 
 /**
- * A relational planner expression that represents an unimplemented filter on the records produced by its inner
+ * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
  * relational planner expression.
- * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
+ * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan for the fallback implementation
  */
-public class LogicalFilterExpression implements RelationalExpressionWithChildren {
+public class LogicalTypeFilterExpression implements TypeFilterExpression {
     @Nonnull
-    private final ExpressionRef<QueryComponent> filter;
+    private final Collection<String> recordTypes;
     @Nonnull
     private final ExpressionRef<RelationalPlannerExpression> inner;
     @Nonnull
     private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
 
-    public LogicalFilterExpression(@Nonnull QueryComponent filter, @Nonnull RelationalPlannerExpression inner) {
-        this(SingleExpressionRef.of(filter), SingleExpressionRef.of(inner));
+    public LogicalTypeFilterExpression(@Nonnull Collection<String> recordTypes, @Nonnull RelationalPlannerExpression inner) {
+        this(recordTypes, SingleExpressionRef.of(inner));
     }
 
-    public LogicalFilterExpression(@Nonnull ExpressionRef<QueryComponent> filter, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
-        this.filter = filter;
+    public LogicalTypeFilterExpression(@Nonnull Collection<String> recordTypes, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+        this.recordTypes = recordTypes;
         this.inner = inner;
-        this.expressionChildren = ImmutableList.of(this.filter, this.inner);
+        this.expressionChildren = ImmutableList.of(this.inner);
     }
 
     @Nonnull
@@ -60,36 +59,18 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
         return expressionChildren.iterator();
     }
 
+    @Nonnull
+    public Collection<String> getRecordTypes() {
+        return recordTypes;
+    }
+
     @Override
     public int getRelationalChildCount() {
         return 1;
     }
 
     @Nonnull
-    public QueryComponent getFilter() {
-        return filter.get();
-    }
-
-    @Nonnull
     public RelationalPlannerExpression getInner() {
         return inner.get();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        LogicalFilterExpression that = (LogicalFilterExpression)o;
-        return Objects.equals(getFilter(), that.getFilter()) &&
-               Objects.equals(getInner(), that.getInner());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getFilter(), getInner());
     }
 }

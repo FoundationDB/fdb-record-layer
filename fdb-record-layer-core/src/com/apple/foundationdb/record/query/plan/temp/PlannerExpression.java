@@ -100,5 +100,17 @@ public interface PlannerExpression extends Bindable {
      */
     @Nonnull
     Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren();
+
+    default boolean acceptPropertyVisitor(@Nonnull PlannerProperty visitor) {
+        if (visitor.visitEnter(this)) {
+            Iterator<? extends ExpressionRef<? extends PlannerExpression>> children = getPlannerExpressionChildren();
+            while (children.hasNext()) {
+                if (!children.next().acceptPropertyVisitor(visitor)) {
+                    break;
+                }
+            }
+        }
+        return visitor.visitLeave(this);
+    }
 }
 

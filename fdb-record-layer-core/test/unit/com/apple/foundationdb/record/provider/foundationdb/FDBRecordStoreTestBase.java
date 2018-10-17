@@ -35,7 +35,9 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.temp.RewritePlanner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -63,7 +65,8 @@ public abstract class FDBRecordStoreTestBase {
     protected FDBDatabase fdb;
     protected FDBRecordStore recordStore;
     protected FDBStoreTimer timer = new FDBStoreTimer();
-    protected RecordQueryPlanner planner;
+    protected boolean useRewritePlanner = false;
+    protected QueryPlanner planner;
     protected FDBEvaluationContext<Message> evaluationContext;
     protected KeySpacePath path;
 
@@ -119,11 +122,19 @@ public abstract class FDBRecordStoreTestBase {
         evaluationContext = recordStore.emptyEvaluationContext();
     }
 
+    public void setUseRewritePlanner(boolean useRewritePlanner) {
+        this.useRewritePlanner = useRewritePlanner;
+    }
+
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
-        if (indexTypes == null) {
-            indexTypes = PlannableIndexTypes.DEFAULT;
+        if (useRewritePlanner) {
+            planner = new RewritePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+        } else {
+            if (indexTypes == null) {
+                indexTypes = PlannableIndexTypes.DEFAULT;
+            }
+            planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
         }
-        planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
     }
 
     public void commit(FDBRecordContext context) throws Exception {

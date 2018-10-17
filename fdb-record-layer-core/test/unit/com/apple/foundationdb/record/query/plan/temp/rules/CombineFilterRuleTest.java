@@ -47,7 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class CombineFilterRuleTest {
     private static PlannerRule<LogicalFilterExpression> rule = new CombineFilterRule();
-    private static PlanContext blankContext = new PlanContext(Collections.emptyList());
+    private static PlanContext blankContext = new FakePlanContext(Collections.emptyList());
     private static RecordQueryPlan[] basePlans = {
             new RecordQueryScanPlan(ScanComparisons.EMPTY, false),
             new RecordQueryIndexPlan("not_an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false)

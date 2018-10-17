@@ -1,5 +1,5 @@
 /*
- * PlanContext.java
+ * TypeFilterExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,31 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.temp;
-
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Set;
+import java.util.Collection;
 
 /**
- * A basic context object that stores all of the metadata about a record store, such as the available indexes.
- * It provides access to this information to the planner and the
- * {@link PlannerRule#onMatch(PlannerRuleCall)} method.
+ * A relational planner expression that represents a type filter. This includes both logical and physical type filtering
+ * expressions.
  */
-public interface PlanContext {
+public interface TypeFilterExpression extends RelationalExpressionWithChildren {
     @Nonnull
-    Set<Index> getIndexes();
-
-    @Nonnull
-    Index getIndexByName(@Nonnull String name);
-
-    @Nullable
-    KeyExpression getCommonPrimaryKey();
-
-    @Nonnull
-    RecordMetaData getMetaData();
+    Collection<String> getRecordTypes();
 }

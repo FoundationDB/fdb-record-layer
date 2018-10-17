@@ -1,0 +1,53 @@
+/*
+ * QueryPlanner.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.query.plan;
+
+import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+
+import javax.annotation.Nonnull;
+
+/**
+ * A common interface for classes that can plan a {@link RecordQuery} into a {@link RecordQueryPlan}. The common
+ * interface allows tests to be run against several planners.
+ */
+public interface QueryPlanner {
+    /**
+     * Create a plan to get the results of the provided query.
+     *
+     * @param query a query for records on this planner's metadata
+     * @return a plan that will return the results of the provided query when executed
+     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
+     */
+    @Nonnull
+    RecordQueryPlan plan(@Nonnull RecordQuery query);
+
+    /**
+     * Set whether {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} is preferred over
+     * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan} even when it does not satisfy any
+     * additional conditions.
+     * Scanning without an index is more efficient, but will have to skip over unrelated record types.
+     * For that reason, it is safer to use an index, except when there is only one record type.
+     * If the meta-data has more than one record type but the record store does not, this can be overridden.
+     * @param preferIndexToScan whether to prefer index scan over record scan
+     */
+    void setPreferIndexToScan(boolean preferIndexToScan);
+}

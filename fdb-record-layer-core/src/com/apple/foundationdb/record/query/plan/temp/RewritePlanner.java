@@ -21,15 +21,20 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -39,16 +44,21 @@ import java.util.Optional;
  *
  * TODO this planner might have bugs since we don't currently have enough rules to write good tests for it.
  */
-public class RewritePlanner {
+public class RewritePlanner implements QueryPlanner {
     @Nonnull
-    private static final PlannerRuleSet rules = PlannerRuleSet.DEFAULT_REWRITE;
+    private static final List<PlannerRuleSet> PHASES = ImmutableList.of(PlannerRuleSet.REWRITE, PlannerRuleSet.IMPLEMENTATION);
     @Nonnull
-    private final PlanContext context;
+    private final RecordMetaData metaData;
+    @Nonnull
+    private final RecordStoreState recordStoreState;
     @Nullable
-    private SingleExpressionRef<PlannerExpression> current;
+    private SingleExpressionRef<PlannerExpression> currentRoot;
+    @Nullable
+    private PlanContext context;
 
-    public RewritePlanner(@Nonnull PlanContext context) {
-        this.context = context;
+    public RewritePlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
+        this.metaData = metaData;
+        this.recordStoreState = recordStoreState;
     }
 
     /**
@@ -60,50 +70,68 @@ public class RewritePlanner {
      * @throws RecordCoreException if the planner could not plan the given query
      */
     @Nonnull
+    @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query) {
-        current = SingleExpressionRef.of(RelationalPlannerExpression.fromRecordQuery(query));
-        RewriteRuleCall nextRuleCall = getNextRuleCall();
-        while (nextRuleCall != null) {
-            nextRuleCall.run();
-            nextRuleCall = getNextRuleCall();
+        context = new MetaDataPlanContext(metaData, recordStoreState, query);
+        currentRoot = SingleExpressionRef.of(RelationalPlannerExpression.fromRecordQuery(query));
+
+        for (PlannerRuleSet ruleSet : PHASES) {
+            applyPhase(ruleSet);
         }
 
-        if (current.get() instanceof RecordQueryPlan) { // turned into a concrete plan
-            return (RecordQueryPlan)current.get();
+        context = null;
+        if (currentRoot.get() instanceof RecordQueryPlan) { // turned into a concrete plan
+            return (RecordQueryPlan)currentRoot.get();
         } else {
             throw new RecordCoreException("rewrite planner could not plan query")
                     .addLogInfo("query", query)
-                    .addLogInfo("finalExpression", current.get());
+                    .addLogInfo("finalExpression", currentRoot.get());
         }
     }
 
-    @Nullable
+    @Override
+    public void setPreferIndexToScan(boolean preferIndexToScan) {
+        // nothing to do here, yet
+    }
+
     @SuppressWarnings("unchecked")
-    private RewriteRuleCall getNextRuleCall() {
+    private void applyPhase(@Nonnull PlannerRuleSet ruleSet) {
         Deque<SingleExpressionRef<PlannerExpression>> toTry = new ArrayDeque<>();
-        toTry.add(current);
+        toTry.add(currentRoot);
 
         while (!toTry.isEmpty()) {
-            SingleExpressionRef<PlannerExpression> root = toTry.remove();
-            Iterator<PlannerRule<? extends PlannerExpression>> possibleRules = rules.getRulesMatching(root.get());
+            SingleExpressionRef<PlannerExpression> current = toTry.remove();
+            PlannerRule.ChangesMade changed = applyRulesTo(ruleSet, current);
 
-            while (possibleRules.hasNext()) {
-                Optional<RewriteRuleCall> attemptedCall = RewriteRuleCall.tryMatchRule(context, possibleRules.next(), root);
-
-                if (attemptedCall.isPresent()) {
-                    return attemptedCall.get();
-                }
-            }
-
-            PlannerExpression basicRoot = root.get();
-            Iterator<? extends ExpressionRef<? extends PlannerExpression>> childrenIterator = basicRoot.getPlannerExpressionChildren();
+            PlannerExpression currentExpression = current.get();
+            Iterator<? extends ExpressionRef<? extends PlannerExpression>> childrenIterator = currentExpression.getPlannerExpressionChildren();
             while (childrenIterator.hasNext()) {
                 ExpressionRef<? extends PlannerExpression> child = childrenIterator.next();
                 if (child instanceof SingleExpressionRef) {
                     toTry.add((SingleExpressionRef<PlannerExpression>) child);
+                } else {
+                    throw new RecordCoreException("invalid reference given to rewrite planner");
+                }
+            }
+
+            if (changed.equals(PlannerRule.ChangesMade.MADE_CHANGES)) { // TODO optimize here
+                toTry.add(currentRoot);
+            }
+        }
+    }
+
+    private PlannerRule.ChangesMade applyRulesTo(@Nonnull PlannerRuleSet ruleSet, @Nonnull SingleExpressionRef<PlannerExpression> expression) {
+        Iterator<PlannerRule<? extends PlannerExpression>> possibleRules = ruleSet.getRulesMatching(expression.get());
+        PlannerRule.ChangesMade madeChanges = PlannerRule.ChangesMade.NO_CHANGE;
+        while (possibleRules.hasNext()) {
+            Optional<RewriteRuleCall> attemptedCall = RewriteRuleCall.tryMatchRule(context, possibleRules.next(), expression);
+            if (attemptedCall.isPresent()) {
+                if (attemptedCall.get().run().equals(PlannerRule.ChangesMade.MADE_CHANGES)) {
+                    possibleRules = ruleSet.getRulesMatching(expression.get());
+                    madeChanges = PlannerRule.ChangesMade.MADE_CHANGES;
                 }
             }
         }
-        return null;
+        return madeChanges;
     }
 }
