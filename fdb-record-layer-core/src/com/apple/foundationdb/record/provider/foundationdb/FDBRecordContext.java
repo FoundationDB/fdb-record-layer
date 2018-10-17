@@ -93,6 +93,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             }
         }
 
+        // If a causal read risky is requested, we set the corresponding transaction option
+        if (weakReadSemantics != null && weakReadSemantics.isCausalReadRisky()) {
+            transaction.options().setCausalReadRisky();
+        }
+
         this.weakReadSemantics = weakReadSemantics;
     }
 
