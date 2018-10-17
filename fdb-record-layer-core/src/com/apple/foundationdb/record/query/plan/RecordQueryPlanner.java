@@ -892,32 +892,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (sort == null) {
             return null;
         }
-        if (index instanceof ThenKeyExpression) {
-            // Can match any prefix of index's concatenated fields.
-            ThenKeyExpression indexThen = (ThenKeyExpression) index;
-            if (indexThen.createsDuplicatesAfter(0)) {
-                return null;
-            }
-            final List<KeyExpression> indexChildren = indexThen.getChildren();
-            if (sort instanceof ThenKeyExpression) {
-                ThenKeyExpression sortThen = (ThenKeyExpression) sort;
-                for (int i = 0; i < indexChildren.size(); i++) {
-                    final List<KeyExpression> sortChildren = sortThen.getChildren();
-                    if (i >= sortChildren.size()) {
-                        break;
-                    }
-                    if (planSortOnly(candidateScan, indexChildren.get(i), sortChildren.get(i)) == null) {
-                        return null;
-                    }
-                }
-                return new ScoredPlan(0, planScan(candidateScan), Collections.emptyList(), false);
-            } else {
-                return planSortOnly(candidateScan, indexChildren.get(0), sort);
-            }
-        } else if (sort.equals(index)) {
-            // Field matches Field, Nested/Field matches Nested/Field, etc.
-            return new ScoredPlan(0, planScan(candidateScan), Collections.emptyList(), index.createsDuplicates());
-        }
         // Better error than no index found for impossible sorts.
         if (sort instanceof FieldKeyExpression) {
             FieldKeyExpression sortField = (FieldKeyExpression) sort;
@@ -925,7 +899,12 @@ public class RecordQueryPlanner implements QueryPlanner {
                 throw new KeyExpression.InvalidExpressionException("Sorting by concatenate not supported");
             }
         }
-        return null;
+
+        if (sort.isPrefixKey(index)) {
+            return new ScoredPlan(0, planScan(candidateScan), Collections.emptyList(), index.createsDuplicates());
+        } else {
+            return null;
+        }
     }
 
     @Nullable
