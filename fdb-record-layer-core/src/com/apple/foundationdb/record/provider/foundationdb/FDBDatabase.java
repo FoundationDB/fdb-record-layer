@@ -775,7 +775,7 @@ public class FDBDatabase {
     }
 
     /**
-     * Bounds for stale reads.
+     * 1. Bounds for stale reads; and 2. indication whether FDB's strict causal consistency guarantee isn't required.
      *
      * <p>
      * Stale reads never cause inconsistency <em>within</em> the database. If something had changed beforehand but
@@ -787,6 +787,12 @@ public class FDBDatabase {
      * a record and then sends you the id of that record via some means other than in the same database, you might
      * receive it but then access the database from before it committed and miss what they wanted you to see.
      * </p>
+     *
+     * <p>
+     * Setting the causal read risky flag leads to a lower latency at the cost of weaker semantics in case of failures.
+     * The read version of the transaction will be a committed version, and usually will be the latest committed,
+     * but it might be an older version in the event of a fault on network partition.
+     * </p>
      */
     public static class WeakReadSemantics {
         // Minimum version at which the read should be performed (usually the last version seen by the client)
@@ -795,9 +801,18 @@ public class FDBDatabase {
         // How stale a cached read version can be
         private long stalenessBoundMillis;
 
+        // Whether the transaction should be set with a causal read risky flag.
+        private boolean isCausalReadRisky;
+
+        @Deprecated
         public WeakReadSemantics(long minVersion, long stalenessBoundMillis) {
+            this(minVersion, stalenessBoundMillis, false);
+        }
+
+        public WeakReadSemantics(long minVersion, long stalenessBoundMillis, boolean isCausalReadRisky) {
             this.minVersion = minVersion;
             this.stalenessBoundMillis = stalenessBoundMillis;
+            this.isCausalReadRisky = isCausalReadRisky;
         }
 
         public long getMinVersion() {
@@ -806,6 +821,10 @@ public class FDBDatabase {
 
         public long getStalenessBoundMillis() {
             return stalenessBoundMillis;
+        }
+
+        public boolean isCausalReadRisky() {
+            return isCausalReadRisky;
         }
     }
 }
