@@ -2398,26 +2398,37 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
     @Test
     public void importedRecordType() throws Exception {
+        final RecordMetaDataHook hook = md -> {
+            md.addIndex(md.getRecordType("MySimpleRecord"), new Index("added_index", "num_value_2"));
+        };
+
         try (FDBRecordContext context = openContext()) {
-            openAnyRecordStore(TestRecordsImportProto.getDescriptor(), context);
+            openAnyRecordStore(TestRecordsImportProto.getDescriptor(), context, hook);
             recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
             recBuilder.setStrValueIndexed("abc");
             recBuilder.setNumValueUnique(123);
+            recBuilder.setNumValue2(456);
             recordStore.saveRecord(recBuilder.build());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            openAnyRecordStore(TestRecordsImportProto.getDescriptor(), context);
+            openAnyRecordStore(TestRecordsImportProto.getDescriptor(), context, hook);
             FDBStoredRecord<Message> rec1 = recordStore.loadRecord(Tuple.from(1L));
             assertNotNull(rec1);
             TestRecords1Proto.MySimpleRecord.Builder myrec1 = TestRecords1Proto.MySimpleRecord.newBuilder();
             myrec1.mergeFrom(rec1.getRecord());
             assertEquals(123, myrec1.getNumValueUnique());
+            assertEquals(Collections.singletonList(Tuple.from("abc", 1)),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+            assertEquals(Collections.singletonList(Tuple.from(456, 1)),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("added_index"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
             commit(context);
         }
     }
-    
+
 }
