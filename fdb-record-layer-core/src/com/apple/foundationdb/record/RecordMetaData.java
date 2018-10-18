@@ -333,13 +333,14 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 indexBuilders.get(index.getName()).addRecordType(recordType.getName());
             }
 
-            builder.addPrimaryKeys(RecordMetaDataProto.PrimaryKey.newBuilder()
-                    .setRecordType(recordType.getName())
-                    .setExpression((recordType.getPrimaryKey().toKeyExpression())));
+            RecordMetaDataProto.RecordType.Builder typeBuilder = builder.addRecordTypesBuilder()
+                    .setName(recordType.getName())
+                    .setPrimaryKey(recordType.getPrimaryKey().toKeyExpression());
+            if (recordType.getSinceVersion() != null) {
+                typeBuilder.setSinceVersion(recordType.getSinceVersion());
+            }
             if (recordType.hasExplicitRecordTypeKey()) {
-                builder.addExplicitRecordTypeKeys(RecordMetaDataProto.ExplicitRecordTypeKey.newBuilder()
-                        .setRecordType(recordType.getName())
-                        .setValue(LiteralKeyExpression.toProtoValue(recordType.getExplicitRecordTypeKey())));
+                typeBuilder.setExplicitKey(LiteralKeyExpression.toProtoValue(recordType.getExplicitRecordTypeKey()));
             }
         }
         indexBuilders.values().forEach(builder::addIndexes);

@@ -273,15 +273,21 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 throw new MetaDataProtoDeserializationException(e);
             }
         }
-        for (RecordMetaDataProto.PrimaryKey primaryKey : metaDataProto.getPrimaryKeysList()) {
-            try {
-                getRecordType(primaryKey.getRecordType()).setPrimaryKey(KeyExpression.fromProto(primaryKey.getExpression()));
-            } catch (KeyExpression.DeserializationException e) {
-                throw new MetaDataProtoDeserializationException(e);
+        for (RecordMetaDataProto.RecordType typeProto : metaDataProto.getRecordTypesList()) {
+            RecordTypeBuilder typeBuilder = getRecordType(typeProto.getName());
+            if (typeProto.hasPrimaryKey()) {
+                try {
+                    typeBuilder.setPrimaryKey(KeyExpression.fromProto(typeProto.getPrimaryKey()));
+                } catch (KeyExpression.DeserializationException e) {
+                    throw new MetaDataProtoDeserializationException(e);
+                }
             }
-        }
-        for (RecordMetaDataProto.ExplicitRecordTypeKey explicitRecordTypeKey : metaDataProto.getExplicitRecordTypeKeysList()) {
-            getRecordType(explicitRecordTypeKey.getRecordType()).setRecordTypeKey(LiteralKeyExpression.fromProtoValue(explicitRecordTypeKey.getValue()));
+            if (typeProto.hasSinceVersion()) {
+                typeBuilder.setSinceVersion(typeProto.getSinceVersion());
+            }
+            if (typeProto.hasExplicitKey()) {
+                typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
+            }
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
