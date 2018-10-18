@@ -200,6 +200,14 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
     }
 
     /**
+     * Check whether a key expression uses record type key in some way.
+     * @return {@code true} if record type key is used
+     */
+    default boolean hasRecordTypeKey() {
+        return false;
+    }
+
+    /**
      * Returns a sub-set of the key expression.
      * @param start starting position
      * @param end ending position
@@ -245,11 +253,11 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
         }
         if (expression.hasEmpty()) {
             found++;
-            root = new EmptyKeyExpression();
+            root = EmptyKeyExpression.EMPTY;
         }
         if (expression.hasVersion()) {
             found++;
-            root = new VersionKeyExpression();
+            root = VersionKeyExpression.VERSION;
         }
         if (expression.hasValue()) {
             found++;
@@ -262,6 +270,10 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
         if (expression.hasKeyWithValue()) {
             found++;
             root = new KeyWithValueExpression(expression.getKeyWithValue());
+        }
+        if (expression.hasRecordTypeKey()) {
+            found++;
+            root = RecordTypeKeyExpression.RECORD_TYPE_KEY;
         }
         if (root == null || found > 1) {
             throw new DeserializationException("Exactly one root must be specified for an index");

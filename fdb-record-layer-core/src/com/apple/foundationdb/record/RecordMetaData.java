@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
@@ -257,6 +258,16 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordTypes.values().iterator().next();
     }
 
+    /**
+     * Determine whether every record type in this meta-data has {@link RecordType#primaryKeyHasRecordTypePrefix}.
+     *
+     * If so, records are strictly partitioned by record type.
+     * @return {@code true} if every record type has a record type prefix on the primary key
+     */
+    public boolean primaryKeyHasRecordTypePrefix() {
+        return recordTypes.values().stream().allMatch(RecordType::primaryKeyHasRecordTypePrefix);
+    }
+
     @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
@@ -322,9 +333,15 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 indexBuilders.get(index.getName()).addRecordType(recordType.getName());
             }
 
-            builder.addPrimaryKeys(RecordMetaDataProto.PrimaryKey.newBuilder()
-                    .setRecordType(recordType.getName())
-                    .setExpression((recordType.getPrimaryKey().toKeyExpression())));
+            RecordMetaDataProto.RecordType.Builder typeBuilder = builder.addRecordTypesBuilder()
+                    .setName(recordType.getName())
+                    .setPrimaryKey(recordType.getPrimaryKey().toKeyExpression());
+            if (recordType.getSinceVersion() != null) {
+                typeBuilder.setSinceVersion(recordType.getSinceVersion());
+            }
+            if (recordType.hasExplicitRecordTypeKey()) {
+                typeBuilder.setExplicitKey(LiteralKeyExpression.toProtoValue(recordType.getExplicitRecordTypeKey()));
+            }
         }
         indexBuilders.values().forEach(builder::addIndexes);
 

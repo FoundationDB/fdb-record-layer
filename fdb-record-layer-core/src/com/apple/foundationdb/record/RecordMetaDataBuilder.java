@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import org.slf4j.Logger;
@@ -163,6 +164,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Descriptors.Descriptor union = null;
         for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
             @Nullable Integer sinceVersion = null;
+            @Nullable Object recordTypeKey = null;
             RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
                     .getExtension(RecordMetaDataOptionsProto.record);
             if (recordTypeOptions != null) {
@@ -182,6 +184,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 if (recordTypeOptions.hasSinceVersion()) {
                     sinceVersion = recordTypeOptions.getSinceVersion();
                 }
+                if (recordTypeOptions.hasRecordTypeKey()) {
+                    recordTypeKey = LiteralKeyExpression.fromProto(recordTypeOptions.getRecordTypeKey()).getValue();
+                }
             }
             if ("RecordTypeUnion".equals(descriptor.getName())) {
                 if (union != null) {
@@ -193,6 +198,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
             RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
             recordType.setSinceVersion(sinceVersion);
+            recordType.setRecordTypeKey(recordTypeKey);
             recordTypes.put(recordType.getName(), recordType);
             // Add indexes from custom options.
             for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
@@ -267,11 +273,20 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 throw new MetaDataProtoDeserializationException(e);
             }
         }
-        for (RecordMetaDataProto.PrimaryKey primaryKey : metaDataProto.getPrimaryKeysList()) {
-            try {
-                getRecordType(primaryKey.getRecordType()).setPrimaryKey(KeyExpression.fromProto(primaryKey.getExpression()));
-            } catch (KeyExpression.DeserializationException e) {
-                throw new MetaDataProtoDeserializationException(e);
+        for (RecordMetaDataProto.RecordType typeProto : metaDataProto.getRecordTypesList()) {
+            RecordTypeBuilder typeBuilder = getRecordType(typeProto.getName());
+            if (typeProto.hasPrimaryKey()) {
+                try {
+                    typeBuilder.setPrimaryKey(KeyExpression.fromProto(typeProto.getPrimaryKey()));
+                } catch (KeyExpression.DeserializationException e) {
+                    throw new MetaDataProtoDeserializationException(e);
+                }
+            }
+            if (typeProto.hasSinceVersion()) {
+                typeBuilder.setSinceVersion(typeProto.getSinceVersion());
+            }
+            if (typeProto.hasExplicitKey()) {
+                typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
             }
         }
         if (metaDataProto.hasSplitLongRecords()) {

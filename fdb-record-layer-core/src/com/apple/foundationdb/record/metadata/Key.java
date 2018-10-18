@@ -25,10 +25,13 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
@@ -202,9 +205,35 @@ public class Key {
             return new KeyWithValueExpression(child, splitPoint);
         }
 
+        /**
+         * The empty key expression.
+         * @return the empty key expression
+         * @see EmptyKeyExpression
+         */
         @Nonnull
         public static EmptyKeyExpression empty() {
-            return new EmptyKeyExpression();
+            return EmptyKeyExpression.EMPTY;
+        }
+
+        /**
+         * The version key expression, which indicates that a versionstamp should be contained within the key.
+         * @return the version key expression
+         * @see VersionKeyExpression
+         */
+        @Nonnull
+        public static VersionKeyExpression version() {
+            return VersionKeyExpression.VERSION;
+        }
+
+        /**
+         * The record type key expression, which indicates that a unique record type identifier should
+         * be contained within the key.
+         * @return the record type key expression
+         * @see RecordTypeKeyExpression
+         */
+        @Nonnull
+        public static RecordTypeKeyExpression recordType() {
+            return RecordTypeKeyExpression.RECORD_TYPE_KEY;
         }
 
         /**
@@ -219,6 +248,27 @@ public class Key {
                                              Expressions.field(fieldDescriptor.getName());
             field.validate(fieldDescriptor.getContainingType(), fieldDescriptor, false);
             return field;
+        }
+
+        /**
+         * Determine whether the given key expression has a record type key prefix.
+         * @param key key expression to check
+         * @return {@code true} if the given key expression has a record type key prefix
+         */
+        public static boolean hasRecordTypePrefix(@Nonnull KeyExpression key) {
+            if (key instanceof GroupingKeyExpression) {
+                return hasRecordTypePrefix(((GroupingKeyExpression)key).getWholeKey());
+            }
+            if (key instanceof KeyWithValueExpression) {
+                return hasRecordTypePrefix(((KeyWithValueExpression)key).getKeyExpression());
+            }
+            if (key instanceof ThenKeyExpression) {
+                return ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression;
+            }
+            if (key instanceof RecordTypeKeyExpression) {
+                return true;
+            }
+            return false;
         }
     }
 

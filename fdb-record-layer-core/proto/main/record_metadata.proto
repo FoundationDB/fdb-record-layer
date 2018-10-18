@@ -58,9 +58,11 @@ message Index {
   extensions 1000 to 2000;
 }
 
-message PrimaryKey {
-  required string record_type = 1;
-  optional KeyExpression expression = 2;
+message RecordType {
+  required string name = 1;
+  optional KeyExpression primary_key = 2;
+  optional int32 since_version = 3;
+  optional Value explicit_key = 4;
   extensions 1000 to 2000;
 }
 
@@ -73,7 +75,7 @@ message FormerIndex {
 message MetaData {
   optional google.protobuf.FileDescriptorProto records = 1;
   repeated Index indexes = 2;
-  repeated PrimaryKey primary_keys = 3;
+  repeated RecordType record_types = 3;
   optional bool split_long_records = 4;
   optional int32 version = 5;
   repeated FormerIndex former_indexes = 6;
@@ -128,6 +130,9 @@ message Empty {
 message Version {
 }
 
+message RecordTypeKey {
+}
+
 message Value {
   // TODO: This should be a oneof {}
   optional double double_value = 1;
@@ -155,4 +160,5 @@ message KeyExpression {
   optional Value value = 8;
   optional Function function = 9;
   optional KeyWithValue key_with_value = 10;
+  optional RecordTypeKey record_type_key = 11;
 }

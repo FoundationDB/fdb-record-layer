@@ -143,9 +143,9 @@ public class FDBMetaDataStoreTest {
             metaData.setRecords(fileBuilder);
 
             for (int ri = 1; ri <= ntypes; ri++) {
-                metaData.addPrimaryKeysBuilder()
-                        .setRecordType("type_" + ri)
-                        .getExpressionBuilder().getFieldBuilder()
+                metaData.addRecordTypesBuilder()
+                        .setName("type_" + ri)
+                        .getPrimaryKeyBuilder().getFieldBuilder()
                             .setFanType(RecordMetaDataProto.Field.FanType.SCALAR)
                             .setFieldName("field_1");
             }
