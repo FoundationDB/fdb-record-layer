@@ -41,9 +41,9 @@ import java.util.List;
 public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpression, KeyExpressionWithoutChildren {
     public static final EmptyKeyExpression EMPTY = new EmptyKeyExpression();
     public static final RecordMetaDataProto.KeyExpression EMPTY_PROTO =
-            RecordMetaDataProto.KeyExpression.newBuilder().setEmpty(new EmptyKeyExpression().toProto()).build();
+            RecordMetaDataProto.KeyExpression.newBuilder().setEmpty(EMPTY.toProto()).build();
 
-    public EmptyKeyExpression() {
+    private EmptyKeyExpression() {
         // nothing to initialize
     }
 

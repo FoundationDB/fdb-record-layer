@@ -48,7 +48,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
 
     private static final GroupingKeyExpression UNGROUPED = new GroupingKeyExpression(new VersionKeyExpression(), 0);
 
-    public VersionKeyExpression() {
+    private VersionKeyExpression() {
         // nothing to initialize
     }
 

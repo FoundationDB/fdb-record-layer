@@ -121,6 +121,10 @@ public class RecordTypeBuilder implements RecordTypeOrBuilder {
     }
 
     public RecordTypeBuilder setRecordTypeKey(@Nullable Object recordTypeKey) {
+        if (!(recordTypeKey == null || recordTypeKey instanceof Number || recordTypeKey instanceof Boolean ||
+                recordTypeKey instanceof String || recordTypeKey instanceof byte[])) {
+            throw new MetaDataException("Only primitive types are allowed as record type key");
+        }
         this.recordTypeKey = recordTypeKey;
         return this;
     }

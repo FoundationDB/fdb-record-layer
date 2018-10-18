@@ -49,6 +49,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Tests for record type key in primary keys.
@@ -77,7 +78,14 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         assertNull(metaData.getRecordType("MyOtherRecord").getExplicitRecordTypeKey());
     }
 
-    private void assertNull(Object myOtherRecord) {
+    @Test
+    public void testIllegalKey() throws Exception {
+        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        final RecordTypeBuilder t1 = metaDataBuilder.getRecordType("MySimpleRecord");
+        assertThrows(MetaDataException.class, () -> {
+            t1.setRecordTypeKey(this);
+            return null;
+        });
     }
 
     @Test
@@ -89,6 +97,24 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
             t1.setRecordTypeKey("same");
             t1.setPrimaryKey(pkey);
             t2.setRecordTypeKey("same");
+            t2.setPrimaryKey(pkey);
+        };
+        assertThrows(MetaDataException.class, () -> {
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context, hook);
+            }
+            return null;
+        });
+    }
+
+    @Test
+    public void testOverlappingRecordTypeKeys() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            final RecordTypeBuilder t1 = metaData.getRecordType("MySimpleRecord");
+            final RecordTypeBuilder t2 = metaData.getRecordType("MyOtherRecord");
+            final KeyExpression pkey = concat(recordType(), field("rec_no"));
+            t1.setPrimaryKey(pkey);
+            t2.setRecordTypeKey(TestRecords1Proto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER);
             t2.setPrimaryKey(pkey);
         };
         assertThrows(MetaDataException.class, () -> {

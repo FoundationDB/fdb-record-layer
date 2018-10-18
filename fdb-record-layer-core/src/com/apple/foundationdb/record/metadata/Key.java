@@ -205,16 +205,32 @@ public class Key {
             return new KeyWithValueExpression(child, splitPoint);
         }
 
+        /**
+         * The empty key expression.
+         * @return the empty key expression
+         * @see EmptyKeyExpression
+         */
         @Nonnull
         public static EmptyKeyExpression empty() {
             return EmptyKeyExpression.EMPTY;
         }
 
+        /**
+         * The version key expression, which indicates that a versionstamp should be contained within the key.
+         * @return the version key expression
+         * @see VersionKeyExpression
+         */
         @Nonnull
         public static VersionKeyExpression version() {
             return VersionKeyExpression.VERSION;
         }
 
+        /**
+         * The record type key expression, which indicates that a unique record type identifier should
+         * be contained within the key.
+         * @return the record type key expression
+         * @see RecordTypeKeyExpression
+         */
         @Nonnull
         public static RecordTypeKeyExpression recordType() {
             return RecordTypeKeyExpression.RECORD_TYPE_KEY;
@@ -241,7 +257,10 @@ public class Key {
          */
         public static boolean hasRecordTypePrefix(@Nonnull KeyExpression key) {
             if (key instanceof GroupingKeyExpression) {
-                key = ((GroupingKeyExpression)key).getWholeKey();
+                return hasRecordTypePrefix(((GroupingKeyExpression)key).getWholeKey());
+            }
+            if (key instanceof KeyWithValueExpression) {
+                return hasRecordTypePrefix(((KeyWithValueExpression)key).getKeyExpression());
             }
             if (key instanceof ThenKeyExpression) {
                 return ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression;

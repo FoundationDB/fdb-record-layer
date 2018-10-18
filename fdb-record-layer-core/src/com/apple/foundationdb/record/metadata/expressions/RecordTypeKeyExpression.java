@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
@@ -37,9 +36,19 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * A key expression that indicates that a serialized {@link FDBRecordVersion} should
- * be contained within the key. This should then be used within version indexes to include data
- * sorted by version.
+ * A key expression that indicates that a unique record type identifier should
+ * be contained within the key. The unique value can be specified explicitly or generated automatically
+ * from the corresponding field numbers in the union message descriptor.
+ *
+ * It is important that the unique identifiers are stable. A record type's identifier should never change.
+ * If it is automatically generated, that means that fields should never be removed / reused in the union
+ * message descriptor, but at most deprecated. In that way, the lowest numbered field for a given type
+ * will always be the same.
+ *
+ * If the record type key appears at the start of every primary key, the record extent is divided by type,
+ * as in other database systems.
+ * @see com.apple.foundationdb.record.metadata.RecordType#getExplicitRecordTypeKey
+ * @see com.apple.foundationdb.record.RecordMetaData#primaryKeyHasRecordTypePrefix
  */
 public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
     public static final RecordTypeKeyExpression RECORD_TYPE_KEY = new RecordTypeKeyExpression();
@@ -48,7 +57,7 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
 
     private static final GroupingKeyExpression UNGROUPED = new GroupingKeyExpression(new RecordTypeKeyExpression(), 0);
 
-    public RecordTypeKeyExpression() {
+    private RecordTypeKeyExpression() {
         // nothing to initialize
     }
 
@@ -87,7 +96,6 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
     public GroupingKeyExpression ungrouped() {
         return UNGROUPED;
     }
-
 
     @Nonnull
     @Override

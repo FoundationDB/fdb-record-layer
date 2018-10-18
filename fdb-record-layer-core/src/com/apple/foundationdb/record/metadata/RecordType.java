@@ -100,11 +100,14 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     /**
      * Gets the list of all indexes that apply for this type.
      * <ul>
-     * <li>{@link #getIndexes()}</li>
-     * <li>{@link #getMultiTypeIndexes()}</li>
-     * <li>{@link RecordMetaData#getUniversalIndexes()}</li>
+     * <li>single type indexes defined on this type</li>
+     * <li>multi-type indexes including this type</li>
+     * <li>universal indexes</li>
      * </ul>
      * @return the list of indexes for this type
+     * @see #getIndexes
+     * @see #getMultiTypeIndexes
+     * @see RecordMetaData#getUniversalIndexes
      */
     @Nonnull
     public List<Index> getAllIndexes() {
@@ -128,8 +131,8 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     }
 
     /**
-     * Get whether this record type implement {@link #getRecordTypeKey} using an explicit value.
-     * If there is no explicit value, the {@code #getRecordTypeKey} will use the union message field number.
+     * Get whether this record type sets an explicit value for {@link #getRecordTypeKey}.
+     * If there is no explicit value, then {@code #getRecordTypeKey} will use the union message field number.
      * @return {@code} true if there is an explicit record type key value
      */
     public boolean hasExplicitRecordTypeKey() {
