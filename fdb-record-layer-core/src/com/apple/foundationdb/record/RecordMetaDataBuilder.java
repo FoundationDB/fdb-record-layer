@@ -93,6 +93,107 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nullable
     private RecordMetaData recordMetaData;
 
+    /**
+     * Creates a new builder from the provided record types protobuf.
+     * @param fileDescriptor a file descriptor containing all the record types in the metadata
+     */
+    public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        this(fileDescriptor, true);
+    }
+
+    /**
+     * Creates a new builder from the provided record types protobuf.
+     * @param fileDescriptor a file descriptor containing all the record types in the metadata
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     */
+    public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                 boolean processExtensionOptions) {
+        recordsDescriptor = fileDescriptor;
+        recordTypes = new HashMap<>(fileDescriptor.getMessageTypes().size());
+        indexes = new HashMap<>();
+        universalIndexes = new HashMap<>();
+        formerIndexes = new ArrayList<>();
+        validateRecords(fileDescriptor);
+        unionFields = new HashMap<>();
+        unionDescriptor = initRecordTypes(fileDescriptor, processExtensionOptions);
+        RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
+                .getExtension(RecordMetaDataOptionsProto.schema);
+        if ((schemaOptions != null) && schemaOptions.hasSplitLongRecords()) {
+            splitLongRecords = schemaOptions.getSplitLongRecords();
+        }
+        if ((schemaOptions != null) && schemaOptions.hasStoreRecordVersions()) {
+            storeRecordVersions = schemaOptions.getStoreRecordVersions();
+        }
+    }
+
+    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+        this(metaDataProto, new Descriptors.FileDescriptor[] { RecordMetaDataOptionsProto.getDescriptor() }, false);
+    }
+
+    /**
+     * Creates a new builder from the provided meta-data protobuf.
+     * @param metaDataProto the protobuf form of the meta-data
+     * @param dependencies other files imported by the record types protobuf
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     *
+     * If {@code metaDataProto} is the result of {@link RecordMetaData#toProto}, it will already
+     * include all the indexes defined by any original extension options, so {@code processExtensionOptions}
+     * should be {@code false}.
+     */
+    @SuppressWarnings("deprecation")
+    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+                                 @Nonnull Descriptors.FileDescriptor[] dependencies,
+                                 boolean processExtensionOptions) {
+        this(buildFileDescriptor(metaDataProto.getRecords(), dependencies), processExtensionOptions);
+        validateRecords(recordsDescriptor);
+        for (RecordMetaDataProto.Index indexProto : metaDataProto.getIndexesList()) {
+            List<RecordTypeBuilder> recordTypeBuilders = new ArrayList<>(indexProto.getRecordTypeCount());
+            for (String recordTypeName : indexProto.getRecordTypeList()) {
+                recordTypeBuilders.add(getRecordType(recordTypeName));
+            }
+            try {
+                addMultiTypeIndex(recordTypeBuilders, new Index(indexProto));
+            } catch (KeyExpression.DeserializationException e) {
+                throw new MetaDataProtoDeserializationException(e);
+            }
+        }
+        for (RecordMetaDataProto.RecordType typeProto : metaDataProto.getRecordTypesList()) {
+            RecordTypeBuilder typeBuilder = getRecordType(typeProto.getName());
+            if (typeProto.hasPrimaryKey()) {
+                try {
+                    typeBuilder.setPrimaryKey(KeyExpression.fromProto(typeProto.getPrimaryKey()));
+                } catch (KeyExpression.DeserializationException e) {
+                    throw new MetaDataProtoDeserializationException(e);
+                }
+            }
+            if (typeProto.hasSinceVersion()) {
+                typeBuilder.setSinceVersion(typeProto.getSinceVersion());
+            }
+            if (typeProto.hasExplicitKey()) {
+                typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
+            }
+        }
+        if (metaDataProto.hasSplitLongRecords()) {
+            splitLongRecords = metaDataProto.getSplitLongRecords();
+        }
+        if (metaDataProto.hasStoreRecordVersions()) {
+            storeRecordVersions = metaDataProto.getStoreRecordVersions();
+        }
+        for (RecordMetaDataProto.FormerIndex formerIndex : metaDataProto.getFormerIndexesList()) {
+            formerIndexes.add(new FormerIndex(formerIndex));
+        }
+        if (metaDataProto.hasRecordCountKey()) {
+            try {
+                recordCountKey = KeyExpression.fromProto(metaDataProto.getRecordCountKey());
+            } catch (KeyExpression.DeserializationException e) {
+                throw new MetaDataProtoDeserializationException(e);
+            }
+        }
+        if (metaDataProto.hasVersion()) {
+            version = metaDataProto.getVersion();
+        }
+    }
+
     private static void validateRecords(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
         Queue<Descriptors.Descriptor> toValidate = new ArrayDeque<>(fileDescriptor.getMessageTypes());
         Set<Descriptors.Descriptor> seen = new HashSet<>();
@@ -126,44 +227,22 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                         case UINT32:
                         case UINT64:
                             throw new MetaDataException(
-                                            "Field " + field.getName()
-                                          + " in message " + descriptor.getFullName()
-                                          + " has illegal unsigned type " + field.getType().name());
+                                    "Field " + field.getName()
+                                    + " in message " + descriptor.getFullName()
+                                    + " has illegal unsigned type " + field.getType().name());
                         default:
                             throw new MetaDataException(
-                                            "Field " + field.getName()
-                                          + " in message " + descriptor.getFullName()
-                                          + " has unknown type " + field.getType().name());
+                                    "Field " + field.getName()
+                                    + " in message " + descriptor.getFullName()
+                                    + " has unknown type " + field.getType().name());
                     }
                 }
             }
         }
     }
 
-    /**
-     * Creates a new builder from the provided protobuf.
-     * @param fileDescriptor a file descriptor to be loaded, containing all the record types in the metadata
-     */
-    public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
-        recordsDescriptor = fileDescriptor;
-        recordTypes = new HashMap<>(fileDescriptor.getMessageTypes().size());
-        indexes = new HashMap<>();
-        universalIndexes = new HashMap<>();
-        formerIndexes = new ArrayList<>();
-        validateRecords(fileDescriptor);
-        unionFields = new HashMap<>();
-        unionDescriptor = initRecordTypes(fileDescriptor);
-        RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
-                .getExtension(RecordMetaDataOptionsProto.schema);
-        if ((schemaOptions != null) && schemaOptions.hasSplitLongRecords()) {
-            splitLongRecords = schemaOptions.getSplitLongRecords();
-        }
-        if ((schemaOptions != null) && schemaOptions.hasStoreRecordVersions()) {
-            storeRecordVersions = schemaOptions.getStoreRecordVersions();
-        }
-    }
-
-    private Descriptors.Descriptor initRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    private Descriptors.Descriptor initRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                                   boolean processExtensionOptions) {
         Descriptors.Descriptor union = null;
         for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
             @Nullable Integer sinceVersion = null;
@@ -184,10 +263,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                     default:
                         break;
                 }
-                if (recordTypeOptions.hasSinceVersion()) {
+                if (processExtensionOptions && recordTypeOptions.hasSinceVersion()) {
                     sinceVersion = recordTypeOptions.getSinceVersion();
                 }
-                if (recordTypeOptions.hasRecordTypeKey()) {
+                if (processExtensionOptions && recordTypeOptions.hasRecordTypeKey()) {
                     recordTypeKey = LiteralKeyExpression.fromProto(recordTypeOptions.getRecordTypeKey()).getValue();
                 }
             }
@@ -200,10 +279,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             }
 
             RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
-            recordType.setSinceVersion(sinceVersion);
-            recordType.setRecordTypeKey(recordTypeKey);
             recordTypes.put(recordType.getName(), recordType);
-            protoFieldOptions(recordType, descriptor);
+            if (processExtensionOptions) {
+                recordType.setSinceVersion(sinceVersion);
+                recordType.setRecordTypeKey(recordTypeKey);
+                protoFieldOptions(recordType, descriptor);
+            }
         }
         if (union == null) {
             // Having an opinion here; if you don't have a union descriptor, the metadata is fixed at
@@ -237,12 +318,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                     if (recordTypes.putIfAbsent(recordType.getName(), recordType) != null) {
                         throw new MetaDataException("There is already a record type named" + recordType.getName());
                     }
-                    // TODO: This has issues with toProto.
-                    // Perhaps there is no need for getAdjustedRecordsDescriptor and building from a RecordMetaDataProto.MetaData
-                    // should never process options, assuming them to have been copied into the MetaData.
-                    // Or perhaps there should be a way to serialize more than one file, such as by giving the same list
-                    // of dependencies as will be used to load.
-                    // That might also help https://github.com/FoundationDB/fdb-record-layer/issues/3 in some way.
                     protoFieldOptions(recordType, descriptor);
                 }
 
@@ -301,59 +376,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                     recordType.setPrimaryKey(Key.Expressions.fromDescriptor(fieldDescriptor));
                 }
             }
-        }
-    }
-
-    @SuppressWarnings("deprecation")
-    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
-                                 @Nonnull Descriptors.FileDescriptor[] dependencies) {
-        this(buildFileDescriptor(metaDataProto.getRecords(), dependencies));
-        validateRecords(recordsDescriptor);
-        for (RecordMetaDataProto.Index indexProto : metaDataProto.getIndexesList()) {
-            List<RecordTypeBuilder> recordTypeBuilders = new ArrayList<>(indexProto.getRecordTypeCount());
-            for (String recordTypeName : indexProto.getRecordTypeList()) {
-                recordTypeBuilders.add(getRecordType(recordTypeName));
-            }
-            try {
-                addMultiTypeIndex(recordTypeBuilders, new Index(indexProto));
-            } catch (KeyExpression.DeserializationException e) {
-                throw new MetaDataProtoDeserializationException(e);
-            }
-        }
-        for (RecordMetaDataProto.RecordType typeProto : metaDataProto.getRecordTypesList()) {
-            RecordTypeBuilder typeBuilder = getRecordType(typeProto.getName());
-            if (typeProto.hasPrimaryKey()) {
-                try {
-                    typeBuilder.setPrimaryKey(KeyExpression.fromProto(typeProto.getPrimaryKey()));
-                } catch (KeyExpression.DeserializationException e) {
-                    throw new MetaDataProtoDeserializationException(e);
-                }
-            }
-            if (typeProto.hasSinceVersion()) {
-                typeBuilder.setSinceVersion(typeProto.getSinceVersion());
-            }
-            if (typeProto.hasExplicitKey()) {
-                typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
-            }
-        }
-        if (metaDataProto.hasSplitLongRecords()) {
-            splitLongRecords = metaDataProto.getSplitLongRecords();
-        }
-        if (metaDataProto.hasStoreRecordVersions()) {
-            storeRecordVersions = metaDataProto.getStoreRecordVersions();
-        }
-        for (RecordMetaDataProto.FormerIndex formerIndex : metaDataProto.getFormerIndexesList()) {
-            formerIndexes.add(new FormerIndex(formerIndex));
-        }
-        if (metaDataProto.hasRecordCountKey()) {
-            try {
-                recordCountKey = KeyExpression.fromProto(metaDataProto.getRecordCountKey());
-            } catch (KeyExpression.DeserializationException e) {
-                throw new MetaDataProtoDeserializationException(e);
-            }
-        }
-        if (metaDataProto.hasVersion()) {
-            version = metaDataProto.getVersion();
         }
     }
 

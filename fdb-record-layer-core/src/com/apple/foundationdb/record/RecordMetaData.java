@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
-import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -277,45 +276,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return new RecordMetaDataBuilder(descriptor).getRecordMetaData();
     }
 
-    // This scans through all of the records and looks for fields that have indexes
-    // or set a primary key. These will be set in the toProto method instead so that
-    // information like versions are maintained.
-    private DescriptorProtos.FileDescriptorProto getAdjustedRecordsDescriptor() {
-        DescriptorProtos.FileDescriptorProto.Builder builder = recordsDescriptor.toProto().toBuilder();
-
-        for (int i = 0; i < builder.getMessageTypeCount(); i++) {
-            DescriptorProtos.DescriptorProto recordType = builder.getMessageType(i);
-            RecordMetaDataOptionsProto.RecordTypeOptions options = recordType.getOptions().getExtension(RecordMetaDataOptionsProto.record);
-
-            if (options != null) {
-                if (options.getUsage() == RecordMetaDataOptionsProto.RecordTypeOptions.Usage.NESTED
-                        || options.getUsage() == RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION) {
-                    continue;
-                }
-                DescriptorProtos.DescriptorProto.Builder recordBuilder = recordType.toBuilder();
-                for (int j = 0; j < recordBuilder.getFieldCount(); j++) {
-                    DescriptorProtos.FieldDescriptorProto field = recordBuilder.getField(j);
-                    RecordMetaDataOptionsProto.FieldOptions fieldOptions = field.getOptions().getExtension(RecordMetaDataOptionsProto.field);
-
-                    if (fieldOptions != null) {
-                        DescriptorProtos.FieldOptions.Builder newOptions =
-                                field.getOptions().toBuilder().clearExtension(RecordMetaDataOptionsProto.field);
-                        recordBuilder.setField(j, field.toBuilder().setOptions(newOptions));
-                    }
-                }
-
-                builder.setMessageType(i, recordBuilder);
-            }
-        }
-
-        return builder.build();
-    }
-
     @Nonnull
     @SuppressWarnings("deprecation")
     public RecordMetaDataProto.MetaData toProto() throws KeyExpression.SerializationException {
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
-        builder.setRecords(getAdjustedRecordsDescriptor());
+        builder.setRecords(recordsDescriptor.toProto());
 
         // Create builders for each index so that we can then add associated record types (etc.).
         Map<String, RecordMetaDataProto.Index.Builder> indexBuilders = new TreeMap<>();

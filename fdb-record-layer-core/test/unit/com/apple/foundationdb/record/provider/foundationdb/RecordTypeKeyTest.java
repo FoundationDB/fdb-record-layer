@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
@@ -38,7 +37,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -76,9 +74,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         assertEquals("t1", metaData.getRecordType("MySimpleRecord").getExplicitRecordTypeKey());
         assertNull(metaData.getRecordType("MyOtherRecord").getExplicitRecordTypeKey());
 
-        metaDataBuilder = new RecordMetaDataBuilder(metaData.toProto(), new Descriptors.FileDescriptor[] {
-                RecordMetaDataOptionsProto.getDescriptor()
-        });
+        metaDataBuilder = new RecordMetaDataBuilder(metaData.toProto());
         metaData = metaDataBuilder.getRecordMetaData();
         assertEquals("t1", metaData.getRecordType("MySimpleRecord").getExplicitRecordTypeKey());
         assertNull(metaData.getRecordType("MyOtherRecord").getExplicitRecordTypeKey());

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -210,7 +211,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     @Nonnull
     protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto) {
-        return new RecordMetaDataBuilder(metaDataProto, dependencies).getRecordMetaData();
+        return new RecordMetaDataBuilder(metaDataProto, dependencies, false).getRecordMetaData();
     }
 
     public CompletableFuture<RecordMetaData> loadVersion(int version) {
@@ -227,6 +228,10 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @return a future that completes when the save is done
      */
     public CompletableFuture<Void> saveAndSetCurrent(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+        RecordMetaData validatedMetaData = new RecordMetaDataBuilder(metaDataProto, dependencies, false).getRecordMetaData();
+        MetaDataValidator validator = new MetaDataValidator(validatedMetaData, IndexMaintainerRegistryImpl.instance());
+        validator.validate();
+
         // Load even if not maintaining history so as to get compatibility upgrade before (over-)writing.
         CompletableFuture<Void> future = loadCurrentSerialized().thenApply(oldSerialized -> {
             if (oldSerialized != null && maintainHistory) {
@@ -244,7 +249,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
             return null;
         });
         future = future.thenApply(vignore -> {
-            recordMetaData = new RecordMetaDataBuilder(metaDataProto, dependencies).getRecordMetaData();
+            recordMetaData = validatedMetaData;
             byte[] serialized = metaDataProto.toByteArray();
             SplitHelper.saveWithSplit(context, getSubspace(), CURRENT_KEY, serialized, null);
             if (cache != null) {
@@ -370,6 +375,10 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     @Override
     public RecordMetaData getRecordMetaData() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_META_DATA, getRecordMetaDataAsync(true));
+    }
+
+    public void saveRecordMetaData(@Nonnull RecordMetaDataProvider metaDataProvider) {
+        saveRecordMetaData(metaDataProvider.getRecordMetaData().toProto());
     }
 
     public void saveRecordMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
