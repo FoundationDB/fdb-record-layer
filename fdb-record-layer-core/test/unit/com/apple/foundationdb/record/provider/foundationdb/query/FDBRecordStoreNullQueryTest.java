@@ -580,7 +580,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
                         .setFilter(Query.field("fint64").greaterThan(0L))
                         .setRequiredResults(Stream.of("uuid", "fint64").map(Key.Expressions::field).collect(Collectors.toList()))
                         .build());
-                assertThat(coveringPlan, PlanMatchers.coveringIndexScan(PlanMatchers.indexName("MyFieldsRecord$fint64")));
+                assertThat(coveringPlan, PlanMatchers.coveringIndexScan(PlanMatchers.indexScan(PlanMatchers.indexName("MyFieldsRecord$fint64"))));
                 final List<Pair<UUID, Long>> results = recordStore.executeQuery(coveringPlan).map(rec -> {
                     final TestRecordsTupleFieldsProto.MyFieldsRecord myrec = TestRecordsTupleFieldsProto.MyFieldsRecord.newBuilder().mergeFrom(rec.getRecord()).build();
                     return Pair.of(TupleFieldsHelper.fromProto(myrec.getUuid()), TupleFieldsHelper.fromProto(myrec.getFint64()));

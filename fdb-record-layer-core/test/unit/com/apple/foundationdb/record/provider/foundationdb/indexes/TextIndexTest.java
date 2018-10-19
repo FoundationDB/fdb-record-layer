@@ -134,11 +134,13 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexBunchedSerializerTest.entryOf;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.groupingBounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.textComparison;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.textIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
@@ -1453,6 +1455,141 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    public void querySimpleDocumentsMaybeCovering() throws Exception {
+        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+                TextSamples.ANGSTROM,
+                TextSamples.AETHELRED,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.FRENCH
+        ));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            documents.forEach(recordStore::saveRecord);
+
+            final QueryComponent filter1 = Query.field("text").text().containsPhrase("civil blood makes civil hands unclean");
+            final Comparisons.Comparison comparison1 = new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_PHRASE, "civil blood makes civil hands unclean", null, DefaultTextTokenizer.NAME);
+            final QueryComponent filter2 = Query.field("text").text().containsPrefix("th");
+            final Comparisons.Comparison comparison2 = new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_PREFIX,  Collections.singletonList("th"), null, DefaultTextTokenizer.NAME);
+
+            // Query for full records
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(SIMPLE_DOC)
+                    .setFilter(filter1)
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            assertThat(plan, textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
+            assertEquals(814602491, plan.planHash());
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(Collections.singletonList(2L), primaryKeys);
+
+            query = RecordQuery.newBuilder()
+                    .setRecordType(SIMPLE_DOC)
+                    .setFilter(filter2)
+                    .build();
+            plan = planner.plan(query);
+            assertThat(plan, primaryKeyDistinct(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))));
+            assertEquals(1032989149, plan.planHash());
+            primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(Arrays.asList(0L, 1L, 2L, 3L), primaryKeys);
+
+            // Query for just primary key
+            query = RecordQuery.newBuilder()
+                    .setRecordType(SIMPLE_DOC)
+                    .setRequiredResults(Collections.singletonList(field("doc_id")))
+                    .setFilter(filter1)
+                    .build();
+            plan = planner.plan(query);
+            assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
+            assertEquals(814602491, plan.planHash());
+            primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(Collections.singletonList(2L), primaryKeys);
+
+            query = RecordQuery.newBuilder()
+                    .setRecordType(SIMPLE_DOC)
+                    .setRequiredResults(Collections.singletonList(field("doc_id")))
+                    .setFilter(filter2)
+                    .build();
+            plan = planner.plan(query);
+            assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
+            assertEquals(1032989149, plan.planHash());
+            primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(Arrays.asList(0L, 1L, 2L, 3L), primaryKeys);
+
+            // Query for primary key but also have a filter on something outside the index
+            query = RecordQuery.newBuilder()
+                    .setRecordType(SIMPLE_DOC)
+                    .setRequiredResults(Collections.singletonList(field("doc_id")))
+                    .setFilter(Query.and(filter1, Query.field("group").equalsValue(0L)))
+                    .build();
+            plan = planner.plan(query);
+            assertThat(plan, filter(equalTo(Query.field("group").equalsValue(0L)),
+                    textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
+            assertEquals(-1328921799, plan.planHash());
+            primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(Collections.singletonList(2L), primaryKeys);
+
+            query = RecordQuery.newBuilder()
+                    .setRecordType(SIMPLE_DOC)
+                    .setRequiredResults(Collections.singletonList(field("doc_id")))
+                    .setFilter(Query.and(filter2, Query.field("group").equalsValue(0L)))
+                    .build();
+            plan = planner.plan(query);
+            System.out.println(plan.planHash());
+            assertThat(plan, filter(equalTo(Query.field("group").equalsValue(0L)),
+                    primaryKeyDistinct(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
+            assertEquals(-1110535141, plan.planHash());
+            primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(Arrays.asList(0L, 2L), primaryKeys);
+
+            // Query for the text field, which produces the first token that matches
+            // Arguably, this should produce an error, but that requires a more sophisticated
+            // check when trying to determine if the index covers the query
+            final Descriptors.FieldDescriptor docIdDescriptor = SimpleDocument.getDescriptor().findFieldByNumber(SimpleDocument.DOC_ID_FIELD_NUMBER);
+            final Descriptors.FieldDescriptor textDescriptor = SimpleDocument.getDescriptor().findFieldByNumber(SimpleDocument.TEXT_FIELD_NUMBER);
+
+            query = RecordQuery.newBuilder()
+                    .setRecordType(SIMPLE_DOC)
+                    .setRequiredResults(Collections.singletonList(field("text")))
+                    .setFilter(filter1)
+                    .build();
+            plan = planner.plan(query);
+            assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
+            assertEquals(814602491, plan.planHash());
+            List<Tuple> idTextTuples = recordStore.executeQuery(plan)
+                    .map(record -> {
+                        final Object docId = record.getRecord().getField(docIdDescriptor);
+                        final Object text = record.getRecord().getField(textDescriptor);
+                        return Tuple.from(docId, text);
+                    })
+                    .asList()
+                    .get();
+            assertEquals(Collections.singletonList(Tuple.from(2L, "civil")), idTextTuples);
+
+            query = RecordQuery.newBuilder()
+                    .setRecordType(SIMPLE_DOC)
+                    .setRequiredResults(Collections.singletonList(field("text")))
+                    .setFilter(filter2)
+                    .build();
+            plan = planner.plan(query);
+            assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
+            assertEquals(1032989149, plan.planHash());
+            idTextTuples = recordStore.executeQuery(plan)
+                    .map(record -> {
+                        final Object docId = record.getRecord().getField(docIdDescriptor);
+                        final Object text = record.getRecord().getField(textDescriptor);
+                        return Tuple.from(docId, text);
+                    })
+                    .asList()
+                    .get();
+            assertEquals(Arrays.asList(Tuple.from(0L, "the"), Tuple.from(1L, "the"), Tuple.from(2L, "the"), Tuple.from(3L, "thiers")), idTextTuples);
+
+
+            commit(context);
+        }
+    }
+
     @Nonnull
     private List<Tuple> queryComplexDocumentsWithPlan(@Nonnull QueryComponent filter, int planHash, Matcher<RecordQueryPlan> planMatcher) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(COMPLEX_DOC), Arrays.asList(field("group"), field("doc_id")), filter, planHash, planMatcher)
@@ -1473,11 +1610,11 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         if (!(textFilter instanceof ComponentWithComparison)) {
             throw new RecordCoreArgumentException("filter without comparison provided as text filter");
         }
-        final Matcher<RecordQueryPlan> planMatcher = descendant(textIndexScan(allOf(
+        final Matcher<RecordQueryPlan> planMatcher = descendant(coveringIndexScan(textIndexScan(allOf(
                 indexName(COMPLEX_TEXT_BY_GROUP.getName()),
                 groupingBounds(allOf(notNullValue(), hasTupleString("[[" + group + "],[" + group + "]]"))),
                 textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison()))
-        )));
+        ))));
         return queryComplexDocumentsWithPlan(Query.and(Query.field("group").equalsValue(group), textFilter), planHash, planMatcher);
     }
 
@@ -1620,7 +1757,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             openRecordStore(context, hook);
             RecordQueryPlanner planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
             plan = planner.plan(query);
-            assertThat(plan, descendant(textIndexScan(indexName(index.getName()))));
+            assertThat(plan, descendant(coveringIndexScan(textIndexScan(indexName(index.getName())))));
 
             try (RecordCursor<Long> cursor = plan.execute(evaluationContext, null, executeProperties)
                     .map(record -> record.getPrimaryKey().getLong(0))) {

@@ -69,6 +69,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -1141,7 +1149,8 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setRequiredResults(Arrays.asList(Key.Expressions.field("name"), Key.Expressions.field("score")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertEquals("CoveringIndex(BasicRankedRecord$score [[2],> BY_RANK -> [name: KEY[1], score: KEY[0]])", plan.toString());
+        assertThat(plan, coveringIndexScan(
+                indexScan(allOf(indexName("BasicRankedRecord$score"), indexScanType(IndexScanType.BY_RANK), bounds(hasTupleString("[[2],>"))))));
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -1161,7 +1170,8 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setRequiredResults(Arrays.asList(Key.Expressions.field("gender"), Key.Expressions.field("score")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertEquals("CoveringIndex(rank_by_gender [[M],[M]] -> [gender: KEY[0], name: KEY[2], score: KEY[1]])", plan.toString());
+        assertThat(plan, coveringIndexScan(
+                indexScan(allOf(indexName("rank_by_gender"), indexScanType(IndexScanType.BY_VALUE), bounds(hasTupleString("[[M],[M]]"))))));
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);

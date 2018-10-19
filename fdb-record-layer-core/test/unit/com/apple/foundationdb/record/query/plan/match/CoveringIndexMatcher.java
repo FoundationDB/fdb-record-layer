@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.match;
 
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -33,22 +34,22 @@ import javax.annotation.Nonnull;
  */
 public class CoveringIndexMatcher extends TypeSafeMatcher<RecordQueryPlan> {
     @Nonnull
-    private final Matcher<? super RecordQueryCoveringIndexPlan> planMatcher;
+    private final Matcher<? super RecordQueryPlanWithIndex> childMatcher;
 
-    public CoveringIndexMatcher(@Nonnull Matcher<? super RecordQueryCoveringIndexPlan> planMatcher) {
-        this.planMatcher = planMatcher;
+    public CoveringIndexMatcher(@Nonnull Matcher<? super RecordQueryPlanWithIndex> childMatcher) {
+        this.childMatcher = childMatcher;
     }
 
     @Override
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
         return plan instanceof RecordQueryCoveringIndexPlan &&
-                planMatcher.matches(plan);
+                childMatcher.matches(((RecordQueryCoveringIndexPlan)plan).getChild());
     }
 
     @Override
     public void describeTo(Description description) {
         description.appendText("CoveringIndex(");
-        planMatcher.describeTo(description);
+        childMatcher.describeTo(description);
         description.appendText(")");
     }
 }
