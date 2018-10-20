@@ -249,13 +249,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordCountKey;
     }
 
-    public RecordType getOnlyRecordType() {
-        if (recordTypes.size() != 1) {
-            throw new MetaDataException("Must have exactly one record type defined.");
-        }
-        return recordTypes.values().iterator().next();
-    }
-
     /**
      * Determine whether every record type in this meta-data has {@link RecordType#primaryKeyHasRecordTypePrefix}.
      *

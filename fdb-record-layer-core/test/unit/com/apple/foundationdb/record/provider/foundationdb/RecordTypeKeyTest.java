@@ -74,7 +74,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         assertEquals("t1", metaData.getRecordType("MySimpleRecord").getExplicitRecordTypeKey());
         assertNull(metaData.getRecordType("MyOtherRecord").getExplicitRecordTypeKey());
 
-        metaDataBuilder = new RecordMetaDataBuilder(metaData.toProto());
+        metaDataBuilder = new RecordMetaDataBuilder(metaData.toProto(), false);
         metaData = metaDataBuilder.getRecordMetaData();
         assertEquals("t1", metaData.getRecordType("MySimpleRecord").getExplicitRecordTypeKey());
         assertNull(metaData.getRecordType("MyOtherRecord").getExplicitRecordTypeKey());

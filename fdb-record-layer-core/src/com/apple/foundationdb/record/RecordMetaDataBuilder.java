@@ -116,29 +116,75 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         validateRecords(fileDescriptor);
         unionFields = new HashMap<>();
         unionDescriptor = initRecordTypes(fileDescriptor, processExtensionOptions);
-        RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
-                .getExtension(RecordMetaDataOptionsProto.schema);
-        if ((schemaOptions != null) && schemaOptions.hasSplitLongRecords()) {
-            splitLongRecords = schemaOptions.getSplitLongRecords();
+        if (processExtensionOptions) {
+            RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
+                    .getExtension(RecordMetaDataOptionsProto.schema);
+            if (schemaOptions != null) {
+                if (schemaOptions.hasSplitLongRecords()) {
+                    splitLongRecords = schemaOptions.getSplitLongRecords();
+                }
+                if (schemaOptions.hasStoreRecordVersions()) {
+                    storeRecordVersions = schemaOptions.getStoreRecordVersions();
+                }
+            }
         }
-        if ((schemaOptions != null) && schemaOptions.hasStoreRecordVersions()) {
-            storeRecordVersions = schemaOptions.getStoreRecordVersions();
-        }
-    }
-
-    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
-        this(metaDataProto, new Descriptors.FileDescriptor[] { RecordMetaDataOptionsProto.getDescriptor() }, false);
     }
 
     /**
      * Creates a new builder from the provided meta-data protobuf.
+     *
+     * This constructor assumes that {@code metaDataProto} is not the result of {@link RecordMetaData#toProto} and will not already
+     * include all the indexes defined by any original extension options, so that they still need to be processed.
+     * If {@code metaDataProto} is the result of {@code toProto} and indexes also appear in extension options, a duplicate index
+     * error will result. In that case, {@link #RecordMetaDataBuilder(RecordMetaDataProto.MetaData, boolean)} will be needed instead.
+     *
      * @param metaDataProto the protobuf form of the meta-data
-     * @param dependencies other files imported by the record types protobuf
-     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     */
+    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+        this(metaDataProto, true);
+    }
+
+    /**
+     * Creates a new builder from the provided meta-data protobuf.
      *
      * If {@code metaDataProto} is the result of {@link RecordMetaData#toProto}, it will already
      * include all the indexes defined by any original extension options, so {@code processExtensionOptions}
      * should be {@code false}.
+     *
+     * @param metaDataProto the protobuf form of the meta-data
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     */
+    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+                                 boolean processExtensionOptions) {
+        this(metaDataProto, new Descriptors.FileDescriptor[] { RecordMetaDataOptionsProto.getDescriptor() }, processExtensionOptions);
+    }
+
+    /**
+     * Creates a new builder from the provided meta-data protobuf.
+     *
+     * This constructor assumes that {@code metaDataProto} is not the result of {@link RecordMetaData#toProto} and will not already
+     * include all the indexes defined by any original extension options, so that they still need to be processed.
+     * If {@code metaDataProto} is the result of {@code toProto} and indexes also appear in extension options, a duplicate index
+     * error will result. In that case, {@link #RecordMetaDataBuilder(RecordMetaDataProto.MetaData, Descriptors.FileDescriptor[], boolean)} will be needed instead.
+     *
+     * @param metaDataProto the protobuf form of the meta-data
+     * @param dependencies other files imported by the record types protobuf
+     */
+    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+                                 @Nonnull Descriptors.FileDescriptor[] dependencies) {
+        this(metaDataProto, dependencies, true);
+    }
+
+    /**
+     * Creates a new builder from the provided meta-data protobuf.
+     *
+     * If {@code metaDataProto} is the result of {@link RecordMetaData#toProto}, it will already
+     * include all the indexes defined by any original extension options, so {@code processExtensionOptions}
+     * should be {@code false}.
+     *
+     * @param metaDataProto the protobuf form of the meta-data
+     * @param dependencies other files imported by the record types protobuf
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
      */
     @SuppressWarnings("deprecation")
     public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
@@ -287,8 +333,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             }
         }
         if (union == null) {
-            // Having an opinion here; if you don't have a union descriptor, the metadata is fixed at
-            // having one record type
             throw new MetaDataException("Union descriptor is required");
         }
         fillUnionFields(union);
