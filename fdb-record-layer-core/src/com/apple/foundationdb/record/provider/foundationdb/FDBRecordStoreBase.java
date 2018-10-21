@@ -1539,22 +1539,25 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         @Nullable final Key.Evaluated indexEvaluated;
 
         public RecordsWhereDeleter(@Nonnull QueryComponent component) {
-            final RecordTypeKeyComparison recordTypeKeyComparison;
-            final QueryComponent remainingComponent;
+            RecordTypeKeyComparison recordTypeKeyComparison = null;
+            QueryComponent remainingComponent = null;
             if (component instanceof RecordTypeKeyComparison) {
                 recordTypeKeyComparison = (RecordTypeKeyComparison)component;
-                remainingComponent = null;
-            } else if (component instanceof AndComponent && ((AndComponent)component).getChildren().get(0) instanceof RecordTypeKeyComparison) {
-                final List<QueryComponent> children = ((AndComponent)component).getChildren();
-                recordTypeKeyComparison = (RecordTypeKeyComparison)children.get(0);
-                if (children.size() == 2) {
-                    remainingComponent = children.get(1);
-                } else {
-                    remainingComponent = Query.and(children.subList(1, children.size()));
+            } else if (component instanceof AndComponent && ((AndComponent)component).getChildren().stream().anyMatch(c -> c instanceof RecordTypeKeyComparison)) {
+                final List<QueryComponent> remainingChildren = new ArrayList<>(((AndComponent)component).getChildren());
+                final Iterator<QueryComponent> iter = remainingChildren.iterator();
+                while (iter.hasNext()) {
+                    final QueryComponent child = iter.next();
+                    if (child instanceof RecordTypeKeyComparison) {
+                        recordTypeKeyComparison = (RecordTypeKeyComparison)child;
+                        iter.remove();
+                    }
                 }
-            } else {
-                recordTypeKeyComparison = null;
-                remainingComponent = null;
+                if (remainingChildren.size() == 1) {
+                    remainingComponent = remainingChildren.get(0);
+                } else {
+                    remainingComponent = Query.and(remainingChildren);
+                }
             }
             if (recordTypeKeyComparison != null && !getRecordMetaData().primaryKeyHasRecordTypePrefix()) {
                 throw new RecordCoreException("record type version of deleteRecordsWhere can only be used when all record types have a type prefix");
@@ -1671,7 +1674,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
             final Tuple prefix = evaluated.toTuple();
             final Subspace recordSubspace = recordsSubspace().subspace(prefix);
             tr.clear(recordSubspace.range());
-            if (getRecordMetaData().isStoreRecordVersions()) {
+            if (useOldVersionFormat() && getRecordMetaData().isStoreRecordVersions()) {
                 final Subspace versionSubspace = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY).addAll(prefix));
                 tr.clear(versionSubspace.range());
             }
@@ -3082,20 +3085,22 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      * @return a future that will complete to the number of records
      */
     public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName) {
+        // A COUNT index on this record type.
         IndexAggregateFunction aggregateFunction = IndexFunctionHelper.count(EmptyKeyExpression.EMPTY);
         Optional<IndexMaintainer<M>> indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.singletonList(recordTypeName));
         if (indexMaintainer.isPresent()) {
             return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT)
                     .thenApply(tuple -> tuple.getLong(0));
         }
-        RecordType recordType = getRecordMetaData().getRecordType(recordTypeName);
-        if (recordType.primaryKeyHasRecordTypePrefix()) {
-            aggregateFunction = IndexFunctionHelper.count(Key.Expressions.recordType());
-            indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.emptyList());
-            if (indexMaintainer.isPresent()) {
-                return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.allOf(Tuple.from(recordType.getRecordTypeKey())), IsolationLevel.SNAPSHOT)
-                        .thenApply(tuple -> tuple.getLong(0));
-            }
+        // A universal COUNT index by record type.
+        // In fact, any COUNT index by record type that applied to this record type would work, no matter what other
+        // types it applied to.
+        aggregateFunction = IndexFunctionHelper.count(Key.Expressions.recordType());
+        indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.emptyList());
+        if (indexMaintainer.isPresent()) {
+            RecordType recordType = getRecordMetaData().getRecordType(recordTypeName);
+            return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.allOf(Tuple.from(recordType.getRecordTypeKey())), IsolationLevel.SNAPSHOT)
+                    .thenApply(tuple -> tuple.getLong(0));
         }
         throw new RecordCoreException("Require a COUNT index on " + recordTypeName);
     }
