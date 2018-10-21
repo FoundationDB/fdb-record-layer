@@ -70,7 +70,7 @@ different field names.
 A primary key definition can be prefixed with a special record type key.
 The Record Layer will assign a unique key value for each record type. In addition to avoiding
 the problem of collisions with the rest of the primary key values, the Record Layer
-leverages the guarantee that records of a given type are together and separate.
+leverages the guarantee that records of a given type are stored together.
 
 * The planner can scan when there is no appropriate index or when the filters match more of the primary key
 without skipping other types.
