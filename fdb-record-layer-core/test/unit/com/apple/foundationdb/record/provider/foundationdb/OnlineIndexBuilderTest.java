@@ -306,12 +306,12 @@ public class OnlineIndexBuilderTest {
             CompletableFuture<Void> buildFuture;
             LOGGER.info(KeyValueLogMessage.of("building index", "index", index, "agents", agents, "recordsWhileBuilding", recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(), "overlap", overlap));
             if (agents == 1) {
-                buildFuture = indexBuilder.buildIndex(false);
+                buildFuture = indexBuilder.buildIndexAsync(false);
             } else {
                 if (overlap) {
                     CompletableFuture<?>[] futures = new CompletableFuture<?>[agents];
                     for (int i = 0; i < agents; i++) {
-                        futures[i] = indexBuilder.buildIndex(false);
+                        futures[i] = indexBuilder.buildIndexAsync(false);
                     }
                     buildFuture = CompletableFuture.allOf(futures);
                 } else {
@@ -1473,7 +1473,7 @@ public class OnlineIndexBuilderTest {
             context.commit();
         }
         try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
-            indexBuilder.buildIndex().handle((ignore, e) -> {
+            indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
                 assertNotNull(runE);
@@ -1495,7 +1495,7 @@ public class OnlineIndexBuilderTest {
                 assertEquals(10, (int)recordStore.scanUniquenessViolations(index).getCount().join());
                 context.commit();
             }
-            indexBuilder.buildIndex().handle((ignore, e) -> {
+            indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
                 assertNotNull(runE);
@@ -1525,7 +1525,7 @@ public class OnlineIndexBuilderTest {
             context.commit();
         }
         try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
-            indexBuilder.buildIndex().handle((ignore, e) -> {
+            indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
                 assertNotNull(runE);
@@ -1565,7 +1565,7 @@ public class OnlineIndexBuilderTest {
                 assertEquals(10, (int)recordStore.scanUniquenessViolations(index).getCount().join());
                 context.commit();
             }
-            indexBuilder.buildIndex().handle((ignore, e) -> {
+            indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
                 assertNotNull(runE);
@@ -1592,7 +1592,7 @@ public class OnlineIndexBuilderTest {
             context.commit();
         }
         try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
-            indexBuilder.buildIndex().join();
+            indexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
             for (int i = 5; i < records.size(); i++) {
@@ -1633,7 +1633,7 @@ public class OnlineIndexBuilderTest {
                 assertEquals(10, (int)recordStore.scanUniquenessViolations(index).getCount().join());
                 context.commit();
             }
-            indexBuilder.buildIndex().handle((ignore, e) -> {
+            indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
                 assertNotNull(runE);
@@ -1693,7 +1693,7 @@ public class OnlineIndexBuilderTest {
                 assertEquals(10, (int)recordStore.scanUniquenessViolations(index).getCount().join());
                 context.commit();
             }
-            indexBuilder.buildIndex().handle((ignore, e) -> {
+            indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
                 assertNotNull(runE);
@@ -1722,7 +1722,7 @@ public class OnlineIndexBuilderTest {
             context.commit();
         }
         try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
-            indexBuilder.buildIndex().handle((ignore, e) -> {
+            indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
                 assertNotNull(runE);
@@ -1873,7 +1873,7 @@ public class OnlineIndexBuilderTest {
             assertEquals(Collections.singletonList(Tuple.from(8L)), middleRanges.stream().map(r -> Tuple.fromBytes(r.end)).collect(Collectors.toList()));
 
             // Straight up build the whole index.
-            indexBuilder.buildIndex(false).join();
+            indexBuilder.buildIndex(false);
             assertEquals(Tuple.from(55L), getAggregate.get());
             assertEquals(Collections.emptyList(), rangeSet.missingRanges(fdb.database()).join());
         }
@@ -2024,7 +2024,7 @@ public class OnlineIndexBuilderTest {
             context.commit();
         }
         try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
-            indexBuilder.buildIndex().join();
+            indexBuilder.buildIndex();
         }
 
         try (FDBRecordContext context = fdb.openContext()) {
@@ -2185,7 +2185,7 @@ public class OnlineIndexBuilderTest {
         try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, nindex, metaData.recordTypesForIndex(nindex), subspace,
                 1, Integer.MAX_VALUE, Integer.MAX_VALUE)) {
             indexBuilder.setTimer(timer);
-            future = indexBuilder.buildIndex();
+            future = indexBuilder.buildIndexAsync();
             // Let the builder get some work done.
             int pass = 0;
             while (!future.isDone() && timer.getCount(FDBStoreTimer.Events.COMMIT) < 10 && pass++ < 100) {

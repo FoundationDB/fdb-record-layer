@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -45,6 +46,8 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertThrows;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -52,8 +55,10 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for record type key in primary keys.
@@ -247,6 +252,128 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    public void testBuildIndexIndexThreshold() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
+            context.commit();
+        }
+
+        // Lots of records, but not lots of the ones that need to be scanned.
+        saveManyRecords(BASIC_HOOK, 10, 500);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertEquals(10, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord").join().intValue());
+            assertEquals(500, recordStore.getSnapshotRecordCountForRecordType("MyOtherRecord").join().intValue());
+        }
+
+        RecordMetaDataHook hook = metaData -> {
+            BASIC_HOOK.apply(metaData);
+            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index("newIndex", "num_value_2"));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+ 
+            timer.reset();
+
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertTrue(recordStore.isIndexReadable("newIndex"));
+
+            assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+            assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+
+            assertEquals(IntStream.range(0, 10).mapToObj(i -> Tuple.from(i, 1, i)).collect(Collectors.toList()),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+            context.commit();
+        }
+    }
+
+    @Test
+    public void testOnlineIndexBuilder() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
+            context.commit();
+        }
+
+        saveManyRecords(BASIC_HOOK, 250, 250);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertEquals(250, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord").join().intValue());
+            assertEquals(250, recordStore.getSnapshotRecordCountForRecordType("MyOtherRecord").join().intValue());
+        }
+
+        RecordMetaDataHook hook = metaData -> {
+            BASIC_HOOK.apply(metaData);
+            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index("newIndex", "num_value_2"));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertTrue(recordStore.isIndexWriteOnly("newIndex"));
+
+            timer.reset();
+
+            // Build in this transaction.
+            try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(recordStore, "newIndex")) {
+                indexBuilder.rebuildIndex(recordStore);
+            }
+            recordStore.markIndexReadable("newIndex").join();
+
+            assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+            assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+
+            assertEquals(IntStream.range(0, 250).mapToObj(i -> Tuple.from(i, 1, i)).collect(Collectors.toList()),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertTrue(recordStore.isIndexReadable("newIndex"));
+
+            recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
+            context.commit();
+        }
+
+        timer.reset();
+
+        // Build in multiple transactions.
+        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(recordStore, "newIndex")) {
+            indexBuilder.buildIndex();
+        }
+
+        assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), Matchers.greaterThanOrEqualTo(3));
+        assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            assertEquals(IntStream.range(0, 250).mapToObj(i -> Tuple.from(i, 1, i)).collect(Collectors.toList()),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+        }
+    }
+
     private List<FDBStoredRecord<Message>> saveSomeRecords(@Nonnull RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -274,6 +401,27 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
                 recs.set(i, recs.get(i).withCommittedVersion(context.getVersionStamp()));
             }
             return recs;
+        }
+    }
+
+    private void saveManyRecords(@Nonnull RecordMetaDataHook hook, int count1, int count2) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            for (int i = 0; i < count1; i++) {
+                TestRecords1Proto.MySimpleRecord.Builder rec1Builder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                rec1Builder.setRecNo(i);
+                rec1Builder.setNumValue2(i);
+                recordStore.saveRecord(rec1Builder.build());
+            }
+
+            for (int i = 0; i < count2; i++) {
+                TestRecords1Proto.MyOtherRecord.Builder rec2Builder = TestRecords1Proto.MyOtherRecord.newBuilder();
+                rec2Builder.setRecNo(i);
+                recordStore.saveRecord(rec2Builder.build());
+            }
+
+            context.commit();
         }
     }
 

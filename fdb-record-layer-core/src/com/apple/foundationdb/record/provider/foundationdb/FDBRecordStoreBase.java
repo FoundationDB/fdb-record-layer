@@ -893,15 +893,43 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
     /**
      * Scan the records in the database.
+     *
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
-     * @return a cursor that will scan everything in the space, picking up at continuation, and returning at most
-     * limit records
+     *
+     * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
      */
+    @Nonnull
     public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, scanProperties);
     }
 
+    /**
+     * Scan the records in the database in a range.
+     *
+     * @param range the range to scan
+     * @param continuation any continuation from a previous scan
+     * @param scanProperties skip, limit and other scan properties
+     *
+     * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
+     */
+    @Nonnull
+    public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        return scanRecords(range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation, scanProperties);
+    }
+
+    /**
+     * Scan the records in the database in a range.
+     *
+     * @param low low point of scan range
+     * @param high high point of scan point
+     * @param lowEndpoint whether low point is inclusive or exclusive
+     * @param highEndpoint whether high point is inclusive or exclusive
+     * @param continuation any continuation from a previous scan
+     * @param scanProperties skip, limit and other scan properties
+     *
+     * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
+     */
     @Nonnull
     public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable final Tuple low, @Nullable final Tuple high,
                                                         @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
@@ -2584,7 +2612,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
         long startTime = System.nanoTime();
         OnlineIndexBuilderBase<M> indexBuilder = new OnlineIndexBuilderBase<>(this, index, recordTypes);
-        CompletableFuture<Void> future = indexBuilder.rebuildIndex(this)
+        CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this)
                 .thenCompose(vignore -> markIndexReadable(index)
                         .handle((b, t) -> {
                             // Only call method that builds in the current transaction, so never any pending work,
@@ -2749,12 +2777,27 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         if (recordStoreState == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts, indexes));
         }
+        // Do this with the new indexes in write-only mode to avoid using one of them
+        // when evaluating the snapshot record count.
+        MutableRecordStoreState writeOnlyState = recordStoreState.withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
+        // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
+        RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);
+        if (singleRecordTypeWithPrefixKey != null) {
+            // Get a count for just those records, either from a COUNT index on just that type or from a universal COUNT index grouped by record type.
+            MutableRecordStoreState saveState = recordStoreState;
+            try {
+                recordStoreState = writeOnlyState;
+                return getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName());
+            } catch (RecordCoreException ex) {
+                // No such index; have to use total record count.
+            } finally {
+                recordStoreState = saveState;
+            }
+        }
         if (!rebuildRecordCounts) {
             MutableRecordStoreState saveState = recordStoreState;
             try {
-                // Do this with the new indexes in write-only mode to avoid using one of them
-                // when evaluating the snapshot record count.
-                recordStoreState = saveState.withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
+                recordStoreState = writeOnlyState;
                 // TODO: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
                 return getSnapshotRecordCount();
             } catch (RecordCoreException ex) {
@@ -2764,11 +2807,18 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
             }
         }
         // Do a scan (limited to a single record) to see if the store is empty.
-        return scanRecords(null, new ScanProperties(ExecuteProperties.newBuilder()
+        final ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(1)
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .build()))
-                .onHasNext()
+                .build();
+        final ScanProperties scanProperties = new ScanProperties(executeProperties);
+        final RecordCursor<FDBStoredRecord<M>> records;
+        if (singleRecordTypeWithPrefixKey == null) {
+            records = scanRecords(null, scanProperties);
+        } else {
+            records = scanRecords(TupleRange.allOf(Tuple.from(singleRecordTypeWithPrefixKey.getRecordTypeKey())), null, scanProperties);
+        }
+        return records.onHasNext()
                 .thenApply(hasAny -> {
                     if (hasAny) {
                         if (LOGGER.isInfoEnabled()) {
@@ -2789,6 +2839,27 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
                         return 0L;
                     }
                 });
+    }
+
+    @Nullable
+    protected RecordType singleRecordTypeWithPrefixKey(@Nonnull Map<Index, List<RecordType>> indexes) {
+        RecordType recordType = null;
+        for (List<RecordType> entry : indexes.values()) {
+            Collection<RecordType> types = entry != null ? entry : getRecordMetaData().getRecordTypes().values();
+            if (types.size() != 1) {
+                return null;
+            }
+            RecordType type1 = entry != null ? entry.get(0) : types.iterator().next();
+            if (recordType == null) {
+                if (!type1.primaryKeyHasRecordTypePrefix()) {
+                    return null;
+                }
+                recordType = type1;
+            } else if (type1 != recordType) {
+                return null;
+            }
+        }
+        return recordType;
     }
 
     @Nonnull
@@ -3055,10 +3126,24 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         tr.mutate(MutationType.ADD, keyBytes, increment);
     }
 
+    /**
+     * Get the number of records in the record store.
+     *
+     * There must be a suitable {@code COUNT} type index defined.
+     * @return a future that will complete to the number of records in the store
+     */
     public CompletableFuture<Long> getSnapshotRecordCount() {
         return getSnapshotRecordCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY);
     }
 
+    /**
+     * Get the number of records in a portion of the record store determined by a group key expression.
+     *
+     * There must be a suitably grouped {@code COUNT} type index defined.
+     * @param key the grouping key expression
+     * @param value the value of {@code key} to match
+     * @return a future that will complete to the number of records
+     */
     public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
         if (getRecordMetaData().getRecordCountKey() != null) {
             if (key.getColumnSize() != value.size()) {
