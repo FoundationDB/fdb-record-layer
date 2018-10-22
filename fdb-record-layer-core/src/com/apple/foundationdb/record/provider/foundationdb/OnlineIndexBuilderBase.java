@@ -540,24 +540,26 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
     // associated with this index, so it is really designed to be a helper for other methods.
     @Nonnull
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStoreBase<M> store,
-                                                    @Nullable Tuple start, @Nullable Tuple end) {
-        return buildRangeOnly(store, TupleRange.between(start, end)).thenApply(realEnd -> realEnd == null ? end : realEnd);
+                                                    @Nullable Tuple start, @Nullable Tuple end,
+                                                    boolean respectLimit) {
+        return buildRangeOnly(store, TupleRange.between(start, end), respectLimit).thenApply(realEnd -> realEnd == null ? end : realEnd);
     }
 
     // TupleRange version of above.
     @Nonnull
-    private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStoreBase<M> store, @Nonnull TupleRange range) {
+    private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStoreBase<M> store, @Nonnull TupleRange range, boolean respectLimit) {
         // Test whether the same up to store state by checking something that is pointer-copied but not normally
         // otherwise shared.
         if (store.getRecordMetaData().getRecordTypes() != recordStoreBuilder.getMetaDataProvider().getRecordMetaData().getRecordTypes()) {
             throw new MetaDataException("Store does not have the same metadata");
         }
         final IndexMaintainer<M> maintainer = store.getIndexMaintainer(index);
-        final ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
-                .setReturnedRowLimit(limit)
-                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                .build();
-        final ScanProperties scanProperties = new ScanProperties(executeProperties);
+        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE);
+        if (respectLimit) {
+            executeProperties.setReturnedRowLimit(limit);
+        }
+        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final RecordCursor<FDBStoredRecord<M>> cursor = store.scanRecords(range, null, scanProperties);
         final AtomicBoolean empty = new AtomicBoolean(true);
         final FDBStoreTimer timer = getTimer();
@@ -584,12 +586,9 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
                 return CompletableFuture.completedFuture(null);
             } else {
                 // Get the next record and return its primary key.
-                final ExecuteProperties executeProperties2 = ExecuteProperties.newBuilder()
-                        .setReturnedRowLimit(1)
-                        .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                        .build();
-                final ScanProperties scanProperties2 = new ScanProperties(executeProperties2);
-                RecordCursor<FDBStoredRecord<M>> nextCursor = store.scanRecords(range, nextCont, scanProperties2);
+                executeProperties.setReturnedRowLimit(1);
+                final ScanProperties scanProperties1 = new ScanProperties(executeProperties.build());
+                RecordCursor<FDBStoredRecord<M>> nextCursor = store.scanRecords(range, nextCont, scanProperties1);
                 return nextCursor.onHasNext().thenApply(hasNext -> {
                     if (hasNext) {
                         FDBStoredRecord<M> rec = nextCursor.next();
@@ -615,11 +614,10 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
                     Tuple rangeStart = Arrays.equals(range.begin, START_BYTES) ? null : Tuple.fromBytes(range.begin);
                     Tuple rangeEnd = Arrays.equals(range.end, END_BYTES) ? null : Tuple.fromBytes(range.end);
                     return CompletableFuture.allOf(
-                            // TODO: This isn't generally correct, since buildRangeOnly might hit its limit first.
-                            // Should insertRange only up to the returned endpoint (or rangeEnd), like buildUnbuiltRange.
-                            // This method works because it is only called for the endpoint ranges, which are empty and
+                            // All of the requested range without limit.
+                            // In practice, this method works because it is only called for the endpoint ranges, which are empty and
                             // one long, respectively.
-                            buildRangeOnly(store, rangeStart, rangeEnd),
+                            buildRangeOnly(store, rangeStart, rangeEnd, false),
                             rangeSet.insertRange(store.ensureContextActive(), range, true)
                     ).thenCompose(vignore -> ranges.onHasNext());
                 }, store.getExecutor());
@@ -763,7 +761,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
     // Helper function that works on Tuples instead of keys.
     @Nonnull
     private CompletableFuture<Tuple> buildUnbuiltRange(@Nonnull FDBRecordStoreBase<M> store, @Nullable Tuple start, @Nullable Tuple end) {
-        CompletableFuture<Tuple> buildFuture = buildRangeOnly(store, start, end);
+        CompletableFuture<Tuple> buildFuture = buildRangeOnly(store, start, end, true);
 
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
         byte[] startBytes = packOrNull(start);
@@ -856,7 +854,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
         // Rebuild the index by going through all of the records in a transaction.
         AtomicReference<TupleRange> rangeToGo = new AtomicReference<>(recordsRange);
         CompletableFuture<Void> buildFuture = AsyncUtil.whileTrue(() ->
-                buildRangeOnly(store, rangeToGo.get()).thenApply(nextStart -> {
+                buildRangeOnly(store, rangeToGo.get(), true).thenApply(nextStart -> {
                     if (nextStart == null) {
                         return false;
                     } else {

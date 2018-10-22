@@ -897,8 +897,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
      *
-     * @return a cursor that will scan everything in the space, picking up at continuation, and returning at most
-     * limit records
+     * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
      */
     @Nonnull
     public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
@@ -912,8 +911,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      * @param continuation any continuation from a previous scan
      * @param scanProperties skip, limit and other scan properties
      *
-     * @return a cursor that will scan everything in the range, picking up at continuation, and returning at most
-     * limit records
+     * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
      */
     @Nonnull
     public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
