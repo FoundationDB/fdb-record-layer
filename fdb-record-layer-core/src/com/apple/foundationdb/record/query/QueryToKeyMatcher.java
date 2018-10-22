@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -157,6 +159,9 @@ public class QueryToKeyMatcher {
         }
         if (query instanceof AndComponent && key instanceof ThenKeyExpression) {
             return matches((AndComponent)query, (ThenKeyExpression)key);
+        }
+        if (query instanceof RecordTypeKeyComparison) {
+            return matches((RecordTypeKeyComparison)query, key);
         }
 
         throw new Query.InvalidExpressionException(
@@ -286,6 +291,14 @@ public class QueryToKeyMatcher {
         return new Match(query.getComparison());
     }
 
+    private Match matches(RecordTypeKeyComparison query, KeyExpression key) {
+        if (!(key instanceof RecordTypeKeyExpression ||
+                (key instanceof ThenKeyExpression && ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression))) {
+            return Match.none();
+        }
+        return new Match(query.getComparison());
+    }
+
     private Match unexpected(KeyExpression key) {
         throw new KeyExpression.InvalidExpressionException("Unexpected Key Expression type " + key.getClass());
     }
@@ -311,6 +324,9 @@ public class QueryToKeyMatcher {
             }
             return ((OneOfThemWithComponent)query).getFieldName() + "/" + child;
         }
+        if (query instanceof RecordTypeKeyComparison) {
+            return "@";
+        }
         return null;
     }
 
@@ -324,6 +340,9 @@ public class QueryToKeyMatcher {
                 return null;
             }
             return ((NestingKeyExpression)key).getParent().getFieldName() + "/" + child;
+        }
+        if (key instanceof RecordTypeKeyExpression) {
+            return "@";
         }
         return null;
     }

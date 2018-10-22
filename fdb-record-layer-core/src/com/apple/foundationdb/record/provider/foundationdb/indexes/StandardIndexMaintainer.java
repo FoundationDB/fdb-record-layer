@@ -463,25 +463,26 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
         return rangeSet.contains(state.transaction, primaryKey.pack());
     }
 
-    protected static boolean canDeleteWhere(@Nonnull QueryToKeyMatcher.Match match, @Nonnull Key.Evaluated evaluated, @Nonnull String indexName) {
+    protected static <M extends Message> boolean canDeleteWhere(@Nonnull IndexMaintainerState<M> state, @Nonnull QueryToKeyMatcher.Match match, @Nonnull Key.Evaluated evaluated) {
         if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
             return false;
         }
-        if (evaluated.equals(match.getEquality())) {
+        if (evaluated.equals(match.getEquality(state.store.emptyEvaluationContext()))) {
             return true;
         }
         if (LOGGER.isWarnEnabled()) {
             LOGGER.warn(KeyValueLogMessage.of("IndexPrefixes don't align on deleteRecordsWhere",
                     LogMessageKeys.INITIAL_PREFIX, evaluated,
                     LogMessageKeys.SECOND_PREFIX, match.getEquality(),
-                    LogMessageKeys.INDEX_NAME, indexName));
+                    LogMessageKeys.INDEX_NAME, state.index.getName()));
         }
         return false;
     }
 
+    @Override
     public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
         final QueryToKeyMatcher.Match match = matcher.matches(state.index.getRootExpression());
-        return canDeleteWhere(match, evaluated, state.index.getName());
+        return canDeleteWhere(state, match, evaluated);
     }
 
     // Update index for deleting records where primary key starts with prefix. Prefix must be a prefix of the index grouping.

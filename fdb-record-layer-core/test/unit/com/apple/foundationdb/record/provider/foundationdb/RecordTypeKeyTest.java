@@ -20,10 +20,14 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -41,10 +45,12 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.apple.foundationdb.record.TestHelpers.assertThrows;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
@@ -193,6 +199,55 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
             assertEquals(recs.subList(2, 3), recordStore.executeQuery(RecordQuery.newBuilder()
                     .setRecordType("MyOtherRecord").build())
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
+        }
+    }
+
+    @Test
+    public void testDeleteType() throws Exception {
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+
+            assertEquals(3, recordStore.getSnapshotRecordCount().join().intValue());
+            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord").join().intValue());
+
+            recordStore.deleteRecordsWhere("MySimpleRecord", null);
+
+            assertEquals(1, recordStore.getSnapshotRecordCount().join().intValue());
+            assertEquals(0, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord").join().intValue());
+
+            assertEquals(recs.subList(2, 3), recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join());
+            assertEquals(0, recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_3_indexed"),
+                    IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount().join().intValue());
+        }
+    }
+
+    @Test
+    public void testDeletePartial() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            final RecordTypeBuilder t1 = metaData.getRecordType("MySimpleRecord");
+            final RecordTypeBuilder t2 = metaData.getRecordType("MyOtherRecord");
+            t1.setPrimaryKey(concat(recordType(), field("str_value_indexed"), field("rec_no")));
+            metaData.removeIndex(COUNT_INDEX.getName());
+            metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
+            metaData.removeIndex("MySimpleRecord$str_value_indexed");
+            metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+            metaData.removeIndex("MySimpleRecord$num_value_unique");
+            metaData.addIndex(t1, new Index("str_num_3", concatenateFields("str_value_indexed", "num_value_3_indexed")));
+            t2.setPrimaryKey(concat(recordType(), field("rec_no")));
+        };
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            recordStore.deleteRecordsWhere("MySimpleRecord", Query.field("str_value_indexed").equalsValue("abc"));
+
+            assertEquals(recs.subList(1, 3), recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join());
+            assertEquals(Collections.singletonList(Tuple.from("xyz", 2, 1, 456)),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("str_num_3"),
+                    IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
         }
     }
 
