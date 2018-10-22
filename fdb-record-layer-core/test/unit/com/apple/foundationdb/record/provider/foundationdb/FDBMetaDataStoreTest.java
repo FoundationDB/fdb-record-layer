@@ -83,9 +83,8 @@ public class FDBMetaDataStoreTest {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
 
-            RecordMetaDataProto.MetaData.Builder metaData = RecordMetaDataProto.MetaData.newBuilder();
-            metaData.setRecords(TestRecords1Proto.getDescriptor().toProto());
-            metaDataStore.saveRecordMetaData(metaData.build());
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
             context.commit();
 
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
@@ -171,6 +170,9 @@ public class FDBMetaDataStoreTest {
 
             RecordMetaDataProto.MetaData.Builder metaData = RecordMetaDataProto.MetaData.newBuilder();
             metaData.setRecords(TestRecords1Proto.getDescriptor().toProto());
+            metaData.addRecordTypesBuilder()
+                    .setName("MySimpleRecord")
+                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
             metaData.setVersion(101);
             metaDataStore.saveRecordMetaData(metaData.build());
 
@@ -206,6 +208,9 @@ public class FDBMetaDataStoreTest {
 
             RecordMetaDataProto.MetaData.Builder metaData = RecordMetaDataProto.MetaData.newBuilder();
             metaData.setRecords(TestRecords1Proto.getDescriptor().toProto());
+            metaData.addRecordTypesBuilder()
+                    .setName("MySimpleRecord")
+                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
             metaData.addIndexesBuilder()
                     .setName("MyIndex")
                     .addRecordType("MySimpleRecord")
@@ -251,12 +256,12 @@ public class FDBMetaDataStoreTest {
                 new Index("MyParentRecord$str&child", Key.Expressions.concat(
                         Key.Expressions.field("str_value_indexed"), Key.Expressions.field("child_rec_nos", KeyExpression.FanType.FanOut))));
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(metaDataBuilder.getRecordType("MyChildRecord"), metaDataBuilder.getRecordType("MyParentRecord")),
-                new Index("all$rec_nos", Key.Expressions.field("rec_nos")));
+                new Index("all$rec_nos", Key.Expressions.field("rec_no")));
         RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
 
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
-            metaDataStore.saveRecordMetaData(metaData.toProto());
+            metaDataStore.saveRecordMetaData(metaData);
             context.commit();
         }
 

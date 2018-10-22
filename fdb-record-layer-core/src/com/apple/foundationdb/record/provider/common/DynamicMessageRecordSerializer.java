@@ -97,12 +97,8 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         final long startTime = System.nanoTime();
         try {
             final Descriptors.Descriptor unionDescriptor = metaData.getUnionDescriptor();
-            if (unionDescriptor != null) {
-                final DynamicMessage unionMessage = deserializeUnion(unionDescriptor, primaryKey, serialized, metaData.getVersion());
-                return getUnionField(unionMessage, primaryKey).getRight();
-            } else {
-                return deserializeFromBytes(metaData.getOnlyRecordType().getDescriptor(), serialized);
-            }
+            final DynamicMessage unionMessage = deserializeUnion(unionDescriptor, primaryKey, serialized, metaData.getVersion());
+            return getUnionField(unionMessage, primaryKey).getRight();
         } finally {
             if (timer != null) {
                 timer.recordSinceNanoTime(Events.DESERIALIZE_PROTOBUF_RECORD, startTime);

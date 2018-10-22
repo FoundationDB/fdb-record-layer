@@ -76,6 +76,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Descriptors.Descriptor unionDescriptor;
     @Nonnull
+    private final Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields;
+    @Nonnull
     private final Map<String, RecordTypeBuilder> recordTypes;
     @Nonnull
     private final Map<String, Index> indexes;
@@ -91,176 +93,104 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nullable
     private RecordMetaData recordMetaData;
 
-    private static void validateRecords(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
-        Queue<Descriptors.Descriptor> toValidate = new ArrayDeque<>(fileDescriptor.getMessageTypes());
-        Set<Descriptors.Descriptor> seen = new HashSet<>();
-        while (!toValidate.isEmpty()) {
-            Descriptors.Descriptor descriptor = toValidate.remove();
-            if (seen.add(descriptor)) {
-                for (Descriptors.FieldDescriptor field : descriptor.getFields()) {
-                    switch (field.getType()) {
-                        case INT32:
-                        case INT64:
-                        case SFIXED32:
-                        case SFIXED64:
-                        case SINT32:
-                        case SINT64:
-                        case BOOL:
-                        case STRING:
-                        case BYTES:
-                        case FLOAT:
-                        case DOUBLE:
-                        case ENUM:
-                            // These types are allowed ; nothing to do.
-                            break;
-                        case MESSAGE:
-                        case GROUP:
-                            if (!seen.contains(field.getMessageType())) {
-                                toValidate.add(field.getMessageType());
-                            }
-                            break;
-                        case FIXED32:
-                        case FIXED64:
-                        case UINT32:
-                        case UINT64:
-                            throw new MetaDataException(
-                                            "Field " + field.getName()
-                                          + " in message " + descriptor.getFullName()
-                                          + " has illegal unsigned type " + field.getType().name());
-                        default:
-                            throw new MetaDataException(
-                                            "Field " + field.getName()
-                                          + " in message " + descriptor.getFullName()
-                                          + " has unknown type " + field.getType().name());
-                    }
-                }
-            }
-        }
+    /**
+     * Creates a new builder from the provided record types protobuf.
+     * @param fileDescriptor a file descriptor containing all the record types in the metadata
+     */
+    public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        this(fileDescriptor, true);
     }
 
     /**
-     * Creates a new builder from the provided protobuf.
-     * @param fileDescriptor a file descriptor to be loaded, containing all the record types in the metadata
+     * Creates a new builder from the provided record types protobuf.
+     * @param fileDescriptor a file descriptor containing all the record types in the metadata
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
      */
-    public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                 boolean processExtensionOptions) {
         recordsDescriptor = fileDescriptor;
         recordTypes = new HashMap<>(fileDescriptor.getMessageTypes().size());
         indexes = new HashMap<>();
         universalIndexes = new HashMap<>();
         formerIndexes = new ArrayList<>();
         validateRecords(fileDescriptor);
-        unionDescriptor = initRecordTypes(fileDescriptor);
-        RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
-                .getExtension(RecordMetaDataOptionsProto.schema);
-        if ((schemaOptions != null) && schemaOptions.hasSplitLongRecords()) {
-            splitLongRecords = schemaOptions.getSplitLongRecords();
-        }
-        if ((schemaOptions != null) && schemaOptions.hasStoreRecordVersions()) {
-            storeRecordVersions = schemaOptions.getStoreRecordVersions();
-        }
-    }
-
-    private Descriptors.Descriptor initRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
-        Descriptors.Descriptor union = null;
-        for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
-            @Nullable Integer sinceVersion = null;
-            @Nullable Object recordTypeKey = null;
-            RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
-                    .getExtension(RecordMetaDataOptionsProto.record);
-            if (recordTypeOptions != null) {
-                switch (recordTypeOptions.getUsage()) {
-                    case UNION:
-                        if (union != null) {
-                            throw new MetaDataException("Only one union descriptor is allowed");
-                        }
-                        union = descriptor;
-                        continue;
-                    case NESTED:
-                        continue;
-                    case RECORD:
-                    default:
-                        break;
+        unionFields = new HashMap<>();
+        unionDescriptor = initRecordTypes(fileDescriptor, processExtensionOptions);
+        if (processExtensionOptions) {
+            RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
+                    .getExtension(RecordMetaDataOptionsProto.schema);
+            if (schemaOptions != null) {
+                if (schemaOptions.hasSplitLongRecords()) {
+                    splitLongRecords = schemaOptions.getSplitLongRecords();
                 }
-                if (recordTypeOptions.hasSinceVersion()) {
-                    sinceVersion = recordTypeOptions.getSinceVersion();
-                }
-                if (recordTypeOptions.hasRecordTypeKey()) {
-                    recordTypeKey = LiteralKeyExpression.fromProto(recordTypeOptions.getRecordTypeKey()).getValue();
-                }
-            }
-            if ("RecordTypeUnion".equals(descriptor.getName())) {
-                if (union != null) {
-                    throw new MetaDataException("Only one union descriptor is allowed");
-                }
-                union = descriptor;
-                continue;
-            }
-
-            RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
-            recordType.setSinceVersion(sinceVersion);
-            recordType.setRecordTypeKey(recordTypeKey);
-            recordTypes.put(recordType.getName(), recordType);
-            // Add indexes from custom options.
-            for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
-                RecordMetaDataOptionsProto.FieldOptions fieldOptions = fieldDescriptor.getOptions()
-                        .getExtension(RecordMetaDataOptionsProto.field);
-                if (fieldOptions != null) {
-                    protoFieldOptions(recordType, descriptor, fieldDescriptor, fieldOptions);
-                }
-            }
-        }
-        if (union == null) {
-            // Having an opinion here; if you don't have a union descriptor, the metadata is fixed at
-            // having one record type
-            throw new MetaDataException("Union descriptor is required");
-        }
-        return union;
-    }
-
-    @SuppressWarnings("deprecation")
-    private void protoFieldOptions(RecordTypeBuilder recordType,
-                                   Descriptors.Descriptor descriptor, Descriptors.FieldDescriptor fieldDescriptor,
-                                   RecordMetaDataOptionsProto.FieldOptions fieldOptions) {
-        if (fieldOptions.hasIndex() || fieldOptions.hasIndexed()) {
-            String type;
-            Map<String, String> options;
-            if (fieldOptions.hasIndex()) {
-                RecordMetaDataOptionsProto.FieldOptions.IndexOption indexOption = fieldOptions.getIndex();
-                type = indexOption.getType();
-                options = Index.buildOptions(indexOption.getOptionsList(), indexOption.getUnique());
-            } else {
-                type = Index.indexTypeToType(fieldOptions.getIndexed());
-                options = Index.indexTypeToOptions(fieldOptions.getIndexed());
-            }
-            final FieldKeyExpression field = Key.Expressions.fromDescriptor(fieldDescriptor);
-            final KeyExpression expr;
-            if (type.equals(IndexTypes.RANK)) {
-                expr = field.ungrouped();
-            } else {
-                expr = field;
-            }
-            final Index index = new Index(descriptor.getName() + "$" + fieldDescriptor.getName(),
-                    expr, Index.EMPTY_VALUE, type, options);
-            addIndex(recordType, index);
-        } else if (fieldOptions.getPrimaryKey()) {
-            if (recordType.getPrimaryKey() != null) {
-                throw new MetaDataException("Only one primary key per record type is allowed have: " +
-                                            recordType.getPrimaryKey() + "; adding on " + fieldDescriptor.getName());
-            } else {
-                if (fieldDescriptor.isRepeated()) {
-                    // TODO maybe default to concatenate for this.
-                    throw new MetaDataException("Primary key cannot be set on a repeated field");
-                } else {
-                    recordType.setPrimaryKey(Key.Expressions.fromDescriptor(fieldDescriptor));
+                if (schemaOptions.hasStoreRecordVersions()) {
+                    storeRecordVersions = schemaOptions.getStoreRecordVersions();
                 }
             }
         }
     }
 
-    @SuppressWarnings("deprecation")
+    /**
+     * Creates a new builder from the provided meta-data protobuf.
+     *
+     * This constructor assumes that {@code metaDataProto} is not the result of {@link RecordMetaData#toProto} and will not already
+     * include all the indexes defined by any original extension options, so that they still need to be processed.
+     * If {@code metaDataProto} is the result of {@code toProto} and indexes also appear in extension options, a duplicate index
+     * error will result. In that case, {@link #RecordMetaDataBuilder(RecordMetaDataProto.MetaData, boolean)} will be needed instead.
+     *
+     * @param metaDataProto the protobuf form of the meta-data
+     */
+    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+        this(metaDataProto, true);
+    }
+
+    /**
+     * Creates a new builder from the provided meta-data protobuf.
+     *
+     * If {@code metaDataProto} is the result of {@link RecordMetaData#toProto}, it will already
+     * include all the indexes defined by any original extension options, so {@code processExtensionOptions}
+     * should be {@code false}.
+     *
+     * @param metaDataProto the protobuf form of the meta-data
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     */
+    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+                                 boolean processExtensionOptions) {
+        this(metaDataProto, new Descriptors.FileDescriptor[] { RecordMetaDataOptionsProto.getDescriptor() }, processExtensionOptions);
+    }
+
+    /**
+     * Creates a new builder from the provided meta-data protobuf.
+     *
+     * This constructor assumes that {@code metaDataProto} is not the result of {@link RecordMetaData#toProto} and will not already
+     * include all the indexes defined by any original extension options, so that they still need to be processed.
+     * If {@code metaDataProto} is the result of {@code toProto} and indexes also appear in extension options, a duplicate index
+     * error will result. In that case, {@link #RecordMetaDataBuilder(RecordMetaDataProto.MetaData, Descriptors.FileDescriptor[], boolean)} will be needed instead.
+     *
+     * @param metaDataProto the protobuf form of the meta-data
+     * @param dependencies other files imported by the record types protobuf
+     */
     public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
                                  @Nonnull Descriptors.FileDescriptor[] dependencies) {
-        this(buildFileDescriptor(metaDataProto.getRecords(), dependencies));
+        this(metaDataProto, dependencies, true);
+    }
+
+    /**
+     * Creates a new builder from the provided meta-data protobuf.
+     *
+     * If {@code metaDataProto} is the result of {@link RecordMetaData#toProto}, it will already
+     * include all the indexes defined by any original extension options, so {@code processExtensionOptions}
+     * should be {@code false}.
+     *
+     * @param metaDataProto the protobuf form of the meta-data
+     * @param dependencies other files imported by the record types protobuf
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     */
+    @SuppressWarnings("deprecation")
+    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+                                 @Nonnull Descriptors.FileDescriptor[] dependencies,
+                                 boolean processExtensionOptions) {
+        this(buildFileDescriptor(metaDataProto.getRecords(), dependencies), processExtensionOptions);
         validateRecords(recordsDescriptor);
         for (RecordMetaDataProto.Index indexProto : metaDataProto.getIndexesList()) {
             List<RecordTypeBuilder> recordTypeBuilders = new ArrayList<>(indexProto.getRecordTypeCount());
@@ -307,6 +237,189 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
         if (metaDataProto.hasVersion()) {
             version = metaDataProto.getVersion();
+        }
+    }
+
+    private static void validateRecords(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        Queue<Descriptors.Descriptor> toValidate = new ArrayDeque<>(fileDescriptor.getMessageTypes());
+        Set<Descriptors.Descriptor> seen = new HashSet<>();
+        while (!toValidate.isEmpty()) {
+            Descriptors.Descriptor descriptor = toValidate.remove();
+            if (seen.add(descriptor)) {
+                for (Descriptors.FieldDescriptor field : descriptor.getFields()) {
+                    switch (field.getType()) {
+                        case INT32:
+                        case INT64:
+                        case SFIXED32:
+                        case SFIXED64:
+                        case SINT32:
+                        case SINT64:
+                        case BOOL:
+                        case STRING:
+                        case BYTES:
+                        case FLOAT:
+                        case DOUBLE:
+                        case ENUM:
+                            // These types are allowed ; nothing to do.
+                            break;
+                        case MESSAGE:
+                        case GROUP:
+                            if (!seen.contains(field.getMessageType())) {
+                                toValidate.add(field.getMessageType());
+                            }
+                            break;
+                        case FIXED32:
+                        case FIXED64:
+                        case UINT32:
+                        case UINT64:
+                            throw new MetaDataException(
+                                    "Field " + field.getName()
+                                    + " in message " + descriptor.getFullName()
+                                    + " has illegal unsigned type " + field.getType().name());
+                        default:
+                            throw new MetaDataException(
+                                    "Field " + field.getName()
+                                    + " in message " + descriptor.getFullName()
+                                    + " has unknown type " + field.getType().name());
+                    }
+                }
+            }
+        }
+    }
+
+    private Descriptors.Descriptor initRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                                   boolean processExtensionOptions) {
+        Descriptors.Descriptor union = null;
+        for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
+            @Nullable Integer sinceVersion = null;
+            @Nullable Object recordTypeKey = null;
+            RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
+                    .getExtension(RecordMetaDataOptionsProto.record);
+            if (recordTypeOptions != null) {
+                switch (recordTypeOptions.getUsage()) {
+                    case UNION:
+                        if (union != null) {
+                            throw new MetaDataException("Only one union descriptor is allowed");
+                        }
+                        union = descriptor;
+                        continue;
+                    case NESTED:
+                        continue;
+                    case RECORD:
+                    default:
+                        break;
+                }
+                if (processExtensionOptions && recordTypeOptions.hasSinceVersion()) {
+                    sinceVersion = recordTypeOptions.getSinceVersion();
+                }
+                if (processExtensionOptions && recordTypeOptions.hasRecordTypeKey()) {
+                    recordTypeKey = LiteralKeyExpression.fromProto(recordTypeOptions.getRecordTypeKey()).getValue();
+                }
+            }
+            if ("RecordTypeUnion".equals(descriptor.getName())) {
+                if (union != null) {
+                    throw new MetaDataException("Only one union descriptor is allowed");
+                }
+                union = descriptor;
+                continue;
+            }
+
+            RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
+            recordTypes.put(recordType.getName(), recordType);
+            if (processExtensionOptions) {
+                recordType.setSinceVersion(sinceVersion);
+                recordType.setRecordTypeKey(recordTypeKey);
+                protoFieldOptions(recordType, descriptor);
+            }
+        }
+        if (union == null) {
+            throw new MetaDataException("Union descriptor is required");
+        }
+        fillUnionFields(union);
+        return union;
+    }
+
+    private void fillUnionFields(Descriptors.Descriptor union) {
+        for (Descriptors.FieldDescriptor unionField : union.getFields()) {
+            if (unionField.getType() != Descriptors.FieldDescriptor.Type.MESSAGE) {
+                throw new MetaDataException("Union field " + unionField.getName() +
+                                            " is not a message");
+            }
+            Descriptors.Descriptor descriptor = unionField.getMessageType();
+            if (!unionFields.containsKey(descriptor)) {
+                RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
+                        .getExtension(RecordMetaDataOptionsProto.record);
+                if (recordTypeOptions != null &&
+                        recordTypeOptions.getUsage() != RecordMetaDataOptionsProto.RecordTypeOptions.Usage.RECORD) {
+                    throw new MetaDataException("Union field " + unionField.getName() +
+                                                " has type " + descriptor.getName() +
+                                                " which is not a record");
+                }
+
+                if (descriptor.getFile() != recordsDescriptor) {
+                    // An imported record type.
+                    RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
+                    if (recordTypes.putIfAbsent(recordType.getName(), recordType) != null) {
+                        throw new MetaDataException("There is already a record type named" + recordType.getName());
+                    }
+                    protoFieldOptions(recordType, descriptor);
+                }
+
+                unionFields.put(descriptor, unionField);
+            } else {
+                // The preferred field is the last one, except if there is one whose name matches.
+                unionFields.compute(descriptor, (d, f) -> f != null && f.getName().equals("_" + d.getName()) ? f : unionField);
+            }
+        }
+    }
+
+    private void protoFieldOptions(RecordTypeBuilder recordType, Descriptors.Descriptor descriptor) {
+        // Add indexes from custom options.
+        for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
+            RecordMetaDataOptionsProto.FieldOptions fieldOptions = fieldDescriptor.getOptions()
+                    .getExtension(RecordMetaDataOptionsProto.field);
+            if (fieldOptions != null) {
+                protoFieldOptions(recordType, descriptor, fieldDescriptor, fieldOptions);
+            }
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void protoFieldOptions(RecordTypeBuilder recordType, Descriptors.Descriptor descriptor,
+                                   Descriptors.FieldDescriptor fieldDescriptor, RecordMetaDataOptionsProto.FieldOptions fieldOptions) {
+        if (fieldOptions.hasIndex() || fieldOptions.hasIndexed()) {
+            String type;
+            Map<String, String> options;
+            if (fieldOptions.hasIndex()) {
+                RecordMetaDataOptionsProto.FieldOptions.IndexOption indexOption = fieldOptions.getIndex();
+                type = indexOption.getType();
+                options = Index.buildOptions(indexOption.getOptionsList(), indexOption.getUnique());
+            } else {
+                type = Index.indexTypeToType(fieldOptions.getIndexed());
+                options = Index.indexTypeToOptions(fieldOptions.getIndexed());
+            }
+            final FieldKeyExpression field = Key.Expressions.fromDescriptor(fieldDescriptor);
+            final KeyExpression expr;
+            if (type.equals(IndexTypes.RANK)) {
+                expr = field.ungrouped();
+            } else {
+                expr = field;
+            }
+            final Index index = new Index(descriptor.getName() + "$" + fieldDescriptor.getName(),
+                    expr, Index.EMPTY_VALUE, type, options);
+            addIndex(recordType, index);
+        } else if (fieldOptions.getPrimaryKey()) {
+            if (recordType.getPrimaryKey() != null) {
+                throw new MetaDataException("Only one primary key per record type is allowed have: " +
+                                            recordType.getPrimaryKey() + "; adding on " + fieldDescriptor.getName());
+            } else {
+                if (fieldDescriptor.isRepeated()) {
+                    // TODO maybe default to concatenate for this.
+                    throw new MetaDataException("Primary key cannot be set on a repeated field");
+                } else {
+                    recordType.setPrimaryKey(Key.Expressions.fromDescriptor(fieldDescriptor));
+                }
+            }
         }
     }
 
@@ -497,7 +610,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             return recordMetaData;
         }
         Map<String, RecordType> recordTypeBuilders = new HashMap<>();
-        recordMetaData = new RecordMetaData(recordsDescriptor, unionDescriptor, recordTypeBuilders,
+        recordMetaData = new RecordMetaData(recordsDescriptor, unionDescriptor, unionFields, recordTypeBuilders,
                 indexes, universalIndexes, formerIndexes,
                 splitLongRecords, storeRecordVersions, version, recordCountKey);
         for (RecordTypeBuilder recordTypeBuilder : this.recordTypes.values()) {
