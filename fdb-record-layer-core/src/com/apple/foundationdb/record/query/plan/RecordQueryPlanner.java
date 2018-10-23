@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -50,6 +51,7 @@ import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithComparison;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.planning.InExtractor;
 import com.apple.foundationdb.record.query.plan.planning.RankComparisons;
@@ -105,6 +107,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nonnull
     private final PlannableIndexTypes indexTypes;
 
+    private boolean primaryKeyHasRecordTypePrefix;
     private boolean preferIndexToScan;
 
     public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
@@ -134,8 +137,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         this.timer = timer;
         this.complexityThreshold = complexityThreshold;
 
+        primaryKeyHasRecordTypePrefix = metaData.primaryKeyHasRecordTypePrefix();
         // If we are going to need type filters on Scan, index is safer without knowing any cardinalities.
-        preferIndexToScan = metaData.getRecordTypes().size() > 1;
+        preferIndexToScan = metaData.getRecordTypes().size() > 1 && !primaryKeyHasRecordTypePrefix;
     }
 
     /**
@@ -251,7 +255,15 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (index != null && !indexTypes.getValueTypes().contains(index.getType())) {
             return null;
         }
-        return new ScoredPlan(0, planScan(new CandidateScan(planContext, index, false)));
+        ScanComparisons scanComparisons = null;
+        if (planContext.query.getRecordTypes().size() == 1 &&
+                planContext.commonPrimaryKey != null &&
+                Key.Expressions.hasRecordTypePrefix(planContext.commonPrimaryKey)) {
+            // Can scan just the one requested record type.
+            final RecordTypeKeyComparison recordTypeKeyComparison = new RecordTypeKeyComparison(planContext.query.getRecordTypes().iterator().next());
+            scanComparisons = new ScanComparisons.Builder().addEqualityComparison(recordTypeKeyComparison.getComparison()).build();
+        }
+        return new ScoredPlan(0, planScan(new CandidateScan(planContext, index, false), scanComparisons));
     }
 
     private int compareIndexes(PlanContext planContext, @Nullable Index index1, @Nullable Index index2) {
@@ -874,7 +886,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         } else if (index instanceof ThenKeyExpression) {
             ThenKeyExpression then = (ThenKeyExpression) index;
-            if ((sort == null || sort.equals(then.getChildren().get(0))) && !then.createsDuplicates()) {
+            if ((sort == null || sort.equals(then.getChildren().get(0))) &&
+                    !then.createsDuplicates() &&
+                    !(then.getChildren().get(0) instanceof RecordTypeKeyExpression)) {
                 // First column will do it all or not.
                 return planFieldWithComparison(candidateScan, then.getChildren().get(0), singleField, sort);
             } else {
@@ -1046,7 +1060,11 @@ public class RecordQueryPlanner implements QueryPlanner {
         Set<String> possibleTypes;
         if (candidateScan.index == null) {
             plan = new RecordQueryScanPlan(scanComparisons, candidateScan.reverse);
-            possibleTypes = metaData.getRecordTypes().keySet();
+            if (primaryKeyHasRecordTypePrefix && RecordTypeKeyComparison.hasRecordTypeKeyComparison(scanComparisons)) {
+                possibleTypes = RecordTypeKeyComparison.recordTypeKeyComparisonTypes(scanComparisons);
+            } else {
+                possibleTypes = metaData.getRecordTypes().keySet();
+            }
         } else {
             if (scanType == null) {
                 scanType = IndexScanType.BY_VALUE;
@@ -1532,6 +1550,14 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         private void planChild(@Nonnull KeyExpression child) {
             foundComparison = false;
+            if (child instanceof RecordTypeKeyExpression) {
+                if (candidateScan.planContext.query.getRecordTypes().size() == 1) {
+                    // Can scan just the one requested record type.
+                    final RecordTypeKeyComparison recordTypeKeyComparison = new RecordTypeKeyComparison(candidateScan.planContext.query.getRecordTypes().iterator().next());
+                    addToComparisons(recordTypeKeyComparison.getComparison());
+                }
+                return;
+            }
             for (QueryComponent filterChild : filters) {
                 QueryComponent filterComponent = candidateScan.planContext.rankComparisons.planComparisonSubstitute(filterChild);
                 if (filterComponent instanceof FieldWithComparison) {

@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -55,6 +56,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -168,6 +172,64 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void testScan() throws Exception {
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+
+            assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
+                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+            assertThat(plan, scan(bounds(hasTupleString("[IS MySimpleRecord]"))));
+        }
+    }
+
+    @Test
+    public void testSinglyBoundedScan() throws Exception {
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.field("rec_no").lessThan(400L))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+
+            assertEquals(recs.subList(0, 1), recordStore.executeQuery(query)
+                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+            assertThat(plan, scan(bounds(hasTupleString("[IS MySimpleRecord, [LESS_THAN 400]]"))));
+        }
+    }
+
+    @Test
+    public void testDoublyBoundedScan() throws Exception {
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.and(
+                            Query.field("rec_no").greaterThan(200L),
+                            Query.field("rec_no").lessThan(500L)))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+
+            assertEquals(recs.subList(1, 2), recordStore.executeQuery(query)
+                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+            assertThat(plan, scan(bounds(hasTupleString("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"))));
+        }
+    }
+
+    @Test
     public void testSingleton() throws Exception {
         final RecordMetaDataHook hook = metaData -> {
             final RecordTypeBuilder t1 = metaData.getRecordType("MySimpleRecord");
@@ -196,10 +258,14 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
             rec2Builder.setRecNo(-1);
             recs.set(2, recordStore.saveRecord(rec2Builder.build()));
 
-            // Index entries properly rendezvous with record.
-            assertEquals(recs.subList(2, 3), recordStore.executeQuery(RecordQuery.newBuilder()
-                    .setRecordType("MyOtherRecord").build())
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MyOtherRecord")
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+
+            assertEquals(recs.subList(2, 3), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
+            assertThat(plan, scan(bounds(hasTupleString("[IS MyOtherRecord]"))));
         }
     }
 
