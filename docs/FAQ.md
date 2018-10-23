@@ -65,6 +65,21 @@ and the same primary key values will result in the second record replacing
 the first. This is true even if the records are of different types with 
 different field names.
 
+#### Is there some way to make record types behave more like tables?
+
+A primary key definition can be prefixed with a special record type key.
+The Record Layer will assign a unique key value for each record type. In addition to avoiding
+the problem of collisions with the rest of the primary key values, the Record Layer
+leverages the guarantee that records of a given type are stored together.
+
+* The planner can scan when there is no appropriate index or when the filters match more of the primary key
+without skipping other types.
+* The online index builder does not need to scan as many records.
+* When deciding whether to build a new index right away, the count of records by type can be used.
+* store.deleteRecordsWhere can be restricted to a single record type and still efficient.
+
+The overhead of this is usually two bytes in every key (record or index entry).
+
 ### Indexes
 
 #### Are auto-incremented primary keys supported?
