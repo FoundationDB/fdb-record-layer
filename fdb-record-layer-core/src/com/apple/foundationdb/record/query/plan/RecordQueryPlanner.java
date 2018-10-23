@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.planning.InExtractor;
 import com.apple.foundationdb.record.query.plan.planning.RankComparisons;
 import com.apple.foundationdb.record.query.plan.planning.TextScan;
+import com.apple.foundationdb.record.query.plan.planning.TextScanPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -1016,7 +1017,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
-        final TextScan scan = TextScan.getScanForQuery(index, filter, false, filterMask);
+        final TextScan scan = TextScanPlanner.getScanForQuery(index, filter, false, filterMask);
         if (scan == null) {
             return null;
         }

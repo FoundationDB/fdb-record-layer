@@ -46,7 +46,7 @@ import java.util.Objects;
  * of a given filter have already been satisfied by a planned query and which ones might require
  * an additional filter on the returned results.
  */
-@API(stability = API.Status.INTERNAL)
+@API(API.Status.INTERNAL)
 public class FilterSatisfiedMask {
 
     @Nonnull
