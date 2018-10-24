@@ -83,6 +83,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.LoggableException;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -146,6 +148,9 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     // instead of a transactional rebuild.
     public static final int MAX_RECORDS_FOR_REBUILD = 200;
 
+    // The size of preload cache
+    private static final int PRELOAD_CACHE_SIZE = 100;
+
     /**
      * Provided during record save (via {@link #saveRecord(Message, FDBRecordVersion, VersionstampSaveBehavior)}),
      * directs the behavior of the save w.r.t. the record's version.
@@ -184,6 +189,8 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     @Nullable
     private Subspace cachedRecordsSubspace;
 
+    private final Cache<Tuple, FDBRawRecord> preloadCache;
+
     @SuppressWarnings("squid:S00107")
     protected FDBRecordStoreBase(@Nonnull FDBRecordContext context,
                                  @Nonnull SubspaceProvider subspaceProvider,
@@ -201,6 +208,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         this.indexMaintenanceFilter = indexMaintenanceFilter;
         this.pipelineSizer = pipelineSizer;
         this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
+        this.preloadCache = CacheBuilder.<Tuple,FDBRawRecord>newBuilder().maximumSize(PRELOAD_CACHE_SIZE).build();
     }
 
     /**
@@ -870,7 +878,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      */
     @Nonnull
     public CompletableFuture<Void> preloadRecordAsync(@Nonnull final Tuple primaryKey) {
-        return loadRawRecordAsync(primaryKey, null, false).thenApply(serialized -> null);
+        return loadRawRecordAsync(primaryKey, null, false).thenAccept(fdbRawRecord -> preloadCache.put(primaryKey, fdbRawRecord));
     }
 
 
@@ -885,6 +893,10 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     public CompletableFuture<FDBRawRecord> loadRawRecordAsync(@Nonnull final Tuple primaryKey,
                                                               @Nullable final SplitHelper.SizeInfo sizeInfo,
                                                               final boolean snapshot) {
+        final FDBRawRecord recordFromCache = preloadCache.getIfPresent(primaryKey);
+        if (recordFromCache != null) {
+            return CompletableFuture.completedFuture(recordFromCache);
+        }
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final ReadTransaction tr = snapshot ? ensureContextActive().snapshot() : ensureContextActive();
         return SplitHelper.loadWithSplit(tr, context, recordsSubspace(),
@@ -1435,6 +1447,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      */
     @Nonnull
     public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull final Tuple primaryKey) {
+        preloadCache.invalidate(primaryKey);
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         CompletableFuture<Boolean> result = loadRecordAsync(primaryKey).thenCompose(oldRecord -> {
             if (oldRecord == null) {
@@ -1484,6 +1497,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      * This is an efficient operation, since all the data is contiguous.
      */
     public void deleteAllRecords() {
+        preloadCache.invalidateAll();
         Transaction tr = ensureContextActive();
         tr.clear(recordsSubspace().getKey(),
                  getSubspace().range().end);
@@ -1524,6 +1538,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      * @return a future that will be complete when the delete is done
      */
     public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component) {
+        preloadCache.invalidateAll();
         return new RecordsWhereDeleter(component).run();
     }
 
