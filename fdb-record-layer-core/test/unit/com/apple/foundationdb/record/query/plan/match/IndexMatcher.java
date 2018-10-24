@@ -106,7 +106,7 @@ public class IndexMatcher extends TypeSafeMatcher<RecordQueryPlan> {
     /**
      * Match the index plan's {@link IndexScanType}.
      */
-    public static class ScanTypeMatcher extends TypeSafeMatcher<RecordQueryIndexPlan> {
+    public static class ScanTypeMatcher extends TypeSafeMatcher<RecordQueryPlanWithIndex> {
         @Nonnull
         private final Matcher<IndexScanType> scanTypeMatcher;
 
@@ -115,7 +115,7 @@ public class IndexMatcher extends TypeSafeMatcher<RecordQueryPlan> {
         }
 
         @Override
-        public boolean matchesSafely(@Nonnull RecordQueryIndexPlan plan) {
+        public boolean matchesSafely(@Nonnull RecordQueryPlanWithIndex plan) {
             return scanTypeMatcher.matches(plan.getScanType());
         }
 

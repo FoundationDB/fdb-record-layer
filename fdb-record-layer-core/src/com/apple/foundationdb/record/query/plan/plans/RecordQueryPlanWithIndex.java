@@ -20,6 +20,21 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.google.protobuf.Message;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 /**
  * A query plan that uses a single index. This is usually by scanning
  * the index in some way. This is meant for plans that directly use an index,
@@ -33,5 +48,27 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
      *
      * @return the name of the index used by this plan
      */
+    @Nonnull
     String getIndexName();
+
+    @Nonnull
+    IndexScanType getScanType();
+
+    @Nonnull
+    <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBEvaluationContext<M> context,
+                                                                @Nullable byte[] continuation,
+                                                                @Nonnull ExecuteProperties executeProperties);
+
+    @Nonnull
+    @Override
+    default  <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+                                                                           @Nullable byte[] continuation,
+                                                                           @Nonnull ExecuteProperties executeProperties) {
+        final FDBRecordStoreBase<M> store = context.getStore();
+        final RecordMetaData metaData = store.getRecordMetaData();
+        final Index index = metaData.getIndex(getIndexName());
+        final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(context, continuation, executeProperties);
+        return store.fetchIndexRecords(index, entryRecordCursor, IndexOrphanBehavior.ERROR)
+                .map(store::queriedRecord);
+    }
 }

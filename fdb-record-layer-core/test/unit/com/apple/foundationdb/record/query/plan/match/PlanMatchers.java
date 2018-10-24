@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
@@ -82,11 +81,11 @@ public class PlanMatchers {
         return indexName(equalTo(indexName));
     }
 
-    public static Matcher<RecordQueryIndexPlan> indexScanType(@Nonnull Matcher<IndexScanType> scanTypeMatcher) {
+    public static Matcher<RecordQueryPlanWithIndex> indexScanType(@Nonnull Matcher<IndexScanType> scanTypeMatcher) {
         return new IndexMatcher.ScanTypeMatcher(scanTypeMatcher);
     }
 
-    public static Matcher<RecordQueryIndexPlan> indexScanType(@Nonnull IndexScanType scanType) {
+    public static Matcher<RecordQueryPlanWithIndex> indexScanType(@Nonnull IndexScanType scanType) {
         return new IndexMatcher.ScanTypeMatcher(equalTo(scanType));
     }
 
@@ -106,8 +105,8 @@ public class PlanMatchers {
         return new ScanComparisonsEmptyMatcher();
     }
 
-    public static Matcher<RecordQueryPlan> coveringIndexScan(@Nonnull Matcher<? super RecordQueryCoveringIndexPlan> planMatcher) {
-        return new CoveringIndexMatcher(planMatcher);
+    public static Matcher<RecordQueryPlan> coveringIndexScan(@Nonnull Matcher<? super RecordQueryPlan> childMatcher) {
+        return new CoveringIndexMatcher(childMatcher);
     }
 
     public static Matcher<RecordQueryPlan> filter(@Nonnull Matcher<QueryComponent> filterMatcher,

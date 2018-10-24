@@ -78,7 +78,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRequiredResults(Arrays.asList(Key.Expressions.field("num_value_unique")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>")))));
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>"))))));
         assertEquals(-158312359, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
@@ -112,7 +112,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRequiredResults(Arrays.asList(Key.Expressions.field("num_value_3_indexed")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(unbounded()))));
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(unbounded())))));
         assertEquals(413789395, plan.planHash());
     }
 
@@ -194,7 +194,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                         Key.Expressions.field("num_value_2")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([990],>")))));
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([990],>"))))));
         assertEquals(291429560, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
@@ -240,7 +240,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                         Key.Expressions.field("num_value_2")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(allOf(indexName("multi_index_value"), bounds(hasTupleString("([990],>")))));
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index_value"), bounds(hasTupleString("([990],>"))))));
         assertEquals(-782505942, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
@@ -284,7 +284,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRequiredResults(Arrays.asList(Key.Expressions.field("header").nest("path")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]")))));
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
         assertEquals(-629018945, plan.planHash());
     }
 
@@ -320,7 +320,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRequiredResults(Arrays.asList(Key.Expressions.field("header").nest("rec_no")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]")))));
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
         assertEquals(-629018945, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {

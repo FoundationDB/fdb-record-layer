@@ -22,14 +22,11 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.planning.TextScan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
@@ -64,16 +61,20 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex {
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context, @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
-        final FDBRecordStoreBase<M> store = context.getStore();
-        final Index index = store.getRecordMetaData().getIndex(indexName);
-        RecordCursor<IndexEntry> entryCursor = textScan.scan(context, continuation, executeProperties.asScanProperties(reverse));
-        return store.fetchIndexRecords(index, entryCursor, IndexOrphanBehavior.ERROR).map(FDBQueriedRecord::indexed);
+    public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBEvaluationContext<M> context, @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
+        return textScan.scan(context, continuation, executeProperties.asScanProperties(reverse));
     }
 
     @Nonnull
+    @Override
     public String getIndexName() {
         return indexName;
+    }
+
+    @Nonnull
+    @Override
+    public IndexScanType getScanType() {
+        return IndexScanType.BY_TEXT_TOKEN;
     }
 
     @Nonnull

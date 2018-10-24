@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
@@ -201,8 +202,8 @@ public class RecordQueryPlanner implements QueryPlanner {
                 throw new RecordCoreException("Cannot sort without appropriate index: " + sort);
             }
         }
-        if (query.getRequiredResults() != null && plan instanceof RecordQueryIndexPlan) {
-            plan = tryToConvertToCoveringPlan(planContext, (RecordQueryIndexPlan) plan);
+        if (query.getRequiredResults() != null) {
+            plan = tryToConvertToCoveringPlan(planContext, plan);
         }
 
         if (timer != null) {
@@ -1199,8 +1200,28 @@ public class RecordQueryPlanner implements QueryPlanner {
         return distributed;
     }
 
-    @Nullable
-    private RecordQueryIndexPlan tryToConvertToCoveringPlan(@Nonnull PlanContext context, @Nonnull RecordQueryIndexPlan chosenPlan) {
+    @Nonnull
+    private RecordQueryPlan tryToConvertToCoveringPlan(@Nonnull PlanContext planContext, @Nonnull RecordQueryPlan chosenPlan) {
+        if (chosenPlan instanceof RecordQueryPlanWithIndex) {
+            // Check if the index scan covers, then convert it to a covering plan.
+            return tryToConvertToCoveringPlan(planContext, (RecordQueryPlanWithIndex) chosenPlan);
+        } else if (chosenPlan instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan) {
+            // If possible, push down the covering index transformation so that
+            // it happens before checking for distinct primary keys
+            final RecordQueryUnorderedPrimaryKeyDistinctPlan distinctPlan = (RecordQueryUnorderedPrimaryKeyDistinctPlan) chosenPlan;
+            if (distinctPlan.getChild() instanceof RecordQueryPlanWithIndex) {
+                final RecordQueryPlan newChildPlan = tryToConvertToCoveringPlan(planContext, (RecordQueryPlanWithIndex) distinctPlan.getChild());
+                if (newChildPlan != distinctPlan.getChild()) {
+                    return new RecordQueryUnorderedPrimaryKeyDistinctPlan(newChildPlan);
+                }
+            }
+        }
+        // No valid transformations could be applied. Just return the original plan.
+        return chosenPlan;
+    }
+
+    @Nonnull
+    private RecordQueryPlan tryToConvertToCoveringPlan(@Nonnull PlanContext context, @Nonnull RecordQueryPlanWithIndex chosenPlan) {
         final Index index = metaData.getIndex(chosenPlan.getIndexName());
         Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
