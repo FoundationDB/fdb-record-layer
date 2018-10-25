@@ -25,12 +25,14 @@ import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords6Proto;
+import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -560,4 +562,70 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    /**
+     * Verifies that a query of a nested, non-repeated field can use an index that starts with that field only if the
+     * query also includes the repeated field, because repeated introduces duplicates and index entries are ordered by
+     * second field and so cannot be deduplicated without additional space.
+     */
+    @Test
+    public void testPrefixRepeatedNested() throws Exception {
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.getRecordType("MyRecord")
+                    .setPrimaryKey(field("header").nest(field("rec_no")));
+            metaData.addIndex(metaData.getRecordType("MyRecord"),
+                    new Index("fanout_index", concat(field("header").nest("path"),
+                            field("repeated_int", FanType.FanOut))));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            recordStore.deleteAllRecords();
+
+            recordStore.saveRecord(TestRecordsWithHeaderProto.MyRecord.newBuilder()
+                    .setHeader(TestRecordsWithHeaderProto.HeaderRecord.newBuilder()
+                            .setRecNo(1L)
+                            .setPath("foo")
+                            .build())
+                    .clearRepeatedInt()
+                    .build());
+            recordStore.saveRecord(TestRecordsWithHeaderProto.MyRecord.newBuilder()
+                    .setHeader(TestRecordsWithHeaderProto.HeaderRecord.newBuilder()
+                            .setRecNo(2L)
+                            .setPath("bar")
+                            .build())
+                    .clearRepeatedInt()
+                    .addRepeatedInt(1000L)
+                    .addRepeatedInt(2000L)
+                    .build());
+            recordStore.saveRecord(TestRecordsWithHeaderProto.MyRecord.newBuilder()
+                    .setHeader(TestRecordsWithHeaderProto.HeaderRecord.newBuilder()
+                            .setRecNo(3L)
+                            .setPath("baz")
+                            .build())
+                    .clearRepeatedInt()
+                    .addRepeatedInt(1000L)
+                    .addRepeatedInt(2000L)
+                    .addRepeatedInt(3000L)
+                    .build());
+            commit(context);
+        }
+
+        final QueryComponent filter = Query.field("header").matches(Query.field("path").startsWith("b"));
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyRecord")
+                .setFilter(filter)
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(equalTo(filter), scan(bounds(unbounded()))));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            assertEquals(LongStream.range(2L, 4L).mapToObj(Long::valueOf).collect(Collectors.toList()),
+                    plan.execute(evaluationContext)
+                            .map(FDBQueriedRecord::getRecord)
+                            .map(this::parseMyRecord)
+                            .map(myRecord -> myRecord.getHeader().getRecNo())
+                            .asList().join());
+        }
+    }
 }
