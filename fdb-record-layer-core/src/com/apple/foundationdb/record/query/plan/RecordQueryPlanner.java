@@ -253,7 +253,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     private ScoredPlan planNoFilterNoSort(PlanContext planContext, @Nullable Index index) {
-        if (index != null && !indexTypes.getValueTypes().contains(index.getType())) {
+        if (index != null && (!indexTypes.getValueTypes().contains(index.getType()) || index.getRootExpression().createsDuplicates())) {
             return null;
         }
         ScanComparisons scanComparisons = null;
