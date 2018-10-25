@@ -33,7 +33,7 @@ buildscript {
         classpath 'org.jboss.tattletale:tattletale:1.2.0.Beta2'
         classpath 'de.undercouch:gradle-download-task:3.1.1'
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.0'
-        classpath "com.github.jengelman.gradle.plugins:shadow:2.0.0"
+        classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.2'
         //classpath 'gradle.plugin.com.github.spotbugs:spotbugs-gradle-plugin:1.6.4'
         classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
     }
@@ -194,6 +194,22 @@ subprojects {
         }
     }
 
+    def protoMajorVersion
+    if (System.getenv('PROTO_VERSION') != null) {
+        protoMajorVersion = System.getenv('PROTO_VERSION')
+    } else {
+        protoMajorVersion = '2'
+    }
+    ext {
+        if (protoMajorVersion != "2") {
+            coreProjectName = "fdb-record-layer-core-pb${protoMajorVersion}"
+            shadedProjectName = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"
+        } else {
+            coreProjectName = "fdb-record-layer-core"
+            shadedProjectName = "fdb-record-layer-core-shaded"
+        }
+    }
+
     publishing {
         publications {
             library(MavenPublication) {
@@ -219,6 +235,7 @@ subprojects {
                 override = !isReleaseBuild
                 publish = publishBuild
             }
+            bintrayPublish.enabled = true
         } else {
             bintrayPublish.enabled = false
         }

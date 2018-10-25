@@ -22,6 +22,7 @@ rootProject.name='fdb-record-layer'
 
 include 'fdb-extensions'
 include 'fdb-record-layer-core'
+include 'fdb-record-layer-core-shaded'
 
 
 // It's confusing to have dozens of files called build.gradle scattered around the project
@@ -43,9 +44,13 @@ rootProject.children.each { project ->
 // https://docs.gradle.org/4.8/userguide/publishing_maven.html#publishing_maven:deferred_configuration
 enableFeaturePreview('STABLE_PUBLISHING')
 
+def protoMajorVersion
 if ( System.getenv('PROTO_VERSION') != null) {
-    def protoMajorVersion = System.getenv('PROTO_VERSION')
-    if (protoMajorVersion != "2") {
-        project(':fdb-record-layer-core').name = "fdb-record-layer-core-pb${protoMajorVersion}"
-    }
+    protoMajorVersion = System.getenv('PROTO_VERSION')
+} else {
+    protoMajorVersion = '2'
+}
+if (protoMajorVersion != "2") {
+    project(':fdb-record-layer-core').name = "fdb-record-layer-core-pb${protoMajorVersion}"
+    project(':fdb-record-layer-core-shaded').name = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"
 }
