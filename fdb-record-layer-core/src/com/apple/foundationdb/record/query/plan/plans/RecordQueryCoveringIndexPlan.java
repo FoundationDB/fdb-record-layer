@@ -125,7 +125,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     public String toString() {
-        return "CoveringIndex(" + indexPlan + " -> " + toRecord + ")";
+        return "Covering(" + indexPlan.get() + " -> " + toRecord + ")";
     }
 
     @Override
