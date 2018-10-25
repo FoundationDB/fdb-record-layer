@@ -41,6 +41,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
@@ -59,6 +61,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unboun
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -515,4 +518,46 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             assertDiscardedNone(context);
         }
     }
+
+    /**
+     * Verify that an index on a repeated field isn't used for normal scans.
+     */
+    @Test
+    public void testOnlyRepeatIndex() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.removeIndex("MySimpleRecord$str_value_indexed");
+            metaData.removeIndex("MySimpleRecord$num_value_unique");
+            metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
+                    new Index("repeater$fanout", field("repeater", FanType.FanOut)));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+
+            for (int i = 0; i < 3; i++) {
+                TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                recBuilder.setRecNo(i);
+                recordStore.saveRecord(recBuilder.build());
+            }
+            commit(context);
+        }
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded()))));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            assertEquals(LongStream.range(0, 3).mapToObj(Long::valueOf).collect(Collectors.toList()),
+                    plan.execute(evaluationContext)
+                            .map(FDBQueriedRecord::getRecord)
+                            .map(message -> message.getField(message.getDescriptorForType().findFieldByNumber(1)))
+                            .asList().join());
+        }
+    }
+
 }
