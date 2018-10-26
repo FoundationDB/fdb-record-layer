@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.logging;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -33,6 +35,7 @@ import java.util.TreeMap;
  *
  * A {@code KeyValueLogMessage} has an associated set of key-value pairs, which are output after the static portion of the message in {@code key=value} form.
  */
+@API(API.Status.MAINTAINED)
 public class KeyValueLogMessage {
     private final long timestamp;
     private final String staticMessage;

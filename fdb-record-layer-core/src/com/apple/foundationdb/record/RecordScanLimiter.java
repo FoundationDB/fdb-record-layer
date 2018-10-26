@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -28,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * @see ExecuteState#getRecordScanLimiter
  */
+@API(API.Status.MAINTAINED)
 public class RecordScanLimiter {
     private final int originalLimit;
     private final AtomicInteger allowedRecordScansRemaining;

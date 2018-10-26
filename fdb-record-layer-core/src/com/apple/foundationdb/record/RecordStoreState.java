@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
  * it is not serialized with the rest of the metadata and must be retrieved
  * from the store.
  */
+@API(API.Status.MAINTAINED)
 public class RecordStoreState {
     /**
      * Empty <code>RecordStoreState</code>. This is the state of an empty

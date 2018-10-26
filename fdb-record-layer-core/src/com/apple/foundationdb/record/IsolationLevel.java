@@ -20,13 +20,20 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 /**
  * The isolation level for reads from the database.
  *
  * @see ExecuteProperties#getIsolationLevel
  */
+@API(API.Status.MAINTAINED)
 public enum IsolationLevel {
+
+    @API(API.Status.STABLE)
     SNAPSHOT(true),
+
+    @API(API.Status.STABLE)
     SERIALIZABLE(false)
     ;
 

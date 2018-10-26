@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -29,6 +31,7 @@ import javax.annotation.Nullable;
  * context.childBuilder().setBinding("x", x).build()
  * </code></pre>
  */
+@API(API.Status.MAINTAINED)
 public class EvaluationContextBuilder {
     @Nonnull
     protected final EvaluationContext original;

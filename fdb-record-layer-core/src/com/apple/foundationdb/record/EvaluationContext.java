@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.Executor;
@@ -33,6 +35,7 @@ import java.util.concurrent.ForkJoinPool;
  * @see com.apple.foundationdb.record.query.expressions.QueryComponent#eval
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan#execute
  */
+@API(API.Status.MAINTAINED)
 public abstract class EvaluationContext {
     @Nonnull
     private final Bindings bindings;

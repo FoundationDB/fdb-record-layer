@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
@@ -27,6 +29,7 @@ import java.util.Arrays;
 /**
  * A more stable version of {@link Object#hashCode}.
  */
+@API(API.Status.UNSTABLE)
 public interface PlanHashable {
     /**
      * Return a hash similar to <code>hashCode</code>, but with the additional guarantee that is is stable across JVMs.

@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 /**
  * Suppress warnings from FindBugs / SpotBugs tools.
  *
  * Avoids introducing another transitive dependency.
  */
+@API(API.Status.STABLE)
 public @interface SpotBugsSuppressWarnings {
     String[] value();
     String justification() default "";

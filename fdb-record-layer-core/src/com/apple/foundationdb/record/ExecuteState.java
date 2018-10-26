@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record;
 
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -31,6 +33,7 @@ import javax.annotation.Nullable;
  * In general, the state object should be constructed by as part of a "root" <code>ExecuteProperties</code> rather than
  * directly by the client.
  */
+@API(API.Status.MAINTAINED)
 public class ExecuteState {
     /**
      * An empty execute state with no record scan limit.

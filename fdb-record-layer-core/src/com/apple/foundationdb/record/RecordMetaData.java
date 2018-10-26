@@ -247,6 +247,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nullable
+    @API(API.Status.DEPRECATED)
     public KeyExpression getRecordCountKey() {
         return recordCountKey;
     }

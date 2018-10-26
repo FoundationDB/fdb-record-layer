@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
@@ -34,6 +35,7 @@ import java.util.Arrays;
 /**
  * A range within a subspace specified by two {@link Tuple} endpoints.
  */
+@API(API.Status.MAINTAINED)
 public class TupleRange {
     public static final TupleRange ALL = new TupleRange(null, null, EndpointType.TREE_START, EndpointType.TREE_END);
     @Nullable

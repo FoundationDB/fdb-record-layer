@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -28,6 +29,7 @@ import javax.annotation.Nonnull;
  * A function to be applied to a record as part of query execution.
  * @param <T> the result type of the function
  */
+@API(API.Status.STABLE)
 public abstract class RecordFunction<T> implements PlanHashable {
 
     @Nonnull

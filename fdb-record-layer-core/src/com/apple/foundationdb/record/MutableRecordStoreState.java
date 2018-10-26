@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
@@ -32,6 +34,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Such modifications are only allowed between {@link #beginWrite} and {@link #endWrite} and will conflict with
  * {@link #beginRead} ... {@link #endRead}.
  */
+@API(API.Status.INTERNAL)
 public class MutableRecordStoreState extends RecordStoreState {
 
     private static final long READ_MASK = 0xFFFF0000;

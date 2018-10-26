@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 /**
  * The streaming mode to use when opening {@link RecordCursor}s.
  *
  * @see ScanProperties#getCursorStreamingMode
  */
+@API(API.Status.EXPERIMENTAL)
 public enum CursorStreamingMode {
     /** The client will process records one-at-a-time. */
     ITERATOR,

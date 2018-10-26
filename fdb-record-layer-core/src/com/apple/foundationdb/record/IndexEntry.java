@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin;
 import com.apple.foundationdb.tuple.Tuple;
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
  * Further, if the key and value were produced by applying an index key expression to a record, this will carry
  * around additional information about the nulls contained in the expression.
  */
+@API(API.Status.MAINTAINED)
 public class IndexEntry {
     private static final NullStandin[] NO_NULLS = new NullStandin[0];
 
