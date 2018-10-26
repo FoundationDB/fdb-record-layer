@@ -48,7 +48,7 @@ public @interface API {
      * Return the {@link Status} of the API element.
      * @return the current stability status of the annotated element
      */
-    Status stability();
+    Status value();
 
     /**
      * An enum of possible API stability statuses. Each use of the {@code API} annotation must declare its status as
