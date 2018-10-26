@@ -36,6 +36,7 @@ message HeaderRecord {
 message MyRecord {
   required HeaderRecord header = 1;
   optional string str_value = 2;
+  repeated int64 repeated_int = 3;
 }
 
 message RecordTypeUnion {

@@ -125,7 +125,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     public String toString() {
-        return "Covering(" + indexPlan.get() + " -> " + toRecord + ")";
+        return "Covering(" + getChild() + " -> " + toRecord + ")";
     }
 
     @Override
@@ -140,13 +140,14 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
             return false;
         }
         RecordQueryCoveringIndexPlan that = (RecordQueryCoveringIndexPlan) o;
-        return Objects.equals(recordTypeName, that.recordTypeName) &&
-                Objects.equals(toRecord, that.toRecord);
+        return Objects.equals(getChild(), that.getChild()) &&
+               Objects.equals(recordTypeName, that.recordTypeName) &&
+               Objects.equals(toRecord, that.toRecord);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(indexPlan.hashCode(), recordTypeName, toRecord);
+        return Objects.hash(getChild(), recordTypeName, toRecord);
     }
 
     @Override
