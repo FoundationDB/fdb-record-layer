@@ -159,7 +159,7 @@ public class FDBDatabaseTest {
     }
 
     private long getReadVersionInRetryLoop(FDBDatabase database, Long minVersion, Long stalenessBoundMillis, boolean async) throws InterruptedException, ExecutionException {
-        FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis);
+        FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
         if (async) {
             return database.runAsync(null, null, weakReadSemantics, database::getReadVersion).get();
         } else {
@@ -168,7 +168,7 @@ public class FDBDatabaseTest {
     }
 
     private long getReadVersion(FDBDatabase database, Long minVersion, Long stalenessBoundMillis) {
-        FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis);
+        FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
         return database.getReadVersion(database.openContext(Collections.emptyMap(), null, weakReadSemantics)).join();
     }
 
