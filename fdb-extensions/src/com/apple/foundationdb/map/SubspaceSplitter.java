@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.map;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.subspace.Subspace;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -40,6 +41,7 @@ import javax.annotation.Nullable;
  *
  * @param <T> type of tag returned by the subspace splitter
  */
+@API(API.Status.EXPERIMENTAL)
 public interface SubspaceSplitter<T> {
     /**
      * Determine a {@link Subspace} that the given key is contained

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.util;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -31,6 +33,7 @@ import java.util.Map;
  * be logged in a way that better supports searching later.
  */
 @SuppressWarnings("serial")
+@API(API.Status.MAINTAINED)
 public class LoggableException extends RuntimeException {
     private static final Object[] EMPTY_LOG_INFO = new Object[0];
     @Nullable private Map<String, Object> logInfo;

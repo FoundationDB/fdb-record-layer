@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.map;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.subspace.Subspace;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,6 +38,7 @@ import javax.annotation.Nullable;
  * @param <V> type of values in the bunched map
  * @param <T> type of the tag associated with each subspace
  */
+@API(API.Status.EXPERIMENTAL)
 public class BunchedMapScanEntry<K,V,T> {
     @Nonnull private final Subspace subspace;
     @Nullable private final T subspaceTag;

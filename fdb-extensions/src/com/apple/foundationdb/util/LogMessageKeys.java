@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.util;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 
 /**
  * Common {@link LoggableException} keys logged by the FoundationDB extensions library.
  * In general, we try to consolidate all of the keys for this library, so that it's easy to check for collisions, ensure consistency, etc.
  */
+@API(API.Status.UNSTABLE)
 public enum LogMessageKeys {
     SUBSPACE("subspace");
 

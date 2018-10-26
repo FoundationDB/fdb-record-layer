@@ -20,22 +20,29 @@
 
 package com.apple.foundationdb.tuple;
 
+import com.apple.foundationdb.API;
+
+import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
  * Helper methods for working with {@link Tuple}s.
  */
+@API(API.Status.UNSTABLE)
 public class TupleHelpers {
 
+    @Nonnull
     public static final Tuple EMPTY = Tuple.from();
 
-    public static Tuple set(Tuple src, int index, Object value) {
+    @Nonnull
+    public static Tuple set(@Nonnull Tuple src, int index, Object value) {
         final List<Object> items = src.getItems();
         items.set(index, value);
         return Tuple.fromList(items);
     }
 
-    public static Tuple subTuple(Tuple src, int start, int end) {
+    @Nonnull
+    public static Tuple subTuple(@Nonnull Tuple src, int start, int end) {
         final List<Object> items = src.getItems();
         return Tuple.fromList(items.subList(start, end));
     }
@@ -51,7 +58,8 @@ public class TupleHelpers {
      *         a value less than {@code 0} if {@code t1} would sort before {@code t2}
      *         a value greater than {@code 0} if {@code t1} would sort after {@code t2}
      */
-    public static int compare(Tuple t1, Tuple t2) {
+    @API(API.Status.MAINTAINED)
+    public static int compare(@Nonnull Tuple t1, @Nonnull Tuple t2) {
         final int t1Len = t1.size();
         final int t2Len = t2.size();
         final int len = Math.min(t1Len, t2Len);
@@ -63,5 +71,8 @@ public class TupleHelpers {
             }
         }
         return t1Len - t2Len;
+    }
+
+    private TupleHelpers() {
     }
 }

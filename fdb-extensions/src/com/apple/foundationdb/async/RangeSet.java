@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
@@ -47,6 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * append only set that can be used to keep track of the progress that that job is making.
  * </p>
  */
+@API(API.Status.MAINTAINED)
 public class RangeSet {
     @Nonnull private Subspace subspace;
     @Nonnull private static final byte[] FIRST_KEY = new byte[]{(byte)0x00};

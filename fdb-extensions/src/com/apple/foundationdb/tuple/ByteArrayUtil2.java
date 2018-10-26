@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.tuple;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -28,6 +30,7 @@ import java.util.List;
 /**
  * Helper methods in the spirit of {@link ByteArrayUtil}.
  */
+@API(API.Status.UNSTABLE)
 public class ByteArrayUtil2 {
 
     private static final byte EQUALS_CHARACTER = (byte)'=';
@@ -54,6 +57,7 @@ public class ByteArrayUtil2 {
         return new String(hex);
     }
 
+    @API(API.Status.MAINTAINED)
     @Nullable
     public static String loggable(@Nullable byte[] bytes) {
         if (bytes == null) {
@@ -78,6 +82,7 @@ public class ByteArrayUtil2 {
         }
     }
 
+    @API(API.Status.MAINTAINED)
     @Nullable
     public static byte[] unprint(@Nullable String loggedBytes) {
         if (loggedBytes == null) {
@@ -119,5 +124,8 @@ public class ByteArrayUtil2 {
             }
         }
         return true;
+    }
+
+    private ByteArrayUtil2() {
     }
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.map;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.util.LoggableException;
 import javax.annotation.Nonnull;
 
@@ -34,6 +35,7 @@ import javax.annotation.Nonnull;
  * @see BunchedSerializationException
  */
 @SuppressWarnings("serial")
+@API(API.Status.EXPERIMENTAL)
 public class BunchedMapException extends LoggableException {
     public BunchedMapException(@Nonnull String message) {
         super(message);

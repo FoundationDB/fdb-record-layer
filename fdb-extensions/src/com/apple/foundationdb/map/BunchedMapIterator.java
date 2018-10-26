@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.map;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.async.AsyncPeekIterator;
@@ -45,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
  * @param <K> type of keys in the map
  * @param <V> type of values in the map
  */
+@API(API.Status.EXPERIMENTAL)
 public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>> {
     @Nonnull private final AsyncPeekIterator<KeyValue> underlying;
     @Nonnull private final Subspace subspace;

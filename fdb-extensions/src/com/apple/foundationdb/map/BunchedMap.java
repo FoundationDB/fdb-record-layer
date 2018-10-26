@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.map;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
@@ -97,6 +98,7 @@ import javax.annotation.Nullable;
  * @param <K> type of keys in the map
  * @param <V> type of values in the map
  */
+@API(API.Status.EXPERIMENTAL)
 public class BunchedMap<K,V> {
     private static final int MAX_VALUE_SIZE = 10_000; // The actual max value size is 100_000, but let's stay clear of that
     private static final byte[] ZERO_ARRAY = new byte[]{0x00};
