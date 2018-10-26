@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.layers.interning;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
@@ -42,6 +43,7 @@ import java.util.function.Function;
  *
  * Values are chosen randomly from a window that moves forward as the available lower-numbered space fills up.
  */
+@API(API.Status.INTERNAL)
 public class HighContentionAllocator {
     private static final byte[] LITTLE_ENDIAN_LONG_ONE = {1, 0, 0, 0, 0, 0, 0, 0};
     private static final byte[] KEY_UPDATING_BYTE = new byte[0];

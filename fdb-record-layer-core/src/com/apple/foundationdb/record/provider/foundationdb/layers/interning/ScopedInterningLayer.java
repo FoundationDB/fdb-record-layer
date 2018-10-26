@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.layers.interning;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -37,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * An implementation of {@link LocatableResolver} that is backed by the {@link StringInterningLayer}.
  */
+@API(API.Status.INTERNAL)
 public class ScopedInterningLayer extends LocatableResolver {
     private static final byte[] GLOBAL_SCOPE_PREFIX_BYTES = new byte[]{(byte) 0xFC};
     private static final int STATE_SUBSPACE_KEY_SUFFIX = -10;
