@@ -655,7 +655,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     private ScoredPlan planThenNestedField(@Nonnull CandidateScan candidateScan, @Nonnull ThenKeyExpression then,
                                            @Nonnull NestedField filter, @Nullable KeyExpression sort) {
-        if (sort instanceof ThenKeyExpression) {
+        if (sort instanceof ThenKeyExpression || then.createsDuplicates()) {
             // Too complicated for the simple checks below.
             return new AndWithThenPlanner(candidateScan, then, Collections.singletonList(filter), sort).plan();
         }
