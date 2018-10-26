@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
@@ -32,23 +33,54 @@ import javax.annotation.Nullable;
  * A converter between a Protobuf record and a byte string stored in one or more values in the FDB key-value store.
  * @param <M> type used to represent stored records
  */
+@API(API.Status.MAINTAINED)
 public interface RecordSerializer<M extends Message> {
-    @Nonnull
-    public byte[] serialize(@Nonnull RecordMetaData metaData,
-                            @Nonnull RecordType recordType,
-                            @Nonnull M record,
-                            @Nullable StoreTimer timer);
 
+    /**
+     * Convert a Protobuf record to bytes. While Protobuf messages provide
+     * their own {@link Message#toByteArray()} method for serialization,
+     * record stores may elect to first wrap the raw Protobuf record in another
+     * wrapping type or perform additional transformations like encrypt or
+     * compress records. Implementors of this interface can control how
+     * exactly which transformations are done, with the main constraint being
+     * that whatever operation is done should be reversible by calling the
+     * {@link #deserialize(RecordMetaData, Tuple, byte[], StoreTimer) deserialize()}
+     * method on those bytes. Implementors should also be careful as they
+     * evolve this method that the <code>deserialize</code> method is still able
+     * to read older data unless they are certain that any record store that
+     * used the older implementation has since been cleared out or migrated
+     * to a newer format.
+     *
+     * @param metaData the store's meta-data
+     * @param recordType the record type of the message
+     * @param record the Protobuf record to serialize
+     * @param timer a timer used to instrument serialization
+     * @return the serialized record
+     */
     @Nonnull
-    public M deserialize(@Nonnull RecordMetaData metaData,
-                         @Nonnull Tuple primaryKey,
-                         @Nonnull byte[] serialized,
-                         @Nullable StoreTimer timer);
+    byte[] serialize(@Nonnull RecordMetaData metaData, @Nonnull RecordType recordType,
+                     @Nonnull M record, @Nullable StoreTimer timer);
+
+    /**
+     * Convert a byte array to a Protobuf record. This should be the inverse of the
+     * {@link #serialize(RecordMetaData, RecordType, Message, StoreTimer) serialize()}
+     * method.
+     *
+     * @param metaData the store's meta-data
+     * @param primaryKey the primary key of the record
+     * @param serialized the serialized bytes
+     * @param timer a timer used to instrument deserialization
+     * @return the deserialized record
+     */
+    @Nonnull
+    M deserialize(@Nonnull RecordMetaData metaData, @Nonnull Tuple primaryKey,
+                  @Nonnull byte[] serialized, @Nullable StoreTimer timer);
 
     /**
      * Instrumentation events related to record serialization.
      */
-    public enum Events implements StoreTimer.DetailEvent {
+    @API(API.Status.UNSTABLE)
+    enum Events implements StoreTimer.DetailEvent {
         /** The amount of time spent serializing a Protobuf record to bytes. */
         SERIALIZE_PROTOBUF_RECORD("serialize protobuf record"),
         /** The amount of time spent deserializing a Protobuf record from bytes. */
@@ -76,7 +108,8 @@ public interface RecordSerializer<M extends Message> {
     /**
      * Instrumentation counts related to record serialization.
      */
-    public enum Counts implements StoreTimer.Count {
+    @API(API.Status.UNSTABLE)
+    enum Counts implements StoreTimer.Count {
         /** The number of times that record compression was not effective and the record was kept uncompressed. */
         ESCHEW_RECORD_COMPRESSION("eschew record compression");
 

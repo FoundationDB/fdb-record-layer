@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -40,6 +41,7 @@ import java.util.function.Supplier;
  * @param <B> generated Protobuf class for the union message's builder
  * @see DynamicMessageRecordSerializer
  */
+@API(API.Status.UNSTABLE)
 public abstract class MessageBuilderRecordSerializerBase<M extends Message, U extends Message, B extends Message.Builder> implements RecordSerializer<M> {
     @Nonnull
     private final Supplier<B> builderSupplier;

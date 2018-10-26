@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -44,6 +45,7 @@ import java.util.stream.Collectors;
 /**
  * Serialize records using default Protobuf serialization using {@link DynamicMessage}.
  */
+@API(API.Status.UNSTABLE)
 public class DynamicMessageRecordSerializer implements RecordSerializer<Message> {
     private static final Logger LOGGER = LoggerFactory.getLogger(DynamicMessageRecordSerializer.class);
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
+import com.apple.foundationdb.API;
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
@@ -28,6 +29,7 @@ import javax.annotation.Nonnull;
  * Factory class for the {@link DefaultTextTokenizer}. That class is a singleton,
  * so it will return the already existing instance.
  */
+@API(API.Status.EXPERIMENTAL)
 @AutoService(TextTokenizerFactory.class)
 public class DefaultTextTokenizerFactory implements TextTokenizerFactory {
     /**

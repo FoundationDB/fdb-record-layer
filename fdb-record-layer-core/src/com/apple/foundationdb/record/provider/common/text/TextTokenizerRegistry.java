@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -43,6 +44,7 @@ import java.util.Map;
  * for tokenizers that are built on the fly from configuration parameters, for example.
  * </p>
  */
+@API(API.Status.EXPERIMENTAL)
 public interface TextTokenizerRegistry {
     /**
      * Gets the tokenizer of the given name. If <code>name</code> is <code>null</code>,

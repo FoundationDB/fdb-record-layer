@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
 
 import javax.annotation.Nonnull;
@@ -32,6 +33,7 @@ import javax.annotation.Nonnull;
  *
  * @see TextIndexMaintainer
  */
+@API(API.Status.EXPERIMENTAL)
 public interface TextTokenizerFactory {
     /**
      * Get the unique name for the text tokenizer. This is the name that should

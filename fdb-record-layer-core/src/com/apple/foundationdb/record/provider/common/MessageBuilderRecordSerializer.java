@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.google.protobuf.Descriptors;
@@ -31,6 +32,7 @@ import java.util.function.Supplier;
 /**
  * Serialize records using default Protobuf serialization using supplied message builder for the union message type.
  */
+@API(API.Status.UNSTABLE)
 public class MessageBuilderRecordSerializer extends MessageBuilderRecordSerializerBase<Message, Message, Message.Builder> {
     public MessageBuilderRecordSerializer(@Nonnull Supplier<Message.Builder> builderSupplier) {
         super(builderSupplier);

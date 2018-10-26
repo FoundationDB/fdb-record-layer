@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -41,6 +42,7 @@ import java.util.function.Supplier;
  * @param <U> generated Protobuf class for the union message
  * @param <B> generated Protobuf class for the union message's builder
  */
+@API(API.Status.UNSTABLE)
 public class TypedRecordSerializer<M extends Message, U extends Message, B extends Message.Builder>
         extends MessageBuilderRecordSerializerBase<M, U, B> {
     @Nonnull

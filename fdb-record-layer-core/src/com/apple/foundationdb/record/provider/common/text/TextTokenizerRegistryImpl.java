@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -44,6 +45,7 @@ import java.util.ServiceLoader;
  * additional tokenizers for that index by calling the {@link #register(TextTokenizerFactory) register}
  * method on the singleton instance of this class and supplying the additional tokenizer.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TextTokenizerRegistryImpl implements TextTokenizerRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger(TextTokenizerRegistryImpl.class);
     private static final TextTokenizerRegistryImpl INSTANCE = new TextTokenizerRegistryImpl();
