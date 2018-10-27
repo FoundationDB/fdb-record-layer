@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -53,6 +54,7 @@ import java.util.TreeMap;
  *
  * @see RecordMetaDataBuilder
  */
+@API(API.Status.MAINTAINED)
 public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Descriptors.FileDescriptor recordsDescriptor;

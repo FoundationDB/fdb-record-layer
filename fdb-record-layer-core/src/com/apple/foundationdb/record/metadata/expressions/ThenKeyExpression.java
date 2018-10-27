@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
@@ -46,6 +47,7 @@ import java.util.stream.Collectors;
  * <code>null</code> record, then it returns the concatenation of each of its children evaluated
  * against the <code>null</code> record.
  */
+@API(API.Status.MAINTAINED)
 public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {
     @Nonnull
     private final List<ExpressionRef<KeyExpression>> children;

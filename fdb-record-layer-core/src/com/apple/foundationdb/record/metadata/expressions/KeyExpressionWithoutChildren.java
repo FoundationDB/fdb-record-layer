@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
+
 /**
  * A {@link KeyExpression} with no children.
  */
+@API(API.Status.MAINTAINED)
 public interface KeyExpressionWithoutChildren extends KeyExpression {
 }

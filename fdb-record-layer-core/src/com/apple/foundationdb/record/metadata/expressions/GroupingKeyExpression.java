@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -41,6 +42,7 @@ import java.util.List;
  * Zero or more <i>grouping</i> columns determine a subindex within which an aggregate or ranking is maintained.
  * The remaining (up to <code>Index.getColumnSize()</code>) <i>grouped</i> columns are the value to be aggregated / ranked.
  */
+@API(API.Status.MAINTAINED)
 public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     @Nonnull
     private final ExpressionRef<KeyExpression> wholeKey;

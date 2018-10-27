@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -42,6 +43,7 @@ import java.util.List;
  * should be used in the key of a covering index and all of the values starting at the <code>splitPoint</code>
  * are to be used as the value of a covering index.
  */
+@API(API.Status.MAINTAINED)
 public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     @Nonnull
     private final ExpressionRef<KeyExpression> innerKey;

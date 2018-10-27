@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -34,6 +35,7 @@ import javax.annotation.Nonnull;
  * @see Index
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory
  */
+@API(API.Status.MAINTAINED)
 public class IndexValidator {
     @Nonnull
     protected final Index index;

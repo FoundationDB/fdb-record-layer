@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
@@ -67,6 +68,7 @@ import java.util.Set;
  * </p>
  *
  */
+@API(API.Status.MAINTAINED)
 public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(RecordMetaDataBuilder.class);

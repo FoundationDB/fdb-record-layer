@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -47,6 +48,7 @@ import java.util.stream.Collectors;
  * result as if the field were set to the empty message. If this expression is evaluated on the <code>null</code>
  * record, then it will evaluate the same as if the parent field is unset or empty (depending on the fan type).
  */
+@API(API.Status.MAINTAINED)
 public class NestingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild, AtomKeyExpression {
     @Nonnull
     private final FieldKeyExpression parent;

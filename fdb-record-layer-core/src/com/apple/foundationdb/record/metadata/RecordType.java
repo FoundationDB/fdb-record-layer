@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -36,6 +37,7 @@ import java.util.List;
  *
  * A record type corresponds to a Protobuf {@link com.google.protobuf.Descriptors.Descriptor} and specifies a primary key expression and any number of secondary {@link Index}es.
  */
+@API(API.Status.MAINTAINED)
 public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     @Nonnull
     private final RecordMetaData metaData;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.google.common.collect.ImmutableSet;
@@ -34,6 +35,7 @@ import java.util.UUID;
 /**
  * Static methods for dealing with special field types that are messages in protobuf but single items in {@link com.apple.foundationdb.tuple.Tuple}s.
  */
+@API(API.Status.INTERNAL)
 public class TupleFieldsHelper {
     private TupleFieldsHelper() {
     }
