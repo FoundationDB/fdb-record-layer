@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.TransactionContext;
@@ -44,6 +45,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Helper functions for index maintainers that use a {@link RankedSet}.
  */
+@API(API.Status.INTERNAL)
 public class RankedSetIndexHelper {
     /**
      * Instrumentation events specific to rank index maintenance.

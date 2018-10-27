@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.IndexEntry;
@@ -50,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
  * An index maintainer that doesn't do anything.
  * @param <M> type used to represent stored records
  */
+@API(API.Status.UNSTABLE)
 public class NoOpIndexMaintainer<M extends Message> extends IndexMaintainer<M> {
     protected NoOpIndexMaintainer(IndexMaintainerState<M> state) {
         super(state);

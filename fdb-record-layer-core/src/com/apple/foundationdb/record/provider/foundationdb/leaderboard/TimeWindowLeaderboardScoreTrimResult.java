@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 
@@ -28,6 +29,7 @@ import java.util.Collection;
 /**
  * Scores that would be indexed by active time windows.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardScoreTrimResult extends IndexOperationResult {
     private final Collection<IndexEntry> scores;
 

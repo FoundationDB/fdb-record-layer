@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.tuple.Tuple;
 
@@ -33,6 +34,7 @@ import java.util.TreeSet;
 /**
  * The persisted set of active leaderboard ranked sets.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardDirectory {
     private final boolean highScoreFirst;
     private long updateTimestamp;

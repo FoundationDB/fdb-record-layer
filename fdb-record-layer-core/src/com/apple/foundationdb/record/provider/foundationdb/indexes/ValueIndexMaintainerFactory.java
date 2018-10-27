@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
@@ -37,6 +38,7 @@ import java.util.Arrays;
  * A factory for {@link ValueIndexMaintainer} indexes.
  */
 @AutoService(IndexMaintainerFactory.class)
+@API(API.Status.STABLE)
 public class ValueIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.VALUE };
 

@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 
 /**
  * Result of {@link TimeWindowLeaderboardWindowUpdate}.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardWindowUpdateResult extends IndexOperationResult {
     private final boolean changed;
     private final boolean rebuilt;

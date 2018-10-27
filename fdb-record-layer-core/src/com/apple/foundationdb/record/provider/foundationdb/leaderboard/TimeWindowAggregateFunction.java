@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -31,6 +32,7 @@ import javax.annotation.Nullable;
 /**
  * Evaluate aggregate functions in a certain time window.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowAggregateFunction extends IndexAggregateFunction {
     @Nonnull
     private final TimeWindowForFunction timeWindow;

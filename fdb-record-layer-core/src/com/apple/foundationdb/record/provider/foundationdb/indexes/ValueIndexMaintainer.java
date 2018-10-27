@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
@@ -49,6 +50,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * @param <M> type used to represent stored records
  */
+@API(API.Status.STABLE)
 public class ValueIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
     public ValueIndexMaintainer(IndexMaintainerState<M> state) {
         super(state);

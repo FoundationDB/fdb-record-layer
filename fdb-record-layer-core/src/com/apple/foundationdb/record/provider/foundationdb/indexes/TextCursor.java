@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.map.BunchedMapMultiIterator;
 import com.apple.foundationdb.map.BunchedMapScanEntry;
@@ -49,6 +50,7 @@ import java.util.concurrent.Executor;
  * @see TextIndexMaintainer
  * @see com.apple.foundationdb.map.BunchedMap BunchedMap
  */
+@API(API.Status.EXPERIMENTAL)
 class TextCursor implements BaseCursor<IndexEntry> {
     private final BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying;
     private final Executor executor;

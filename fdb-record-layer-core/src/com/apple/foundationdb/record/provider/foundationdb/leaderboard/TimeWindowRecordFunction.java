@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 
@@ -31,6 +32,7 @@ import javax.annotation.Nullable;
  * Evaluates to the given record's rank of the given type at the given time.
  * @param <T> type of the function result
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowRecordFunction<T> extends IndexRecordFunction<T> {
     @Nonnull
     private final TimeWindowForFunction timeWindow;
