@@ -353,6 +353,7 @@ public class FDBDatabaseFactory {
             database.setDirectoryCacheSize(getDirectoryCacheSize());
             database.setTrackLastSeenVersion(getTrackLastSeenVersion());
             database.setResolverStateRefreshTimeMillis(getStateRefreshTimeMillis());
+            database.setDatacenterId(getDatacenterId());
             databases.put(clusterFile, database);
         }
         return database;
