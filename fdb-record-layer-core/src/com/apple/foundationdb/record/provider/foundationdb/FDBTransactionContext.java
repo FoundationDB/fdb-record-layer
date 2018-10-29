@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -35,6 +36,7 @@ import java.util.concurrent.Executor;
  *
  * @see FDBRecordContext
  */
+@API(API.Status.STABLE)
 public class FDBTransactionContext {
     private final Executor executor;
 

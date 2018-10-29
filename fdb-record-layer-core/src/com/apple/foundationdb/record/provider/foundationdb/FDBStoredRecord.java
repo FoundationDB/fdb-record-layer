@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -36,6 +37,7 @@ import java.util.Optional;
  * @see FDBRecordStoreBase#saveRecord
  * @see FDBRecordStoreBase#loadRecord
  */
+@API(API.Status.MAINTAINED)
 public class FDBStoredRecord<M extends Message> implements FDBRecord<M>, FDBStoredSizes {
     @Nonnull
     private final Tuple primaryKey;

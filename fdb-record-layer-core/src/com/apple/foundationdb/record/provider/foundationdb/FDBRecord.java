@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -31,6 +32,7 @@ import javax.annotation.Nullable;
  * A record that has just been saved to the store or retrieved from it in some way.
  * @param <M> type used to represent stored records
  */
+@API(API.Status.STABLE)
 public interface FDBRecord<M extends Message> {
     /**
      * Get the primary key for this record.

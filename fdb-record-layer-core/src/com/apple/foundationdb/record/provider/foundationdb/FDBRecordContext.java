@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
@@ -66,6 +67,7 @@ import java.util.function.Consumer;
  *
  * @see FDBRecordStore
  */
+@API(API.Status.MAINTAINED)
 public class FDBRecordContext extends FDBTransactionContext implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordContext.class);
 

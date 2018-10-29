@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDirectoryLayer;
@@ -30,6 +31,7 @@ import java.util.stream.Stream;
 /**
  * A {@link StoreTimer} associated with {@link FDBRecordStore} operations.
  */
+@API(API.Status.STABLE)
 public class FDBStoreTimer extends StoreTimer {
 
     /**

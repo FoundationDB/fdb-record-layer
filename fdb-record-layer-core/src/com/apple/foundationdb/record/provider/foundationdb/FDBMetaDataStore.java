@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -54,6 +55,7 @@ import java.util.concurrent.CompletableFuture;
  * instances will have out-of-date meta-data.
  * </p>
  */
+@API(API.Status.MAINTAINED)
 public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBMetaDataStore.class);
 
@@ -69,6 +71,8 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     private PendingCacheUpdate pendingCacheUpdate;
     private boolean maintainHistory = true;
 
+    // It is recommended to use {@link #FDBMetaDataStore(FDBRecordContext, KeySpacePath)} instead.
+    @API(API.Status.UNSTABLE)
     public FDBMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace,
                             @Nullable MetaDataCache cache) {
         super(context, subspace);

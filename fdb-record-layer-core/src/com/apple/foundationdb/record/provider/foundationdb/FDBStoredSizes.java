@@ -20,10 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
+
 /**
  * Information about how a record is stored in the database.
  * @see FDBStoredRecord
  */
+@API(API.Status.STABLE)
 public interface FDBStoredSizes {
     /**
      * Get the number of keys used to store this record.

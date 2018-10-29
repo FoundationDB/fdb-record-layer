@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
@@ -49,6 +50,7 @@ import java.util.concurrent.CompletableFuture;
  * @see FDBRecordStore.Builder
  * @see FDBTypedRecordStore.Builder
  */
+@API(API.Status.STABLE)
 public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBRecordStoreBase<M>> {
     @Nullable
     protected RecordSerializer<M> serializer;
@@ -213,6 +215,7 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
      * @return this builder
      */
     @Nonnull
+    @API(API.Status.UNSTABLE)
     public FDBRecordStoreBuilder<M, R> setSubspace(@Nullable Subspace subspace) {
         this.subspaceProvider = subspace == null ? null : new SubspaceProviderBySubspace(subspace);
         return this;

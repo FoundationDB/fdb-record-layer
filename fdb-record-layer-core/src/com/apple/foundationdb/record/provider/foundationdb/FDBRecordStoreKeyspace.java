@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
 /**
  * Unique integers used as the first tuple item within a record store's subspace.
  */
+@API(API.Status.STABLE)
 public enum FDBRecordStoreKeyspace {
     STORE_INFO(0L),
     RECORD(1L),

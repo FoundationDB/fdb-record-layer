@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
@@ -35,6 +36,7 @@ import javax.annotation.Nullable;
  *
  * Uses Protobuf dynamic messages to process records.
  */
+@API(API.Status.MAINTAINED)
 public class FDBRecordStore extends FDBRecordStoreBase<Message> {
 
     protected FDBRecordStore(@Nonnull FDBRecordContext context,
@@ -131,8 +133,12 @@ public class FDBRecordStore extends FDBRecordStoreBase<Message> {
             return this;
         }
 
+        /**
+         * It is recommended to use {@link #setKeySpacePath(KeySpacePath)} instead.
+         */
         @Override
         @Nonnull
+        @API(API.Status.UNSTABLE)
         public Builder setSubspace(@Nullable Subspace subspace) {
             super.setSubspace(subspace);
             return this;

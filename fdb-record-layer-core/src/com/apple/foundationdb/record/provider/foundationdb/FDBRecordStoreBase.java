@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
@@ -117,6 +118,7 @@ import java.util.stream.Collectors;
  * @see FDBRecordStore
  * @see FDBTypedRecordStore
  */
+@API(API.Status.MAINTAINED)
 public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordStoreBase.class);
 

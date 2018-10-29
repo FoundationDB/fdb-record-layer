@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
@@ -79,6 +80,7 @@ import java.util.function.Supplier;
  *
  * @see FDBDatabaseFactory
  */
+@API(API.Status.MAINTAINED)
 public class FDBDatabase {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabase.class);
 
