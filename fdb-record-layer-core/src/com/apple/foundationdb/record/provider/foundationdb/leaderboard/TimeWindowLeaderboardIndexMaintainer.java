@@ -38,8 +38,10 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
@@ -434,9 +436,11 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     @Override
     @Nonnull
     public CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation) {
+        CompletableFuture<IndexOperationResult> result;
+        StoreTimer.Event event = null;
         if (operation instanceof TimeWindowLeaderboardWindowUpdate) {
             final UpdateState state = new UpdateState((TimeWindowLeaderboardWindowUpdate)operation);
-            return state.loadDirectory()
+            result = state.loadDirectory()
                     .thenApply(directory -> {
                         state.setDirectory(directory);
                         return null;
@@ -448,16 +452,22 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                     .thenCompose(vignore -> state.checkRebuild())
                     .thenCompose(vignore -> state.save())
                     .thenApply(vignore -> state.getResult());
-        }
-        if (operation instanceof TimeWindowLeaderboardScoreTrim) {
+            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_GET_DIRECTORY;
+        } else if (operation instanceof TimeWindowLeaderboardScoreTrim) {
             final TimeWindowLeaderboardScoreTrim trim = (TimeWindowLeaderboardScoreTrim)operation;
-            return loadDirectory().thenApply(directory -> new TimeWindowLeaderboardScoreTrimResult(
+            result = loadDirectory().thenApply(directory -> new TimeWindowLeaderboardScoreTrimResult(
                     trimScores(directory, trim.getScores(), trim.isIncludesGroup())));
+            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_UPDATE_DIRECTORY;
+        } else if (operation instanceof TimeWindowLeaderboardDirectoryOperation) {
+            result = loadDirectory().thenApply(TimeWindowLeaderboardDirectoryResult::new);
+            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_TRIM_SCORES;
+        } else {
+            result = super.performOperation(operation);
         }
-        if (operation instanceof TimeWindowLeaderboardDirectoryOperation) {
-            return loadDirectory().thenApply(TimeWindowLeaderboardDirectoryResult::new);
+        if (event != null && getTimer() != null) {
+            result = getTimer().instrument(event, result, getExecutor());
         }
-        return super.performOperation(operation);
+        return result;
     }
 
     protected class UpdateState {
@@ -516,6 +526,9 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                         state.transaction.clear(extraSubspace.pack(leaderboard.getSubspaceKey()));
                         iter.remove();
                         changed = true;
+                        if (getTimer() != null) {
+                            getTimer().increment(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_DELETE_WINDOW);
+                        }
                     }
                 }
             }
@@ -527,6 +540,9 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                         rebuild = true;
                     }
                     changed = true;
+                    if (getTimer() != null) {
+                        getTimer().increment(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_ADD_WINDOW);
+                    }
                 }
             }
             earliestAddedStartTimestamp = Long.MAX_VALUE;
@@ -540,6 +556,9 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                             earliestAddedStartTimestamp = startTimestamp;
                         }
                         changed = true;
+                        if (getTimer() != null) {
+                            getTimer().increment(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_ADD_WINDOW);
+                        }
                     }
                 }
             }
@@ -558,6 +577,9 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                                     "latestEntryTimestamp", latestEntryTimestamp,
                                     "earliestAddedStartTimestamp", earliestAddedStartTimestamp,
                                     "subspace", ByteArrayUtil2.loggable(state.indexSubspace.pack())));
+                            if (getTimer() != null) {
+                                getTimer().increment(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED);
+                            }
                         }
                     }
                     return null;

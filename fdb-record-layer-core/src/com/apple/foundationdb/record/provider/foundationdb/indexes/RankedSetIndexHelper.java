@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.ReadTransactionContext;
+import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
@@ -233,6 +234,12 @@ public class RankedSetIndexHelper {
                                      @Nonnull Subspace rankSubspace) {
             super(rankSubspace, state.context.getExecutor());
             this.context = state.context;
+        }
+
+        @Override
+        public CompletableFuture<Void> init(TransactionContext tc) {
+            CompletableFuture<Void> result = super.init(tc);
+            return context.instrument(FDBStoreTimer.DetailEvents.RANKED_SET_INIT, result);
         }
 
         @Override
