@@ -139,7 +139,13 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan} as part of executing a query. */
         QUERY_DISTINCT("compare query records for distinct"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan} as part of executing a query. */
-        QUERY_PK_DISTINCT("compare record primary key for distinct");
+        QUERY_PK_DISTINCT("compare record primary key for distinct"),
+        /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardDirectoryOperation}. */
+        TIME_WINDOW_LEADERBOARD_GET_DIRECTORY("leaderboard get directory"),
+        /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardWindowUpdate}. */
+        TIME_WINDOW_LEADERBOARD_UPDATE_DIRECTORY("leaderboard update directory"),
+        /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardScoreTrim}. */
+        TIME_WINDOW_LEADERBOARD_TRIM_SCORES("leaderboard trim scores");
 
         private final String title;
         Events(String title) {
@@ -162,6 +168,8 @@ public class FDBStoreTimer extends StoreTimer {
         GET_RECORD_RANGE_RAW_FIRST_CHUNK("get record range raw first chunk"),
         /** The amount of time spent until the first part of a range scan (such as an index) is available. */
         GET_SCAN_RANGE_RAW_FIRST_CHUNK("get scan range raw first chunk"),
+        /** The amount of time spent initializing a {@link com.apple.foundationdb.async.RankedSet} skip list. */
+        RANKED_SET_INIT("ranked set init"),
         /** The amount of time spent looking up the next level of a {@link com.apple.foundationdb.async.RankedSet} skip list. */
         RANKED_SET_NEXT_LOOKUP("ranked set next lookup"),
         /** The amount of time spent looking up the next entry of a {@link com.apple.foundationdb.async.RankedSet} skip list. */
@@ -390,7 +398,13 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of records scanned by {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexBuilder}. */
         ONLINE_INDEX_BUILDER_RECORDS_SCANNED("number of records scanned by online index build", false),
         /** The number of records indexed by {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexBuilder}. */
-        ONLINE_INDEX_BUILDER_RECORDS_INDEXED("number of records indexed by online index build", false);
+        ONLINE_INDEX_BUILDER_RECORDS_INDEXED("number of records indexed by online index build", false),
+        /** The number of times that a leaderboard update adds a time window. */
+        TIME_WINDOW_LEADERBOARD_ADD_WINDOW("number of leaderboard windows added", false),
+        /** The number of times that a leaderboard update deleted a time window. */
+        TIME_WINDOW_LEADERBOARD_DELETE_WINDOW("number of leaderboard windows deleted", false),
+        /** The number of times that a leaderboard needs to be rebuilt because a window was added after a score it should contain. */
+        TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED("number of leaderboard conditional rebuilds", false);
 
         private final String title;
         private final boolean isSize;
