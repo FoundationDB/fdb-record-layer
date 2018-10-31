@@ -65,25 +65,25 @@ import java.util.Objects;
  * <code>(1, 2)</code> would satisfy the query.
  *
  * <p>
- * This can be configured in one of two modes. The first, which is the, default, is the
- * {@link MatchingMode#SATISFY_QUERY SATISFY_QUERY} mode. This should be used if one wants
- * to make sure that one can use the given key expression to retrieve all records that match
- * the given query (i.e., the whether the fields included in the key expression contain
- * enough information to satisfy the entire query). If there are unsatisfied components
+ * There are two methods that attempt to match the query to a key expression. The first is the
+ * {@link #matchesSatisfyingQuery(KeyExpression, FilterSatisfiedMask) matchesSatisfyingQuery()}
+ * method. This should be used if one wants to make sure that one can use the given key expression
+ * to retrieve all records that match the given query (i.e., the whether the fields included in the
+ * key expression contain enough information to satisfy the entire query). If there are unsatisfied components
  * in the filter, this will return a match with type {@link MatchType#NO_MATCH NO_MATCH}.
- * The other mode is the {@link MatchingMode#COVER_KEY COVER_KEY} mode. This attempts to
- * find a list of comparisons such that every column of the key expression has been set
+ * The other mode is the {@link #matchesCoveringKey(KeyExpression, FilterSatisfiedMask) matchesCoveringKey()}
+ * method. This attempts to find a list of comparisons such that every column of the key expression has been set
  * by some component of the filter. However, there may be components of the filter that are unsatisfied.
  * </p>
  *
  * <p>
  * By way of example, if the filter is <code>WHERE x = 1 AND y = 2</code> and the expression
- * is just on field <code>x</code>, then in <code>SATISFY_QUERY</code> mode, the matcher will
- * return <code>NO_MATCH</code>, but it will return <code>[EQUALS 1]</code> in
- * <code>COVER_KEY</code> mode. By contrast, if the filter is <code>WHERE x = 1 AND y = 2</code>
- * and the expression is <code>concat(x, y, z)</code>, then in <code>SATISFY_QUERY</code>
- * mode, this will return <code>[EQUALS 1, EQUALS 2]</code>, but in <code>COVER_KEY</code>
- * mode, this will return <code>NO_MATCH</code>.
+ * is just on field <code>x</code>, then if one calls the <code>matchesSatisfyingQuery</code> method,
+ * the matcher will return <code>NO_MATCH</code>, but it will return <code>[EQUALS 1]</code> if the
+ * <code>matchesCoveringKey</code> method is called. By contrast, if the filter is <code>WHERE x = 1 AND y = 2</code>
+ * and the expression is <code>concat(x, y, z)</code>, then calling <code>matchesSatisfyingQuery</code>
+ * will return <code>[EQUALS 1, EQUALS 2]</code>, but calling <code>matchesCoveringKey</code> will
+ * return <code>NO_MATCH</code>.
  * </p>
  */
 public class QueryToKeyMatcher {
@@ -91,7 +91,7 @@ public class QueryToKeyMatcher {
     /**
      * Mode to control the kind of matching behavior desired.
      */
-    public enum MatchingMode {
+    private enum MatchingMode {
         /**
          * Attempt to satisfy the entire query. If the <code>QueryToKeyMatcher</code>
          * is configured in this mode, it should only return a match of non-{@link MatchType#NO_MATCH NO_MATCH}
@@ -111,8 +111,6 @@ public class QueryToKeyMatcher {
 
     @Nonnull
     private final QueryComponent rootQuery;
-    @Nonnull
-    private final MatchingMode matchingMode;
 
     /**
      * Whether a match was a successful, and if it was, whether the resulting keys have a single value.
@@ -124,26 +122,86 @@ public class QueryToKeyMatcher {
     }
 
     public QueryToKeyMatcher(@Nonnull QueryComponent rootQuery) {
-        this(rootQuery, MatchingMode.SATISFY_QUERY);
-    }
-
-    public QueryToKeyMatcher(@Nonnull QueryComponent rootQuery, @Nonnull MatchingMode matchingMode) {
         this.rootQuery = rootQuery;
-        this.matchingMode = matchingMode;
     }
 
+    /**
+     * Attempt to match the expression to this matcher's root query and use every column in the key.
+     * This will not track which components of the query are used when covering the given
+     * expression. To do that, call {@link #matchesCoveringKey(KeyExpression, FilterSatisfiedMask)}
+     * and provide a non-<code>null</code> value for the <code>filterMask</code> parameter.
+     *
+     * @param expression the key expression to match the root query to
+     * @return a match if the entire expression is covered by the root query
+     */
     @Nonnull
+    public Match matchesCoveringKey(@Nonnull KeyExpression expression) {
+        return matchesCoveringKey(expression, null);
+    }
+
+    /**
+     * Attempt to match the expression to this matcher's root query and use every column in the key.
+     * This will track which components of the query were used when covering the given expression
+     * if <code>filterMask</code> is non-<code>null</code>.
+     *
+     * @param expression the key expression to match the root query to
+     * @param filterMask a mask over this matcher's root query to track which filters have been satisfied
+     * @return a match if the entire expression is covered by the root query
+     */
+    @Nonnull
+    public Match matchesCoveringKey(@Nonnull KeyExpression expression, @Nullable FilterSatisfiedMask filterMask) {
+        return matches(rootQuery, expression, MatchingMode.COVER_KEY, filterMask);
+    }
+
+    /**
+     * Attempt to match the expression to this matcher's root query and satisfy every filter.
+     * Most of the time when calling this method, tracking which filters have been satisfied should
+     * be unnecessary as either they will be satisfied or this function will return a match
+     * with <code>NO_MATCH</code> as its match type. However, if this is needed, one can
+     * call {@link #matchesSatisfyingQuery(KeyExpression, FilterSatisfiedMask)} and provide a
+     * non-<code>null</code> value for the <code>filterMask</code> parameter.
+     *
+     * @param expression the key expression to match the root query to
+     * @return a match if the entire expression is satisfied by this expression
+     */
+    @Nonnull
+    public Match matchesSatisfyingQuery(@Nonnull KeyExpression expression) {
+        return matchesSatisfyingQuery(expression, null);
+    }
+
+    /**
+     * Attempt to match the expression to this matcher's root query and satisfy every filter.
+     * Most of the time when calling this method, tracking which filters have been satisfied should
+     * be unnecessary as either they will be satisfied or this function will return a match
+     * with <code>NO_MATCH</code> as its match type. However, if this is needed, one can
+     * provide a non-<code>null</code> value for the <code>filterMask</code> parameter.
+     *
+     * @param expression the key expression to match the root query to
+     * @param filterMask a mask over this matcher's root query to track which filters have been satisfied
+     * @return a match if the entire expression is satisfied by this expression
+     */
+    @Nonnull
+    public Match matchesSatisfyingQuery(@Nonnull KeyExpression expression, @Nullable FilterSatisfiedMask filterMask) {
+        return matches(rootQuery, expression, MatchingMode.SATISFY_QUERY, filterMask);
+    }
+
+    /**
+     * Attempt to match the expression to this matcher's root query and satisfy every filter.
+     * This has been deprecated in favor of {@link #matchesSatisfyingQuery(KeyExpression)}.
+     *
+     * @param expression the key expression to match the root query to
+     * @return a match if the entire expression is satisfied by this expression
+     * @deprecated use {@link #matchesSatisfyingQuery(KeyExpression)} instead
+     */
+    @Nonnull
+    @Deprecated
     public Match matches(@Nonnull KeyExpression expression) {
-        return matches(expression, null);
+        return matchesSatisfyingQuery(expression);
     }
 
     @Nonnull
-    public Match matches(@Nonnull KeyExpression expression, @Nullable FilterSatisfiedMask filterMask) {
-        return matches(rootQuery, expression, filterMask);
-    }
-
-    @Nonnull
-    private Match matches(@Nonnull AndComponent query, @Nonnull KeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+    private Match matches(@Nonnull AndComponent query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
+                          @Nullable FilterSatisfiedMask filterMask) {
         final List<QueryComponent> listOfQueries = query.getChildren();
         final Iterator<KeyExpression> keyChildIterator;
         final int keyChildSize;
@@ -195,7 +253,7 @@ public class QueryToKeyMatcher {
             }
 
             FilterSatisfiedMask childMask = filterMask != null ? filterMask.getChild(querySegment) : null;
-            Match match = matches(querySegment, exp, childMask);
+            Match match = matches(querySegment, exp, matchingMode, childMask);
             if (match.getType() == MatchType.NO_MATCH) {
                 return Match.none();
             }
@@ -220,12 +278,13 @@ public class QueryToKeyMatcher {
     }
 
     @Nonnull
-    private Match matches(@Nonnull QueryComponent query, @Nonnull KeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+    private Match matches(@Nonnull QueryComponent query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
+                          @Nullable FilterSatisfiedMask filterMask) {
         if (key instanceof GroupingKeyExpression) {
-            return matches(query, ((GroupingKeyExpression) key).getWholeKey(), filterMask);
+            return matches(query, ((GroupingKeyExpression) key).getWholeKey(), matchingMode, filterMask);
         }
         if (key instanceof KeyWithValueExpression) {
-            return matches(query, ((KeyWithValueExpression) key).getKeyExpression(), filterMask);
+            return matches(query, ((KeyWithValueExpression) key).getKeyExpression(), matchingMode, filterMask);
         }
         // Both of these COULD be used for matching by the planner, but they aren't today, so...
         if (key instanceof FunctionKeyExpression
@@ -233,22 +292,22 @@ public class QueryToKeyMatcher {
             return Match.none();
         }
         if (query instanceof NestedField) {
-            return matches(((NestedField) query), key, filterMask);
+            return matches(((NestedField) query), key, matchingMode, filterMask);
         }
         if (query instanceof FieldWithComparison) {
-            return matches(((FieldWithComparison) query), key, filterMask);
+            return matches(((FieldWithComparison) query), key, matchingMode, filterMask);
         }
         if (query instanceof OneOfThemWithComparison) {
-            return matches(((OneOfThemWithComparison) query), key, filterMask);
+            return matches(((OneOfThemWithComparison) query), key, matchingMode, filterMask);
         }
         if (query instanceof OneOfThemWithComponent) {
-            return matches(((OneOfThemWithComponent) query), key, filterMask);
+            return matches(((OneOfThemWithComponent) query), key, matchingMode, filterMask);
         }
         if (query instanceof AndComponent) {
-            return matches((AndComponent)query, key, filterMask);
+            return matches((AndComponent)query, key, matchingMode, filterMask);
         }
         if (query instanceof RecordTypeKeyComparison) {
-            return matches((RecordTypeKeyComparison)query, key, filterMask);
+            return matches((RecordTypeKeyComparison)query, key, matchingMode, filterMask);
         }
 
         throw new Query.InvalidExpressionException(
@@ -256,16 +315,16 @@ public class QueryToKeyMatcher {
     }
 
     @Nonnull
-    private Match matches(@Nonnull NestedField query, @Nonnull KeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+    private Match matches(@Nonnull NestedField query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode, @Nullable FilterSatisfiedMask filterMask) {
         if (key instanceof NestingKeyExpression) {
-            return matches(query, (NestingKeyExpression) key, filterMask);
+            return matches(query, (NestingKeyExpression) key, matchingMode, filterMask);
         } else if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
             if (children.isEmpty()) {
                 return Match.none();
             } else {
-                return matches(query, children.get(0), filterMask);
+                return matches(query, children.get(0), matchingMode, filterMask);
             }
         } else if (key instanceof FieldKeyExpression) {
             return Match.none();
@@ -278,7 +337,8 @@ public class QueryToKeyMatcher {
     }
 
     @Nonnull
-    private Match matches(@Nonnull FieldWithComparison query, @Nonnull KeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+    private Match matches(@Nonnull FieldWithComparison query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
+                          @Nullable FilterSatisfiedMask filterMask) {
         if (key instanceof NestingKeyExpression) {
             return Match.none();
         } else if (key instanceof ThenKeyExpression) {
@@ -287,10 +347,10 @@ public class QueryToKeyMatcher {
             if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
                 return Match.none();
             } else {
-                return matches(query, children.get(0), filterMask);
+                return matches(query, children.get(0), matchingMode, filterMask);
             }
         } else if (key instanceof GroupingKeyExpression) {
-            return matches(query, ((GroupingKeyExpression) key).getWholeKey(), filterMask);
+            return matches(query, ((GroupingKeyExpression) key).getWholeKey(), matchingMode, filterMask);
         } else if (key instanceof FieldKeyExpression) {
             return matches(query, ((FieldKeyExpression) key), filterMask);
         } else if (key instanceof EmptyKeyExpression) {
@@ -301,7 +361,8 @@ public class QueryToKeyMatcher {
     }
 
     @Nonnull
-    private Match matches(@Nonnull OneOfThemWithComparison query, @Nonnull KeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+    private Match matches(@Nonnull OneOfThemWithComparison query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
+                          @Nullable FilterSatisfiedMask filterMask) {
         if (key instanceof NestingKeyExpression) {
             return Match.none();
         } else if (key instanceof ThenKeyExpression) {
@@ -310,10 +371,10 @@ public class QueryToKeyMatcher {
             if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
                 return Match.none();
             } else {
-                return matches(query, children.get(0), filterMask);
+                return matches(query, children.get(0), matchingMode, filterMask);
             }
         } else if (key instanceof GroupingKeyExpression) {
-            return matches(query, ((GroupingKeyExpression) key).getWholeKey(), filterMask);
+            return matches(query, ((GroupingKeyExpression) key).getWholeKey(), matchingMode, filterMask);
         } else if (key instanceof FieldKeyExpression) {
             return matches(query, ((FieldKeyExpression) key), filterMask);
         } else if (key instanceof EmptyKeyExpression) {
@@ -324,9 +385,10 @@ public class QueryToKeyMatcher {
     }
 
     @Nonnull
-    private Match matches(@Nonnull OneOfThemWithComponent query, @Nonnull KeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+    private Match matches(@Nonnull OneOfThemWithComponent query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
+                          @Nullable FilterSatisfiedMask filterMask) {
         if (key instanceof NestingKeyExpression) {
-            return matches(query, (NestingKeyExpression) key, filterMask);
+            return matches(query, (NestingKeyExpression) key, matchingMode, filterMask);
         } else if (key instanceof ThenKeyExpression ||
                    key instanceof FieldKeyExpression ||
                    key instanceof GroupingKeyExpression ||
@@ -338,14 +400,15 @@ public class QueryToKeyMatcher {
     }
 
     @Nonnull
-    private Match matches(@Nonnull NestedField query, @Nonnull NestingKeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+    private Match matches(@Nonnull NestedField query, @Nonnull NestingKeyExpression key, @Nonnull MatchingMode matchingMode,
+                          @Nullable FilterSatisfiedMask filterMask) {
         if (key.getParent().getFanType() != KeyExpression.FanType.None) {
             // in theory, maybe, concatenate could work with certain things, but for now, no.
             return Match.none();
         } else {
             if (Objects.equals(query.getFieldName(), key.getParent().getFieldName())) {
                 FilterSatisfiedMask childMask = filterMask != null ? filterMask.getChild(query.getChild()) : null;
-                Match childMatch = matches(query.getChild(), key.getChild(), childMask);
+                Match childMatch = matches(query.getChild(), key.getChild(), matchingMode, childMask);
                 if (childMask != null && childMask.isSatisfied() && filterMask.getExpression() == null) {
                     filterMask.setExpression(key);
                 }
@@ -357,13 +420,14 @@ public class QueryToKeyMatcher {
     }
 
     @Nonnull
-    private Match matches(@Nonnull OneOfThemWithComponent query, @Nonnull NestingKeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+    private Match matches(@Nonnull OneOfThemWithComponent query, @Nonnull NestingKeyExpression key, @Nonnull MatchingMode matchingMode,
+                          @Nullable FilterSatisfiedMask filterMask) {
         if (key.getParent().getFanType() != KeyExpression.FanType.FanOut) {
             return Match.none();
         } else {
             if (Objects.equals(query.getFieldName(), key.getParent().getFieldName())) {
                 FilterSatisfiedMask childMask = filterMask != null ? filterMask.getChild(query.getChild()) : null;
-                Match childMatch = matches(query.getChild(), key.getChild(), childMask);
+                Match childMatch = matches(query.getChild(), key.getChild(), matchingMode, childMask);
                 if (childMask != null && childMask.isSatisfied() && filterMask.getExpression() == null) {
                     filterMask.setExpression(key);
                 }
@@ -405,7 +469,8 @@ public class QueryToKeyMatcher {
     }
 
     @Nonnull
-    private Match matches(@Nonnull RecordTypeKeyComparison query, @Nonnull KeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+    private Match matches(@Nonnull RecordTypeKeyComparison query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
+                          @Nullable FilterSatisfiedMask filterMask) {
         if (!(key instanceof RecordTypeKeyExpression ||
                 (matchingMode.equals(MatchingMode.SATISFY_QUERY) && key instanceof ThenKeyExpression && ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression))) {
             return Match.none();

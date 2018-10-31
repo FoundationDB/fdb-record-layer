@@ -1640,7 +1640,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
             Key.Evaluated evaluated = null;
 
             for (RecordType recordType : allRecordTypes) {
-                final QueryToKeyMatcher.Match match = matcher.matches(recordType.getPrimaryKey());
+                final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(recordType.getPrimaryKey());
                 if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
                     throw new Query.InvalidExpressionException("deleteRecordsWhere not matching primary key " +
                                                                recordType.getName());
@@ -1660,7 +1660,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
             if (recordCountKey != null) {
-                final QueryToKeyMatcher.Match match = matcher.matches(recordCountKey);
+                final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(recordCountKey);
                 if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
                     throw new Query.InvalidExpressionException("Record count key not matching for deleteRecordsWhere");
                 }

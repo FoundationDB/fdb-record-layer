@@ -59,23 +59,23 @@ public class QueryToKeyMatcherTest {
     @Test
     public void testSingleFieldEquality() {
         final QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("a").equalsValue(7));
-        Match match = matcher.matches(keyField("a"));
+        Match match = matcher.matchesSatisfyingQuery(keyField("a"));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(7), match.getEquality());
 
 
-        match = matcher.matches(concatenateFields("a", "b"));
+        match = matcher.matchesSatisfyingQuery(concatenateFields("a", "b"));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(7), match.getEquality());
 
 
-        assertNoMatch(matcher.matches(keyField("b")));
-        assertNoMatch(matcher.matches(keyField("a", FanType.FanOut)));
-        assertNoMatch(matcher.matches(keyField("a", FanType.Concatenate)));
-        assertNoMatch(matcher.matches(keyField("b").nest("a")));
-        assertNoMatch(matcher.matches(keyField("a").nest("b")));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("b")));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.FanOut)));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.Concatenate)));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("b").nest("a")));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest("b")));
 
-        assertNoMatch(matcher.matches(concatenateFields("b", "a")));
+        assertNoMatch(matcher.matchesSatisfyingQuery(concatenateFields("b", "a")));
     }
 
     @Test
@@ -85,7 +85,7 @@ public class QueryToKeyMatcherTest {
                         queryField("f1").equalsValue(7),
                         queryField("f2").equalsValue(11)));
 
-        Match match = matcher.matches(keyWithValue(concatenateFields("f1", "f2", "f3", "f4"), 2));
+        Match match = matcher.matchesSatisfyingQuery(keyWithValue(concatenateFields("f1", "f2", "f3", "f4"), 2));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.concatenate(7, 11), match.getEquality());
     }
@@ -93,44 +93,44 @@ public class QueryToKeyMatcherTest {
     @Test
     public void testMatchWithFunctionExpression() {
         final QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("f1").equalsValue("hello!"));
-        Match match = matcher.matches(keyWithValue(function("nada", concatenateFields("f1", "f2", "f3")), 1));
+        Match match = matcher.matchesSatisfyingQuery(keyWithValue(function("nada", concatenateFields("f1", "f2", "f3")), 1));
         assertEquals(MatchType.NO_MATCH, match.getType());
     }
 
     @Test
     public void testMatchWithValueExpression() {
         final QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("f1").equalsValue("hello!"));
-        Match match = matcher.matches(value(4));
+        Match match = matcher.matchesSatisfyingQuery(value(4));
         assertEquals(MatchType.NO_MATCH, match.getType());
     }
 
     @Test
     public void testSingleNestedFieldEquality() {
         final QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("a").matches(queryField("ax").equalsValue(10)));
-        Match match = matcher.matches(keyField("a").nest("ax"));
+        Match match = matcher.matchesSatisfyingQuery(keyField("a").nest("ax"));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(10), match.getEquality());
 
-        match = matcher.matches(concat(keyField("a").nest("ax"), keyField("b")));
+        match = matcher.matchesSatisfyingQuery(concat(keyField("a").nest("ax"), keyField("b")));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(10), match.getEquality());
 
-        match = matcher.matches(keyField("a").nest(concat(keyField("ax"), keyField("b"))));
+        match = matcher.matchesSatisfyingQuery(keyField("a").nest(concat(keyField("ax"), keyField("b"))));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(10), match.getEquality());
 
-        final Match match2 = matcher.matches(keyField("a"));
+        final Match match2 = matcher.matchesSatisfyingQuery(keyField("a"));
         assertNoMatch(match2);
-        assertNoMatch(matcher.matches(keyField("a", FanType.FanOut)));
-        assertNoMatch(matcher.matches(keyField("a", FanType.Concatenate)));
-        assertNoMatch(matcher.matches(keyField("a", FanType.FanOut).nest("ax")));
-        assertNoMatch(matcher.matches(keyField("a").nest("ax", FanType.FanOut)));
-        assertNoMatch(matcher.matches(keyField("a").nest("ax", FanType.Concatenate)));
-        assertNoMatch(matcher.matches(keyField("b").nest("ax")));
-        assertNoMatch(matcher.matches(keyField("a").nest("bx")));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.FanOut)));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.Concatenate)));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a", FanType.FanOut).nest("ax")));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest("ax", FanType.FanOut)));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest("ax", FanType.Concatenate)));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("b").nest("ax")));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest("bx")));
 
-        assertNoMatch(matcher.matches(concat(keyField("b").nest("ax"), keyField("a").nest("ax"))));
-        assertNoMatch(matcher.matches(keyField("a").nest(concat(keyField("bx"), keyField("ax")))));
+        assertNoMatch(matcher.matchesSatisfyingQuery(concat(keyField("b").nest("ax"), keyField("a").nest("ax"))));
+        assertNoMatch(matcher.matchesSatisfyingQuery(keyField("a").nest(concat(keyField("bx"), keyField("ax")))));
     }
 
     @Test
@@ -143,10 +143,9 @@ public class QueryToKeyMatcherTest {
                 queryField("a").equalsValue(1),
                 concatenateFields("b", "a"));
 
-        assertEquality(MatchType.NO_MATCH,
+        assertEqualityCoveringKey(MatchType.NO_MATCH,
                 queryField("a").equalsValue(1),
-                concatenateFields("a", "b"),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                concatenateFields("a", "b"));
 
         assertEquality(MatchType.EQUALITY,
                 queryField("a").oneOfThem().equalsValue(1),
@@ -156,10 +155,9 @@ public class QueryToKeyMatcherTest {
                 queryField("a").oneOfThem().equalsValue(1),
                 concat(keyField("b"), keyField("a", FanType.FanOut)));
 
-        assertEquality(MatchType.NO_MATCH,
+        assertEqualityCoveringKey(MatchType.NO_MATCH,
                 queryField("a").oneOfThem().equalsValue(1),
-                concat(keyField("a", FanType.FanOut), keyField("b")),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                concat(keyField("a", FanType.FanOut), keyField("b")));
 
         assertEquality(MatchType.EQUALITY,
                 new RecordTypeKeyComparison("ErsatzRecordType"),
@@ -169,10 +167,9 @@ public class QueryToKeyMatcherTest {
                 new RecordTypeKeyComparison("ErsatzRecordType"),
                 concat(keyField("a"), recordType()));
 
-        assertEquality(MatchType.NO_MATCH,
+        assertEqualityCoveringKey(MatchType.NO_MATCH,
                 new RecordTypeKeyComparison("ErsatzRecordType"),
-                concat(recordType(), keyField("a")),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                concat(recordType(), keyField("a")));
     }
 
     @Test
@@ -198,13 +195,12 @@ public class QueryToKeyMatcherTest {
                                 queryField("b").equalsValue(2))),
                 keyField("p").nest(keyField("a"), keyField("b"), keyField("q").nest(keyField("c"), keyField("d"))));
 
-        assertEquality(MatchType.NO_MATCH,
+        assertEqualityCoveringKey(MatchType.NO_MATCH,
                 queryField("p").matches(
                         Query.and(
                                 queryField("a").equalsValue(1),
                                 queryField("b").equalsValue(2))),
-                keyField("p").nest(keyField("a"), keyField("b"), keyField("q").nest(keyField("c"), keyField("d"))),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                keyField("p").nest(keyField("a"), keyField("b"), keyField("q").nest(keyField("c"), keyField("d"))));
 
         assertEquality(MatchType.EQUALITY,
                 queryField("p").matches(
@@ -214,23 +210,21 @@ public class QueryToKeyMatcherTest {
                                 queryField("c").equalsValue(3))),
                 keyField("p").nest(concatenateFields("c", "b", "a", "extra")));
 
-        assertEquality(MatchType.NO_MATCH,
+        assertEqualityCoveringKey(MatchType.NO_MATCH,
                 queryField("p").matches(
                         Query.and(
                                 queryField("a").equalsValue(1),
                                 queryField("b").equalsValue(2),
                                 queryField("c").equalsValue(3))),
-                keyField("p").nest(concatenateFields("c", "b", "a", "extra")),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                keyField("p").nest(concatenateFields("c", "b", "a", "extra")));
 
-        assertEquality(MatchType.EQUALITY,
+        assertEqualityCoveringKey(MatchType.EQUALITY,
                 queryField("p").matches(
                         Query.and(
                                 queryField("a").equalsValue(1),
                                 queryField("b").equalsValue(2),
                                 queryField("c").equalsValue(3))),
-                keyField("p").nest(concatenateFields("c", "b")),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                keyField("p").nest(concatenateFields("c", "b")));
 
         assertEquality(MatchType.INEQUALITY,
                 Query.and(
@@ -253,14 +247,13 @@ public class QueryToKeyMatcherTest {
                         queryField("DoesNotExist").lessThan(4)),
                 concatenateFields("c", "b", "a"));
 
-        assertEquality(MatchType.EQUALITY,
+        assertEqualityCoveringKey(MatchType.EQUALITY,
                 Query.and(
                         queryField("a").equalsValue(1),
                         queryField("b").equalsValue(2),
                         queryField("c").equalsValue(3),
                         queryField("DoesNotExist").lessThan(4)),
-                concatenateFields("c", "b", "a"),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                concatenateFields("c", "b", "a"));
 
         assertEquality(MatchType.EQUALITY,
                 Query.and(
@@ -276,15 +269,14 @@ public class QueryToKeyMatcherTest {
                         keyField("p").nest(keyField("c")),
                         keyField("b")));
 
-        assertEquality(MatchType.EQUALITY,
+        assertEqualityCoveringKey(MatchType.EQUALITY,
                 Query.and(
                         queryField("p").matches(queryField("c").equalsValue(1)),
                         queryField("b").equalsValue(2),
                         queryField("a").equalsValue(1)),
                 concat(
                         keyField("p").nest(keyField("c")),
-                        keyField("b")),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                        keyField("b")));
 
         assertEquality(MatchType.NO_MATCH,
                 Query.and(
@@ -333,13 +325,12 @@ public class QueryToKeyMatcherTest {
                 ),
                 keyField("a"));
 
-        assertEquality(MatchType.EQUALITY,
+        assertEqualityCoveringKey(MatchType.EQUALITY,
                 Query.and(
                         queryField("a").equalsValue(1),
                         queryField("b").equalsValue(2)
                 ),
-                keyField("a"),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                keyField("a"));
 
         assertEquality(MatchType.NO_MATCH,
                 Query.and(
@@ -348,13 +339,12 @@ public class QueryToKeyMatcherTest {
                 ),
                 keyField("b"));
 
-        assertEquality(MatchType.EQUALITY,
+        assertEqualityCoveringKey(MatchType.EQUALITY,
                 Query.and(
                         queryField("a").equalsValue(1),
                         queryField("b").equalsValue(2)
                 ),
-                keyField("b"),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                keyField("b"));
 
         assertEquality(MatchType.EQUALITY,
                 Query.and(
@@ -370,36 +360,35 @@ public class QueryToKeyMatcherTest {
                 ),
                 recordType());
 
-        assertEquality(MatchType.EQUALITY,
+        assertEqualityCoveringKey(MatchType.EQUALITY,
                 Query.and(
                         queryField("a").equalsValue(1),
                         new RecordTypeKeyComparison("ErsatzRecordType")
                 ),
-                recordType(),
-                QueryToKeyMatcher.MatchingMode.COVER_KEY);
+                recordType());
     }
 
     @Test
     public void testOneOfThem() {
         QueryToKeyMatcher matcher = new QueryToKeyMatcher(queryField("a").oneOfThem().equalsValue(7));
-        Match match = matcher.matches(keyField("a", FanType.FanOut));
+        Match match = matcher.matchesSatisfyingQuery(keyField("a", FanType.FanOut));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(7), match.getEquality());
 
         matcher = new QueryToKeyMatcher(queryField("p").matches(queryField("a").oneOfThem().equalsValue(7)));
-        match = matcher.matches(keyField("p").nest(keyField("a", FanType.FanOut)));
+        match = matcher.matchesSatisfyingQuery(keyField("p").nest(keyField("a", FanType.FanOut)));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(7), match.getEquality());
 
         matcher = new QueryToKeyMatcher(queryField("g").matches(queryField("p").oneOfThem().matches(queryField("a").equalsValue(7))));
-        match = matcher.matches(keyField("g").nest(keyField("p", FanType.FanOut).nest(keyField("a"))));
+        match = matcher.matchesSatisfyingQuery(keyField("g").nest(keyField("p", FanType.FanOut).nest(keyField("a"))));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(7), match.getEquality());
 
         matcher = new QueryToKeyMatcher(Query.and(
                 queryField("a").equalsValue(10),
                 queryField("g").matches(queryField("p").oneOfThem().matches(queryField("a").equalsValue(7)))));
-        match = matcher.matches(concat(
+        match = matcher.matchesSatisfyingQuery(concat(
                 keyField("a"),
                 keyField("g").nest(keyField("p", FanType.FanOut).nest(keyField("a"))),
                 keyField("b")));
@@ -463,24 +452,25 @@ public class QueryToKeyMatcherTest {
     }
 
     private void assertEquality(MatchType type, QueryComponent query, KeyExpression key) {
-        assertEquality(type, query, key, QueryToKeyMatcher.MatchingMode.SATISFY_QUERY);
+        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
+        assertEquals(type, matcher.matchesSatisfyingQuery(key).getType());
     }
 
-    private void assertEquality(MatchType type, QueryComponent query, KeyExpression key, QueryToKeyMatcher.MatchingMode mode) {
-        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query, mode);
-        assertEquals(type, matcher.matches(key).getType());
+    private void assertEqualityCoveringKey(MatchType type, QueryComponent query, KeyExpression key) {
+        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
+        assertEquals(type, matcher.matchesCoveringKey(key).getType());
     }
 
     private void assertInvalid(QueryComponent query, KeyExpression key) {
         assertThrows(Query.InvalidExpressionException.class, () -> {
             final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
-            matcher.matches(key);
+            matcher.matchesSatisfyingQuery(key);
         });
     }
 
     private void assertNoMatch(QueryComponent query, KeyExpression key) {
         final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
-        assertNoMatch(matcher.matches(key));
+        assertNoMatch(matcher.matchesSatisfyingQuery(key));
     }
 
     private void assertNoMatch(Match match) {

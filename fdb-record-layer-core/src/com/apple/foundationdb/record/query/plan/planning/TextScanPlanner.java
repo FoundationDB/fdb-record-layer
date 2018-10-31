@@ -192,8 +192,8 @@ public class TextScanPlanner {
             // Grouping expression present. Make sure this is satisfied.
             final KeyExpression groupingKey = ((GroupingKeyExpression) indexExpression).getGroupingSubKey();
             groupedKey = ((GroupingKeyExpression) indexExpression).getGroupedSubKey();
-            QueryToKeyMatcher groupingQueryMatcher = new QueryToKeyMatcher(filter, QueryToKeyMatcher.MatchingMode.COVER_KEY);
-            QueryToKeyMatcher.Match groupingMatch = groupingQueryMatcher.matches(groupingKey, localMask);
+            QueryToKeyMatcher groupingQueryMatcher = new QueryToKeyMatcher(filter);
+            QueryToKeyMatcher.Match groupingMatch = groupingQueryMatcher.matchesCoveringKey(groupingKey, localMask);
             if (!groupingMatch.getType().equals(QueryToKeyMatcher.MatchType.EQUALITY)) {
                 return null;
             }

@@ -75,7 +75,7 @@ public abstract class IndexAggregateGroupKeys {
         } else {
             final QueryToKeyMatcher matcher = new QueryToKeyMatcher(conditions);
             try {
-                final QueryToKeyMatcher.Match match = matcher.matches(groupingKey);
+                final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(groupingKey);
                 if (match.getType() != QueryToKeyMatcher.MatchType.NO_MATCH) {
                     return Optional.of(new Conditions(match.getEqualityComparisons()));
                 }
