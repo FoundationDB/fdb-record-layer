@@ -56,7 +56,6 @@ import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.planning.InExtractor;
 import com.apple.foundationdb.record.query.plan.planning.RankComparisons;
-import com.apple.foundationdb.record.query.plan.planning.TextScan;
 import com.apple.foundationdb.record.query.plan.planning.TextScanPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;

@@ -18,8 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.planning;
+package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -39,7 +40,6 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionM
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.ImmutableSet;
@@ -69,6 +69,7 @@ import java.util.stream.Collectors;
  * This class should not be used outside of the Record Layer project.
  * </p>
  */
+@API(API.Status.INTERNAL)
 public class TextScan implements PlanHashable {
     // Used by the text predicates that filter
     @Nonnull
@@ -89,10 +90,10 @@ public class TextScan implements PlanHashable {
     @Nullable
     private ScanComparisons suffixComparisons;
 
-    TextScan(@Nonnull Index index,
-                     @Nullable ScanComparisons groupingComparisons,
-                     @Nonnull Comparisons.TextComparison textComparison,
-                     @Nullable ScanComparisons suffixComparisons) {
+    public TextScan(@Nonnull Index index,
+                    @Nullable ScanComparisons groupingComparisons,
+                    @Nonnull Comparisons.TextComparison textComparison,
+                    @Nullable ScanComparisons suffixComparisons) {
         this.index = index;
         this.groupingComparisons = groupingComparisons;
         this.textComparison = textComparison;
