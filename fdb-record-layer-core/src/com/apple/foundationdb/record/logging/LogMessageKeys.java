@@ -51,6 +51,11 @@ public enum LogMessageKeys {
     ACTUAL_COLUMN_SIZE("actual_column_size"),
     KEY_EXPRESSION("key_expression"),
     KEY_EVALUATED("key_evaluated"),
+    // query components
+    FILTER("filter"),
+    PARENT_FILTER("parent_filter"),
+    CHILD_FILTER("child_filter"),
+    OTHER_FILTER("other_filter"),
     // index-related keys
     INDEX_NAME("index_name"),
     VALUE_KEY("value_key"),

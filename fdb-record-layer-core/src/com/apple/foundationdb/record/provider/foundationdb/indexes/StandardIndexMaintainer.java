@@ -481,7 +481,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
 
     @Override
     public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
-        final QueryToKeyMatcher.Match match = matcher.matches(state.index.getRootExpression());
+        final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(state.index.getRootExpression());
         return canDeleteWhere(state, match, evaluated);
     }
 

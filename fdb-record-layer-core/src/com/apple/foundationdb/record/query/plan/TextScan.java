@@ -18,8 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.planning;
+package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -29,11 +30,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -43,9 +40,6 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionM
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.ImmutableSet;
@@ -75,6 +69,7 @@ import java.util.stream.Collectors;
  * This class should not be used outside of the Record Layer project.
  * </p>
  */
+@API(API.Status.INTERNAL)
 public class TextScan implements PlanHashable {
     // Used by the text predicates that filter
     @Nonnull
@@ -86,105 +81,6 @@ public class TextScan implements PlanHashable {
     @Nonnull
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    /**
-     * Determine if the index is using a tokenizer that matches the comparison.
-     * If the comparison does not specify a text tokenizer, then whatever the
-     * index has is good enough. If the comparison does specify a tokenizer,
-     * then this makes sure that the index has a name that matches.
-     *
-     * @param comparison the comparison which might restrict the tokenizer choice
-     * @param index the index to check if it has a compatible tokenizer
-     * @return <code>true</code> if the index uses a tokenizer that the comparison finds acceptable
-     */
-    private static boolean matchesTokenizer(@Nonnull Comparisons.TextComparison comparison, @Nonnull Index index) {
-        if (comparison.getTokenizerName() != null) {
-            String indexTokenizerName = index.getOption(Index.TEXT_TOKENIZER_NAME_OPTION);
-            if (indexTokenizerName == null) {
-                indexTokenizerName = DefaultTextTokenizer.NAME;
-            }
-            return comparison.getTokenizerName().equals(indexTokenizerName);
-        } else {
-            return true;
-        }
-    }
-
-    @Nullable
-    private static TextScan getScanForFilter(@Nonnull Index index, @Nonnull KeyExpression textExpression, @Nonnull QueryComponent filter,
-                                            @Nullable ScanComparisons groupingComparisons, boolean hasSort) {
-        if (textExpression instanceof FieldKeyExpression) {
-            final FieldKeyExpression textFieldExpression = (FieldKeyExpression) textExpression;
-            if (filter instanceof FieldWithComparison) {
-                final Comparisons.TextComparison comparison;
-                if (((FieldWithComparison)filter).getComparison() instanceof Comparisons.TextComparison) {
-                    comparison = (Comparisons.TextComparison)((FieldWithComparison)filter).getComparison();
-                } else {
-                    return null;
-                }
-                if (!matchesTokenizer(comparison, index)) {
-                    return null;
-                }
-                if (hasSort) {
-                    // Inequality text comparisons will return results sorted
-                    // by token, so reasoning about any kind of sort except
-                    // maybe by the (equality) grouping key is hard.
-                    return null;
-                }
-                if (((FieldWithComparison)filter).getFieldName().equals(textFieldExpression.getFieldName())) {
-                    // Found matching expression
-                    return new TextScan(index, groupingComparisons, comparison, null);
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Get a scan that matches a filter in the list of filters provided. It looks to satisfy the grouping
-     * key of the index, and then it looks for a text filter within the list of filters and checks to
-     * see if the given index is compatible with the filter. If it is, it will construct a scan that
-     * satisfies that filter using the index.
-     *
-     * @param index the text index to check
-     * @param filters a list of filters that the query must satisfy
-     * @param hasSort whether the query has a sort associated with it
-     * @param unsatisfiedFilters a list in which that this function will place any unsatisfied filters from the query
-     * @return a text scan or <code>null</code> if none is found
-     */
-    @Nullable
-    public static TextScan getScanForQuery(@Nonnull Index index, @Nonnull List<QueryComponent> filters, boolean hasSort, @Nonnull List<QueryComponent> unsatisfiedFilters) {
-        final KeyExpression indexExpression = index.getRootExpression();
-        final KeyExpression groupedKey;
-        final List<QueryComponent> groupingFilters;
-        final ScanComparisons groupingComparisons;
-        if (indexExpression instanceof GroupingKeyExpression) {
-            // Grouping expression present. Make sure this is satisfied.
-            final KeyExpression groupingKey = ((GroupingKeyExpression) indexExpression).getGroupingSubKey();
-            groupedKey = ((GroupingKeyExpression) indexExpression).getGroupedSubKey();
-            groupingFilters = new ArrayList<>();
-            final List<Comparisons.Comparison> groupingComparisonList = new ArrayList<>();
-            // Check to satisfy the grouping keys. If this is not possible, return now.
-            if (!GroupingValidator.findGroupKeyFilters(filters, groupingKey, groupingFilters, groupingComparisonList)) {
-                return null;
-            }
-            groupingComparisons = new ScanComparisons(groupingComparisonList, Collections.emptyList());
-        } else {
-            // Grouping expression not present. Use first column.
-            groupingFilters = Collections.emptyList();
-            groupingComparisons = null;
-            groupedKey = indexExpression;
-        }
-
-        final KeyExpression textExpression = groupedKey.getSubKey(0, 1);
-        for (QueryComponent filter : filters) {
-            final TextScan foundScan = getScanForFilter(index, textExpression, filter, groupingComparisons, hasSort);
-            if (foundScan != null) {
-                filters.stream().filter(origFilter -> !groupingFilters.contains(origFilter) && !origFilter.equals(filter)).forEach(unsatisfiedFilters::add);
-                return foundScan;
-            }
-        }
-        return null;
-    }
-
     @Nonnull
     private final Index index;
     @Nullable
@@ -194,10 +90,10 @@ public class TextScan implements PlanHashable {
     @Nullable
     private ScanComparisons suffixComparisons;
 
-    private TextScan(@Nonnull Index index,
-                     @Nullable ScanComparisons groupingComparisons,
-                     @Nonnull Comparisons.TextComparison textComparison,
-                     @Nullable ScanComparisons suffixComparisons) {
+    public TextScan(@Nonnull Index index,
+                    @Nullable ScanComparisons groupingComparisons,
+                    @Nonnull Comparisons.TextComparison textComparison,
+                    @Nullable ScanComparisons suffixComparisons) {
         this.index = index;
         this.groupingComparisons = groupingComparisons;
         this.textComparison = textComparison;
