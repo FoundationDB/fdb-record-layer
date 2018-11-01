@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
+
 import java.util.Objects;
 
 /**
@@ -27,6 +29,7 @@ import java.util.Objects;
  * attempt to resolve the same string with directory layers that are located at the same path.
  * @param <T> the type of the scoped value
  */
+@API(API.Status.INTERNAL)
 public class ScopedValue<T> {
     private final T data;
     private final LocatableResolver scope;

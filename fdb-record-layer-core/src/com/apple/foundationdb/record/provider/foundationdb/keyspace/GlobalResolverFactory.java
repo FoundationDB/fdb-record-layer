@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -36,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
  * {@link ScopedInterningLayer} representation. This is determined by checking whether the default global directory
  * layer has been retired (see {@link LocatableResolver#retireLayer()}.
  */
+@API(API.Status.EXPERIMENTAL)
 public class GlobalResolverFactory {
     private GlobalResolverFactory() {
         throw new UnsupportedOperationException("object should never be instantiated");

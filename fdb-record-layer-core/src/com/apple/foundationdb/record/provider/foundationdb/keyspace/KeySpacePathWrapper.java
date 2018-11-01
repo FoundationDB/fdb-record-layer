@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -84,6 +85,7 @@ import java.util.concurrent.CompletableFuture;
  *     PhonePath phonePath = root.employee(myUuid).phone(PhoneType.WORK);
  * </pre>
  */
+@API(API.Status.MAINTAINED)
 public class KeySpacePathWrapper implements KeySpacePath {
     protected KeySpacePath inner;
 

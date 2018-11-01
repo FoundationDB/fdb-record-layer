@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -53,6 +54,7 @@ import java.util.function.Function;
  * will be set to the largest value seen during the copy operation. This means that all allocations in the replica will
  * be larger than any value present in the original. Note, copying to {@link ScopedDirectoryLayer} is not supported.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ResolverMappingReplicator implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResolverMappingReplicator.class);
     @Nonnull

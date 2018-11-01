@@ -38,7 +38,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * An implementation of {@link LocatableResolver} that is backed by the {@link StringInterningLayer}.
  */
-@API(API.Status.INTERNAL)
+@API(API.Status.MAINTAINED)
 public class ScopedInterningLayer extends LocatableResolver {
     private static final byte[] GLOBAL_SCOPE_PREFIX_BYTES = new byte[]{(byte) 0xFC};
     private static final int STATE_SUBSPACE_KEY_SUFFIX = -10;
