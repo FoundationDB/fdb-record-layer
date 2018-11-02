@@ -38,6 +38,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -68,6 +69,7 @@ public class RankedSet
         }
     }
 
+    private static final byte[] EMPTY_ARRAY = new byte[0];
     private static final byte[] ZERO_ARRAY = new byte[] { 0 };
 
     private static byte[] encodeLong(long count) {
@@ -91,6 +93,15 @@ public class RankedSet
     }
 
     /**
+     * Determine whether {@link #init} needs to be called.
+     * @param tc the transaction to use to access the database
+     * @return {@code true} if this ranked set needs to be initialized
+     */
+    public CompletableFuture<Boolean> initNeeded(ReadTransactionContext tc) {
+        return containsCheckedKey(tc, EMPTY_ARRAY).thenApply(b -> !b);
+    }
+
+    /**
      * Add a key to the set.
      * @param tc the transaction to use to access the database
      * @param key the key to add
@@ -101,7 +112,7 @@ public class RankedSet
         // TODO: Does using the hash of the key, instead a p value and randomLevel, bias this in any undesirable way?
         long keyHash = hashKey(key);
         return tc.runAsync(tr ->
-            contains(tr, key)
+            containsCheckedKey(tr, key)
                 .thenCompose(exists -> {
                     if (exists) {
                         return READY_FALSE;
@@ -164,12 +175,16 @@ public class RankedSet
      */
     public CompletableFuture<Boolean> contains(ReadTransactionContext tc, byte[] key) {
         checkKey(key);
-        return tc.readAsync(tr -> tr.get(subspace.pack(Tuple.from(0, key))).thenApply(b -> b != null));
+        return containsCheckedKey(tc, key);
+    }
+
+    private CompletableFuture<Boolean> containsCheckedKey(ReadTransactionContext tc, byte[] key) {
+        return tc.readAsync(tr -> tr.get(subspace.pack(Tuple.from(0, key))).thenApply(Objects::nonNull));
     }
 
     class NthLookup implements Lookup {
         private long rank;
-        private byte[] key = new byte[0];
+        private byte[] key = EMPTY_ARRAY;
         private int level = MAX_LEVELS;
         private Subspace levelSubspace;
         private AsyncIterator<KeyValue> asyncIterator = null;
@@ -294,7 +309,7 @@ public class RankedSet
 
     class RankLookup implements Lookup {
         private byte[] key;
-        private byte[] rankKey = new byte[0];
+        private byte[] rankKey = EMPTY_ARRAY;
         private long rank = 0;
         private Subspace levelSubspace;
         private int level = MAX_LEVELS;
@@ -364,7 +379,7 @@ public class RankedSet
     public CompletableFuture<Long> rank(ReadTransactionContext tc, byte[] key) {
         checkKey(key);
         return tc.readAsync(tr ->
-            contains(tr, key).thenCompose(exists -> {
+            containsCheckedKey(tr, key).thenCompose(exists -> {
                 if (!exists) {
                     return CompletableFuture.completedFuture((Long)null);
                 }
@@ -382,7 +397,7 @@ public class RankedSet
     public CompletableFuture<Boolean> remove(TransactionContext tc, byte[] key) {
         checkKey(key);
         return tc.runAsync(tr ->
-                contains(tr, key)
+                containsCheckedKey(tr, key)
                         .thenCompose(exists -> {
                             if (!exists) {
                                 return READY_FALSE;
@@ -533,7 +548,7 @@ public class RankedSet
         return tc.runAsync(tr -> {
             List<CompletableFuture<Void>> futures = new ArrayList<>(MAX_LEVELS);
             for (int level = 0; level < MAX_LEVELS; ++level) {
-                byte[] k = subspace.pack(Tuple.from(level, new byte[0]));
+                byte[] k = subspace.pack(Tuple.from(level, EMPTY_ARRAY));
                 byte[] v = encodeLong(0);
                 futures.add(tr.get(k).thenApply(value -> {
                     if (value == null) {

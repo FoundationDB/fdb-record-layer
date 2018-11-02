@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsLeaderboardProto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -59,6 +60,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.primitives.Longs;
 import com.google.protobuf.Message;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -67,10 +69,14 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -84,8 +90,13 @@ public class LeaderboardIndexTest {
     FDBDatabase fdb;
     FDBStoreTimer metrics;
 
+    private static final boolean TRACE = false;
+
     @BeforeEach
     public void getFDB() {
+        if (TRACE) {
+            FDBDatabaseFactory.instance().setTrace("/tmp", "LeaderboardIndexTest");
+        }
         fdb = FDBDatabaseFactory.instance().getDatabase();
         metrics = new FDBStoreTimer();
     }
@@ -1093,6 +1104,86 @@ public class LeaderboardIndexTest {
             assertTrue(leaderboards.executeQuery(plan).map(leaderboards::getName).asList().join().contains("diomedes"), "should have player without scores");
             assertFalse(plan.hasIndexScan("LeaderboardIndex"), "should not use leaderboard");
         }
+    }
+
+    @Test
+    public void concurrentAdd() throws Exception {
+        Leaderboards leaderboards = new FlatLeaderboards();
+        leaderboards.buildMetaData();
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, true);
+            leaderboards.updateWindows(true, 10100);
+            leaderboards.addScores("player-0", "game-1", 100, 10100, 0);
+            context.commit();
+        }
+
+        FDBRecordContext context1 = openContext();
+        if (TRACE) {
+            context1.ensureActive().options().setTransactionLoggingEnable("tr1");
+        }
+        Leaderboards leaderboards1 = new FlatLeaderboards();
+        leaderboards1.recordStore = leaderboards.recordStore.asBuilder().setContext(context1).build();
+        FDBRecordContext context2 = openContext();
+        if (TRACE) {
+            context2.ensureActive().options().setTransactionLoggingEnable("tr2");
+        }
+        Leaderboards leaderboards2 = new FlatLeaderboards();
+        leaderboards2.recordStore = leaderboards.recordStore.asBuilder().setContext(context2).build();
+
+        leaderboards1.addScores("player-1", "game-1", 101, 10100, 0);
+        leaderboards2.addScores("player-2", "game-1", 102, 10100, 0);
+
+        context1.commit();
+        context2.commit();
+    }
+
+    @Test
+    @Tag(Tags.Slow)
+    public void parallel() throws Exception {
+        Leaderboards leaderboards = new FlatLeaderboards();
+        leaderboards.buildMetaData();
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, true);
+            leaderboards.updateWindows(true, 10100);
+            context.commit();
+        }
+        FDBRecordStore.Builder builder = leaderboards.recordStore.asBuilder();
+        parallelThread(builder, 0, 500).run();
+        Thread[] threads = new Thread[2];
+        Map<String, String> uncaught = new HashMap<>();
+        for (int i = 0; i < threads.length; i++) {
+            threads[i] = new Thread(parallelThread(builder.copyBuilder(), i + 1, 10));
+            threads[i].setUncaughtExceptionHandler((t, e) -> uncaught.put("uncaught " + t.getName(), e.toString()));
+        }
+        for (int i = 0; i < threads.length; i++) {
+            threads[i].start();
+        }
+        for (int i = 0; i < threads.length; i++) {
+            threads[i].join();
+        }
+        final KeyValueLogMessage msg = KeyValueLogMessage.build("Results");
+        msg.addKeysAndValues(metrics.getKeysAndValues());
+        msg.addKeysAndValues(uncaught);
+        System.out.println(msg.toString());
+        assertThat(uncaught.values(), Matchers.emptyCollectionOf(String.class));
+    }
+
+    protected Runnable parallelThread(FDBRecordStore.Builder builder, int n, int count) {
+        final String player = String.format("player-%d", n);
+        final Random r = new Random();
+        final Leaderboards privateLeaderboards = new FlatLeaderboards();
+        return () -> {
+            for (int i = 0; i < count; i++) {
+                int score = r.nextInt(1000000);
+                int pass = i;
+                fdb.run(metrics, null, context -> {
+                    context.ensureActive().options().setTransactionLoggingEnable(String.format("t-%d-%d", n, pass));
+                    privateLeaderboards.recordStore = builder.setContext(context).build();
+                    privateLeaderboards.addScores(player, "game-1", score, 10100, 0);
+                    return null;
+                });
+            }
+        };
     }
 
 }

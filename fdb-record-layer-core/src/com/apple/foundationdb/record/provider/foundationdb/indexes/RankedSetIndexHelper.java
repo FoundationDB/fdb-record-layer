@@ -99,7 +99,7 @@ public class RankedSetIndexHelper {
             return CompletableFuture.completedFuture(TupleRange.allOf(prefix));
         }
 
-        CompletableFuture<TupleRange> result = rankedSet.init(state.transaction).thenCompose(v -> {
+        CompletableFuture<TupleRange> result = init(state, rankedSet).thenCompose(v -> {
             CompletableFuture<Tuple> lowScoreFuture = scoreForRank(state, rankedSet, startFromBeginning ? 0L : lowRankNum, null);
             CompletableFuture<Tuple> highScoreFuture = scoreForRank(state, rankedSet, highRankNum, null);
             return lowScoreFuture.thenCombine(highScoreFuture, (lowScore, highScore) -> {
@@ -119,6 +119,12 @@ public class RankedSetIndexHelper {
             });
         });
         return result;
+    }
+
+    @Nonnull
+    private static CompletableFuture<Void> init(@Nonnull IndexMaintainerState<?> state, @Nonnull RankedSet rankedSet) {
+        return rankedSet.initNeeded(state.context.readTransaction(true))
+                .thenCompose(needed -> needed ? rankedSet.init(state.transaction) : AsyncUtil.DONE);
     }
 
     @Nullable
@@ -199,7 +205,7 @@ public class RankedSetIndexHelper {
                                                           boolean remove) {
         final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace);
         final byte[] score = scoreKey.pack();
-        CompletableFuture<Void> result = rankedSet.init(state.transaction).thenCompose(v -> {
+        CompletableFuture<Void> result = init(state, rankedSet).thenCompose(v -> {
             if (remove) {
                 // If no one else has this score, remove from ranked set.
                 return state.transaction.getRange(state.indexSubspace.range(valueKey)).iterator().onHasNext().thenCompose(hasNext -> {
