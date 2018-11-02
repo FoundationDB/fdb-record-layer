@@ -109,7 +109,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     private final PlannableIndexTypes indexTypes;
 
     private boolean primaryKeyHasRecordTypePrefix;
-    private boolean preferIndexToScan;
+    @Nonnull
+    private IndexScanPreference indexScanPreference;
 
     public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
         this(metaData, recordStoreState, null);
@@ -140,7 +141,8 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         primaryKeyHasRecordTypePrefix = metaData.primaryKeyHasRecordTypePrefix();
         // If we are going to need type filters on Scan, index is safer without knowing any cardinalities.
-        preferIndexToScan = metaData.getRecordTypes().size() > 1 && !primaryKeyHasRecordTypePrefix;
+        indexScanPreference = metaData.getRecordTypes().size() > 1 && !primaryKeyHasRecordTypePrefix ?
+                              IndexScanPreference.PREFER_INDEX : IndexScanPreference.PREFER_SCAN;
     }
 
     /**
@@ -148,8 +150,9 @@ public class RecordQueryPlanner implements QueryPlanner {
      * satisfy any additional conditions.
      * @return whether to prefer index scan over record scan
      */
-    public boolean prefersIndexToScan() {
-        return preferIndexToScan;
+    @Nonnull
+    public IndexScanPreference getIndexScanPreference() {
+        return indexScanPreference;
     }
 
     /**
@@ -158,11 +161,11 @@ public class RecordQueryPlanner implements QueryPlanner {
      * Scanning without an index is more efficient, but will have to skip over unrelated record types.
      * For that reason, it is safer to use an index, except when there is only one record type.
      * If the meta-data has more than one record type but the record store does not, this can be overridden.
-     * @param preferIndexToScan whether to prefer index scan over record scan
+     * @param indexScanPreference whether to prefer index scan over record scan
      */
     @Override
-    public void setPreferIndexToScan(boolean preferIndexToScan) {
-        this.preferIndexToScan = preferIndexToScan;
+    public void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference) {
+        this.indexScanPreference = indexScanPreference;
     }
 
     /**
@@ -272,13 +275,27 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (index2 == null) {
                 return 0;
             } else {
-                return prefersIndexToScan() ? -1 : +1;
+                return preferIndexToScan(planContext, index2) ? -1 : +1;
             }
         } else if (index2 == null) {
-            return prefersIndexToScan() ? +1 : -1;
+            return preferIndexToScan(planContext, index1) ? +1 : -1;
         } else {
             // Better for fewer stored columns.
             return Integer.compare(indexSizeOverhead(planContext, index2), indexSizeOverhead(planContext, index1));
+        }
+    }
+
+    // Compatible behavior with older code: prefer an index on *just* the primary key.
+    private boolean preferIndexToScan(PlanContext planContext, @Nonnull Index index) {
+        switch (getIndexScanPreference()) {
+            case PREFER_INDEX:
+                return true;
+            case PREFER_SCAN:
+                return false;
+            case PREFER_PRIMARY_KEY_INDEX:
+                return index.getRootExpression().equals(planContext.commonPrimaryKey);
+            default:
+                throw new RecordCoreException("Unknown indexScanPreference: " + indexScanPreference);
         }
     }
 

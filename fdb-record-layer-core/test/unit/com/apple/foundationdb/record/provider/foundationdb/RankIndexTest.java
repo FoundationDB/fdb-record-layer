@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -906,7 +907,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("header").nest(Key.Expressions.field("group"))))
                                 .lessThan(2L)))
                 .build();
-        planner.setPreferIndexToScan(false);
+        planner.setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_SCAN);
         RecordQueryPlan plan = planner.plan(query);
         assertEquals("Scan(([buffaloes, 100],[buffaloes]]) | [HeaderRankedRecord]" +
                         " | score LESS_THAN $__rank_0 WHERE __rank_0 = score_by_nested_id.score_for_rank_else_skip(buffaloes, 2)",

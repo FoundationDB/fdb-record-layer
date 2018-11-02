@@ -31,6 +31,29 @@ import javax.annotation.Nonnull;
  */
 public interface QueryPlanner {
     /**
+     * Preference between index scan and record scan.
+     * @see #setIndexScanPreference
+     */
+    enum IndexScanPreference {
+        /**
+         * Prefer a full scan over an index scan.
+         * A full scan does not have to separately fetch the record, but may return records of types that just
+         * need to be skipped.
+         */
+        PREFER_SCAN,
+        /**
+         * Prefer index scan over full scan.
+         * An index scan always fetches the record separately but is less vulnerable to the addition of records
+         * of unrelated record types.
+         */
+        PREFER_INDEX,
+        /**
+         * Prefer a scan using an index for <em>exactly</em> the primary key.
+         */
+        PREFER_PRIMARY_KEY_INDEX
+    }
+
+    /**
      * Create a plan to get the results of the provided query.
      *
      * @param query a query for records on this planner's metadata
@@ -47,7 +70,7 @@ public interface QueryPlanner {
      * Scanning without an index is more efficient, but will have to skip over unrelated record types.
      * For that reason, it is safer to use an index, except when there is only one record type.
      * If the meta-data has more than one record type but the record store does not, this can be overridden.
-     * @param preferIndexToScan whether to prefer index scan over record scan
+     * @param indexScanPreference whether to prefer index scan over record scan
      */
-    void setPreferIndexToScan(boolean preferIndexToScan);
+    void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference);
 }
