@@ -90,7 +90,7 @@ public class RewritePlanner implements QueryPlanner {
     }
 
     @Override
-    public void setPreferIndexToScan(boolean preferIndexToScan) {
+    public void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference) {
         // nothing to do here, yet
     }
 
