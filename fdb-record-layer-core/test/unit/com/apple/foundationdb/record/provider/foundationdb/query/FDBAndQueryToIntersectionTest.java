@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -260,7 +261,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsValue("even"),
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
-        planner.setPreferIndexToScan(false);
+        planner.setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_SCAN);
         RecordQueryPlan plan = planner.plan(query);
         // Would get Intersection didn't have identical continuations if it did
         assertThat("Should not use grouped index", plan, hasNoDescendant(indexScan(indexName("grouped_index"))));
