@@ -41,6 +41,7 @@ buildscript {
 
 plugins {
     id 'com.github.spotbugs' version '1.6.4'
+    id 'org.sonarqube' version '2.6'
 }
 
 ext {
@@ -50,6 +51,7 @@ ext {
 defaultTasks 'build'
 
 apply from: 'gradle/root.gradle'
+apply from: 'gradle/sonar.gradle'
 
 allprojects {
     apply plugin: 'base'
