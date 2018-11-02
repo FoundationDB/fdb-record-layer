@@ -49,10 +49,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -204,76 +202,58 @@ public class QueryToKeyMatcher {
                           @Nullable FilterSatisfiedMask filterMask) {
         final List<QueryComponent> listOfQueries = query.getChildren();
         final Iterator<KeyExpression> keyChildIterator;
-        final int keyChildSize;
+        final int keyChildSize = key.getColumnSize();
         if (key instanceof ThenKeyExpression) {
             List<KeyExpression> children = ((ThenKeyExpression)key).getChildren();
             keyChildIterator = children.iterator();
-            keyChildSize = children.size();
         } else {
             keyChildIterator = Iterators.singletonIterator(key);
-            keyChildSize = 1;
-        }
-        final int maxComparisons = Math.min(keyChildSize, listOfQueries.size());
-
-        Map<String, QueryComponent> mapFromKeyPathToQuery = new HashMap<>();
-        for (QueryComponent querySegment : listOfQueries) {
-            String path = pathFromQuery(querySegment);
-            if (path == null) {
-                throw new Query.InvalidExpressionException("We only support Query.And([Field.WithComparison, ]) " +
-                                                           querySegment.getClass());
-            }
-            mapFromKeyPathToQuery.put(path, querySegment);
         }
 
-        if (mapFromKeyPathToQuery.size() != listOfQueries.size()) {
-            throw new Query.InvalidExpressionException("We do not support Query.And([f(a), f(a)]), " +
-                                                       " no two elements in the list of queries we 'and' with each other can use the same key. " +
-                                                       query.getClass());
-        }
-
-
-        if (matchingMode.equals(MatchingMode.SATISFY_QUERY) && keyChildSize < listOfQueries.size()
-                || matchingMode.equals(MatchingMode.COVER_KEY) && listOfQueries.size() < keyChildSize) {
-            // Comparing the sizes of the number of children and the number of queries, we
-            // know that whichever one we are trying to completely satisfy, it can't be done.
-            return Match.none();
-        }
-
-        List<Comparison> comparisons = new ArrayList<>(maxComparisons);
+        // Keep a local mask so that if we can only partially fulfill queries we don't pollute the main
+        // one with our state
+        FilterSatisfiedMask localMask = FilterSatisfiedMask.of(query);
+        localMask.setExpression(key);
+        List<Comparison> comparisons = new ArrayList<>(keyChildSize);
         while (keyChildIterator.hasNext()) {
             KeyExpression exp = keyChildIterator.next();
-            String path = pathFromKey(exp);
-            if (path == null) {
-                return Match.none();
+
+            // Look for a query segment that matches this expression
+            boolean found = false;
+            boolean foundInequality = false;
+            final Iterator<FilterSatisfiedMask> childMaskIterator = localMask.getChildren().iterator();
+            for (QueryComponent querySegment : listOfQueries) {
+                Match match = matches(querySegment, exp, matchingMode, childMaskIterator.next());
+                if (match.getType() != MatchType.NO_MATCH) {
+                    found = true;
+                    comparisons.addAll(match.getComparisons());
+                    if (match.getType() == MatchType.INEQUALITY) {
+                        foundInequality = true;
+                    }
+                    break;
+                }
             }
 
-            QueryComponent querySegment = mapFromKeyPathToQuery.get(path);
-            if (querySegment == null) {
+            if (!found) {
                 return Match.none();
             }
-
-            FilterSatisfiedMask childMask = filterMask != null ? filterMask.getChild(querySegment) : null;
-            Match match = matches(querySegment, exp, matchingMode, childMask);
-            if (match.getType() == MatchType.NO_MATCH) {
-                return Match.none();
-            }
-
-            Comparison comp = match.getFirstComparison();
-            comparisons.add(comp);
 
             // Only the last comparison in the list can be inequality.
-            if (comparisons.size() >= maxComparisons || !comp.getType().isEquality()) {
+            if (localMask.allSatisfied() || foundInequality) {
                 break;
             }
         }
 
-        if (matchingMode.equals(MatchingMode.SATISFY_QUERY) && comparisons.size() < listOfQueries.size()
+        if (matchingMode.equals(MatchingMode.SATISFY_QUERY) && !localMask.allSatisfied()
                 || matchingMode.equals(MatchingMode.COVER_KEY) && comparisons.size() < keyChildSize) {
-            // Based on the number of comparisons, there were left over query components or left over
-            // columns in the key expression, so this should return "no match"
+            // Either we do not have enough comparisons to have covered the full key, or there are some
+            // filters that have not yet been satisfied.
             return Match.none();
         }
 
+        if (filterMask != null) {
+            filterMask.mergeWith(localMask);
+        }
         return new Match(comparisons);
     }
 
@@ -330,6 +310,8 @@ public class QueryToKeyMatcher {
             return Match.none();
         } else if (key instanceof EmptyKeyExpression) {
             return Match.none();
+        } else if (key instanceof RecordTypeKeyExpression) {
+            return Match.none();
         } else {
             return unexpected(key);
         }
@@ -355,6 +337,8 @@ public class QueryToKeyMatcher {
             return matches(query, ((FieldKeyExpression) key), filterMask);
         } else if (key instanceof EmptyKeyExpression) {
             return Match.none();
+        } else if (key instanceof RecordTypeKeyExpression) {
+            return Match.none();
         } else {
             return unexpected(key);
         }
@@ -379,6 +363,8 @@ public class QueryToKeyMatcher {
             return matches(query, ((FieldKeyExpression) key), filterMask);
         } else if (key instanceof EmptyKeyExpression) {
             return Match.none();
+        } else if (key instanceof RecordTypeKeyExpression) {
+            return Match.none();
         } else {
             return unexpected(key);
         }
@@ -392,7 +378,8 @@ public class QueryToKeyMatcher {
         } else if (key instanceof ThenKeyExpression ||
                    key instanceof FieldKeyExpression ||
                    key instanceof GroupingKeyExpression ||
-                   key instanceof EmptyKeyExpression) {
+                   key instanceof EmptyKeyExpression ||
+                   key instanceof RecordTypeKeyExpression) {
             return Match.none();
         } else {
             return unexpected(key);
@@ -487,52 +474,6 @@ public class QueryToKeyMatcher {
         throw new KeyExpression.InvalidExpressionException("Unexpected Key Expression type " + key.getClass());
     }
 
-    @Nullable
-    private static String pathFromQuery(@Nonnull QueryComponent query) {
-        if (query instanceof FieldWithComparison) {
-            return ((FieldWithComparison)query).getFieldName();
-        }
-        if (query instanceof NestedField) {
-            String child = pathFromQuery(((NestedField)query).getChild());
-            if (child == null) {
-                return null;
-            }
-            return ((NestedField)query).getFieldName() + "/" + child;
-        }
-        if (query instanceof OneOfThemWithComparison) {
-            return ((OneOfThemWithComparison)query).getFieldName();
-        }
-        if (query instanceof OneOfThemWithComponent) {
-            String child = pathFromQuery(((OneOfThemWithComponent)query).getChild());
-            if (child == null) {
-                return null;
-            }
-            return ((OneOfThemWithComponent)query).getFieldName() + "/" + child;
-        }
-        if (query instanceof RecordTypeKeyComparison) {
-            return "@";
-        }
-        return null;
-    }
-
-    @Nullable
-    private static String pathFromKey(@Nonnull KeyExpression key) {
-        if (key instanceof FieldKeyExpression) {
-            return ((FieldKeyExpression)key).getFieldName();
-        }
-        if (key instanceof NestingKeyExpression) {
-            String child = pathFromKey(((NestingKeyExpression)key).getChild());
-            if (child == null) {
-                return null;
-            }
-            return ((NestingKeyExpression)key).getParent().getFieldName() + "/" + child;
-        }
-        if (key instanceof RecordTypeKeyExpression) {
-            return "@";
-        }
-        return null;
-    }
-
     /**
      * The result of matching a particular {@link KeyExpression}.
      */
@@ -589,6 +530,11 @@ public class QueryToKeyMatcher {
             } else {
                 return comparisons.subList(0, comparisons.size() - 1);
             }
+        }
+
+        @Nonnull
+        public List<Comparison> getComparisons() {
+            return comparisons;
         }
 
         @Nonnull
