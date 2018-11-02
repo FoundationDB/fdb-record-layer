@@ -76,7 +76,7 @@ services:
 
   build-prb-sonarqube:
     <<: *build-setup
-    command: /bin/bash -cl "./gradlew sonarqube"
+    command: /bin/bash -cl "./gradlew sonarqube --stacktrace --info"
     environment:
       - SKIP_FDB_TESTS=true
       - GRADLE_OPTS="-Dorg.gradle.parallel=false -Dorg.gradle.daemon.idletimeout=600"
