@@ -46,6 +46,7 @@ message MapDocument {
         optional string value = 2;
     }
     repeated Entry entry = 2;
+    optional int64 group = 3;
 }
 
 message MultiDocument {

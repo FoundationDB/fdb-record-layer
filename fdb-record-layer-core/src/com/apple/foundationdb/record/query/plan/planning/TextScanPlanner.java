@@ -191,14 +191,19 @@ public class TextScanPlanner {
         final ScanComparisons groupingComparisons;
         if (indexExpression instanceof GroupingKeyExpression) {
             // Grouping expression present. Make sure this is satisfied.
-            final KeyExpression groupingKey = ((GroupingKeyExpression) indexExpression).getGroupingSubKey();
-            groupedKey = ((GroupingKeyExpression) indexExpression).getGroupedSubKey();
-            QueryToKeyMatcher groupingQueryMatcher = new QueryToKeyMatcher(filter);
-            QueryToKeyMatcher.Match groupingMatch = groupingQueryMatcher.matchesCoveringKey(groupingKey, localMask);
-            if (!groupingMatch.getType().equals(QueryToKeyMatcher.MatchType.EQUALITY)) {
+            final KeyExpression groupingKey = ((GroupingKeyExpression)indexExpression).getGroupingSubKey();
+            groupedKey = ((GroupingKeyExpression)indexExpression).getGroupedSubKey();
+            try {
+                QueryToKeyMatcher groupingQueryMatcher = new QueryToKeyMatcher(filter);
+                QueryToKeyMatcher.Match groupingMatch = groupingQueryMatcher.matchesCoveringKey(groupingKey, localMask);
+                if (!groupingMatch.getType().equals(QueryToKeyMatcher.MatchType.EQUALITY)) {
+                    return null;
+                }
+                groupingComparisons = new ScanComparisons(groupingMatch.getEqualityComparisons(), Collections.emptyList());
+            } catch (KeyExpression.InvalidExpressionException ex) {
+                // Grouping key did not match.
                 return null;
             }
-            groupingComparisons = new ScanComparisons(groupingMatch.getEqualityComparisons(), Collections.emptyList());
         } else {
             // Grouping expression not present. Use first column.
             groupedKey = indexExpression;

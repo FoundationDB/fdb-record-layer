@@ -148,6 +148,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unboun
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -193,6 +194,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "0"));
     private static final Index MAP_ON_VALUE_PREFIX = new Index("Map$entry-value_prefix", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT,
             ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "1"));
+    private static final Index MAP_ON_VALUE_GROUPED_INDEX = new Index("Map$entry-value_by_group", new GroupingKeyExpression(concat(field("group"), field("entry", FanType.FanOut).nest(concatenateFields("key", "value"))), 1), IndexTypes.TEXT);
     private static final TransformedRecordSerializer<Message> COMPRESSING_SERIALIZER = TransformedRecordSerializer.newDefaultBuilder().setCompressWhenSerializing(true).build();
     private static final String SIMPLE_DOC = "SimpleDocument";
     private static final String COMPLEX_DOC = "ComplexDocument";
@@ -1686,6 +1688,26 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .get();
     }
 
+    @Nonnull
+    private List<Long> queryMapDocumentsWithGroupedIndex(@Nonnull String key, @Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+        if (!(textFilter instanceof ComponentWithComparison)) {
+            throw new RecordCoreArgumentException("filter without comparison provided as text filter");
+        }
+        final QueryComponent filter = Query.and(
+                Query.field("group").equalsValue(group),
+                Query.field("entry").oneOfThem().matches(Query.and(Query.field("key").equalsValue(key), textFilter))
+        );
+        final Matcher<RecordQueryPlan> planMatcher = descendant(textIndexScan(allOf(
+                indexName(MAP_ON_VALUE_GROUPED_INDEX.getName()),
+                groupingBounds(allOf(notNullValue(), hasTupleString("[[" + group + ", " + key + "],[" + group + ", " + key + "]]"))),
+                textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison()))
+        )));
+        return queryDocuments(Collections.singletonList(MAP_DOC), Collections.singletonList(field("doc_id")), filter, planHash, planMatcher)
+                .map(t -> t.getLong(0))
+                .asList()
+                .get();
+    }
+
     @Test
     public void queryMapDocuments() throws Exception {
         final List<String> textSamples = Arrays.asList(
@@ -1701,6 +1723,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                         .setDocId(i)
                         .addEntry(MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)).build())
                         .addEntry(MapDocument.Entry.newBuilder().setKey("b").setValue(textSamples.get(i * 2 + 1)).build())
+                        .setGroup(i % 2)
                         .build()
                 )
                 .collect(Collectors.toList());
@@ -1718,6 +1741,21 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Arrays.asList(1L, 2L),
                     queryMapDocumentsWithIndex("b", Query.field("value").text().containsPrefix("na"), 1125182095));
 
+            RecordQuery queryWithAdditionalFilter = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.and(
+                            Query.field("group").equalsValue(0L),
+                            Query.field("entry").oneOfThem().matches(Query.and(
+                                    Query.field("key").equalsValue("b"),
+                                    Query.field("value").text().containsAny("anders king")
+                            ))
+                    ))
+                    .build();
+            RecordQueryPlan planWithAdditionalFilter = recordStore.planQuery(queryWithAdditionalFilter);
+            assertThat(planWithAdditionalFilter, filter(equalTo(Query.field("group").equalsValue(0L)), descendant(textIndexScan(anything()))));
+            assertEquals(Collections.singletonList(0L),
+                    recordStore.executeQuery(planWithAdditionalFilter).map(FDBQueriedRecord::getPrimaryKey).map(tuple -> tuple.getLong(0)).asList().join());
+
             // Planner bug that can happen with certain malformed queries. This plan actually
             // returns records where the key and the value match in the same entry, but it is
             // asking for all records where *any* entry has a key matching "a" and *any* entry
@@ -1734,6 +1772,37 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     groupingBounds(allOf(notNullValue(), hasTupleString("[[a],[a]]"))),
                     textComparison(equalTo(new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_ALL, "civil hands unclean", null, DefaultTextTokenizer.NAME)))
             ))));
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void queryMapsWithGroups() throws Exception {
+        final List<String> textSamples = Arrays.asList(
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.AETHELRED,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.ANGSTROM
+        );
+        final List<MapDocument> documents = IntStream.range(0, textSamples.size() / 2)
+                .mapToObj(i -> MapDocument.newBuilder()
+                        .setDocId(i)
+                        .addEntry(MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)).build())
+                        .addEntry(MapDocument.Entry.newBuilder().setKey("b").setValue(textSamples.get(i * 2 + 1)).build())
+                        .setGroup(i % 2)
+                        .build()
+                )
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_GROUPED_INDEX));
+            documents.forEach(recordStore::saveRecord);
+
+            assertEquals(Collections.singletonList(1L),
+                    queryMapDocumentsWithGroupedIndex("a", Query.field("value").text().containsPhrase("both alike in dignity"), 1L, 1376087127));
+            assertEquals(Collections.singletonList(0L),
+                    queryMapDocumentsWithGroupedIndex("b", Query.field("value").text().containsAny("king anders"), 0L, -1204479544));
 
             commit(context);
         }

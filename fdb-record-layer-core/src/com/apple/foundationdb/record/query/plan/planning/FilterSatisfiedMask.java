@@ -307,6 +307,37 @@ public class FilterSatisfiedMask {
     }
 
     /**
+     * Determine if the whole filter has been satisfied. If the filter itself has been
+     * marked as satisfied, then this will return <code>true</code>. Otherwise, if the filter
+     * is a type where if the children have been satisfied, the filter has also been satisfied,
+     * then this traverses down the children to see if they have all been satisfied. It will
+     * then return <code>true</code> if every child is satisfied and <code>false</code> otherwise.
+     * If this filter is unsatisfied and it does not traverse down this mask's children,
+     * then it will return <code>false</code>.
+     *
+     * <p>
+     * This is supposed to be functionally equivalent to calling {@link #getUnsatisfiedFilter()}
+     * and checking to see if the result is <code>null</code>. This does not attempt to
+     * construct the unsatisfied filter if one exists, so this should be cheaper to call.
+     * </p>
+     *
+     * @return whether the whole filter is known to have been satisfied
+     */
+    public boolean allSatisfied() {
+        if (isSatisfied()) {
+            return true;
+        } else if (filter instanceof AndComponent || filter instanceof NestedField
+                   || filter instanceof OneOfThemWithComponent || filter instanceof OrComponent) {
+            // These filters are satisfied if all of their children are satisfied
+            // Some of them only have one child
+            return getChildren().stream().allMatch(FilterSatisfiedMask::allSatisfied);
+        } else {
+            // The rest, we should not assume they are satisfied because their children are satisfied
+            return false;
+        }
+    }
+
+    /**
      * Merge in another mask over the same filter. This will mark any filter that
      * is satisfied in the other mask as satisfied within this mask. This is useful
      * as it allows the planner to do something like speculatively mark certain fields
