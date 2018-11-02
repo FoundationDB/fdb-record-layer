@@ -22,6 +22,8 @@ package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.NetworkOptions;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.directory.PathUtil;
@@ -33,10 +35,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.ForkJoinPool;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -53,9 +55,17 @@ public class RankedSetTest
     private Database db;
     private Subspace rsSubspace;
 
+    private static final boolean TRACE = false;
+
     @BeforeEach
     public void setUp() throws Exception {
-        this.db = FDB.selectAPIVersion(520).open();
+        FDB fdb = FDB.selectAPIVersion(520);
+        if (TRACE) {
+            NetworkOptions options = fdb.options();
+            options.setTraceEnable("/tmp");
+            options.setTraceLogGroup("RankedSetTest");
+        }
+        this.db = fdb.open();
         this.rsSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(getClass().getSimpleName())).get();
         db.run(tr -> {
             tr.clear(rsSubspace.range());
@@ -83,6 +93,34 @@ public class RankedSetTest
                 byte[] nth = rs.getNth(tr, i).join();
                 assertArrayEquals(keys[i], nth);
             }
+            return null;
+        });
+    }
+
+    @Test
+    public void concurrentAdd() throws Exception {
+        // 20 does go onto level 1, 30 and 40 do not. There should be no reason for them to conflict on level 0.
+        RankedSet rs = newRankedSet();
+        db.run(tr -> {
+            rs.add(tr, Tuple.from(20).pack()).join();
+            return null;
+        });
+        Transaction tr1 = db.createTransaction();
+        if (TRACE) {
+            tr1.options().setTransactionLoggingEnable("tr1");
+        }
+        Transaction tr2 = db.createTransaction();
+        if (TRACE) {
+            tr2.options().setTransactionLoggingEnable("tr2");
+        }
+        rs.add(tr1, Tuple.from(30).pack()).join();
+        rs.add(tr2, Tuple.from(40).pack()).join();
+        tr1.commit().join();
+        tr2.commit().join();
+        db.read(tr -> {
+            assertEquals(0L, rs.rank(tr, Tuple.from(20).pack()).join().longValue());
+            assertEquals(1L, rs.rank(tr, Tuple.from(30).pack()).join().longValue());
+            assertEquals(2L, rs.rank(tr, Tuple.from(40).pack()).join().longValue());
             return null;
         });
     }
