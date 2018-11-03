@@ -189,6 +189,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     private static final Index COMBINED_TEXT_BY_GROUP = new Index("Combined$text_by_group", field("text").groupBy(field("group")), IndexTypes.TEXT);
     private static final Index COMPLEX_MULTI_TAG_INDEX = new Index("Complex$multi_tag", field("text").groupBy(field("tag", FanType.FanOut)), IndexTypes.TEXT);
     private static final Index COMPLEX_THEN_TAG_INDEX = new Index("Complex$text_tag", concat(field("text"), field("tag", FanType.FanOut)), IndexTypes.TEXT);
+    private static final Index MULTI_TYPE_INDEX = new Index("Simple&Complex$text", field("text"), IndexTypes.TEXT);
     private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT);
     private static final Index MAP_ON_VALUE_PREFIX_LEGACY = new Index("Map$entry-value_prefix", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT,
             ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "0"));
@@ -1657,6 +1658,86 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("ang"), 0L, -1013515738));
             assertEquals(Arrays.asList(Tuple.from(1L, 3L), Tuple.from(1L, 1L)),
                     queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("un"), 1L, -995158140));
+
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private List<Long> queryMultiTypeDocuments(@Nonnull QueryComponent textFilter, @Nonnull List<String> recordTypes, int planHash) throws InterruptedException, ExecutionException {
+        if (!(textFilter instanceof ComponentWithComparison)) {
+            throw new RecordCoreArgumentException("filter without comparison provided as text filter");
+        }
+        Matcher<RecordQueryPlan> planMatcher = descendant(textIndexScan(allOf(
+                indexName(MULTI_TYPE_INDEX.getName()),
+                textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison())
+        ))));
+        if (recordTypes.size() != 2) {
+            planMatcher = descendant(typeFilter(contains(recordTypes.get(0)), planMatcher));
+        }
+        return queryDocuments(recordTypes, Collections.singletonList(field("doc_id")), textFilter, planHash, planMatcher)
+                .map(t -> t.getLong(0))
+                .asList()
+                .join();
+    }
+
+    @Test
+    public void queryMultiTypeDocuments() throws Exception {
+        final List<String> bothTypes = Arrays.asList(SIMPLE_DOC, COMPLEX_DOC);
+        final List<String> simpleTypes = Collections.singletonList(SIMPLE_DOC);
+        final List<String> complexTypes = Collections.singletonList(COMPLEX_DOC);
+
+        final List<String> textSamples = Arrays.asList(
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.ANGSTROM,
+                TextSamples.AETHELRED,
+                TextSamples.FRENCH,
+                TextSamples.GERMAN
+        );
+        final List<Message> documents = IntStream.range(0, textSamples.size())
+                .mapToObj(i -> {
+                    final String text = textSamples.get(i);
+                    if (i % 2 == 0) {
+                        return SimpleDocument.newBuilder()
+                                .setDocId(i)
+                                .setText(text)
+                                .setGroup(i % 4)
+                                .build();
+                    } else {
+                        return ComplexDocument.newBuilder()
+                                .setDocId(i)
+                                .setText(text)
+                                .setGroup(i % 4)
+                                .build();
+                    }
+                })
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(field("doc_id"));
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addMultiTypeIndex(Arrays.asList(
+                        metaDataBuilder.getRecordType(SIMPLE_DOC),
+                        metaDataBuilder.getRecordType(COMPLEX_DOC)
+                ), MULTI_TYPE_INDEX);
+            });
+            documents.forEach(recordStore::saveRecord);
+
+            assertEquals(Arrays.asList(0L, 1L),
+                    queryMultiTypeDocuments(Query.field("text").text().containsPhrase("where we lay our scene"), bothTypes, 1755757799));
+            assertEquals(Collections.singletonList(0L),
+                    queryMultiTypeDocuments(Query.field("text").text().containsPhrase("where we lay our scene"), simpleTypes, -1489953292));
+            assertEquals(Collections.singletonList(1L),
+                    queryMultiTypeDocuments(Query.field("text").text().containsPhrase("where we lay our scene"), complexTypes, -1333764430));
+
+            assertEquals(Arrays.asList(2L, 4L, 5L),
+                    queryMultiTypeDocuments(Query.field("text").text().containsPrefix("na"), bothTypes, -714642562));
+            assertEquals(Arrays.asList(2L, 4L),
+                    queryMultiTypeDocuments(Query.field("text").text().containsPrefix("na"), simpleTypes, 334613643));
+            assertEquals(Collections.singletonList(5L),
+                    queryMultiTypeDocuments(Query.field("text").text().containsPrefix("na"), complexTypes, 490802505));
 
             commit(context);
         }

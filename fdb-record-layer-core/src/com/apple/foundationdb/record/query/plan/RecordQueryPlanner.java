@@ -940,6 +940,28 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
+    @Nonnull
+    private Set<String> getPossibleTypes(@Nonnull Index index) {
+        final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
+        if (recordTypes.size() == 1) {
+            final RecordType singleRecordType = recordTypes.iterator().next();
+            return Collections.singleton(singleRecordType.getName());
+        } else {
+            return recordTypes.stream().map(RecordType::getName).collect(Collectors.toSet());
+        }
+    }
+
+    @Nonnull
+    private RecordQueryPlan addTypeFilterIfNeeded(@Nonnull CandidateScan candidateScan, @Nonnull RecordQueryPlan plan,
+                                                  @Nonnull Set<String> possibleTypes) {
+        Collection<String> allowedTypes = candidateScan.planContext.query.getRecordTypes();
+        if (!allowedTypes.isEmpty() && !allowedTypes.containsAll(possibleTypes)) {
+            return new RecordQueryTypeFilterPlan(plan, allowedTypes);
+        } else {
+            return plan;
+        }
+    }
+
     @Nullable
     private ScoredPlan planVersion(@Nonnull CandidateScan candidateScan,
                                    @Nonnull KeyExpression index,
@@ -1038,7 +1060,10 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
         // TODO: Check the rest of the fields of the text index expression to see if the sort and unsatisfied filters can be helped.
-        final RecordQueryTextIndexPlan plan = new RecordQueryTextIndexPlan(index.getName(), scan, candidateScan.reverse);
+        RecordQueryPlan plan = new RecordQueryTextIndexPlan(index.getName(), scan, candidateScan.reverse);
+        // Add a type filter if the index is over more types than those the query specifies
+        Set<String> possibleTypes = getPossibleTypes(index);
+        plan = addTypeFilterIfNeeded(candidateScan, plan, possibleTypes);
         // This weight is fairly arbitrary, but it is supposed to be higher than for most indexes because
         // most of the time, the full text scan is believed to be more selective (and expensive to run as a post-filter)
         // than other indexes.
@@ -1063,7 +1088,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (scanComparisons == null) {
             scanComparisons = ScanComparisons.EMPTY;
         }
-
         RecordQueryPlan plan;
         Set<String> possibleTypes;
         if (candidateScan.index == null) {
@@ -1078,14 +1102,10 @@ public class RecordQueryPlanner implements QueryPlanner {
                 scanType = IndexScanType.BY_VALUE;
             }
             plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanType, scanComparisons, candidateScan.reverse);
-            possibleTypes = metaData.recordTypesForIndex(candidateScan.index).stream().map(RecordType::getName).collect(Collectors.toSet());
+            possibleTypes = getPossibleTypes(candidateScan.index);
         }
-
-        Collection<String> allowedTypes = candidateScan.planContext.query.getRecordTypes();
-        if (allowedTypes != null && allowedTypes.size() > 0 && !allowedTypes.containsAll(possibleTypes)) {
-            plan = new RecordQueryTypeFilterPlan(plan, allowedTypes);
-        }
-
+        // Add a type filter if the query plan might return records of more types than the query specified
+        plan = addTypeFilterIfNeeded(candidateScan, plan, possibleTypes);
         return plan;
     }
 
