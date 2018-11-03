@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Message;
@@ -74,13 +73,9 @@ public abstract class IndexAggregateGroupKeys {
             }
         } else {
             final QueryToKeyMatcher matcher = new QueryToKeyMatcher(conditions);
-            try {
-                final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(groupingKey);
-                if (match.getType() != QueryToKeyMatcher.MatchType.NO_MATCH) {
-                    return Optional.of(new Conditions(match.getEqualityComparisons()));
-                }
-            } catch (Query.InvalidExpressionException ex) {
-                // Did not match.
+            final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(groupingKey);
+            if (match.getType() != QueryToKeyMatcher.MatchType.NO_MATCH) {
+                return Optional.of(new Conditions(match.getEqualityComparisons()));
             }
         }
         return Optional.empty();
