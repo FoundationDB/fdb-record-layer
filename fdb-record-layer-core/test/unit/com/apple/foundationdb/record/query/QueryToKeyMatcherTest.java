@@ -530,15 +530,11 @@ public class QueryToKeyMatcherTest {
 
         // Eventually we want this to match.
         assertInvalid(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4)), concatenateFields("a", "b"));
-        assertInvalid(Query.not(queryField("a").equalsValue(3)), keyField("a"));
         assertInvalid(Query.rank("a").equalsValue(5), keyField("a"));
 
         assertInvalid(
                 queryField("p").matches(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4))),
                 keyField("p").nest(concatenateFields("a", "b")));
-        assertInvalid(
-                queryField("p").matches(Query.not(queryField("a").equalsValue(3))),
-                keyField("p").nest(keyField("a")));
         assertInvalid(
                 queryField("p").matches(Query.rank("a").equalsValue(5)),
                 keyField("p").nest(keyField("a")));
@@ -555,6 +551,11 @@ public class QueryToKeyMatcherTest {
                     queryField("a").greaterThan(0)
                 ),
                 concatenateFields("a", "b"));
+
+        assertNoMatch(Query.not(queryField("a").equalsValue(3)), keyField("a"));
+        assertNoMatch(
+                queryField("p").matches(Query.not(queryField("a").equalsValue(3))),
+                keyField("p").nest(keyField("a")));
         assertNoMatch(
                 queryField("p").matches(Query.and(queryField("a").greaterThan(3),
                         Query.or(queryField("b").lessThan(4), queryField("b").greaterThan(5)))),

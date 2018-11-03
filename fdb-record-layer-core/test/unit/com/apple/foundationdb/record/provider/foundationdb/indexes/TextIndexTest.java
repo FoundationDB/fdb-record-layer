@@ -1358,16 +1358,12 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.field("group").lessThanOrEquals(2L),
                             Query.field("text").text().containsAny("bury their parents' strife")
                     ), -1259238340));
-            // FIXME: the planner should be smart enough to turn this into an index scan on one or both of the text filters
-            // FIXME: Text: Query.or leads to record rather than index scan (https://github.com/FoundationDB/fdb-record-layer/issues/19)
-            assertEquals(Arrays.asList(0L, 2L),
-                    querySimpleDocumentsWithScan(Query.and(
-                            Query.field("group").equalsValue(0L),
-                            Query.or(
-                                Query.field("text").text().containsAll("civil unclean blood", 4),
-                                Query.field("text").text().containsAll("king was 1016")
-                            )
-                    ), 290979239));
+            // In theory, this could be an index intersection, but it is not.
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("text").text().contains("the"),
+                            Query.field("text").text().contains("king")
+                    ), 742257848));
 
             // Prefix text predicates
 
@@ -1388,6 +1384,32 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.field("text").text().containsPrefix("blo")
                     ), 912028198));
 
+            // Some extra not's, or's, etc.
+            // These currently just perform a scan. Some of them could be improved.
+
+            // FIXME: the planner should be smart enough to turn this into an index scan on one or both of the text filters
+            // FIXME: Text: Query.or leads to record rather than index scan (https://github.com/FoundationDB/fdb-record-layer/issues/19)
+            assertEquals(Arrays.asList(0L, 2L),
+                    querySimpleDocumentsWithScan(Query.and(
+                            Query.field("group").equalsValue(0L),
+                            Query.or(
+                                    Query.field("text").text().containsAll("civil unclean blood", 4),
+                                    Query.field("text").text().containsAll("king was 1016")
+                            )
+                    ), 290979239));
+
+            // Just a not. There's not a lot this could query could do to be performed because it can return
+            // a lot of results by its very nature.
+            assertEquals(Collections.singletonList(3L),
+                    querySimpleDocumentsWithScan(Query.not(Query.field("text").text().containsAny("king unclean")), 784296904));
+
+            // Scans the index for the first predicate and then applies the second as a not.
+            // In theory, it could scan the index twice and filter out the "not".
+            assertEquals(Arrays.asList(0L, 1L, 3L),
+                    querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("text").text().contains("the"),
+                            Query.not(Query.field("text").text().contains("king"))
+                    ), 742257849));
 
             commit(context);
         }
@@ -1598,7 +1620,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return queryDocuments(Collections.singletonList(COMPLEX_DOC), Arrays.asList(field("group"), field("doc_id")), filter, planHash, planMatcher)
                 .asList()
                 .get();
-
     }
 
     @Nonnull
@@ -1609,16 +1630,30 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, @Nullable QueryComponent additionalFilter, long group, int planHash) throws InterruptedException, ExecutionException {
         if (!(textFilter instanceof ComponentWithComparison)) {
             throw new RecordCoreArgumentException("filter without comparison provided as text filter");
         }
-        final Matcher<RecordQueryPlan> planMatcher = descendant(coveringIndexScan(textIndexScan(allOf(
+        final Matcher<RecordQueryPlan> textPlanMatcher = textIndexScan(allOf(
                 indexName(COMPLEX_TEXT_BY_GROUP.getName()),
                 groupingBounds(allOf(notNullValue(), hasTupleString("[[" + group + "],[" + group + "]]"))),
                 textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison()))
-        ))));
-        return queryComplexDocumentsWithPlan(Query.and(Query.field("group").equalsValue(group), textFilter), planHash, planMatcher);
+        ));
+        final Matcher<RecordQueryPlan> planMatcher;
+        final QueryComponent filter;
+        if (additionalFilter != null) {
+            planMatcher = filter(equalTo(additionalFilter), descendant(textPlanMatcher));
+            filter = Query.and(textFilter, additionalFilter, Query.field("group").equalsValue(group));
+        } else {
+            planMatcher = descendant(coveringIndexScan(textPlanMatcher));
+            filter = Query.and(textFilter, Query.field("group").equalsValue(group));
+        }
+        return queryComplexDocumentsWithPlan(filter, planHash, planMatcher);
+    }
+
+    @Nonnull
+    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+        return queryComplexDocumentsWithIndex(textFilter, null, group, planHash);
     }
 
     @Test
@@ -1658,6 +1693,68 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("ang"), 0L, -1013515738));
             assertEquals(Arrays.asList(Tuple.from(1L, 3L), Tuple.from(1L, 1L)),
                     queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("un"), 1L, -995158140));
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void queryComplexDocumentsWithAdditionalFilters() throws Exception {
+        final List<String> textSamples = Arrays.asList(
+                TextSamples.ANGSTROM,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.AETHELRED,
+                TextSamples.FRENCH,
+                TextSamples.GERMAN,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.YIDDISH,
+                "Napoleon and the Duke of Wellington met in Waterloo in 1815."
+        );
+        final List<ComplexDocument> documents = IntStream.range(0, textSamples.size())
+                .mapToObj(i -> ComplexDocument.newBuilder()
+                        .setDocId(i)
+                        .setGroup(i % 2)
+                        .setText(textSamples.get(i))
+                        .addTag("3:" + (i % 3))
+                        .build())
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                final RecordTypeBuilder complexDocRecordType = metaDataBuilder.getRecordType(COMPLEX_DOC);
+                metaDataBuilder.addIndex(complexDocRecordType, COMPLEX_TEXT_BY_GROUP);
+            });
+            documents.forEach(recordStore::saveRecord);
+
+            assertEquals(Collections.singletonList(Tuple.from(1L, 5L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().containsAll("fearful passage love", 7),
+                            Query.field("tag").oneOfThem().equalsValue("3:2"),
+                            1, 758136568));
+
+            assertEquals(Arrays.asList(Tuple.from(1L, 1L), Tuple.from(1L, 5L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().containsAll("fearful passage love", 7),
+                            Query.field("text").text().containsPrefix("continu"),
+                            1, -1043653062));
+
+            assertEquals(Collections.singletonList(Tuple.from(1L, 7L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().contains("napoleon"),
+                            Query.and(Query.field("text").text().containsPrefix("th"), Query.field("text").text().contains("waterloo")),
+                            1, -754900112));
+
+            assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().containsAll("fearful passage love", 7),
+                            Query.not(Query.field("tag").oneOfThem().equalsValue("3:2")),
+                            1, 758136569));
+
+            assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().containsAll("fearful passage love", 7),
+                            Query.not(Query.field("tag").oneOfThem().equalsValue("3:2")),
+                            1, 758136569));
 
             commit(context);
         }

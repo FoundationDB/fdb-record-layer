@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
+import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -288,6 +289,9 @@ public class QueryToKeyMatcher {
         }
         if (query instanceof RecordTypeKeyComparison) {
             return matches((RecordTypeKeyComparison)query, key, matchingMode, filterMask);
+        }
+        if (query instanceof NotComponent) {
+            return Match.none();
         }
 
         throw new Query.InvalidExpressionException(
