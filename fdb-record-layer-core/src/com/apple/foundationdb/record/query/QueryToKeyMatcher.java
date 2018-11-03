@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
@@ -37,14 +39,14 @@ import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
-import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
-import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.google.common.collect.Iterators;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -86,6 +88,9 @@ import java.util.Objects;
  * </p>
  */
 public class QueryToKeyMatcher {
+
+    @Nonnull
+    private static final Logger LOGGER = LoggerFactory.getLogger(QueryToKeyMatcher.class);
 
     /**
      * Mode to control the kind of matching behavior desired.
@@ -290,12 +295,14 @@ public class QueryToKeyMatcher {
         if (query instanceof RecordTypeKeyComparison) {
             return matches((RecordTypeKeyComparison)query, key, matchingMode, filterMask);
         }
-        if (query instanceof NotComponent) {
-            return Match.none();
+        // Other component types (e.g., Or and Not components) are not handled by this
+        // matcher and just return Match.none()
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.of("unable to match query filter type",
+                    LogMessageKeys.KEY_EXPRESSION, key,
+                    LogMessageKeys.FILTER, query));
         }
-
-        throw new Query.InvalidExpressionException(
-                "Only fields and Nested Fields are allowed, for now " + query.getClass());
+        return Match.none();
     }
 
     @Nonnull

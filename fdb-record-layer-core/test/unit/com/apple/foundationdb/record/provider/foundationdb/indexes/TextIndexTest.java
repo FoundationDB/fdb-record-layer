@@ -147,6 +147,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFi
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.any;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.contains;
@@ -1630,7 +1631,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, @Nullable QueryComponent additionalFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, @Nullable QueryComponent additionalFilter, boolean skipFilterCheck, long group, int planHash) throws InterruptedException, ExecutionException {
         if (!(textFilter instanceof ComponentWithComparison)) {
             throw new RecordCoreArgumentException("filter without comparison provided as text filter");
         }
@@ -1642,13 +1643,18 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         final Matcher<RecordQueryPlan> planMatcher;
         final QueryComponent filter;
         if (additionalFilter != null) {
-            planMatcher = filter(equalTo(additionalFilter), descendant(textPlanMatcher));
+            planMatcher = descendant(filter(skipFilterCheck ? any(QueryComponent.class) : equalTo(additionalFilter), descendant(textPlanMatcher)));
             filter = Query.and(textFilter, additionalFilter, Query.field("group").equalsValue(group));
         } else {
             planMatcher = descendant(coveringIndexScan(textPlanMatcher));
             filter = Query.and(textFilter, Query.field("group").equalsValue(group));
         }
         return queryComplexDocumentsWithPlan(filter, planHash, planMatcher);
+    }
+
+    @Nonnull
+    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, @Nullable QueryComponent additionalFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+        return queryComplexDocumentsWithIndex(textFilter, additionalFilter, false, group, planHash);
     }
 
     @Nonnull
@@ -1716,13 +1722,16 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                         .setGroup(i % 2)
                         .setText(textSamples.get(i))
                         .addTag("3:" + (i % 3))
+                        .setScore(i)
                         .build())
                 .collect(Collectors.toList());
 
+        final Index rankIndex = new Index("Complex$rank(score)", field("score").groupBy(field("group")), IndexTypes.RANK);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 final RecordTypeBuilder complexDocRecordType = metaDataBuilder.getRecordType(COMPLEX_DOC);
                 metaDataBuilder.addIndex(complexDocRecordType, COMPLEX_TEXT_BY_GROUP);
+                metaDataBuilder.addIndex(complexDocRecordType, rankIndex);
             });
             documents.forEach(recordStore::saveRecord);
 
@@ -1755,6 +1764,20 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.field("text").text().containsAll("fearful passage love", 7),
                             Query.not(Query.field("tag").oneOfThem().equalsValue("3:2")),
                             1, 758136569));
+
+            // This query plan leads to the same pathology as is listed here:
+            // FIXME: Text: Query.or leads to record rather than index scan (https://github.com/FoundationDB/fdb-record-layer/issues/19)
+            // assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
+            //         queryComplexDocumentsWithIndex(
+            //                 Query.field("text").text().containsAll("fearful passage love", 7),
+            //                 Query.or(Query.field("tag").oneOfThem().equalsValue("3:2"), Query.field("tag").oneOfThem().equalsValue("3:0")),
+            //                 1, 0));
+
+            assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().containsAll("fearful passage love", 7),
+                            Query.rank(field("score").groupBy(field("group"))).lessThan(2L),
+                            true, 1, -2132208833));
 
             commit(context);
         }

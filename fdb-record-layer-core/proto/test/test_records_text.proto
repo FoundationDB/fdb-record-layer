@@ -37,6 +37,7 @@ message ComplexDocument {
     optional int64 doc_id = 2;
     optional string text = 3;
     repeated string tag = 4;
+    optional int32 score = 5;
 }
 
 message MapDocument {

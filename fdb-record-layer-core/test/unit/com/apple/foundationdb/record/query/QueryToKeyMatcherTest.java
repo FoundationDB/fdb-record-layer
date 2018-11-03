@@ -522,29 +522,11 @@ public class QueryToKeyMatcherTest {
     }
 
     @Test
-    public void testTemporarilyUnsupported() {
-        // This is a holder test to make sure we don't forget to test things when we add support for them, and
-        // to make sure they correctly throw errors here
-        // Ideally these match correctly once implemented
-        assertInvalid(Query.and(queryField("a").equalsValue(3), queryField("b").isEmpty()), concatenateFields("a", "b"));
-
-        // Eventually we want this to match.
-        assertInvalid(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4)), concatenateFields("a", "b"));
-        assertInvalid(Query.rank("a").equalsValue(5), keyField("a"));
-
-        assertInvalid(
-                queryField("p").matches(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4))),
-                keyField("p").nest(concatenateFields("a", "b")));
-        assertInvalid(
-                queryField("p").matches(Query.rank("a").equalsValue(5)),
-                keyField("p").nest(keyField("a")));
-    }
-
-    @Test
     public void testTemporarilyNoMatch() {
         // This is a holder test to make sure we don't forget to test things when we add support for them, and
         // to make sure they return no match for now
         // Ideally these match correctly once implemented
+        assertNoMatch(Query.and(queryField("a").equalsValue(3), queryField("b").isEmpty()), concatenateFields("a", "b"));
         assertNoMatch(
                 Query.and(
                     queryField("a").lessThan(3),
@@ -553,6 +535,15 @@ public class QueryToKeyMatcherTest {
                 concatenateFields("a", "b"));
 
         assertNoMatch(Query.not(queryField("a").equalsValue(3)), keyField("a"));
+        assertNoMatch(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4)), concatenateFields("a", "b"));
+        assertNoMatch(Query.rank("a").equalsValue(5), keyField("a"));
+
+        assertNoMatch(
+                queryField("p").matches(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4))),
+                keyField("p").nest(concatenateFields("a", "b")));
+        assertNoMatch(
+                queryField("p").matches(Query.rank("a").equalsValue(5)),
+                keyField("p").nest(keyField("a")));
         assertNoMatch(
                 queryField("p").matches(Query.not(queryField("a").equalsValue(3))),
                 keyField("p").nest(keyField("a")));
