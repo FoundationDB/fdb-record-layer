@@ -326,7 +326,7 @@ public class QueryToKeyMatcher {
         } else if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
-            if (children.isEmpty()) {
+            if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
                 return Match.none();
             } else {
                 return matches(query, children.get(0), matchingMode, filterMask);

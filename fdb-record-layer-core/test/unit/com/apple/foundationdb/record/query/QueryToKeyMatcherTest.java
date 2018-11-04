@@ -116,9 +116,15 @@ public class QueryToKeyMatcherTest {
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(10), match.getEquality());
 
+        match = matcher.matchesCoveringKey(concat(keyField("a").nest(keyField("ax")), keyField("b")));
+        assertEquals(MatchType.NO_MATCH, match.getType());
+
         match = matcher.matchesSatisfyingQuery(keyField("a").nest(concat(keyField("ax"), keyField("b"))));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(10), match.getEquality());
+
+        match = matcher.matchesCoveringKey(keyField("a").nest(concat(keyField("ax"), keyField("b"))));
+        assertEquals(MatchType.NO_MATCH, match.getType());
 
         final Match match2 = matcher.matchesSatisfyingQuery(keyField("a"));
         assertNoMatch(match2);
