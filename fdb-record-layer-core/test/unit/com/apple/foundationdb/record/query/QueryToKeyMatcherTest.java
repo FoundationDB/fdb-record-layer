@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query;
 
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.UnknownKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -563,8 +564,31 @@ public class QueryToKeyMatcherTest {
                         queryField("p").matches(queryField("c1").equalsValue(1)),
                         queryField("p").matches(queryField("c2").equalsValue(2))),
                 keyField("p").nest(concatenateFields("c1", "c2")));
+    }
 
-
+    @Test
+    public void testUnexpected() {
+        // Make sure the places that throw an error when given an unknown expression all do so.
+        assertUnexpected(queryField("a").equalsValue(1), UnknownKeyExpression.UNKNOWN);
+        assertUnexpected(queryField("a").oneOfThem().equalsValue(1), UnknownKeyExpression.UNKNOWN);
+        assertUnexpected(
+                queryField("p").matches(queryField("b").equalsValue(1)),
+                UnknownKeyExpression.UNKNOWN);
+        assertUnexpected(
+                queryField("p").oneOfThem().matches(queryField("b").equalsValue(1)),
+                UnknownKeyExpression.UNKNOWN);
+        assertUnexpected(
+                queryField("p").matches(queryField("b").equalsValue(1)),
+                keyField("p").nest(UnknownKeyExpression.UNKNOWN));
+        assertUnexpected(
+                queryField("p").oneOfThem().matches(queryField("b").equalsValue(1)),
+                keyField("p", FanType.FanOut).nest(UnknownKeyExpression.UNKNOWN));
+        assertUnexpected(
+                Query.and(Query.field("a").equalsValue(1), Query.field("b").equalsValue(2)),
+                concat(keyField("a"), UnknownKeyExpression.UNKNOWN));
+        assertUnexpected(
+                new RecordTypeKeyComparison("DummyRecordType"),
+                UnknownKeyExpression.UNKNOWN);
     }
 
     private void assertEquality(MatchType type, QueryComponent query, KeyExpression key) {
@@ -579,6 +603,13 @@ public class QueryToKeyMatcherTest {
 
     private void assertInvalid(QueryComponent query, KeyExpression key) {
         assertThrows(Query.InvalidExpressionException.class, () -> {
+            final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
+            matcher.matchesSatisfyingQuery(key);
+        });
+    }
+
+    private void assertUnexpected(QueryComponent query, KeyExpression key) {
+        assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
             matcher.matchesSatisfyingQuery(key);
         });

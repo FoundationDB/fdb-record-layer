@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,6 +92,19 @@ public class QueryToKeyMatcher {
 
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(QueryToKeyMatcher.class);
+
+    @Nonnull
+    private static final List<Class<? extends KeyExpression>> KNOWN_KEY_EXPRESSIONS = ImmutableList.of(
+            FieldKeyExpression.class,
+            ThenKeyExpression.class,
+            NestingKeyExpression.class,
+            GroupingKeyExpression.class,
+            KeyWithValueExpression.class,
+            FunctionKeyExpression.class,
+            LiteralKeyExpression.class,
+            EmptyKeyExpression.class,
+            RecordTypeKeyExpression.class
+    );
 
     /**
      * Mode to control the kind of matching behavior desired.
@@ -317,14 +331,8 @@ public class QueryToKeyMatcher {
             } else {
                 return matches(query, children.get(0), matchingMode, filterMask);
             }
-        } else if (key instanceof FieldKeyExpression) {
-            return Match.none();
-        } else if (key instanceof EmptyKeyExpression) {
-            return Match.none();
-        } else if (key instanceof RecordTypeKeyExpression) {
-            return Match.none();
         } else {
-            return unexpected(key);
+            return noMatchOrUnexpected(key);
         }
 
     }
@@ -332,9 +340,7 @@ public class QueryToKeyMatcher {
     @Nonnull
     private Match matches(@Nonnull FieldWithComparison query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
                           @Nullable FilterSatisfiedMask filterMask) {
-        if (key instanceof NestingKeyExpression) {
-            return Match.none();
-        } else if (key instanceof ThenKeyExpression) {
+        if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
             if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
@@ -346,21 +352,15 @@ public class QueryToKeyMatcher {
             return matches(query, ((GroupingKeyExpression) key).getWholeKey(), matchingMode, filterMask);
         } else if (key instanceof FieldKeyExpression) {
             return matches(query, ((FieldKeyExpression) key), filterMask);
-        } else if (key instanceof EmptyKeyExpression) {
-            return Match.none();
-        } else if (key instanceof RecordTypeKeyExpression) {
-            return Match.none();
         } else {
-            return unexpected(key);
+            return noMatchOrUnexpected(key);
         }
     }
 
     @Nonnull
     private Match matches(@Nonnull OneOfThemWithComparison query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
                           @Nullable FilterSatisfiedMask filterMask) {
-        if (key instanceof NestingKeyExpression) {
-            return Match.none();
-        } else if (key instanceof ThenKeyExpression) {
+        if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup
             if (children.isEmpty() || matchingMode.equals(MatchingMode.COVER_KEY)) {
@@ -371,13 +371,9 @@ public class QueryToKeyMatcher {
         } else if (key instanceof GroupingKeyExpression) {
             return matches(query, ((GroupingKeyExpression) key).getWholeKey(), matchingMode, filterMask);
         } else if (key instanceof FieldKeyExpression) {
-            return matches(query, ((FieldKeyExpression) key), filterMask);
-        } else if (key instanceof EmptyKeyExpression) {
-            return Match.none();
-        } else if (key instanceof RecordTypeKeyExpression) {
-            return Match.none();
+            return matches(query, ((FieldKeyExpression)key), filterMask);
         } else {
-            return unexpected(key);
+            return noMatchOrUnexpected(key);
         }
     }
 
@@ -385,15 +381,9 @@ public class QueryToKeyMatcher {
     private Match matches(@Nonnull OneOfThemWithComponent query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
                           @Nullable FilterSatisfiedMask filterMask) {
         if (key instanceof NestingKeyExpression) {
-            return matches(query, (NestingKeyExpression) key, matchingMode, filterMask);
-        } else if (key instanceof ThenKeyExpression ||
-                   key instanceof FieldKeyExpression ||
-                   key instanceof GroupingKeyExpression ||
-                   key instanceof EmptyKeyExpression ||
-                   key instanceof RecordTypeKeyExpression) {
-            return Match.none();
+            return matches(query, (NestingKeyExpression)key, matchingMode, filterMask);
         } else {
-            return unexpected(key);
+            return noMatchOrUnexpected(key);
         }
     }
 
@@ -471,13 +461,22 @@ public class QueryToKeyMatcher {
                           @Nullable FilterSatisfiedMask filterMask) {
         if (!(key instanceof RecordTypeKeyExpression ||
                 (matchingMode.equals(MatchingMode.SATISFY_QUERY) && key instanceof ThenKeyExpression && ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression))) {
-            return Match.none();
+            return noMatchOrUnexpected(key);
         }
         if (filterMask != null) {
             filterMask.setSatisfied(true);
             filterMask.setExpression(key);
         }
         return new Match(query.getComparison());
+    }
+
+    @Nonnull
+    private Match noMatchOrUnexpected(@Nonnull KeyExpression key) {
+        if (KNOWN_KEY_EXPRESSIONS.stream().anyMatch(expressionClass -> expressionClass.isInstance(key))) {
+            return Match.none();
+        } else {
+            return unexpected(key);
+        }
     }
 
     @Nonnull
