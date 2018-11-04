@@ -162,7 +162,8 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                 }
                 final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
                 final Subspace leaderboardSubspace = extraSubspace.subspace(leaderboard.getSubspaceKey());
-                return RankedSetIndexHelper.rankRangeToScoreRange(state, groupPrefixSize, leaderboardSubspace, leaderboardRange);
+                return RankedSetIndexHelper.rankRangeToScoreRange(state, groupPrefixSize,
+                        leaderboardSubspace, leaderboard.getNLevels(), leaderboardRange);
             });
         }
         // Add leaderboard's key to the front and take it off of the results.
@@ -279,7 +280,8 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
 
                             // Update the corresponding rankset for this leaderboard.
                             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-                            futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace, entryKey, indexKey.scoreKey, remove));
+                            futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace,
+                                    leaderboard.getNLevels(), entryKey, indexKey.scoreKey, remove));
                         }
                     }
                 }
@@ -346,8 +348,8 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     @Nonnull
     @Override
     public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                               @Nonnull TupleRange range,
-                                                               @Nonnull IsolationLevel isolationLevel) {
+                                                              @Nonnull TupleRange range,
+                                                              @Nonnull IsolationLevel isolationLevel) {
         if (FunctionNames.TIME_WINDOW_COUNT.equals(function.getName()) && range.isEquals()) {
             final Tuple tuple = range.getLow();
             final int type = (int) tuple.getLong(0);
@@ -361,7 +363,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                 final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
                 final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
                 final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-                final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace);
+                final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
                 return rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from);
             });
         }
@@ -402,7 +404,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
             final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
             final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace);
+            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
             // Undo any negation needed to find entry.
             final Tuple entry = leaderboard.isHighScoreFirst() ? negateScoreForHighScoreFirst(indexKey.scoreKey, 0) : indexKey.scoreKey;
             return RankedSetIndexHelper.rankForScore(state, rankedSet, indexKey.scoreKey).thenApply(rank -> Pair.of(rank, entry));
@@ -535,7 +537,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
             if (update.isAllTime()) {
                 Collection<TimeWindowLeaderboard> existing = directory.getLeaderboards().get(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE);
                 if (existing == null || existing.isEmpty()) {
-                    directory.addLeaderboard(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, Long.MIN_VALUE, Long.MAX_VALUE);
+                    directory.addLeaderboard(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, Long.MIN_VALUE, Long.MAX_VALUE, update.getNlevels());
                     if (isRebuildConditional()) {
                         rebuild = true;
                     }
@@ -551,7 +553,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                     long startTimestamp = spec.getBaseTimestamp() + spec.getStartIncrement() * i;
                     long endTimestamp = startTimestamp + spec.getDuration();
                     if (directory.findLeaderboard(spec.getType(), startTimestamp, endTimestamp) == null) {
-                        directory.addLeaderboard(spec.getType(), startTimestamp, endTimestamp);
+                        directory.addLeaderboard(spec.getType(), startTimestamp, endTimestamp, update.getNlevels());
                         if (earliestAddedStartTimestamp > startTimestamp) {
                             earliestAddedStartTimestamp = startTimestamp;
                         }

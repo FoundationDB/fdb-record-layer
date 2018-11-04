@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
@@ -66,8 +67,12 @@ import java.util.concurrent.CompletableFuture;
  * @param <M> type used to represent stored records
  */
 public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
+    private final int nlevels;
+
     public RankIndexMaintainer(IndexMaintainerState<M> state) {
         super(state);
+        String nlevelsOption = state.index.getOption(Index.RANK_NLEVELS);
+        this.nlevels = nlevelsOption == null ? RankedSet.DEFAULT_LEVELS : Integer.parseInt(nlevelsOption);
     }
 
     @Nonnull
@@ -83,7 +88,7 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
         }
         final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
         final CompletableFuture<TupleRange> scoreRangeFuture = RankedSetIndexHelper.rankRangeToScoreRange(state,
-                getGroupingCount(), extraSubspace, rankRange);
+                getGroupingCount(), extraSubspace, nlevels, rankRange);
         return RecordCursor.mapFuture(getExecutor(), scoreRangeFuture, continuation,
                 (scoreRange, scoreContinuation) -> {
                     if (scoreRange == null) {
@@ -114,7 +119,7 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
                 rankSubspace = extraSubspace;
                 scoreKey = indexEntry.getKey();
             }
-            futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace, indexEntry.getKey(),
+            futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace, nlevels, indexEntry.getKey(),
                     scoreKey, remove));
         }
         return AsyncUtil.whenAll(futures);
@@ -151,7 +156,7 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
             rankSubspace = rankSubspace.subspace(prefix);
             scoreValue = Tuple.fromList(scoreValue.getItems().subList(groupPrefixSize, scoreValue.size()));
         }
-        RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace);
+        RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, nlevels);
         return RankedSetIndexHelper.rankForScore(state, rankedSet, scoreValue);
     }
 
@@ -192,8 +197,8 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
     @Nonnull
     @Override
     public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                               @Nonnull TupleRange range,
-                                                               @Nonnull final IsolationLevel isolationLevel) {
+                                                              @Nonnull TupleRange range,
+                                                              @Nonnull final IsolationLevel isolationLevel) {
         final int groupingCount = getGroupingCount();
         if ((FunctionNames.COUNT.equals(function.getName()) ||
                 FunctionNames.COUNT_DISTINCT.equals(function.getName())) &&
@@ -202,7 +207,7 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
             if (groupingCount > 0) {
                 rankSubspace = rankSubspace.subspace(range.getLow());
             }
-            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace);
+            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, nlevels);
             return rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from);
         }
         if ((FunctionNames.SCORE_FOR_RANK.equals(function.getName()) ||

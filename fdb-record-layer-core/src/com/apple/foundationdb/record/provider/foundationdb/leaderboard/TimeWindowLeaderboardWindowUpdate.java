@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 
 /**
@@ -33,12 +34,38 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
         ALWAYS, NEVER, IF_OVERLAPPING_CHANGED
     }
 
-    private long updateTimestamp;
-    private boolean highScoreFirst;
-    private long deleteBefore;
-    private boolean allTime;
-    private Iterable<TimeWindowSpec> specs;
-    private Rebuild rebuild;
+    private final long updateTimestamp;
+    private final boolean highScoreFirst;
+    private final long deleteBefore;
+    private final boolean allTime;
+    private final Iterable<TimeWindowSpec> specs;
+    private final int nlevels;
+    private final Rebuild rebuild;
+
+    /**
+     * Create a time window update operation.
+     * @param updateTimestamp a timestamp to be recorded if any changes are made
+     * @param highScoreFirst if <code>true</code>, numerically higher scores come first in the index
+     * @param deleteBefore delete any time windows ending at this time or before
+     * @param allTime include an all-time leaderboard
+     * @param specs specifications for time windows to create
+     * @param nlevels number of skip list levels to maintain
+     * @param rebuild completely rebuild the index using the new time windows by scanning all existing records
+     *
+     */
+    public TimeWindowLeaderboardWindowUpdate(long updateTimestamp,
+                                             boolean highScoreFirst,
+                                             long deleteBefore,
+                                             boolean allTime, Iterable<TimeWindowSpec> specs,
+                                             int nlevels, Rebuild rebuild) {
+        this.updateTimestamp = updateTimestamp;
+        this.highScoreFirst = highScoreFirst;
+        this.deleteBefore = deleteBefore;
+        this.allTime = allTime;
+        this.specs = specs;
+        this.nlevels = nlevels;
+        this.rebuild = rebuild;
+    }
 
     /**
      * Create a time window update operation.
@@ -55,12 +82,7 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
                                              long deleteBefore,
                                              boolean allTime, Iterable<TimeWindowSpec> specs,
                                              Rebuild rebuild) {
-        this.updateTimestamp = updateTimestamp;
-        this.highScoreFirst = highScoreFirst;
-        this.deleteBefore = deleteBefore;
-        this.allTime = allTime;
-        this.specs = specs;
-        this.rebuild = rebuild;
+        this(updateTimestamp, highScoreFirst, deleteBefore, allTime, specs, RankedSet.DEFAULT_LEVELS, rebuild);
     }
 
     public long getUpdateTimestamp() {
@@ -81,6 +103,10 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
 
     public Iterable<TimeWindowSpec> getSpecs() {
         return specs;
+    }
+
+    public int getNlevels() {
+        return nlevels;
     }
 
     public Rebuild getRebuild() {

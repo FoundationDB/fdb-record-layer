@@ -71,12 +71,13 @@ public class RankedSetIndexHelper {
     public static CompletableFuture<TupleRange> rankRangeToScoreRange(@Nonnull IndexMaintainerState<?> state,
                                                                       int groupPrefixSize,
                                                                       @Nonnull Subspace rankSubspace,
+                                                                      int nlevels,
                                                                       @Nonnull TupleRange rankRange) {
         final Tuple prefix = groupPrefix(groupPrefixSize, rankRange, rankSubspace);
         if (prefix != null) {
             rankSubspace = rankSubspace.subspace(prefix);
         }
-        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace);
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, nlevels);
 
         // Map low and high ranks to scores and scan main index with those.
         Number lowRankNum = extractRank(groupPrefixSize, rankRange.getLow());
@@ -203,10 +204,11 @@ public class RankedSetIndexHelper {
     @Nonnull
     public static CompletableFuture<Void> updateRankedSet(@Nonnull IndexMaintainerState<?> state,
                                                           @Nonnull Subspace rankSubspace,
+                                                          int nlevels,
                                                           @Nonnull Tuple valueKey,
                                                           @Nonnull Tuple scoreKey,
                                                           boolean remove) {
-        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace);
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, nlevels);
         final byte[] score = scoreKey.pack();
         CompletableFuture<Void> result = init(state, rankedSet).thenCompose(v -> {
             if (remove) {
@@ -240,8 +242,9 @@ public class RankedSetIndexHelper {
         private final FDBTransactionContext context;
 
         public InstrumentedRankedSet(@Nonnull IndexMaintainerState<?> state,
-                                     @Nonnull Subspace rankSubspace) {
-            super(rankSubspace, state.context.getExecutor());
+                                     @Nonnull Subspace rankSubspace,
+                                     int nlevels) {
+            super(rankSubspace, state.context.getExecutor(), nlevels);
             this.context = state.context;
         }
 
