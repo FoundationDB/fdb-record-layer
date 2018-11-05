@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query;
 
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.UnknownKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -115,9 +116,15 @@ public class QueryToKeyMatcherTest {
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(10), match.getEquality());
 
+        match = matcher.matchesCoveringKey(concat(keyField("a").nest(keyField("ax")), keyField("b")));
+        assertEquals(MatchType.NO_MATCH, match.getType());
+
         match = matcher.matchesSatisfyingQuery(keyField("a").nest(concat(keyField("ax"), keyField("b"))));
         assertEquals(MatchType.EQUALITY, match.getType());
         assertEquals(Key.Evaluated.scalar(10), match.getEquality());
+
+        match = matcher.matchesCoveringKey(keyField("a").nest(concat(keyField("ax"), keyField("b"))));
+        assertEquals(MatchType.NO_MATCH, match.getType());
 
         final Match match2 = matcher.matchesSatisfyingQuery(keyField("a"));
         assertNoMatch(match2);
@@ -522,39 +529,31 @@ public class QueryToKeyMatcherTest {
     }
 
     @Test
-    public void testTemporarilyUnsupported() {
-        // This is a holder test to make sure we don't forget to test things when we add support for them, and
-        // to make sure they correctly throw errors here
-        // Ideally these match correctly once implemented
-        assertInvalid(Query.and(queryField("a").equalsValue(3), queryField("b").isEmpty()), concatenateFields("a", "b"));
-
-        // Eventually we want this to match.
-        assertInvalid(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4)), concatenateFields("a", "b"));
-        assertInvalid(Query.not(queryField("a").equalsValue(3)), keyField("a"));
-        assertInvalid(Query.rank("a").equalsValue(5), keyField("a"));
-
-        assertInvalid(
-                queryField("p").matches(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4))),
-                keyField("p").nest(concatenateFields("a", "b")));
-        assertInvalid(
-                queryField("p").matches(Query.not(queryField("a").equalsValue(3))),
-                keyField("p").nest(keyField("a")));
-        assertInvalid(
-                queryField("p").matches(Query.rank("a").equalsValue(5)),
-                keyField("p").nest(keyField("a")));
-    }
-
-    @Test
     public void testTemporarilyNoMatch() {
         // This is a holder test to make sure we don't forget to test things when we add support for them, and
         // to make sure they return no match for now
         // Ideally these match correctly once implemented
+        assertNoMatch(Query.and(queryField("a").equalsValue(3), queryField("b").isEmpty()), concatenateFields("a", "b"));
         assertNoMatch(
                 Query.and(
                     queryField("a").lessThan(3),
                     queryField("a").greaterThan(0)
                 ),
                 concatenateFields("a", "b"));
+
+        assertNoMatch(Query.not(queryField("a").equalsValue(3)), keyField("a"));
+        assertNoMatch(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4)), concatenateFields("a", "b"));
+        assertNoMatch(Query.rank("a").equalsValue(5), keyField("a"));
+
+        assertNoMatch(
+                queryField("p").matches(Query.or(queryField("a").equalsValue(3), queryField("b").equalsValue(4))),
+                keyField("p").nest(concatenateFields("a", "b")));
+        assertNoMatch(
+                queryField("p").matches(Query.rank("a").equalsValue(5)),
+                keyField("p").nest(keyField("a")));
+        assertNoMatch(
+                queryField("p").matches(Query.not(queryField("a").equalsValue(3))),
+                keyField("p").nest(keyField("a")));
         assertNoMatch(
                 queryField("p").matches(Query.and(queryField("a").greaterThan(3),
                         Query.or(queryField("b").lessThan(4), queryField("b").greaterThan(5)))),
@@ -571,8 +570,31 @@ public class QueryToKeyMatcherTest {
                         queryField("p").matches(queryField("c1").equalsValue(1)),
                         queryField("p").matches(queryField("c2").equalsValue(2))),
                 keyField("p").nest(concatenateFields("c1", "c2")));
+    }
 
-
+    @Test
+    public void testUnexpected() {
+        // Make sure the places that throw an error when given an unknown expression all do so.
+        assertUnexpected(queryField("a").equalsValue(1), UnknownKeyExpression.UNKNOWN);
+        assertUnexpected(queryField("a").oneOfThem().equalsValue(1), UnknownKeyExpression.UNKNOWN);
+        assertUnexpected(
+                queryField("p").matches(queryField("b").equalsValue(1)),
+                UnknownKeyExpression.UNKNOWN);
+        assertUnexpected(
+                queryField("p").oneOfThem().matches(queryField("b").equalsValue(1)),
+                UnknownKeyExpression.UNKNOWN);
+        assertUnexpected(
+                queryField("p").matches(queryField("b").equalsValue(1)),
+                keyField("p").nest(UnknownKeyExpression.UNKNOWN));
+        assertUnexpected(
+                queryField("p").oneOfThem().matches(queryField("b").equalsValue(1)),
+                keyField("p", FanType.FanOut).nest(UnknownKeyExpression.UNKNOWN));
+        assertUnexpected(
+                Query.and(Query.field("a").equalsValue(1), Query.field("b").equalsValue(2)),
+                concat(keyField("a"), UnknownKeyExpression.UNKNOWN));
+        assertUnexpected(
+                new RecordTypeKeyComparison("DummyRecordType"),
+                UnknownKeyExpression.UNKNOWN);
     }
 
     private void assertEquality(MatchType type, QueryComponent query, KeyExpression key) {
@@ -587,6 +609,13 @@ public class QueryToKeyMatcherTest {
 
     private void assertInvalid(QueryComponent query, KeyExpression key) {
         assertThrows(Query.InvalidExpressionException.class, () -> {
+            final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
+            matcher.matchesSatisfyingQuery(key);
+        });
+    }
+
+    private void assertUnexpected(QueryComponent query, KeyExpression key) {
+        assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
             final QueryToKeyMatcher matcher = new QueryToKeyMatcher(query);
             matcher.matchesSatisfyingQuery(key);
         });
