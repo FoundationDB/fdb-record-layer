@@ -27,7 +27,9 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -96,8 +98,8 @@ public class PlanOrderingKey {
         while (queryPlan instanceof RecordQueryFilterPlan) {
             queryPlan = ((RecordQueryFilterPlan)queryPlan).getInner();
         }
-        if (queryPlan instanceof RecordQueryIndexPlan) {
-            final RecordQueryIndexPlan indexPlan = (RecordQueryIndexPlan)queryPlan;
+        if (queryPlan instanceof RecordQueryPlanWithIndex) {
+            final RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex)queryPlan;
             final Index index = metaData.getIndex(indexPlan.getIndexName());
             final List<KeyExpression> keys = new ArrayList<>(index.getRootExpression().normalizeKeyForPositions());
             int pkeyStart = keys.size();
@@ -111,7 +113,25 @@ public class PlanOrderingKey {
                     pkeyStart = pos;
                 }
             }
-            final int prefixSize = indexPlan.getComparisons().getEqualitySize();
+            final int prefixSize;
+            if (indexPlan instanceof RecordQueryIndexPlan) {
+                prefixSize = ((RecordQueryIndexPlan)indexPlan).getComparisons().getEqualitySize();
+            } else if (indexPlan instanceof RecordQueryTextIndexPlan) {
+                final TextScan textScan = ((RecordQueryTextIndexPlan)indexPlan).getTextScan();
+                int groupingSize = textScan.getGroupingComparisons() != null ? textScan.getGroupingComparisons().getEqualitySize() : 0;
+                int suffixSize = textScan.getSuffixComparisons() != null ? textScan.getSuffixComparisons().getEqualitySize() : 0;
+                if (textScan.getTextComparison().getType().isEquality()) {
+                    // Can use the equality comparisons in the grouping columns and any columns after the text index
+                    // plus the text column itself.
+                    prefixSize = groupingSize + suffixSize + 1;
+                } else {
+                    // Can only using the grouping columns as the text index itself uses an inequality comparison
+                    prefixSize = groupingSize;
+                }
+            } else {
+                // Some unknown index plan. Maybe this should throw an error?
+                return null;
+            }
             return new PlanOrderingKey(keys, prefixSize, pkeyStart, pKeyTail);
         } else if (queryPlan instanceof RecordQueryScanPlan) {
             final RecordQueryScanPlan scanPlan = (RecordQueryScanPlan)queryPlan;
