@@ -72,9 +72,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.expressions.AndComponent;
+import com.apple.foundationdb.record.query.expressions.AndOrComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
+import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
@@ -1203,8 +1204,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, @Nonnull QueryComponent textFilter, int planHash) throws InterruptedException, ExecutionException {
         if (textFilter instanceof ComponentWithComparison && ((ComponentWithComparison)textFilter).getComparison() instanceof Comparisons.TextComparison) {
             return querySimpleDocumentsWithIndex(filter, indexName, planHash, equalTo(((ComponentWithComparison)textFilter).getComparison()));
-        } else if (textFilter instanceof AndComponent) {
-            for (QueryComponent childFilter : ((AndComponent)textFilter).getChildren()) {
+        } else if (textFilter instanceof AndOrComponent) {
+            for (QueryComponent childFilter : ((AndOrComponent)textFilter).getChildren()) {
                 List<Long> childResults = querySimpleDocumentsWithIndex(filter, indexName, childFilter, planHash);
                 if (childResults != null) {
                     return childResults;
@@ -1385,19 +1386,16 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.field("text").text().containsPrefix("blo")
                     ), 912028198));
 
-            // Some extra not's, or's, etc.
-            // These currently just perform a scan. Some of them could be improved.
+            // Performs a union of the two text queries.
 
-            // FIXME: the planner should be smart enough to turn this into an index scan on one or both of the text filters
-            // FIXME: Text: Query.or leads to record rather than index scan (https://github.com/FoundationDB/fdb-record-layer/issues/19)
             assertEquals(Arrays.asList(0L, 2L),
-                    querySimpleDocumentsWithScan(Query.and(
+                    querySimpleDocumentsWithIndex(Query.and(
                             Query.field("group").equalsValue(0L),
                             Query.or(
                                     Query.field("text").text().containsAll("civil unclean blood", 4),
                                     Query.field("text").text().containsAll("king was 1016")
                             )
-                    ), 290979239));
+                    ), 1313228370));
 
             // Just a not. There's not a lot this could query could do to be performed because it can return
             // a lot of results by its very nature.
@@ -1643,7 +1641,11 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         final Matcher<RecordQueryPlan> planMatcher;
         final QueryComponent filter;
         if (additionalFilter != null) {
-            planMatcher = descendant(filter(skipFilterCheck ? any(QueryComponent.class) : equalTo(additionalFilter), descendant(textPlanMatcher)));
+            if (skipFilterCheck) {
+                planMatcher = descendant(textPlanMatcher);
+            } else {
+                planMatcher = descendant(filter(equalTo(additionalFilter), descendant(textPlanMatcher)));
+            }
             filter = Query.and(textFilter, additionalFilter, Query.field("group").equalsValue(group));
         } else {
             planMatcher = descendant(coveringIndexScan(textPlanMatcher));
@@ -1660,6 +1662,18 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
         return queryComplexDocumentsWithIndex(textFilter, null, group, planHash);
+    }
+
+    @Nonnull
+    private List<Tuple> queryComplexDocumentsWithOr(@Nonnull OrComponent orFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+        final Matcher<RecordQueryPlan> textPlanMatcher = textIndexScan(allOf(
+                indexName(COMPLEX_TEXT_BY_GROUP.getName()),
+                groupingBounds(allOf(notNullValue(), hasTupleString("[[" + group + "],[" + group + "]]"))),
+                textComparison(any(Comparisons.TextComparison.class))
+        ));
+        final QueryComponent filter = Query.and(orFilter, Query.field("group").equalsValue(group));
+        final Matcher<RecordQueryPlan> planMatcher = descendant(textPlanMatcher);
+        return queryComplexDocumentsWithPlan(filter, planHash, planMatcher);
     }
 
     @Test
@@ -1765,13 +1779,19 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.not(Query.field("tag").oneOfThem().equalsValue("3:2")),
                             1, 758136569));
 
-            // This query plan leads to the same pathology as is listed here:
-            // FIXME: Text: Query.or leads to record rather than index scan (https://github.com/FoundationDB/fdb-record-layer/issues/19)
-            // assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
-            //         queryComplexDocumentsWithIndex(
-            //                 Query.field("text").text().containsAll("fearful passage love", 7),
-            //                 Query.or(Query.field("tag").oneOfThem().equalsValue("3:2"), Query.field("tag").oneOfThem().equalsValue("3:0")),
-            //                 1, 0));
+            assertEquals(Arrays.asList(Tuple.from(0L, 0L), Tuple.from(0L, 6L)),
+                    queryComplexDocumentsWithOr((OrComponent) Query.or(
+                            Query.field("text").text().containsAll("unit named after"),
+                            Query.field("text").text().containsPhrase("אן ארמיי און פלאט")
+                    ), 0, -1558384887));
+
+            assertEquals(Collections.singletonList(Tuple.from(1L, 5L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().containsAll("fearful passage love", 7),
+                            Query.or(
+                                    Query.field("tag").oneOfThem().equalsValue("3:2"),
+                                    Query.field("tag").oneOfThem().equalsValue("3:0")),
+                            true, 1, 299461731));
 
             assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
                     queryComplexDocumentsWithIndex(
