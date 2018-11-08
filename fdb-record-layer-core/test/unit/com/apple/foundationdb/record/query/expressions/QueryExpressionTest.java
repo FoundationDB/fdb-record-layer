@@ -468,6 +468,7 @@ public class QueryExpressionTest {
     @Tag(Tags.Slow)
     public void testValidation() {
         final List<QueryComponent> validFilterBase = Arrays.asList(
+                Query.field("nesty").isNull(),
                 Query.field("repeated_nesty").isEmpty(),
                 Query.field("regular_old_field").isNull(),
                 Query.field("regular_old_field").greaterThan("this string"),
@@ -480,7 +481,6 @@ public class QueryExpressionTest {
                 Query.field("repeated_field").equalsValue(Arrays.asList("a", "b", "c"))
         );
         final List<QueryComponent> invalidFilterBase = Arrays.asList(
-                Query.field("nesty").isNull(),
                 Query.field("not_in_message_type").isNull(),
                 Query.field("nesty").isEmpty(),
                 Query.field("repeated_nesty").isNull(),
