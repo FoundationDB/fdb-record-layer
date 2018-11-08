@@ -56,7 +56,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
         final Object value = getFieldValue(message);
         if (value == null) {
             return getComparison().eval(context, null);
-        } else if (value instanceof MessageOrBuilder) {
+        } else if (value instanceof MessageOrBuilder && !allowWholeMessage()) {
             throw new Query.InvalidExpressionException("Expression requiring primitive found a message value");
         } else {
             return getComparison().eval(context, value);
@@ -66,8 +66,15 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     @Override
     public void validate(@Nonnull Descriptors.Descriptor descriptor) {
         final Descriptors.FieldDescriptor field = super.validateFieldExistence(descriptor);
-        requirePrimitiveField(field);
+        if (!allowWholeMessage()) {
+            requirePrimitiveField(field);
+        }
         getComparison().validate(field, false);
+    }
+
+    private boolean allowWholeMessage() {
+        // Can check nullity of a nested message as well as of a field in it.
+        return getComparison().getType() == Comparisons.Type.IS_NULL || getComparison().getType() == Comparisons.Type.NOT_NULL;
     }
 
     @Override
