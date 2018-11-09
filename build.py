@@ -140,7 +140,9 @@ def build(release=False, proto2=False, proto3=False, publish=False):
 
     if proto3:
         # Make with protobuf 3.
-        success = run_gradle(3, 'build', 'destructiveTest', ':fdb-record-layer-core-pb3:bintrayUpload', '-PcoreNotStrict',
+        success = run_gradle(3, 'build', 'destructiveTest', '-PcoreNotStrict',
+                                ':fdb-record-layer-core-pb3:bintrayUpload',
+                                ':fdb-record-layer-core-pb3-shaded:bintrayUpload',
                                 '-PreleaseBuild={0}'.format('true' if release else 'false'),
                                 '-PpublishBuild={0}'.format('true' if publish else 'false'))
         if not success:
