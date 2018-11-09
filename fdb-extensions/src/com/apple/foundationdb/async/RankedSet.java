@@ -29,8 +29,10 @@ import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -38,6 +40,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+
+import static com.apple.foundationdb.async.AsyncUtil.DONE;
+import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
 
 /**
  * RankedSet supports the efficient retrieval of elements by their rank as
@@ -63,6 +68,8 @@ public class RankedSet
         }
     }
 
+    private static final byte[] ZERO_ARRAY = new byte[] { 0 };
+
     private static byte[] encodeLong(long count) {
         return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
     }
@@ -82,8 +89,6 @@ public class RankedSet
     public CompletableFuture<Void> init(TransactionContext tc) {
         return initLevels(tc);
     }
-
-    private static final CompletableFuture<Boolean> READY_FALSE = CompletableFuture.completedFuture(Boolean.FALSE);
 
     /**
      * Add a key to the set.
@@ -105,7 +110,10 @@ public class RankedSet
                     for (int li = 0; li < MAX_LEVELS; ++li) {
                         int level = li;
                         CompletableFuture<Void> future;
-                        if ((keyHash & LEVEL_FAN_VALUES[level]) != 0) {
+                        if (level == 0) {
+                            tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(1));
+                            future = DONE;
+                        } else if ((keyHash & LEVEL_FAN_VALUES[level]) != 0) {
                             future = getPreviousKey(tr, level, key).thenApply(prevKey -> {
                                 tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKey)), encodeLong(1));
                                 return null;
@@ -485,9 +493,6 @@ public class RankedSet
     }
 
     private CompletableFuture<Long> countRange(ReadTransactionContext tc, int level, byte[] beginKey, byte[] endKey) {
-        if (level == -1) {
-            return CompletableFuture.completedFuture((beginKey.length == 0) ? 0L : 1L);
-        }
         return tc.readAsync(tr ->
                 AsyncUtil.mapIterable(tr.getRange(beginKey == null ?
                                 subspace.range(Tuple.from(level)).begin :
@@ -502,17 +507,22 @@ public class RankedSet
 
     private CompletableFuture<byte[]> getPreviousKey(TransactionContext tc, int level, byte[] key) {
         byte[] k = subspace.pack(Tuple.from(level, key));
-        CompletableFuture<KeyValue> kvf = tc.run(tr ->
-                // NB: Assumes RYW snapshot behavior of API >= 300
+        CompletableFuture<byte[]> kf = tc.run(tr ->
                 tr.snapshot()
                         .getRange(KeySelector.lastLessThan(k), KeySelector.firstGreaterOrEqual(k), 1)
                         .asList()
                         .thenApply(kvs -> {
-                            KeyValue kv1 = kvs.get(0);
-                            tr.addReadConflictRange(kv1.getKey(), k);
-                            return kv1;
+                            byte[] prevk = kvs.get(0).getKey();
+                            // If another key were inserted after between this and the target key,
+                            // it wouldn't be the one we should increment any more.
+                            // But do not conflict when key itself is incremented.
+                            byte[] exclusiveBegin = ByteArrayUtil.join(prevk, ZERO_ARRAY);
+                            tr.addReadConflictRange(exclusiveBegin, k);
+                            // Do conflict if key is removed entirely.
+                            tr.addReadConflictKey(subspace.pack(Tuple.from(0, subspace.unpack(prevk).getBytes(1))));
+                            return prevk;
                         }));
-        return kvf.thenApply(kv -> subspace.unpack(kv.getKey()).getBytes(1));
+        return kf.thenApply(prevk -> subspace.unpack(prevk).getBytes(1));
     }
 
     private long hashKey(byte[] k) {
