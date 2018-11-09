@@ -38,12 +38,14 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -121,6 +123,39 @@ public class RankedSetTest
             assertEquals(0L, rs.rank(tr, Tuple.from(20).pack()).join().longValue());
             assertEquals(1L, rs.rank(tr, Tuple.from(30).pack()).join().longValue());
             assertEquals(2L, rs.rank(tr, Tuple.from(40).pack()).join().longValue());
+            return null;
+        });
+    }
+
+    @Test
+    public void concurrentRemove() throws Exception {
+        RankedSet rs = newRankedSet();
+        db.run(tr -> {
+            // Create a higher level entry.
+            rs.add(tr, Tuple.from(20).pack()).join();
+            return null;
+        });
+        Transaction tr1 = db.createTransaction();
+        if (TRACE) {
+            tr1.options().setTransactionLoggingEnable("tr1");
+        }
+        Transaction tr2 = db.createTransaction();
+        if (TRACE) {
+            tr2.options().setTransactionLoggingEnable("tr2");
+        }
+        // Will remove from all levels.
+        rs.remove(tr1, Tuple.from(20).pack()).join();
+        // Needs to increment the leftmost entry, not the one being removed.
+        rs.add(tr2, Tuple.from(30).pack()).join();
+        tr1.commit().join();
+        assertThrows(CompletionException.class, () -> tr2.commit().join());
+        db.run(tr -> {
+            rs.add(tr, Tuple.from(30).pack()).join();
+            return null;
+        });
+        db.read(tr -> {
+            // If the overlapping commit had succeeded, it would have incremented the 20 entry at level 1, so 20 would be returned here.
+            assertEquals(30, Tuple.fromBytes(rs.getNth(tr, 0).join()).getLong(0));
             return null;
         });
     }

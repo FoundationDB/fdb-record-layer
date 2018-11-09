@@ -519,7 +519,7 @@ public class RankedSet
                             byte[] exclusiveBegin = ByteArrayUtil.join(prevk, ZERO_ARRAY);
                             tr.addReadConflictRange(exclusiveBegin, k);
                             // Do conflict if key is removed entirely.
-                            tr.addReadConflictKey(subspace.pack(Tuple.from(0, prevk)));
+                            tr.addReadConflictKey(subspace.pack(Tuple.from(0, subspace.unpack(prevk).getBytes(1))));
                             return prevk;
                         }));
         return kf.thenApply(prevk -> subspace.unpack(prevk).getBytes(1));
