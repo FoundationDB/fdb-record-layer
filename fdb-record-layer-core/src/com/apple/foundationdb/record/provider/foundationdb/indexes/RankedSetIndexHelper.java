@@ -123,6 +123,9 @@ public class RankedSetIndexHelper {
 
     @Nonnull
     private static CompletableFuture<Void> init(@Nonnull IndexMaintainerState<?> state, @Nonnull RankedSet rankedSet) {
+        // The reads that init does can conflict with the atomic mutations that are done to those same keys by add / remove
+        // when the key is far enough to the left, as it almost always is for sparser levels.
+        // So, check with snapshot read whether it needs to be done first.
         return rankedSet.initNeeded(state.context.readTransaction(true))
                 .thenCompose(needed -> needed ? rankedSet.init(state.transaction) : AsyncUtil.DONE);
     }
