@@ -20,6 +20,7 @@
 
 apply plugin: 'com.github.johnrengelman.shadow'
 apply from: rootProject.file('gradle/proto.gradle')
+apply from: rootProject.file('gradle/publishing.gradle')
 if (!hasProperty('coreNotStrict')) {
     apply from: rootProject.file('gradle/strict.gradle')
 }
