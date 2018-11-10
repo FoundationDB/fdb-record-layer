@@ -1330,7 +1330,7 @@ public class OnlineIndexBuilderTest {
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(r.nextInt(20)).build()
         ).collect(Collectors.toList());
         Set<Integer> usedKeys = new HashSet<>();
-        List<Integer> primaryKeys = IntStream.generate(() -> r.nextInt(100)).filter(usedKeys::add).limit(50).mapToObj(Integer::new).collect(Collectors.toList());
+        List<Integer> primaryKeys = IntStream.generate(() -> r.nextInt(100)).filter(usedKeys::add).limit(50).boxed().collect(Collectors.toList());
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = primaryKeys.stream().map(recNo ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(recNo).setNumValue2(r.nextInt(20) + 20).build()
         ).collect(Collectors.toList());
@@ -1345,7 +1345,7 @@ public class OnlineIndexBuilderTest {
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(r.nextInt(20)).build()
         ).collect(Collectors.toList());
         Set<Integer> usedKeys = new HashSet<>();
-        List<Integer> primaryKeys = IntStream.generate(() -> r.nextInt(100)).filter(usedKeys::add).limit(50).mapToObj(Integer::new).collect(Collectors.toList());
+        List<Integer> primaryKeys = IntStream.generate(() -> r.nextInt(100)).filter(usedKeys::add).limit(50).boxed().collect(Collectors.toList());
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = primaryKeys.stream().map(recNo ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(recNo).setNumValue2(r.nextInt(20) + 20).build()
         ).collect(Collectors.toList());
@@ -1442,7 +1442,7 @@ public class OnlineIndexBuilderTest {
         ).limit(100).collect(Collectors.toList());
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(false));
         Set<Integer> usedKeys = new HashSet<>();
-        List<Integer> primaryKeys = IntStream.generate(() -> r.nextInt(100)).filter(usedKeys::add).limit(50).mapToObj(Integer::new).collect(Collectors.toList());
+        List<Integer> primaryKeys = IntStream.generate(() -> r.nextInt(100)).filter(usedKeys::add).limit(50).boxed().collect(Collectors.toList());
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = primaryKeys.stream().map(recNo ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(recNo).setNumValue2(r.nextInt(20) + 20).build()
         ).collect(Collectors.toList());
