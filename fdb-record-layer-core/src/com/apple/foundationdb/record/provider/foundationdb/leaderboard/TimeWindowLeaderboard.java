@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
@@ -39,22 +40,25 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
     private final long endTimestamp;
     @Nonnull
     private final Tuple subspaceKey;
+    private final int nlevels;
 
     public TimeWindowLeaderboard(@Nonnull TimeWindowLeaderboardDirectory directory,
                                  int type, long startTimestamp, long endTimestamp,
-                                 @Nonnull Tuple subspaceKey) {
+                                 @Nonnull Tuple subspaceKey, int nlevels) {
         this.directory = directory;
         this.type = type;
         this.startTimestamp = startTimestamp;
         this.endTimestamp = endTimestamp;
         this.subspaceKey = subspaceKey;
+        this.nlevels = nlevels;
     }
 
     protected TimeWindowLeaderboard(@Nonnull TimeWindowLeaderboardDirectory directory,
                                     @Nonnull TimeWindowLeaderboardProto.TimeWindowLeaderboard proto) {
         this(directory,
                 proto.getType(), proto.getStartTimestamp(), proto.getEndTimestamp(),
-                Tuple.fromBytes(proto.getSubspaceKey().toByteArray()));
+                Tuple.fromBytes(proto.getSubspaceKey().toByteArray()),
+                proto.hasNlevels() ? proto.getNlevels() : RankedSet.DEFAULT_LEVELS);
     }
 
     public TimeWindowLeaderboardDirectory getDirectory() {
@@ -86,6 +90,10 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
         return subspaceKey;
     }
 
+    public int getNLevels() {
+        return nlevels;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -106,7 +114,10 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
         if (endTimestamp != that.endTimestamp) {
             return false;
         }
-        return subspaceKey.equals(that.subspaceKey);
+        if (!subspaceKey.equals(that.subspaceKey)) {
+            return false;
+        }
+        return nlevels == that.nlevels;
     }
 
     @Override
@@ -115,6 +126,7 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
         result = 31 * result + (int) (startTimestamp ^ (startTimestamp >>> 32));
         result = 31 * result + (int) (endTimestamp ^ (endTimestamp >>> 32));
         result = 31 * result + subspaceKey.hashCode();
+        result = 31 * result + nlevels;
         return result;
     }
 
@@ -129,7 +141,10 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
         if (this.endTimestamp != that.endTimestamp) {
             return this.endTimestamp < that.endTimestamp ? +1 : -1; // Wider comes first.
         }
-        return this.subspaceKey.compareTo(that.subspaceKey);
+        if (!this.subspaceKey.equals(that.subspaceKey)) {
+            return this.subspaceKey.compareTo(that.subspaceKey);
+        }
+        return this.nlevels < that.nlevels ? -1 : +1;
     }
 
     @Nonnull
@@ -138,6 +153,7 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
                 .setType(type)
                 .setStartTimestamp(startTimestamp)
                 .setEndTimestamp(endTimestamp)
-                .setSubspaceKey(ByteString.copyFrom(subspaceKey.pack()));
+                .setSubspaceKey(ByteString.copyFrom(subspaceKey.pack()))
+                .setNlevels(nlevels);
     }
 }

@@ -57,15 +57,15 @@ import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
  */
 public class RankedSet
 {
-    // TODO: Constructor arg? Almost certainly too small for large sets.
-    private static final int MAX_LEVELS = 6;
     private static final int LEVEL_FAN_POW = 4;
     private static final int[] LEVEL_FAN_VALUES; // 2^(l * FAN) - 1 per level
+    public static final int MAX_LEVELS = Integer.SIZE / LEVEL_FAN_POW;
+    public static final int DEFAULT_LEVELS = 6;
 
     static {
         LEVEL_FAN_VALUES = new int[MAX_LEVELS];
         for (int i = 0; i < MAX_LEVELS; ++i) {
-            LEVEL_FAN_VALUES[i] = (int)Math.pow(2, i * LEVEL_FAN_POW) - 1;
+            LEVEL_FAN_VALUES[i] = (1 << (i * LEVEL_FAN_POW)) - 1;
         }
     }
 
@@ -82,10 +82,26 @@ public class RankedSet
 
     protected final Subspace subspace;
     protected final Executor executor;
+    protected final int nlevels;
 
-    public RankedSet(Subspace subspace, Executor executor) {
+    /**
+     * Initialize a new ranked set.
+     * @param subspace the subspace where the ranked set is stored
+     * @param executor an executor to use when running asynchronous tasks
+     * @param nlevels number of skip list levels to maintain
+     */
+    public RankedSet(Subspace subspace, Executor executor, int nlevels) {
+        if (nlevels < 2 || nlevels > MAX_LEVELS) {
+            throw new IllegalArgumentException("levels must be between 2 and " + MAX_LEVELS);
+        }
+
         this.subspace = subspace;
         this.executor = executor;
+        this.nlevels = nlevels;
+    }
+
+    public RankedSet(Subspace subspace, Executor executor) {
+        this(subspace, executor, DEFAULT_LEVELS);
     }
 
     public CompletableFuture<Void> init(TransactionContext tc) {
@@ -109,7 +125,9 @@ public class RankedSet
      */
     public CompletableFuture<Boolean> add(TransactionContext tc, byte[] key) {
         checkKey(key);
-        // TODO: Does using the hash of the key, instead a p value and randomLevel, bias this in any undesirable way?
+        // Use the hash of the key, instead a p value and randomLevel. The key is likely Tuple-encoded.
+        // Java's byte-array hash tends to be slow at filling up the high bits of the integer, but level masks
+        // take nibbles from the right as well.
         long keyHash = hashKey(key);
         return tc.runAsync(tr ->
             containsCheckedKey(tr, key)
@@ -117,8 +135,8 @@ public class RankedSet
                     if (exists) {
                         return READY_FALSE;
                     }
-                    List<CompletableFuture<Void>> futures = new ArrayList<>(MAX_LEVELS);
-                    for (int li = 0; li < MAX_LEVELS; ++li) {
+                    List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
+                    for (int li = 0; li < nlevels; ++li) {
                         int level = li;
                         CompletableFuture<Void> future;
                         if (level == 0) {
@@ -134,7 +152,7 @@ public class RankedSet
                             // and recounting the next lower level to correct the counts.
                             // Must complete lower levels first for count to be accurate.
                             future = AsyncUtil.whenAll(futures);
-                            futures = new ArrayList<>(MAX_LEVELS - li);
+                            futures = new ArrayList<>(nlevels - li);
                             future = future.thenCompose(vignore ->
                                 getPreviousKey(tr, level, key).thenCompose(prevKey -> {
                                     CompletableFuture<Long> prevCount = tr.get(subspace.pack(Tuple.from(level, prevKey))).thenApply(RankedSet::decodeLong);
@@ -185,7 +203,7 @@ public class RankedSet
     class NthLookup implements Lookup {
         private long rank;
         private byte[] key = EMPTY_ARRAY;
-        private int level = MAX_LEVELS;
+        private int level = nlevels;
         private Subspace levelSubspace;
         private AsyncIterator<KeyValue> asyncIterator = null;
 
@@ -289,7 +307,7 @@ public class RankedSet
      * @return a future that is complete when the deeper levels have been loaded
      */
     public CompletableFuture<Void> preloadForLookup(ReadTransaction tr) {
-        return tr.getRange(subspace.range(), MAX_LEVELS, true).asList().thenApply(l -> null);
+        return tr.getRange(subspace.range(), nlevels, true).asList().thenApply(l -> null);
     }
 
     protected CompletableFuture<Boolean> nextLookup(Lookup lookup, ReadTransaction tr) {
@@ -312,7 +330,7 @@ public class RankedSet
         private byte[] rankKey = EMPTY_ARRAY;
         private long rank = 0;
         private Subspace levelSubspace;
-        private int level = MAX_LEVELS;
+        private int level = nlevels;
         private AsyncIterator<KeyValue> asyncIterator = null;
         private long lastCount;
 
@@ -402,8 +420,8 @@ public class RankedSet
                             if (!exists) {
                                 return READY_FALSE;
                             }
-                            List<CompletableFuture<Void>> futures = new ArrayList<>(MAX_LEVELS);
-                            for (int li = 0; li < MAX_LEVELS; ++li) {
+                            List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
+                            for (int li = 0; li < nlevels; ++li) {
                                 int level = li;
                                 // This could be optimized with hash (?? Comment from Ruby version)
                                 byte[] k = subspace.pack(Tuple.from(level, key));
@@ -444,7 +462,7 @@ public class RankedSet
      * @return a future that completes to the number of items in the set
      */
     public CompletableFuture<Long> size(ReadTransactionContext tc) {
-        Range r = subspace.get(MAX_LEVELS - 1).range();
+        Range r = subspace.get(nlevels - 1).range();
         return tc.readAsync(tr -> AsyncUtil.mapIterable(tr.getRange(r), keyValue -> decodeLong(keyValue.getValue()))
                 .asList()
                 .thenApply(longs -> longs.stream().reduce(0L, Long::sum)));
@@ -452,7 +470,7 @@ public class RankedSet
 
     protected Consistency checkConsistency(ReadTransactionContext tc) {
         return tc.read(tr -> {
-            for (int level = 1; level < MAX_LEVELS; ++level) {
+            for (int level = 1; level < nlevels; ++level) {
                 byte[] prevKey = null;
                 long prevCount = 0;
                 AsyncIterator<KeyValue> it = tr.getRange(subspace.range(Tuple.from(level))).iterator();
@@ -481,7 +499,7 @@ public class RankedSet
     protected String toDebugString(ReadTransactionContext tc) {
         return tc.read(tr -> {
             StringBuilder str = new StringBuilder();
-            for (int level = 0; level < MAX_LEVELS; ++level) {
+            for (int level = 0; level < nlevels; ++level) {
                 if (level > 0) {
                     str.setLength(str.length() - 2);
                     str.append("\n");
@@ -546,8 +564,9 @@ public class RankedSet
 
     private CompletableFuture<Void> initLevels(TransactionContext tc) {
         return tc.runAsync(tr -> {
-            List<CompletableFuture<Void>> futures = new ArrayList<>(MAX_LEVELS);
-            for (int level = 0; level < MAX_LEVELS; ++level) {
+            List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
+            // TODO: Add a way to change the number of levels in a ranked set that already exists (https://github.com/FoundationDB/fdb-record-layer/issues/141)
+            for (int level = 0; level < nlevels; ++level) {
                 byte[] k = subspace.pack(Tuple.from(level, EMPTY_ARRAY));
                 byte[] v = encodeLong(0);
                 futures.add(tr.get(k).thenApply(value -> {

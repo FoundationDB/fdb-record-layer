@@ -97,8 +97,8 @@ public class TimeWindowLeaderboardDirectory {
         return null;
     }
 
-    public void addLeaderboard(int type, long startTimestamp, long endTimestamp) {
-        addLeaderboard(new TimeWindowLeaderboard(this, type, startTimestamp, endTimestamp, Tuple.from(nextKey++)));
+    public void addLeaderboard(int type, long startTimestamp, long endTimestamp, int nlevels) {
+        addLeaderboard(new TimeWindowLeaderboard(this, type, startTimestamp, endTimestamp, Tuple.from(nextKey++), nlevels));
     }
 
     protected void addLeaderboard(TimeWindowLeaderboard leaderboard) {

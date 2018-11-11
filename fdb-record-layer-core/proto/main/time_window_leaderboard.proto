@@ -36,4 +36,5 @@ message TimeWindowLeaderboard {
    optional uint64 start_timestamp = 2;
    optional uint64 end_timestamp = 3;
    optional bytes subspace_key = 5; // Subkey within the index's primary and secondary subspaces.
+   optional int32 nlevels = 6;
 }
