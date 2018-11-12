@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  *
  * Uses Protobuf dynamic messages to process records.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.STABLE)
 public class FDBRecordStore extends FDBRecordStoreBase<Message> {
 
     protected FDBRecordStore(@Nonnull FDBRecordContext context,
@@ -60,6 +60,7 @@ public class FDBRecordStore extends FDBRecordStoreBase<Message> {
      * </code></pre>
      *
      */
+    @API(API.Status.STABLE)
     public static class Builder extends FDBRecordStoreBuilder<Message, FDBRecordStore> {
         protected Builder() {
             serializer = DynamicMessageRecordSerializer.instance();

@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * known to exist. An attempt to retrieve a directory layer entry that does not exist will result in a full scan
  * of the directory layer for each such request</p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class FDBReverseDirectoryCache {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBReverseDirectoryCache.class);

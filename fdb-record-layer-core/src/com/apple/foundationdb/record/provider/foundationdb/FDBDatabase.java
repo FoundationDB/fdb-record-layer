@@ -80,7 +80,7 @@ import java.util.function.Supplier;
  *
  * @see FDBDatabaseFactory
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.STABLE)
 public class FDBDatabase {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabase.class);
 
@@ -307,6 +307,7 @@ public class FDBDatabase {
     }
 
     @Nonnull
+    @API(API.Status.INTERNAL)
     public CompletableFuture<ResolverStateProto.State> getStateForResolver(@Nonnull LocatableResolver resolver,
                                                                            @Nonnull Supplier<CompletableFuture<ResolverStateProto.State>> loader) {
         return resolverStateCache.orElseGet(resolver, loader);
@@ -332,6 +333,7 @@ public class FDBDatabase {
     }
 
     // Update lastSeenFDBVersion if readVersion is newer
+    @API(API.Status.INTERNAL)
     public void updateLastSeenFDBVersion(long startTime, long readVersion) {
         lastSeenFDBVersion.updateAndGet(pair ->
                 (pair.getLeft() == null || readVersion > pair.getLeft()) ?
@@ -339,6 +341,7 @@ public class FDBDatabase {
     }
 
     @Nonnull
+    @API(API.Status.INTERNAL)
     public FDBReverseDirectoryCache getReverseDirectoryCache() {
         if (reverseDirectoryCache == null) {
             synchronized (reverseDirectoryCacheLock) {
@@ -357,6 +360,7 @@ public class FDBDatabase {
         directoryCacheVersion.set(version);
     }
 
+    @API(API.Status.INTERNAL)
     public int getDirectoryCacheVersion() {
         return directoryCacheVersion.get();
     }
@@ -366,6 +370,7 @@ public class FDBDatabase {
     }
 
     @Nonnull
+    @API(API.Status.INTERNAL)
     public Cache<ScopedValue<String>, ResolverResult> getDirectoryCache(int atVersion) {
         if (atVersion > getDirectoryCacheVersion()) {
             synchronized (this) {
@@ -382,15 +387,18 @@ public class FDBDatabase {
     }
 
     @Nonnull
+    @API(API.Status.INTERNAL)
     public Cache<ScopedValue<Long>, String> getReverseDirectoryInMemoryCache() {
         return reverseDirectoryInMemoryCache;
     }
 
+    @API(API.Status.INTERNAL)
     public void clearForwardDirectoryCache() {
         directoryCache.invalidateAll();
     }
 
     @VisibleForTesting
+    @API(API.Status.INTERNAL)
     public void clearReverseDirectoryCache() {
         synchronized (reverseDirectoryCacheLock) {
             reverseDirectoryCache = null;
@@ -399,6 +407,7 @@ public class FDBDatabase {
     }
 
     @VisibleForTesting
+    @API(API.Status.INTERNAL)
     public void clearCaches() {
         resolverStateCache.clear();
         clearForwardDirectoryCache();
@@ -562,6 +571,7 @@ public class FDBDatabase {
      * @see FDBDatabaseRunner#runAsync
      */
     @Nonnull
+    @API(API.Status.MAINTAINED)
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         final FDBDatabaseRunner runner = newRunner();
         return runner.runAsync(retriable).whenComplete((t, e) -> runner.close());
@@ -582,6 +592,7 @@ public class FDBDatabase {
      * @see FDBDatabaseRunner#runAsync
      */
     @Nonnull
+    @API(API.Status.MAINTAINED)
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         final FDBDatabaseRunner runner = newRunner(timer, mdcContext);
@@ -629,6 +640,7 @@ public class FDBDatabase {
      * @see FDBDatabaseRunner#runAsync
      */
     @Nonnull
+    @API(API.Status.MAINTAINED)
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext, @Nullable WeakReadSemantics weakReadSemantics,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         final FDBDatabaseRunner runner = newRunner(timer, mdcContext, weakReadSemantics);
@@ -717,6 +729,7 @@ public class FDBDatabase {
      * @param count maximum number of keys to return
      * @return future for list of boundary key tuples
      */
+    @API(API.Status.INTERNAL)
     public CompletableFuture<List<Tuple>> computeBoundaryKeys(@Nonnull FDBTransactionContext context, Tuple prefix,
                                                                int size, int count) {
         byte[] prefixBytes = prefix.pack();

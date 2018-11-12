@@ -67,7 +67,7 @@ import java.util.function.Consumer;
  *
  * @see FDBRecordStore
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.STABLE)
 public class FDBRecordContext extends FDBTransactionContext implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordContext.class);
 
