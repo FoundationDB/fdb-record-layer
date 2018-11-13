@@ -23,7 +23,7 @@ rootProject.name='fdb-record-layer'
 include 'fdb-extensions'
 include 'fdb-record-layer-core'
 include 'fdb-record-layer-core-shaded'
-
+include 'examples'
 
 // It's confusing to have dozens of files called build.gradle scattered around the project
 // The following renames these the <project-name>.gradle following the same convention established

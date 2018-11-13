@@ -40,6 +40,7 @@ build.dependsOn {
     shadowJar
 }
 
+apply from: rootProject.file('gradle/publishing.gradle')
 publishing {
     publications {
         shadow(MavenPublication) { publication ->

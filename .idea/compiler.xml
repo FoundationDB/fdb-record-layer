@@ -42,6 +42,9 @@
       <profile default="true" name="Default" enabled="true" />
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="examples_integrationTest" target="1.8" />
+      <module name="examples_main" target="1.8" />
+      <module name="examples_test" target="1.8" />
       <module name="fdb-extensions_integrationTest" target="1.8" />
       <module name="fdb-extensions_main" target="1.8" />
       <module name="fdb-extensions_test" target="1.8" />

@@ -19,6 +19,7 @@
  */
 
 apply from: rootProject.file('gradle/strict.gradle')
+apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
     compile "org.foundationdb:fdb-java:${fdbVersion}"

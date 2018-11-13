@@ -171,7 +171,6 @@ apply from: file('gradle/coverage.gradle')
 
 subprojects {
     apply from: rootProject.file('gradle/testing.gradle')
-    apply plugin: 'com.jfrog.bintray'
 
     sourceCompatibility = '1.8.0'
     targetCompatibility = '1.8.0'
@@ -207,53 +206,6 @@ subprojects {
         } else {
             coreProjectName = "fdb-record-layer-core"
             shadedProjectName = "fdb-record-layer-core-shaded"
-        }
-    }
-
-    publishing {
-        publications {
-            library(MavenPublication) {
-                from components.java
-                artifact tasks.sourcesJar
-                artifact tasks.javadocJar
-            }
-        }
-        def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
-        if (publishBuild && System.getenv('BINTRAY_USER') != null && System.getenv('BINTRAY_KEY') != null) {
-            def isReleaseBuild = Boolean.parseBoolean(findProperty('releaseBuild') ?: 'false')
-            bintray {
-                user = System.getenv('BINTRAY_USER')
-                key = System.getenv('BINTRAY_KEY')
-                publications = ["library"]
-                pkg {
-                    userOrg = "fdb-apple"
-                    repo = "fdb-record-layer"
-                    name = project.name
-                    licenses = ["Apache-2.0"]
-                    vcsUrl = "https://github.com/FoundationDB/fdb-record-layer.git"
-                }
-                override = !isReleaseBuild
-                publish = publishBuild
-            }
-            bintrayPublish.enabled = true
-        } else {
-            bintrayPublish.enabled = false
-        }
-    }
-
-    createDistribution.configure {
-        afterEvaluate {
-            dependsOn generatePomFileForLibraryPublication
-            from tasks.jar, tasks.sourcesJar, tasks.javadocJar, tasks.generatePomFileForLibraryPublication
-            rename { filename ->
-                GenerateMavenPom pomTask = tasks.generatePomFileForLibraryPublication
-                Jar jarTask = tasks.jar
-                if (filename == pomTask.destination.name) {
-                    jarTask.archiveName.replace "jar", "pom"
-                } else {
-                    filename
-                }
-            }
         }
     }
 
