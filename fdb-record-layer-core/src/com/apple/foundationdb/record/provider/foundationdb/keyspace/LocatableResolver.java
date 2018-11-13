@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ResolverStateProto;
@@ -57,6 +58,7 @@ import java.util.stream.Collectors;
  * When initializing, a <code>defaultWriteSafetyCheck</code> can be specified that will be evaluated on writes to determine
  * within the write transaction what the correct {@link LocatableResolver} scope is for the write.
  */
+@API(API.Status.MAINTAINED)
 public abstract class LocatableResolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(LocatableResolver.class);
     @Nonnull

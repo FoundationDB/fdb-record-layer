@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 
@@ -28,6 +29,7 @@ import javax.annotation.Nonnull;
 /**
  * Exception thrown when a {@link KeySpaceDirectory} does not have the named directory component.
  */
+@API(API.Status.MAINTAINED)
 public class NoSuchDirectoryException extends RecordCoreException {
     private static final long serialVersionUID = 1L;
 

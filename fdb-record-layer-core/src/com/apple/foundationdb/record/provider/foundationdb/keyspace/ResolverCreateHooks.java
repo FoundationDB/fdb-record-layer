@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -39,6 +40,7 @@ import java.util.function.Function;
  * {@link MetadataHook} which will specify the metadata to add to the mapping at create time, and a set of
  * {@link PreWriteCheck} which can be used to check that the database is in a consistent state that allows for writes.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ResolverCreateHooks {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResolverCreateHooks.class);
     public static final PreWriteCheck DEFAULT_CHECK = (ignore1, ignore2) -> AsyncUtil.READY_TRUE;

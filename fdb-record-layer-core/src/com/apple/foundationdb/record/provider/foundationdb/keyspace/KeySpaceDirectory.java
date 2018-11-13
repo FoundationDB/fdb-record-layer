@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -56,6 +57,7 @@ import java.util.function.Function;
 /**
  * Defines a directory within a {@link KeySpace}.
  */
+@API(API.Status.MAINTAINED)
 public class KeySpaceDirectory {
 
     /**

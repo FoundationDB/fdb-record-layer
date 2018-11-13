@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.layers.interning;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.StringInterningProto;
@@ -41,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A persistent bidirectional unique mapping between strings and integers.
  */
+@API(API.Status.INTERNAL)
 public class StringInterningLayer {
     @Nonnull
     private final Subspace mappingSubspace;

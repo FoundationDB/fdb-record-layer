@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -44,6 +45,7 @@ import java.util.concurrent.CompletableFuture;
  * is computed based on the {@link Tuple} serialization of the string and integer rather than the serialization used by
  * {@link LocatableResolver} as that can vary depending on implementation.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ResolverMappingDigest implements AutoCloseable {
     private static final String ALGORITHM = "SHA-256";
     @Nonnull

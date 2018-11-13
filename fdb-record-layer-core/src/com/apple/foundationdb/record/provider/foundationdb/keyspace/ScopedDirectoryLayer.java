@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -41,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
  * strings to integers. The {@link KeySpacePath} that it is created with will be the root where the node subspace of the
  * directory layer is located.
  */
+@API(API.Status.MAINTAINED)
 public class ScopedDirectoryLayer extends LocatableResolver {
     private static final byte[] RESERVED_CONTENT_SUBSPACE_PREFIX = {(byte) 0xFD};
     private static final int STATE_SUBSPACE_KEY_SUFFIX = -10;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
 import javax.annotation.Nullable;
@@ -29,6 +30,7 @@ import java.util.Objects;
 /**
  * A class containing the result of resolving a key with {@link LocatableResolver}.
  */
+@API(API.Status.MAINTAINED)
 public class ResolverResult {
     private final long value;
     @Nullable

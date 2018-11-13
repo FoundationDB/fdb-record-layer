@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -38,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
  * {@link #add(String, Object)}. Once a desired path has been fully constructed, {@link #toTuple()} is used
  * to turn the resulting path into a <code>Tuple</code> to represent the FDB row key.
  */
+@API(API.Status.MAINTAINED)
 public interface KeySpacePath {
 
     /**
