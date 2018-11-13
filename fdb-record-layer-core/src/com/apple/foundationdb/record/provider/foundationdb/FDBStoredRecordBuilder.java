@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
@@ -33,6 +34,7 @@ import java.util.Optional;
  * A builder for {@link FDBStoredRecord}.
  * @param <M> type used to represent stored records
  */
+@API(API.Status.MAINTAINED)
 public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, FDBStoredSizes {
     @Nullable
     private Tuple primaryKey;

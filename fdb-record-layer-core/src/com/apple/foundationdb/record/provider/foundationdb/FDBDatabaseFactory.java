@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -40,6 +41,7 @@ import java.util.function.Supplier;
 /**
  * A singleton maintaining a list of {@link FDBDatabase} instances, indexed by their cluster file location.
  */
+@API(API.Status.STABLE)
 public class FDBDatabaseFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
 

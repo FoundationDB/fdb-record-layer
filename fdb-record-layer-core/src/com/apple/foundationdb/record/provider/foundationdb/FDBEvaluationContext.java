@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.EvaluationContextBuilder;
@@ -43,6 +44,7 @@ import java.util.concurrent.Executor;
  * An {@link EvaluationContext} associated with a particular {@link FDBRecordStore}.
  * @param <M> type used to represent stored records
  */
+@API(API.Status.MAINTAINED)
 public abstract class FDBEvaluationContext<M extends Message> extends EvaluationContext {
     protected FDBEvaluationContext(@Nonnull Bindings bindings) {
         super(bindings);

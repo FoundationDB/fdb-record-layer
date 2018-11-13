@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -58,6 +59,7 @@ import java.util.function.Function;
  *
  * @see FDBDatabase
  */
+@API(API.Status.MAINTAINED)
 public class FDBDatabaseRunner implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseRunner.class);
 

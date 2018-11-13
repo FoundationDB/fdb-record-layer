@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
@@ -44,6 +45,7 @@ import java.util.function.Supplier;
  *
  * @param <M> type used to represent stored records
  */
+@API(API.Status.MAINTAINED)
 public class FDBTypedRecordStore<M extends Message> extends FDBRecordStoreBase<M> {
 
     protected FDBTypedRecordStore(@Nonnull FDBRecordContext context,

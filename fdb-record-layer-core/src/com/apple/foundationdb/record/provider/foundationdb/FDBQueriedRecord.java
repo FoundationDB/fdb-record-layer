@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
  * A record returned by a query and therefore possibly associated with a particular entry in some index.
  * @param <M> type used to represent stored records
  */
+@API(API.Status.MAINTAINED)
 public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M> {
     /**
      * Get the stored record, if any, that produced this query result record.

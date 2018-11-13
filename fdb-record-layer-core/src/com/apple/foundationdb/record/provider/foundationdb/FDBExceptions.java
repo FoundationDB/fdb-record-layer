@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreInterruptedException;
@@ -35,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * Namespace for exceptions that wrap the underlying exceptions from the FDB API.
  */
+@API(API.Status.STABLE)
 public class FDBExceptions {
 
     private FDBExceptions() {

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -35,12 +36,15 @@ import java.util.concurrent.Executor;
  * Base class for record stores and meta-data stores, which have in common that they are opened by an {@link FDBRecordContext} and occupy
  * some {@link Subspace} in the database.
  */
+@API(API.Status.STABLE)
 public abstract class FDBStoreBase {
     @Nonnull
     protected final FDBRecordContext context;
     @Nonnull
     protected final SubspaceProvider subspaceProvider;
 
+    // It is recommended to use {@link #FDBStoreBase(FDBRecordContext, SubspaceProvider)} instead.
+    @API(API.Status.UNSTABLE)
     protected FDBStoreBase(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace) {
         this.context = context;
         this.subspaceProvider = new SubspaceProviderBySubspace(subspace);

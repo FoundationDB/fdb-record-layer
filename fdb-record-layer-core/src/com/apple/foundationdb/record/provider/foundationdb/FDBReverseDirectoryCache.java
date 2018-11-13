@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -58,6 +59,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * known to exist. An attempt to retrieve a directory layer entry that does not exist will result in a full scan
  * of the directory layer for each such request</p>
  */
+@API(API.Status.INTERNAL)
 public class FDBReverseDirectoryCache {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBReverseDirectoryCache.class);
