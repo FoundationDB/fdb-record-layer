@@ -26,14 +26,24 @@
  * <p>
  * All operations on records are mediated by a {@link com.apple.foundationdb.record.RecordMetaData}.
  * It describes the format of persistent records, their fields and secondary indexes.
+ * There is a rough correspondence between the terminology used within the Record Layer
+ * and those used by relational databases:
  * </p>
  *
- * <table border="1" summary="relational correspondences">
+ * <table border="1">
+ * <caption>relational correspondences</caption>
  * <tr><th>Record Layer</th><th>Relational</th></tr>
- * <tr><th>meta-data</th><th>schema</th></tr>
- * <tr><th>record type</th><th>table</th></tr>
- * <tr><th>field</th><th>column</th></tr>
+ * <tr><td>meta-data</td><td>schema</td></tr>
+ * <tr><td>record type</td><td>table</td></tr>
+ * <tr><td>field</td><td>column</td></tr>
  * </table>
+ *
+ * <p>
+ * Note that this correspondence is not exact. In particular, note that a record type and a
+ * table differ in that records of various types are included within the same extent. There are
+ * more details about the differences between tables and record types within the
+ * <a href="https://github.com/FoundationDB/fdb-record-layer/blob/master/docs/FAQ.md#are-record-types-tables">Record Layer FAQ</a>.
+ * </p>
  *
  * <p>
  * The core of the meta-data is a Protobuf {@link com.google.protobuf.Descriptors.FileDescriptor}.

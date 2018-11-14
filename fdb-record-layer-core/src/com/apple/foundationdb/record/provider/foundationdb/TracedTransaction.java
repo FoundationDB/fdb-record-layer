@@ -52,7 +52,7 @@ public class TracedTransaction implements Transaction {
         this.transaction = transaction;
     }
 
-    @SuppressWarnings({"NoFinalizer", "squid:ObjectFinalizeOverridenCheck"})
+    @SuppressWarnings({"NoFinalizer", "squid:ObjectFinalizeOverridenCheck", "deprecation"})
     @Override
     protected void finalize() {
         if (transaction != null) {
