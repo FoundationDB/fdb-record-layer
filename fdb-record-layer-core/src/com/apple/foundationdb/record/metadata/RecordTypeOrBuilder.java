@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.Descriptors;
 
@@ -32,6 +33,7 @@ import java.util.List;
  * classes that contains accessors that they are both expected to have. This includes
  * the data necessary to know what is in a record and what indexes are associated with it.
  */
+@API(API.Status.MAINTAINED)
 public interface RecordTypeOrBuilder {
     /**
      * Get the name of the record type. This is the same as the name of the underlying

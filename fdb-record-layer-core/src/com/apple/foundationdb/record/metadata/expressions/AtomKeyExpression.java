@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
+
 /**
  * An "atom expression" is one that has semantic meaning; that is, it presence is significant to the meaning of
  * the expression. A non-atom expression (such as Then) is just a holder for its children; in particular, multiple
  * nested non-atom expressions could be collapsed into a single one with the same semantics.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface AtomKeyExpression extends KeyExpression {
     boolean equalsAtomic(AtomKeyExpression other);
 }

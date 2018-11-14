@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 
 /**
  * Get the current directory.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardDirectoryOperation extends IndexOperation {
     public TimeWindowLeaderboardDirectoryOperation() {
         // this operation doesn't need any parameters

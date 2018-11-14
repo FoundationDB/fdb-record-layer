@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.Descriptors;
@@ -40,6 +41,7 @@ import java.util.List;
  * <li>optional secondary indexes.</li>
  * </ul>
  */
+@API(API.Status.MAINTAINED)
 public class RecordTypeBuilder implements RecordTypeOrBuilder {
     @Nonnull
     private final String name;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -50,6 +51,7 @@ import java.util.List;
  * @see com.apple.foundationdb.record.metadata.RecordType#getExplicitRecordTypeKey
  * @see com.apple.foundationdb.record.RecordMetaData#primaryKeyHasRecordTypePrefix
  */
+@API(API.Status.MAINTAINED)
 public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
     public static final RecordTypeKeyExpression RECORD_TYPE_KEY = new RecordTypeKeyExpression();
     public static final RecordMetaDataProto.KeyExpression RECORD_TYPE_KEY_PROTO =

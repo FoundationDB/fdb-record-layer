@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.map.BunchedMap;
@@ -123,6 +124,7 @@ import java.util.function.Function;
  *
  * @param <M> message type of records used by index
  */
+@API(API.Status.EXPERIMENTAL)
 public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
     private static final Logger LOGGER = LoggerFactory.getLogger(TextIndexMaintainer.class);
     private static final TextTokenizerRegistry registry = TextTokenizerRegistryImpl.instance();

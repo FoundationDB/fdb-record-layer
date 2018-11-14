@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -34,6 +35,7 @@ import java.util.Collections;
 /**
  * Additional function arguments for time window.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowForFunction {
 
     private final int leaderboardType;

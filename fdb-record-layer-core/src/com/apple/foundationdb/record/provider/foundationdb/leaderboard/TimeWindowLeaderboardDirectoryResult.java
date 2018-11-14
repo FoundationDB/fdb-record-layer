@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 
 /**
  * Currently saved directory.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardDirectoryResult extends IndexOperationResult {
     private final TimeWindowLeaderboardDirectory directory;
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
@@ -36,6 +37,7 @@ import java.util.Collections;
  * A factory for {@link NoOpIndexMaintainer} indexes.
  */
 @AutoService(IndexMaintainerFactory.class)
+@API(API.Status.UNSTABLE)
 public class NoOpIndexMaintainerFactory implements IndexMaintainerFactory {
     @Nonnull
     @Override

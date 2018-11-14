@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
@@ -33,6 +34,7 @@ import java.util.ListIterator;
 /**
  * Base class to provide some common logic shared between most expression implementations.
  */
+@API(API.Status.MAINTAINED)
 public abstract class BaseKeyExpression implements KeyExpression {
     @Override
     @Nonnull

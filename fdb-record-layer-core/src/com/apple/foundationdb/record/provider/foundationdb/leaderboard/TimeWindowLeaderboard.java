@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.tuple.Tuple;
@@ -30,6 +31,7 @@ import javax.annotation.Nonnull;
 /**
  * A single leaderboard, representing ranks within a time window.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> {
     public static final int ALL_TIME_LEADERBOARD_TYPE = 0;
 

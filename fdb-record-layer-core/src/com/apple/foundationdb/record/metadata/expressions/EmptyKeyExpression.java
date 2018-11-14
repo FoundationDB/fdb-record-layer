@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -38,6 +39,7 @@ import java.util.List;
 /**
  * A single empty key.
  */
+@API(API.Status.MAINTAINED)
 public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpression, KeyExpressionWithoutChildren {
     public static final EmptyKeyExpression EMPTY = new EmptyKeyExpression();
     public static final RecordMetaDataProto.KeyExpression EMPTY_PROTO =

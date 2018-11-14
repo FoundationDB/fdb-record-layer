@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
@@ -33,6 +34,7 @@ import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
  *
  * Nothing is remembered about the index other than this, so that the now-unused range can be deleted when an older record store is upgraded to newer meta-data.
  */
+@API(API.Status.MAINTAINED)
 public class FormerIndex {
     @Nonnull
     private final Object subspaceKey;

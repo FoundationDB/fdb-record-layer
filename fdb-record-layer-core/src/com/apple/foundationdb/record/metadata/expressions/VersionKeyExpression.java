@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -41,6 +42,7 @@ import java.util.List;
  * be contained within the key. This should then be used within version indexes to include data
  * sorted by version.
  */
+@API(API.Status.MAINTAINED)
 public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
     public static final VersionKeyExpression VERSION = new VersionKeyExpression();
     public static final RecordMetaDataProto.KeyExpression VERSION_PROTO =

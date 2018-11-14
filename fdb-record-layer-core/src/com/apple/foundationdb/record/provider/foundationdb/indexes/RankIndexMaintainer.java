@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
@@ -66,6 +67,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * @param <M> type used to represent stored records
  */
+@API(API.Status.MAINTAINED)
 public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
     private final int nlevels;
 

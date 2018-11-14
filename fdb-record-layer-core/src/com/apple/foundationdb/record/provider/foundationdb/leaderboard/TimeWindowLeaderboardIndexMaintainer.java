@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -56,7 +58,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,6 +84,7 @@ import java.util.stream.Collectors;
  * @param <M> type used to represent stored records
  *
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeWindowLeaderboardIndexMaintainer.class);
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -89,6 +90,7 @@ import java.util.function.BiFunction;
  * {@link Registry} implementations. A <code>Registry</code> returns a list of {@link Builder}s which, given a set of
  * arguments, are capable of creating an implementation of a function.
  */
+@API(API.Status.EXPERIMENTAL)
 public abstract class FunctionKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithChild {
     @Nonnull
     protected final String name;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -43,6 +44,7 @@ import java.util.List;
  * is for passing static arguments to functions (see {@link FunctionKeyExpression} for details).
  * @param <T> the type of the literal value
  */
+@API(API.Status.MAINTAINED)
 public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKeyExpression {
     @Nullable
     private final T value;

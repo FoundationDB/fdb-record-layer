@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.TupleRange;
@@ -35,6 +36,7 @@ import java.util.Objects;
  * @see com.apple.foundationdb.record.FunctionNames
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext#evaluateAggregateFunction
  */
+@API(API.Status.MAINTAINED)
 public class IndexAggregateFunction implements PlanHashable {
     @Nonnull
     private final String name;

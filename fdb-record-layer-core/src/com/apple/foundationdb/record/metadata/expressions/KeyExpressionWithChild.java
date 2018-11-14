@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
@@ -27,6 +29,7 @@ import java.util.List;
 /**
  * A {@link KeyExpression} with exactly one child expression.
  */
+@API(API.Status.MAINTAINED)
 public interface KeyExpressionWithChild extends KeyExpressionWithChildren {
     @Nonnull
     KeyExpression getChild();

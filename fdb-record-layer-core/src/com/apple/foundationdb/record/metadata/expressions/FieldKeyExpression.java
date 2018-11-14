@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -48,6 +49,7 @@ import java.util.List;
  * this returns no <code>Key.Evaluated</code>s; and if <code>FanType.Concatenate</code>, then this returns a single
  * <code>Key.Evaluated</code> containing the empty list.
  */
+@API(API.Status.MAINTAINED)
 public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
     @Nonnull
     private final String fieldName;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -35,6 +36,7 @@ import java.util.function.BiFunction;
 /**
  * The particular operation to be performed by an {@link AtomicMutationIndexMaintainer} index.
  */
+@API(API.Status.MAINTAINED)
 public interface AtomicMutation {
 
     /**
@@ -109,6 +111,7 @@ public interface AtomicMutation {
     /**
      * The atomic mutations implemented straightforwardly by the FDB API.
      */
+    @API(API.Status.MAINTAINED)
     public enum Standard implements AtomicMutation {
         COUNT(MutationType.ADD),
         COUNT_UPDATES(MutationType.ADD),

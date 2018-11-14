@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.google.protobuf.Descriptors;
@@ -33,6 +34,7 @@ import java.util.Objects;
  * @param <T> the result type of the function
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext#evaluateRecordFunction
  */
+@API(API.Status.MAINTAINED)
 public class IndexRecordFunction<T> extends RecordFunction<T> {
 
     @Nonnull

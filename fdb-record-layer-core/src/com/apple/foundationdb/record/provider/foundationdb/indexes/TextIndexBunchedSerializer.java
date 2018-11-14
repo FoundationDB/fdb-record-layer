@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.map.BunchedSerializationException;
 import com.apple.foundationdb.map.BunchedSerializer;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -79,6 +80,7 @@ import java.util.function.BiFunction;
  * @see TextIndexMaintainer
  * @see com.apple.foundationdb.map.BunchedMap BunchedMap
  */
+@API(API.Status.EXPERIMENTAL)
 public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List<Integer>> {
     private static final byte[] PREFIX = new byte[]{0x20};
     private static final TextIndexBunchedSerializer INSTANCE = new TextIndexBunchedSerializer();

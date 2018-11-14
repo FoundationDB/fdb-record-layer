@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
@@ -30,6 +31,7 @@ import javax.annotation.Nonnull;
  * an {@link FDBRecordStoreBase} instance.
  * @param <T> the type of the result value
  */
+@API(API.Status.MAINTAINED)
 public class StoreRecordFunction<T> extends RecordFunction<T> {
     public StoreRecordFunction(@Nonnull String name) {
         super(name);

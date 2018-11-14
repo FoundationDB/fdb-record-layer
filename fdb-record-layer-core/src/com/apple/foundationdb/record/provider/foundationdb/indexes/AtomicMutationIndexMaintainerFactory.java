@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -55,6 +56,7 @@ import java.util.List;
  * </ul>
  */
 @AutoService(IndexMaintainerFactory.class)
+@API(API.Status.MAINTAINED)
 public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFactory {
     @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"}) // Support the deprecated names for compatibility.
     static final String[] TYPES = {

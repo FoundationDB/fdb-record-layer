@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
@@ -37,6 +38,7 @@ import java.util.Arrays;
  * Factory for the <code>TIME_WINDOW_LEADERBOARD</code> index type.
  */
 @AutoService(IndexMaintainerFactory.class)
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.TIME_WINDOW_LEADERBOARD };
 

@@ -8,6 +8,7 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/examples" />
             <option value="$PROJECT_DIR$/fdb-extensions" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core-shaded" />

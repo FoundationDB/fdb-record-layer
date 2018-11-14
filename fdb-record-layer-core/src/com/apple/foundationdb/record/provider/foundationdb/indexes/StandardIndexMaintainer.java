@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
@@ -78,6 +79,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.SplitHelper.un
  * @param <M> type used to represent stored records
  */
 // TODO: Need more practical examples to confirm what goes into what base class(es).
+@API(API.Status.MAINTAINED)
 public abstract class StandardIndexMaintainer<M extends Message> extends IndexMaintainer<M> {
     private static final Logger LOGGER = LoggerFactory.getLogger(StandardIndexMaintainer.class);
 

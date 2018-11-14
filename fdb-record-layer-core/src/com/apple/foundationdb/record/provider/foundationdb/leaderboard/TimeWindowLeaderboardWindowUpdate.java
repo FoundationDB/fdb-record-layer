@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 
 /**
  * Maintain active set of time windows.
  */
+@API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
     /**
      * When to completely rebuild an index.

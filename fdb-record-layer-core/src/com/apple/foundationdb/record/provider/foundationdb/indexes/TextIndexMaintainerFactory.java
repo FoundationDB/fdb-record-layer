@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
@@ -43,6 +44,7 @@ import java.util.List;
  * index type.
  */
 @AutoService(IndexMaintainerFactory.class)
+@API(API.Status.EXPERIMENTAL)
 public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
     private static final List<String> TYPES = Collections.singletonList(IndexTypes.TEXT);
 
