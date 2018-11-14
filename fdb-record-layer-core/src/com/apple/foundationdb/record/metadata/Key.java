@@ -49,7 +49,7 @@ import java.util.List;
 /**
  * Namespace for classes related to {@link KeyExpression} construction and evaluation.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.STABLE)
 public class Key {
 
     /**
