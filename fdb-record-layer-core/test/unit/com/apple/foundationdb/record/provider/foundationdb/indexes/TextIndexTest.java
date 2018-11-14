@@ -157,6 +157,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
@@ -188,6 +189,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME)); // no version -- default to zero
     private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes", field("text"), IndexTypes.TEXT,
             ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+    private static final Index SIMPLE_TEXT_NO_POSITIONS = new Index("Simple$text_no_positions", field("text"), IndexTypes.TEXT,
+            ImmutableMap.of(Index.TEXT_OMIT_POSITIONS_OPTION, "true"));
     private static final Index COMBINED_TEXT_BY_GROUP = new Index("Combined$text_by_group", field("text").groupBy(field("group")), IndexTypes.TEXT);
     private static final Index COMPLEX_MULTI_TAG_INDEX = new Index("Complex$multi_tag", field("text").groupBy(field("tag", FanType.FanOut)), IndexTypes.TEXT);
     private static final Index COMPLEX_THEN_TAG_INDEX = new Index("Complex$text_tag", concat(field("text"), field("tag", FanType.FanOut)), IndexTypes.TEXT);
@@ -223,6 +226,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     private static int getSaveIndexKeyCount(@Nonnull FDBRecordStore recordStore) {
         return recordStore.getTimer().getCount(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
+    }
+
+    private static int getSaveIndexValueBytes(@Nonnull FDBRecordStore recordStore) {
+        return recordStore.getTimer().getCount(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES);
     }
 
     private static void validateSorted(@Nonnull List<IndexEntry> entryList) {
@@ -571,6 +578,102 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Arrays.asList(15, 38))), entryList);
             entryList = scanMapEntries(recordStore, SIMPLE_TEXT_SUFFIXES, Tuple.from("ности"));
             assertEquals(Collections.singletonList(entryOf(Tuple.from(1547L), Collections.singletonList(34))), entryList);
+            commit(context);
+        }
+    }
+
+    @Test
+    public void saveSimpleDocumentsWithNoPositions() throws Exception {
+        final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
+                .setDocId(1623L)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .build();
+        final SimpleDocument germanDocument = SimpleDocument.newBuilder()
+                .setDocId(1066L)
+                .setText(TextSamples.GERMAN)
+                .build();
+
+        // Save with positions
+        final int shakespeareValueBytes;
+        final int germanValueBytes;
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            recordStore.saveRecord(shakespeareDocument);
+            shakespeareValueBytes = getSaveIndexValueBytes(recordStore);
+            recordStore.saveRecord(germanDocument);
+            germanValueBytes = getSaveIndexValueBytes(recordStore) - shakespeareValueBytes;
+            commit(context);
+        }
+
+        // Save without positions
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_NO_POSITIONS);
+            });
+            recordStore.deleteAllRecords();
+            recordStore.saveRecord(shakespeareDocument);
+            assertThat(getSaveIndexValueBytes(recordStore), lessThan(shakespeareValueBytes));
+            final int newShakespeareBytes = getSaveIndexValueBytes(recordStore);
+            recordStore.saveRecord(germanDocument);
+            assertThat(getSaveIndexValueBytes(recordStore) - newShakespeareBytes, lessThan(germanValueBytes));
+
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, SIMPLE_TEXT_NO_POSITIONS, Tuple.from("gewonnen"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1066L), Collections.emptyList())), entryList);
+            entryList = scanMapEntries(recordStore, SIMPLE_TEXT_NO_POSITIONS, Tuple.from("dignity"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Collections.emptyList())), entryList);
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void saveSimpleDocumentsWithPositionsOptionChange() throws Exception {
+        final SimpleDocument shakespeareDocument = SimpleDocument.newBuilder()
+                .setDocId(1623L)
+                .setText(TextSamples.ROMEO_AND_JULIET_PROLOGUE)
+                .build();
+        final SimpleDocument yiddishDocument = SimpleDocument.newBuilder()
+                .setDocId(1945L)
+                .setText(TextSamples.YIDDISH)
+                .build();
+        final SimpleDocument frenchDocument = SimpleDocument.newBuilder()
+                .setDocId(1871L)
+                .setText(TextSamples.FRENCH)
+                .build();
+
+        // Save one document *with* positions
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC),
+                        new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
+            });
+            recordStore.saveRecord(shakespeareDocument);
+            commit(context);
+        }
+        // Save one document *without* positions
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_NO_POSITIONS);
+            });
+            recordStore.saveRecord(yiddishDocument);
+            commit(context);
+        }
+        // Save one more document *with* positions
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC),
+                        new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
+            });
+            recordStore.saveRecord(frenchDocument);
+
+            List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, SIMPLE_TEXT_NO_POSITIONS, Tuple.from("civil"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Arrays.asList(22, 25))), entryList);
+            entryList = scanMapEntries(recordStore, SIMPLE_TEXT_NO_POSITIONS, Tuple.from("דיאלעקט"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1945L), Collections.emptyList())), entryList);
+            entryList = scanMapEntries(recordStore, SIMPLE_TEXT_NO_POSITIONS, Tuple.from("recu"));
+            assertEquals(Collections.singletonList(entryOf(Tuple.from(1871L), Collections.singletonList(5))), entryList);
+
             commit(context);
         }
     }
@@ -1609,6 +1712,76 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .get();
             assertEquals(Arrays.asList(Tuple.from(0L, "the"), Tuple.from(1L, "the"), Tuple.from(2L, "the"), Tuple.from(3L, "thiers")), idTextTuples);
 
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void querySimpleDocumentsWithoutPositions() throws Exception {
+        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+                TextSamples.ANGSTROM,
+                TextSamples.AETHELRED,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.FRENCH
+        ));
+
+        // Query but make sure
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_NO_POSITIONS);
+            });
+            documents.forEach(recordStore::saveRecord);
+
+            // Queries that *don't* require position information should be planned to use the index
+            assertEquals(Arrays.asList(1L, 2L, 3L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("king civil récu"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("unclean verona"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+            assertEquals(Arrays.asList(0L, 1L, 2L, 3L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("th"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+
+            // Queries that *do* require position information must be planned as scans
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithScan(Query.field("text").text().containsPhrase("civil blood makes civil hands unclean"), 0));
+            assertEquals(Collections.singletonList(3L),
+                    querySimpleDocumentsWithScan(Query.field("text").text().containsAll("France Napoleons", 3), 0));
+
+            commit(context);
+        }
+
+        final List<SimpleDocument> newDocuments = documents.stream()
+                .map(doc -> doc.toBuilder().setDocId(doc.getDocId() + documents.size()).build())
+                .collect(Collectors.toList());
+
+        // Upgrade to writing position information
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC),
+                        new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
+            });
+            newDocuments.forEach(recordStore::saveRecord);
+
+            // Queries that *don't* require position information produce the same plan
+            assertEquals(Arrays.asList(1L, 2L, 3L, 5L, 6L, 7L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("king civil récu"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+            assertEquals(Arrays.asList(2L, 6L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("unclean verona"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+            assertEquals(Arrays.asList(0L, 1L, 2L, 4L, 5L, 6L, 3L, 7L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("th"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+
+            // Queries that *do* require position information now use the index, but previously written documents show up in the
+            // query spuriously
+            assertEquals(Arrays.asList(2L, 6L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("civil blood makes civil hands unclean"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("unclean verona"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+            assertEquals(Arrays.asList(3L, 7L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("France Napoleons", 3), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+            assertEquals(Collections.singletonList(3L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Thiers Napoleons", 3), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
 
             commit(context);
         }

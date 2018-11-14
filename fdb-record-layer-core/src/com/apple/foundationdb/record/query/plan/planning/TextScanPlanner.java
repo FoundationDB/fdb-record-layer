@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.TextScan;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,6 +49,12 @@ import java.util.Iterator;
  */
 @API(API.Status.INTERNAL)
 public class TextScanPlanner {
+
+    private static final ImmutableSet<Comparisons.Type> COMPARISONS_NOT_REQUIRING_POSITIONS = ImmutableSet.of(
+            Comparisons.Type.TEXT_CONTAINS_ALL,
+            Comparisons.Type.TEXT_CONTAINS_ANY,
+            Comparisons.Type.TEXT_CONTAINS_PREFIX
+    );
 
     /**
      * Determine if the index is using a tokenizer that matches the comparison.
@@ -71,6 +78,23 @@ public class TextScanPlanner {
         }
     }
 
+    /**
+     * Returns whether the index has enough position information to satisfy the query.
+     * Some text queries do not require the position list information that is stored
+     * by default by text indexes. If this is the case, then it returns <code>true</code>
+     * regardless of the properties of the index. If the query <i>does</i> require position
+     * information (e.g., phrase queries), then this returns <code>true</code> if and only
+     * if the index stores positions, i.e., if it does <i>not</i> set the
+     * "{@value Index#TEXT_OMIT_POSITIONS_OPTION}" option to <code>true</code>.
+     *
+     * @param comparison the comparison which might require position information
+     * @param index the index to check the position option of
+     * @return <code>true</code> if the index contains enough position information for the given comparison
+     */
+    private static boolean containsPositionsIfNecessary(@Nonnull Comparisons.TextComparison comparison, @Nonnull Index index) {
+        return COMPARISONS_NOT_REQUIRING_POSITIONS.contains(comparison.getType()) || !index.getBooleanOption(Index.TEXT_OMIT_POSITIONS_OPTION, false);
+    }
+
     @Nullable
     private static TextScan getScanForField(@Nonnull Index index, @Nonnull FieldKeyExpression textExpression, @Nonnull FieldWithComparison filter,
                                             @Nullable ScanComparisons groupingComparisons, boolean hasSort, @Nullable FilterSatisfiedMask filterMask) {
@@ -80,7 +104,7 @@ public class TextScanPlanner {
         } else {
             return null;
         }
-        if (!matchesTokenizer(comparison, index)) {
+        if (!matchesTokenizer(comparison, index) || !containsPositionsIfNecessary(comparison, index)) {
             return null;
         }
         if (hasSort) {

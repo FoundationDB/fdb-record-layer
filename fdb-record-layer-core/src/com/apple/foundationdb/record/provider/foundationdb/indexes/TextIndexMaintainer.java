@@ -62,6 +62,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -142,6 +143,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
     private final TextTokenizer tokenizer;
     private final int tokenizerVersion;
     private final boolean addAggressiveConflictRanges;
+    private final boolean omitPositionLists;
 
     /**
      * Get the text tokenizer associated with this index. This uses the
@@ -183,7 +185,11 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
     }
 
     static boolean getIfAddAggressiveConflictRanges(@Nonnull Index index) {
-        return Boolean.valueOf(index.getOption(Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION));
+        return index.getBooleanOption(Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, false);
+    }
+
+    static boolean getIfOmitPositions(@Nonnull Index index) {
+        return index.getBooleanOption(Index.TEXT_OMIT_POSITIONS_OPTION, false);
     }
 
     // Gets the position of the text field this index is tokenizing from within the
@@ -202,6 +208,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
         this.tokenizer = getTokenizer(state.index);
         this.tokenizerVersion = getIndexTokenizerVersion(state.index);
         this.addAggressiveConflictRanges = getIfAddAggressiveConflictRanges(state.index);
+        this.omitPositionLists = getIfOmitPositions(state.index);
     }
 
     private static int varIntSize(int val) {
@@ -245,8 +252,12 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
         int valueSize = 0;
         for (Map.Entry<String, List<Integer>> posting : positionMap.entrySet()) {
             keySize += subspaceSize + 2 + posting.getKey().length() + idSize;
-            int listSize = posting.getValue().stream().mapToInt(TextIndexMaintainer::varIntSize).sum();
-            valueSize += varIntSize(idSize) + idSize + varIntSize(listSize) + listSize;
+            if (omitPositionLists) {
+                valueSize += 1;
+            } else {
+                int listSize = posting.getValue().stream().mapToInt(TextIndexMaintainer::varIntSize).sum();
+                valueSize += varIntSize(idSize) + idSize + varIntSize(listSize) + listSize;
+            }
         }
         if (state.store.getTimer() != null) {
             state.store.getTimer().increment(remove ? FDBStoreTimer.Counts.DELETE_INDEX_KEY : FDBStoreTimer.Counts.SAVE_INDEX_KEY, positionMap.size());
@@ -324,7 +335,8 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
                     if (remove) {
                         return BUNCHED_MAP.remove(state.transaction, mapSubspace, groupedKey).thenAccept(ignore -> { });
                     } else {
-                        return BUNCHED_MAP.put(state.transaction, mapSubspace, groupedKey, tokenEntry.getValue()).thenAccept(ignore -> { });
+                        final List<Integer> value = omitPositionLists ? Collections.emptyList() : tokenEntry.getValue();
+                        return BUNCHED_MAP.put(state.transaction, mapSubspace, groupedKey, value).thenAccept(ignore -> { });
                     }
                 }, state.store.getPipelineSize(PipelineOperation.TEXT_INDEX_UPDATE));
         if (state.store.getTimer() != null) {

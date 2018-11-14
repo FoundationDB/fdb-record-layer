@@ -81,6 +81,7 @@ public class Index {
     public static final String TEXT_TOKENIZER_NAME_OPTION = "textTokenizerName";
     public static final String TEXT_TOKENIZER_VERSION_OPTION = "textTokenizerVersion";
     public static final String TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION = "textAddAggressiveConflictRanges";
+    public static final String TEXT_OMIT_POSITIONS_OPTION = "textOmitPositions";
     public static final String RANK_NLEVELS = "rankNLevels";
 
     /**
