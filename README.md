@@ -23,8 +23,8 @@ The Record Layer is a Java API providing a record-oriented store on top of Found
   given their own record store, perhaps sharded across different FDB
   cluster instances.
 * **Very light weight** - The Record layer is designed to be used in a
-  large, distributed, stateless environment, so the time from opening
-  to querying a store is designed to be measured in milliseconds.
+  large, distributed, stateless environment. The time between opening
+  a store and the first query is intended to be measured in milliseconds.
 * **Extensible** - New index types and custom index key expressions
   may be dynamically incorporated into a record store.
 
