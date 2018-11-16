@@ -80,7 +80,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     }
 
     public FDBMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
-        this(context, new Subspace(path.toTuple()), null);
+        this(context, new Subspace(path.toTuple(context)), null);
     }
 
     // All keys in subspace are taken by SplitHelper.

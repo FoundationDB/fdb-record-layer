@@ -654,7 +654,7 @@ public class FDBReverseDirectoryCacheTest {
         KeySpace keySpace = new KeySpace(new KeySpaceDirectory(name, KeySpaceDirectory.KeyType.STRING, name));
         FDBRecordContext context = fdb.openContext();
         KeySpacePath path = keySpace.pathFromKey(context, Tuple.from(name));
-        return new ScopedDirectoryLayer(path);
+        return new ScopedDirectoryLayer(context, path);
     }
 
 

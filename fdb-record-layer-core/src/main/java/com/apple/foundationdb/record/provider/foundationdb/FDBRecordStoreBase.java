@@ -2000,7 +2000,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     }
 
     public static void deleteStore(FDBRecordContext context, KeySpacePath path) {
-        final Subspace subspace = new Subspace(path.toTuple());
+        final Subspace subspace = new Subspace(path.toTuple(context));
         deleteStore(context, subspace);
     }
 

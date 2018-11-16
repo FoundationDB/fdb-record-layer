@@ -121,7 +121,7 @@ public class VersionIndexTest {
             fdb = FDBDatabaseFactory.instance().getDatabase();
         }
         if (subspace == null) {
-            subspace = fdb.run(context -> new Subspace(TestKeySpace.getKeyspacePath(context, "record-test", "unit", "indexTest", "version").toTuple()));
+            subspace = fdb.run(context -> TestKeySpace.getKeyspacePath("record-test", "unit", "indexTest", "version").toSubspace(context));
         }
         fdb.run(context -> {
             FDBRecordStore.deleteStore(context, subspace);

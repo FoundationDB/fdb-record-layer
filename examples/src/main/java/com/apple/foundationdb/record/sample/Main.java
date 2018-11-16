@@ -21,14 +21,6 @@
 package com.apple.foundationdb.record.sample;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
@@ -40,11 +32,18 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -61,9 +60,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 
 /**
  * Sample client code making use of the Record Layer to perform a few basic operations.
@@ -112,28 +111,23 @@ public class Main {
                 new DirectoryLayerDirectory("application")
                 .addSubdirectory(new KeySpaceDirectory("environment", KeySpaceDirectory.KeyType.STRING))
         );
-        final Subspace subspace = fdb.runAsync((FDBRecordContext cx) -> {
-            // Create a path for the "record-layer-sample" application's demo environment.
-            KeySpacePath path = keySpace.path(cx, "application", "record-layer-sample")
-                    .add("environment", "demo");
-            // Clear all existing data and then return the subspace associated with the key space path.
-            return path.deleteAllDataAsync().thenCompose(ignore -> path.toSubspaceAsync());
-        }).join();
+
+        // Create a path for the "record-layer-sample" application's demo environment.
+        // Clear all existing data and then return the subspace associated with the key space path.
+        final KeySpacePath path = keySpace.path("application", "record-layer-sample")
+                .add("environment", "demo");
+
+        // Clear out any data that may be in the record store.
+        LOGGER.info("Clearing the Record Store ...");
+        fdb.runAsync(path::deleteAllDataAsync);
 
         // Build the metadata. This simple approach only works for primary
         // keys and secondary indexes defined in the Protobuf message types.
         RecordMetaData rmd = RecordMetaData.build(SampleProto.getDescriptor());
 
-        // Clear the Record Store.
-        LOGGER.info("Clearing the Record Store ...");
-        fdb.run((FDBRecordContext cx) -> {
-            FDBRecordStore.deleteStore(cx, subspace);
-            return null;
-        });
-
         FDBRecordStore.Builder recordStoreBuilder = FDBRecordStore.newBuilder()
                 .setMetaDataProvider(rmd)
-                .setSubspace(subspace);
+                .setKeySpacePath(path);
 
         // Write records for Vendor and Item.
         LOGGER.info("Writing Vendor and Item record ...");

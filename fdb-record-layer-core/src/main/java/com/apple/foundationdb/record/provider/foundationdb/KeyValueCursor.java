@@ -31,6 +31,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
@@ -280,6 +281,12 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
 
         public Builder setScanProperties(@Nonnull ScanProperties scanProperties) {
             this.scanProperties = scanProperties;
+            return this;
+        }
+
+        public Builder setRange(@Nonnull KeyRange range) {
+            setLow(range.getLowKey(), range.getLowEndpoint());
+            setHigh(range.getHighKey(), range.getHighEndpoint());
             return this;
         }
 

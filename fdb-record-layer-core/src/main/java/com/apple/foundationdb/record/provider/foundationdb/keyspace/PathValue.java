@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 
@@ -31,21 +30,21 @@ import java.util.Arrays;
  * of it (e.g. {@link DirectoryLayerDirectory}.
  */
 class PathValue {
-    @Nonnull
+    @Nullable
     private Object resolvedValue;
     @Nullable
     private byte[] metadata;
 
-    PathValue(@Nonnull Object resolvedValue) {
+    PathValue(@Nullable Object resolvedValue) {
         this(resolvedValue, null);
     }
 
-    PathValue(@Nonnull Object resolvedValue, @Nullable byte[] metadata) {
+    PathValue(@Nullable Object resolvedValue, @Nullable byte[] metadata) {
         this.resolvedValue = resolvedValue;
         this.metadata = metadata == null ? null : Arrays.copyOf(metadata, metadata.length);
     }
 
-    @Nonnull
+    @Nullable
     public Object getResolvedValue() {
         return resolvedValue;
     }

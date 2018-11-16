@@ -28,12 +28,14 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * An implementation of {@link LocatableResolver} that is backed by the {@link StringInterningLayer}.
@@ -57,14 +59,29 @@ public class ScopedInterningLayer extends LocatableResolver {
 
     /**
      * Creates a resolver rooted at the provided <code>KeySpacePath</code>.
-     * @param path The {@link KeySpacePath} where this resolver is rooted
+     *
+     * @param path the {@link KeySpacePath} where this resolver is rooted
+     * @deprecated use {@link #ScopedInterningLayer(FDBRecordContext, KeySpacePath)} instead
      */
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     public ScopedInterningLayer(@Nonnull KeySpacePath path) {
-        this(path.getContext().getDatabase(), path);
+        this(path.getContext(), path);
+    }
+
+    /**
+     * Creates a resolver rooted at the provided <code>KeySpacePath</code>.
+     * @param context context used to resolve the provided <code>path</code>. This context
+     *   is only used during the construction of this class and at no other point
+     * @param path the {@link KeySpacePath} where this resolver is rooted
+     */
+    public ScopedInterningLayer(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
+        this(context.getDatabase(), path, () -> path.toTuple(context));
     }
 
     private ScopedInterningLayer(@Nonnull FDBDatabase database,
-                                 @Nullable KeySpacePath path) {
+                                 @Nullable KeySpacePath path,
+                                 @Nonnull Supplier<Tuple> pathTuple) {
         super(database, path);
         if (path == null) {
             this.baseSubspace = new Subspace();
@@ -72,8 +89,8 @@ public class ScopedInterningLayer extends LocatableResolver {
             this.interningLayer = new StringInterningLayer(nodeSubspace, true);
             this.infoString = "ScopedInterningLayer:GLOBAL";
         } else {
-            this.baseSubspace = path.toSubspace();
-            this.nodeSubspace = path.toSubspace();
+            this.baseSubspace = new Subspace(pathTuple.get());
+            this.nodeSubspace = baseSubspace;
             this.interningLayer = new StringInterningLayer(nodeSubspace, false);
             this.infoString = "ScopedInterningLayer:" + path.toString();
         }
@@ -83,11 +100,11 @@ public class ScopedInterningLayer extends LocatableResolver {
 
     /**
      * Creates a default instance of the scoped interning layer.
-     * @param database The {@link FDBDatabase} for this resolver
-     * @return The global <code>ScopedInterningLayer</code> for this database
+     * @param database the {@link FDBDatabase} for this resolver
+     * @return the global <code>ScopedInterningLayer</code> for this database
      */
     public static ScopedInterningLayer global(@Nonnull FDBDatabase database) {
-        return new ScopedInterningLayer(database, null);
+        return new ScopedInterningLayer(database, null, () -> null);
     }
 
     @Override

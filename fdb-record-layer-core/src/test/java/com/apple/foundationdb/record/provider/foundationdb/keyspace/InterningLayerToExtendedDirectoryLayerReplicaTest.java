@@ -33,8 +33,8 @@ public class InterningLayerToExtendedDirectoryLayerReplicaTest extends ResolverM
     @BeforeEach
     public void setup() {
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(keySpace.path(context, "test-path").add("to").add("primary"));
-            replica = new ExtendedDirectoryLayer(keySpace.path(context, "test-path").add("to").add("replica"));
+            primary = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("primary"));
+            replica = new ExtendedDirectoryLayer(context, keySpace.path("test-path").add("to").add("replica"));
         }
         seedWithMetadata = true;
     }

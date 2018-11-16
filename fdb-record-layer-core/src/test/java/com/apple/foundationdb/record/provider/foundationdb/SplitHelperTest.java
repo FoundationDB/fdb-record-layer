@@ -114,7 +114,9 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @BeforeEach
     public void setSubspace() {
-        subspace = path.toSubspace();
+        try (FDBRecordContext context = openContext()) {
+            subspace = path.toSubspace(context);
+        }
     }
 
     @Nonnull

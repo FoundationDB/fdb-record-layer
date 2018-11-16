@@ -25,6 +25,7 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -54,42 +55,48 @@ public class HighContentionAllocator {
     private final Transaction transaction;
     private final Function<Long, CompletableFuture<Boolean>> candidateCheck;
 
-    public HighContentionAllocator(@Nonnull Transaction transaction,
+    public HighContentionAllocator(@Nonnull FDBRecordContext context,
                                    @Nonnull KeySpacePath basePath) {
-        this(transaction, basePath, NOOP_CHECK);
+        this(context, basePath, NOOP_CHECK);
     }
 
-    public HighContentionAllocator(@Nonnull Transaction transaction,
+    public HighContentionAllocator(@Nonnull FDBRecordContext context,
                                    @Nonnull KeySpacePath basePath,
                                    @Nonnull Function<Long, CompletableFuture<Boolean>> candidateCheck) {
-        this(transaction, basePath.toSubspace().get(0), basePath.toSubspace().get(1), candidateCheck);
+        this(context, basePath.toSubspace(context), candidateCheck);
     }
 
-    public HighContentionAllocator(@Nonnull Transaction transaction,
-                                      @Nonnull Subspace counterSubspace,
-                                      @Nonnull Subspace allocationSubspace) {
-        this(transaction, counterSubspace, allocationSubspace, NOOP_CHECK);
+    public HighContentionAllocator(@Nonnull FDBRecordContext context,
+                                   @Nonnull Subspace basePathSubspace,
+                                   @Nonnull Function<Long, CompletableFuture<Boolean>> candidateCheck) {
+        this(context, basePathSubspace.get(0), basePathSubspace.get(1), candidateCheck);
     }
 
-    protected HighContentionAllocator(@Nonnull Transaction transaction,
+    public HighContentionAllocator(@Nonnull FDBRecordContext context,
+                                   @Nonnull Subspace counterSubspace,
+                                   @Nonnull Subspace allocationSubspace) {
+        this(context, counterSubspace, allocationSubspace, NOOP_CHECK);
+    }
+
+    protected HighContentionAllocator(@Nonnull FDBRecordContext context,
                                       @Nonnull Subspace counterSubspace,
                                       @Nonnull Subspace allocationSubspace,
                                       @Nonnull Function<Long, CompletableFuture<Boolean>> candidateCheck) {
-        this.transaction = transaction;
+        this.transaction = context.ensureActive();
         this.counterSubspace = counterSubspace;
         this.allocationSubspace = allocationSubspace;
         this.candidateCheck = candidateCheck;
     }
 
-    public static HighContentionAllocator forRoot(@Nonnull Transaction transaction,
+    public static HighContentionAllocator forRoot(@Nonnull FDBRecordContext context,
                                                   @Nonnull Subspace counterSubspace,
                                                   @Nonnull Subspace allocationSubspace) {
-        return new HighContentionAllocator(transaction, counterSubspace, allocationSubspace,
-                value -> hasConflictAtRoot(transaction, value));
+        return new HighContentionAllocator(context, counterSubspace, allocationSubspace,
+                value -> hasConflictAtRoot(context.ensureActive(), value));
     }
 
-    public static HighContentionAllocator forRoot(@Nonnull Transaction transaction, @Nonnull KeySpacePath basePath) {
-        return new HighContentionAllocator(transaction, basePath, value -> hasConflictAtRoot(transaction, value));
+    public static HighContentionAllocator forRoot(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath basePath) {
+        return new HighContentionAllocator(context, basePath, value -> hasConflictAtRoot(context.ensureActive(), value));
     }
 
     @VisibleForTesting

@@ -176,8 +176,8 @@ public class StringInterningLayer {
 
     private HighContentionAllocator getHca(@Nonnull FDBRecordContext context) {
         return isRootLevel ?
-                HighContentionAllocator.forRoot(context.ensureActive(), counterSubspace, reverseMappingSubspace) :
-                new HighContentionAllocator(context.ensureActive(), counterSubspace, reverseMappingSubspace);
+                HighContentionAllocator.forRoot(context, counterSubspace, reverseMappingSubspace) :
+                new HighContentionAllocator(context, counterSubspace, reverseMappingSubspace);
     }
 
     private byte[] serializeValue(@Nonnull ResolverResult allocated) {

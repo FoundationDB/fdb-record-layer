@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,7 +59,7 @@ public class FDBTypedRecordStoreTest {
     public void setup() {
         fdb = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext context = fdb.openContext()) {
-            FDBRecordStore.deleteStore(context, TestKeySpace.getKeyspacePath(context, "record-test", "unit", "typedtest"));
+            FDBRecordStore.deleteStore(context, TestKeySpace.getKeyspacePath("record-test", "unit", "typedtest"));
             context.commit();
         }
     }
@@ -68,7 +67,7 @@ public class FDBTypedRecordStoreTest {
     public void openTypedRecordStore(FDBRecordContext context) throws Exception {
         recordStore = BUILDER.copyBuilder()
                 .setContext(context)
-                .setSubspace(new Subspace(TestKeySpace.getKeyspacePath(context, "record-test", "unit", "typedtest").toTuple()))
+                .setKeySpacePath(TestKeySpace.getKeyspacePath("record-test", "unit", "typedtest"))
                 .createOrOpen();
     }
 

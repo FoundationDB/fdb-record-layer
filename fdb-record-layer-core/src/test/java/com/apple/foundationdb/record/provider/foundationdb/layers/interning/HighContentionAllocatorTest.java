@@ -71,7 +71,7 @@ class HighContentionAllocatorTest {
         database = FDBDatabaseFactory.instance().getDatabase();
         keySpace = new KeySpace(new KeySpaceDirectory("test-path", KeyType.STRING, "test-path"));
         try (FDBRecordContext context = database.openContext()) {
-            keySpace.path(context, "test-path").deleteAllData();
+            keySpace.path("test-path").deleteAllData(context);
             context.commit();
         }
     }
@@ -80,7 +80,7 @@ class HighContentionAllocatorTest {
     void testAllocationsUnique() {
         final Map<Long, String> allocated = new HashMap<>();
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = new HighContentionAllocator(context.ensureActive(), keySpace.path(context, "test-path"));
+            HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
 
             for (int i = 0; i < 50; i++) {
                 String storedValue = "allocate-" + i;
@@ -93,7 +93,7 @@ class HighContentionAllocatorTest {
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = new HighContentionAllocator(context.ensureActive(), keySpace.path(context, "test-path"));
+            HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
 
             validateAllocation(context, hca, allocated);
             for (int i = 0; i < 10; i++) {
@@ -108,7 +108,7 @@ class HighContentionAllocatorTest {
     void testAllocationsParallelSameTransaction() {
         final Map<Long, String> allocated;
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = new HighContentionAllocator(context.ensureActive(), keySpace.path(context, "test-path"));
+            HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
 
             List<CompletableFuture<Pair<Long, String>>> allocationOperations = new ArrayList<>();
             for (int i = 0; i < 50; i++) {
@@ -130,7 +130,7 @@ class HighContentionAllocatorTest {
         AtomicInteger count = new AtomicInteger();
         for (int i = 0; i < 50; i++) {
             CompletableFuture<Pair<Long, String>> allocation = database.runAsync(context -> {
-                HighContentionAllocator hca = new HighContentionAllocator(context.ensureActive(), keySpace.path(context, "test-path"));
+                HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
                 String storedValue = "allocate-" + count.getAndIncrement();
                 return hca.allocate(storedValue).thenApply(id -> Pair.of(id, storedValue));
             });
@@ -142,7 +142,7 @@ class HighContentionAllocatorTest {
         assertThat("all values are allocated", allocated.entrySet(), hasSize(50));
 
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = new HighContentionAllocator(context.ensureActive(), keySpace.path(context, "test-path"));
+            HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
             validateAllocation(context, hca, allocated);
         }
     }
@@ -157,8 +157,7 @@ class HighContentionAllocatorTest {
         });
 
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = HighContentionAllocator.forRoot(context.ensureActive(),
-                    keySpace.path(context, "test-path"));
+            HighContentionAllocator hca = HighContentionAllocator.forRoot(context, keySpace.path("test-path"));
             // write conflicting keys
             // this unfortunately requires some knowledge of the implementation details of the allocator
             // starting from a clean slate the first allocation will be an integer in the range [0, 64)
@@ -191,8 +190,7 @@ class HighContentionAllocatorTest {
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = HighContentionAllocator.forRoot(context.ensureActive(),
-                    keySpace.path(context, "test-path"));
+            HighContentionAllocator hca = HighContentionAllocator.forRoot(context, keySpace.path("test-path"));
 
             try {
                 hca.allocate("some-string").join();

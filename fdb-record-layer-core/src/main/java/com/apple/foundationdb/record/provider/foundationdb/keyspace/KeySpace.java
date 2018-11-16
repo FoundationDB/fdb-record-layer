@@ -100,11 +100,11 @@ import java.util.concurrent.CompletableFuture;
  * Once defined, a <code>KeySpace</code> provides a convenient mechanism for constructing tuples that may then
  * be used to form an FDB row key.  For example:
  * <pre>
- *     Tuple transactionKey = keySpace.path(context, "state", "CA")
+ *     Tuple transactionKey = keySpace.path("state", "CA")
  *         .add("office_id", 1234)
  *         .add("sales")
  *         .add("transaction_id", UUID.randomUUID())
- *         .toTuple();
+ *         .toTuple(context);
  * </pre>
  * Creates a row key suitable to store a new sales transaction in California in office 1234.
  *
@@ -137,7 +137,7 @@ public class KeySpace {
      * Retrieves a subdirectory.
      * @param name the name of the directory to return
      * @return the directory with the specified <code>name</code>
-     * @throws NoSuchDirectoryException if the directory does not exist.
+     * @throws NoSuchDirectoryException if the directory does not exist
      */
     @Nonnull
     public KeySpaceDirectory getDirectory(@Nonnull String name) {
@@ -157,21 +157,59 @@ public class KeySpace {
      * Begin a path traversal from a root directory. This method may only be used for root directories
      * defined with a constant value.
      *
-     * @param context context used for any database access required to construct the path
+     * @param context the context that will be used when resolving the path via {@link KeySpacePath#toTuple()}
+     *    or {@link KeySpacePath#toSubspace()}
      * @param name the name of the root directory with which to begin the path
      * @return the path beginning at the specified root directory
-     * @throws NoSuchDirectoryException if the directory does not exist.
+     * @throws NoSuchDirectoryException if the directory does not exist
+     *
+     * @deprecated use {@link #path(String)} instead.
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     public KeySpacePath path(@Nonnull FDBRecordContext context, @Nonnull String name) {
-        KeySpaceDirectory dir = root.getSubdirectory(name);
-        return KeySpacePathImpl.newPath(null, context, dir);
+        return startPath(context, name);
+    }
+
+    /**
+     * Begin a path traversal from a root directory. This method may only be used for root directories
+     * defined with a constant value.
+     *
+     * @param name the name of the root directory with which to begin the path
+     * @return the path beginning at the specified root directory
+     * @throws NoSuchDirectoryException if the directory does not exist
+     */
+    @Nonnull
+    public KeySpacePath path(@Nonnull String name) {
+        return startPath(null, name);
+    }
+
+    /**
+     * Begin a path traversal from a root directory. This method may only be used for root directories
+     * defined with a constant value.
+     *
+     * @param context the context that will be used when resolving the path via {@link KeySpacePath#toTuple()}
+     *    or {@link KeySpacePath#toSubspace()}
+     * @param name the name of the root directory with which to begin the path
+     * @param value the value to use for the directory
+     * @return the path beginning at the specified root directory
+     * @throws NoSuchDirectoryException if the directory does not exist
+     * @throws RecordCoreArgumentException if the value provided is incompatible with the data type declared
+     *    for the directory
+     *
+     * @deprecated use {@link #path(String, Object)} instead.
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
+    @Nonnull
+    public KeySpacePath path(@Nonnull FDBRecordContext context, @Nonnull String name, @Nullable Object value) {
+        return startPath(context, name, value);
     }
 
     /**
      * Begin a path traversal from a root directory.
      *
-     * @param context context used for any database access required to construct the path
      * @param name the name of the root directory with which to begin the path
      * @param value the value to use for the directory
      * @return the path beginning at the specified root directory
@@ -180,9 +218,20 @@ public class KeySpace {
      *    for the directory
      */
     @Nonnull
-    public KeySpacePath path(@Nonnull FDBRecordContext context, @Nonnull String name, @Nullable Object value) {
+    public KeySpacePath path(@Nonnull String name, @Nullable Object value) {
+        return startPath(null, name, value);
+    }
+
+    @Nonnull
+    private KeySpacePath startPath(@Nullable FDBRecordContext context, @Nonnull String name) {
         KeySpaceDirectory dir = root.getSubdirectory(name);
-        return KeySpacePathImpl.newPath(null, dir, context, value, dir.toTupleValueAsync(context, value), null);
+        return KeySpacePathImpl.newPath(null, context, dir);
+    }
+
+    @Nonnull
+    public KeySpacePath startPath(@Nullable FDBRecordContext context, @Nonnull String name, @Nullable Object value) {
+        KeySpaceDirectory dir = root.getSubdirectory(name);
+        return KeySpacePathImpl.newPath(null, dir, context, value, false, null, null);
     }
 
     /**

@@ -68,7 +68,7 @@ public abstract class FDBRecordStoreTestBase {
     protected boolean useRewritePlanner = false;
     protected QueryPlanner planner;
     protected FDBEvaluationContext<Message> evaluationContext;
-    protected KeySpacePath path;
+    protected final KeySpacePath path = TestKeySpace.getKeyspacePath(PATH_OBJECTS);
 
     /**
      * Meta data setup hook, used for testing.
@@ -98,8 +98,7 @@ public abstract class FDBRecordStoreTestBase {
     public void clearAndInitialize() {
         getFDB();
         fdb.run(timer, null, context -> {
-            setKeySpacePath(context);
-            Subspace subspace = new Subspace(path.toTuple());
+            Subspace subspace = path.toSubspace(context);
             FDBRecordStore.deleteStore(context, subspace);
             return null;
         });
@@ -107,10 +106,6 @@ public abstract class FDBRecordStoreTestBase {
 
     public void getFDB() {
         fdb = FDBDatabaseFactory.instance().getDatabase();
-    }
-
-    private void setKeySpacePath(FDBRecordContext context) {
-        path = TestKeySpace.getKeyspacePath(context, PATH_OBJECTS);
     }
 
     protected void createOrOpenRecordStore(FDBRecordContext context, RecordMetaData metaData) {

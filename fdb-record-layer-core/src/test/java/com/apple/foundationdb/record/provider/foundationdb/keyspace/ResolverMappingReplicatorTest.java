@@ -77,10 +77,10 @@ public abstract class ResolverMappingReplicatorTest {
         factory.setDirectoryCacheSize(100);
         database = factory.getDatabase();
         database.clearCaches();
+        KeySpacePath basePath = keySpace.path("test-path");
         // wipe test keyspace
         database.run(context -> {
-            KeySpacePath basePath = keySpace.path(context, "test-path");
-            context.ensureActive().clear(Range.startsWith(basePath.toTuple().pack()));
+            context.ensureActive().clear(Range.startsWith(basePath.toTuple(context).pack()));
             return null;
         });
     }
@@ -240,9 +240,9 @@ public abstract class ResolverMappingReplicatorTest {
         ResolverMappingReplicator replicator = new ResolverMappingReplicator(primary, 10);
         FDBDatabase differentDB = new FDBDatabase(FDBDatabaseFactory.instance(), null);
 
+        KeySpacePath path = keySpace.path("test-path").add("to").add("replica");
         try (FDBRecordContext context = differentDB.openContext()) {
-            KeySpacePath path = keySpace.path(context, "test-path").add("to").add("replica");
-            LocatableResolver resolverInDifferentDB = new ScopedInterningLayer(path);
+            LocatableResolver resolverInDifferentDB = new ScopedInterningLayer(context, path);
             replicator.copyTo(resolverInDifferentDB);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException ex) {

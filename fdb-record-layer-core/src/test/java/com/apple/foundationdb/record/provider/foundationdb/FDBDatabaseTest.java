@@ -191,7 +191,7 @@ public class FDBDatabaseTest {
 
         database.run(context -> {
             FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                    .setKeySpacePath(TestKeySpace.getKeyspacePath(context, PATH_OBJECTS))
+                    .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                     .build();
             store.deleteAllRecords();
             store.saveRecord(simpleRecord);
@@ -204,7 +204,7 @@ public class FDBDatabaseTest {
         // Tests to make sure the database operations are run and committed.
         TestRecords1Proto.MySimpleRecord retrieved = database.run(context -> {
             FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                    .setKeySpacePath(TestKeySpace.getKeyspacePath(context, PATH_OBJECTS))
+                    .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                     .build();
             TestRecords1Proto.MySimpleRecord.Builder builder = TestRecords1Proto.MySimpleRecord.newBuilder();
             FDBStoredRecord<Message> rec = store.loadRecord(Tuple.from(recordNumber));

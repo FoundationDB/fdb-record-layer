@@ -179,7 +179,7 @@ public class FDBRecordStorePerformanceTest {
         while (n < databaseParameters.recordCount) {
             try (FDBRecordContext context = fdb.openContext()) {
                 FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(context, databaseParameters.path))
+                        .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
                         .uncheckedOpen();
                 if (n == 0) {
                     recordStore.validateMetaData();
@@ -241,7 +241,7 @@ public class FDBRecordStorePerformanceTest {
                     context.ensureActive().options().setReadYourWritesDisable();
                 }
                 FDBRecordStore store = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(context, databaseParameters.path))
+                        .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
                         .setPipelineSizer(parameters)
                         .uncheckedOpen();
                 for (int j = 0; j < parameters.repeatCount; j++) {
@@ -298,7 +298,7 @@ public class FDBRecordStorePerformanceTest {
                 context.ensureActive().options().setReadYourWritesDisable();
             }
             return FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
-                    .setKeySpacePath(TestKeySpace.getKeyspacePath(context, databaseParameters.path))
+                    .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
                     .setPipelineSizer(parameters)
                     .uncheckedOpenAsync().thenCompose(store -> {
                         long startTime = System.nanoTime();

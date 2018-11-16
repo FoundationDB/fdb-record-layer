@@ -60,7 +60,7 @@ public class FDBMetaDataStoreTest {
     FDBMetaDataStore metaDataStore;
 
     public void openMetaDataStore(FDBRecordContext context) {
-        metaDataStore = new FDBMetaDataStore(context, TestKeySpace.getKeyspacePath(context, "record-test", "unit", "metadataStore"));
+        metaDataStore = new FDBMetaDataStore(context, TestKeySpace.getKeyspacePath("record-test", "unit", "metadataStore"));
         metaDataStore.setDependencies(new Descriptors.FileDescriptor[] {
                 RecordMetaDataOptionsProto.getDescriptor()
         });
