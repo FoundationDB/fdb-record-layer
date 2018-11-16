@@ -11,7 +11,7 @@ To do the full suite of checks and tests run:
 ./gradlew -PspotbugsEnableHtmlReport check test
 ```
 
-If you enable the local repo in whatever uses the Record Layer, this will make it available, the published jars will be in the directory ~/.m2/repository/org/foundationdb/fdb-record-layer/record-layer/.
+If you enable the local repo in whatever uses the Record Layer, the following will make it available. The published jars will be in the directory `~/.m2/repository/org/foundationdb/fdb-record-layer-core/n.n-SNAPSHOT/`.
 
 ```
 ./gradlew publishToMavenLocal
