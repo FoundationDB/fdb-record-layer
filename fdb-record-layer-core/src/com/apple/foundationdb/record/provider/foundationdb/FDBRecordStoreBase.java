@@ -2281,10 +2281,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     /**
      * Loads the current state of the record store within the given subspace asynchronously.
      * This method is static so that one can load the record store state before instantiating
-     * the instance. In particular, because a complete {@link RecordMetaData} should include
-     * the current state, this method can be run first to get the state that should
-     * be fed into the {@link com.apple.foundationdb.record.RecordMetaDataBuilder}. This method is done for the user by the
-     * various static <code>open</code> methods.
+     * the instance. This method is called for the user by the various static <code>open</code> methods.
      * @param context the record context in which to retrieve the record store state
      * @param subspace the subspace of the record store
      * @param isolationLevel the isolation level to use when reading
@@ -3448,8 +3445,6 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      */
     @Nonnull
     public RecordQueryPlan planQuery(@Nonnull RecordQuery query) {
-        // NOTE: If this planner were cached, it would need to be keyed on recordStoreState, which can change
-        // even if meta-data never does.
         final RecordQueryPlanner planner = new RecordQueryPlanner(getRecordMetaData(), getRecordStoreState());
         return planner.plan(query);
     }

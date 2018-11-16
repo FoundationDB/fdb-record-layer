@@ -89,8 +89,8 @@ public abstract class IndexMaintainer<M extends Message> {
      * @return a future that is complete when the record update is done
      */
     @Nonnull
-    public abstract  CompletableFuture<Void> update(@Nullable FDBStoredRecord<M> oldRecord,
-                                                    @Nullable FDBStoredRecord<M> newRecord);
+    public abstract CompletableFuture<Void> update(@Nullable FDBStoredRecord<M> oldRecord,
+                                                   @Nullable FDBStoredRecord<M> newRecord);
 
     /**
      * Remove or add a uniqueness violation within the database. This is used to keep track of

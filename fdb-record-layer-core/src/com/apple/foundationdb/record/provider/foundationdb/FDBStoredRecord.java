@@ -32,7 +32,7 @@ import java.util.Optional;
 /**
  * A record stored in the database.
  *
- * To the raw Protobuf record, adds its primary key and record type.
+ * Adds information about storage sizes from saving or retrieving.
  * @param <M> type used to represent stored records
  * @see FDBRecordStoreBase#saveRecord
  * @see FDBRecordStoreBase#loadRecord
@@ -185,10 +185,10 @@ public class FDBStoredRecord<M extends Message> implements FDBRecord<M>, FDBStor
      */
     @Nonnull
     public FDBStoredRecord<M> withCommittedVersion(@Nullable byte[] committedVersion) {
-        if (!hasVersion() || recordVersion.isComplete()) {
+        if (recordVersion == null || recordVersion.isComplete()) {
             return this;
         }
-        return new FDBStoredRecord<>(primaryKey, recordType, record, keyCount, keySize, valueSize, split, versionedInline, recordVersion.withCommittedVersion(committedVersion));
+        return withVersion(recordVersion.withCommittedVersion(committedVersion));
     }
 
     @Nonnull

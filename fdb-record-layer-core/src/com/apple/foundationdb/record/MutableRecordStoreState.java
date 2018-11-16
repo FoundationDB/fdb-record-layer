@@ -130,8 +130,8 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     @Nonnull
     @Override
-    public MutableRecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexeNames) {
-        return new MutableRecordStoreState(writeOnlyMap(writeOnlyIndexeNames));
+    public MutableRecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
+        return new MutableRecordStoreState(writeOnlyMap(writeOnlyIndexNames));
     }
 
     // NOTE: Does not actually implement own equals. Is equal to immutable one, too.

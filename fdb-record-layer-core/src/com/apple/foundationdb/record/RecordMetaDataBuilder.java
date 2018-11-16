@@ -441,21 +441,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     @Nonnull
     public Descriptors.FieldDescriptor getUnionFieldForRecordType(@Nonnull RecordType recordType) {
-        final Descriptors.FieldDescriptor unionField = getUnionFieldForRecordType(recordType.getName());
+        final Descriptors.FieldDescriptor unionField = unionFields.get(recordType.getDescriptor());
         if (unionField == null) {
-            throw new MetaDataException("RecordType is not in the union");
+            throw new MetaDataException("Record type " + recordType.getName() + " is not in the union");
         }
         return unionField;
-    }
-
-    @Nullable
-    private Descriptors.FieldDescriptor getUnionFieldForRecordType(@Nonnull String recordType) {
-        for (Descriptors.FieldDescriptor field : unionDescriptor.getFields()) {
-            if (field.getMessageType().getFullName().equals(recordType)) {
-                return field;
-            }
-        }
-        return null;
     }
 
     @Nonnull
