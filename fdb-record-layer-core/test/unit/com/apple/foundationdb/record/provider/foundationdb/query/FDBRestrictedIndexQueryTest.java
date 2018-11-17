@@ -211,8 +211,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         Index sumIndex = new Index("value3sum", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         Index maxIndex = new Index("value3max", field("num_value_3_indexed").ungrouped(), IndexTypes.MAX_EVER_TUPLE);
         RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), sumIndex);
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxIndex);
+            metaData.addIndex("MySimpleRecord", sumIndex);
+            metaData.addIndex("MySimpleRecord", maxIndex);
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -289,8 +289,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         Index sumIndex = new Index("value3sum", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
         Index maxIndex = new Index("value3max", field("num_value_3_indexed").ungrouped(), IndexTypes.MAX_EVER_TUPLE);
         RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), sumIndex);
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxIndex);
+            metaData.addIndex("MySimpleRecord", sumIndex);
+            metaData.addIndex("MySimpleRecord", maxIndex);
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -361,9 +361,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
     public void queryAllowedIndexes() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("limited_str_value_index", field("str_value_indexed"),
-                            Index.EMPTY_VALUE, IndexTypes.VALUE, Index.NOT_ALLOWED_FOR_QUERY_OPTIONS));
+            metaData.addIndex("MySimpleRecord", new Index("limited_str_value_index", field("str_value_indexed"),
+                    Index.EMPTY_VALUE, IndexTypes.VALUE, Index.NOT_ALLOWED_FOR_QUERY_OPTIONS));
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -438,7 +437,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void queryAllowedUniversalIndex() throws Exception {
         RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(null,
+            metaData.addUniversalIndex(
                     new Index("universal_num_value_2", field("num_value_2"),
                             Index.EMPTY_VALUE, IndexTypes.VALUE, Index.NOT_ALLOWED_FOR_QUERY_OPTIONS));
         };

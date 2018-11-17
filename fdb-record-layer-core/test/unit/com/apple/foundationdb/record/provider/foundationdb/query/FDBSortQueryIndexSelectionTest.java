@@ -99,8 +99,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                     String indexName = "MySimpleRecord$num_value_3_indexed";
                     KeyExpression root = metadata.getIndex(indexName).getRootExpression();
                     metadata.removeIndex(indexName);
-                    metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
-                            new Index(indexName, root, "FAKE_TYPE"));
+                    metadata.addIndex("MySimpleRecord", new Index(indexName, root, "FAKE_TYPE"));
                 }, new PlannableIndexTypes(Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION, "FAKE_TYPE"),
                         PlannableIndexTypes.DEFAULT.getRankTypes(), PlannableIndexTypes.DEFAULT.getTextTypes())));
     }
@@ -589,10 +588,8 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
             RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
-            builder.addIndex(builder.getRecordType("MyRecord"),
-                    new Index("MyRecord$header_num",
-                            concat(field("header").nest("num"),
-                                    field("str_value"))));
+            builder.addIndex("MyRecord", "MyRecord$header_num", concat(field("header").nest("num"),
+                    field("str_value")));
             RecordMetaData metaData = builder.getRecordMetaData();
             createRecordStore(context, metaData);
             recordStore.deleteAllRecords();
@@ -786,12 +783,10 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     @Test
     public void twoSortOneNestedFilter() throws Exception {
         final RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(metaData.getRecordType("RestaurantReviewer"),
-                    new Index("schoolNameEmail",
-                            concat(
-                                    field("stats").nest(field("school_name")),
-                                    field("name"),
-                                    field("email"))));
+            metaData.addIndex("RestaurantReviewer", "schoolNameEmail", concat(
+                    field("stats").nest(field("school_name")),
+                    field("name"),
+                    field("email")));
         };
         nestedWithAndSetup(hook);
 

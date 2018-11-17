@@ -180,8 +180,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     public void coveringMulti() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_unique");
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("multi_index", "num_value_unique", "num_value_2"));
+            metaData.addIndex("MySimpleRecord", new Index("multi_index", "num_value_unique", "num_value_2"));
         };
         complexQuerySetup(hook);
 
@@ -222,10 +221,10 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     public void coveringMultiValue() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_unique");
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index(
+            metaData.addIndex("MySimpleRecord", new Index(
                     "multi_index_value",
-                    Key.Expressions.field("num_value_unique"),
-                    Key.Expressions.field("num_value_2"),
+                    field("num_value_unique"),
+                    field("num_value_2"),
                     IndexTypes.VALUE,
                     Index.UNIQUE_OPTIONS));
         };
@@ -269,9 +268,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(field("rec_no")));
-            metaData.addIndex(metaData.getRecordType("MyRecord"),
-                    new Index("MyRecord$str_value", field("str_value"), field("header").nest(field("path")),
-                            IndexTypes.VALUE, Collections.emptyMap()));
+            metaData.addIndex("MyRecord", new Index("MyRecord$str_value", field("str_value"), field("header").nest(field("path")),
+                    IndexTypes.VALUE, Collections.emptyMap()));
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -296,7 +294,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
-            metaData.addIndex(metaData.getRecordType("MyRecord"), new Index("MyRecord$str_value", "str_value"));
+            metaData.addIndex("MyRecord", "str_value");
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -349,7 +347,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     // Even though path is required, it isn't part of the primary key, so won't be in the index,
                     // so won't be covering.
                     .setPrimaryKey(field("header").nest(field("rec_no")));
-            metaData.addIndex(metaData.getRecordType("MyRecord"), new Index("MyRecord$str_value", "str_value"));
+            metaData.addIndex("MyRecord", "str_value");
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -374,7 +372,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     public void queryCoveringAggregate() throws Exception {
         Index sumIndex = new Index("value3sum", field("num_value_3_indexed").groupBy(Key.Expressions.concatenateFields("str_value_indexed", "num_value_2")), IndexTypes.SUM);
         RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), sumIndex);
+            metaData.addIndex("MySimpleRecord", sumIndex);
         };
 
         try (FDBRecordContext context = openContext()) {

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords5Proto;
 import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -278,10 +277,9 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void nestedAndOnNestedMap() throws Exception {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsNestedMapProto.getDescriptor());
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("OuterRecord"),
-                    new Index("key_index", concat(
-                            field("other_id"),
-                            field("map").nest(field("entry", KeyExpression.FanType.FanOut).nest("key")))));
+            metaDataBuilder.addIndex("OuterRecord", "key_index", concat(
+                    field("other_id"),
+                    field("map").nest(field("entry", KeyExpression.FanType.FanOut).nest("key"))));
             createRecordStore(context, metaDataBuilder.getRecordMetaData());
             commit(context);
         }
@@ -311,9 +309,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void nestedWithAndConcat() throws Exception {
         final RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("stats$school");
-            metaData.addIndex(metaData.getRecordType("RestaurantReviewer"),
-                    new Index("stats$school",
-                            field("stats").nest(concatenateFields("school_name", "start_date"))));
+            metaData.addIndex("RestaurantReviewer", "stats$school", field("stats").nest(concatenateFields("school_name", "start_date")));
         };
         nestedWithAndSetup(hook);
 
@@ -356,9 +352,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void nestedWithBetween() throws Exception {
         final RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("stats$school");
-            metaData.addIndex(metaData.getRecordType("RestaurantReviewer"),
-                    new Index("stats$school",
-                            concat(field("name"), field("stats").nest(field("start_date")))));
+            metaData.addIndex("RestaurantReviewer", "stats$school", concat(field("name"), field("stats").nest(field("start_date"))));
         };
         nestedWithAndSetup(hook);
 

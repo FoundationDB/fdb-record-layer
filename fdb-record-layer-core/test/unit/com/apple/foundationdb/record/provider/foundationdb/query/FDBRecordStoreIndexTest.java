@@ -91,7 +91,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                 fetchResultValues(planner.plan(query), this::openNestedRecordStore, getIds));
 
         // Adds an index for that query.
-        RecordMetaDataHook hook = metaData -> metaData.addIndex(null, new Index("new_index", "name"));
+        RecordMetaDataHook hook = metaData -> metaData.addUniversalIndex(new Index("new_index", "name"));
 
         Opener openWithNewIndex = context -> openNestedRecordStore(context, hook);
 
@@ -153,8 +153,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                         context -> assertDiscardedAtLeast(9, context)));
 
         // Adds an index for that query.
-        RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                new Index("new_index", "num_value_2"));
+        RecordMetaDataHook hook = metaData -> metaData.addIndex("MySimpleRecord", "new_index", "num_value_2");
 
         Opener openWithNewIndex = context -> openSimpleRecordStore(context, hook);
 
@@ -200,7 +199,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
     public void scanIndexWithValue() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_unique");
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index(
+            metaData.addIndex("MySimpleRecord", new Index(
                     "multi_index_value",
                     Key.Expressions.field("num_value_unique"),
                     Key.Expressions.field("num_value_2"),

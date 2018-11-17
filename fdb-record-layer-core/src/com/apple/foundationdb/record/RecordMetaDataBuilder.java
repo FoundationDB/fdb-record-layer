@@ -506,6 +506,44 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     /**
+     * Adds a new index.
+     * @param recordType name of the record type
+     * @param index the index to be added
+     */
+    public void addIndex(@Nonnull String recordType, @Nonnull Index index) {
+        addIndex(getRecordType(recordType), index);
+    }
+
+    /**
+     * Adds a new index.
+     * @param recordType name of the record type
+     * @param indexName the name of the new index
+     * @param indexExpression the root expression of the new index
+     */
+    public void addIndex(@Nonnull String recordType, @Nonnull String indexName, @Nonnull KeyExpression indexExpression) {
+        addIndex(recordType, new Index(indexName, indexExpression));
+    }
+
+    /**
+     * Adds a new index.
+     * @param recordType name of the record type
+     * @param indexName the name of the new index
+     * @param fieldName the record field to be indexed
+     */
+    public void addIndex(@Nonnull String recordType, @Nonnull String indexName, @Nonnull String fieldName) {
+        addIndex(recordType, new Index(indexName, fieldName));
+    }
+
+    /**
+     * Adds a new index on a single field.
+     * @param recordType name of the record type
+     * @param fieldName the record field to be indexed
+     */
+    public void addIndex(@Nonnull String recordType, @Nonnull String fieldName) {
+        addIndex(recordType, recordType + "$" + fieldName, fieldName);
+    }
+
+    /**
      * Adds a new index that contains multiple record types.
      * If the list is null or empty, the resulting index will include all record types.
      * If the list has one element it will just be a normal single record type index.
@@ -523,6 +561,15 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 recordType.getMultiTypeIndexes().add(index);
             }
         }
+    }
+
+    /**
+     * Adds a new index on all record types.
+     * @param index the index to be added
+     */
+    public void addUniversalIndex(@Nonnull Index index) {
+        addIndexCommon(index);
+        universalIndexes.put(index.getName(), index);
     }
 
     public void removeIndex(@Nonnull String name) {

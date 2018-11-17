@@ -265,8 +265,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
-            metaData.addIndex(metaData.getRecordType("MyRecord"), new Index("ind",
-                    field("header").nest(field("rec_no"), field("path"))));
+            metaData.addIndex("MyRecord", "ind", field("header").nest(field("rec_no"), field("path")));
         };
 
         setupRecordsWithHeader(recordMetaDataHook, (i, record) -> {
@@ -299,8 +298,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
-            metaData.addIndex(metaData.getRecordType("MyRecord"), new Index("ind",
-                    field("header").nest(field("rec_no"), field("path"))));
+            metaData.addIndex("MyRecord", "ind", field("header").nest(field("rec_no"), field("path")));
         };
 
 
@@ -338,8 +336,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
-            metaData.addIndex(metaData.getRecordType("MyRecord"), new Index("ind",
-                    field("header").nest(field("rec_no"), field("path"))));
+            metaData.addIndex("MyRecord", "ind", field("header").nest(field("rec_no"), field("path")));
         };
 
 
@@ -374,8 +371,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
-            metaData.addIndex(metaData.getRecordType("MyRecord"), new Index("ind",
-                    field("header").nest(field("rec_no"), field("path"))));
+            metaData.addIndex("MyRecord", "ind", field("header").nest(field("rec_no"), field("path")));
         };
 
         setupRecordsWithHeader(recordMetaDataHook, (i, record) -> {
@@ -407,8 +403,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
-            metaData.addIndex(metaData.getRecordType("MyRecord"), new Index("ind",
-                    field("header").nest(field("rec_no"), field("path"))));
+            metaData.addIndex("MyRecord", "ind", field("header").nest(field("rec_no"), field("path")));
         };
 
         setupRecordsWithHeader(recordMetaDataHook, (i, record) -> {
@@ -469,8 +464,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testOneOfThemIn() throws Exception {
         RecordMetaDataHook recordMetaDataHook = metadata ->
-                metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
-                        new Index("ind", field("repeater", FanType.FanOut)));
+                metadata.addIndex("MySimpleRecord", "ind", field("repeater", FanType.FanOut));
         setupSimpleRecordStore(recordMetaDataHook,
                 (i, builder) -> builder.setRecNo(i).addAllRepeater(Arrays.asList(10 + i % 4, 20 + i % 4)));
         List<Integer> ls = Arrays.asList(13, 22);
@@ -493,8 +487,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testOneOfThemInParameter() throws Exception {
         RecordMetaDataHook recordMetaDataHook = metadata ->
-                metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
-                        new Index("ind", field("repeater", FanType.FanOut)));
+                metadata.addIndex("MySimpleRecord", "ind", field("repeater", FanType.FanOut));
         setupSimpleRecordStore(recordMetaDataHook,
                 (i, builder) -> builder.setRecNo(i).addAllRepeater(Arrays.asList(10 + i % 4, 20 + i % 4)));
         RecordQuery query = RecordQuery.newBuilder()
@@ -517,9 +510,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testRecordFunctionInGrouped() throws Exception {
         RecordMetaDataHook recordMetaDataHook = metadata ->
-                metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
-                        new Index("rank_by_string", Key.Expressions.field("num_value_2").groupBy(Key.Expressions.field("str_value_indexed")),
-                                IndexTypes.RANK));
+                metadata.addIndex("MySimpleRecord", new Index("rank_by_string", field("num_value_2").groupBy(field("str_value_indexed")),
+                        IndexTypes.RANK));
         setupSimpleRecordStore(recordMetaDataHook,
                 (i, builder) -> builder.setRecNo(i).setStrValueIndexed("str" + i % 4).setNumValue2(i + 100));
 
@@ -548,9 +540,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testRecordFunctionInUngrouped() throws Exception {
         RecordMetaDataHook recordMetaDataHook = metadata ->
-                metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
-                        new Index("rank", Key.Expressions.field("num_value_2").ungrouped(),
-                                IndexTypes.RANK));
+                metadata.addIndex("MySimpleRecord", new Index("rank", field("num_value_2").ungrouped(),
+                        IndexTypes.RANK));
         setupSimpleRecordStore(recordMetaDataHook,
                 (i, builder) -> builder.setRecNo(i).setStrValueIndexed("str" + i % 4).setNumValue2(i + 100));
 

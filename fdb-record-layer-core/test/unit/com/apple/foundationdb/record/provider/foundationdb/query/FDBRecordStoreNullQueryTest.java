@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.TestRecordsNulls2Proto;
 import com.apple.foundationdb.record.TestRecordsNulls3Proto;
 import com.apple.foundationdb.record.TestRecordsTupleFieldsProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
@@ -87,33 +86,27 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
 
     protected static RecordMetaData proto3MetaData() {
         RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsNulls3Proto.getDescriptor());
-        metaData.addIndex(metaData.getRecordType("MyNullRecord"), new Index("MyNullRecord$int_value", "int_value"));
-        metaData.addIndex(metaData.getRecordType("MyNullRecord"), new Index("MyNullRecord$string_value", "string_value"));
+        metaData.addIndex("MyNullRecord", "int_value");
+        metaData.addIndex("MyNullRecord", "string_value");
         return metaData.getRecordMetaData();
     }
 
     protected static RecordMetaData proto3ScalarNotNullMetaData() {
         RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsNulls3Proto.getDescriptor());
-        metaData.addIndex(metaData.getRecordType("MyNullRecord"),
-                new Index("MyNullRecord$int_value", Key.Expressions.field("int_value", KeyExpression.FanType.None,
-                        Key.Evaluated.NullStandin.NOT_NULL)));
-        metaData.addIndex(metaData.getRecordType("MyNullRecord"),
-                new Index("MyNullRecord$string_value", Key.Expressions.field("string_value", KeyExpression.FanType.None,
-                        Key.Evaluated.NullStandin.NOT_NULL)));
+        metaData.addIndex("MyNullRecord", "MyNullRecord$int_value", Key.Expressions.field("int_value", KeyExpression.FanType.None,
+                Key.Evaluated.NullStandin.NOT_NULL));
+        metaData.addIndex("MyNullRecord", "MyNullRecord$string_value", Key.Expressions.field("string_value", KeyExpression.FanType.None,
+                Key.Evaluated.NullStandin.NOT_NULL));
         return metaData.getRecordMetaData();
     }
 
     protected static RecordMetaData proto3NestedMetaData() {
         RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsNulls3Proto.getDescriptor());
-        metaData.addIndex(metaData.getRecordType("MyNullRecord"),
-                new Index("MyNullRecord$int_value",
-                        Key.Expressions.field("nullable_int_value")
-                                .nest(Key.Expressions.field("value", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NOT_NULL))));
-        metaData.addIndex(metaData.getRecordType("MyNullRecord"),
-                new Index("MyNullRecord$string_value",
-                        Key.Expressions.field("nullable_string_value")
-                                .nest(Key.Expressions.field("value", KeyExpression.FanType.None,
-                                        Key.Evaluated.NullStandin.NOT_NULL))));
+        metaData.addIndex("MyNullRecord", "MyNullRecord$int_value", Key.Expressions.field("nullable_int_value")
+                .nest(Key.Expressions.field("value", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NOT_NULL)));
+        metaData.addIndex("MyNullRecord", "MyNullRecord$string_value", Key.Expressions.field("nullable_string_value")
+                .nest(Key.Expressions.field("value", KeyExpression.FanType.None,
+                        Key.Evaluated.NullStandin.NOT_NULL)));
         return metaData.getRecordMetaData();
     }
 

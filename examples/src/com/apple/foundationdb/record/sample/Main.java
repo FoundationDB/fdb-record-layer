@@ -263,41 +263,34 @@ public class Main {
 
         // Add a global count index. Most record stores should probably add this index as it allows
         // the database to make intelligent decisions based on the current size of the record store.
-        rmdBuilder.addIndex(null, new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        rmdBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
 
         // Add a FanType.FanOut secondary index for email_address, so that
         // each value for email_address generates its own key in the index.
-        rmdBuilder.addIndex(rmdBuilder.getRecordType("Customer"),
-                new Index("email_address",
-                        field("email_address", FanType.FanOut),
-                        IndexTypes.VALUE)
-        );
+        rmdBuilder.addIndex("Customer", new Index("email_address",
+                field("email_address", FanType.FanOut),
+                IndexTypes.VALUE));
 
         // Add a FanType.Concatenate secondary index for preference_tag, so
         // that all values for preference_tag generate a single key in the index.
-        rmdBuilder.addIndex(rmdBuilder.getRecordType("Customer"),
-                new Index("preference_tag",
-                        field("preference_tag", FanType.Concatenate),
-                        IndexTypes.VALUE)
-        );
+        rmdBuilder.addIndex("Customer", new Index("preference_tag",
+                field("preference_tag", FanType.Concatenate),
+                IndexTypes.VALUE));
 
         // Add an index on the count of each preference tag. This allows us to
         // quickly get the number of users for each preference tag. The key
         // provided will create a separate "count" field for each value of the
         // preference_tag field and keep track of the number of customer
         // records with each value.
-        rmdBuilder.addIndex(rmdBuilder.getRecordType("Customer"),
-                new Index("preference_tag_count",
-                        field("customer_id").groupBy(field("preference_tag", FanType.FanOut)),
-                        IndexTypes.COUNT));
+        rmdBuilder.addIndex("Customer", new Index("preference_tag_count",
+                field("customer_id").groupBy(field("preference_tag", FanType.FanOut)),
+                IndexTypes.COUNT));
 
         // Add a nested secondary index for order such that each value for
         // quantity in Order generates a single key in the index.
-        rmdBuilder.addIndex(rmdBuilder.getRecordType("Customer"),
-                new Index("order",
-                        field("order", FanType.FanOut).nest("quantity"),
-                        IndexTypes.VALUE)
-        );
+        rmdBuilder.addIndex("Customer", new Index("order",
+                field("order", FanType.FanOut).nest("quantity"),
+                IndexTypes.VALUE));
 
         // Add an index on the sum of the quantity of each item in each
         // order. This can be used to know how many of each item have been ordered across
@@ -305,12 +298,11 @@ public class Main {
         // specifies that the "item_id" column should be used as a grouping key
         // and the quantity used as the sum value, so it will keep track of the
         // quantity ordered of each item.
-        rmdBuilder.addIndex(rmdBuilder.getRecordType("Customer"),
-                new Index("item_quantity_sum",
-                        new GroupingKeyExpression(field("order", FanType.FanOut)
-                                .nest(concatenateFields("item_id", "quantity")), 1),
-                        IndexTypes.SUM
-                ));
+        rmdBuilder.addIndex("Customer", new Index("item_quantity_sum",
+                new GroupingKeyExpression(field("order", FanType.FanOut)
+                        .nest(concatenateFields("item_id", "quantity")), 1),
+                IndexTypes.SUM
+        ));
 
         // Rebuild the metadata for the newly added indexes before reading or
         // writing more data.

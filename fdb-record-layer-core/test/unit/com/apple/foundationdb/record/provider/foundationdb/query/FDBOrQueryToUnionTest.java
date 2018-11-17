@@ -370,9 +370,8 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testOrQuery6() throws Exception {
         RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                              new Index("str_value_3_index",
-                                        "str_value_indexed", "num_value_3_indexed"));
+            metaData.addIndex("MySimpleRecord", new Index("str_value_3_index",
+                    "str_value_indexed", "num_value_3_indexed"));
         };
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()

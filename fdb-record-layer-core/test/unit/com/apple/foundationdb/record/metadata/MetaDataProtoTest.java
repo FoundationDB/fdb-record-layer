@@ -199,15 +199,13 @@ public class MetaDataProtoTest {
     public void metadataProtoComplex() throws KeyExpression.DeserializationException, KeyExpression.SerializationException {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords3Proto.getDescriptor());
         metaDataBuilder.getOnlyRecordType().setPrimaryKey(Key.Expressions.concatenateFields("parent_path", "child_name"));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MyHierarchicalRecord"),
-                new Index("MHR$child$parentpath", Key.Expressions.concatenateFields("child_name", "parent_path"), IndexTypes.VALUE));
+        metaDataBuilder.addIndex("MyHierarchicalRecord", new Index("MHR$child$parentpath", Key.Expressions.concatenateFields("child_name", "parent_path"), IndexTypes.VALUE));
         RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
         RecordMetaData metaDataRedone = new RecordMetaDataBuilder(metaData.toProto(), BASE_DEPENDENCIES, false).getRecordMetaData();
         verifyEquals(metaData, metaDataRedone);
 
         metaDataBuilder = new RecordMetaDataBuilder(TestRecords4Proto.getDescriptor());
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("RestaurantRecord"),
-                new Index("RR$ratings", Key.Expressions.field("review", KeyExpression.FanType.FanOut).nest("rating").ungrouped(), IndexTypes.RANK));
+        metaDataBuilder.addIndex("RestaurantRecord", new Index("RR$ratings", Key.Expressions.field("review", KeyExpression.FanType.FanOut).nest("rating").ungrouped(), IndexTypes.RANK));
         metaDataBuilder.removeIndex("RestaurantReviewer$name");
         metaData = metaDataBuilder.getRecordMetaData();
         metaDataRedone = new RecordMetaDataBuilder(metaData.toProto(), BASE_DEPENDENCIES, false).getRecordMetaData();
@@ -227,8 +225,7 @@ public class MetaDataProtoTest {
                     metaDataBuilder.getRecordType("MultiRecordTwo"),
                     metaDataBuilder.getRecordType("MultiRecordThree")),
                 new Index("two&three$ego", Key.Expressions.field("ego"), Index.EMPTY_VALUE, IndexTypes.VALUE, Index.UNIQUE_OPTIONS));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MultiRecordOne"),
-                new Index("one$name", Key.Expressions.field("name"), IndexTypes.VALUE));
+        metaDataBuilder.addIndex("MultiRecordOne", new Index("one$name", Key.Expressions.field("name"), IndexTypes.VALUE));
         metaDataBuilder.setRecordCountKey(Key.Expressions.field("blah"));
         metaDataBuilder.removeIndex("one$name");
         metaDataBuilder.setStoreRecordVersions(true);

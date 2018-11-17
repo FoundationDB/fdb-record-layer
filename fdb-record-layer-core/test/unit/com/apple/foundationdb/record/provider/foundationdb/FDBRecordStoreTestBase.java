@@ -164,8 +164,8 @@ public abstract class FDBRecordStoreTestBase {
 
     public void openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
         RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
-        metaData.addIndex(null, COUNT_INDEX);
-        metaData.addIndex(null, COUNT_UPDATES_INDEX);
+        metaData.addUniversalIndex(COUNT_INDEX);
+        metaData.addUniversalIndex(COUNT_UPDATES_INDEX);
         if (hook != null) {
             hook.apply(metaData);
         }
@@ -191,14 +191,14 @@ public abstract class FDBRecordStoreTestBase {
     @Nonnull
     protected FDBRecordStore openNewUnionRecordStore(FDBRecordContext context) {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsWithUnionProto.getDescriptor());
-        metaDataBuilder.addIndex(null,
+        metaDataBuilder.addUniversalIndex(
                 new Index("versions", field("etag")));
         metaDataBuilder.addMultiTypeIndex(
                 // partial_versions explicitly does not include MySimpleRecord3
                 Arrays.asList(metaDataBuilder.getRecordType("MySimpleRecord"),
                         metaDataBuilder.getRecordType("MySimpleRecord2")),
                 new Index("partial_versions", field("etag")));
-        metaDataBuilder.addIndex(null,
+        metaDataBuilder.addUniversalIndex(
                 new Index("cross_versions", field("nested").nest("etag")));
         metaDataBuilder.addMultiTypeIndex(
                 Arrays.asList(metaDataBuilder.getRecordType("MySimpleRecord"),
@@ -223,7 +223,7 @@ public abstract class FDBRecordStoreTestBase {
 
     public void openMultiRecordStore(FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsMultiProto.getDescriptor());
-        metaDataBuilder.addIndex(null, COUNT_INDEX);
+        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(metaDataBuilder.getRecordType("MultiRecordOne"), metaDataBuilder.getRecordType("MultiRecordTwo")),
                 new Index("onetwo$element", field("element", FanType.FanOut)));
         createRecordStore(context, metaDataBuilder.getRecordMetaData());

@@ -126,10 +126,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         openRecordWithHeader(context, metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(concatenateFields("rec_no", "path")));
-            metaData.addIndex(metaData.getRecordType("MyRecord"),
-                    new Index("MyRecord$str_value", concat(groupExpr, field("str_value"))));
+            metaData.addIndex("MyRecord", "MyRecord$str_value", concat(groupExpr, field("str_value")));
             if (useCountIndex) {
-                metaData.addIndex(null, new Index("MyRecord$count", new GroupingKeyExpression(groupExpr, 0), IndexTypes.COUNT));
+                metaData.addUniversalIndex(new Index("MyRecord$count", new GroupingKeyExpression(groupExpr, 0), IndexTypes.COUNT));
             } else {
                 metaData.setRecordCountKey(groupExpr);
             }
@@ -625,8 +624,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                             field("header").nest(field("path")),
                             field("header").nest(field("num"))));
 
-            metaData.addIndex(null, new Index("MyRecord$groupedCount", new GroupingKeyExpression(groupExpr, 0), IndexTypes.COUNT));
-            metaData.addIndex(null, new Index("MyRecord$groupedUpdateCount", new GroupingKeyExpression(groupExpr, 0), IndexTypes.COUNT_UPDATES));
+            metaData.addUniversalIndex(new Index("MyRecord$groupedCount", new GroupingKeyExpression(groupExpr, 0), IndexTypes.COUNT));
+            metaData.addUniversalIndex(new Index("MyRecord$groupedUpdateCount", new GroupingKeyExpression(groupExpr, 0), IndexTypes.COUNT_UPDATES));
         };
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
@@ -679,10 +678,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
                 .setPrimaryKey(field("header").nest(concatenateFields("rec_no", "path")));
-            builder.addIndex(builder.getRecordType("MyRecord"),
-                             new Index("MyRecord$str_value",
-                                       concat(field("header").nest("path"),
-                                              field("str_value"))));
+            builder.addIndex("MyRecord", "MyRecord$str_value", concat(field("header").nest("path"),
+                    field("str_value")));
             RecordMetaData metaData = builder.getRecordMetaData();
             createRecordStore(context, metaData);
             assertThrows(Query.InvalidExpressionException.class, () ->
@@ -696,10 +693,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
                 .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
-            builder.addIndex(builder.getRecordType("MyRecord"),
-                             new Index("MyRecord$path_str",
-                                       concat(field("header").nest("path"),
-                                              field("str_value"))));
+            builder.addIndex("MyRecord", "MyRecord$path_str", concat(field("header").nest("path"),
+                    field("str_value")));
             RecordMetaData metaData = builder.getRecordMetaData();
             createRecordStore(context, metaData);
             recordStore.deleteAllRecords();
@@ -761,7 +756,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                 openSimpleRecordStore(context, md -> {
                     md.setSplitLongRecords(true);
                     md.removeIndex("MySimpleRecord$str_value_indexed");
-                    md.addIndex(md.getRecordType("MySimpleRecord"), new Index(
+                    md.addIndex("MySimpleRecord", new Index(
                             "valueIndex",
                             field("num_value_2"),
                             field("str_value_indexed"),
@@ -1231,7 +1226,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                 md.removeIndex(COUNT_INDEX.getName());
                 Index index = new Index("record_count", new GroupingKeyExpression(key, 0), IndexTypes.COUNT);
                 index.setVersion(indexVersion);
-                md.addIndex(null, index);
+                md.addUniversalIndex(index);
             };
         } else {
             return md -> md.setRecordCountKey(key);
@@ -1243,7 +1238,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             md.removeIndex(COUNT_UPDATES_INDEX.getName());
             Index index = new Index("record_update_count", new GroupingKeyExpression(key, 0), IndexTypes.COUNT_UPDATES);
             index.setVersion(indexVersion);
-            md.addIndex(null, index);
+            md.addUniversalIndex(index);
         };
     }
 
@@ -1684,7 +1679,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(metaDataBuilder.getVersion(), recordStore.getRecordMetaData().getVersion());
             final int version = metaDataBuilder.getVersion();
 
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newIndex);
+            metaDataBuilder.addIndex("MySimpleRecord", newIndex);
             recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
@@ -1694,7 +1689,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(record); // This stops the index build.
 
             final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newIndex2);
+            metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
@@ -1738,7 +1733,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
             assertEquals(version, recordStore.getRecordMetaData().getVersion());
 
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newIndex);
+            metaDataBuilder.addIndex("MySimpleRecord", newIndex);
             metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
@@ -1756,7 +1751,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
             final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
 
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newIndex2);
+            metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace).setMetaDataStore(metaDataStore).open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
@@ -1783,7 +1778,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(metaDataBuilder.getVersion(), recordStore.getRecordMetaData().getVersion());
             final int version = metaDataBuilder.getVersion();
 
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newIndex);
+            metaDataBuilder.addIndex("MySimpleRecord", newIndex);
             recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).uncheckedOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
@@ -1792,7 +1787,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(record); // This would stop the build if this ran checkVersion.
 
             final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newIndex2);
+            metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataProvider(metaDataBuilder).uncheckedOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
@@ -1835,7 +1830,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
             assertEquals(version, recordStore.getRecordMetaData().getVersion());
 
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newIndex);
+            metaDataBuilder.addIndex("MySimpleRecord", newIndex);
             metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
@@ -1852,7 +1847,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
             final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
 
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newIndex2);
+            metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path).setMetaDataStore(metaDataStore).uncheckedOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
@@ -2233,7 +2228,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             // Add an index so that we have to check the record count. (This automatic upgrade happens only
             // if we are already reading the record count anyway, which is why it happens here.)
             openSimpleRecordStore(context, metaDataBuilder ->
-                    metaDataBuilder.addIndex(null, new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
+                    metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION).open();
             assertEquals(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
@@ -2258,7 +2253,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             // it correctly switches to the new one.
             // Use same meta-data as last test
             openSimpleRecordStore(context, metaDataBuilder ->
-                    metaDataBuilder.addIndex(null, new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
+                    metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1).open();
             assertEquals(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
@@ -2399,7 +2394,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     @Test
     public void importedRecordType() throws Exception {
         final RecordMetaDataHook hook = md -> {
-            md.addIndex(md.getRecordType("MySimpleRecord"), new Index("added_index", "num_value_2"));
+            md.addIndex("MySimpleRecord", "added_index", "num_value_2");
         };
 
         try (FDBRecordContext context = openContext()) {

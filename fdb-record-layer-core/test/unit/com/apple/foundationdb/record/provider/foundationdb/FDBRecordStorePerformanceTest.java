@@ -168,9 +168,8 @@ public class FDBRecordStorePerformanceTest {
         }
         if (databaseParameters.rankIndex) {
             metaDataBuilder.removeIndex("MySimpleRecord$num_value_unique");
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"),
-                    new Index("num_value_unique_rank", Key.Expressions.field("num_value_unique").ungrouped(),
-                            EmptyKeyExpression.EMPTY, IndexTypes.RANK, Collections.emptyMap()));
+            metaDataBuilder.addIndex("MySimpleRecord", new Index("num_value_unique_rank", Key.Expressions.field("num_value_unique").ungrouped(),
+                    EmptyKeyExpression.EMPTY, IndexTypes.RANK, Collections.emptyMap()));
         }
         metaData = metaDataBuilder.getRecordMetaData();
     }

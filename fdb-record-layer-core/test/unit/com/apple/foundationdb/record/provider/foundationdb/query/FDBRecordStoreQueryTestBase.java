@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsTupleFieldsProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
@@ -134,18 +133,15 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     @Nonnull
     protected RecordMetaDataHook complexQuerySetupHook() {
         return metaData -> {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("multi_index",
-                            "str_value_indexed", "num_value_2", "num_value_3_indexed"));
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("repeater$fanout",
-                            Key.Expressions.field("repeater", FanType.FanOut)));
+            metaData.addIndex("MySimpleRecord", new Index("multi_index",
+                    "str_value_indexed", "num_value_2", "num_value_3_indexed"));
+            metaData.addIndex("MySimpleRecord", "repeater$fanout", field("repeater", FanType.FanOut));
         };
     }
 
     protected void openHierarchicalRecordStore(FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords3Proto.getDescriptor());
-        metaDataBuilder.addIndex(null, COUNT_INDEX);
+        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.getRecordType("MyHierarchicalRecord").setPrimaryKey(
                 concatenateFields("parent_path", "child_name"));
         createRecordStore(context, metaDataBuilder.getRecordMetaData());
@@ -157,22 +153,13 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected void openNestedRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords4Proto.getDescriptor());
-        metaDataBuilder.addIndex(null, COUNT_INDEX);
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("RestaurantRecord"),
-                new Index("review_rating",
-                        field("reviews", FanType.FanOut).nest("rating")));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("RestaurantRecord"),
-                new Index("tag",
-                        field("tags", FanType.FanOut).nest(
-                                concatenateFields("value", "weight"))));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("RestaurantRecord"),
-                new Index("customers",
-                        field("customer", FanType.FanOut)));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("RestaurantRecord"),
-                new Index("customers-name", concat(field("customer", FanType.FanOut), field("name"))));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("RestaurantReviewer"),
-                new Index("stats$school",
-                        field("stats").nest(field("start_date"))));
+        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.FanOut).nest("rating"));
+        metaDataBuilder.addIndex("RestaurantRecord", "tag", field("tags", FanType.FanOut).nest(
+                concatenateFields("value", "weight")));
+        metaDataBuilder.addIndex("RestaurantRecord", "customers", field("customer", FanType.FanOut));
+        metaDataBuilder.addIndex("RestaurantRecord", "customers-name", concat(field("customer", FanType.FanOut), field("name")));
+        metaDataBuilder.addIndex("RestaurantReviewer", "stats$school", field("stats").nest(field("start_date")));
         if (hook != null) {
             hook.apply(metaDataBuilder);
         }
@@ -215,24 +202,19 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected void openDoublyNestedRecordStore(FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords5Proto.getDescriptor());
-        metaDataBuilder.addIndex(null, COUNT_INDEX);
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("CalendarEvent"),
-                new Index("alarm_start",
-                        field("alarmIndex").nest(
-                                field("recurrence", FanType.FanOut).nest("start"))));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("CalendarEvent"),
-                new Index("event_start",
-                        field("eventIndex").nest(
-                                field("recurrence", FanType.FanOut).nest("start"))));
+        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addIndex("CalendarEvent", "alarm_start", field("alarmIndex").nest(
+                field("recurrence", FanType.FanOut).nest("start")));
+        metaDataBuilder.addIndex("CalendarEvent", "event_start", field("eventIndex").nest(
+                field("recurrence", FanType.FanOut).nest("start")));
         createRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
     public void openConcatNestedRecordStore(FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords5Proto.getDescriptor());
-        metaDataBuilder.addIndex(null, COUNT_INDEX);
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("CalendarEvent"),
-                new Index("versions", concat(field("alarmIndex").nest("version"),
-                        field("eventIndex").nest("version"))));
+        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addIndex("CalendarEvent", "versions", concat(field("alarmIndex").nest("version"),
+                field("eventIndex").nest("version")));
         createRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 

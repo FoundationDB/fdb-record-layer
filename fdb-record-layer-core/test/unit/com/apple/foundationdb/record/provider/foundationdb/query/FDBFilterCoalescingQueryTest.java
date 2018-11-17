@@ -60,8 +60,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void duplicateFilters() throws Exception {
         RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("multi_index", "str_value_indexed", "num_value_3_indexed"));
+            metaData.addIndex("MySimpleRecord", new Index("multi_index", "str_value_indexed", "num_value_3_indexed"));
         };
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -100,8 +99,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void overlappingFilters() throws Exception {
         RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("multi_index", "str_value_indexed", "num_value_3_indexed"));
+            metaData.addIndex("MySimpleRecord", new Index("multi_index", "str_value_indexed", "num_value_3_indexed"));
         };
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
