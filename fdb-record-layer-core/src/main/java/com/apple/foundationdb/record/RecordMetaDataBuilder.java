@@ -25,11 +25,15 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.RecordTypeIndexesBuilder;
+import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.metadata.SyntheticRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -97,6 +101,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, RecordTypeBuilder> recordTypes;
     @Nonnull
+    private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
+    @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
     private final Map<String, Index> universalIndexes;
@@ -125,6 +131,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         unionFields = new HashMap<>();
         explicitDependencies = new TreeMap<>();
         indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
+        syntheticRecordTypes = new HashMap<>();
     }
 
     /**
@@ -283,6 +290,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
         if (metaDataProto.hasVersion()) {
             version = metaDataProto.getVersion();
+        }
+        for (RecordMetaDataProto.JoinedRecordType joinedProto : metaDataProto.getJoinedRecordTypesList()) {
+            JoinedRecordTypeBuilder typeBuilder = new JoinedRecordTypeBuilder(joinedProto, this);
+            syntheticRecordTypes.put(typeBuilder.getName(), typeBuilder);
         }
     }
 
@@ -658,6 +669,74 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("squid:S1452")
+    public SyntheticRecordTypeBuilder<?> getSyntheticRecordType(@Nonnull String name) {
+        SyntheticRecordTypeBuilder<?> recordType = syntheticRecordTypes.get(name);
+        if (recordType == null) {
+            throw new MetaDataException("Unknown synthetic record type " + name);
+        }
+        return recordType;
+    }
+
+    /**
+     * Get the next record type key for a synthetic record type.
+     *
+     * These keys are negative, unless stored record types, which are initially positive.
+     * This isn't strictly speaking necessary, but simplifies debugging.
+     * @return a new unique record type key
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public Long getNextRecordTypeKey() {
+        long minKey = 0;
+        for (SyntheticRecordTypeBuilder<?> syntheticRecordType : syntheticRecordTypes.values()) {
+            if (syntheticRecordType.getRecordTypeKey() instanceof Number) {
+                long key = ((Number)syntheticRecordType.getRecordTypeKey()).longValue();
+                if (minKey > key) {
+                    minKey = key;
+                }
+            }
+        }
+        return minKey - 1;
+    }
+
+    /**
+     * Add a new joined record type.
+     * @param name the name of the new record type
+     * @return a new uninitialized joined record type
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public JoinedRecordTypeBuilder addJoinedRecordType(@Nonnull String name) {
+        if (recordTypes.containsKey(name)) {
+            throw new MetaDataException("There is already a record type named " + name);
+        }
+        if (syntheticRecordTypes.containsKey(name)) {
+            throw new MetaDataException("There is already a synthetic record type named " + name);
+        }
+        JoinedRecordTypeBuilder recordType = new JoinedRecordTypeBuilder(name, this);
+        syntheticRecordTypes.put(name, recordType);
+        return recordType;
+    }
+
+    /**
+     * Get a record type or synthetic record type by name for use with {@link #addIndex}.
+     * @param name the name of the record type
+     * @return the possibly synthetic record type
+     */
+    public RecordTypeIndexesBuilder getIndexableRecordType(@Nonnull String name) {
+        RecordTypeIndexesBuilder recordType = recordTypes.get(name);
+        if (recordType == null) {
+            recordType = syntheticRecordTypes.get(name);
+        }
+        if (recordType == null) {
+            throw new MetaDataException("Unknown record type " + name);
+        }
+        return recordType;
+    }
+
+    @Nonnull
     public Index getIndex(@Nonnull String indexName) {
         Index index = indexes.get(indexName);
         if (null == index) {
@@ -692,7 +771,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param recordType if null this index will exist for all record types
      * @param index the index to be added
      */
-    public void addIndex(@Nullable RecordTypeBuilder recordType, @Nonnull Index index) {
+    public void addIndex(@Nullable RecordTypeIndexesBuilder recordType, @Nonnull Index index) {
         addIndexCommon(index);
         if (recordType != null) {
             recordType.getIndexes().add(index);
@@ -707,7 +786,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param index the index to be added
      */
     public void addIndex(@Nonnull String recordType, @Nonnull Index index) {
-        addIndex(getRecordType(recordType), index);
+        addIndex(getIndexableRecordType(recordType), index);
     }
 
     /**
@@ -746,14 +825,14 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param recordTypes a list of record types that the index will include
      * @param index the index to be added
      */
-    public void addMultiTypeIndex(@Nullable List<RecordTypeBuilder> recordTypes, @Nonnull Index index) {
+    public void addMultiTypeIndex(@Nullable List<? extends RecordTypeIndexesBuilder> recordTypes, @Nonnull Index index) {
         addIndexCommon(index);
         if (recordTypes == null || recordTypes.size() == 0) {
             universalIndexes.put(index.getName(), index);
         } else if (recordTypes.size() == 1) {
             recordTypes.get(0).getIndexes().add(index);
         } else {
-            for (RecordTypeBuilder recordType : recordTypes) {
+            for (RecordTypeIndexesBuilder recordType : recordTypes) {
                 recordType.getMultiTypeIndexes().add(index);
             }
         }
@@ -907,14 +986,16 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      */
     @Nonnull
     public RecordMetaData build(boolean validate) {
-        Map<String, RecordType> recordTypeBuilders = new HashMap<>();
-        RecordMetaData metaData = new RecordMetaData(recordsDescriptor, unionDescriptor, unionFields, recordTypeBuilders,
+        Map<String, RecordType> builtRecordTypes = new HashMap<>(recordTypes.size());
+        Map<String, SyntheticRecordType<?>> builtSyntheticRecordTypes = new HashMap<>(syntheticRecordTypes.size());
+        RecordMetaData metaData = new RecordMetaData(recordsDescriptor, unionDescriptor, unionFields,
+                builtRecordTypes, builtSyntheticRecordTypes,
                 indexes, universalIndexes, formerIndexes,
                 splitLongRecords, storeRecordVersions, version, recordCountKey);
-        for (RecordTypeBuilder recordTypeBuilder : this.recordTypes.values()) {
+        for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();
             if (primaryKey != null) {
-                recordTypeBuilders.put(recordTypeBuilder.getName(), recordTypeBuilder.build(metaData));
+                builtRecordTypes.put(recordTypeBuilder.getName(), recordTypeBuilder.build(metaData));
                 for (Index index : recordTypeBuilder.getIndexes()) {
                     index.setPrimaryKeyComponentPositions(buildPrimaryKeyComponentPositions(index.getRootExpression(), primaryKey));
                 }
@@ -927,6 +1008,22 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                     }
                     indexes.remove(index.getName());
                 }
+            }
+        }
+        if (!syntheticRecordTypes.isEmpty()) {
+            DescriptorProtos.FileDescriptorProto.Builder fileBuilder = DescriptorProtos.FileDescriptorProto.newBuilder();
+            fileBuilder.setName("_synthetic");
+            fileBuilder.addDependency(unionDescriptor.getFile().getName());
+            syntheticRecordTypes.values().forEach(recordTypeBuilder -> recordTypeBuilder.buildDescriptor(fileBuilder));
+            final Descriptors.FileDescriptor fileDescriptor;
+            try {
+                final Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[] { unionDescriptor.getFile() };
+                fileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
+            } catch (Descriptors.DescriptorValidationException ex) {
+                throw new MetaDataException("Could not build synthesized file descriptor", ex);
+            }
+            for (SyntheticRecordTypeBuilder<?> recordTypeBuilder : syntheticRecordTypes.values()) {
+                builtSyntheticRecordTypes.put(recordTypeBuilder.getName(), recordTypeBuilder.build(metaData, fileDescriptor));
             }
         }
         if (validate) {

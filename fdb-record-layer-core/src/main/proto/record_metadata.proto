@@ -85,6 +85,7 @@ message MetaData {
   optional KeyExpression record_count_key = 7 [deprecated = true];
   optional bool store_record_versions = 8;
   repeated google.protobuf.FileDescriptorProto dependencies = 9;
+  repeated JoinedRecordType joined_record_types = 10;
   extensions 1000 to 2000;
 }
 
@@ -165,4 +166,25 @@ message KeyExpression {
   optional Function function = 9;
   optional KeyWithValue key_with_value = 10;
   optional RecordTypeKey record_type_key = 11;
+}
+
+message JoinedRecordType {
+  optional string name = 1;
+  optional Value record_type_key = 4;
+
+  message JoinConstituent {
+    optional string name = 1;
+    optional string record_type = 2;
+    optional bool outer_joined = 3;
+  }
+
+  message Join {
+    optional string left = 1;
+    optional KeyExpression left_expression = 2;
+    optional string right = 3;
+    optional KeyExpression right_expression = 4;
+  }
+
+  repeated JoinConstituent join_constituents = 10;
+  repeated Join joins = 11;
 }

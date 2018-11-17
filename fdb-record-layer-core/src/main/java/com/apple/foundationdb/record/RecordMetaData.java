@@ -23,8 +23,10 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.google.protobuf.Descriptors;
@@ -65,6 +67,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, RecordType> recordTypes;
     @Nonnull
+    private final Map<String, SyntheticRecordType<?>> syntheticRecordTypes;
+    @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
     private Map<String, Index> universalIndexes;
@@ -85,6 +89,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Descriptors.Descriptor unionDescriptor,
                              @Nonnull Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields,
                              @Nonnull Map<String, RecordType> recordTypes,
+                             @Nonnull Map<String, SyntheticRecordType<?>> syntheticRecordTypes,
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
@@ -96,6 +101,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.unionDescriptor = unionDescriptor;
         this.unionFields = unionFields;
         this.recordTypes = recordTypes;
+        this.syntheticRecordTypes = syntheticRecordTypes;
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
@@ -152,6 +158,40 @@ public class RecordMetaData implements RecordMetaDataProvider {
         RecordType recordType = getRecordType(descriptor.getName());
         if (recordType.getDescriptor() != descriptor) {
             throw new MetaDataException("descriptor did not match record type");
+        }
+        return recordType;
+    }
+
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("squid:S1452")
+    public Map<String, SyntheticRecordType<?>> getSyntheticRecordTypes() {
+        return syntheticRecordTypes;
+    }
+
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("squid:S1452")
+    public SyntheticRecordType<?> getSyntheticRecordType(@Nonnull String name) {
+        SyntheticRecordType<?> recordType = syntheticRecordTypes.get(name);
+        if (recordType == null) {
+            throw new MetaDataException("Unknown synthetic record type " + name);
+        }
+        return recordType;
+    }
+
+    /**
+     * Get a record type or synthetic record type by name as used in an index.
+     * @param name the name of the record type
+     * @return the possibly synthetic record type
+     */
+    public RecordType getIndexableRecordType(@Nonnull String name) {
+        RecordType recordType = recordTypes.get(name);
+        if (recordType == null) {
+            recordType = syntheticRecordTypes.get(name);
+        }
+        if (recordType == null) {
+            throw new MetaDataException("Unknown record type " + name);
         }
         return recordType;
     }
@@ -241,6 +281,21 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 result.put(index, null);
             }
         }
+        for (SyntheticRecordType<?> recordType : syntheticRecordTypes.values()) {
+            for (Index index : recordType.getIndexes()) {
+                if (index.getLastModifiedVersion() > version) {
+                    result.put(index, Collections.singletonList(recordType));
+                }
+            }
+            for (Index index : recordType.getMultiTypeIndexes()) {
+                if (index.getLastModifiedVersion() > version) {
+                    if (!result.containsKey(index)) {
+                        result.put(index, new ArrayList<>());
+                    }
+                    result.get(index).add(recordType);
+                }
+            }
+        }
         return result;
     }
 
@@ -251,6 +306,13 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
         List<RecordType> result = new ArrayList<>();
         for (RecordType recordType : getRecordTypes().values()) {
+            if (recordType.getIndexes().contains(index)) {
+                return Collections.singletonList(recordType);
+            } else if (recordType.getMultiTypeIndexes().contains(index)) {
+                result.add(recordType);
+            }
+        }
+        for (SyntheticRecordType<?> recordType : getSyntheticRecordTypes().values()) {
             if (recordType.getIndexes().contains(index)) {
                 return Collections.singletonList(recordType);
             } else if (recordType.getMultiTypeIndexes().contains(index)) {
@@ -393,6 +455,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
         builder.setVersion(version);
         if (recordCountKey != null) {
             builder.setRecordCountKey(recordCountKey.toKeyExpression());
+        }
+
+        for (SyntheticRecordType<?> syntheticRecordType : syntheticRecordTypes.values()) {
+            if (syntheticRecordType instanceof JoinedRecordType) {
+                builder.addJoinedRecordTypes(((JoinedRecordType)syntheticRecordType).toProto());
+            }
         }
 
         return builder.build();

@@ -182,6 +182,17 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
         return metaData;
     }
 
+    /**
+     * Get whether this record type represents <i>synthetic</i> records.
+     *
+     * A synthetic record is one that is not actually stored, although it can may be indexed.
+     * @return {@code true} if this record type represents synthetic records, {@code false} if it represents records that are actually stored
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public boolean isSynthetic() {
+        return false;
+    }
+
     @Override
     public String toString() {
         StringBuilder str = new StringBuilder();

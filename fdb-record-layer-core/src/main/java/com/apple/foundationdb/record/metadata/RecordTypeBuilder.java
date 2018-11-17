@@ -27,8 +27,6 @@ import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A builder for {@link RecordType}.
@@ -42,55 +40,29 @@ import java.util.List;
  * </ul>
  */
 @API(API.Status.MAINTAINED)
-public class RecordTypeBuilder implements RecordTypeOrBuilder {
-    @Nonnull
-    private final String name;
+public class RecordTypeBuilder extends RecordTypeIndexesBuilder implements RecordTypeOrBuilder {
     @Nonnull
     private final Descriptors.Descriptor descriptor;
     @Nullable
     private KeyExpression primaryKey;
-    @Nonnull
-    private final List<Index> indexes;
-    @Nonnull
-    private final List<Index> multiTypeIndexes;
     @Nullable
     private Integer sinceVersion;
-    @Nullable
-    private Object recordTypeKey;
 
     public RecordTypeBuilder(@Nonnull Descriptors.Descriptor descriptor) {
+        super(descriptor.getName());
         this.descriptor = descriptor;
-        this.name = descriptor.getName();
-        this.indexes = new ArrayList<>();
-        this.multiTypeIndexes = new ArrayList<>();
     }
 
     @Override
-    @Nonnull
-    public String getName() {
-        return name;
+    public RecordTypeBuilder setRecordTypeKey(@Nullable Object recordTypeKey) {
+        super.setRecordTypeKey(recordTypeKey);
+        return this;
     }
 
     @Override
     @Nonnull
     public Descriptors.Descriptor getDescriptor() {
         return descriptor;
-    }
-
-    @Override
-    @Nonnull
-    public List<Index> getIndexes() {
-        return indexes;
-    }
-
-    /**
-     * The Indexes that this record type is on that also contain other record types.
-     * @return a list of all indexes that include this record type along with other types.
-     */
-    @Override
-    @Nonnull
-    public List<Index> getMultiTypeIndexes() {
-        return multiTypeIndexes;
     }
 
     @Override
@@ -114,21 +86,6 @@ public class RecordTypeBuilder implements RecordTypeOrBuilder {
 
     public void setSinceVersion(@Nullable Integer sinceVersion) {
         this.sinceVersion = sinceVersion;
-    }
-
-    @Nullable
-    @Override
-    public Object getRecordTypeKey() {
-        return recordTypeKey;
-    }
-
-    public RecordTypeBuilder setRecordTypeKey(@Nullable Object recordTypeKey) {
-        if (!(recordTypeKey == null || recordTypeKey instanceof Number || recordTypeKey instanceof Boolean ||
-                recordTypeKey instanceof String || recordTypeKey instanceof byte[])) {
-            throw new MetaDataException("Only primitive types are allowed as record type key");
-        }
-        this.recordTypeKey = recordTypeKey;
-        return this;
     }
 
     public RecordType build(@Nonnull RecordMetaData metaData) {
