@@ -1,5 +1,5 @@
 /*
- * OnlineIndexBuilderTest.java
+ * OnlineIndexerTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -106,11 +106,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Tests for {@link OnlineIndexBuilder}.
+ * Tests for {@link OnlineIndexer}.
  */
 @Tag(Tags.RequiresFDB)
-public class OnlineIndexBuilderTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexBuilderTest.class);
+public class OnlineIndexerTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerTest.class);
 
     private RecordMetaData metaData;
     private RecordQueryPlanner planner;
@@ -301,9 +301,11 @@ public class OnlineIndexBuilderTest {
         Index nindex = metaData.getIndex(index.getName());
         LOGGER.info(KeyValueLogMessage.of("creating online index builder",
                 "index", nindex, "recordTypes", metaData.recordTypesForIndex(nindex),
-                "subspace", ByteArrayUtil2.loggable(subspace.pack()), "limit", 20, "recordsPerSecond", OnlineIndexBuilder.DEFAULT_RECORDS_PER_SECOND * 100));
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, nindex, metaData.recordTypesForIndex(nindex), subspace,
-                20, Integer.MAX_VALUE, OnlineIndexBuilder.DEFAULT_RECORDS_PER_SECOND * 100)) {
+                "subspace", ByteArrayUtil2.loggable(subspace.pack()), "limit", 20, "recordsPerSecond", OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(nindex).setSubspace(subspace)
+                .setLimit(20).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100)
+                .build()) {
             CompletableFuture<Void> buildFuture;
             LOGGER.info(KeyValueLogMessage.of("building index", "index", index, "agents", agents, "recordsWhileBuilding", recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(), "overlap", overlap));
             if (agents == 1) {
@@ -447,12 +449,12 @@ public class OnlineIndexBuilderTest {
             @SuppressWarnings("try")
             @Override
             public void run() {
-                try (FDBRecordContext context = OnlineIndexBuilderTest.this.openContext()) {
+                try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     // The build job shouldn't affect the reads.
                     for (int i = 0; i < updatedQueries.size(); i++) {
                         Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
                         String planString = "Scan(<,>) | [MySimpleRecord] | " + ((value2 == null) ? "num_value_2 IS_NULL" : "num_value_2 EQUALS " + value2);
-                        OnlineIndexBuilderTest.this.executeQuery(updatedQueries.get(i), planString, updatedValueMap.get(value2));
+                        OnlineIndexerTest.this.executeQuery(updatedQueries.get(i), planString, updatedValueMap.get(value2));
                     }
                 }
             }
@@ -502,10 +504,10 @@ public class OnlineIndexBuilderTest {
             @SuppressWarnings("try")
             @Override
             public void run() {
-                try (FDBRecordContext context = OnlineIndexBuilderTest.this.openContext()) {
+                try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     for (TestRecords1Proto.MySimpleRecord record : records) {
                         try {
-                            evaluationContext.evaluateRecordFunction(recordFunction, OnlineIndexBuilderTest.this.createStoredMessage(record)).join();
+                            evaluationContext.evaluateRecordFunction(recordFunction, OnlineIndexerTest.this.createStoredMessage(record)).join();
                             fail("Somehow evaluated rank");
                         } catch (RecordCoreException e) {
                             assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getMessage());
@@ -542,10 +544,10 @@ public class OnlineIndexBuilderTest {
             @SuppressWarnings("try")
             @Override
             public void run() {
-                try (FDBRecordContext context = OnlineIndexBuilderTest.this.openContext()) {
+                try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     for (TestRecords1Proto.MySimpleRecord record : updatedRecords) {
                         try {
-                            evaluationContext.evaluateRecordFunction(recordFunction, OnlineIndexBuilderTest.this.createStoredMessage(record)).join();
+                            evaluationContext.evaluateRecordFunction(recordFunction, OnlineIndexerTest.this.createStoredMessage(record)).join();
                             fail("Somehow evaluated rank");
                         } catch (RecordCoreException e) {
                             assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getMessage());
@@ -595,9 +597,9 @@ public class OnlineIndexBuilderTest {
             @SuppressWarnings("try")
             @Override
             public void run() {
-                try (FDBRecordContext context = OnlineIndexBuilderTest.this.openContext()) {
+                try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     for (TestRecords1Proto.MySimpleRecord record : updatedRecords) {
-                        Long rank = evaluationContext.evaluateRecordFunction(recordFunction, OnlineIndexBuilderTest.this.createStoredMessage(record)).join();
+                        Long rank = evaluationContext.evaluateRecordFunction(recordFunction, OnlineIndexerTest.this.createStoredMessage(record)).join();
                         if (!record.hasNumValue2()) {
                             assertEquals(0L, rank.longValue());
                         } else {
@@ -647,7 +649,7 @@ public class OnlineIndexBuilderTest {
             @SuppressWarnings("try")
             @Override
             public void run() {
-                try (FDBRecordContext context = OnlineIndexBuilderTest.this.openContext()) {
+                try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     metaData.getIndex(index.getName());
                 } catch (MetaDataException e) {
                     assertEquals("Index newSumIndex not defined", e.getMessage());
@@ -660,7 +662,7 @@ public class OnlineIndexBuilderTest {
             @Override
             public void run() {
                 Index indexToUse = metaData.getIndex(index.getName());
-                try (FDBRecordContext context = OnlineIndexBuilderTest.this.openContext()) {
+                try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"), aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT);
                 } catch (RecordCoreException e) {
                     assertEquals("Aggregate function newSumIndex.sum(Field { 'num_value_2' None} group 1) requires appropriate index", e.getMessage());
@@ -679,7 +681,7 @@ public class OnlineIndexBuilderTest {
             @SuppressWarnings("try")
             @Override
             public void run() {
-                try (FDBRecordContext context = OnlineIndexBuilderTest.this.openContext()) {
+                try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     long sum = recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"), aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT).join().getLong(0);
                     long expected = updatedRecords.stream().mapToInt(msg -> msg.hasNumValue2() ? msg.getNumValue2() : 0).sum();
                     assertEquals(expected, sum);
@@ -786,12 +788,12 @@ public class OnlineIndexBuilderTest {
             @SuppressWarnings("try")
             @Override
             public void run() {
-                try (FDBRecordContext context = OnlineIndexBuilderTest.this.openContext()) {
+                try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     // The build job shouldn't affect the reads.
                     for (int i = 0; i < updatedQueries.size(); i++) {
                         Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
                         try {
-                            OnlineIndexBuilderTest.this.executeQuery(updatedQueries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", updatedValueMap.get(value2));
+                            OnlineIndexerTest.this.executeQuery(updatedQueries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", updatedValueMap.get(value2));
                             fail("somehow executed query with new index before readable");
                         } catch (RecordCoreException e) {
                             assertEquals("Cannot sort without appropriate index: Version", e.getMessage());
@@ -1473,7 +1475,9 @@ public class OnlineIndexBuilderTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
@@ -1525,7 +1529,9 @@ public class OnlineIndexBuilderTest {
             }
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
@@ -1555,7 +1561,9 @@ public class OnlineIndexBuilderTest {
             }
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
                 assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().join());
@@ -1592,7 +1600,9 @@ public class OnlineIndexBuilderTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             indexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
@@ -1622,7 +1632,9 @@ public class OnlineIndexBuilderTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
                 for (int i = 5; i < records.size(); i++) {
@@ -1661,7 +1673,9 @@ public class OnlineIndexBuilderTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             try (FDBRecordContext context = openContext()) {
                 context.ensureActive().getReadVersion().join();
                 try (FDBRecordContext context2 = fdb.openContext()) {
@@ -1722,7 +1736,9 @@ public class OnlineIndexBuilderTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
                 RuntimeException runE = FDBExceptions.wrapException(e);
@@ -1788,7 +1804,9 @@ public class OnlineIndexBuilderTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             final RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(index));
 
             // Build the endpoints
@@ -1908,7 +1926,9 @@ public class OnlineIndexBuilderTest {
         };
 
         openSimpleMetaData(hook);
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             try (FDBRecordContext context = openContext()) {
                 recordStore.markIndexWriteOnly(index).join();
                 context.commit();
@@ -2000,7 +2020,9 @@ public class OnlineIndexBuilderTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             indexBuilder.buildRange(null, null).join();
             assertEquals(Tuple.from(20100L), getAggregate.get());
         }
@@ -2024,7 +2046,9 @@ public class OnlineIndexBuilderTest {
         try (FDBRecordContext context = openContext()) {
             context.commit();
         }
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index.getName(), subspace)) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .build()) {
             indexBuilder.buildIndex();
         }
 
@@ -2037,8 +2061,11 @@ public class OnlineIndexBuilderTest {
     public void run() {
         Index index = new Index("newIndex", field("num_value_2"));
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index, metaData.recordTypesForIndex(index), subspace, 100, 3, 10000)) {
-            indexBuilder.setMaxAttempts(2);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setLimit(100).setMaxRetries(3).setRecordsPerSecond(10000)
+                .setMaxAttempts(2)
+                .build()) {
 
             AtomicInteger attempts = new AtomicInteger();
 
@@ -2117,46 +2144,47 @@ public class OnlineIndexBuilderTest {
         // Absent index
         try {
             Index absentIndex = new Index("absent", field("num_value_3"));
-            new OnlineIndexBuilder(fdb, metaData, absentIndex, subspace);
+            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(absentIndex).setSubspace(subspace).build();
             fail("Did not catch absent index.");
         } catch (MetaDataException e) {
             assertEquals("Index absent not contained within specified metadata", e.getMessage());
         }
         // Limit
         try {
-            new OnlineIndexBuilder(fdb, metaData, indexPrime, recordTypes, subspace, -1, OnlineIndexBuilder.DEFAULT_MAX_RETRIES, OnlineIndexBuilder.DEFAULT_RECORDS_PER_SECOND);
+            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setLimit(-1).build();
             fail("Did not catch negative limit.");
         } catch (RecordCoreException e) {
             assertEquals("Non-positive value -1 given for record limit", e.getMessage());
         }
         try {
-            new OnlineIndexBuilder(fdb, metaData, indexPrime, recordTypes, subspace, 0, OnlineIndexBuilder.DEFAULT_MAX_RETRIES, OnlineIndexBuilder.DEFAULT_RECORDS_PER_SECOND);
+            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setLimit(0).build();
             fail("Did not catch zero limit.");
         } catch (RecordCoreException e) {
             assertEquals("Non-positive value 0 given for record limit", e.getMessage());
         }
         // Retries
         try {
-            new OnlineIndexBuilder(fdb, metaData, indexPrime, recordTypes, subspace, OnlineIndexBuilder.DEFAULT_LIMIT, -1, OnlineIndexBuilder.DEFAULT_RECORDS_PER_SECOND);
+            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setMaxRetries(-1).build();
             fail("Did not catch negative retries.");
         } catch (RecordCoreException e) {
             assertEquals("Non-positive value -1 given for maximum retries", e.getMessage());
         }
         try {
-            new OnlineIndexBuilder(fdb, metaData, indexPrime, recordTypes, subspace, OnlineIndexBuilder.DEFAULT_LIMIT, 0, OnlineIndexBuilder.DEFAULT_RECORDS_PER_SECOND);
+            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setMaxRetries(0).build();
             fail("Did not catch zero retries.");
         } catch (RecordCoreException e) {
             assertEquals("Non-positive value 0 given for maximum retries", e.getMessage());
         }
         // Records per second
         try {
-            new OnlineIndexBuilder(fdb, metaData, indexPrime, recordTypes, subspace, OnlineIndexBuilder.DEFAULT_LIMIT, OnlineIndexBuilder.DEFAULT_MAX_RETRIES, -1);
+            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setRecordsPerSecond(-1).build();
             fail("Did not catch negative RPS");
         } catch (RecordCoreException e) {
             assertEquals("Non-positive value -1 given for records per second value", e.getMessage());
         }
         try {
-            new OnlineIndexBuilder(fdb, metaData, indexPrime, recordTypes, subspace, OnlineIndexBuilder.DEFAULT_LIMIT, OnlineIndexBuilder.DEFAULT_MAX_RETRIES, 0);
+            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setRecordsPerSecond(0).build();
+
             fail("Did not catch zero RPS");
         } catch (RecordCoreException e) {
             assertEquals("Non-positive value 0 given for records per second value", e.getMessage());
@@ -2183,9 +2211,11 @@ public class OnlineIndexBuilderTest {
         
         final FDBStoreTimer timer = new FDBStoreTimer();
         final CompletableFuture<Void> future;
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, nindex, metaData.recordTypesForIndex(nindex), subspace,
-                1, Integer.MAX_VALUE, Integer.MAX_VALUE)) {
-            indexBuilder.setTimer(timer);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(nindex).setSubspace(subspace)
+                .setLimit(1).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(Integer.MAX_VALUE)
+                .setTimer(timer)
+                .build()) {
             future = indexBuilder.buildIndexAsync();
             // Let the builder get some work done.
             int pass = 0;

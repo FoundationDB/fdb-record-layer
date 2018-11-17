@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.sample;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -44,7 +45,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexBuilder;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -330,7 +330,7 @@ public class Main {
                 .map(indexName -> {
                     // Build this index. It will begin the background job and return a future
                     // that will complete when the index is ready for querying.
-                    OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, recordStoreBuilder, rmd2.getIndex(indexName));
+                    OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setDatabase(fdb).setRecordStoreBuilder(recordStoreBuilder).setIndex(indexName).build();
                     return indexBuilder.buildIndexAsync()
                             .thenRun(() -> LOGGER.info("  Index build of {} is complete.", indexName))
                             .whenComplete((vignore, eignore) -> indexBuilder.close());

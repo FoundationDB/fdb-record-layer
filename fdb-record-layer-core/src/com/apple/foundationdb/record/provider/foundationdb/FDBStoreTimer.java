@@ -230,7 +230,7 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_DIRECTORY_RESOLVE("wait for directory resolve"),
         /** Wait for check version on a record store. */
         WAIT_CHECK_VERSION("wait for check version"),
-        /** Wait for {@link OnlineIndexBuilder} to complete building an index. */
+        /** Wait for {@link OnlineIndexer} to complete building an index. */
         WAIT_ONLINE_BUILD_INDEX("wait for online build index"),
         /** Wait for a record scan without an index. */
         WAIT_SCAN_RECORDS("wait for scan records"),
@@ -399,9 +399,9 @@ public class FDBStoreTimer extends StoreTimer {
         QUERY_DISCARDED("number of records loaded but filtered out", false),
         /** The number of times the read version was taken from the cache of the last seen version. */
         SET_READ_VERSION_TO_LAST_SEEN("set read version to last seen version", false),
-        /** The number of records scanned by {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexBuilder}. */
+        /** The number of records scanned by {@link OnlineIndexer}. */
         ONLINE_INDEX_BUILDER_RECORDS_SCANNED("number of records scanned by online index build", false),
-        /** The number of records indexed by {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexBuilder}. */
+        /** The number of records indexed by {@link OnlineIndexer}. */
         ONLINE_INDEX_BUILDER_RECORDS_INDEXED("number of records indexed by online index build", false),
         /** The number of times that a leaderboard update adds a time window. */
         TIME_WINDOW_LEADERBOARD_ADD_WINDOW("number of leaderboard windows added", false),

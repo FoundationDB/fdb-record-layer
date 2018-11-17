@@ -1067,7 +1067,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
-            try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(recordStore, index)) {
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index).build()) {
                 indexBuilder.buildRange(recordStore, null, Key.Evaluated.scalar(1066L)).get();
                 Optional<Range> firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
                 assertTrue(firstUnbuilt.isPresent());
@@ -1095,7 +1095,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
-            try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(recordStore, index)) {
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index).build()) {
                 indexBuilder.buildRange(recordStore, null, Key.Evaluated.scalar(1066L)).get();
             }
             Optional<Range> firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
@@ -1841,7 +1841,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         // Build the index to make it actually usable.
-        try (OnlineIndexBuilder onlineIndexBuilder = new OnlineIndexBuilder(fdb, recordMetaData, index.getName(), recordStore.getSubspace())) {
+        try (OnlineIndexer onlineIndexBuilder = OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(recordMetaData).setIndex(index.getName()).setSubspace(recordStore.getSubspace()).build()) {
             onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
@@ -1908,7 +1908,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             recordStore.clearAndMarkIndexWriteOnly("index-1").join();
             context.commit();
         }
-        try (OnlineIndexBuilder onlineIndexBuilder = new OnlineIndexBuilder(recordStore, "index-1")) {
+        try (OnlineIndexer onlineIndexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "index-1")) {
             onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
