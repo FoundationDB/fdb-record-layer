@@ -55,4 +55,6 @@ public class PipelineOperation {
     public static final PipelineOperation IN_JOIN = new PipelineOperation("IN_JOIN");
     public static final PipelineOperation TEXT_INDEX_UPDATE = new PipelineOperation("TEXT_INDEX_UPDATE");
 
+    public static final PipelineOperation SYNTHETIC_RECORD_JOIN = new PipelineOperation("SYNTHETIC_RECORD_JOIN");
+
 }
