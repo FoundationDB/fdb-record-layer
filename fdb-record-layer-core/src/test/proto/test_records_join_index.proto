@@ -25,6 +25,7 @@ option java_package = "com.apple.foundationdb.record";
 option java_outer_classname = "TestRecordsJoinIndexProto";
 
 import "record_metadata_options.proto";
+import "tuple_fields.proto";
 
 message MySimpleRecord {
   optional int64 rec_no = 1 [(field).primary_key = true];
@@ -79,6 +80,26 @@ message NestedB {
   repeated Repeated repeated = 2;
 }
 
+message Customer {
+  optional UUID uuid = 1 [(field).primary_key = true];
+  optional string name = 2;
+  optional string city = 3;
+}
+
+message Order {
+  optional UUID uuid = 1 [(field).primary_key = true];
+  optional int32 order_no = 2;
+  optional UUID customer_uuid = 3;
+}
+
+message Item {
+  optional UUID uuid = 1 [(field).primary_key = true];
+  optional int32 item_no = 2;
+  optional int32 quantity = 3;
+  optional int32 total_price = 4;
+  optional UUID order_uuid = 5;
+}
+
 message RecordTypeUnion {
   optional MySimpleRecord _MySimpleRecord = 1;
   optional MyOtherRecord _MyOtherRecord = 2;
@@ -88,4 +109,7 @@ message RecordTypeUnion {
   optional TypeC _TypeC = 6;
   optional NestedA _NestedA = 7;
   optional NestedB _NestedB = 8;
+  optional Customer _Customer = 9;
+  optional Order _Order = 10;
+  optional Item _Item = 11;
 }
