@@ -80,6 +80,8 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
+import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -107,7 +109,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -493,6 +497,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 updateSecondaryIndexes(null, newRecord, futures, newIndexes);
                 updateSecondaryIndexes(oldRecord, newRecord, futures, commonIndexes);
             }
+            if (!getRecordMetaData().getSyntheticRecordTypes().isEmpty()) {
+                updateSyntheticIndexes(oldRecord, newRecord, futures);
+            }
             haveFuture = true;
         } finally {
             if (!haveFuture) {
@@ -541,6 +548,92 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (!MoreAsyncUtil.isCompletedNormally(future)) {
                 futures.add(future);
             }
+        }
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    private <M extends Message> void updateSyntheticIndexes(@Nullable FDBStoredRecord<M> oldRecord,
+                                                            @Nullable FDBStoredRecord<M> newRecord,
+                                                            @Nonnull final List<CompletableFuture<Void>> futures) {
+        final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(this);
+        final int pipelineSize = getPipelineSize(PipelineOperation.IN_JOIN);
+        if (oldRecord != null && newRecord != null && oldRecord.getRecordType() == newRecord.getRecordType()) {
+            final SyntheticRecordFromStoredRecordPlan plan = planner.fromStoredType(newRecord.getRecordType(), true);
+            if (plan == null) {
+                return;
+            }
+            final Map<RecordType, Collection<IndexMaintainer>> maintainers = getSyntheticMaintainers(plan.getSyntheticRecordTypes());
+            final Map<Tuple, FDBSyntheticRecord> oldRecords = new HashMap<>();
+            CompletableFuture<Void> future = plan.execute(this, oldRecord).forEach(syntheticRecord -> oldRecords.put(syntheticRecord.getPrimaryKey(), syntheticRecord));
+            @Nonnull final FDBStoredRecord<M> theNewRecord = newRecord; // @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "https://github.com/spotbugs/spotbugs/issues/552")
+            future = future.thenCompose(v -> plan.execute(this, theNewRecord).forEachAsync(syntheticRecord -> runSyntheticMaintainers(maintainers, oldRecords.remove(syntheticRecord.getPrimaryKey()), syntheticRecord), pipelineSize));
+            future = future.thenCompose(v -> {
+                final List<CompletableFuture<Void>> subFutures = new ArrayList<>();
+                for (FDBSyntheticRecord oldSyntheticRecord : oldRecords.values()) {
+                    CompletableFuture<Void> subFuture = runSyntheticMaintainers(maintainers, oldSyntheticRecord, null);
+                    if (!subFuture.isDone()) {
+                        subFutures.add(subFuture);
+                    }
+                }
+                if (subFutures.isEmpty()) {
+                    return AsyncUtil.DONE;
+                } else if (subFutures.size() == 1) {
+                    return subFutures.get(0);
+                } else {
+                    return AsyncUtil.whenAll(subFutures);
+                }
+            });
+            futures.add(future);
+        } else {
+            if (oldRecord != null) {
+                final SyntheticRecordFromStoredRecordPlan plan = planner.fromStoredType(oldRecord.getRecordType(), true);
+                if (plan != null) {
+                    final Map<RecordType, Collection<IndexMaintainer>> maintainers = getSyntheticMaintainers(plan.getSyntheticRecordTypes());
+                    futures.add(plan.execute(this, oldRecord).forEachAsync(syntheticRecord -> runSyntheticMaintainers(maintainers, syntheticRecord, null), pipelineSize));
+                }
+            }
+            if (newRecord != null) {
+                final SyntheticRecordFromStoredRecordPlan plan = planner.fromStoredType(newRecord.getRecordType(), true);
+                if (plan != null) {
+                    final Map<RecordType, Collection<IndexMaintainer>> maintainers = getSyntheticMaintainers(plan.getSyntheticRecordTypes());
+                    futures.add(plan.execute(this, newRecord).forEachAsync(syntheticRecord -> runSyntheticMaintainers(maintainers, null, syntheticRecord), pipelineSize));
+                }
+            }
+        }
+    }
+
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    private Map<RecordType, Collection<IndexMaintainer>> getSyntheticMaintainers(@Nonnull Set<String> syntheticRecordTypes) {
+        final RecordMetaData metaData = getRecordMetaData();
+        return syntheticRecordTypes.stream().map(metaData::getSyntheticRecordType).collect(Collectors.toMap(Function.identity(), syntheticRecordType -> {
+            List<IndexMaintainer> indexMaintainers = new ArrayList<>();
+            syntheticRecordType.getIndexes().stream().map(this::getIndexMaintainer).forEach(indexMaintainers::add);
+            syntheticRecordType.getMultiTypeIndexes().stream().map(this::getIndexMaintainer).forEach(indexMaintainers::add);
+            return indexMaintainers;
+        }));
+    }
+
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    private CompletableFuture<Void> runSyntheticMaintainers(@Nonnull Map<RecordType, Collection<IndexMaintainer>> maintainers, @Nullable FDBSyntheticRecord oldRecord, @Nullable FDBSyntheticRecord newRecord) {
+        if (oldRecord == null && newRecord == null) {
+            return AsyncUtil.DONE;
+        }
+        final RecordType recordType = oldRecord != null ? oldRecord.getRecordType() : newRecord.getRecordType();
+        final List<CompletableFuture<Void>> futures = new ArrayList<>();
+        for (IndexMaintainer indexMaintainer : maintainers.get(recordType)) {
+            CompletableFuture<Void> future = indexMaintainer.update(oldRecord, newRecord);
+            if (!future.isDone()) {
+                futures.add(future);
+            }
+        }
+        if (futures.isEmpty()) {
+            return AsyncUtil.DONE;
+        } else if (futures.size() == 1) {
+            return futures.get(0);
+        } else {
+            return AsyncUtil.whenAll(futures);
         }
     }
 
