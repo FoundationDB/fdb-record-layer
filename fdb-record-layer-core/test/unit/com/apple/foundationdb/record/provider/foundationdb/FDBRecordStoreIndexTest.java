@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.TestRecordsIndexFilteringProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -132,7 +133,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                             field("num_value_2")),
                     Index.EMPTY_VALUE,
                     IndexTypes.VALUE,
-                    Index.UNIQUE_OPTIONS));
+                    IndexOptions.UNIQUE_OPTIONS));
         };
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -161,7 +162,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                             field("num_value_2", FanType.None, Key.Evaluated.NullStandin.NULL_UNIQUE)),
                     Index.EMPTY_VALUE,
                     IndexTypes.VALUE,
-                    Index.UNIQUE_OPTIONS));
+                    IndexOptions.UNIQUE_OPTIONS));
         };
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -1436,7 +1437,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void uniquenessViolationsWithFanOut() throws Exception {
-        Index index = new Index("MySimpleRecord$repeater", field("repeater", FanType.FanOut), Index.EMPTY_VALUE,  IndexTypes.VALUE, Index.UNIQUE_OPTIONS);
+        Index index = new Index("MySimpleRecord$repeater", field("repeater", FanType.FanOut), Index.EMPTY_VALUE,  IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         RecordMetaDataHook hook = metaData -> metaData.addIndex("MySimpleRecord", index);
 
         try (FDBRecordContext context = openContext()) {

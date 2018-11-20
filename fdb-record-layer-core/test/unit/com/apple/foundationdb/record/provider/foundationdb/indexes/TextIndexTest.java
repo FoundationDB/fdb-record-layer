@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.TestRecordsTextProto.SimpleDocument;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
@@ -182,24 +183,24 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     private static final Index COMPLEX_TEXT_BY_GROUP = new Index("Complex$text_by_group", field("text").groupBy(field("group")), IndexTypes.TEXT);
     private static final String SIMPLE_DEFAULT_NAME = "SimpleDocument$text";
     private static final Index SIMPLE_TEXT_PREFIX = new Index("Simple$text_prefix", field("text"), IndexTypes.TEXT,
-            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "1"));
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "1"));
     private static final Index SIMPLE_TEXT_FILTERING = new Index("Simple$text_filter", field("text"), IndexTypes.TEXT,
-            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, FILTERING_TOKENIZER.getName()));
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, FILTERING_TOKENIZER.getName()));
     private static final Index SIMPLE_TEXT_PREFIX_LEGACY = new Index("Simple$text_prefix", field("text"), IndexTypes.TEXT,
-            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME)); // no version -- default to zero
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME)); // no version -- default to zero
     private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes", field("text"), IndexTypes.TEXT,
-            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
     private static final Index SIMPLE_TEXT_NO_POSITIONS = new Index("Simple$text_no_positions", field("text"), IndexTypes.TEXT,
-            ImmutableMap.of(Index.TEXT_OMIT_POSITIONS_OPTION, "true"));
+            ImmutableMap.of(IndexOptions.TEXT_OMIT_POSITIONS_OPTION, "true"));
     private static final Index COMBINED_TEXT_BY_GROUP = new Index("Combined$text_by_group", field("text").groupBy(field("group")), IndexTypes.TEXT);
     private static final Index COMPLEX_MULTI_TAG_INDEX = new Index("Complex$multi_tag", field("text").groupBy(field("tag", FanType.FanOut)), IndexTypes.TEXT);
     private static final Index COMPLEX_THEN_TAG_INDEX = new Index("Complex$text_tag", concat(field("text"), field("tag", FanType.FanOut)), IndexTypes.TEXT);
     private static final Index MULTI_TYPE_INDEX = new Index("Simple&Complex$text", field("text"), IndexTypes.TEXT);
     private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT);
     private static final Index MAP_ON_VALUE_PREFIX_LEGACY = new Index("Map$entry-value_prefix", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT,
-            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "0"));
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "0"));
     private static final Index MAP_ON_VALUE_PREFIX = new Index("Map$entry-value_prefix", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT,
-            ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "1"));
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "1"));
     private static final Index MAP_ON_VALUE_GROUPED_INDEX = new Index("Map$entry-value_by_group", new GroupingKeyExpression(concat(field("group"), field("entry", FanType.FanOut).nest(concatenateFields("key", "value"))), 1), IndexTypes.TEXT);
     private static final TransformedRecordSerializer<Message> COMPRESSING_SERIALIZER = TransformedRecordSerializer.newDefaultBuilder().setCompressWhenSerializing(true).build();
     private static final String SIMPLE_DOC = "SimpleDocument";
@@ -938,7 +939,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             final Index oldIndex = metaDataBuilder.getIndex(SIMPLE_DEFAULT_NAME);
             metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
             final Index newIndex = new Index(SIMPLE_DEFAULT_NAME + "-new", oldIndex.getRootExpression(), IndexTypes.TEXT,
-                    ImmutableMap.of(Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
+                    ImmutableMap.of(IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
             metaDataBuilder.addIndex(SIMPLE_DOC, newIndex);
         };
         saveTwoRecordsConcurrently(hook, shakespeareDocument, yiddishDocument, false);
@@ -960,7 +961,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .build();
         final RecordMetaDataHook hook = metaDataBuilder -> {
             final Index newIndex = new Index(COMPLEX_TEXT_BY_GROUP.getName(), COMBINED_TEXT_BY_GROUP.getRootExpression(), IndexTypes.TEXT,
-                    ImmutableMap.of(Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
+                    ImmutableMap.of(IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
             metaDataBuilder.addIndex(COMPLEX_DOC, newIndex);
         };
         saveTwoRecordsConcurrently(hook, zeroGroupDocument, oneGroupDocument, true);
@@ -2463,25 +2464,25 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
         // Verify that unique indexes are invalid
         invalidateIndex(MetaDataException.class,
-                new Index(testIndex, field("text"), EmptyKeyExpression.EMPTY, IndexTypes.TEXT, Index.UNIQUE_OPTIONS));
+                new Index(testIndex, field("text"), EmptyKeyExpression.EMPTY, IndexTypes.TEXT, IndexOptions.UNIQUE_OPTIONS));
 
         // Verify that it fails when there is a value expression
         invalidateIndex(KeyExpression.InvalidExpressionException.class,
-                new Index(testIndex, field("text"), field("group"), IndexTypes.TEXT, Index.EMPTY_OPTIONS));
+                new Index(testIndex, field("text"), field("group"), IndexTypes.TEXT, IndexOptions.EMPTY_OPTIONS));
         invalidateIndex(KeyExpression.InvalidExpressionException.class,
-                new Index(testIndex, field("text").groupBy(field("group")), field("group"), IndexTypes.TEXT, Index.EMPTY_OPTIONS));
+                new Index(testIndex, field("text").groupBy(field("group")), field("group"), IndexTypes.TEXT, IndexOptions.EMPTY_OPTIONS));
 
         // Tokenizer does not exist
         invalidateIndex(MetaDataException.class,
-                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, "not_a_real_tokenizer")));
+                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, "not_a_real_tokenizer")));
 
         // Invalid tokenizer versions
         invalidateIndex(MetaDataException.class,
-                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "-1")));
+                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "-1")));
         invalidateIndex(MetaDataException.class,
-                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "1000")));
+                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "1000")));
         invalidateIndex(MetaDataException.class,
-                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(Index.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, Index.TEXT_TOKENIZER_VERSION_OPTION, "one")));
+                new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "one")));
     }
 
     @Nonnull

@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -362,7 +363,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
             metaData.addIndex("MySimpleRecord", new Index("limited_str_value_index", field("str_value_indexed"),
-                    Index.EMPTY_VALUE, IndexTypes.VALUE, Index.NOT_ALLOWED_FOR_QUERY_OPTIONS));
+                    Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.NOT_ALLOWED_FOR_QUERY_OPTIONS));
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -439,7 +440,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataHook hook = metaData -> {
             metaData.addUniversalIndex(
                     new Index("universal_num_value_2", field("num_value_2"),
-                            Index.EMPTY_VALUE, IndexTypes.VALUE, Index.NOT_ALLOWED_FOR_QUERY_OPTIONS));
+                            Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.NOT_ALLOWED_FOR_QUERY_OPTIONS));
         };
 
         try (FDBRecordContext context = openContext()) {

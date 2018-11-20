@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -86,8 +87,8 @@ import java.util.function.Function;
  * </ul>
  *
  * <p>
- * One can specify a tokenizer to use by setting the "{@value Index#TEXT_TOKENIZER_NAME_OPTION}" and
- * "{@value Index#TEXT_TOKENIZER_VERSION_OPTION}" options on the index. If no tokenizer is given,
+ * One can specify a tokenizer to use by setting the "{@value IndexOptions#TEXT_TOKENIZER_NAME_OPTION}" and
+ * "{@value IndexOptions#TEXT_TOKENIZER_VERSION_OPTION}" options on the index. If no tokenizer is given,
  * it will use a {@link com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer DefaultTextTokenizer},
  * and if no version is specified, it will assume version {@value TextTokenizer#GLOBAL_MIN_VERSION}.
  * There should be one {@link TextTokenizer} implementation that uses that name and one
@@ -109,7 +110,7 @@ import java.util.function.Function;
  * between records that arrive simultaneously, though it should be noted that the underlying data structure of the
  * text index means that it is already likely that two records that happen to share common tokens that are updated
  * simultaneously will conflict, so it might not actually produce more conflicts in practice. To enable adding
- * conflict ranges over larger areas, set the "{@value Index#TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION}" option
+ * conflict ranges over larger areas, set the "{@value IndexOptions#TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION}" option
  * to "true". <b>Warning:</b> This feature is currently experimental, and may change at any moment without prior notice.
  * <!-- TODO: Remove the above disclaimer if/when we are happy with this feature staying in.-->
  * </p>
@@ -147,7 +148,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
 
     /**
      * Get the text tokenizer associated with this index. This uses the
-     * value of the "{@value Index#TEXT_TOKENIZER_NAME_OPTION}" option to
+     * value of the "{@value IndexOptions#TEXT_TOKENIZER_NAME_OPTION}" option to
      * determine the name of the tokenizer and then looks up the tokenizer
      * in the tokenizer registry.
      *
@@ -156,13 +157,13 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
      */
     @Nonnull
     public static TextTokenizer getTokenizer(@Nonnull Index index) {
-        String tokenizerName = index.getOption(Index.TEXT_TOKENIZER_NAME_OPTION);
+        String tokenizerName = index.getOption(IndexOptions.TEXT_TOKENIZER_NAME_OPTION);
         return registry.getTokenizer(tokenizerName);
     }
 
     /**
      * Get the tokenizer version associated with this index. This will parse the
-     * "{@value Index#TEXT_TOKENIZER_VERSION_OPTION}" option and produce an integer value
+     * "{@value IndexOptions#TEXT_TOKENIZER_VERSION_OPTION}" option and produce an integer value
      * from it. If none is specified, this returns the global miminum tokenizer
      * version.
      *
@@ -170,14 +171,14 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
      * @return the tokenizer version associated with the given index
      */
     public static int getIndexTokenizerVersion(@Nonnull Index index) {
-        String versionStr = index.getOption(Index.TEXT_TOKENIZER_VERSION_OPTION);
+        String versionStr = index.getOption(IndexOptions.TEXT_TOKENIZER_VERSION_OPTION);
         if (versionStr != null) {
             try {
                 return Integer.parseInt(versionStr);
             } catch (NumberFormatException e) {
                 throw new MetaDataException("tokenizer version could not be parsed as int")
                         .addLogInfo("index", index.getName())
-                        .addLogInfo(Index.TEXT_TOKENIZER_VERSION_OPTION, versionStr);
+                        .addLogInfo(IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, versionStr);
             }
         } else {
             return TextTokenizer.GLOBAL_MIN_VERSION;
@@ -185,11 +186,11 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
     }
 
     static boolean getIfAddAggressiveConflictRanges(@Nonnull Index index) {
-        return index.getBooleanOption(Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, false);
+        return index.getBooleanOption(IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, false);
     }
 
     static boolean getIfOmitPositions(@Nonnull Index index) {
-        return index.getBooleanOption(Index.TEXT_OMIT_POSITIONS_OPTION, false);
+        return index.getBooleanOption(IndexOptions.TEXT_OMIT_POSITIONS_OPTION, false);
     }
 
     // Gets the position of the text field this index is tokenizing from within the
@@ -298,9 +299,9 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
                     "textKeySize", estimatedSize.getKey(),
                     "textValueSize", estimatedSize.getValue(),
                     "textIndexSizeAmortized", estimatedSize.getKey() / 10 + estimatedSize.getValue(),
-                    Index.TEXT_TOKENIZER_NAME_OPTION, tokenizer.getName(),
-                    Index.TEXT_TOKENIZER_VERSION_OPTION, recordTokenizerVersion,
-                    Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, addAggressiveConflictRanges,
+                    IndexOptions.TEXT_TOKENIZER_NAME_OPTION, tokenizer.getName(),
+                    IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, recordTokenizerVersion,
+                    IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, addAggressiveConflictRanges,
                     "primaryKey", savedRecord.getPrimaryKey(),
                     "subspace", ByteArrayUtil2.loggable(state.store.getSubspace().getKey()),
                     "indexSubspace", ByteArrayUtil2.loggable(state.indexSubspace.getKey()),

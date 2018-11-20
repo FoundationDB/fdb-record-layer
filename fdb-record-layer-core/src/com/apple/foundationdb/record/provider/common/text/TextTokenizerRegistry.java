@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.common.text;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 
 import javax.annotation.Nonnull;
@@ -31,7 +31,7 @@ import java.util.Map;
 /**
  * Registry for {@link TextTokenizer}s. This registry allows for full-text indexes to specify
  * their tokenizer type through an index option, using the
- * "{@value Index#TEXT_TOKENIZER_NAME_OPTION}" option. The registry
+ * "{@value IndexOptions#TEXT_TOKENIZER_NAME_OPTION}" option. The registry
  * will then be queried for the tokenizer that has that name at index- and query-time.
  *
  * <p>

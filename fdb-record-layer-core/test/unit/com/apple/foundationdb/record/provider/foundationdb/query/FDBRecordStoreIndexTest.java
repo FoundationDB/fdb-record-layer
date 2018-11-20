@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -204,7 +205,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                     Key.Expressions.field("num_value_unique"),
                     Key.Expressions.field("num_value_2"),
                     IndexTypes.VALUE,
-                    Index.UNIQUE_OPTIONS));
+                    IndexOptions.UNIQUE_OPTIONS));
         };
         complexQuerySetup(hook);
 
