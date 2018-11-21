@@ -292,12 +292,78 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     public static final byte[] LITTLE_ENDIAN_INT64_MINUS_ONE = new byte[] { -1, -1, -1, -1, -1, -1, -1, -1 };
 
     /**
+     * Action to take if the record being saved does / does not already exist.
+     * @see FDBRecordStoreBase#saveRecordAsync(Message, RecordExistenceCheck)
+     */
+    public enum RecordExistenceCheck {
+        /**
+         * No special action.
+         *
+         * This corresponds to {@link FDBRecordStoreBase#saveRecord}
+         */
+        NONE,
+
+        /**
+         * Throw if the record already exists.
+         *
+         * This corresponds to {@link FDBRecordStoreBase#insertRecord}
+         * @see RecordAlreadyExistsException
+         */
+        ERROR_IF_EXISTS,
+
+        /**
+         * Throw if the record does not already exist.
+         *
+         * @see RecordDoesNotExistException
+         */
+        ERROR_IF_NOT_EXISTS,
+
+        /**
+         * Throw if an existing record has a different record type.
+         *
+         * @see RecordTypeChangedException
+         */
+        ERROR_IF_RECORD_TYPE_CHANGED,
+
+        /**
+         * Throw if the record does not already exist or has a different record type.
+         *
+         * This corresponds to {@link FDBRecordStoreBase#updateRecord}
+         * @see RecordDoesNotExistException
+         * @see RecordTypeChangedException
+         */
+        ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED;
+
+        public boolean errorIfExists() {
+            return this == ERROR_IF_EXISTS;
+        }
+
+        public boolean errorIfNotExists() {
+            return this == ERROR_IF_NOT_EXISTS || this == ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED;
+        }
+
+        public boolean errorIfTypeChanged() {
+            return this == ERROR_IF_RECORD_TYPE_CHANGED || this == ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED;
+        }
+    }
+
+    /**
      * Async version of {@link #saveRecord(Message)}.
      * @param record the record to save
      * @return a future that completes with the stored record form of the saved record
      */
     public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M record) {
-        return saveRecordAsync(record, null);
+        return saveRecordAsync(record, (FDBRecordVersion)null);
+    }
+
+    /**
+     * Async version of {@link #saveRecord(Message, RecordExistenceCheck)}.
+     * @param record the record to save
+     * @param existenceCheck whether the record must already exist
+     * @return a future that completes with the stored record form of the saved record
+     */
+    public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M record, @Nonnull RecordExistenceCheck existenceCheck) {
+        return saveRecordAsync(record, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
     }
 
     /**
@@ -318,6 +384,19 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      * @return a future that completes with the stored record form of the saved record
      */
     public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M record, @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+        return saveRecordAsync(record, RecordExistenceCheck.NONE, version, behavior);
+    }
+
+    /**
+     * Async version of {@link #saveRecord(Message, RecordExistenceCheck, FDBRecordVersion, VersionstampSaveBehavior)}.
+     * @param record the record to save
+     * @param existenceCheck whether the record must already exist
+     * @param version the associated record version
+     * @param behavior the save behavior w.r.t. the given <code>version</code>
+     * @return a future that completes with the stored record form of the saved record
+     */
+    public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M record, @Nonnull RecordExistenceCheck existenceCheck,
+                                                                 @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Descriptors.Descriptor recordDescriptor = record.getDescriptorForType();
         final RecordType recordType = metaData.getRecordTypeForDescriptor(recordDescriptor);
@@ -332,8 +411,22 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         CompletableFuture<FDBStoredRecord<M>> result = loadRecordAsync(primaryKey).thenCompose(oldRecord -> {
             final FDBStoredRecord<M> newRecord = saveSerializedRecord(metaData, recordBuilder, oldRecord);
             if (oldRecord == null) {
+                if (existenceCheck.errorIfNotExists()) {
+                    throw new RecordDoesNotExistException("record does not exist",
+                            LogMessageKeys.PRIMARY_KEY, primaryKey);
+                }
                 addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
             } else {
+                if (existenceCheck.errorIfExists()) {
+                    throw new RecordAlreadyExistsException("record already exists",
+                            LogMessageKeys.PRIMARY_KEY, primaryKey);
+                }
+                if (existenceCheck.errorIfTypeChanged() && oldRecord.getRecordType() != recordType) {
+                    throw new RecordTypeChangedException("record type changed",
+                            LogMessageKeys.PRIMARY_KEY, primaryKey,
+                            LogMessageKeys.ACTUAL_TYPE, oldRecord.getRecordType().getName(),
+                            LogMessageKeys.EXPECTED_TYPE, recordType.getName());
+                }
                 if (getTimer() != null) {
                     getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
                 }
@@ -635,7 +728,18 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      */
     @Nonnull
     public FDBStoredRecord<M> saveRecord(@Nonnull final M record) {
-        return saveRecord(record, null);
+        return saveRecord(record, (FDBRecordVersion)null);
+    }
+
+    /**
+     * Save the given record.
+     * @param record the record to be saved
+     * @param existenceCheck whether the record must already exist
+     * @return wrapping object containing saved record and metadata
+     */
+    @Nonnull
+    public FDBStoredRecord<M> saveRecord(@Nonnull final M record, @Nonnull RecordExistenceCheck existenceCheck) {
+        return saveRecord(record, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
     }
 
     /**
@@ -664,7 +768,65 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      */
     @Nonnull
     public FDBStoredRecord<M> saveRecord(@Nonnull final M record, @Nullable final FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecordAsync(record, version, behavior));
+        return saveRecord(record, RecordExistenceCheck.NONE, version, behavior);
+    }
+
+    /**
+     * Save the given record with a specific version.
+     * The version is handled according to the behavior value. If behavior is <code>DEFAULT</code> then
+     * the method acts as {@link #saveRecord(Message, FDBRecordVersion)}. If behavior is <code>NO_VERSION</code> then
+     * <code>version</code> is ignored and no version is saved. If behavior is <code>WITH_VERSION</code> then the value
+     * of <code>version</code>  is stored as given by the caller.
+     * @param record the record to be saved
+     * @param existenceCheck whether the record must already exist
+     * @param version the version to associate with the record when saving
+     * @param behavior the save behavior w.r.t. the given <code>version</code>
+     * @return wrapping object containing saved record and metadata
+     */
+    @Nonnull
+    public FDBStoredRecord<M> saveRecord(@Nonnull final M record, @Nonnull RecordExistenceCheck existenceCheck,
+                                         @Nullable final FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecordAsync(record, existenceCheck, version, behavior));
+    }
+
+    /**
+     * Save the given record and throw an exception if a record already exists with the same primary key.
+     * @param record the record to be saved
+     * @return a future that completes with the stored record form of the saved record
+     */
+    @Nonnull
+    public CompletableFuture<FDBStoredRecord<M>> insertRecordAsync(@Nonnull final M record) {
+        return saveRecordAsync(record, RecordExistenceCheck.ERROR_IF_EXISTS);
+    }
+
+    /**
+     * Save the given record and throw an exception if a record already exists with the same primary key.
+     * @param record the record to be saved
+     * @return wrapping object containing saved record and metadata
+     */
+    @Nonnull
+    public FDBStoredRecord<M> insertRecord(@Nonnull final M record) {
+        return saveRecord(record, RecordExistenceCheck.ERROR_IF_EXISTS);
+    }
+
+    /**
+     * Save the given record and throw an exception if the record does not already exist in the database.
+     * @param record the record to be saved
+     * @return a future that completes with the stored record form of the saved record
+     */
+    @Nonnull
+    public CompletableFuture<FDBStoredRecord<M>> updateRecordAsync(@Nonnull final M record) {
+        return saveRecordAsync(record, RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
+    }
+
+    /**
+     * Save the given record and throw an exception if the record does not already exist in the database.
+     * @param record the record to be saved
+     * @return wrapping object containing saved record and metadata
+     */
+    @Nonnull
+    public FDBStoredRecord<M> updateRecord(@Nonnull final M record) {
+        return saveRecord(record, RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
     }
 
     /**
@@ -1796,7 +1958,28 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      * @see FDBRecordStoreBuilder#createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck)
      */
     public enum StoreExistenceCheck {
-        NONE, ERROR_IF_EXISTS, ERROR_IF_NOT_EXISTS
+        /**
+         * No special action.
+         *
+         * This corresponds to {@link FDBRecordStoreBuilder#createOrOpen}
+         */
+        NONE,
+
+        /**
+         * Throw if the record store already exists.
+         *
+         * This corresponds to {@link FDBRecordStoreBuilder#create}
+         * @see RecordStoreAlreadyExistsException
+         */
+        ERROR_IF_EXISTS,
+
+        /**
+         * Throw if the record store does not already exist.
+         *
+         * This corresponds to {@link FDBRecordStoreBuilder#open}
+         * @see RecordStoreDoesNotExistException
+         */
+        ERROR_IF_NOT_EXISTS
     }
 
     /**
