@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -59,9 +58,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
     @Test
     public void testPrefixScalar() throws Exception {
         RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("prefix_scalar",
-                            concat(field("num_value_2"), field("num_value_3_indexed"))));
+            metaData.addIndex("MySimpleRecord", "prefix_scalar", concat(field("num_value_2"), field("num_value_3_indexed")));
         };
 
         try (FDBRecordContext context = openContext()) {

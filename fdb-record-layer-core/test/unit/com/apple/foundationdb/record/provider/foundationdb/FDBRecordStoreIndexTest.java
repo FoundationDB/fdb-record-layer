@@ -126,10 +126,10 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void nonUniqueNull() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_unique");
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index(
+            metaData.addIndex("MySimpleRecord", new Index(
                     "unique_multi",
                     concat(field("num_value_unique"),
-                           field("num_value_2")),
+                            field("num_value_2")),
                     Index.EMPTY_VALUE,
                     IndexTypes.VALUE,
                     Index.UNIQUE_OPTIONS));
@@ -155,10 +155,10 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void uniqueNull() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_unique");
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index(
+            metaData.addIndex("MySimpleRecord", new Index(
                     "unique_multi",
                     concat(field("num_value_unique"),
-                           field("num_value_2", FanType.None, Key.Evaluated.NullStandin.NULL_UNIQUE)),
+                            field("num_value_2", FanType.None, Key.Evaluated.NullStandin.NULL_UNIQUE)),
                     Index.EMPTY_VALUE,
                     IndexTypes.VALUE,
                     Index.UNIQUE_OPTIONS));
@@ -183,7 +183,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void sumIndex() throws Exception {
         final FieldKeyExpression recno = field("rec_no");
         final GroupingKeyExpression byKey = recno.groupBy(field("num_value_3_indexed"));
-        final RecordMetaDataHook hook = md -> md.addIndex(null, new Index("sum", byKey, IndexTypes.SUM));
+        final RecordMetaDataHook hook = md -> md.addUniversalIndex(new Index("sum", byKey, IndexTypes.SUM));
 
         final IndexAggregateFunction subtotal = new IndexAggregateFunction(FunctionNames.SUM, byKey, null);
         final IndexAggregateFunction total = new IndexAggregateFunction(FunctionNames.SUM, recno, null);
@@ -230,7 +230,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void sumUnsetOptional() throws Exception {
         final KeyExpression key = field("num_value_3_indexed").ungrouped();
-        final RecordMetaDataHook hook = md -> md.addIndex(md.getRecordType("MySimpleRecord"), new Index("sum", key, IndexTypes.SUM));
+        final RecordMetaDataHook hook = md -> md.addIndex("MySimpleRecord", new Index("sum", key, IndexTypes.SUM));
 
         final IndexAggregateFunction total = new IndexAggregateFunction(FunctionNames.SUM, key, null);
         List<String> types = Collections.singletonList("MySimpleRecord");
@@ -257,7 +257,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void sumBoundIndex() throws Exception {
         final FieldKeyExpression recno = field("rec_no");
         final GroupingKeyExpression byKey = recno.groupBy(field("num_value_3_indexed"));
-        final RecordMetaDataHook hook = md -> md.addIndex(null, new Index("sum", byKey, IndexTypes.SUM));
+        final RecordMetaDataHook hook = md -> md.addUniversalIndex(new Index("sum", byKey, IndexTypes.SUM));
 
         final IndexAggregateFunction subtotal = new IndexAggregateFunction(FunctionNames.SUM, byKey, null);
         final List<String> allTypes = Collections.emptyList();
@@ -723,8 +723,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void countValueIndex() throws Exception {
         final FieldKeyExpression numValue3 = field("num_value_3_indexed");
         final GroupingKeyExpression byKey = numValue3.groupBy(field("str_value_indexed"));
-        final RecordMetaDataHook hook = md -> md.addIndex(md.getRecordType("MySimpleRecord"),
-                new Index("count_num_3", byKey, IndexTypes.COUNT_NOT_NULL));
+        final RecordMetaDataHook hook = md -> md.addIndex("MySimpleRecord", new Index("count_num_3", byKey, IndexTypes.COUNT_NOT_NULL));
         final List<String> types = Collections.singletonList("MySimpleRecord");
 
         final IndexAggregateFunction perKey = new IndexAggregateFunction(FunctionNames.COUNT_NOT_NULL, byKey, null);
@@ -776,8 +775,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void countMultiValueIndex() throws Exception {
         final ThenKeyExpression values = concatenateFields("num_value_2", "num_value_3_indexed");
         final GroupingKeyExpression byKey = values.groupBy(field("str_value_indexed"));
-        final RecordMetaDataHook hook = md -> md.addIndex(md.getRecordType("MySimpleRecord"),
-                new Index("count_num_3", byKey, IndexTypes.COUNT_NOT_NULL));
+        final RecordMetaDataHook hook = md -> md.addIndex("MySimpleRecord", new Index("count_num_3", byKey, IndexTypes.COUNT_NOT_NULL));
         final List<String> types = Collections.singletonList("MySimpleRecord");
 
         final IndexAggregateFunction perKey = new IndexAggregateFunction(FunctionNames.COUNT_NOT_NULL, byKey, null);
@@ -969,7 +967,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void insertTerrible() throws Exception {
         RecordMetaDataHook hook = metaDataBuilder -> {
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), new Index("value3$terrible", field("num_value_3_indexed"), "terrible"));
+            metaDataBuilder.addIndex("MySimpleRecord", new Index("value3$terrible", field("num_value_3_indexed"), "terrible"));
         };
 
         TestRecords1Proto.MySimpleRecord evenRec = TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -1012,7 +1010,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void insertValueBuggy() throws Exception {
         RecordMetaDataHook hook = metaDataBuilder -> {
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), new Index("value3$buggy", field("num_value_3_indexed"), "value_buggy"));
+            metaDataBuilder.addIndex("MySimpleRecord", new Index("value3$buggy", field("num_value_3_indexed"), "value_buggy"));
         };
 
         TestRecords1Proto.MySimpleRecord evenRec = TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -1439,7 +1437,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void uniquenessViolationsWithFanOut() throws Exception {
         Index index = new Index("MySimpleRecord$repeater", field("repeater", FanType.FanOut), Index.EMPTY_VALUE,  IndexTypes.VALUE, Index.UNIQUE_OPTIONS);
-        RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), index);
+        RecordMetaDataHook hook = metaData -> metaData.addIndex("MySimpleRecord", index);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -1597,7 +1595,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         // add index
         RecordMetaDataHook hook = metaDataBuilder -> {
             metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MyBasicRecord"), new Index("value2$filtered", field("num_value_2")));
+            metaDataBuilder.addIndex("MyBasicRecord", "value2$filtered", field("num_value_2"));
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -1653,7 +1651,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         // add index
         RecordMetaDataHook hook = metaDataBuilder -> {
             metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MyBasicRecord"), new Index("value2$filtered", field("num_value_2")));
+            metaDataBuilder.addIndex("MyBasicRecord", "value2$filtered", field("num_value_2"));
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -1741,7 +1739,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
             if (withCount) {
-                builder.addIndex(null, COUNT_INDEX);
+                builder.addUniversalIndex(COUNT_INDEX);
             }
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
                     .setUserVersionChecker(alwaysEnabled).createOrOpen();
@@ -1760,9 +1758,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
             if (withCount) {
-                builder.addIndex(null, COUNT_INDEX);
+                builder.addUniversalIndex(COUNT_INDEX);
             }
-            builder.addIndex(builder.getRecordType(recordType), originalIndex);
+            builder.addIndex(recordType, originalIndex);
 
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
                     .setUserVersionChecker(alwaysDisabled).createOrOpen();
@@ -1774,11 +1772,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
             if (withCount) {
-                builder.addIndex(null, COUNT_INDEX);
+                builder.addUniversalIndex(COUNT_INDEX);
             }
-            builder.addIndex(builder.getRecordType(recordType), originalIndex);
+            builder.addIndex(recordType, originalIndex);
             builder.removeIndex(originalIndex.getName());
-            builder.addIndex(builder.getRecordType(recordType), newIndex);
+            builder.addIndex(recordType, newIndex);
 
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
                     .setUserVersionChecker(alwaysDisabled).createOrOpen();
@@ -1810,7 +1808,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // Add a new index named "index" on rec_no.
             final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
             final Index index = new Index("index", "rec_no");
-            builder.addIndex(builder.getRecordType("MySimpleRecord"), index);
+            builder.addIndex("MySimpleRecord", index);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
             // Since there were 200 records already, the new index is write-only.
             assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
@@ -1828,7 +1826,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // Change the definition of the "index" index to be on num_value instead.
             final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
             builder.setVersion(builder.getVersion() + 100);
-            builder.addIndex(builder.getRecordType("MySimpleRecord"), index);
+            builder.addIndex("MySimpleRecord", index);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
             recordMetaData = recordStore.getRecordMetaData();
             // The changed index is again write-only because there are 300 records.
@@ -1881,7 +1879,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         };
 
         final RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
-        metaData.addIndex(null, COUNT_INDEX);
+        metaData.addUniversalIndex(COUNT_INDEX);
 
         final FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
                 .setUserVersionChecker(selectiveEnable).setMetaDataProvider(metaData);
@@ -1896,8 +1894,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index("index-1", "num_value"));
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index("index-2", "str_value"));
+            metaData.addIndex("MySimpleRecord", "index-1", "num_value");
+            metaData.addIndex("MySimpleRecord", "index-2", "str_value");
 
             recordStore = storeBuilder.setContext(context).setKeySpacePath(path).open(); // builds index-2, disables index-1
 
@@ -2051,7 +2049,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     private void testInvalidIndex(Index index) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaData -> {
-                metaData.addIndex(metaData.getRecordType("MySimpleRecord"), index);
+                metaData.addIndex("MySimpleRecord", index);
             });
         }
     }

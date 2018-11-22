@@ -271,7 +271,7 @@ public class OnlineIndexBuilderTest {
         };
         final RecordMetaDataHook hook = metaDataBuilder -> {
             onlySplitHook.apply(metaDataBuilder);
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+            metaDataBuilder.addIndex("MySimpleRecord", index);
         };
 
         LOGGER.info(KeyValueLogMessage.of("inserting elements prior to test", "records", records.size()));
@@ -970,7 +970,7 @@ public class OnlineIndexBuilderTest {
         ).limit(75).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         openSimpleMetaData(metaDataBuilder -> {
             Index index = new Index("newIndex", field("num_value_2"));
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+            metaDataBuilder.addIndex("MySimpleRecord", index);
         });
         try (FDBRecordContext context = openContext(false)) {
             records.stream().filter(msg -> msg.getRecNo() % 2 == 0).forEach(recordStore::saveRecord);
@@ -1111,7 +1111,7 @@ public class OnlineIndexBuilderTest {
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         openSimpleMetaData(metaDataBuilder -> {
             Index index = new Index("newRankIndex", field("num_value_2").ungrouped(), IndexTypes.RANK);
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+            metaDataBuilder.addIndex("MySimpleRecord", index);
         });
         try (FDBRecordContext context = openContext(false)) {
             records.stream().filter(msg -> msg.getRecNo() % 2 == 0).forEach(recordStore::saveRecord);
@@ -1226,7 +1226,7 @@ public class OnlineIndexBuilderTest {
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         openSimpleMetaData(metaDataBuilder -> {
             Index index = new Index("newSumIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+            metaDataBuilder.addIndex("MySimpleRecord", index);
         });
         try (FDBRecordContext context = openContext(false)) {
             recordStore.markIndexWriteOnly("newSumIndex").join();
@@ -1459,7 +1459,7 @@ public class OnlineIndexBuilderTest {
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
         ).collect(Collectors.toList());
         Index index = new Index("simple$value_2", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, Index.UNIQUE_OPTIONS);
-        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         // Case 1: Entirely in build.
         openSimpleMetaData();
@@ -1709,7 +1709,7 @@ public class OnlineIndexBuilderTest {
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
         ).collect(Collectors.toList());
         Index index = new Index("simple$value_2", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, Index.UNIQUE_OPTIONS);
-        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         openSimpleMetaData();
         try (FDBRecordContext context = openContext())  {
@@ -1763,7 +1763,7 @@ public class OnlineIndexBuilderTest {
         Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
         IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
         List<String> indexTypes = Collections.singletonList("MySimpleRecord");
-        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         final Supplier<Tuple> getAggregate = () -> {
             Tuple ret;
@@ -1887,7 +1887,7 @@ public class OnlineIndexBuilderTest {
         Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
         IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
         List<String> indexTypes = Collections.singletonList("MySimpleRecord");
-        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
@@ -1975,7 +1975,7 @@ public class OnlineIndexBuilderTest {
         Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
         IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
         List<String> indexTypes = Collections.singletonList("MySimpleRecord");
-        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
@@ -2011,7 +2011,7 @@ public class OnlineIndexBuilderTest {
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
         ).collect(Collectors.toList());
         Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
-        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
@@ -2035,7 +2035,7 @@ public class OnlineIndexBuilderTest {
     @Test
     public void run() {
         Index index = new Index("newIndex", field("num_value_2"));
-        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index));
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
         try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(fdb, metaData, index, metaData.recordTypesForIndex(index), subspace, 100, 3, 10000)) {
             indexBuilder.setMaxAttempts(2);
 
@@ -2110,7 +2110,7 @@ public class OnlineIndexBuilderTest {
     @Test
     public void illegalConstructorParams() {
         Index newIndex = new Index("newIndex", field("num_value_3"));
-        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newIndex));
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", newIndex));
         Index indexPrime = metaData.getIndex("newIndex");
         Collection<RecordType> recordTypes = metaData.recordTypesForIndex(indexPrime);
         // Absent index
@@ -2166,7 +2166,7 @@ public class OnlineIndexBuilderTest {
     public void closeWhileBuilding() throws Exception {
         final Index index = new Index("newIndex", field("num_value_2"));
         final RecordMetaDataHook hook = metaDataBuilder -> {
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+            metaDataBuilder.addIndex("MySimpleRecord", index);
         };
         openSimpleMetaData(hook);
         final Index nindex = metaData.getIndex(index.getName());

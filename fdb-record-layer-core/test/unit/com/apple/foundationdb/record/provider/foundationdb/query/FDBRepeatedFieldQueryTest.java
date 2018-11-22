@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords6Proto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -75,12 +74,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     private void openDoublyRepeatedRecordStore(FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords6Proto.getDescriptor());
-        metaDataBuilder.addIndex(null, COUNT_INDEX);
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MyRepeatedRecord"),
-                new Index("rep_strings",
-                        concat(field("s1", FanType.Concatenate), field("s2", FanType.Concatenate))));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MyRepeatedRecord"),
-                new Index("s1$concat", field("s1", FanType.Concatenate)));
+        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addIndex("MyRepeatedRecord", "rep_strings", concat(field("s1", FanType.Concatenate), field("s2", FanType.Concatenate)));
+        metaDataBuilder.addIndex("MyRepeatedRecord", "s1$concat", field("s1", FanType.Concatenate));
         createRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
@@ -463,9 +459,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testPrefixRepeated() throws Exception {
         RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("prefix_repeated",
-                            concat(field("num_value_2"), field("repeater", FanType.FanOut))));
+            metaData.addIndex("MySimpleRecord", "prefix_repeated", concat(field("num_value_2"), field("repeater", FanType.FanOut)));
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -530,8 +524,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
             metaData.removeIndex("MySimpleRecord$num_value_unique");
             metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("repeater$fanout", field("repeater", FanType.FanOut)));
+            metaData.addIndex("MySimpleRecord", "repeater$fanout", field("repeater", FanType.FanOut));
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -572,9 +565,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(field("rec_no")));
-            metaData.addIndex(metaData.getRecordType("MyRecord"),
-                    new Index("fanout_index", concat(field("header").nest("path"),
-                            field("repeated_int", FanType.FanOut))));
+            metaData.addIndex("MyRecord", "fanout_index", concat(field("header").nest("path"),
+                    field("repeated_int", FanType.FanOut)));
         };
 
         try (FDBRecordContext context = openContext()) {

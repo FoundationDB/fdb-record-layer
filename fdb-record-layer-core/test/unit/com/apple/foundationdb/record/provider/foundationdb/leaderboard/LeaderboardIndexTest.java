@@ -309,8 +309,7 @@ public class LeaderboardIndexTest {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("NestedLeaderboardRecord"),
-                    new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
+            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
         }
     }
 
@@ -329,8 +328,7 @@ public class LeaderboardIndexTest {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("NestedLeaderboardRecord"),
-                    new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
+            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
         }
     }
 
@@ -346,8 +344,7 @@ public class LeaderboardIndexTest {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("FlatLeaderboardRecord"),
-                    new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
+            metaDataBuilder.addIndex("FlatLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
         }
 
         @Override

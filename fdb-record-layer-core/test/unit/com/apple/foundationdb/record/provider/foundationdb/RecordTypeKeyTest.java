@@ -144,7 +144,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         t2.setPrimaryKey(pkey);
         metaData.removeIndex(COUNT_INDEX.getName());
         metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
-        metaData.addIndex(null, new Index("countByRecordType", GroupingKeyExpression.of(empty(), recordType()), IndexTypes.COUNT));
+        metaData.addUniversalIndex(new Index("countByRecordType", GroupingKeyExpression.of(empty(), recordType()), IndexTypes.COUNT));
     };
 
     @Test
@@ -238,7 +238,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
             t2.setPrimaryKey(recordType());
             metaData.removeIndex(COUNT_INDEX.getName());
             metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
-            metaData.addIndex(null, new Index("countByRecordType", GroupingKeyExpression.of(empty(), recordType()), IndexTypes.COUNT));
+            metaData.addUniversalIndex(new Index("countByRecordType", GroupingKeyExpression.of(empty(), recordType()), IndexTypes.COUNT));
         };
 
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(hook);
@@ -340,7 +340,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
 
         RecordMetaDataHook hook = metaData -> {
             BASIC_HOOK.apply(metaData);
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index("newIndex", "num_value_2"));
+            metaData.addIndex("MySimpleRecord", "newIndex", "num_value_2");
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -383,7 +383,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
 
         RecordMetaDataHook hook = metaData -> {
             BASIC_HOOK.apply(metaData);
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index("newIndex", "num_value_2"));
+            metaData.addIndex("MySimpleRecord", "newIndex", "num_value_2");
         };
 
         try (FDBRecordContext context = openContext()) {

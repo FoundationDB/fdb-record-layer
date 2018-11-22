@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.TestNoIndexesProto;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -86,7 +85,7 @@ public class FDBRecordStoreIndexScanPreferenceTest extends FDBRecordStoreQueryTe
     public void primaryKeyIndex() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, md -> {
-                md.addIndex(md.getRecordType("MySimpleRecord"), new Index("pkey", "rec_no"));
+                md.addIndex("MySimpleRecord", "pkey", "rec_no");
             });
         }
 

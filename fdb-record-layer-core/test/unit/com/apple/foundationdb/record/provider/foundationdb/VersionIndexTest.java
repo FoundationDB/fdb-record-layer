@@ -80,7 +80,6 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
-import static com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType.FanOut;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
@@ -133,25 +132,21 @@ public class VersionIndexTest {
 
     private RecordMetaDataHook simpleVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
-        metaDataBuilder.addIndex(null, new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"),
-                new Index("MySimpleRecord$num2-version", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
-        metaDataBuilder.addIndex(null,
+        metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$num2-version", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
+        metaDataBuilder.addUniversalIndex(
                 new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
     };
 
     private RecordMetaDataHook repeatedVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"),
-                new Index("MySimpleRecord$repeater-version", concat(field("repeater", KeyExpression.FanType.FanOut), VersionKeyExpression.VERSION), IndexTypes.VERSION));
+        metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$repeater-version", concat(field("repeater", KeyExpression.FanType.FanOut), VersionKeyExpression.VERSION), IndexTypes.VERSION));
     };
 
     private RecordMetaDataHook repeatedAndCompoundVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"),
-                new Index("MySimpleRecord$repeater-version", concat(field("repeater", FanOut), VersionKeyExpression.VERSION), IndexTypes.VERSION));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"),
-                new Index("MySimpleRecord$num2-version", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
+        metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$repeater-version", concat(field("repeater", KeyExpression.FanType.FanOut), VersionKeyExpression.VERSION), IndexTypes.VERSION));
+        metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$num2-version", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
     };
 
     // Provide a combination of format versions relevant to versionstamps along with
@@ -230,8 +225,7 @@ public class VersionIndexTest {
     }
 
     private RecordMetaDataHook functionVersionHook = metaDataBuilder -> {
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"),
-                new Index("MySimpleRecord$maybeVersion", function("maybeVersion", concat(field("num_value_2"), VersionKeyExpression.VERSION)), IndexTypes.VERSION));
+        metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$maybeVersion", function("maybeVersion", concat(field("num_value_2"), VersionKeyExpression.VERSION)), IndexTypes.VERSION));
     };
 
     private FDBRecordContext openContext(@Nullable RecordMetaDataHook hook) {
@@ -491,7 +485,7 @@ public class VersionIndexTest {
                 .build();
         Index globalCountIndex = new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
         try (FDBRecordContext context = openContext(metaDataBuilder -> {
-            metaDataBuilder.addIndex(null, globalCountIndex);
+            metaDataBuilder.addUniversalIndex(globalCountIndex);
             metaDataBuilder.setStoreRecordVersions(false);
         })) {
             recordStore.validateMetaData();
@@ -502,7 +496,7 @@ public class VersionIndexTest {
             context.commit();
         }
         try (FDBRecordContext context = openContext(metaDataBuilder -> {
-            metaDataBuilder.addIndex(null, globalCountIndex);
+            metaDataBuilder.addUniversalIndex(globalCountIndex);
             metaDataBuilder.setStoreRecordVersions(false);
             metaDataBuilder.setStoreRecordVersions(true);
             functionVersionHook.apply(metaDataBuilder);
@@ -1151,8 +1145,8 @@ public class VersionIndexTest {
 
         RecordMetaDataHook firstHook = metaDataBuilder -> {
             metaDataBuilder.setSplitLongRecords(splitLongRecords);
-            metaDataBuilder.addIndex(null, new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
-            metaDataBuilder.addIndex(null, new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
+            metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+            metaDataBuilder.addUniversalIndex(new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
         };
         RecordMetaDataHook secondHook = metaDataBuilder -> {
             firstHook.apply(metaDataBuilder);
@@ -1162,7 +1156,7 @@ public class VersionIndexTest {
         RecordMetaDataHook thirdHook = metaDataBuilder -> {
             secondHook.apply(metaDataBuilder);
             metaDataBuilder.setStoreRecordVersions(true);
-            metaDataBuilder.addIndex(null, new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
+            metaDataBuilder.addUniversalIndex(new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
         };
 
         MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).build();
@@ -1278,7 +1272,7 @@ public class VersionIndexTest {
             assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
                 Index index = new Index("test_index", expression, IndexTypes.VERSION);
                 RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+                metaDataBuilder.addIndex("MySimpleRecord", index);
                 RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
                 MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
                 validator.validate();
@@ -1289,7 +1283,7 @@ public class VersionIndexTest {
         assertThrows(MetaDataException.class, () -> {
             Index index = new Index("test_index", VersionKeyExpression.VERSION, EmptyKeyExpression.EMPTY, IndexTypes.VERSION, Index.UNIQUE_OPTIONS);
             RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), index);
+            metaDataBuilder.addIndex("MySimpleRecord", index);
             RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
             MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
             validator.validate();
@@ -1298,7 +1292,7 @@ public class VersionIndexTest {
         assertThrows(MetaDataException.class, () -> {
             Index index = new Index("global_version", VersionKeyExpression.VERSION, IndexTypes.VERSION);
             RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords2Proto.getDescriptor());
-            metaDataBuilder.addIndex(null, index);
+            metaDataBuilder.addUniversalIndex(index);
             RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
             MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
             validator.validate();
@@ -1395,8 +1389,8 @@ public class VersionIndexTest {
         final Index newVersionIndex = new Index("MySimpleRecord$version-num2", concat(VersionKeyExpression.VERSION, field("num_value_2")), IndexTypes.VERSION);
         final RecordMetaDataHook hookWithNewIndexes = metaDataBuilder -> {
             hook.apply(metaDataBuilder);
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newValueIndex);
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), newVersionIndex);
+            metaDataBuilder.addIndex("MySimpleRecord", newValueIndex);
+            metaDataBuilder.addIndex("MySimpleRecord", newVersionIndex);
         };
 
         final List<FDBStoredRecord<Message>> newStoredRecords;

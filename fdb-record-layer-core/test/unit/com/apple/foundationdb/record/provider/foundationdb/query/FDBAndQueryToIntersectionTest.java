@@ -117,7 +117,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataHook hook = (metaDataBuilder) -> {
             complexQuerySetupHook().apply(metaDataBuilder);
             metaDataBuilder.removeIndex("multi_index");
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), new Index("MySimpleRecord$num_value_2", field("num_value_2")));
+            metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
         };
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -204,7 +204,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataHook hook = (metaDataBuilder) -> {
             complexQuerySetupHook().apply(metaDataBuilder);
             metaDataBuilder.removeIndex("multi_index");
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MySimpleRecord"), new Index("MySimpleRecord$num_value_2", field("num_value_2")));
+            metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
         };
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -248,11 +248,10 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
     public void testComplexQuery1g() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
-            metaData.addIndex(metaData.getRecordType("MySimpleRecord"),
-                    new Index("grouped_index",
-                            concatenateFields("str_value_indexed", "num_value_2")
-                                    .group(1),
-                            IndexTypes.RANK));
+            metaData.addIndex("MySimpleRecord", new Index("grouped_index",
+                    concatenateFields("str_value_indexed", "num_value_2")
+                            .group(1),
+                    IndexTypes.RANK));
         };
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -373,9 +372,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
     public void intersectionVersusRange() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaData -> {
-                metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index("MySimpleRecord$num_value_2", "num_value_2"));
+                metaData.addIndex("MySimpleRecord", "num_value_2");
                 metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
-                metaData.addIndex(metaData.getRecordType("MySimpleRecord"), new Index("index_2_3", "num_value_2", "num_value_3_indexed"));
+                metaData.addIndex("MySimpleRecord", new Index("index_2_3", "num_value_2", "num_value_3_indexed"));
             });
             recordStore.deleteAllRecords();
         }

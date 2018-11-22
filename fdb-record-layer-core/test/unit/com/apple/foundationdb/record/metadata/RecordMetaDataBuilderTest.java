@@ -54,8 +54,7 @@ public class RecordMetaDataBuilderTest {
         RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData1 = builder.getRecordMetaData();
         assertTrue(metaData1 == builder.getRecordMetaData());
-        builder.addIndex(builder.getRecordType("MySimpleRecord"),
-                new Index("MySimpleRecord$PRIMARY", "rec_no"));
+        builder.addIndex("MySimpleRecord", "MySimpleRecord$PRIMARY", "rec_no");
         RecordMetaData metaData2 = builder.getRecordMetaData();
         assertFalse(metaData1 == metaData2);
 
@@ -72,8 +71,7 @@ public class RecordMetaDataBuilderTest {
     @Test
     public void primaryIndexDoesOverlapPrimaryKey() throws Exception {
         RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
-        builder.addIndex(builder.getRecordType("MySimpleRecord"),
-                         new Index("MySimpleRecord$PRIMARY", "rec_no"));
+        builder.addIndex("MySimpleRecord", "MySimpleRecord$PRIMARY", "rec_no");
         RecordMetaData metaData = builder.getRecordMetaData();
         Index index = metaData.getIndex("MySimpleRecord$PRIMARY");
         assertNotNull(index);
@@ -86,10 +84,9 @@ public class RecordMetaDataBuilderTest {
         RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
         builder.getRecordType("MyRecord")
             .setPrimaryKey(field("header").nest("rec_no"));
-        builder.addIndex(builder.getRecordType("MyRecord"),
-                         new Index("MyRecord$PRIMARY",
-                                   field("header").nest("rec_no"),
-                                   IndexTypes.VALUE));
+        builder.addIndex("MyRecord", new Index("MyRecord$PRIMARY",
+                field("header").nest("rec_no"),
+                IndexTypes.VALUE));
         RecordMetaData metaData = builder.getRecordMetaData();
         Index index = metaData.getIndex("MyRecord$PRIMARY");
         assertNotNull(index);
@@ -102,11 +99,10 @@ public class RecordMetaDataBuilderTest {
         RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
         builder.getRecordType("MyRecord")
             .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
-        builder.addIndex(builder.getRecordType("MyRecord"),
-                         new Index("MyRecord$path_str",
-                                   concat(field("header").nest("path"),
-                                          field("str_value")),
-                                   IndexTypes.VALUE));
+        builder.addIndex("MyRecord", new Index("MyRecord$path_str",
+                concat(field("header").nest("path"),
+                        field("str_value")),
+                IndexTypes.VALUE));
         RecordMetaData metaData = builder.getRecordMetaData();
         Index index = metaData.getIndex("MyRecord$path_str");
         assertNotNull(index);

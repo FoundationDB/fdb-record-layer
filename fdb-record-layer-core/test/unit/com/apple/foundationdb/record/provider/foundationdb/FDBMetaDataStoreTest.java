@@ -246,15 +246,12 @@ public class FDBMetaDataStoreTest {
     @Test
     public void withToProto() throws Exception {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsParentChildRelationshipProto.getDescriptor());
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MyChildRecord"),
-                new Index("MyChildRecord$str_value", Key.Expressions.field("str_value")));
+        metaDataBuilder.addIndex("MyChildRecord", "MyChildRecord$str_value", Key.Expressions.field("str_value"));
         metaDataBuilder.removeIndex("MyChildRecord$parent_rec_no");
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MyChildRecord"),
-                new Index("MyChildRecord$parent&str", Key.Expressions.concatenateFields("parent_rec_no", "str_value"), Index.EMPTY_VALUE, IndexTypes.VALUE, Index.UNIQUE_OPTIONS));
+        metaDataBuilder.addIndex("MyChildRecord", new Index("MyChildRecord$parent&str", Key.Expressions.concatenateFields("parent_rec_no", "str_value"), Index.EMPTY_VALUE, IndexTypes.VALUE, Index.UNIQUE_OPTIONS));
         metaDataBuilder.removeIndex("MyParentRecord$str_value_indexed");
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("MyParentRecord"),
-                new Index("MyParentRecord$str&child", Key.Expressions.concat(
-                        Key.Expressions.field("str_value_indexed"), Key.Expressions.field("child_rec_nos", KeyExpression.FanType.FanOut))));
+        metaDataBuilder.addIndex("MyParentRecord", "MyParentRecord$str&child", Key.Expressions.concat(
+                Key.Expressions.field("str_value_indexed"), Key.Expressions.field("child_rec_nos", KeyExpression.FanType.FanOut)));
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(metaDataBuilder.getRecordType("MyChildRecord"), metaDataBuilder.getRecordType("MyParentRecord")),
                 new Index("all$rec_nos", Key.Expressions.field("rec_no")));
         RecordMetaData metaData = metaDataBuilder.getRecordMetaData();

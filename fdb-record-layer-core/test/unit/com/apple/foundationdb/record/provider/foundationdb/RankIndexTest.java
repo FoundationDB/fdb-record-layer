@@ -97,10 +97,10 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
 
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTest.RecordMetaDataHook hook) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsRankProto.getDescriptor());
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("BasicRankedRecord"),
+        metaDataBuilder.addIndex("BasicRankedRecord",
                 new Index("rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")),
                         IndexTypes.RANK));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("NestedRankedRecord"),
+        metaDataBuilder.addIndex("NestedRankedRecord",
                 new Index("score_by_country",
                         Key.Expressions.concat(Key.Expressions.field("country"),
                                 Key.Expressions.field("scores", KeyExpression.FanType.FanOut)
@@ -108,11 +108,11 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                                 .group(2),
                         IndexTypes.RANK));
         metaDataBuilder.getRecordType("HeaderRankedRecord").setPrimaryKey(Key.Expressions.field("header").nest(Key.Expressions.concatenateFields("group", "id")));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("HeaderRankedRecord"),
+        metaDataBuilder.addIndex("HeaderRankedRecord",
                 new Index("score_by_nested_id",
                         Key.Expressions.field("score").groupBy(Key.Expressions.field("header").nest(Key.Expressions.field("group"))),
                         IndexTypes.RANK));
-        metaDataBuilder.addIndex(metaDataBuilder.getRecordType("RepeatedRankedRecord"),
+        metaDataBuilder.addIndex("RepeatedRankedRecord",
                 new Index("score_by_repeated_field",
                         Key.Expressions.field("score", KeyExpression.FanType.FanOut).ungrouped(),
                         IndexTypes.RANK));
@@ -997,8 +997,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void rankPlusMatchingNonRankIndex() throws Exception {
-        RecordMetaDataHook hook = md -> md.addIndex(md.getRecordType("BasicRankedRecord"),
-                new Index("AaaSumIndex", Key.Expressions.field("score").ungrouped(), IndexTypes.SUM));
+        RecordMetaDataHook hook = md -> md.addIndex("BasicRankedRecord", new Index("AaaSumIndex", Key.Expressions.field("score").ungrouped(), IndexTypes.SUM));
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             // Ordinarily the stable order is the persistent form; force new index to the front.
@@ -1074,9 +1073,9 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
         assertThrows(RecordIndexUniquenessViolation.class, () -> {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, md -> {
-                    md.addIndex(null, FDBRecordStoreTestBase.COUNT_INDEX);
+                    md.addUniversalIndex(FDBRecordStoreTestBase.COUNT_INDEX);
                     md.removeIndex("rank_by_gender");
-                    md.addIndex(md.getRecordType("BasicRankedRecord"),
+                    md.addIndex("BasicRankedRecord",
                             new Index("rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), EmptyKeyExpression.EMPTY,
                                     IndexTypes.RANK, Index.UNIQUE_OPTIONS));
                 });
@@ -1102,9 +1101,9 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, md -> {
-                md.addIndex(null, FDBRecordStoreTestBase.COUNT_INDEX);
+                md.addUniversalIndex(FDBRecordStoreTestBase.COUNT_INDEX);
                 md.removeIndex("rank_by_gender");
-                md.addIndex(md.getRecordType("BasicRankedRecord"),
+                md.addIndex("BasicRankedRecord",
                         new Index("rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), EmptyKeyExpression.EMPTY,
                                 IndexTypes.RANK, Index.UNIQUE_OPTIONS));
             });
@@ -1213,7 +1212,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, md -> {
                 md.removeIndex("rank_by_gender");
-                md.addIndex(md.getRecordType("BasicRankedRecord"), new Index("BasicRankedRecord$gender", "gender"));
+                md.addIndex("BasicRankedRecord", "gender");
             });
             recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex("BasicRankedRecord$gender")).join();
             // Laodice fails the rank test; need something that fails the gender test.

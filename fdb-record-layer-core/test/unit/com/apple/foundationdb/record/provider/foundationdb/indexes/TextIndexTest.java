@@ -491,7 +491,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_PREFIX_LEGACY);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_PREFIX_LEGACY);
             });
             recordStore.saveRecord(shakespeareDocument);
             assertEquals(74, getSaveIndexKeyCount(recordStore));
@@ -508,7 +508,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_PREFIX);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_PREFIX);
             });
             recordStore.saveRecord(shakespeareDocument);
             assertEquals(79, getSaveIndexKeyCount(recordStore));
@@ -531,14 +531,14 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // Because missing tokenizer
             assertThrows(MetaDataException.class, () -> openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_FILTERING);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_FILTERING);
             }));
         }
         TextTokenizerRegistryImpl.instance().register(FILTERING_TOKENIZER);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_FILTERING);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_FILTERING);
             });
             recordStore.saveRecord(russianDocument);
             // Note that достопримечательности has been filtered out, so it's probably a
@@ -566,7 +566,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_SUFFIXES);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             });
             recordStore.saveRecord(germanDocument);
             assertEquals(82, getSaveIndexKeyCount(recordStore));
@@ -609,7 +609,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_NO_POSITIONS);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_NO_POSITIONS);
             });
             recordStore.deleteAllRecords();
             recordStore.saveRecord(shakespeareDocument);
@@ -645,8 +645,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         // Save one document *with* positions
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC),
-                        new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
+                metaDataBuilder.addIndex(SIMPLE_DOC, new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
             });
             recordStore.saveRecord(shakespeareDocument);
             commit(context);
@@ -654,7 +653,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         // Save one document *without* positions
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_NO_POSITIONS);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_NO_POSITIONS);
             });
             recordStore.saveRecord(yiddishDocument);
             commit(context);
@@ -662,8 +661,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         // Save one more document *with* positions
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC),
-                        new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
+                metaDataBuilder.addIndex(SIMPLE_DOC, new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
             });
             recordStore.saveRecord(frenchDocument);
 
@@ -700,7 +698,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .build();
 
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(COMPLEX_DOC), COMPLEX_TEXT_BY_GROUP));
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_TEXT_BY_GROUP));
             recordStore.saveRecord(complexDocument);
             int firstKeys = getSaveIndexKeyCount(recordStore);
             assertEquals(complexDocument.getText().split(" ").length, firstKeys);
@@ -773,7 +771,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
         // First, repeated key comes *before* text.
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(COMPLEX_DOC), COMPLEX_MULTI_TAG_INDEX));
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTI_TAG_INDEX));
             recordStore.saveRecord(shakespeareDocument);
             int indexKeys = getSaveIndexKeyCount(recordStore);
             assertEquals(164, indexKeys);
@@ -787,7 +785,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
         // Then, repeated key comes *after* text.
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(COMPLEX_DOC), COMPLEX_THEN_TAG_INDEX));
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_THEN_TAG_INDEX));
             recordStore.saveRecord(shakespeareDocument);
             int indexKeys = getSaveIndexKeyCount(recordStore);
             assertEquals(164, indexKeys);
@@ -839,7 +837,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_INDEX);
+                metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX);
             });
 
             recordStore.saveRecord(firstDocument);
@@ -941,7 +939,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
             final Index newIndex = new Index(SIMPLE_DEFAULT_NAME + "-new", oldIndex.getRootExpression(), IndexTypes.TEXT,
                     ImmutableMap.of(Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), newIndex);
+            metaDataBuilder.addIndex(SIMPLE_DOC, newIndex);
         };
         saveTwoRecordsConcurrently(hook, shakespeareDocument, yiddishDocument, false);
     }
@@ -963,7 +961,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         final RecordMetaDataHook hook = metaDataBuilder -> {
             final Index newIndex = new Index(COMPLEX_TEXT_BY_GROUP.getName(), COMBINED_TEXT_BY_GROUP.getRootExpression(), IndexTypes.TEXT,
                     ImmutableMap.of(Index.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType(COMPLEX_DOC), newIndex);
+            metaDataBuilder.addIndex(COMPLEX_DOC, newIndex);
         };
         saveTwoRecordsConcurrently(hook, zeroGroupDocument, oneGroupDocument, true);
     }
@@ -987,7 +985,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // Use a version of the prefix filter that only keeps first 3 letters
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_PREFIX_LEGACY);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_PREFIX_LEGACY);
             });
             recordStore.saveRecord(shakespeareDocument);
             recordStore.saveRecord(aethelredDocument1);
@@ -1002,7 +1000,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // Use a version of the prefix filter that keeps the first 4 letters instead
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_PREFIX);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_PREFIX);
             });
             // check saving new document
             recordStore.saveRecord(aethelredDocument2);
@@ -1052,7 +1050,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_PREFIX_LEGACY);
+                metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_PREFIX_LEGACY);
             });
             recordStore.saveRecord(map1);
             List<Map.Entry<Tuple, List<Integer>>> scannedEntries = scanMapEntries(recordStore, MAP_ON_VALUE_PREFIX_LEGACY, Tuple.from("fr", "rec"));
@@ -1067,7 +1065,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_PREFIX);
+                metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_PREFIX);
             });
 
             // save an document where most of the source entries remain the same but are re-indexed because of the tokenizer version change
@@ -1730,7 +1728,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), SIMPLE_TEXT_NO_POSITIONS);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_NO_POSITIONS);
             });
             documents.forEach(recordStore::saveRecord);
 
@@ -1759,8 +1757,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC),
-                        new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
+                metaDataBuilder.addIndex(SIMPLE_DOC, new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
             });
             newDocuments.forEach(recordStore::saveRecord);
 
@@ -2123,7 +2120,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .collect(Collectors.toList());
 
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_INDEX));
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX));
             documents.forEach(recordStore::saveRecord);
 
             assertEquals(Collections.singletonList(2L),
@@ -2190,7 +2187,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .collect(Collectors.toList());
 
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(MAP_DOC), MAP_ON_VALUE_GROUPED_INDEX));
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_GROUPED_INDEX));
             documents.forEach(recordStore::saveRecord);
 
             assertEquals(Collections.singletonList(1L),
@@ -2306,7 +2303,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         final TextTokenizer tokenizer = TextIndexMaintainer.getTokenizer(index);
         final RecordMetaDataHook hook = metaDataBuilder -> {
             metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC), index);
+            metaDataBuilder.addIndex(SIMPLE_DOC, index);
         };
 
         long seed = r.nextLong();
@@ -2398,8 +2395,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void invalidQueries() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(metaDataBuilder.getRecordType(SIMPLE_DOC),
-                    new Index("SimpleDocument$max_group", field("group").ungrouped(), IndexTypes.MAX_EVER_TUPLE)));
+            openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(SIMPLE_DOC, new Index("SimpleDocument$max_group", field("group").ungrouped(), IndexTypes.MAX_EVER_TUPLE)));
             List<RecordQuery> queries = Arrays.asList(
                     RecordQuery.newBuilder()
                             .setRecordType(SIMPLE_DOC)
@@ -2432,7 +2428,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     private <T extends Exception> T invalidateIndex(@Nonnull Class<T> clazz, @Nonnull String recordType, @Nonnull Index index) {
         return assertThrows(clazz, () -> {
             RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsTextProto.getDescriptor());
-            metaDataBuilder.addIndex(metaDataBuilder.getRecordType(recordType), index);
+            metaDataBuilder.addIndex(recordType, index);
             RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
             MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
             validator.validate();
