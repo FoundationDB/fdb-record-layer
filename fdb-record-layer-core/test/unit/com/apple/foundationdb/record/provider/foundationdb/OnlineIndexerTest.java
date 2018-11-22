@@ -298,12 +298,11 @@ public class OnlineIndexerTest {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
-        Index nindex = metaData.getIndex(index.getName());
         LOGGER.info(KeyValueLogMessage.of("creating online index builder",
-                "index", nindex, "recordTypes", metaData.recordTypesForIndex(nindex),
+                "index", index, "recordTypes", metaData.recordTypesForIndex(index),
                 "subspace", ByteArrayUtil2.loggable(subspace.pack()), "limit", 20, "recordsPerSecond", OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(nindex).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setLimit(20).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100)
                 .build()) {
             CompletableFuture<Void> buildFuture;
@@ -1476,7 +1475,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
@@ -1530,7 +1529,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
@@ -1562,7 +1561,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
@@ -1601,7 +1600,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             indexBuilder.buildIndex();
         }
@@ -1633,7 +1632,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
@@ -1674,7 +1673,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             try (FDBRecordContext context = openContext()) {
                 context.ensureActive().getReadVersion().join();
@@ -1737,7 +1736,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
@@ -1805,7 +1804,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             final RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(index));
 
@@ -1927,7 +1926,7 @@ public class OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             try (FDBRecordContext context = openContext()) {
                 recordStore.markIndexWriteOnly(index).join();
@@ -2021,7 +2020,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             indexBuilder.buildRange(null, null).join();
             assertEquals(Tuple.from(20100L), getAggregate.get());
@@ -2047,7 +2046,7 @@ public class OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index.getName()).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             indexBuilder.buildIndex();
         }
@@ -2198,21 +2197,20 @@ public class OnlineIndexerTest {
             metaDataBuilder.addIndex("MySimpleRecord", index);
         };
         openSimpleMetaData(hook);
-        final Index nindex = metaData.getIndex(index.getName());
 
         try (FDBRecordContext context = openContext()) {
             for (int i = 0; i < 1000; i++) {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i).build();
                 recordStore.saveRecord(record);
             }
-            recordStore.clearAndMarkIndexWriteOnly(nindex).join();
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
             context.commit();
         }
         
         final FDBStoreTimer timer = new FDBStoreTimer();
         final CompletableFuture<Void> future;
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(nindex).setSubspace(subspace)
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setLimit(1).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(Integer.MAX_VALUE)
                 .setTimer(timer)
                 .build()) {
