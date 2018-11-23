@@ -472,10 +472,13 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (indexes.containsKey(index.getName())) {
             throw new MetaDataException("Index " + index.getName() + " already defined");
         }
-        if (index.getVersion() <= 0) {
-            index.setVersion(++version);
-        } else if (index.getVersion() > version) {
-            version = index.getVersion();
+        if (index.getLastModifiedVersion() <= 0) {
+            index.setLastModifiedVersion(++version);
+        } else if (index.getLastModifiedVersion() > version) {
+            version = index.getLastModifiedVersion();
+        }
+        if (index.getAddedVersion() <= 0) {
+            index.setAddedVersion(index.getLastModifiedVersion());
         }
         indexes.put(index.getName(), index);
     }
@@ -572,7 +575,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             recordType.getMultiTypeIndexes().remove(index);
         }
         universalIndexes.remove(name);
-        formerIndexes.add(new FormerIndex(index.getSubspaceKey(), ++version));
+        formerIndexes.add(new FormerIndex(index.getSubspaceKey(), index.getAddedVersion(), ++version));
     }
 
     public boolean isSplitLongRecords() {

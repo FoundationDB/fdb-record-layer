@@ -2827,7 +2827,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index with no record",
                     LogMessageKeys.INDEX_NAME, index.getName(),
-                    "indexVersion", index.getVersion(),
+                    "indexVersion", index.getLastModifiedVersion(),
                     "reason", reason.name(),
                     subspaceProvider.logKey(), subspaceProvider,
                     LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
@@ -2852,7 +2852,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
-                    "indexVersion", index.getVersion(),
+                    "indexVersion", index.getLastModifiedVersion(),
                     "reason", reason.name(),
                     subspaceProvider.logKey(), subspaceProvider,
                     LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());

@@ -38,33 +38,40 @@ import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
 public class FormerIndex {
     @Nonnull
     private final Object subspaceKey;
-    private final int version;
+    private final int addedVersion;
+    private final int removedVersion;
 
-    public FormerIndex(@Nonnull Object subspaceKey,
-                       int version) {
+    public FormerIndex(@Nonnull Object subspaceKey, int addedVersion, int removedVersion) {
         this.subspaceKey = subspaceKey;
-        this.version = version;
+        this.addedVersion = addedVersion;
+        this.removedVersion = removedVersion;
     }
 
     public FormerIndex(@Nonnull RecordMetaDataProto.FormerIndex proto) {
-        subspaceKey = decodeSubspaceKey(proto.getSubspaceKey());
-        version = proto.getVersion();
+        this(decodeSubspaceKey(proto.getSubspaceKey()), proto.getAddedVersion(), proto.getRemovedVersion());
     }
 
     public Object getSubspaceKey() {
         return subspaceKey;
     }
 
-    public int getVersion() {
-        return version;
+    public int getAddedVersion() {
+        return addedVersion;
+    }
+
+    public int getRemovedVersion() {
+        return removedVersion;
     }
 
     @Nonnull
     public RecordMetaDataProto.FormerIndex toProto() {
         RecordMetaDataProto.FormerIndex.Builder builder = RecordMetaDataProto.FormerIndex.newBuilder();
         builder.setSubspaceKey(ByteString.copyFrom(Tuple.from(subspaceKey).pack()));
-        if (version > 0) {
-            builder.setVersion(version);
+        if (addedVersion > 0) {
+            builder.setAddedVersion(addedVersion);
+        }
+        if (removedVersion > 0) {
+            builder.setRemovedVersion(removedVersion);
         }
         return builder.build();
     }
@@ -72,7 +79,7 @@ public class FormerIndex {
     @Override
     public String toString() {
         StringBuilder str = new StringBuilder();
-        str.append("FormerIndex {").append(subspaceKey).append("}#").append(version);
+        str.append("FormerIndex {").append(subspaceKey).append("}#").append(addedVersion).append("-").append(removedVersion);
         return str.toString();
     }
 

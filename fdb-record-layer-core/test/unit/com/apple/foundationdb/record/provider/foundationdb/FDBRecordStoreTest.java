@@ -1292,7 +1292,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             return md -> {
                 md.removeIndex(COUNT_INDEX.getName());
                 Index index = new Index("record_count", new GroupingKeyExpression(key, 0), IndexTypes.COUNT);
-                index.setVersion(indexVersion);
+                index.setLastModifiedVersion(indexVersion);
                 md.addUniversalIndex(index);
             };
         } else {
@@ -1304,7 +1304,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         return md -> {
             md.removeIndex(COUNT_UPDATES_INDEX.getName());
             Index index = new Index("record_update_count", new GroupingKeyExpression(key, 0), IndexTypes.COUNT_UPDATES);
-            index.setVersion(indexVersion);
+            index.setLastModifiedVersion(indexVersion);
             md.addUniversalIndex(index);
         };
     }

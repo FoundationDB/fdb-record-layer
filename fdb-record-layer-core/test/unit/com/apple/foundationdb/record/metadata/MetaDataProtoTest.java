@@ -78,7 +78,8 @@ public class MetaDataProtoTest {
             assertEquals(index1.getType(), index2.getType());
             assertEquals(index1.getOptions(), index2.getOptions());
             assertArrayEquals(index1.getPrimaryKeyComponentPositions(), index2.getPrimaryKeyComponentPositions());
-            assertEquals(index1.getVersion(), index2.getVersion());
+            assertEquals(index1.getAddedVersion(), index2.getAddedVersion());
+            assertEquals(index1.getLastModifiedVersion(), index2.getLastModifiedVersion());
         } catch (AssertionError e) {
             fail("Failed when checking index " + index1.getName() + ": " + e.getMessage());
         }
@@ -116,7 +117,8 @@ public class MetaDataProtoTest {
         for (FormerIndex formerIndex : metaData1.getFormerIndexes()) {
             boolean found = false;
             for (FormerIndex otherFormerIndex : metaData2.getFormerIndexes()) {
-                if (formerIndex.getVersion() == otherFormerIndex.getVersion()
+                if (formerIndex.getRemovedVersion() == otherFormerIndex.getRemovedVersion()
+                        && formerIndex.getAddedVersion() == otherFormerIndex.getAddedVersion()
                         && formerIndex.getSubspaceKey().equals(otherFormerIndex.getSubspaceKey())) {
                     found = true;
                     break;
@@ -152,10 +154,14 @@ public class MetaDataProtoTest {
     @Test
     public void indexProto() throws KeyExpression.DeserializationException, KeyExpression.SerializationException {
         Index index = new Index("heat", Key.Expressions.field("temperature").nest("humidity"));
+        index.setAddedVersion(1);
+        index.setLastModifiedVersion(2);
         Index reindex = new Index(index.toProto());
         verifyEquals(index, reindex);
 
         index = new Index("UV", Key.Expressions.concatenateFields("radiation", "cloud-cover").group(1), IndexTypes.RANK);
+        index.setAddedVersion(3);
+        index.setLastModifiedVersion(3);
         reindex = new Index(index.toProto());
         verifyEquals(index, reindex);
 
@@ -163,6 +169,8 @@ public class MetaDataProtoTest {
                 Key.Expressions.concat(Key.Expressions.field("education").nest("schooling"), Key.Expressions.field("income"))),
                 Key.Expressions.field("united-nations"),
                 IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        index.setAddedVersion(4);
+        index.setLastModifiedVersion(4);
         reindex = new Index(index.toProto());
         verifyEquals(index, reindex);
     }

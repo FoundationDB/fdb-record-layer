@@ -198,7 +198,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     public List<FormerIndex> getFormerIndexesSince(int version) {
         List<FormerIndex> result = new ArrayList<>();
         for (FormerIndex formerIndex : formerIndexes) {
-            if (formerIndex.getVersion() > version) {
+            // An index that was added *and* removed before this version does not require any action.
+            if (formerIndex.getRemovedVersion() > version && formerIndex.getAddedVersion() <= version) {
                 result.add(formerIndex);
             }
         }
@@ -209,12 +210,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
         Map<Index, List<RecordType>> result = new HashMap<>();
         for (RecordType recordType : recordTypes.values()) {
             for (Index index : recordType.getIndexes()) {
-                if (index.getVersion() > version) {
+                if (index.getLastModifiedVersion() > version) {
                     result.put(index, Collections.singletonList(recordType));
                 }
             }
             for (Index index : recordType.getMultiTypeIndexes()) {
-                if (index.getVersion() > version) {
+                if (index.getLastModifiedVersion() > version) {
                     if (!result.containsKey(index)) {
                         result.put(index, new ArrayList<>());
                     }
@@ -223,7 +224,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
             }
         }
         for (Index index : universalIndexes.values()) {
-            if (index.getVersion() > version) {
+            if (index.getLastModifiedVersion() > version) {
                 result.put(index, null);
             }
         }

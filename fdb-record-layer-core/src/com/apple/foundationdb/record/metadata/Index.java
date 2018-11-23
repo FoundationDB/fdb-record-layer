@@ -61,7 +61,8 @@ public class Index {
     private int[] primaryKeyComponentPositions;
     @Nonnull
     private Object subspaceKey;
-    private int version;
+    private int addedVersion;
+    private int lastModifiedVersion;
 
     public static Object decodeSubspaceKey(@Nonnull ByteString bytes) {
         Tuple tuple = Tuple.fromBytes(bytes.toByteArray());
@@ -90,7 +91,7 @@ public class Index {
         this.type = type;
         this.options = options;
         this.subspaceKey = name;
-        this.version = 0;
+        this.lastModifiedVersion = 0;
     }
 
     public Index(@Nonnull String name,
@@ -134,7 +135,8 @@ public class Index {
             this.primaryKeyComponentPositions = null;
         }
         this.subspaceKey = Tuple.fromBytes(Tuple.from(orig.subspaceKey).pack()).get(0);
-        this.version = orig.version;
+        this.addedVersion = orig.addedVersion;
+        this.lastModifiedVersion = orig.lastModifiedVersion;
     }
 
     @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"}) // Old (deprecated) index type needs grouping compatibility
@@ -171,8 +173,15 @@ public class Index {
         } else {
             subspaceKey = name;
         }
-        if (proto.hasVersion()) {
-            version = proto.getVersion();
+        if (proto.hasAddedVersion()) {
+            addedVersion = proto.getAddedVersion();
+        } else {
+            // Indexes from before this field existed need to appear to be old.
+            // But addIndexCommon will set to lastModifiedVersion if kept at 0, so set to first valid version.
+            addedVersion = 1;
+        }
+        if (proto.hasLastModifiedVersion()) {
+            lastModifiedVersion = proto.getLastModifiedVersion();
         }
     }
 
@@ -324,12 +333,20 @@ public class Index {
         return total;
     }
 
-    public int getVersion() {
-        return version;
+    public int getAddedVersion() {
+        return addedVersion;
     }
 
-    public void setVersion(int version) {
-        this.version = version;
+    public void setAddedVersion(int addedVersion) {
+        this.addedVersion = addedVersion;
+    }
+
+    public int getLastModifiedVersion() {
+        return lastModifiedVersion;
+    }
+
+    public void setLastModifiedVersion(int lastModifiedVersion) {
+        this.lastModifiedVersion = lastModifiedVersion;
     }
 
     public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor recordType) {
@@ -348,8 +365,11 @@ public class Index {
         if (!name.equals(subspaceKey)) {
             builder.setSubspaceKey(ByteString.copyFrom(Tuple.from(subspaceKey).pack()));
         }
-        if (version > 0) {
-            builder.setVersion(version);
+        if (addedVersion > 0) {
+            builder.setAddedVersion(addedVersion);
+        }
+        if (lastModifiedVersion > 0) {
+            builder.setLastModifiedVersion(lastModifiedVersion);
         }
         return builder.build();
     }
@@ -362,8 +382,8 @@ public class Index {
             str.append(", ").append(type);
         }
         str.append("}");
-        if (version > 0) {
-            str.append("#").append(version);
+        if (lastModifiedVersion > 0) {
+            str.append("#").append(lastModifiedVersion);
         }
         return str.toString();
     }

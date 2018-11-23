@@ -46,7 +46,7 @@ message Index {
   optional string name = 3;
   optional KeyExpression root_expression = 4;
   optional bytes subspace_key = 5;
-  optional int32 version = 6;
+  optional int32 last_modified_version = 6;
   // value_expression should now be expressed as a KeyWithValue() root expression
   optional KeyExpression value_expression = 7 [deprecated = true];
   optional string type = 8;
@@ -55,6 +55,7 @@ message Index {
     required string key = 1;
     required string value = 2;
   };
+  optional int32 added_version = 10;
   extensions 1000 to 2000;
 }
 
@@ -68,7 +69,8 @@ message RecordType {
 
 message FormerIndex {
   optional bytes subspace_key = 5;
-  optional int32 version = 6;
+  optional int32 removed_version = 6;
+  optional int32 added_version = 10;
   extensions 1000 to 2000;
 }
 
