@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.StreamingMode;
+
 import javax.annotation.Nonnull;
 import java.util.function.Function;
 
@@ -43,7 +45,10 @@ public class ScanProperties {
     private final ExecuteProperties executeProperties;
 
     // whether to read the entries in reverse order
-    final boolean reverse;
+    private final boolean reverse;
+
+    @Nonnull
+    private final StreamingMode streamingMode;
 
     /**
      * Creates scan properties.
@@ -59,8 +64,19 @@ public class ScanProperties {
      * @param reverse if true, the scan direction will be reversed
      */
     public ScanProperties(@Nonnull ExecuteProperties executeProperties, boolean reverse) {
+        this(executeProperties, reverse, StreamingMode.ITERATOR);
+    }
+
+    /**
+     * Creates scan properties.
+     * @param executeProperties the execution properties (such as isolation level and row limit) associated with this scan
+     * @param reverse if true, the scan direction will be reversed
+     * @param streamingMode streaming mode to use if opening an FDB cursor
+     */
+    public ScanProperties(@Nonnull ExecuteProperties executeProperties, boolean reverse, StreamingMode streamingMode) {
         this.executeProperties = executeProperties;
         this.reverse = reverse;
+        this.streamingMode = streamingMode;
     }
 
     public boolean isReverse() {
@@ -74,7 +90,7 @@ public class ScanProperties {
 
     @Nonnull
     public ScanProperties with(@Nonnull Function<ExecuteProperties, ExecuteProperties> modifier) {
-        return new ScanProperties(modifier.apply(executeProperties), this.reverse);
+        return new ScanProperties(modifier.apply(executeProperties), reverse, streamingMode);
     }
 
     @Nonnull
@@ -82,6 +98,19 @@ public class ScanProperties {
         if (reverse == isReverse()) {
             return this;
         }
-        return new ScanProperties(executeProperties, reverse);
+        return new ScanProperties(executeProperties, reverse, streamingMode);
+    }
+
+    @Nonnull
+    public StreamingMode getStreamingMode() {
+        return streamingMode;
+    }
+
+    @Nonnull
+    public ScanProperties setStreamingMode(@Nonnull StreamingMode streamingMode) {
+        if (streamingMode == getStreamingMode()) {
+            return this;
+        }
+        return new ScanProperties(executeProperties, reverse, streamingMode);
     }
 }
