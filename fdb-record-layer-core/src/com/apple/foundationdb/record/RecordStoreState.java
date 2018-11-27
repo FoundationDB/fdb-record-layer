@@ -273,19 +273,19 @@ public class RecordStoreState {
 
     /**
      * Create a new version of this RecordStoreState, but with additional WRITE_ONLY indexes.
-     * @param writeOnlyIndexeNames the indexes to be marked as WRITE_ONLY. If the index is already DISABLED, it will
+     * @param writeOnlyIndexNames the indexes to be marked as WRITE_ONLY. If the index is already DISABLED, it will
      * stay disabled, but will otherwise be set to WRITE_ONLY.
      * @return a new version of this RecordStoreState, but with additional WRITE_ONLY indexes.
      */
     @Nonnull
-    public RecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexeNames) {
-        return new RecordStoreState(writeOnlyMap(writeOnlyIndexeNames));
+    public RecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
+        return new RecordStoreState(writeOnlyMap(writeOnlyIndexNames));
     }
 
     @Nonnull
-    protected Map<String, IndexState> writeOnlyMap(@Nonnull final List<String> writeOnlyIndexeNames) {
+    protected Map<String, IndexState> writeOnlyMap(@Nonnull final List<String> writeOnlyIndexNames) {
         Map<String, IndexState> map = new HashMap<>(getIndexStates());
-        writeOnlyIndexeNames.forEach(indexName ->
+        writeOnlyIndexNames.forEach(indexName ->
                 map.compute(indexName, (name, state) -> {
                     // state may be null (which implies READABLE)
                     if (state == IndexState.DISABLED) {

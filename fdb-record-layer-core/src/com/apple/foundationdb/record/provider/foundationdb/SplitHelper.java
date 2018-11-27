@@ -432,6 +432,12 @@ public class SplitHelper {
             valueSize += valueBytes.length;
         }
 
+        public void add(@Nonnull FDBStoredSizes sizes) {
+            keyCount += sizes.getKeyCount();
+            keySize += sizes.getKeySize();
+            valueSize += sizes.getValueSize();
+        }
+
         public void reset() {
             keyCount = 0;
             keySize = 0;

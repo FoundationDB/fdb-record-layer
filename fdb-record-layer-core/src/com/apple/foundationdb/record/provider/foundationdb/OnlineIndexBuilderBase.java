@@ -548,9 +548,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
     // TupleRange version of above.
     @Nonnull
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStoreBase<M> store, @Nonnull TupleRange range, boolean respectLimit) {
-        // Test whether the same up to store state by checking something that is pointer-copied but not normally
-        // otherwise shared.
-        if (store.getRecordMetaData().getRecordTypes() != recordStoreBuilder.getMetaDataProvider().getRecordMetaData().getRecordTypes()) {
+        if (store.getRecordMetaData() != recordStoreBuilder.getMetaDataProvider().getRecordMetaData()) {
             throw new MetaDataException("Store does not have the same metadata");
         }
         final IndexMaintainer<M> maintainer = store.getIndexMaintainer(index);

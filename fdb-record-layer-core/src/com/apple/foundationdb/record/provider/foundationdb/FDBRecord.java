@@ -29,7 +29,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * A record that has just been saved to the store or retrieved from it in some way.
+ * A record associated with the corresponding meta-data.
+ *
+ * Adds information about the primary key and record type.
  * @param <M> type used to represent stored records
  */
 @API(API.Status.STABLE)
