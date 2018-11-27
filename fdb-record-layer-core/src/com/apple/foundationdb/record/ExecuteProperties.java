@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.StreamingMode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,14 +70,17 @@ public class ExecuteProperties {
     // how record scan limit reached is handled -- false: return early with continuation, true: throw exception
     private final boolean failOnScanLimitReached;
 
+    private final boolean wantAllRecords;
+
     private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
-                              @Nonnull ExecuteState state, boolean failOnScanLimitReached) {
+                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, boolean wantAllRecords) {
         this.skip = skip;
         this.rowLimit = rowLimit;
         this.isolationLevel = isolationLevel;
         this.timeLimit = timeLimit;
         this.state = state;
         this.failOnScanLimitReached = failOnScanLimitReached;
+        this.wantAllRecords = wantAllRecords;
     }
 
     @Nonnull
@@ -93,7 +97,7 @@ public class ExecuteProperties {
         if (skip == this.skip) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
     }
 
     /**
@@ -115,7 +119,7 @@ public class ExecuteProperties {
         if (newLimit == this.rowLimit) {
             return this;
         }
-        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached);
+        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
     }
 
     public long getTimeLimit() {
@@ -134,7 +138,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties setState(@Nonnull ExecuteState newState) {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, wantAllRecords);
     }
 
     /**
@@ -143,7 +147,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties clearState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, wantAllRecords);
     }
 
     /**
@@ -159,7 +163,7 @@ public class ExecuteProperties {
         if (failOnScanLimitReached == this.failOnScanLimitReached) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
     }
 
     @Nonnull
@@ -167,7 +171,7 @@ public class ExecuteProperties {
         if (getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
     }
 
     /**
@@ -179,7 +183,7 @@ public class ExecuteProperties {
         if (getTimeLimit() == UNLIMITED_TIME && getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED ) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
     }
 
     /**
@@ -191,7 +195,7 @@ public class ExecuteProperties {
         if (skip == 0 && rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached);
+        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
     }
 
     /**
@@ -204,7 +208,7 @@ public class ExecuteProperties {
             return this;
         }
         return copy(0, rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? ReadTransaction.ROW_LIMIT_UNLIMITED : rowLimit + skip,
-                timeLimit, isolationLevel, state, failOnScanLimitReached);
+                timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
     }
 
     /**
@@ -213,6 +217,18 @@ public class ExecuteProperties {
      */
     public int getReturnedRowLimitOrMax() {
         return rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? Integer.MAX_VALUE : rowLimit;
+    }
+
+    /**
+     * Get the default {@link StreamingMode} based on {@link #isWantAllRecords} and {@link #getReturnedRowLimit}.
+     * @return an appropriate default streaming mode
+     */
+    public StreamingMode getDefaultStreamingMode() {
+        if (wantAllRecords) {
+            return rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? StreamingMode.WANT_ALL : StreamingMode.EXACT;
+        } else {
+            return StreamingMode.ITERATOR;
+        }
     }
 
     /**
@@ -237,13 +253,33 @@ public class ExecuteProperties {
     }
 
     /**
+     * Get whether caller intends to load all records immediately.
+     * @return {@code true} if all records will be returned immediately
+     */
+    public boolean isWantAllRecords() {
+        return wantAllRecords;
+    }
+
+    /**
+     * Set whether caller intends to load all records immediately.
+     * @param wantAllRecords {@code true} if all records will be returned immediately
+     * @return a new <code>ExecuteProperties</code> without the skip and returned row limit
+     */
+    public ExecuteProperties setWantAllRecords(boolean wantAllRecords) {
+        if (wantAllRecords == this.wantAllRecords) {
+            return this;
+        }
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
+    }
+
+    /**
      * Reset the stateful parts of the properties to their "original" values, creating an independent mutable state.
      * @see ExecuteState#reset()
      * @return an {@code ExecuteProperties} with an independent mutable state
      */
     @Nonnull
     public ExecuteProperties resetState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, wantAllRecords);
     }
 
     /**
@@ -254,12 +290,13 @@ public class ExecuteProperties {
      * @param isolationLevel isolation level
      * @param state execute state
      * @param failOnScanLimitReached fail on scan limit reached
+     * @param wantAllRecords optimize scans for returning right away
      * @return a new properties with the given fields changed and other fields copied from this properties
      */
     @Nonnull
     protected ExecuteProperties copy(int skip, int rowLimit, long timeLimit, @Nonnull IsolationLevel isolationLevel,
-                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached) {
-        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached);
+                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, boolean wantAllRecords) {
+        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, wantAllRecords);
     }
 
     @Nonnull
@@ -331,6 +368,7 @@ public class ExecuteProperties {
         private int scannedRecordsLimit = Integer.MAX_VALUE;
         private ExecuteState executeState = null;
         private boolean failOnScanLimitReached = false;
+        private boolean wantAllRecords = false;
 
         private Builder() {
         }
@@ -342,6 +380,7 @@ public class ExecuteProperties {
             this.timeLimit = executeProperties.timeLimit;
             this.executeState = executeProperties.state;
             this.failOnScanLimitReached = executeProperties.failOnScanLimitReached;
+            this.wantAllRecords = executeProperties.wantAllRecords;
         }
 
         @Nonnull
@@ -421,6 +460,24 @@ public class ExecuteProperties {
             return this;
         }
 
+        /**
+         * Get whether caller intends to load all records immediately.
+         * @return {@code true} if all records will be returned immediately
+         */
+        public boolean isWantAllRecords() {
+            return wantAllRecords;
+        }
+
+        /**
+         * Set whether caller intends to load all records immediately.
+         * @param wantAllRecords {@code true} if all records will be returned immediately
+         * @return this builder
+         */
+        public Builder setWantAllRecords(boolean wantAllRecords) {
+            this.wantAllRecords = wantAllRecords;
+            return this;
+        }
+
         @Nonnull
         public ExecuteProperties build() {
             final ExecuteState state;
@@ -431,7 +488,7 @@ public class ExecuteProperties {
             } else {
                 state = new ExecuteState(new RecordScanLimiter(scannedRecordsLimit));
             }
-            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached);
+            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, wantAllRecords);
         }
     }
 }

@@ -64,7 +64,7 @@ public class ScanProperties {
      * @param reverse if true, the scan direction will be reversed
      */
     public ScanProperties(@Nonnull ExecuteProperties executeProperties, boolean reverse) {
-        this(executeProperties, reverse, StreamingMode.ITERATOR);
+        this(executeProperties, reverse, executeProperties.getDefaultStreamingMode());
     }
 
     /**
