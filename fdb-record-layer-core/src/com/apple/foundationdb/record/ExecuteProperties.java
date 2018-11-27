@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.StreamingMode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,17 +69,17 @@ public class ExecuteProperties {
     // how record scan limit reached is handled -- false: return early with continuation, true: throw exception
     private final boolean failOnScanLimitReached;
 
-    private final boolean wantAllRecords;
+    private final CursorStreamingMode defaultCursorStreamingMode;
 
     private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
-                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, boolean wantAllRecords) {
+                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode) {
         this.skip = skip;
         this.rowLimit = rowLimit;
         this.isolationLevel = isolationLevel;
         this.timeLimit = timeLimit;
         this.state = state;
         this.failOnScanLimitReached = failOnScanLimitReached;
-        this.wantAllRecords = wantAllRecords;
+        this.defaultCursorStreamingMode = defaultCursorStreamingMode;
     }
 
     @Nonnull
@@ -97,7 +96,7 @@ public class ExecuteProperties {
         if (skip == this.skip) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     /**
@@ -119,7 +118,7 @@ public class ExecuteProperties {
         if (newLimit == this.rowLimit) {
             return this;
         }
-        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
+        return copy(skip, newLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     public long getTimeLimit() {
@@ -138,7 +137,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties setState(@Nonnull ExecuteState newState) {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, wantAllRecords);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     /**
@@ -147,7 +146,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties clearState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, wantAllRecords);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     /**
@@ -163,7 +162,7 @@ public class ExecuteProperties {
         if (failOnScanLimitReached == this.failOnScanLimitReached) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     @Nonnull
@@ -171,7 +170,7 @@ public class ExecuteProperties {
         if (getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     /**
@@ -183,7 +182,7 @@ public class ExecuteProperties {
         if (getTimeLimit() == UNLIMITED_TIME && getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED ) {
             return this;
         }
-        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
+        return copy(skip, ReadTransaction.ROW_LIMIT_UNLIMITED, UNLIMITED_TIME, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     /**
@@ -195,7 +194,7 @@ public class ExecuteProperties {
         if (skip == 0 && rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
         }
-        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
+        return copy(0, ReadTransaction.ROW_LIMIT_UNLIMITED, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     /**
@@ -208,7 +207,7 @@ public class ExecuteProperties {
             return this;
         }
         return copy(0, rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? ReadTransaction.ROW_LIMIT_UNLIMITED : rowLimit + skip,
-                timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
+                timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     /**
@@ -217,18 +216,6 @@ public class ExecuteProperties {
      */
     public int getReturnedRowLimitOrMax() {
         return rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? Integer.MAX_VALUE : rowLimit;
-    }
-
-    /**
-     * Get the default {@link StreamingMode} based on {@link #isWantAllRecords} and {@link #getReturnedRowLimit}.
-     * @return an appropriate default streaming mode
-     */
-    public StreamingMode getDefaultStreamingMode() {
-        if (wantAllRecords) {
-            return rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? StreamingMode.WANT_ALL : StreamingMode.EXACT;
-        } else {
-            return StreamingMode.ITERATOR;
-        }
     }
 
     /**
@@ -253,23 +240,23 @@ public class ExecuteProperties {
     }
 
     /**
-     * Get whether caller intends to load all records immediately.
-     * @return {@code true} if all records will be returned immediately
+     * Get the default {@link CursorStreamingMode} for new {@link ScanProperties}.
+     * @return the default streaming mode
      */
-    public boolean isWantAllRecords() {
-        return wantAllRecords;
+    public CursorStreamingMode getDefaultCursorStreamingMode() {
+        return defaultCursorStreamingMode;
     }
 
     /**
-     * Set whether caller intends to load all records immediately.
-     * @param wantAllRecords {@code true} if all records will be returned immediately
-     * @return a new <code>ExecuteProperties</code> without the skip and returned row limit
+     * Set the default {@link CursorStreamingMode} for new {@link ScanProperties}.
+     * @param defaultCursorStreamingMode default streaming mode
+     * @return a new <code>ExecuteProperties</code> with the given default streaming mode
      */
-    public ExecuteProperties setWantAllRecords(boolean wantAllRecords) {
-        if (wantAllRecords == this.wantAllRecords) {
+    public ExecuteProperties setDefaultCursorStreamingMode(CursorStreamingMode defaultCursorStreamingMode) {
+        if (defaultCursorStreamingMode == this.defaultCursorStreamingMode) {
             return this;
         }
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, wantAllRecords);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     /**
@@ -279,7 +266,7 @@ public class ExecuteProperties {
      */
     @Nonnull
     public ExecuteProperties resetState() {
-        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, wantAllRecords);
+        return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     /**
@@ -290,13 +277,13 @@ public class ExecuteProperties {
      * @param isolationLevel isolation level
      * @param state execute state
      * @param failOnScanLimitReached fail on scan limit reached
-     * @param wantAllRecords optimize scans for returning right away
+     * @param defaultCursorStreamingMode default streaming mode
      * @return a new properties with the given fields changed and other fields copied from this properties
      */
     @Nonnull
     protected ExecuteProperties copy(int skip, int rowLimit, long timeLimit, @Nonnull IsolationLevel isolationLevel,
-                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, boolean wantAllRecords) {
-        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, wantAllRecords);
+                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode) {
+        return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode);
     }
 
     @Nonnull
@@ -368,7 +355,7 @@ public class ExecuteProperties {
         private int scannedRecordsLimit = Integer.MAX_VALUE;
         private ExecuteState executeState = null;
         private boolean failOnScanLimitReached = false;
-        private boolean wantAllRecords = false;
+        private CursorStreamingMode defaultCursorStreamingMode = CursorStreamingMode.ITERATOR;
 
         private Builder() {
         }
@@ -380,7 +367,7 @@ public class ExecuteProperties {
             this.timeLimit = executeProperties.timeLimit;
             this.executeState = executeProperties.state;
             this.failOnScanLimitReached = executeProperties.failOnScanLimitReached;
-            this.wantAllRecords = executeProperties.wantAllRecords;
+            this.defaultCursorStreamingMode = executeProperties.defaultCursorStreamingMode;
         }
 
         @Nonnull
@@ -461,20 +448,20 @@ public class ExecuteProperties {
         }
 
         /**
-         * Get whether caller intends to load all records immediately.
-         * @return {@code true} if all records will be returned immediately
+         * Get the default {@link CursorStreamingMode} for new {@link ScanProperties}.
+         * @return the default streaming mode
          */
-        public boolean isWantAllRecords() {
-            return wantAllRecords;
+        public CursorStreamingMode getDefaultCursorStreamingMode() {
+            return defaultCursorStreamingMode;
         }
 
         /**
-         * Set whether caller intends to load all records immediately.
-         * @param wantAllRecords {@code true} if all records will be returned immediately
-         * @return this builder
+         * Set the default {@link CursorStreamingMode} for new {@link ScanProperties}.
+         * @param defaultCursorStreamingMode default streaming mode
+         * @return an updated builder
          */
-        public Builder setWantAllRecords(boolean wantAllRecords) {
-            this.wantAllRecords = wantAllRecords;
+        public Builder setDefaultCursorStreamingMode(CursorStreamingMode defaultCursorStreamingMode) {
+            this.defaultCursorStreamingMode = defaultCursorStreamingMode;
             return this;
         }
 
@@ -488,7 +475,7 @@ public class ExecuteProperties {
             } else {
                 state = new ExecuteState(new RecordScanLimiter(scannedRecordsLimit));
             }
-            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, wantAllRecords);
+            return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode);
         }
     }
 }

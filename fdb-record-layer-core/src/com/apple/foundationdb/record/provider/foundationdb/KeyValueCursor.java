@@ -23,9 +23,12 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -81,11 +84,12 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
         }
         this.prefixLength = length;
 
+        final boolean reverse = scanProperties.isReverse();
         if (continuation != null) {
             final byte[] continuationBytes = new byte[length + continuation.length];
             System.arraycopy(lowBytes, 0, continuationBytes, 0, length);
             System.arraycopy(continuation, 0, continuationBytes, length, continuation.length);
-            if (scanProperties.isReverse()) {
+            if (reverse) {
                 highBytes = continuationBytes;
                 highEndpoint = EndpointType.CONTINUATION;
             } else {
@@ -101,27 +105,34 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
         KeySelector begin = KeySelector.firstGreaterOrEqual(lowBytes);
         KeySelector end = KeySelector.firstGreaterOrEqual(highBytes);
         if (scanProperties.getExecuteProperties().getSkip() > 0) {
-            if (scanProperties.isReverse()) {
+            if (reverse) {
                 end = end.add(- scanProperties.getExecuteProperties().getSkip());
             } else {
                 begin = begin.add(scanProperties.getExecuteProperties().getSkip());
             }
         }
 
+        this.limitManager = new CursorLimitManager(recordContext, scanProperties);
+        final int limit = scanProperties.getExecuteProperties().getReturnedRowLimit();
+        this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
+
+        final StreamingMode streamingMode;
+        if (scanProperties.getCursorStreamingMode() == CursorStreamingMode.ITERATOR) {
+            streamingMode = StreamingMode.ITERATOR;
+        } else if (limit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
+            streamingMode = StreamingMode.WANT_ALL;
+        } else {
+            streamingMode = StreamingMode.EXACT;
+        }
+
         final long startTime = System.nanoTime();
         this.iter = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot())
-                .getRange(begin, end,
-                        scanProperties.getExecuteProperties().getReturnedRowLimit(),
-                        scanProperties.isReverse(),
-                        scanProperties.getStreamingMode())
+                .getRange(begin, end, limit, reverse, streamingMode)
                 .iterator();
         if (context.getTimer() != null) {
             context.getTimer().instrument(FDBStoreTimer.DetailEvents.GET_SCAN_RANGE_RAW_FIRST_CHUNK, iter.onHasNext(),
                     context.getExecutor(), startTime);
         }
-
-        this.limitManager = new CursorLimitManager(recordContext, scanProperties);
-        this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
     }
 
     @Override
