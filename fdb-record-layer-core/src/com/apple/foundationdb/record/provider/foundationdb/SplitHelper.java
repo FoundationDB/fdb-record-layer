@@ -24,6 +24,7 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
@@ -264,7 +265,7 @@ public class SplitHelper {
         // It is still better to do a range read in that case than two point reads (probably).
         final long startTime = System.nanoTime();
         final byte[] keyBytes = subspace.pack(key);
-        final AsyncIterable<KeyValue> rangeScan = tr.getRange(Range.startsWith(keyBytes));
+        final AsyncIterable<KeyValue> rangeScan = tr.getRange(Range.startsWith(keyBytes), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL);
         final AsyncIterator<KeyValue> rangeIter = rangeScan.iterator();
         context.instrument(FDBStoreTimer.DetailEvents.GET_RECORD_RANGE_RAW_FIRST_CHUNK, rangeIter.onHasNext(), startTime);
         return new SingleKeyUnsplitter(context, key, new Subspace(keyBytes), rangeIter, sizeInfo).run(context.getExecutor());
