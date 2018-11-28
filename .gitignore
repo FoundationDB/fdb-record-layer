@@ -37,6 +37,7 @@ atlassian-ide-plugin.xml
 .idea/libraries/*
 .idea/modules/**
 .idea/modules.xml
+.idea/encodings.xml
 
 # Eclipse specific files/directories
 .classpath
