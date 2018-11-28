@@ -2426,4 +2426,57 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    public void existenceChecks() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.deleteAllRecords();
+
+            TestRecords1Proto.MySimpleRecord.Builder simple = TestRecords1Proto.MySimpleRecord.newBuilder();
+            simple.setRecNo(1);
+            simple.setNumValue2(111);
+            recordStore.insertRecord(simple.build());
+
+            TestRecords1Proto.MyOtherRecord.Builder other = TestRecords1Proto.MyOtherRecord.newBuilder();
+            other.setRecNo(2);
+            other.setNumValue2(222);
+            recordStore.insertRecord(other.build());
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            TestRecords1Proto.MySimpleRecord.Builder simple = TestRecords1Proto.MySimpleRecord.newBuilder();
+            simple.setRecNo(1);
+            simple.setNumValue2(1111);
+            assertThrows(RecordAlreadyExistsException.class, () -> recordStore.insertRecord(simple.build()));
+
+            simple.setRecNo(3);
+            simple.setNumValue2(3333);
+            assertThrows(RecordDoesNotExistException.class, () -> recordStore.updateRecord(simple.build()));
+
+            simple.setRecNo(2);
+            simple.setNumValue2(2222);
+            assertThrows(RecordTypeChangedException.class, () -> recordStore.updateRecord(simple.build()));
+
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            TestRecords1Proto.MySimpleRecord.Builder simple = TestRecords1Proto.MySimpleRecord.newBuilder();
+            simple.mergeFrom(recordStore.loadRecord(Tuple.from(1L)).getRecord());
+            assertEquals(111, simple.getNumValue2());
+            simple.setNumValue2(1111);
+            recordStore.updateRecord(simple.build());
+
+            simple.clear();
+            simple.setRecNo(4);
+            simple.setNumValue2(444);
+            recordStore.insertRecord(simple.build());
+
+            commit(context);
+        }
+    }
+
 }
