@@ -230,7 +230,7 @@ public class VersionIndexTest {
     };
 
     private FDBRecordContext openContext(@Nullable RecordMetaDataHook hook) {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         hook.apply(metaDataBuilder);
 
         FDBRecordContext context = fdb.openContext();
@@ -1272,7 +1272,7 @@ public class VersionIndexTest {
         for (KeyExpression expression : expressions) {
             assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
                 Index index = new Index("test_index", expression, IndexTypes.VERSION);
-                RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+                RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
                 metaDataBuilder.addIndex("MySimpleRecord", index);
                 RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
                 MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
@@ -1283,7 +1283,7 @@ public class VersionIndexTest {
 
         assertThrows(MetaDataException.class, () -> {
             Index index = new Index("test_index", VersionKeyExpression.VERSION, EmptyKeyExpression.EMPTY, IndexTypes.VERSION, IndexOptions.UNIQUE_OPTIONS);
-            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
             metaDataBuilder.addIndex("MySimpleRecord", index);
             RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
             MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
@@ -1292,7 +1292,7 @@ public class VersionIndexTest {
 
         assertThrows(MetaDataException.class, () -> {
             Index index = new Index("global_version", VersionKeyExpression.VERSION, IndexTypes.VERSION);
-            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords2Proto.getDescriptor());
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords2Proto.getDescriptor());
             metaDataBuilder.addUniversalIndex(index);
             RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
             MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());

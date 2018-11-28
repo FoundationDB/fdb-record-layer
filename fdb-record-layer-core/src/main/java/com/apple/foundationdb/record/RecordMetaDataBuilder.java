@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * A builder for {@link RecordMetaData}.
@@ -57,13 +58,23 @@ import java.util.Set;
  *
  * <p>
  * <b>From compiled .proto</b><br>
- * Simple single field indexes and single field primary keys can be specified in the .proto source using option extensions.
+ * Simple single field indexes and single field primary keys can be specified in the Protobuf source file using option extensions.
  * Additional indexes or more complicated primary keys need to be specified with code using this builder.
+ * The {@link #setRecords(Descriptors.FileDescriptor, boolean)} method loads the meta-data information from the Protobuf source file. Indexes and other
+ * properties such as version are not accessible before calling {@code setRecords}.
  * </p>
  *
  * <p>
  * <b>From a {@link RecordMetaDataProto.MetaData} Protobuf message</b><br>
- * The Protobuf form can store the complete meta-data.
+ * The Protobuf form can store the complete meta-data. The {@link #setRecords(RecordMetaDataProto.MetaData, boolean)} method loads
+ * the Protobuf message. Similar to loading the meta-data directly from a Protobuf file descriptor, indexes and other
+ * properties are not accessible before calling {@code setRecords}.
+ * The Protobuf message may contain all of the dependencies required for resolving the record types and indexes. If some
+ * of the dependencies are missing (e.g., when a list of excluded dependencies is passed to {@link RecordMetaData#toProto}), before calling
+ * {@code setRecords}, callers must first add the missing dependencies using
+ * {@link #addDependency(Descriptors.FileDescriptor)} or {@link #addDependencies(Descriptors.FileDescriptor[])}.
+ * The {@code addDependency} or {@code addDependencies}
+ * methods can also be used to override the embedded dependencies.
  * @see RecordMetaData#toProto
  * </p>
  *
@@ -72,11 +83,12 @@ import java.util.Set;
 public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(RecordMetaDataBuilder.class);
+    private static final Descriptors.FileDescriptor[] emptyDependencyList = new Descriptors.FileDescriptor[0];
 
-    @Nonnull
-    private final Descriptors.FileDescriptor recordsDescriptor;
-    @Nonnull
-    private final Descriptors.Descriptor unionDescriptor;
+    @Nullable
+    private Descriptors.FileDescriptor recordsDescriptor;
+    @Nullable
+    private Descriptors.Descriptor unionDescriptor;
     @Nonnull
     private final Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields;
     @Nonnull
@@ -94,11 +106,27 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private KeyExpression recordCountKey;
     @Nullable
     private RecordMetaData recordMetaData;
+    @Nonnull
+    private final Map<String, Descriptors.FileDescriptor> explicitDependencies;
+
+    /**
+     * Creates a blank builder.
+     */
+    RecordMetaDataBuilder() {
+        recordTypes = new HashMap<>();
+        indexes = new HashMap<>();
+        universalIndexes = new HashMap<>();
+        formerIndexes = new ArrayList<>();
+        unionFields = new HashMap<>();
+        explicitDependencies = new TreeMap<>();
+    }
 
     /**
      * Creates a new builder from the provided record types protobuf.
      * @param fileDescriptor a file descriptor containing all the record types in the metadata
+     * @deprecated use {@link RecordMetaData#newBuilder()} instead
      */
+    @Deprecated
     public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
         this(fileDescriptor, true);
     }
@@ -107,29 +135,13 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * Creates a new builder from the provided record types protobuf.
      * @param fileDescriptor a file descriptor containing all the record types in the metadata
      * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     * @deprecated use {@link RecordMetaData#newBuilder()} instead
      */
+    @Deprecated
     public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
                                  boolean processExtensionOptions) {
-        recordsDescriptor = fileDescriptor;
-        recordTypes = new HashMap<>(fileDescriptor.getMessageTypes().size());
-        indexes = new HashMap<>();
-        universalIndexes = new HashMap<>();
-        formerIndexes = new ArrayList<>();
-        validateRecords(fileDescriptor);
-        unionFields = new HashMap<>();
-        unionDescriptor = initRecordTypes(fileDescriptor, processExtensionOptions);
-        if (processExtensionOptions) {
-            RecordMetaDataOptionsProto.SchemaOptions schemaOptions = fileDescriptor.getOptions()
-                    .getExtension(RecordMetaDataOptionsProto.schema);
-            if (schemaOptions != null) {
-                if (schemaOptions.hasSplitLongRecords()) {
-                    splitLongRecords = schemaOptions.getSplitLongRecords();
-                }
-                if (schemaOptions.hasStoreRecordVersions()) {
-                    storeRecordVersions = schemaOptions.getStoreRecordVersions();
-                }
-            }
-        }
+        this();
+        loadFromFileDescriptor(fileDescriptor, processExtensionOptions);
     }
 
     /**
@@ -141,7 +153,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * error will result. In that case, {@link #RecordMetaDataBuilder(RecordMetaDataProto.MetaData, boolean)} will be needed instead.
      *
      * @param metaDataProto the protobuf form of the meta-data
+     * @deprecated use {@link RecordMetaData#newBuilder()} instead
      */
+    @Deprecated
     public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
         this(metaDataProto, true);
     }
@@ -155,7 +169,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      *
      * @param metaDataProto the protobuf form of the meta-data
      * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     * @deprecated use {@link RecordMetaData#newBuilder()} instead
      */
+    @Deprecated
     public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
                                  boolean processExtensionOptions) {
         this(metaDataProto, new Descriptors.FileDescriptor[] { RecordMetaDataOptionsProto.getDescriptor() }, processExtensionOptions);
@@ -171,7 +187,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      *
      * @param metaDataProto the protobuf form of the meta-data
      * @param dependencies other files imported by the record types protobuf
+     * @deprecated use {@link RecordMetaData#newBuilder()} instead
      */
+    @Deprecated
     public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
                                  @Nonnull Descriptors.FileDescriptor[] dependencies) {
         this(metaDataProto, dependencies, true);
@@ -187,13 +205,33 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param metaDataProto the protobuf form of the meta-data
      * @param dependencies other files imported by the record types protobuf
      * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     * @deprecated use {@link RecordMetaData#newBuilder()} instead
      */
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
                                  @Nonnull Descriptors.FileDescriptor[] dependencies,
                                  boolean processExtensionOptions) {
-        this(buildFileDescriptor(metaDataProto.getRecords(), dependencies), processExtensionOptions);
-        validateRecords(recordsDescriptor);
+        this();
+        loadFromProto(metaDataProto, dependencies, processExtensionOptions);
+    }
+
+    private void processSchemaOptions(boolean processExtensionOptions) {
+        if (processExtensionOptions) {
+            RecordMetaDataOptionsProto.SchemaOptions schemaOptions = recordsDescriptor.getOptions()
+                    .getExtension(RecordMetaDataOptionsProto.schema);
+            if (schemaOptions != null) {
+                if (schemaOptions.hasSplitLongRecords()) {
+                    splitLongRecords = schemaOptions.getSplitLongRecords();
+                }
+                if (schemaOptions.hasStoreRecordVersions()) {
+                    storeRecordVersions = schemaOptions.getStoreRecordVersions();
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void loadProtoExceptRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
         for (RecordMetaDataProto.Index indexProto : metaDataProto.getIndexesList()) {
             List<RecordTypeBuilder> recordTypeBuilders = new ArrayList<>(indexProto.getRecordTypeCount());
             for (String recordTypeName : indexProto.getRecordTypeList()) {
@@ -240,6 +278,157 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (metaDataProto.hasVersion()) {
             version = metaDataProto.getVersion();
         }
+    }
+
+    private void loadFromProto(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+                               @Nonnull Descriptors.FileDescriptor[] dependencies,
+                               boolean processExtensionOptions) {
+        recordsDescriptor = buildFileDescriptor(metaDataProto.getRecords(), dependencies);
+        validateRecords(recordsDescriptor);
+        unionDescriptor = initRecordTypes(processExtensionOptions);
+        loadProtoExceptRecords(metaDataProto);
+        processSchemaOptions(processExtensionOptions);
+    }
+
+    private void loadFromFileDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                        boolean processExtensionOptions) {
+        recordsDescriptor = fileDescriptor;
+        validateRecords(fileDescriptor);
+        unionDescriptor = initRecordTypes(processExtensionOptions);
+        processSchemaOptions(processExtensionOptions);
+    }
+
+    @Nonnull
+    private Map<String, Descriptors.FileDescriptor> initGeneratedDependencies(@Nonnull Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies) {
+        Map<String, Descriptors.FileDescriptor> generatedDependencies = new TreeMap<>();
+        if (!protoDependencies.containsKey(TupleFieldsProto.getDescriptor().getName())) {
+            generatedDependencies.put(TupleFieldsProto.getDescriptor().getName(), TupleFieldsProto.getDescriptor());
+        }
+        if (!protoDependencies.containsKey(RecordMetaDataOptionsProto.getDescriptor().getName())) {
+            generatedDependencies.put(RecordMetaDataOptionsProto.getDescriptor().getName(), RecordMetaDataOptionsProto.getDescriptor());
+        }
+        if (!protoDependencies.containsKey(RecordMetaDataProto.getDescriptor().getName())) {
+            generatedDependencies.put(RecordMetaDataProto.getDescriptor().getName(), RecordMetaDataProto.getDescriptor());
+        }
+        return generatedDependencies;
+    }
+
+    /**
+     * Deserializes the meta-data proto into the builder. The extension options are not processed.
+     * @param metaDataProto the proto of the {@link RecordMetaData}
+     * @return this builder
+     */
+    @Nonnull
+    public RecordMetaDataBuilder setRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+        return setRecords(metaDataProto, false);
+    }
+
+    /**
+     * Deserializes the meta-data proto into the builder.
+     * @param metaDataProto the proto of the {@link RecordMetaData}
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     * @return this builder
+     */
+    @Nonnull
+    public RecordMetaDataBuilder setRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+                                            boolean processExtensionOptions) {
+        if (recordsDescriptor != null) {
+            throw new MetaDataException("Records already set.");
+        }
+        // Build the recordDescriptor by de-serializing the metaData proto
+        Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies = new TreeMap<>();
+        for (DescriptorProtos.FileDescriptorProto dependency : metaDataProto.getDependenciesList()) {
+            protoDependencies.put(dependency.getName(), dependency);
+        }
+        Map<String, Descriptors.FileDescriptor> generatedDependencies = initGeneratedDependencies(protoDependencies);
+        Descriptors.FileDescriptor[] dependencies = getDependencies(metaDataProto.getRecords(), generatedDependencies, protoDependencies);
+        loadFromProto(metaDataProto, dependencies, processExtensionOptions);
+        return this;
+    }
+
+    /**
+     * Adds the root file descriptor of the {@link RecordMetaData} and processes the extension options.
+     * @param fileDescriptor the file descriptor of the record meta-data
+     * @return this builder
+     */
+    @Nonnull
+    public RecordMetaDataBuilder setRecords(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        return setRecords(fileDescriptor, true);
+    }
+
+    /**
+     * Adds the root file descriptor of the {@link RecordMetaData}.
+     * @param fileDescriptor the file descriptor of the record meta-data
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     * @return this builder
+     */
+    @Nonnull
+    public RecordMetaDataBuilder setRecords(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                            boolean processExtensionOptions) {
+        if (recordsDescriptor != null) {
+            throw new MetaDataException("Records already set.");
+        }
+        loadFromFileDescriptor(fileDescriptor, processExtensionOptions);
+        return this;
+    }
+
+    /**
+     * Adds a dependency to the list of dependencies. It will be used for loading the {@link RecordMetaData} from a meta-data proto.
+     * @param fileDescriptor the file descriptor of the dependency
+     * @return this builder
+     */
+    @Nonnull
+    public RecordMetaDataBuilder addDependency(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        if (recordsDescriptor != null) {
+            throw new MetaDataException("Records already set. Adding dependencies not allowed.");
+        }
+        explicitDependencies.put(fileDescriptor.getName(), fileDescriptor);
+        return this;
+    }
+
+    /**
+     * Adds dependencies to be used for loading the {@link RecordMetaData} from a meta-data proto.
+     * @param fileDescriptors a list of dependencies
+     * @return this builder
+     */
+    @Nonnull
+    public RecordMetaDataBuilder addDependencies(@Nonnull Descriptors.FileDescriptor[] fileDescriptors) {
+        if (recordsDescriptor != null) {
+            throw new MetaDataException("Records already set. Adding dependencies not allowed.");
+        }
+        for (Descriptors.FileDescriptor fileDescriptor : fileDescriptors) {
+            explicitDependencies.put(fileDescriptor.getName(), fileDescriptor);
+        }
+        return this;
+    }
+
+    private Descriptors.FileDescriptor[] getDependencies(@Nonnull DescriptorProtos.FileDescriptorProto proto,
+                                                         @Nonnull Map<String, Descriptors.FileDescriptor> generatedDependencies,
+                                                         @Nonnull Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies) {
+        if (proto.getDependencyCount() == 0) {
+            return emptyDependencyList;
+        }
+
+        Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[proto.getDependencyCount()];
+        for (int index = 0; index < proto.getDependencyCount(); index++) {
+            String key = proto.getDependency(index);
+            if (this.explicitDependencies.containsKey(key)) {
+                // Provided by caller.
+                dependencies[index] = this.explicitDependencies.get(key);
+            } else if (generatedDependencies.containsKey(key)) {
+                // Generated already.
+                dependencies[index] = generatedDependencies.get(key);
+            } else if (protoDependencies.containsKey(key)) {
+                // Not seen before. Build it.
+                DescriptorProtos.FileDescriptorProto dependency = protoDependencies.get(key);
+                dependencies[index] = buildFileDescriptor(dependency, getDependencies(dependency, generatedDependencies, protoDependencies));
+                generatedDependencies.put(key, dependencies[index]);
+            } else {
+                // Unknown dependency.
+                throw new MetaDataException(String.format("Dependency %s not found", key));
+            }
+        }
+        return dependencies;
     }
 
     private static void validateRecords(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
@@ -289,10 +478,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private Descriptors.Descriptor initRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                                   boolean processExtensionOptions) {
+    private Descriptors.Descriptor initRecordTypes(boolean processExtensionOptions) {
         Descriptors.Descriptor union = null;
-        for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
+        for (Descriptors.Descriptor descriptor : recordsDescriptor.getMessageTypes()) {
             @Nullable Integer sinceVersion = null;
             @Nullable Object recordTypeKey = null;
             RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
@@ -337,11 +525,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (union == null) {
             throw new MetaDataException("Union descriptor is required");
         }
-        fillUnionFields(union);
+        fillUnionFields(union, processExtensionOptions);
         return union;
     }
 
-    private void fillUnionFields(Descriptors.Descriptor union) {
+    private void fillUnionFields(Descriptors.Descriptor union, boolean processExtensionOptions) {
         for (Descriptors.FieldDescriptor unionField : union.getFields()) {
             if (unionField.getType() != Descriptors.FieldDescriptor.Type.MESSAGE) {
                 throw new MetaDataException("Union field " + unionField.getName() +
@@ -364,7 +552,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                     if (recordTypes.putIfAbsent(recordType.getName(), recordType) != null) {
                         throw new MetaDataException("There is already a record type named" + recordType.getName());
                     }
-                    protoFieldOptions(recordType, descriptor);
+                    if (processExtensionOptions) {
+                        protoFieldOptions(recordType, descriptor);
+                    }
                 }
 
                 unionFields.put(descriptor, unionField);
@@ -430,7 +620,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         try {
             return Descriptors.FileDescriptor.buildFrom(fileDescriptorProto, dependencies);
         } catch (Descriptors.DescriptorValidationException ex) {
-            throw new MetaDataException("Error converting to protobuf", ex);
+            throw new MetaDataException("Error converting from protobuf", ex);
         }
     }
 
@@ -469,6 +659,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     // Common code shared by all the methods that add indexes. It runs some validation
     // and bumps the version if necessary.
     private void addIndexCommon(@Nonnull Index index) {
+        if (recordsDescriptor == null) {
+            throw new MetaDataException("No records added yet");
+        }
         if (indexes.containsKey(index.getName())) {
             throw new MetaDataException("Index " + index.getName() + " already defined");
         }
@@ -583,6 +776,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     public void setSplitLongRecords(boolean splitLongRecords) {
+        if (recordsDescriptor == null) {
+            throw new MetaDataException("No records added yet");
+        }
         if (this.splitLongRecords != splitLongRecords) {
             version += 1;
             this.splitLongRecords = splitLongRecords;
@@ -594,6 +790,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     public void setStoreRecordVersions(boolean storeRecordVersions) {
+        if (recordsDescriptor == null) {
+            throw new MetaDataException("No records added yet");
+        }
         if (this.storeRecordVersions != storeRecordVersions) {
             version += 1;
             this.storeRecordVersions = storeRecordVersions;
@@ -614,13 +813,15 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Set the key used for maintaining record counts.
-     * @deprecated Use a <code>COUNT</code> type index instead.
      * @param recordCountKey grouping key for counting
      * @deprecated use {@code COUNT} type indexes instead
      */
     @Deprecated
     @API(API.Status.DEPRECATED)
     public void setRecordCountKey(KeyExpression recordCountKey) {
+        if (recordsDescriptor == null) {
+            throw new MetaDataException("No records added yet");
+        }
         if (!Objects.equals(this.recordCountKey, recordCountKey)) {
             version += 1;
             this.recordCountKey = recordCountKey;
@@ -632,6 +833,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     public void setVersion(int version) {
+        if (recordsDescriptor == null) {
+            throw new MetaDataException("No records added yet");
+        }
         this.version = version;
     }
 

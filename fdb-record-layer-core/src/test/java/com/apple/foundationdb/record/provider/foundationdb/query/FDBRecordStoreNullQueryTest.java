@@ -81,18 +81,18 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected static RecordMetaData proto2MetaData() {
-        return new RecordMetaDataBuilder(TestRecordsNulls2Proto.getDescriptor()).getRecordMetaData();
+        return RecordMetaData.newBuilder().setRecords(TestRecordsNulls2Proto.getDescriptor()).getRecordMetaData();
     }
 
     protected static RecordMetaData proto3MetaData() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsNulls3Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsNulls3Proto.getDescriptor());
         metaData.addIndex("MyNullRecord", "int_value");
         metaData.addIndex("MyNullRecord", "string_value");
         return metaData.getRecordMetaData();
     }
 
     protected static RecordMetaData proto3ScalarNotNullMetaData() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsNulls3Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsNulls3Proto.getDescriptor());
         metaData.addIndex("MyNullRecord", "MyNullRecord$int_value", Key.Expressions.field("int_value", KeyExpression.FanType.None,
                 Key.Evaluated.NullStandin.NOT_NULL));
         metaData.addIndex("MyNullRecord", "MyNullRecord$string_value", Key.Expressions.field("string_value", KeyExpression.FanType.None,
@@ -101,7 +101,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected static RecordMetaData proto3NestedMetaData() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsNulls3Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsNulls3Proto.getDescriptor());
         metaData.addIndex("MyNullRecord", "MyNullRecord$int_value", Key.Expressions.field("nullable_int_value")
                 .nest(Key.Expressions.field("value", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NOT_NULL)));
         metaData.addIndex("MyNullRecord", "MyNullRecord$string_value", Key.Expressions.field("nullable_string_value")
@@ -484,7 +484,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected static RecordMetaData tupleFieldsMetaData() {
-        return new RecordMetaDataBuilder(TestRecordsTupleFieldsProto.getDescriptor()).getRecordMetaData();
+        return RecordMetaData.build(TestRecordsTupleFieldsProto.getDescriptor());
     }
 
     @Test

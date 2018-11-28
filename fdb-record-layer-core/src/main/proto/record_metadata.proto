@@ -84,6 +84,7 @@ message MetaData {
   repeated FormerIndex former_indexes = 6;
   optional KeyExpression record_count_key = 7 [deprecated = true];
   optional bool store_record_versions = 8;
+  repeated google.protobuf.FileDescriptorProto dependencies = 9;
   extensions 1000 to 2000;
 }
 

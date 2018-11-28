@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsOneOfProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -55,7 +56,7 @@ public class OneOfTest {
     }
 
     private RecordMetaDataBuilder metaData() {
-        final RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsOneOfProto.getDescriptor());
+        final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsOneOfProto.getDescriptor());
         final KeyExpression pkey = Key.Expressions.field("rec_no");
         metaData.getRecordType("MySimpleRecord").setPrimaryKey(pkey);
         metaData.getRecordType("MyOtherRecord").setPrimaryKey(pkey);

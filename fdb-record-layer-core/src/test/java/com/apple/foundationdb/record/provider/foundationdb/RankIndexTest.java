@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsRankProto;
@@ -97,7 +98,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
     }
 
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTest.RecordMetaDataHook hook) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsRankProto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsRankProto.getDescriptor());
         metaDataBuilder.addIndex("BasicRankedRecord",
                 new Index("rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")),
                         IndexTypes.RANK));

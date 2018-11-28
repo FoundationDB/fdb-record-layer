@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords8Proto;
@@ -69,7 +70,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
 
     private void openRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaDataHook hook) {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords8Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords8Proto.getDescriptor());
         hook.apply(metaData);
         createRecordStore(context, metaData.getRecordMetaData());
     }

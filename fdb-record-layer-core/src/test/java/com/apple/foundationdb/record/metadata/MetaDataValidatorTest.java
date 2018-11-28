@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
@@ -42,7 +43,7 @@ public class MetaDataValidatorTest {
 
     @Test
     public void duplicateRecordTypeKey() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.getRecordType("MySimpleRecord").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("rec_no")));
         metaData.getRecordType("MySimpleRecord").setRecordTypeKey("same");
         metaData.getRecordType("MyOtherRecord").setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("rec_no")));
@@ -52,14 +53,14 @@ public class MetaDataValidatorTest {
 
     @Test
     public void primaryKeyRepeated() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.getRecordType("MySimpleRecord").setPrimaryKey(Key.Expressions.field("repeater", KeyExpression.FanType.FanOut));
         assertThrows(MetaDataException.class, () -> validate(metaData));
     }
 
     @Test
     public void duplicateSubspaceKey() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.getIndex("MySimpleRecord$str_value_indexed").setSubspaceKey("same");
         metaData.getIndex("MySimpleRecord$num_value_3_indexed").setSubspaceKey("same");
         assertThrows(MetaDataException.class, () -> validate(metaData));
@@ -67,28 +68,28 @@ public class MetaDataValidatorTest {
 
     @Test
     public void badPrimaryKeyField() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.getRecordType("MySimpleRecord").setPrimaryKey(Key.Expressions.field("no_such_field"));
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> validate(metaData));
     }
 
     @Test
     public void badPrimaryKeyType() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords4Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords4Proto.getDescriptor());
         metaData.getRecordType("RestaurantReviewer").setPrimaryKey(Key.Expressions.field("stats"));
         assertThrows(Query.InvalidExpressionException.class, () -> validate(metaData));
     }
 
     @Test
     public void badIndexField() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.addIndex("MySimpleRecord", "no_such_field");
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> validate(metaData));
     }
 
     @Test
     public void badIndexType() {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords4Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords4Proto.getDescriptor());
         metaData.addIndex("RestaurantReviewer", "stats");
         assertThrows(Query.InvalidExpressionException.class, () -> validate(metaData));
     }

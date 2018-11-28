@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -73,7 +74,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     private void openDoublyRepeatedRecordStore(FDBRecordContext context) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords6Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords6Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addIndex("MyRepeatedRecord", "rep_strings", concat(field("s1", FanType.Concatenate), field("s2", FanType.Concatenate)));
         metaDataBuilder.addIndex("MyRepeatedRecord", "s1$concat", field("s1", FanType.Concatenate));

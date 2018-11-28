@@ -25,12 +25,13 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.UnstoredRecord;
 import com.apple.foundationdb.record.TestDataTypesProto;
 import com.apple.foundationdb.record.TestDataTypesProto.TypesRecord;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.UnstoredRecord;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -128,7 +129,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
 
 
     protected void openRecordStore(FDBRecordContext context, Index ... indexes) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestDataTypesProto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestDataTypesProto.getDescriptor());
         RecordTypeBuilder scalarRecordType = metaDataBuilder.getRecordType("TypesRecord");
         for (Index index : indexes) {
             metaDataBuilder.addIndex(scalarRecordType, index);

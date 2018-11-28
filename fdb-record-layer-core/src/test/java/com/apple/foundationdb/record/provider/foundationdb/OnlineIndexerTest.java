@@ -166,7 +166,7 @@ public class OnlineIndexerTest {
     }
 
     private void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor, @Nonnull RecordMetaDataHook hook) {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(descriptor);
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(descriptor);
         hook.apply(metaDataBuilder);
         metaData = metaDataBuilder.getRecordMetaData();
     }

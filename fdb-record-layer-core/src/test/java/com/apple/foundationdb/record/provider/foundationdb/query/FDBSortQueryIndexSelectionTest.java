@@ -585,7 +585,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     @Test
     public void sortNested() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
+            RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
             builder.addIndex("MyRecord", "MyRecord$header_num", concat(field("header").nest("num"),

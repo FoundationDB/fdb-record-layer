@@ -253,7 +253,7 @@ public class Main {
 
         // To build richer primary keys or secondary indexes (than those definable in the protobuf
         // message types), you need to use the more verbose and powerful RecordMetaDataBuilder.
-        RecordMetaDataBuilder rmdBuilder = new RecordMetaDataBuilder(SampleProto.getDescriptor());
+        RecordMetaDataBuilder rmdBuilder = RecordMetaData.newBuilder().setRecords(SampleProto.getDescriptor());
 
         // Order customers by last name, then first name, then their ID if otherwise equal.
         // NOTE: This operation is dangerous if you have existing data! Existing records are *not*

@@ -122,7 +122,7 @@ public class LeaderboardIndexTest {
         }
 
         public void buildMetaData(Consumer<RecordMetaDataBuilder> metaDataHook) {
-            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsLeaderboardProto.getDescriptor());
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsLeaderboardProto.getDescriptor());
             metaDataHook.accept(metaDataBuilder);
             metaData = metaDataBuilder.getRecordMetaData();
         }

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TypedRecordSerializer;
@@ -74,7 +74,7 @@ public class FDBTypedRecordStore<M extends Message> extends FDBRecordStoreBase<M
                           @Nonnull Predicate<U> tester,
                           @Nonnull Function<U, M> getter,
                           @Nonnull BiConsumer<B, M> setter) {
-            metaDataProvider = new RecordMetaDataBuilder(fileDescriptor);
+            metaDataProvider = RecordMetaData.build(fileDescriptor);
             serializer = new TypedRecordSerializer<>(fieldDescriptor, builderSupplier, tester, getter, setter);
         }
 

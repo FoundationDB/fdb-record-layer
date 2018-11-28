@@ -1656,7 +1656,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         };
 
         try (FDBRecordContext context = openContext()) {
-            RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsIndexFilteringProto.getDescriptor());
+            RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsIndexFilteringProto.getDescriptor());
             if (hook != null) {
                 hook.apply(metaData);
             }
@@ -1738,7 +1738,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         };
 
         try (FDBRecordContext context = openContext()) {
-            final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
+            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             if (withCount) {
                 builder.addUniversalIndex(COUNT_INDEX);
             }
@@ -1757,7 +1757,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         newIndex.setSubspaceKey(2);
         final String recordType = "MySimpleRecord";
         try (FDBRecordContext context = openContext()) {
-            RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
+            RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             if (withCount) {
                 builder.addUniversalIndex(COUNT_INDEX);
             }
@@ -1771,7 +1771,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
+            RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             if (withCount) {
                 builder.addUniversalIndex(COUNT_INDEX);
             }
@@ -1794,7 +1794,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void testChangeIndexDefinitionWriteOnly() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
+            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
             recordStore.deleteAllRecords();
             // Save 200 records without any indexes.
@@ -1807,7 +1807,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             // Add a new index named "index" on rec_no.
-            final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
+            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             final Index index = new Index("index", "rec_no");
             builder.addIndex("MySimpleRecord", index);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
@@ -1825,7 +1825,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         Index index = new Index("index", "num_value");
         try (FDBRecordContext context = openContext()) {
             // Change the definition of the "index" index to be on num_value instead.
-            final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
+            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             builder.setVersion(builder.getVersion() + 100);
             builder.addIndex("MySimpleRecord", index);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
@@ -1879,7 +1879,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             }
         };
 
-        final RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestNoIndexesProto.getDescriptor());
+        final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
         metaData.addUniversalIndex(COUNT_INDEX);
 
         final FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
@@ -2057,7 +2057,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void formerIndexes() throws Exception {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
         try (FDBRecordContext context = openContext()) {
             createRecordStore(context, metaData.getRecordMetaData());

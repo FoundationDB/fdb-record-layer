@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -140,7 +141,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void openHierarchicalRecordStore(FDBRecordContext context) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords3Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords3Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.getRecordType("MyHierarchicalRecord").setPrimaryKey(
                 concatenateFields("parent_path", "child_name"));
@@ -152,7 +153,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void openNestedRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords4Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.FanOut).nest("rating"));
         metaDataBuilder.addIndex("RestaurantRecord", "tag", field("tags", FanType.FanOut).nest(
@@ -201,7 +202,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void openDoublyNestedRecordStore(FDBRecordContext context) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords5Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords5Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addIndex("CalendarEvent", "alarm_start", field("alarmIndex").nest(
                 field("recurrence", FanType.FanOut).nest("start")));
@@ -211,7 +212,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     public void openConcatNestedRecordStore(FDBRecordContext context) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords5Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords5Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addIndex("CalendarEvent", "versions", concat(field("alarmIndex").nest("version"),
                 field("eventIndex").nest("version")));
@@ -316,7 +317,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void openEnumRecordStore(FDBRecordContext context, RecordMetaDataHook hook) throws Exception {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsEnumProto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsEnumProto.getDescriptor());
         if (hook != null) {
             hook.apply(metaData);
         }

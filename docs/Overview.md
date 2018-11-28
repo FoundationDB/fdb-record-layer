@@ -67,7 +67,7 @@ RecordMetaData metaData = RecordMetaData.build(TestRecords2Proto.getDescriptor()
 
 If you need more complicated secondary indexes or primary keys, the more verbose and powerful builder structure is required:
 ```java
-RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords3Proto.getDescriptor());
+RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords3Proto.getDescriptor());
 metaDataBuilder.getRecordType("MyHierarchicalRecord").setPrimaryKey(
         concatenateFields("parent_path", "child_name"));
 metaDataBuilder.addIndex(metaDataBuilder.getRecordType("RestaurantRecord"),
