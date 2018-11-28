@@ -162,7 +162,7 @@ public class MetaDataProtoTest {
         index = new Index("human-development", Key.Expressions.field("life-expectancy").groupBy(
                 Key.Expressions.concat(Key.Expressions.field("education").nest("schooling"), Key.Expressions.field("income"))),
                 Key.Expressions.field("united-nations"),
-                IndexTypes.VALUE, Index.UNIQUE_OPTIONS);
+                IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         reindex = new Index(index.toProto());
         verifyEquals(index, reindex);
     }
@@ -220,11 +220,11 @@ public class MetaDataProtoTest {
                     metaDataBuilder.getRecordType("MultiRecordTwo"),
                     metaDataBuilder.getRecordType("MultiRecordThree")),
                 new Index("all$elements", Key.Expressions.field("element", KeyExpression.FanType.Concatenate),
-                        Index.EMPTY_VALUE, IndexTypes.VALUE, Index.UNIQUE_OPTIONS));
+                        Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(
                     metaDataBuilder.getRecordType("MultiRecordTwo"),
                     metaDataBuilder.getRecordType("MultiRecordThree")),
-                new Index("two&three$ego", Key.Expressions.field("ego"), Index.EMPTY_VALUE, IndexTypes.VALUE, Index.UNIQUE_OPTIONS));
+                new Index("two&three$ego", Key.Expressions.field("ego"), Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         metaDataBuilder.addIndex("MultiRecordOne", new Index("one$name", Key.Expressions.field("name"), IndexTypes.VALUE));
         metaDataBuilder.setRecordCountKey(Key.Expressions.field("blah"));
         metaDataBuilder.removeIndex("one$name");

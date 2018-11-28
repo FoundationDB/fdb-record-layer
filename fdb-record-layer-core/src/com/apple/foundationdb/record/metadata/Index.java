@@ -34,7 +34,6 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,17 +71,7 @@ public class Index {
         return tuple.get(0);
     }
 
-    public static final Map<String, String> EMPTY_OPTIONS = Collections.emptyMap();
-    public static final String UNIQUE_OPTION = "unique";
-    public static final Map<String, String> UNIQUE_OPTIONS = Collections.singletonMap(UNIQUE_OPTION, Boolean.TRUE.toString());
-    public static final String ALLOWED_FOR_QUERY_OPTION = "allowedForQuery";
-    public static final Map<String, String> NOT_ALLOWED_FOR_QUERY_OPTIONS = Collections.singletonMap(ALLOWED_FOR_QUERY_OPTION, Boolean.FALSE.toString());
     public static final KeyExpression EMPTY_VALUE = EmptyKeyExpression.EMPTY;
-    public static final String TEXT_TOKENIZER_NAME_OPTION = "textTokenizerName";
-    public static final String TEXT_TOKENIZER_VERSION_OPTION = "textTokenizerVersion";
-    public static final String TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION = "textAddAggressiveConflictRanges";
-    public static final String TEXT_OMIT_POSITIONS_OPTION = "textOmitPositions";
-    public static final String RANK_NLEVELS = "rankNLevels";
 
     /**
      * Construct new index meta-data.
@@ -115,7 +104,7 @@ public class Index {
     public Index(@Nonnull String name,
                  @Nonnull KeyExpression rootExpression,
                  @Nonnull String type) {
-        this(name, rootExpression, type, EMPTY_OPTIONS);
+        this(name, rootExpression, type, IndexOptions.EMPTY_OPTIONS);
     }
 
 
@@ -198,11 +187,11 @@ public class Index {
 
     public static Map<String, String> buildOptions(List<RecordMetaDataProto.Index.Option> optionList, boolean addUnique) {
         if (optionList.isEmpty() && !addUnique) {
-            return EMPTY_OPTIONS;
+            return IndexOptions.EMPTY_OPTIONS;
         } else {
             Map<String, String> options = new TreeMap<>();
             if (addUnique) {
-                options.put(UNIQUE_OPTION, Boolean.TRUE.toString());
+                options.put(IndexOptions.UNIQUE_OPTION, Boolean.TRUE.toString());
             }
             for (RecordMetaDataProto.Index.Option option : optionList) {
                 options.put(option.getKey(), option.getValue());
@@ -227,11 +216,11 @@ public class Index {
         switch (indexType) {
             case UNIQUE:
             case RANK_UNIQUE:
-                return UNIQUE_OPTIONS;
+                return IndexOptions.UNIQUE_OPTIONS;
             case INDEX:
             case RANK:
             default:
-                return EMPTY_OPTIONS;
+                return IndexOptions.EMPTY_OPTIONS;
         }
     }
 
@@ -277,7 +266,7 @@ public class Index {
      * @return the value of the "unique" option
      */
     public boolean isUnique() {
-        return getBooleanOption(UNIQUE_OPTION, false);
+        return getBooleanOption(IndexOptions.UNIQUE_OPTION, false);
     }
 
     public Object getSubspaceKey() {

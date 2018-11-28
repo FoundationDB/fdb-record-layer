@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
@@ -1458,7 +1459,7 @@ public class OnlineIndexBuilderTest {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
         ).collect(Collectors.toList());
-        Index index = new Index("simple$value_2", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, Index.UNIQUE_OPTIONS);
+        Index index = new Index("simple$value_2", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         // Case 1: Entirely in build.
@@ -1708,7 +1709,7 @@ public class OnlineIndexBuilderTest {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(((int)val) % 5).build()
         ).collect(Collectors.toList());
-        Index index = new Index("simple$value_2", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, Index.UNIQUE_OPTIONS);
+        Index index = new Index("simple$value_2", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
 
         openSimpleMetaData();

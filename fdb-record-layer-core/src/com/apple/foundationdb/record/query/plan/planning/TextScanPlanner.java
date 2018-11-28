@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.planning;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -68,7 +69,7 @@ public class TextScanPlanner {
      */
     private static boolean matchesTokenizer(@Nonnull Comparisons.TextComparison comparison, @Nonnull Index index) {
         if (comparison.getTokenizerName() != null) {
-            String indexTokenizerName = index.getOption(Index.TEXT_TOKENIZER_NAME_OPTION);
+            String indexTokenizerName = index.getOption(IndexOptions.TEXT_TOKENIZER_NAME_OPTION);
             if (indexTokenizerName == null) {
                 indexTokenizerName = DefaultTextTokenizer.NAME;
             }
@@ -85,14 +86,14 @@ public class TextScanPlanner {
      * regardless of the properties of the index. If the query <i>does</i> require position
      * information (e.g., phrase queries), then this returns <code>true</code> if and only
      * if the index stores positions, i.e., if it does <i>not</i> set the
-     * "{@value Index#TEXT_OMIT_POSITIONS_OPTION}" option to <code>true</code>.
+     * "{@value IndexOptions#TEXT_OMIT_POSITIONS_OPTION}" option to <code>true</code>.
      *
      * @param comparison the comparison which might require position information
      * @param index the index to check the position option of
      * @return <code>true</code> if the index contains enough position information for the given comparison
      */
     private static boolean containsPositionsIfNecessary(@Nonnull Comparisons.TextComparison comparison, @Nonnull Index index) {
-        return COMPARISONS_NOT_REQUIRING_POSITIONS.contains(comparison.getType()) || !index.getBooleanOption(Index.TEXT_OMIT_POSITIONS_OPTION, false);
+        return COMPARISONS_NOT_REQUIRING_POSITIONS.contains(comparison.getType()) || !index.getBooleanOption(IndexOptions.TEXT_OMIT_POSITIONS_OPTION, false);
     }
 
     @Nullable

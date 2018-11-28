@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.TestDataTypesProto;
 import com.apple.foundationdb.record.TestDataTypesProto.TypesRecord;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
@@ -187,7 +188,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
     public void testUniqueIndexNoViolation() throws Exception {
         // Note: the substr() function is defined by KeyExpressionTest.java
         Index index = new Index("substr_unique_index", function("substr", concat(field("str_value"), value(0), value(3))),
-                empty(), IndexTypes.VALUE, Index.UNIQUE_OPTIONS);
+                empty(), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Records records = Records.create();
         for (int i = 0; i < 10; i++) {
             records.add(i, "ab" + Character.toString((char) ('c' + i)) + "_" + i);
@@ -210,7 +211,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void testUniqueViolation() throws Exception {
         Index index = new Index("substr_unique_index", function("substr", concat(field("str_value"), value(0), value(2))),
-                empty(), IndexTypes.VALUE, Index.UNIQUE_OPTIONS);
+                empty(), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Records records = Records.create();
         for (int i = 0; i < 5; i++) {
             records.add(i, "a" + Character.toString((char) ('b' + (i % 3))) + "_" + i);

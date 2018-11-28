@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -226,7 +227,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     field("num_value_unique"),
                     field("num_value_2"),
                     IndexTypes.VALUE,
-                    Index.UNIQUE_OPTIONS));
+                    IndexOptions.UNIQUE_OPTIONS));
         };
         complexQuerySetup(hook);
 

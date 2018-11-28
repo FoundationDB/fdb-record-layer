@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.TestRecordsRankProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
@@ -1077,7 +1078,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                     md.removeIndex("rank_by_gender");
                     md.addIndex("BasicRankedRecord",
                             new Index("rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), EmptyKeyExpression.EMPTY,
-                                    IndexTypes.RANK, Index.UNIQUE_OPTIONS));
+                                    IndexTypes.RANK, IndexOptions.UNIQUE_OPTIONS));
                 });
                 recordStore.deleteAllRecords();
                 for (Object[] rec : RECORDS) {
@@ -1105,7 +1106,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 md.removeIndex("rank_by_gender");
                 md.addIndex("BasicRankedRecord",
                         new Index("rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), EmptyKeyExpression.EMPTY,
-                                IndexTypes.RANK, Index.UNIQUE_OPTIONS));
+                                IndexTypes.RANK, IndexOptions.UNIQUE_OPTIONS));
             });
             for (Object[] rec : RECORDS) {
                 if ("F".equals(rec[2])) {

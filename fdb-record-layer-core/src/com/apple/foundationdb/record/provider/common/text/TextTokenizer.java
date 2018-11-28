@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.common.text;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
 
@@ -205,8 +205,8 @@ public interface TextTokenizer {
     default void validateVersion(int version) {
         if (version < getMinVersion() || version > getMaxVersion()) {
             throw new MetaDataException("unknown tokenizer version")
-                    .addLogInfo(Index.TEXT_TOKENIZER_NAME_OPTION, getName())
-                    .addLogInfo(Index.TEXT_TOKENIZER_VERSION_OPTION, version)
+                    .addLogInfo(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, getName())
+                    .addLogInfo(IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, version)
                     .addLogInfo("minVersion", getMinVersion())
                     .addLogInfo("maxVersion", getMaxVersion());
         }

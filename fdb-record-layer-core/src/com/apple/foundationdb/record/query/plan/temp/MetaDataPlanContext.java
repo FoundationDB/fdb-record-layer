@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -87,7 +88,7 @@ public class MetaDataPlanContext implements PlanContext {
             recordStoreState.endRead();
         }
         indexList.removeIf(index -> query.hasAllowedIndexes() && !query.getAllowedIndexes().contains(index.getName()) ||
-                    !query.hasAllowedIndexes() && !index.getBooleanOption(Index.ALLOWED_FOR_QUERY_OPTION, true));
+                    !query.hasAllowedIndexes() && !index.getBooleanOption(IndexOptions.ALLOWED_FOR_QUERY_OPTION, true));
 
         for (Index index : indexList) {
             indexes.put(index, index.getName());
