@@ -89,7 +89,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     public static final Tuple HISTORY_KEY_PREFIX = Tuple.from("H");
 
     // TODO: Previously, meta-data was stored directly in the store's root.
-    // This can be removed at some point after existing stores have been updated.
+    //  This can be removed at some point after existing stores have been updated.
     public static final Tuple OLD_FORMAT_KEY = TupleHelpers.EMPTY;
 
     /**

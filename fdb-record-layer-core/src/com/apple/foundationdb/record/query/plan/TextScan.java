@@ -424,8 +424,8 @@ public class TextScan implements PlanHashable {
      */
     public boolean createsDuplicates() {
         // TODO: This is actually too conservative
-        // If there is a repeated field in the index expression but the grouping key selects exactly one,
-        // then this doesn't actually create duplicates.
+        //  If there is a repeated field in the index expression but the grouping key selects exactly one,
+        //  then this doesn't actually create duplicates.
         return !textComparison.getType().isEquality() || index.getRootExpression().createsDuplicates();
     }
 

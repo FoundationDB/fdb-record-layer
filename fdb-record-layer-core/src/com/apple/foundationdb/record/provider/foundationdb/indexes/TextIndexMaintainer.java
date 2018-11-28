@@ -362,12 +362,12 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
             return updateOneKeyAsync(savedRecord, remove, indexEntries.get(0), textPosition, recordTokenizerVersion);
         } else {
             // TODO: If there are multiple index entries, it is possible that they all share the same text object.
-            // We don't want to tokenize more than once if that is the case because it is expensive.
-            // Also, this has to be done in serial (rather than in parallel) in the case where there are
-            // multiple keys for the given text, we can't add the two documents concurrently
-            // due to limitations in the thread safety of the underlying data structure.
-            // (In theory, we could do this if each key has it's own grouping key, but that's an
-            // optimization for another day.)
+            //  We don't want to tokenize more than once if that is the case because it is expensive.
+            //  Also, this has to be done in serial (rather than in parallel) in the case where there are
+            //  multiple keys for the given text, we can't add the two documents concurrently
+            //  due to limitations in the thread safety of the underlying data structure.
+            //  (In theory, we could do this if each key has it's own grouping key, but that's an
+            //  optimization for another day.)
             AtomicInteger pos = new AtomicInteger(0);
             return AsyncUtil.whileTrue(() ->
                             updateOneKeyAsync(savedRecord, remove, indexEntries.get(pos.getAndIncrement()), textPosition, recordTokenizerVersion)

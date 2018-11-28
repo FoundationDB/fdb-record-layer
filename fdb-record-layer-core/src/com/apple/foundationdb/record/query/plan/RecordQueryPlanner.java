@@ -356,9 +356,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             ScoredPlan p = planIndex(planContext, filter, index, indexKeyExpression, intersectionCandidates);
             if (p != null) {
                 // TODO: Consider more organized score / cost:
-                // * predicates handled / unhandled.
-                // * size of row.
-                // * need for type filtering if row scan with multiple types.
+                //   * predicates handled / unhandled.
+                //   * size of row.
+                //   * need for type filtering if row scan with multiple types.
                 if (bestPlan == null || p.score > bestPlan.score ||
                         (p.score == bestPlan.score && compareIndexes(planContext, index, bestIndex) > 0)) {
                     bestPlan = p;
@@ -1713,8 +1713,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             switch (ScanComparisons.getComparisonType(comparison)) {
                 case EQUALITY:
                     // TODO: If there is an equality on the same field as inequalities, it
-                    // would have been better to get it earlier and potentially match more of
-                    // the index. Which may require two passes over filter children.
+                    //  would have been better to get it earlier and potentially match more of
+                    //  the index. Which may require two passes over filter children.
                     if (comparisons.isEquality()) {
                         comparisons.addEqualityComparison(comparison);
                         foundComparison = true;
