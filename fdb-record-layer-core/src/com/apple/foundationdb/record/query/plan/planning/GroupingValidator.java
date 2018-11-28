@@ -41,8 +41,8 @@ import java.util.List;
  */
 class GroupingValidator {
     // TODO: Use QueryToKeyMatcher when planning groups (https://github.com/FoundationDB/fdb-record-layer/issues/21)
-    // Most of what's done here is also done in the QueryToKeyMatcher class, it just also needs information
-    // about what filters were used.
+    //  Most of what's done here is also done in the QueryToKeyMatcher class, it just also needs information
+    //  about what filters were used.
 
     /**
      * If the grouping key can be restricted to a single value by the filters specified, put them into <code>groupFilters</code>

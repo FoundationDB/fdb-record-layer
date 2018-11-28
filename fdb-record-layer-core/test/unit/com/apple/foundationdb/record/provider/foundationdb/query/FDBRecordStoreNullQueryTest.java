@@ -320,7 +320,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     // A nested message has reliable hasField semantics in both Proto 2 and Proto 3.
     // It can hold a nullable scalar value at the cost of two extra bytes in the non-null case.
     // TODO: An alternative KeyExpression for an indicator field would use two bytes in the null case, which is
-    // a better space tradeoff, but a more complicated data model for the user to maintain.
+    //  a better space tradeoff, but a more complicated data model for the user to maintain.
     @Test
     public void testProto3Nested() {
         try (FDBRecordContext context = openContext()) {

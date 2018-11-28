@@ -451,7 +451,7 @@ public class SplitHelper {
      * Unsplit a single record from a given range scan.
      */
     // TODO: The alternative is to use streams throughout the serialization pipeline, from
-    // a range scan through to decryption and Protobuf coded input.
+    //  a range scan through to decryption and Protobuf coded input.
     public static class SingleKeyUnsplitter {
         @Nonnull
         private final FDBRecordContext context;

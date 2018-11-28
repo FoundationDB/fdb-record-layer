@@ -126,8 +126,8 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
         Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(fieldName);
         // TODO: Part of this is working around a deficiency in DynamicMessage.getField() prior
-        // to 2.5, where a repeated message field returns an empty message instead of an
-        // empty collection.
+        //  to 2.5, where a repeated message field returns an empty message instead of an
+        //  empty collection.
         if (fieldDescriptor != null && fieldDescriptor.isRepeated()) {
             List<Object> values;
             if (message.getRepeatedFieldCount(fieldDescriptor) > 0) {
