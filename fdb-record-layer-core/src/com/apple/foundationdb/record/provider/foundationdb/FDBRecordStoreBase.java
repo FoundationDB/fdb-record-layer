@@ -359,7 +359,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     /**
      * Async version of {@link #saveRecord(Message, RecordExistenceCheck)}.
      * @param record the record to save
-     * @param existenceCheck whether the record must already exist
+     * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @return a future that completes with the stored record form of the saved record
      */
     public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M record, @Nonnull RecordExistenceCheck existenceCheck) {
@@ -390,7 +390,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     /**
      * Async version of {@link #saveRecord(Message, RecordExistenceCheck, FDBRecordVersion, VersionstampSaveBehavior)}.
      * @param record the record to save
-     * @param existenceCheck whether the record must already exist
+     * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @param version the associated record version
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return a future that completes with the stored record form of the saved record
@@ -734,7 +734,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
     /**
      * Save the given record.
      * @param record the record to be saved
-     * @param existenceCheck whether the record must already exist
+     * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @return wrapping object containing saved record and metadata
      */
     @Nonnull
@@ -778,7 +778,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      * <code>version</code> is ignored and no version is saved. If behavior is <code>WITH_VERSION</code> then the value
      * of <code>version</code>  is stored as given by the caller.
      * @param record the record to be saved
-     * @param existenceCheck whether the record must already exist
+     * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @param version the version to associate with the record when saving
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return wrapping object containing saved record and metadata
@@ -2009,7 +2009,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
      * store was done.
      *
      * @param userVersionChecker hook for checking if store state for client must change
-     * @param existenceCheck whether to throw an exception if the record store does or does not already exists
+     * @param existenceCheck when to throw an exception if the record store does or does not already exist
      * @return future with whether the record store was modified by the check
      */
     @Nonnull
