@@ -154,6 +154,7 @@ def build(release=False, proto2=False, proto3=False, publish=False):
         if publish:
             success = run_gradle(3, ':fdb-record-layer-core-pb3:bintrayUpload',
                                     ':fdb-record-layer-core-pb3-shaded:bintrayUpload',
+                                    '-PcoreNotStrict',
                                     '-PreleaseBuild={0}'.format('true' if release else 'false'),
                                     '-PpublishBuild=true')
             if not success:
