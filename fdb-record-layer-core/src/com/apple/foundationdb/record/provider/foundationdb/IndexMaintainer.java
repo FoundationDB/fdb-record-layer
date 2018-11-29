@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -53,6 +54,7 @@ import java.util.concurrent.CompletableFuture;
  * @param <M> type used to represent stored records
  * @see IndexMaintainerFactory
  */
+@API(API.Status.MAINTAINED)
 public abstract class IndexMaintainer<M extends Message> {
     protected final IndexMaintainerState<M> state;
 

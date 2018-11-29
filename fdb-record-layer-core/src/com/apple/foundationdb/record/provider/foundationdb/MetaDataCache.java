@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 
 import javax.annotation.Nonnull;
@@ -32,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
  * The caller is responsible for calling all of the relevant the <code>set</code> methods
  * when something changes.
  */
+@API(API.Status.MAINTAINED)
 public interface MetaDataCache {
     /**
      * Get a version to use for cache validation of <code>-1</code> to skip validation.

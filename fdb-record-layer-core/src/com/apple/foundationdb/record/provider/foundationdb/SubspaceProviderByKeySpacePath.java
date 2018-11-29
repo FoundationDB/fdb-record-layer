@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
@@ -31,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
  * A SubspaceProvider wrapping a key space path. Getting the subspace from this provider might be blocking if it is
  * never retrieved before.
  */
+@API(API.Status.MAINTAINED)
 public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
     @Nonnull
     private KeySpacePath keySpacePath;

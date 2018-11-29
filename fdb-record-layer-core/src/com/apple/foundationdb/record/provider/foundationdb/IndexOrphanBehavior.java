@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
+
 /**
  * Provided during index scan operations in which associated records are being retrieved, to indicate
  * what should happen in response to an index entry which has no associated record.  This situation
  * should only arrive in indexes in which the maintenance of a delete is too expensive and must be
  * deferred to some kind of external support job.
  */
+@API(API.Status.STABLE)
 public enum IndexOrphanBehavior {
     /**
      * Throw an exception when an orphaned entry is hit. This is the default behavior for most

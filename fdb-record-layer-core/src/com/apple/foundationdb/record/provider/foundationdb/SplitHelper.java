@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
@@ -55,6 +56,7 @@ import java.util.concurrent.Executor;
 /**
  * Helper classes for splitting records across multiple key-value pairs.
  */
+@API(API.Status.INTERNAL)
 public class SplitHelper {
     /**
      * If a record is greater than this size (in bytes),

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.Key;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
  * To implement an aggregate function <code>XXX(value BY group)</code> using an index, the group needs to be fixed,
  * which will be true when the query has a {@link com.apple.foundationdb.record.query.RecordQuery#getFilter filter} on <code>group</code> (equivalent to SQL <code>WHERE group = ?</code>).
  */
+@API(API.Status.EXPERIMENTAL)
 public abstract class IndexAggregateGroupKeys {
     /**
      * Get the grouping key (GROUP BY) for the index aggregate from the given context. 
@@ -85,6 +87,7 @@ public abstract class IndexAggregateGroupKeys {
         return new IndexScan(recordKey, prefixSize);
     }
 
+    @API(API.Status.EXPERIMENTAL)
     protected static class Conditions extends IndexAggregateGroupKeys {
         @Nonnull
         private final List<Comparisons.Comparison> comparisons;
@@ -107,7 +110,8 @@ public abstract class IndexAggregateGroupKeys {
             return comparisons.size();
         }
     }
-    
+
+    @API(API.Status.EXPERIMENTAL)
     protected static class IndexScan extends IndexAggregateGroupKeys {
         @Nonnull
         private final String recordKey;

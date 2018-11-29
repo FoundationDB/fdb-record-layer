@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
@@ -36,6 +37,7 @@ import java.util.ServiceLoader;
 /**
  * A singleton {@link IndexMaintainerRegistry} that finds {@link IndexMaintainerFactory} classes in the classpath.
  */
+@API(API.Status.INTERNAL)
 public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaintainerRegistryImpl.class);
 

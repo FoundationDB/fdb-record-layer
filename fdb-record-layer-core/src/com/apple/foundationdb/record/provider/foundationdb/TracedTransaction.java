@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.KeySelector;
@@ -41,6 +42,7 @@ import java.util.function.Function;
 /**
  * A {@link Transaction} implementation that tracks its lifetime by saving the stack trace when it is created and logging that if it is not closed.
  */
+@API(API.Status.INTERNAL)
 public class TracedTransaction implements Transaction {
     private static final Logger LOGGER = LoggerFactory.getLogger(TracedTransaction.class);
 

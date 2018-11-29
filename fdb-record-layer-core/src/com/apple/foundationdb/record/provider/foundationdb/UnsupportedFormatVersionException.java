@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
 import javax.annotation.Nonnull;
@@ -31,6 +32,7 @@ import javax.annotation.Nullable;
  * @see FDBRecordStoreBase#getFormatVersion
  */
 @SuppressWarnings("serial")
+@API(API.Status.STABLE)
 public class UnsupportedFormatVersionException extends RecordCoreException {
     public UnsupportedFormatVersionException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);

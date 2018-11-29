@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
+
 /**
  * The result of an {@link IndexOperation}.
  */
+@API(API.Status.STABLE)
 public abstract class IndexOperationResult {
 }

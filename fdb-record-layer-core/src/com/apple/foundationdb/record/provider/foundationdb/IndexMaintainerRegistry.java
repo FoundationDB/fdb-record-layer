@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.IndexValidatorRegistry;
 import com.google.protobuf.Message;
 
@@ -29,7 +30,8 @@ import javax.annotation.Nonnull;
  * A registry of {@link IndexMaintainer}s.
  * @see IndexMaintainerFactory
  */
+@API(API.Status.STABLE)
 public interface IndexMaintainerRegistry extends IndexValidatorRegistry {
     @Nonnull
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(@Nonnull IndexMaintainerState<M> state);
+    <M extends Message> IndexMaintainer<M> getIndexMaintainer(@Nonnull IndexMaintainerState<M> state);
 }
