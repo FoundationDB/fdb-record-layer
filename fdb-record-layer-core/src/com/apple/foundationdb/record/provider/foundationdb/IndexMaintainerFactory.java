@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.google.protobuf.Message;
@@ -44,6 +45,7 @@ import javax.annotation.Nonnull;
  * @see IndexMaintainerRegistry
  *
  */
+@API(API.Status.STABLE)
 public interface IndexMaintainerFactory {
     /**
      * Get the index types supported by this factory.

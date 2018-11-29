@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -48,6 +49,7 @@ import java.util.Collection;
  * Unlike many other features in the Record Layer core, this has a retry loop.
  * </p>
  */
+@API(API.Status.MAINTAINED)
 public class OnlineIndexBuilder extends OnlineIndexBuilderBase<Message> {
     /**
      * Creates an <code>OnlineIndexBuilder</code> to construct an index within a record store built from the given store builder.

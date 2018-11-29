@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
 import com.google.protobuf.MessageOrBuilder;
@@ -30,6 +31,7 @@ import javax.annotation.Nonnull;
  * A hook for suppressing secondary indexing of some records.
  * @see FDBRecordStoreBase#indexMaintenanceFilter
  */
+@API(API.Status.MAINTAINED)
 public interface IndexMaintenanceFilter {
     /**
      * Whether to maintain a subset of the indexable values for the given record.

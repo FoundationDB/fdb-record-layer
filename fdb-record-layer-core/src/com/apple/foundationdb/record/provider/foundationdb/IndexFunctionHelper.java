@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -46,6 +47,7 @@ import java.util.stream.Stream;
 /**
  * Helper class for finding appropriate indexes for {@link IndexRecordFunction} and {@link IndexAggregateFunction}.
  */
+@API(API.Status.INTERNAL)
 public class IndexFunctionHelper {
     private IndexFunctionHelper() {
     }

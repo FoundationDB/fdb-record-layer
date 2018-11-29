@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
@@ -88,6 +89,7 @@ import java.util.function.Function;
  * </p>
  * @param <M> type used to represent stored records
  */
+@API(API.Status.MAINTAINED)
 public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable {
     /**
      * Default number of records to attempt to run in a single transaction.

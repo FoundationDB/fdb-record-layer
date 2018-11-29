@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.subspace.Subspace;
@@ -34,6 +35,7 @@ import javax.annotation.Nonnull;
  *
  * @param <M> type used to represent stored records
  */
+@API(API.Status.MAINTAINED)
 public class IndexMaintainerState<M extends Message> {
     @Nonnull
     public final FDBRecordStoreBase<M> store;

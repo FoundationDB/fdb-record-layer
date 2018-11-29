@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 
 import javax.annotation.Nonnull;
@@ -30,6 +31,7 @@ import javax.annotation.Nullable;
  * @see FDBRecordStoreBase.StoreExistenceCheck#ERROR_IF_EXISTS
  */
 @SuppressWarnings("serial")
+@API(API.Status.STABLE)
 public class RecordStoreAlreadyExistsException extends RecordCoreStorageException {
     public RecordStoreAlreadyExistsException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
@@ -50,6 +51,7 @@ import java.util.concurrent.Executor;
 /**
  * The basic cursor for scanning ranges of the FDB database.
  */
+@API(API.Status.MAINTAINED)
 public class KeyValueCursor implements BaseCursor<KeyValue> {
     @Nullable
     private final FDBRecordContext context;
@@ -228,6 +230,7 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
      *                     .build()
      * </code></pre>
      */
+    @API(API.Status.MAINTAINED)
     public static class Builder {
         private FDBRecordContext context = null;
         private final Subspace subspace;

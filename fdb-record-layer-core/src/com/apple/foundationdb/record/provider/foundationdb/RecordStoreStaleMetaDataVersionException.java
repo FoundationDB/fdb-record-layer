@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 
 import javax.annotation.Nonnull;
@@ -31,6 +32,7 @@ import javax.annotation.Nullable;
  * This happens when, perhaps due to caching, one instance writes with newer code and an instance yet to be upgraded encounters that record store.
  */
 @SuppressWarnings("serial")
+@API(API.Status.STABLE)
 public class RecordStoreStaleMetaDataVersionException extends RecordCoreStorageException {
     public RecordStoreStaleMetaDataVersionException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);

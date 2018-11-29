@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -30,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A SubspaceProvider wrapping a subspace. Getting the subspace from this provider is not blocking.
  */
+@API(API.Status.MAINTAINED)
 public class SubspaceProviderBySubspace implements SubspaceProvider {
     @Nonnull
     private Subspace subspace;

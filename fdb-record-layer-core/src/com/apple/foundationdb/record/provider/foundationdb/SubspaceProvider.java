@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
 
@@ -29,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Subspace provider can provide a subspace (might be blocking) and logging information to the subspace (non-blocking).
  */
+@API(API.Status.MAINTAINED)
 public interface SubspaceProvider {
     /**
      * This might be blocking if the subspace is never fetched before.
