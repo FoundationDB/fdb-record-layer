@@ -147,6 +147,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.textCo
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.textIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorderedUnion;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.any;
@@ -1490,6 +1491,13 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
             // Performs a union of the two text queries.
 
+            assertEquals(ImmutableSet.of(0L, 1L, 2L),
+                    ImmutableSet.copyOf(querySimpleDocumentsWithIndex(
+                            Query.or(
+                                    Query.field("text").text().containsPrefix("ency"),
+                                    Query.field("text").text().containsPrefix("civ")
+                    ), -792221133)));
+
             assertEquals(Arrays.asList(0L, 2L),
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("group").equalsValue(0L),
@@ -1498,6 +1506,15 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                                     Query.field("text").text().containsAll("king was 1016")
                             )
                     ), 1313228370));
+
+            assertEquals(ImmutableSet.of(0L, 2L),
+                    ImmutableSet.copyOf(querySimpleDocumentsWithIndex(Query.and(
+                            Query.field("group").equalsValue(0L),
+                            Query.or(
+                                    Query.field("text").text().containsAll("civil unclean blood", 4),
+                                    Query.field("text").text().containsPrefix("ency")
+                            )
+                    ), 578771303)));
 
             // Just a not. There's not a lot this could query could do to be performed because it can return
             // a lot of results by its very nature.
@@ -2145,8 +2162,30 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .build();
             RecordQueryPlan planWithAdditionalFilter = recordStore.planQuery(queryWithAdditionalFilter);
             assertThat(planWithAdditionalFilter, filter(equalTo(Query.field("group").equalsValue(0L)), descendant(textIndexScan(anything()))));
-            assertEquals(Collections.singletonList(0L),
-                    recordStore.executeQuery(planWithAdditionalFilter).map(FDBQueriedRecord::getPrimaryKey).map(tuple -> tuple.getLong(0)).asList().join());
+            List<Long> queryResults = recordStore.executeQuery(planWithAdditionalFilter).map(FDBQueriedRecord::getPrimaryKey).map(tuple -> tuple.getLong(0)).asList().join();
+            assertEquals(Collections.singletonList(0L), queryResults);
+
+            queryWithAdditionalFilter = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.or(
+                            Query.field("entry").oneOfThem().matches(Query.and(
+                                    Query.field("key").equalsValue("a"),
+                                    Query.field("value").text().containsPhrase("bury their parents strife")
+                            )),
+                            Query.field("entry").oneOfThem().matches(Query.and(
+                                    Query.field("key").equalsValue("b"),
+                                    Query.field("value").text().containsPrefix("th")
+                            ))
+                    ))
+                    .build();
+            planWithAdditionalFilter = recordStore.planQuery(queryWithAdditionalFilter);
+            assertThat(planWithAdditionalFilter, primaryKeyDistinct(unorderedUnion(
+                    descendant(textIndexScan(indexName(equalTo(MAP_ON_VALUE_INDEX.getName())))),
+                    descendant(textIndexScan(indexName(equalTo(MAP_ON_VALUE_INDEX.getName()))))
+            )));
+            queryResults = recordStore.executeQuery(planWithAdditionalFilter).map(FDBQueriedRecord::getPrimaryKey).map(tuple -> tuple.getLong(0)).asList().join();
+            assertEquals(3, queryResults.size());
+            assertEquals(ImmutableSet.of(0L, 1L, 2L), ImmutableSet.copyOf(queryResults));
 
             // Planner bug that can happen with certain malformed queries. This plan actually
             // returns records where the key and the value match in the same entry, but it is

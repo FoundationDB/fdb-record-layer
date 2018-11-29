@@ -139,6 +139,15 @@ public class PlanMatchers {
         return new UnionMatcher(childMatchers, comparisonKeyMatcher); // order of child arguments does not matter
     }
 
+    public static Matcher<RecordQueryPlan> unorderedUnion(@Nonnull Matcher<RecordQueryPlan> oneMatcher,
+                                                          @Nonnull Matcher<RecordQueryPlan> otherMatcher) {
+        return new UnorderedUnionMatcher(Arrays.asList(oneMatcher, otherMatcher)); // order of arguments does not matter
+    }
+
+    public static Matcher<RecordQueryPlan> unorderedUnion(@Nonnull List<Matcher<RecordQueryPlan>> childMatchers) {
+        return new UnorderedUnionMatcher(childMatchers); // order of child arguments does not matter
+    }
+
     public static Matcher<RecordQueryPlan> intersection(@Nonnull Matcher<RecordQueryPlan> oneMatcher,
                                                         @Nonnull Matcher<RecordQueryPlan> otherMatcher) {
         return new IntersectionMatcher(Arrays.asList(oneMatcher, otherMatcher)); // order of arguments does not matter

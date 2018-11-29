@@ -357,6 +357,8 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_TYPE_FILTER("number of type filter plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan}. */
         PLAN_UNION("number of union plans", false),
+        /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan}. */
+        PLAN_UNORDERED_UNION("number of unordered union plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan}. */
         PLAN_DISTINCT("number of unordered distinct plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan}. */

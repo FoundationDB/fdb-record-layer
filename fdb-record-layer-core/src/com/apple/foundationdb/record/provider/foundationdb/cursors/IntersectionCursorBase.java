@@ -268,6 +268,16 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
         return nextFuture;
     }
 
+    /**
+     * Given a list of cursor states, return a value based on the states of
+     * an appropriate type. This will only be called when all of the cursor states
+     * already all match, so this does not need to check for an intersection. The result
+     * of this method then determines the value that the cursor actually omits having
+     * found a match.
+     *
+     * @param cursorStates a list of cursor states with all cursors already having found a match
+     * @return the result to return given an intersection
+     */
     abstract U getNextResult(@Nonnull List<CursorState<T>> cursorStates);
 
     @Nullable
@@ -417,6 +427,7 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
         }
     }
 
+    @Nonnull
     protected static <T> List<CursorState<T>> createCursorStates(@Nonnull Function<byte[], RecordCursor<T>> left, @Nonnull Function<byte[], RecordCursor<T>> right,
                                                                  @Nullable byte[] continuation) {
         final RecordCursorProto.IntersectionContinuation parsed;
@@ -436,6 +447,7 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
         return cursorStates;
     }
 
+    @Nonnull
     protected static <T> List<CursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions, @Nullable byte[] continuation) {
         if (cursorFunctions.size() < 2) {
             throw new RecordCoreArgumentException("not enough child cursors provided to IntersectionCursor")

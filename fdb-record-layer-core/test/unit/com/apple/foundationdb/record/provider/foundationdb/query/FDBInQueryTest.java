@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -65,9 +66,11 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primar
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorderedUnion;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.any;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -616,7 +619,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
-     * Verify that an IN prevents index-use due to incompatible ordering.
+     * Verify that an IN requires an unordered union due to incompatible ordering.
      */
     @Test
     public void testInQueryOrDifferentCondition() throws Exception {
@@ -632,14 +635,17 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         // Without the join, these would be using the same index and so compatible, even though inequalities.
         // TODO: IN join in filter can prevent index scan merging (https://github.com/FoundationDB/fdb-record-layer/issues/9)
-        assertTrue(plan.hasFullRecordScan(), "should not try to use index");
+        assertThat(plan, primaryKeyDistinct(unorderedUnion(
+                indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([null],[910])")))),
+                inValues(equalTo(Arrays.asList(0, 2)), filter(any(QueryComponent.class), indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>"))))))
+        )));
         assertEquals(16, querySimpleRecordStore(NO_HOOK, plan, Function.identity(),
                 record -> {
                     assertThat(record.getNumValueUnique(), anyOf(lessThan(910), greaterThan(990)));
                     if (record.getNumValue3Indexed() > 990) {
                         assertThat(record.getNumValue2(), anyOf(is(2), is(0)));
                     }
-                }, context -> TestHelpers.assertDiscardedAtMost(84, context)));
+                }, context -> TestHelpers.assertDiscardedAtMost(13, context)));
     }
 
     /**
@@ -692,7 +698,10 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         // Two ordinary equals single-column index scans would be compatible on the following primary key, but
         // the IN loop inside one branch prevents that here. A regular filter would not.
         // TODO: IN join in filter can prevent index scan merging (https://github.com/FoundationDB/fdb-record-layer/issues/9)
-        assertTrue(plan.hasFullRecordScan(), "should not try to use index");
+        assertThat(plan, primaryKeyDistinct(unorderedUnion(
+                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
+                inValues(equalTo(Arrays.asList(1, 3)), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]")))))
+        )));
         Set<Long> dupes = new HashSet<>();
         assertEquals(50 + 10 + 10, querySimpleRecordStore(NO_HOOK, plan, Function.identity(),
                 record -> {
@@ -700,7 +709,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     assertTrue(record.getStrValueIndexed().equals("odd") ||
                                record.getNumValue3Indexed() == 1 ||
                                record.getNumValue3Indexed() == 3);
-                }, context -> TestHelpers.assertDiscardedAtMost(30, context)));
+                }, context -> TestHelpers.assertDiscardedAtMost(20, context)));
     }
 
     /**
