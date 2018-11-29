@@ -287,7 +287,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
         final Map<String, List<Integer>> positionMap = tokenizer.tokenizeToMap(text, recordTokenizerVersion, TextTokenizer.TokenizerMode.INDEX);
         final Pair<Integer, Integer> estimatedSize = estimateSize(groupingKey, positionMap, groupedKey, remove);
         final FDBStoreTimer.Event indexUpdateEvent = remove ? FDBStoreTimer.Events.DELETE_INDEX_ENTRY : FDBStoreTimer.Events.SAVE_INDEX_ENTRY;
-        if (LOGGER.isInfoEnabled()) {
+        if (LOGGER.isDebugEnabled()) {
             KeyValueLogMessage msg = KeyValueLogMessage.build("performed text tokenization",
                     "remove", remove,
                     "textSize", text.length(),
@@ -306,7 +306,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
                     "subspace", ByteArrayUtil2.loggable(state.store.getSubspace().getKey()),
                     "indexSubspace", ByteArrayUtil2.loggable(state.indexSubspace.getKey()),
                     "wroteIndex", true);
-            LOGGER.info(msg.toString());
+            LOGGER.debug(msg.toString());
         }
         if (positionMap.isEmpty()) {
             if (state.store.getTimer() != null) {
