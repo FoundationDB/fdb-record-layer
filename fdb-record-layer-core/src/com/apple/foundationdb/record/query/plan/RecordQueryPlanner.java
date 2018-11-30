@@ -263,7 +263,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
         ScanComparisons scanComparisons = null;
-        if (planContext.query.getRecordTypes().size() == 1 &&
+        if (index == null &&
+                planContext.query.getRecordTypes().size() == 1 &&
                 planContext.commonPrimaryKey != null &&
                 Key.Expressions.hasRecordTypePrefix(planContext.commonPrimaryKey)) {
             // Can scan just the one requested record type.
