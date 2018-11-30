@@ -58,8 +58,12 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -186,6 +190,33 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
             assertThat(plan, scan(bounds(hasTupleString("[IS MySimpleRecord]"))));
+        }
+    }
+
+    @Test
+    public void testIndexScan() throws Exception {
+        // This means that some record types do not have a record type key, so an index scan will be better.
+        RecordMetaDataHook hook = metaData -> {
+            final RecordTypeBuilder t1 = metaData.getRecordType("MySimpleRecord");
+            final KeyExpression pkey = concat(recordType(), field("rec_no"));
+            t1.setPrimaryKey(pkey);
+            metaData.removeIndex(COUNT_INDEX.getName());
+            metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
+        };
+
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+
+            assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
+                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+            assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(unbounded()))));
         }
     }
 
