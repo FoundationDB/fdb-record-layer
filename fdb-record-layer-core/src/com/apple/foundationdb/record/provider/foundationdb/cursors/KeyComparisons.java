@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.tuple.ByteArrayUtil;
-import com.apple.foundationdb.tuple.Tuple;
 
 import java.util.Comparator;
 import java.util.List;
@@ -43,11 +42,7 @@ public class KeyComparisons {
         } else if (o1 instanceof byte[]) {
             return ByteArrayUtil.compareUnsigned((byte[])o1, (byte[])o2);
         } else if (o1 instanceof List) {
-            // TODO: Use KEY_COMPARATOR recursively in KeyComparisons.FIELD_COMPARATOR instead of tuple packing (https://github.com/FoundationDB/fdb-record-layer/issues/15)
-            return ByteArrayUtil.compareUnsigned(
-                    Tuple.from(o1).pack(),
-                    Tuple.from(o2).pack()
-            );
+            return KeyComparisons.KEY_COMPARATOR.compare((List<Object>)o1, (List<Object>)o2);
         } else {
             return ((Comparable)o1).compareTo(o2);
         }
