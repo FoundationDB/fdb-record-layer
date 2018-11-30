@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -28,6 +30,7 @@ import javax.annotation.Nonnull;
  * NOTE: When catching an {@code InterruptedException} and rethrowing as this wrapping exception, Java best practice
  * is to call {@code Thread.currentThread().interrupt()} so that the interrupt is not lost.
  */
+@API(API.Status.STABLE)
 public class RecordCoreInterruptedException extends RecordCoreException {
     private static final long serialVersionUID = 1;
 

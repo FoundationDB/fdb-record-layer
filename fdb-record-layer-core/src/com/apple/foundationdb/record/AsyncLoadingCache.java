@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -34,6 +35,7 @@ import java.util.function.Supplier;
  * @param <K> key type for the cache
  * @param <V> value type for the cache
  */
+@API(API.Status.UNSTABLE)
 public class AsyncLoadingCache<K, V> {
     @Nonnull
     private final Cache<K, CompletableFuture<V>> cache;

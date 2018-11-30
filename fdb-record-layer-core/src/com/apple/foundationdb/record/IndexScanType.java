@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import java.util.Objects;
 
 /**
@@ -30,6 +32,7 @@ import java.util.Objects;
  *
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer#scan
  */
+@API(API.Status.MAINTAINED)
 public class IndexScanType implements PlanHashable {
     private final String name;
 

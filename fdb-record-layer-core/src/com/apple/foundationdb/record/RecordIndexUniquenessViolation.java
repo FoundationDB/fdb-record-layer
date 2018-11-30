@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.tuple.Tuple;
@@ -35,6 +36,7 @@ import javax.annotation.Nullable;
  * {@code commit} <em>will not</em> complete successfully, whether it was thrown earlier or from {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext#commit}
  * itself.
  */
+@API(API.Status.STABLE)
 @SuppressWarnings({"serial", "squid:S1948", "squid:MaximumInheritanceDepth"})
 public class RecordIndexUniquenessViolation extends RecordCoreException {
     @Nonnull private Index index;

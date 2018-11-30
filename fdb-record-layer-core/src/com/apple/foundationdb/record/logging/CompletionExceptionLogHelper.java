@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.logging;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -34,6 +36,7 @@ import java.util.concurrent.ExecutionException;
  * in an appropriate subclass of {@link com.apple.foundationdb.record.RecordCoreException}, so that
  * is returned, after remembering the original exception as a suppressed exception.
  */
+@API(API.Status.MAINTAINED)
 public class CompletionExceptionLogHelper {
 
     private static boolean addSuppressed = true;

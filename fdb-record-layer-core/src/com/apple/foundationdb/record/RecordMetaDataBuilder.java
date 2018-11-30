@@ -604,6 +604,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      */
     @Nullable
     @Deprecated
+    @API(API.Status.DEPRECATED)
     public KeyExpression getRecordCountKey() {
         return recordCountKey;
     }
@@ -615,6 +616,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @deprecated use {@code COUNT} type indexes instead
      */
     @Deprecated
+    @API(API.Status.DEPRECATED)
     public void setRecordCountKey(KeyExpression recordCountKey) {
         if (!Objects.equals(this.recordCountKey, recordCountKey)) {
             version += 1;

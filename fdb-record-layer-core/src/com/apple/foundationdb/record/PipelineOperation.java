@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 /**
  * Kind of asynchronous pipelined operation being performed.
  *
@@ -28,6 +30,7 @@ package com.apple.foundationdb.record;
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.PipelineSizer
  * @see RecordCursor#mapPipelined
  */
+@API(API.Status.MAINTAINED)
 public class PipelineOperation {
     private final String name;
 

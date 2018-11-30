@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -27,6 +29,7 @@ import javax.annotation.Nonnull;
  * These states might differ between record stores that have
  * otherwise identical meta-data.
  */
+@API(API.Status.MAINTAINED)
 public enum IndexState {
     /**
      * This is the default state for an index. It is

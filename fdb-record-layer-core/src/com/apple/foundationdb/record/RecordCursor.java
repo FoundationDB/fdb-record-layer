@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.cursors.EmptyCursor;
@@ -81,6 +82,7 @@ import java.util.function.Function;
  *
  * @param <T> the type of elements of the cursor
  */
+@API(API.Status.STABLE)
 public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     /**
      * Asynchronously check whether there are more records available from the cursor.

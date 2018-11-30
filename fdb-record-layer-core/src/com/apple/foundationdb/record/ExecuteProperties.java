@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.ReadTransaction;
 
 import javax.annotation.Nonnull;
@@ -36,6 +37,7 @@ import java.util.List;
  * <li>limit on number of key-value pairs scanned</li>
  * </ul>
  */
+@API(API.Status.MAINTAINED)
 public class ExecuteProperties {
     /**
      * A constant representing that no time limit is set.

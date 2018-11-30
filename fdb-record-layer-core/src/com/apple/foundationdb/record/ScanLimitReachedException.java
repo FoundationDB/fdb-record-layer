@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 
 import javax.annotation.Nonnull;
@@ -30,6 +31,7 @@ import javax.annotation.Nonnull;
  * @see ExecuteProperties.Builder#setFailOnScanLimitReached(boolean)
  * @see CursorLimitManager#tryRecordScan()
  */
+@API(API.Status.STABLE)
 @SuppressWarnings("serial")
 public class ScanLimitReachedException extends RecordCoreException {
     public ScanLimitReachedException(@Nonnull String msg) {

@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 /**
  * Names of core-supported query functions.
  */
+@API(API.Status.MAINTAINED)
 public class FunctionNames {
 
     /* Aggregate functions */

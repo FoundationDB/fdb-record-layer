@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import java.util.function.Function;
 
@@ -28,6 +30,7 @@ import java.util.function.Function;
  * Among these properties is an {@link ExecuteProperties}, which holds the properties that pertain to an entire
  * execution.
  */
+@API(API.Status.MAINTAINED)
 public class ScanProperties {
     public static final ScanProperties FORWARD_SCAN = new ScanProperties(ExecuteProperties.newBuilder()
             .setReturnedRowLimit(Integer.MAX_VALUE)

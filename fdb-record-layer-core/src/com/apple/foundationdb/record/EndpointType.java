@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -30,6 +32,7 @@ import javax.annotation.Nonnull;
  * There is also a special type for the range of values where a string element of a {@code Tuple} begins with a given string.
  * </p>
  */
+@API(API.Status.MAINTAINED)
 public enum EndpointType {
     TREE_START,
     TREE_END,

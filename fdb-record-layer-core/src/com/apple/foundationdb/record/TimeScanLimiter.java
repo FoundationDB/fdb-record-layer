@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,7 @@ import org.slf4j.LoggerFactory;
  *
  * @see com.apple.foundationdb.record.cursors.CursorLimitManager
  */
+@API(API.Status.MAINTAINED)
 public class TimeScanLimiter {
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeScanLimiter.class);
 

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
@@ -31,6 +33,7 @@ import java.util.Map;
  * A binding map can also have a parent from which values are taken if they are absent in the child.
  * </p>
  */
+@API(API.Status.MAINTAINED)
 public class Bindings {
 
     /**

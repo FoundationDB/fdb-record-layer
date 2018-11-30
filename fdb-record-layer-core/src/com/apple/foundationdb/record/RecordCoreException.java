@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.util.LoggableException;
 
 import javax.annotation.Nonnull;
@@ -28,6 +29,7 @@ import javax.annotation.Nullable;
 /**
  * An exception thrown by the core of the Record Layer.
  */
+@API(API.Status.STABLE)
 @SuppressWarnings("serial")
 public class RecordCoreException extends LoggableException {
     public RecordCoreException(@Nonnull String msg, @Nullable Object ... keyValues) {
