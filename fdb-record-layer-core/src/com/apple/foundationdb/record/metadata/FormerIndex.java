@@ -57,18 +57,46 @@ public class FormerIndex {
                 proto.hasFormerName() ? proto.getFormerName() : null);
     }
 
+    /**
+     * Get the subspace key formerly occupied by the index.
+     *
+     * This subspace will be cleared for record stores old enough to have seen the index.
+     * @return the index subspace key
+     */
     public Object getSubspaceKey() {
         return subspaceKey;
     }
 
+    /**
+     * Synonym for {@link #getRemovedVersion}.
+     * @return the removed version
+     * @deprecated use {@link #getRemovedVersion}
+     */
+    @Deprecated
+    public int getVersion() {
+        return addedVersion;
+    }
+
+    /**
+     * Get the version at which the index was first added.
+     * @return the added version
+     */
     public int getAddedVersion() {
         return addedVersion;
     }
 
+    /**
+     * Get the version at which the index was removed.
+     * @return the removed version
+     */
     public int getRemovedVersion() {
         return removedVersion;
     }
 
+    /**
+     * Get the name under which the index existed, if known.
+     * @return the former name
+     */
     @Nullable
     public String getFormerName() {
         return formerName;

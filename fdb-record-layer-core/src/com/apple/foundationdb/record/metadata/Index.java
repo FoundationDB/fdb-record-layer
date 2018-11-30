@@ -333,18 +333,54 @@ public class Index {
         return total;
     }
 
+    /**
+     * Synonynm for {@link #getLastModifiedVersion}.
+     * @return the last modified version
+     * @deprecated use {@link #getLastModifiedVersion}.
+     */
+    public int getVersion() {
+        return lastModifiedVersion;
+    }
+
+    /**
+     * Synonynm for {@link #setLastModifiedVersion}.
+     * @param version the last modified version
+     * @deprecated use {@link #setLastModifiedVersion}.
+     */
+    public void setVersion(int version) {
+        this.lastModifiedVersion = version;
+    }
+
+    /**
+     * Get the version at which the index was first added.
+     * @return the added version
+     */
     public int getAddedVersion() {
         return addedVersion;
     }
 
+    /**
+     * Set the version at which the index was first added.
+     * @param addedVersion the added version
+     */
     public void setAddedVersion(int addedVersion) {
         this.addedVersion = addedVersion;
     }
 
+    /**
+     * Get the version at which the index was changed.
+     *
+     * Any record store older than this will need to have the index rebuilt.
+     * @return the last modified version
+     */
     public int getLastModifiedVersion() {
         return lastModifiedVersion;
     }
 
+    /**
+     * Set the version at which the index was changed.
+     * @param lastModifiedVersion the last modified version
+     */
     public void setLastModifiedVersion(int lastModifiedVersion) {
         this.lastModifiedVersion = lastModifiedVersion;
     }
