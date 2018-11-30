@@ -3213,9 +3213,13 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
     public void removeFormerIndex(FormerIndex formerIndex) {
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug(KeyValueLogMessage.of("removing index",
-                                           subspaceProvider.logKey(), subspaceProvider,
-                                           LogMessageKeys.SUBSPACE_KEY, formerIndex.getSubspaceKey()));
+            KeyValueLogMessage msg = KeyValueLogMessage.build("removing index",
+                    subspaceProvider.logKey(), subspaceProvider,
+                    LogMessageKeys.SUBSPACE_KEY, formerIndex.getSubspaceKey());
+            if (formerIndex.getFormerName() != null) {
+                msg.addKeyAndValue(LogMessageKeys.INDEX_NAME, formerIndex.getFormerName());
+            }
+            LOGGER.debug(msg.toString());
         }
 
         final long startTime = System.nanoTime();

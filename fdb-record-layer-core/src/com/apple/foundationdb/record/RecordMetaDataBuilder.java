@@ -575,7 +575,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             recordType.getMultiTypeIndexes().remove(index);
         }
         universalIndexes.remove(name);
-        formerIndexes.add(new FormerIndex(index.getSubspaceKey(), index.getAddedVersion(), ++version));
+        formerIndexes.add(new FormerIndex(index.getSubspaceKey(), index.getAddedVersion(), ++version, name));
     }
 
     public boolean isSplitLongRecords() {

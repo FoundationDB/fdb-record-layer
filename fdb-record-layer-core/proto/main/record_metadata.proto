@@ -68,6 +68,7 @@ message RecordType {
 }
 
 message FormerIndex {
+  optional string former_name = 3;
   optional bytes subspace_key = 5;
   optional int32 removed_version = 6;
   optional int32 added_version = 10;

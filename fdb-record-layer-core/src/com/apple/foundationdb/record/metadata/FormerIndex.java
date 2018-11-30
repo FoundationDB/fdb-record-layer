@@ -26,6 +26,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
 
@@ -40,15 +41,20 @@ public class FormerIndex {
     private final Object subspaceKey;
     private final int addedVersion;
     private final int removedVersion;
+    @Nullable
+    private final String formerName;
 
-    public FormerIndex(@Nonnull Object subspaceKey, int addedVersion, int removedVersion) {
+    public FormerIndex(@Nonnull Object subspaceKey, int addedVersion, int removedVersion, @Nullable String formerName) {
         this.subspaceKey = subspaceKey;
         this.addedVersion = addedVersion;
         this.removedVersion = removedVersion;
+        this.formerName = formerName;
     }
 
     public FormerIndex(@Nonnull RecordMetaDataProto.FormerIndex proto) {
-        this(decodeSubspaceKey(proto.getSubspaceKey()), proto.getAddedVersion(), proto.getRemovedVersion());
+        this(decodeSubspaceKey(proto.getSubspaceKey()),
+                proto.getAddedVersion(), proto.getRemovedVersion(),
+                proto.hasFormerName() ? proto.getFormerName() : null);
     }
 
     public Object getSubspaceKey() {
@@ -61,6 +67,11 @@ public class FormerIndex {
 
     public int getRemovedVersion() {
         return removedVersion;
+    }
+
+    @Nullable
+    public String getFormerName() {
+        return formerName;
     }
 
     @Nonnull
@@ -79,7 +90,11 @@ public class FormerIndex {
     @Override
     public String toString() {
         StringBuilder str = new StringBuilder();
-        str.append("FormerIndex {").append(subspaceKey).append("}#").append(addedVersion).append("-").append(removedVersion);
+        str.append("FormerIndex {").append(subspaceKey);
+        if (formerName != null) {
+            str.append("=").append(formerName);
+        }
+        str.append("}#").append(addedVersion).append("-").append(removedVersion);
         return str.toString();
     }
 
