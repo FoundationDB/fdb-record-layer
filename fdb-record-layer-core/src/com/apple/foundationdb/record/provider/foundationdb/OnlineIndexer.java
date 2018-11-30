@@ -65,7 +65,7 @@ import java.util.Map;
  * }
  * </code></pre>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class OnlineIndexer extends OnlineIndexerBase<Message> {
     protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                             @Nonnull FDBRecordStoreBuilder<Message, ? extends FDBRecordStoreBase<Message>> recordStoreBuilder,
@@ -86,7 +86,7 @@ public class OnlineIndexer extends OnlineIndexerBase<Message> {
      * </code></pre>
      *
      */
-    @API(API.Status.MAINTAINED)
+    @API(API.Status.UNSTABLE)
     public static class Builder extends OnlineIndexerBaseBuilder<Message> {
         protected Builder() {
             super();

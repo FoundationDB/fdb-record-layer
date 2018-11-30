@@ -38,7 +38,7 @@ import java.util.Map;
  * A builder for {@link OnlineIndexerBase}.
  * @param <M> type of message
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class OnlineIndexerBaseBuilder<M extends Message> {
     @Nullable
     protected FDBDatabaseRunner runner;

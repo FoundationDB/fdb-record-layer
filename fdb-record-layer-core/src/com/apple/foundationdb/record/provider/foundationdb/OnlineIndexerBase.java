@@ -85,7 +85,7 @@ import java.util.function.Function;
  * </p>
  * @param <M> type used to represent stored records
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.UNSTABLE)
 public class OnlineIndexerBase<M extends Message> implements AutoCloseable {
     /**
      * Default number of records to attempt to run in a single transaction.
