@@ -66,6 +66,20 @@ public class MetaDataValidatorTest {
     }
 
     @Test
+    public void badPrimaryKeyField() {
+        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        metaData.getRecordType("MySimpleRecord").setPrimaryKey(Key.Expressions.field("no_such_field"));
+        assertThrows(KeyExpression.InvalidExpressionException.class, () -> validate(metaData));
+    }
+
+    @Test
+    public void badPrimaryKeyType() {
+        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords4Proto.getDescriptor());
+        metaData.getRecordType("RestaurantReviewer").setPrimaryKey(Key.Expressions.field("stats"));
+        assertThrows(Query.InvalidExpressionException.class, () -> validate(metaData));
+    }
+
+    @Test
     public void badIndexField() {
         RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
         metaData.addIndex("MySimpleRecord", "no_such_field");

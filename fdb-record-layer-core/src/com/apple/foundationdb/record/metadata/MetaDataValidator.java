@@ -69,6 +69,7 @@ public class MetaDataValidator implements RecordMetaDataProvider {
     }
 
     protected void validatePrimaryKeyForRecordType(@Nonnull KeyExpression primaryKey, @Nonnull RecordType recordType) {
+        primaryKey.validate(recordType.getDescriptor());
         if (primaryKey.createsDuplicates()) {
             throw new MetaDataException("Primary key for " + recordType.getName() +
                                         " can generate more than one entry");
