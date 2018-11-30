@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async;
 
+import com.apple.foundationdb.API;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import javax.annotation.Nonnull;
@@ -47,6 +48,7 @@ import static com.apple.foundationdb.async.AsyncUtil.whileTrue;
 /**
  * More helpers in the spirit of {@link AsyncUtil}.
  */
+@API(API.Status.UNSTABLE)
 public class MoreAsyncUtil {
 
     private static ScheduledThreadPoolExecutor scheduledThreadPoolExecutor
@@ -778,6 +780,7 @@ public class MoreAsyncUtil {
      * @param future the future to check for normal completion
      * @return whether the future has completed without exception
      */
+    @API(API.Status.MAINTAINED)
     public static boolean isCompletedNormally(@Nonnull CompletableFuture<?> future) {
         return future.isDone() && !future.isCompletedExceptionally();
     }
@@ -793,6 +796,7 @@ public class MoreAsyncUtil {
      * @param unit the time unit of the delay parameter
      * @return a {@link CompletableFuture} that will fire after the given delay
      */
+    @API(API.Status.MAINTAINED)
     @Nonnull
     public static CompletableFuture<Void> delayedFuture(long delay, @Nonnull TimeUnit unit) {
         if (delay <= 0) {
@@ -807,18 +811,14 @@ public class MoreAsyncUtil {
      * Close the given iterator, or at least cancel it.
      * @param iterator iterator to close
      */
-    public static void closeIterator(AsyncIterator<?> iterator) {
+    @API(API.Status.MAINTAINED)
+    public static void closeIterator(@Nonnull AsyncIterator<?> iterator) {
         if (iterator instanceof CloseableAsyncIterator) {
             ((CloseableAsyncIterator<?>)iterator).close();
         } else {
             iterator.cancel();
         }
     }
-
-    /**
-     * This is a static class, and should not be instantiated.
-     **/
-    private MoreAsyncUtil() {}
 
     /**
      * A {@code Boolean} function that is always true.
@@ -832,4 +832,9 @@ public class MoreAsyncUtil {
             return true;
         }
     }
+
+    /**
+     * This is a static class, and should not be instantiated.
+     **/
+    private MoreAsyncUtil() {}
 }

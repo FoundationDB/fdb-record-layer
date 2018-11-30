@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.map;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import java.util.AbstractMap;
@@ -37,6 +38,7 @@ import javax.annotation.Nonnull;
  * space inefficient when serializing an entry as the {@link Tuple} encoding is
  * designed to preserve order, which is unnecessary for values.
  */
+@API(API.Status.EXPERIMENTAL)
 public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
     @Nonnull
     static final byte[] PREFIX = new byte[]{0x10};

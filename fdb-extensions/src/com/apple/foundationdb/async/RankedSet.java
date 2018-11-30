@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
@@ -55,8 +56,8 @@ import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
  * its rank.
  * </p>
  */
-public class RankedSet
-{
+@API(API.Status.MAINTAINED)
+public class RankedSet {
     private static final int LEVEL_FAN_POW = 4;
     private static final int[] LEVEL_FAN_VALUES; // 2^(l * FAN) - 1 per level
     public static final int MAX_LEVELS = Integer.SIZE / LEVEL_FAN_POW;

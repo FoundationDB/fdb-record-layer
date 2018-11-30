@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.map;
 
+import com.apple.foundationdb.API;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,6 +35,7 @@ import javax.annotation.Nonnull;
  * @param <K> type of the keys in the {@link BunchedMap}
  * @param <V> type of the values in the {@link BunchedMap}
  */
+@API(API.Status.EXPERIMENTAL)
 public interface BunchedSerializer<K,V> {
 
     /**

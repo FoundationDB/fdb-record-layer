@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.async;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import java.util.NoSuchElementException;
 
@@ -39,6 +41,7 @@ import java.util.NoSuchElementException;
  *
  * @param <T> type of elements returned by the scan
  */
+@API(API.Status.STABLE)
 public interface AsyncPeekIterator<T> extends AsyncIterator<T> {
     /**
      * Get the next item of the scan without advancing it.

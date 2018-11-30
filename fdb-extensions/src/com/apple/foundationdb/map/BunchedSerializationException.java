@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.map;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
 import javax.annotation.Nonnull;
@@ -32,6 +33,7 @@ import java.util.Arrays;
  * with the exception such as what inputs into the serializer caused the exception
  * to be thrown.
  */
+@API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("serial")
 public class BunchedSerializationException extends BunchedMapException {
     @Nullable
