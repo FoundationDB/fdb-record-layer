@@ -125,8 +125,9 @@ public class PlanOrderingKey {
                     // plus the text column itself.
                     prefixSize = groupingSize + suffixSize + 1;
                 } else {
-                    // Can only using the grouping columns as the text index itself uses an inequality comparison
-                    prefixSize = groupingSize;
+                    // The inequality text comparisons do not really allow for combining results as they are ordered
+                    // by the token that the prefix scan just so happened to hit.
+                    return null;
                 }
             } else {
                 // Some unknown index plan. Maybe this should throw an error?

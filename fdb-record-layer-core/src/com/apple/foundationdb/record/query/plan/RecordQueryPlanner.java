@@ -69,6 +69,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.google.common.annotations.VisibleForTesting;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 
@@ -1128,13 +1129,35 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
         List<ScoredPlan> subplans = new ArrayList<>(filter.getChildren().size());
+        boolean allHaveOrderingKey = true;
         for (QueryComponent subfilter : filter.getChildren()) {
             ScoredPlan subplan = planFilter(planContext, subfilter, true);
-            if (subplan == null || subplan.planOrderingKey == null) {
+            if (subplan == null) {
                 return null;
+            }
+            if (subplan.planOrderingKey == null) {
+                allHaveOrderingKey = false;
             }
             subplans.add(subplan);
         }
+        // If the child plans are compatibly ordered, return a union plan that removes duplicates from the
+        // children as they come. If the child plans aren't ordered that way, then try and plan a union that
+        // neither removes duplicates nor requires the children be in order.
+        if (allHaveOrderingKey) {
+            final ScoredPlan orderedUnionPlan = planOrderedUnion(planContext, subplans);
+            if (orderedUnionPlan != null) {
+                return orderedUnionPlan;
+            }
+        }
+        final ScoredPlan unorderedUnionPlan = planUnorderedUnion(planContext, subplans);
+        if (unorderedUnionPlan != null) {
+            return planRemoveDuplicates(planContext, unorderedUnionPlan);
+        }
+        return null;
+    }
+
+    @Nullable
+    private ScoredPlan planOrderedUnion(@Nonnull PlanContext planContext, @Nonnull List<ScoredPlan> subplans) {
         final KeyExpression sort = planContext.query.getSort();
         KeyExpression candidateKey = planContext.commonPrimaryKey;
         boolean candidateOnly = false;
@@ -1165,6 +1188,25 @@ public class RecordQueryPlanner implements QueryPlanner {
             throw new RecordQueryPlanComplexityException(unionPlan);
         }
         return new ScoredPlan(1, unionPlan, Collections.emptyList(), anyDuplicates, includedRankComparisons);
+    }
+
+    @Nullable
+    private ScoredPlan planUnorderedUnion(@Nonnull PlanContext planContext, @Nonnull List<ScoredPlan> subplans) {
+        final KeyExpression sort = planContext.query.getSort();
+        if (sort != null) {
+            return null;
+        }
+        List<RecordQueryPlan> childPlans = new ArrayList<>(subplans.size());
+        Set<RankComparisons.RankComparison> includedRankComparisons = null;
+        for (ScoredPlan subplan : subplans) {
+            childPlans.add(subplan.plan);
+            includedRankComparisons = mergeRankComparisons(includedRankComparisons, subplan.includedRankComparisons);
+        }
+        final RecordQueryUnorderedUnionPlan unionPlan = new RecordQueryUnorderedUnionPlan(childPlans, subplans.get(0).plan.isReverse());
+        if (unionPlan.getComplexity() > complexityThreshold) {
+            throw new RecordQueryPlanComplexityException(unionPlan);
+        }
+        return new ScoredPlan(1, unionPlan, Collections.emptyList(), true, includedRankComparisons);
     }
 
     @Nullable

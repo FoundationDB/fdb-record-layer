@@ -30,18 +30,20 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedExactly;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
@@ -49,20 +51,19 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.everyLeaf;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorderedUnion;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -328,7 +329,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
-     * Verify that an OR of inequalities on different fields does not use union, since there is no compatible ordering.
+     * Verify that an OR of inequalities on different fields uses an unordered union, since there is no compatible ordering.
      */
     @Test
     public void testOrQuery5() throws Exception {
@@ -341,10 +342,13 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").greaterThan(3)))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(anything(), typeFilter(anything(), scan(bounds(unbounded())))));
-        assertEquals(-1019253328, plan.planHash());
+        assertThat(plan, primaryKeyDistinct(unorderedUnion(
+                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([null],[m])")))),
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>")))))));
+        assertEquals(-1569447744, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
+            context.getTimer().reset();
             openSimpleRecordStore(context, hook);
             int i = 0;
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
@@ -358,7 +362,60 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 }
             }
             assertEquals(50 + 10, i);
-            assertDiscardedAtMost(40, context);
+            assertDiscardedAtMost(10, context);
+        }
+    }
+
+    @ValueSource(ints = {1, 2, 5, 7})
+    @ParameterizedTest(name = "testOrQuery5WithLimits [limit = {0}]")
+    public void testOrQuery5WithLimits(int limit) throws Exception {
+        RecordMetaDataHook hook = complexQuerySetupHook();
+        complexQuerySetup(hook);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("str_value_indexed").lessThan("m"),
+                        Query.field("num_value_3_indexed").greaterThan(3)))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, primaryKeyDistinct(unorderedUnion(
+                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([null],[m])")))),
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>")))))));
+        assertEquals(-1569447744, plan.planHash());
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            boolean done = false;
+            byte[] continuation = null;
+            Set<Tuple> uniqueKeys = new HashSet<>();
+            int itr = 0;
+            while (!done) {
+                ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                        .setReturnedRowLimit(limit)
+                        .build();
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext, continuation, executeProperties)) {
+                    int i = 0;
+                    Set<Tuple> keysThisIteration = new HashSet<>();
+                    while (cursor.hasNext()) {
+                        FDBQueriedRecord<Message> rec = cursor.next();
+                        TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                        myrec.mergeFrom(rec.getRecord());
+                        assertTrue(myrec.getStrValueIndexed().compareTo("m") < 0 ||
+                                   myrec.getNumValue3Indexed() > 3);
+                        uniqueKeys.add(rec.getPrimaryKey());
+                        assertThat(keysThisIteration.add(rec.getPrimaryKey()), is(true));
+                        i++;
+                    }
+                    continuation = cursor.getContinuation();
+                    done = cursor.getNoNextReason().isSourceExhausted();
+                    if (!done) {
+                        assertEquals(limit, i);
+                    }
+                }
+                itr++;
+                assertThat("exceeded maximum iterations", itr, lessThan(500));
+            }
+            assertEquals(50 + 10, uniqueKeys.size());
         }
     }
 
