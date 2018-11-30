@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -33,7 +35,8 @@ import java.util.Objects;
  * any splits have been removed), and its version. It also includes sizing information describing
  * the record's on-disk footprint.
  */
-class FDBRawRecord implements FDBStoredSizes {
+@API(API.Status.EXPERIMENTAL)
+public class FDBRawRecord implements FDBStoredSizes {
     @Nonnull private final Tuple primaryKey;
     @Nonnull private final byte[] rawRecord;
     @Nullable private final FDBRecordVersion version;
@@ -50,6 +53,7 @@ class FDBRawRecord implements FDBStoredSizes {
         this(primaryKey, rawRecord, version, size.getKeyCount(), size.getKeySize(), size.getValueSize(), size.isSplit(), size.isVersionedInline());
     }
 
+    @SpotBugsSuppressWarnings(value = {"EI"}, justification = "copying large byte arrays is expensive")
     @SuppressWarnings("squid:S00107") // too many parameters
     public FDBRawRecord(@Nonnull Tuple primaryKey, @Nonnull byte[] rawRecord, @Nullable FDBRecordVersion version,
                         int keyCount, int keySize, int valueSize, boolean split, boolean versionedInline) {
@@ -109,6 +113,7 @@ class FDBRawRecord implements FDBStoredSizes {
      *
      * @return the raw representation of this record
      */
+    @SpotBugsSuppressWarnings(value = {"EI"}, justification = "copying large byte arrays is expensive")
     @Nonnull
     public byte[] getRawRecord() {
         return rawRecord;
