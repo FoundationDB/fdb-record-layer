@@ -1602,7 +1602,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
 
         // Build the index
-        try (OnlineIndexBuilder onlineIndexBuilder = new OnlineIndexBuilder(recordStore, "record_count")) {
+        try (OnlineIndexer onlineIndexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "record_count")) {
             onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {

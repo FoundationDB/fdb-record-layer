@@ -427,7 +427,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
             timer.reset();
 
             // Build in this transaction.
-            try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(recordStore, "newIndex")) {
+            try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
                 indexBuilder.rebuildIndex(recordStore);
             }
             recordStore.markIndexReadable("newIndex").join();
@@ -455,7 +455,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         timer.reset();
 
         // Build in multiple transactions.
-        try (OnlineIndexBuilder indexBuilder = new OnlineIndexBuilder(recordStore, "newIndex")) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.forRecordStoreAndIndex(recordStore, "newIndex")) {
             indexBuilder.buildIndex();
         }
 

@@ -2808,7 +2808,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         }
 
         long startTime = System.nanoTime();
-        OnlineIndexBuilderBase<M> indexBuilder = new OnlineIndexBuilderBase<>(this, index, recordTypes);
+        OnlineIndexerBase<M> indexBuilder = OnlineIndexerBase.<M>newBaseBuilder().setRecordStore(this).setIndex(index).setRecordTypes(recordTypes).build();
         CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this)
                 .thenCompose(vignore -> markIndexReadable(index)
                         .handle((b, t) -> {

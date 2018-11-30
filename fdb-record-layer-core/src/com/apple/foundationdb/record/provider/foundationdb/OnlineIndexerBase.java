@@ -1,5 +1,5 @@
 /*
- * OnlineIndexBuilderBase.java
+ * OnlineIndexerBase.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,11 +31,9 @@ import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -44,7 +42,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -59,7 +56,6 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -89,8 +85,8 @@ import java.util.function.Function;
  * </p>
  * @param <M> type used to represent stored records
  */
-@API(API.Status.MAINTAINED)
-public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable {
+@API(API.Status.UNSTABLE)
+public class OnlineIndexerBase<M extends Message> implements AutoCloseable {
     /**
      * Default number of records to attempt to run in a single transaction.
      */
@@ -110,7 +106,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
 
     @Nonnull private static final byte[] START_BYTES = new byte[]{0x00};
     @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
-    @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexBuilderBase.class);
+    @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerBase.class);
 
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
@@ -121,14 +117,31 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
     @Nonnull private final Index index;
     @Nonnull private final Collection<RecordType> recordTypes;
     @Nonnull private final TupleRange recordsRange;
-    private int limit;
-    private int maxRetries;
-    private int recordsPerSecond;
+    private int limit;  // Not final as may be adjusted when running.
+    private final int maxRetries;
+    private final int recordsPerSecond;
+
+    protected OnlineIndexerBase(@Nonnull FDBDatabaseRunner runner, @Nonnull FDBRecordStoreBuilder<M, ? extends FDBRecordStoreBase<M>> recordStoreBuilder,
+                                @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
+                                int limit, int maxRetries, int recordsPerSecond) {
+        this.runner = runner;
+        this.recordStoreBuilder = recordStoreBuilder;
+        this.index = index;
+        this.recordTypes = recordTypes;
+        this.limit = limit;
+        this.maxRetries = maxRetries;
+        this.recordsPerSecond = recordsPerSecond;
+        this.recordsRange = computeRecordsRange();
+    }
+
+    public static <M extends Message> OnlineIndexerBaseBuilder<M> newBaseBuilder() {
+        return new OnlineIndexerBaseBuilder<>();
+    }
 
     /**
      * This {@link Exception} can be thrown in the case that one calls one of the methods
      * that explicitly state that they are building an unbuilt range, i.e., a range of keys
-     * that contains no keys which have yet been processed by the {@link OnlineIndexBuilderBase}
+     * that contains no keys which have yet been processed by the {@link OnlineIndexerBase}
      * during an index build.
      */
     @SuppressWarnings("serial")
@@ -137,162 +150,6 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
             super("Range specified as unbuilt contained subranges that had already been built");
             addLogInfo(LogMessageKeys.RANGE_START, start);
             addLogInfo(LogMessageKeys.RANGE_END, end);
-        }
-    }
-
-    /**
-     * Creates an <code>OnlineIndexBuilder</code> to construct an index within a record store built from the given store builder.
-     * This constructor also lets the user set a few parameters that affect rate-limiting and error handling when the index is built.
-     * Setting these parameters to {@link OnlineIndexBuilderBase#UNLIMITED OnlineIndexBuilder.UNLIMITED} will cause these limits to be ignored.
-     *
-     * @param fdb database that contains the record store
-     * @param recordStoreBuilder builder to use to open the record store
-     * @param index the index to build
-     * @param recordTypes the record types for which to rebuild the index or {@code null} for all to which it applies
-     * @param limit maximum number of records to process in one transaction
-     * @param maxRetries maximum number of times to retry a single range rebuild
-     * @param recordsPerSecond maximum number of records to process in a single second
-     */
-    public OnlineIndexBuilderBase(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStoreBuilder<M, ? extends FDBRecordStoreBase<M>> recordStoreBuilder,
-                                  @Nonnull Index index, @Nullable Collection<RecordType> recordTypes,
-                                  int limit, int maxRetries, int recordsPerSecond) {
-        this.runner = fdb.newRunner();
-        this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setContext(null);
-        this.index = index;
-        this.recordTypes = validateIndex(recordTypes);
-        this.recordsRange = computeRecordsRange();
-        this.limit = limit;
-        this.maxRetries = maxRetries;
-        this.recordsPerSecond = recordsPerSecond;
-        validateLimits();
-    }
-
-    /**
-     * Creates an <code>OnlineIndexBuilder</code> to construct an index within a record store built from the given store builder.
-     * Default values are used for the parameters to tune rate-limiting and error handling within the index builder.
-     * These values are:
-     * <ul>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_LIMIT DEFAULT_LIMIT}: {@value DEFAULT_LIMIT}</li>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_MAX_RETRIES DEFAULT_MAX_RETRIES}: {@value DEFAULT_MAX_RETRIES}</li>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_RECORDS_PER_SECOND DEFAULT_RECORDS_PER_SECOND}: {@value DEFAULT_RECORDS_PER_SECOND}</li>
-     * </ul>
-     *
-     * @param fdb database that contains the record store
-     * @param recordStoreBuilder builder to use to open the record store
-     * @param index the index to build
-     * @param recordTypes the record types for which to rebuild the index or {@code null} for all to which it applies
-     */
-    public OnlineIndexBuilderBase(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStoreBuilder<M, ? extends FDBRecordStoreBase<M>> recordStoreBuilder,
-                                  @Nonnull Index index, @Nullable Collection<RecordType> recordTypes) {
-        this(fdb, recordStoreBuilder, index, recordTypes, DEFAULT_LIMIT, DEFAULT_MAX_RETRIES, DEFAULT_RECORDS_PER_SECOND);
-    }
-
-    /**
-     * Creates an <code>OnlineIndexBuilder</code> to construct an index within a record store built from the given store builder.
-     * Default values are used for the parameters to tune rate-limiting and error handling within the index builder.
-     * These values are:
-     * <ul>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_LIMIT DEFAULT_LIMIT}: {@value DEFAULT_LIMIT}</li>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_MAX_RETRIES DEFAULT_MAX_RETRIES}: {@value DEFAULT_MAX_RETRIES}</li>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_RECORDS_PER_SECOND DEFAULT_RECORDS_PER_SECOND}: {@value DEFAULT_RECORDS_PER_SECOND}</li>
-     * </ul>
-     *
-     * @param fdb database that contains the record store
-     * @param recordStoreBuilder builder to use to open the record store
-     * @param index the index to build
-     */
-    public OnlineIndexBuilderBase(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStoreBuilder<M, ? extends FDBRecordStoreBase<M>> recordStoreBuilder, @Nonnull Index index) {
-        this(fdb, recordStoreBuilder, index, null);
-    }
-
-    /**
-     * Creates an <code>OnlineIndexBuilder</code> to construct an index within the given record store.
-     * This constructor also lets the user set a few parameters that affect rate-limiting and error handling when the index is built.
-     * Setting these parameters to {@link OnlineIndexBuilderBase#UNLIMITED OnlineIndexBuilder.UNLIMITED} will cause these limits to be ignored.
-     *
-     * @param recordStore the record store to use as a prototype
-     * @param index the index to build
-     * @param recordTypes the record types for which to rebuild the index or {@code null} for all to which it applies
-     * @param limit maximum number of records to process in one transaction
-     * @param maxRetries maximum number of times to retry a single range rebuild
-     * @param recordsPerSecond maximum number of records to process in a single second
-     */
-    public OnlineIndexBuilderBase(@Nonnull FDBRecordStoreBase<M> recordStore,
-                                  @Nonnull Index index, @Nullable Collection<RecordType> recordTypes,
-                                  int limit, int maxRetries, int recordsPerSecond) {
-        this(recordStore.getRecordContext().getDatabase(), recordStore.asBuilder(),
-                index, recordTypes, limit, maxRetries, recordsPerSecond);
-        setTimer(recordStore.getTimer());
-        setMdcContext(recordStore.getRecordContext().getMdcContext());
-    }
-
-    /**
-     * Creates an <code>OnlineIndexBuilder</code> to construct an index within the given record store.
-     * Default values are used for the parameters to tune rate-limiting and error handling within the index builder.
-     * These values are:
-     * <ul>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_LIMIT DEFAULT_LIMIT}: {@value DEFAULT_LIMIT}</li>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_MAX_RETRIES DEFAULT_MAX_RETRIES}: {@value DEFAULT_MAX_RETRIES}</li>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_RECORDS_PER_SECOND DEFAULT_RECORDS_PER_SECOND}: {@value DEFAULT_RECORDS_PER_SECOND}</li>
-     * </ul>
-     *
-     * @param recordStore the record store to use as a prototype
-     * @param index the index to build
-     * @param recordTypes the record types for which to rebuild the index or {@code null} for all to which it applies
-     */
-    public OnlineIndexBuilderBase(@Nonnull FDBRecordStoreBase<M> recordStore,
-                                  @Nonnull Index index, @Nullable Collection<RecordType> recordTypes) {
-        this(recordStore, index, recordTypes, DEFAULT_LIMIT, DEFAULT_MAX_RETRIES, DEFAULT_RECORDS_PER_SECOND);
-    }
-
-    /**
-     * Creates an <code>OnlineIndexBuilder</code> to construct an index within the given record store.
-     * Default values are used for the parameters to tune rate-limiting and error handling within the index builder.
-     * These values are:
-     * <ul>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_LIMIT DEFAULT_LIMIT}: {@value DEFAULT_LIMIT}</li>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_MAX_RETRIES DEFAULT_MAX_RETRIES}: {@value DEFAULT_MAX_RETRIES}</li>
-     *     <li>{@link OnlineIndexBuilderBase#DEFAULT_RECORDS_PER_SECOND DEFAULT_RECORDS_PER_SECOND}: {@value DEFAULT_RECORDS_PER_SECOND}</li>
-     * </ul>
-     *
-     * @param recordStore the record store to use as a prototype
-     * @param index the index to build
-     */
-    public OnlineIndexBuilderBase(@Nonnull FDBRecordStoreBase<M> recordStore, @Nonnull Index index) {
-        this(recordStore, index, null);
-    }
-
-    // Check pointer equality to make sure other objects really came from given metaData.
-    // Also resolve record types to use if not specified.
-    private Collection<RecordType> validateIndex(@Nullable Collection<RecordType> recordTypes) {
-        if (recordStoreBuilder.getMetaDataProvider() == null) {
-            throw new RecordCoreArgumentException("record store builder must include metadata");
-        }
-        final RecordMetaData metaData = recordStoreBuilder.getMetaDataProvider().getRecordMetaData();
-        if (!metaData.hasIndex(index.getName()) || index != metaData.getIndex(index.getName())) {
-            throw new MetaDataException("Index " + index.getName() + " not contained within specified metadata");
-        }
-        if (recordTypes == null) {
-            return metaData.recordTypesForIndex(index);
-        } else {
-            for (RecordType recordType : recordTypes) {
-                if (recordType != metaData.getRecordTypes().get(recordType.getName())) {
-                    throw new MetaDataException("Record type " + recordType.getName() + " not contained within specified metadata");
-                }
-            }
-            return recordTypes;
-        }
-    }
-
-    private void validateLimits() {
-        checkPositive(maxRetries, "maximum retries");
-        checkPositive(limit, "record limit");
-        checkPositive(recordsPerSecond, "records per second value");
-    }
-
-    private static void checkPositive(int value, String desc) {
-        if (value <= 0) {
-            throw new RecordCoreException("Non-positive value " + value + " given for " + desc);
         }
     }
 
@@ -352,116 +209,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
         return (tuple == null) ? null : tuple.pack();
     }
 
-    /**
-     * Get the database that contains the record store.
-     * @return the database used to build indexes
-     */
-    @Nonnull
-    public FDBDatabase getDatabase() {
-        return runner.getDatabase();
-    }
-
-    /**
-     * Get the timer used in {@link #buildIndex}.
-     * @return the timer or <code>null</code> if none is set
-     */
-    @Nullable
-    public FDBStoreTimer getTimer() {
-        return runner.getTimer();
-    }
-
-    /**
-     * Set the timer used in {@link #buildIndex}.
-     * @param timer timer to use
-     */
-    public void setTimer(@Nullable FDBStoreTimer timer) {
-        runner.setTimer(timer);
-    }
-
-    /**
-     * Get the logging context used in {@link #buildIndex}.
-     * @return the logging context of <code>null</code> if none is set
-     */
-    @Nullable
-    public Map<String, String> getMdcContext() {
-        return runner.getMdcContext();
-    }
-
-    /**
-     * Set the logging context used in {@link #buildIndex}.
-     * @param mdcContext the logging context to set while running
-     * @see FDBDatabase#openContext(Map,FDBStoreTimer)
-     */
-    public void setMdcContext(@Nullable Map<String, String> mdcContext) {
-        runner.setMdcContext(mdcContext);
-    }
-
-    /**
-     * Get the maximum number of transaction retry attempts.
-     * @return the maximum number of attempts
-     * @see FDBDatabaseRunner#getMaxAttempts
-     */
-    public int getMaxAttempts() {
-        return runner.getMaxAttempts();
-    }
-
-    /**
-     * Set the maximum number of transaction retry attempts.
-     * @param maxAttempts the maximum number of attempts
-     * @see FDBDatabaseRunner#setMaxAttempts
-     */
-    public void setMaxAttempts(int maxAttempts) {
-        runner.setMaxAttempts(maxAttempts);
-    }
-
-    /**
-     * Get the maximum delay between transaction retry attempts.
-     * @return the maximum delay
-     * @see FDBDatabaseRunner#getMaxDelayMillis
-     */
-    public long getMaxDelayMillis() {
-        return runner.getMaxDelayMillis();
-    }
-
-    /**
-     * Set the maximum delay between transaction retry attempts.
-     * @param maxDelayMillis the maximum delay
-     * @see FDBDatabaseRunner#setMaxDelayMillis
-     */
-    public void setMaxDelayMillis(long maxDelayMillis) {
-        runner.setMaxDelayMillis(maxDelayMillis);
-    }
-
-    /**
-     * Get the initial delay between transaction retry attempts.
-     * @return the initial delay
-     * @see FDBDatabaseRunner#getInitialDelayMillis
-     */
-    public long getInitialDelayMillis() {
-        return runner.getInitialDelayMillis();
-    }
-
-    /**
-     * Set the initial delay between transaction retry attempts.
-     * @param initialDelayMillis the initial delay
-     * @see FDBDatabaseRunner#setInitialDelayMillis
-     */
-    public void setInitialDelayMillis(long initialDelayMillis) {
-        runner.setInitialDelayMillis(initialDelayMillis);
-    }
-
-    public void setIndexMaintenanceFilter(@Nonnull IndexMaintenanceFilter indexMaintenanceFilter) {
-        recordStoreBuilder.setIndexMaintenanceFilter(indexMaintenanceFilter);
-    }
-
-    public void setSerializer(@Nonnull RecordSerializer<M> serializer) {
-        recordStoreBuilder.setSerializer(serializer);
-    }
-
-    public void setFormatVersion(int formatVersion) {
-        recordStoreBuilder.setFormatVersion(formatVersion);
-    }
-
+    @SuppressWarnings("squid:S1452")
     private CompletableFuture<? extends FDBRecordStoreBase<M>> openRecordStore(@Nonnull FDBRecordContext context) {
         return recordStoreBuilder.copyBuilder().setContext(context).openAsync();
     }
@@ -475,7 +223,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
     // (despite the fact that FDBDatabase.runAsync exists and is (in fact) used by the logic here)
     // is that this will adjust the value of limit in the case that we encounter errors like transaction_too_large
     // that are not retriable but can be addressed by decreasing the amount of work that has to
-    // be done in a single transaction. This allows the OnlineIndexBuilder to respond to being given
+    // be done in a single transaction. This allows the OnlineIndexer to respond to being given
     // a bad value for limit.
     @Nonnull
     @VisibleForTesting
@@ -562,7 +310,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final RecordCursor<FDBStoredRecord<M>> cursor = store.scanRecords(range, null, scanProperties);
         final AtomicBoolean empty = new AtomicBoolean(true);
-        final FDBStoreTimer timer = getTimer();
+        final FDBStoreTimer timer = runner.getTimer();
 
         // Note: This runs all of the updates in serial in order to not invoke a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
@@ -637,7 +385,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
      *
      * This method will fail if there is too much work to be done in a single transaction. If one wants
      * to handle building a range that does not fit in a single transaction, one should use the
-     * {@link OnlineIndexBuilderBase#buildRange(Key.Evaluated, Key.Evaluated) buildRange()}
+     * {@link OnlineIndexerBase#buildRange(Key.Evaluated, Key.Evaluated) buildRange()}
      * function that takes an {@link FDBDatabase} as its first parameter.
      *
      * @param store the record store in which to rebuild the range
@@ -738,7 +486,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
         } else {
             Throwable cause = unwrappedEx;
             while (cause != null) {
-                if (cause instanceof OnlineIndexBuilderBase.RecordBuiltRangeException) {
+                if (cause instanceof OnlineIndexerBase.RecordBuiltRangeException) {
                     return rangeSet.missingRanges(runner.getDatabase().database(), startTuple.pack(), endTuple.pack())
                             .thenCompose(list -> {
                                 rangeDeque.addAll(list);
@@ -790,14 +538,14 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
      * Note that this function is not idempotent in that if the first time this function runs, if it
      * fails with <code>commit_unknown_result</code> but the transaction actually succeeds, running this
      * function again will result in a {@link RecordBuiltRangeException} being thrown the second
-     * time. Retry loops used by the <code>OnlineIndexBuilder</code> class that call this method
+     * time. Retry loops used by the <code>OnlineIndexer</code> class that call this method
      * handle this contingency. For the most part, this method should only be used by those who know
      * what they are doing. It is included because it is less expensive to make this call if one
      * already knows that the range will be unbuilt, but the caller must be ready to handle the
      * circumstance that the range might be built the second time.
      *
      * Most users should use the
-     * {@link OnlineIndexBuilderBase#buildRange(FDBRecordStoreBase, Key.Evaluated, Key.Evaluated) buildRange()}
+     * {@link OnlineIndexerBase#buildRange(FDBRecordStoreBase, Key.Evaluated, Key.Evaluated) buildRange()}
      * method with the same parameters in the case that they want to build a range of keys into the index. That
      * method <i>is</i> idempotent, but it is slightly more costly as it firsts determines what ranges are
      * have not yet been built before building them.
@@ -951,7 +699,7 @@ public class OnlineIndexBuilderBase<M extends Message> implements AutoCloseable 
 
     /**
      * Builds (with a retry loop) the endpoints of an index. See the
-     * {@link OnlineIndexBuilderBase#buildEndpoints(FDBRecordStoreBase) buildEndpoints()} method that takes
+     * {@link OnlineIndexerBase#buildEndpoints(FDBRecordStoreBase) buildEndpoints()} method that takes
      * an {@link FDBRecordStoreBase} as its parameter for more details. This will retry on that function
      * until it gets a non-exceptional result and return the results back.
      *
