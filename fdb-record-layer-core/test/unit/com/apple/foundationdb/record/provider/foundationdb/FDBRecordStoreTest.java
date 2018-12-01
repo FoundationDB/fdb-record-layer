@@ -142,11 +142,12 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             recordStore.deleteAllRecords();
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1);
-            recBuilder.setStrValueIndexed("abc");
-            recBuilder.setNumValueUnique(123);
-            recordStore.saveRecord(recBuilder.build());
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1L)
+                    .setStrValueIndexed("abc")
+                    .setNumValueUnique(123)
+                    .build();
+            recordStore.saveRecord(rec);
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
@@ -156,6 +157,72 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             TestRecords1Proto.MySimpleRecord.Builder myrec1 = TestRecords1Proto.MySimpleRecord.newBuilder();
             myrec1.mergeFrom(rec1.getRecord());
             assertEquals(123, myrec1.getNumValueUnique());
+            commit(context);
+        }
+    }
+
+    @Test
+    public void writeCheckExists() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.deleteAllRecords();
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1L)
+                    .setStrValueIndexed("abc")
+                    .setNumValueUnique(123)
+                    .build();
+            recordStore.saveRecord(rec);
+            assertThat(recordStore.recordExists(Tuple.from(1L)), is(true));
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertThat(recordStore.recordExists(Tuple.from(1L)), is(true));
+            assertThat(recordStore.recordExists(Tuple.from(2L)), is(false));
+            commit(context);
+        }
+    }
+
+    @Test
+    public void writeCheckExistsConcurrently() throws Exception {
+        try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
+            openSimpleRecordStore(context1);
+            recordStore.deleteAllRecords();
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .build();
+            recordStore.saveRecord(rec);
+
+            openSimpleRecordStore(context2);
+            assertThat(recordStore.recordExists(Tuple.from(1066L)), is(false));
+            TestRecords1Proto.MySimpleRecord rec2 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1415L)
+                    .build();
+            recordStore.saveRecord(rec2);
+
+            commit(context1);
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context2::commit);
+        }
+        try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
+            openSimpleRecordStore(context1);
+            recordStore.deleteRecord(Tuple.from(1066L));
+
+            openSimpleRecordStore(context2);
+            assertThat(recordStore.recordExists(Tuple.from(1066L), IsolationLevel.SNAPSHOT), is(true));
+            TestRecords1Proto.MySimpleRecord rec2 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1415L)
+                    .build();
+            recordStore.saveRecord(rec2);
+
+            commit(context1);
+            commit(context2);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertThat(recordStore.recordExists(Tuple.from(1066L)), is(false));
+            assertThat(recordStore.recordExists(Tuple.from(1415L)), is(true));
             commit(context);
         }
     }
