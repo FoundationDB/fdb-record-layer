@@ -1047,16 +1047,72 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
 
     /**
-     * Asynchronously load a record.
+     * Check if a record exists in the record store with the given primary key.
+     * This performs its reads at the {@link IsolationLevel#SERIALIZABLE} isolation level.
+     *
+     * @param primaryKey the primary key of the record
+     * @return a future that will complete to <code>true</code> if some record in record store has that primary key and
+     *     <code>false</code> otherwise
+     * @see #recordExistsAsync(Tuple, IsolationLevel)
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> recordExistsAsync(@Nonnull final Tuple primaryKey) {
+        return recordExistsAsync(primaryKey, IsolationLevel.SERIALIZABLE);
+    }
+
+    /**
+     * Check if a record exists in the record store with the given primary key.
+     * This is slightly more efficient than loading the record and checking if that record is <code>null</code>
+     * as it does not have to deserialize the record, though the record's contents are still read from the
+     * database and sent over the network.
+     *
+     * @param primaryKey the primary key of the record
+     * @param isolationLevel the isolation level to use when reading
+     * @return a future that will complete to <code>true</code> if some record in record store has that primary key and
+     *     <code>false</code> otherwise
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> recordExistsAsync(@Nonnull final Tuple primaryKey,
+                                                        @Nonnull final IsolationLevel isolationLevel) {
+        return loadRawRecordAsync(primaryKey, null, isolationLevel.isSnapshot()).thenApply(Objects::nonNull);
+    }
+
+    /**
+     * Check if a record exists in the record store with the given primary key.
+     * This method is blocking. For the non-blocking version of this method, see {@link #recordExistsAsync(Tuple)}.
+     *
+     * @param primaryKey the primary key of the record
+     * @return <code>true</code> if some record in record store has that primary key and <code>false</code> otherwise
+     * @see #recordExistsAsync(Tuple)
+     */
+    public boolean recordExists(@Nonnull final Tuple primaryKey) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_RECORD_EXISTS, recordExistsAsync(primaryKey));
+    }
+
+    /**
+     * Check if a record exists in the record store with the given primary key.
+     * This method is blocking. For the non-blocking version of this method, see {@link #recordExistsAsync(Tuple, IsolationLevel)}.
+     *
+     * @param primaryKey the primary key of the record
+     * @param isolationLevel the isolation level to use when reading
+     * @return <code>true</code> if some record in record store has that primary key and <code>false</code> otherwise
+     * @see #recordExistsAsync(Tuple)
+     */
+    public boolean recordExists(@Nonnull final Tuple primaryKey, @Nonnull final IsolationLevel isolationLevel) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_RECORD_EXISTS, recordExistsAsync(primaryKey, isolationLevel));
+    }
+
+    /**
+     * Asynchronously read a record from the database.
      * @param primaryKey the key for the record to be loaded
      * @param sizeInfo a size info to fill in from serializer
      * @param snapshot whether to snapshot read
      * @return a CompletableFuture that will return a message or null if there was no record with that key
      */
     @Nonnull
-    public CompletableFuture<FDBRawRecord> loadRawRecordAsync(@Nonnull final Tuple primaryKey,
-                                                              @Nullable final SplitHelper.SizeInfo sizeInfo,
-                                                              final boolean snapshot) {
+    private CompletableFuture<FDBRawRecord> loadRawRecordAsync(@Nonnull final Tuple primaryKey,
+                                                               @Nullable final SplitHelper.SizeInfo sizeInfo,
+                                                               final boolean snapshot) {
         final FDBRawRecord recordFromCache = preloadCache.getIfPresent(primaryKey);
         if (recordFromCache != null) {
             return CompletableFuture.completedFuture(recordFromCache);

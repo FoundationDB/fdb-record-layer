@@ -224,6 +224,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_LOAD_RECORD_VERSION("wait for load record version"),
         /** Wait for saving a record. */
         WAIT_SAVE_RECORD("wait for save record"),
+        /** Wait to check if a record exists. */
+        WAIT_RECORD_EXISTS("wait to check if a record exists"),
         /** Wait for deleting a record. */
         WAIT_DELETE_RECORD("wait for delete record"),
         /** Wait for resolving directory layer entries. */
