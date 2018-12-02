@@ -38,7 +38,7 @@ import java.util.Optional;
  * @see FDBRecordStoreBase#loadRecord
  */
 @API(API.Status.MAINTAINED)
-public class FDBStoredRecord<M extends Message> implements FDBRecord<M>, FDBStoredSizes {
+public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M> {
     @Nonnull
     private final Tuple primaryKey;
     @Nonnull

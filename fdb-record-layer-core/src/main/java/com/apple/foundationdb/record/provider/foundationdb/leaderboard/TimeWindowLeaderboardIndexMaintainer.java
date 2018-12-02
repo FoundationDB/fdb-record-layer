@@ -42,9 +42,9 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
@@ -100,7 +100,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
 
     @Nonnull
     protected CompletableFuture<TimeWindowLeaderboardDirectory> loadDirectory() {
-        final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+        final Subspace extraSubspace = getSecondarySubspace();
         return state.transaction.get(extraSubspace.pack()).thenApply(bytes -> {
             if (bytes == null) {
                 return null;
@@ -116,16 +116,16 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     }
 
     protected void saveDirectory(TimeWindowLeaderboardDirectory directory) {
-        final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+        final Subspace extraSubspace = getSecondarySubspace();
         state.transaction.set(extraSubspace.pack(), directory.toProto().toByteArray());
     }
 
     @Nonnull
     @Override
     public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                            @Nonnull TupleRange rankRange,
-                                            @Nullable byte[] continuation,
-                                            @Nonnull ScanProperties scanProperties) {
+                                         @Nonnull TupleRange rankRange,
+                                         @Nullable byte[] continuation,
+                                         @Nonnull ScanProperties scanProperties) {
         if (scanType != IndexScanType.BY_VALUE && scanType != IndexScanType.BY_RANK && scanType != IndexScanType.BY_TIME_WINDOW) {
             throw new RecordCoreException("Can only scan leaderboard index by time window, rank or value.");
         }
@@ -162,7 +162,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                 if (leaderboard == null) {
                     return CompletableFuture.completedFuture(null);
                 }
-                final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+                final Subspace extraSubspace = getSecondarySubspace();
                 final Subspace leaderboardSubspace = extraSubspace.subspace(leaderboard.getSubspaceKey());
                 return RankedSetIndexHelper.rankRangeToScoreRange(state, groupPrefixSize,
                         leaderboardSubspace, leaderboard.getNLevels(), leaderboardRange);
@@ -249,10 +249,10 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     }
 
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBStoredRecord<M> savedRecord,
+    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                                       final boolean remove,
                                                       @Nonnull final List<IndexEntry> indexEntries) {
-        final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+        final Subspace extraSubspace = getSecondarySubspace();
         // The value for the index key cannot vary from entry-to-entry, so get the value only from the first entry.
         final Tuple entryValue = indexEntries.isEmpty()
                 ? TupleHelpers.EMPTY
@@ -363,7 +363,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                     return CompletableFuture.completedFuture(null);
                 }
                 final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
-                final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+                final Subspace extraSubspace = getSecondarySubspace();
                 final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
                 final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
                 return rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from);
@@ -404,7 +404,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
             final Tuple groupKey = groupEntry.getKey();
             final OrderedScoreIndexKey indexKey = bestContainedScore.get();
             final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
-            final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+            final Subspace extraSubspace = getSecondarySubspace();
             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
             final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
             // Undo any negation needed to find entry.
@@ -417,8 +417,8 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
         return loadDirectory().thenApply(directory -> {
             if (directory != null) {
-                final Subspace indexSubspace = state.store.indexSubspace(state.index);
-                final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+                final Subspace indexSubspace = getIndexSubspace();
+                final Subspace extraSubspace = getSecondarySubspace();
                 for (Iterable<TimeWindowLeaderboard> directoryEntry : directory.getLeaderboards().values()) {
                     for (TimeWindowLeaderboard leaderboard : directoryEntry) {
                         // Range deletes are used for the more common operation of deleting a time window, so we need
@@ -518,8 +518,8 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
         public void update() {
             directory.setUpdateTimestamp(update.getUpdateTimestamp());
 
-            final Subspace indexSubspace = state.store.indexSubspace(state.index);
-            final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+            final Subspace indexSubspace = getIndexSubspace();
+            final Subspace extraSubspace = getSecondarySubspace();
 
             for (Iterable<TimeWindowLeaderboard> leaderboards : directory.getLeaderboards().values()) {
                 Iterator<TimeWindowLeaderboard> iter = leaderboards.iterator();
@@ -601,7 +601,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                 saveDirectory(directory);
             }
             if (rebuild) {
-                return state.store.rebuildIndex(state.index);
+                return untypedStore().rebuildIndex(state.index);
             } else {
                 return AsyncUtil.DONE;
             }

@@ -58,7 +58,7 @@ public class TerribleIndexMaintainer<M extends Message> extends IndexMaintainer<
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> update(@Nullable FDBStoredRecord<M> oldRecord, @Nullable FDBStoredRecord<M> newRecord) {
+    public CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
         try {
             if (newRecord != null && oldRecord != null) {
                 CompletableFuture<Void> future = new CompletableFuture<>();

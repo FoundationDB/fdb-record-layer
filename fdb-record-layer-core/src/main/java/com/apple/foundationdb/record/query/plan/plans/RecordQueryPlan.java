@@ -88,8 +88,8 @@ public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpressi
     @Deprecated
     @API(API.Status.DEPRECATED)
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull FDBEvaluationContext<M> context,
-                                                                         @Nullable byte[] continuation,
-                                                                         @Nonnull ExecuteProperties executeProperties) {
+                                                                          @Nullable byte[] continuation,
+                                                                          @Nonnull ExecuteProperties executeProperties) {
         return execute(context, continuation, executeProperties);
     }
 

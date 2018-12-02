@@ -114,10 +114,7 @@ public class OneOfTest {
 
     @Test
     public void typed() {
-        final FDBTypedRecordStore.Builder<TestRecordsOneOfProto.MySimpleRecord, TestRecordsOneOfProto.RecordTypeUnion, TestRecordsOneOfProto.RecordTypeUnion.Builder> storeBuilder =
-                FDBTypedRecordStore.newBuilder(
-                        // TODO: Use constructor that doesn't take this argument (for meta-data, which we change).
-                        TestRecordsOneOfProto.getDescriptor(),
+        final FDBTypedRecordStore.Builder<TestRecordsOneOfProto.MySimpleRecord> storeBuilder = FDBTypedRecordStore.newBuilder(
                         TestRecordsOneOfProto.RecordTypeUnion.getDescriptor().findFieldByNumber(TestRecordsOneOfProto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER),
                         TestRecordsOneOfProto.RecordTypeUnion::newBuilder,
                         TestRecordsOneOfProto.RecordTypeUnion::hasMySimpleRecord,

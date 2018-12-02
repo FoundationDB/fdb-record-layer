@@ -876,7 +876,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * If a record store has a custom index maintainer registry, that same registry may need to be used to properly
      * validate the meta-data.
      * @param indexMaintainerRegistry the index maintainer registry
-     * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBuilder#setIndexMaintainerRegistry
+     * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry
      */
     public void setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
         this.indexMaintainerRegistry = indexMaintainerRegistry;

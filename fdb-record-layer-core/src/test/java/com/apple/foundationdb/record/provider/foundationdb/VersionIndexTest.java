@@ -126,7 +126,7 @@ public class VersionIndexTest {
             FDBRecordStore.deleteStore(context, subspace);
             return null;
         });
-        formatVersion = FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION;
+        formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
         splitLongRecords = false;
     }
 
@@ -153,9 +153,9 @@ public class VersionIndexTest {
     // information as to whether large records are split
     private static Stream<Arguments> formatVersionArguments() {
         return Stream.of(
-                FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1,
-                FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION,
-                FDBRecordStoreBase.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION,
+                FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1,
+                FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION,
+                FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION,
                 FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION
         ).flatMap(formatVersion -> Stream.of(Arguments.of(formatVersion, true), Arguments.of(formatVersion, false)));
     }
@@ -1197,7 +1197,7 @@ public class VersionIndexTest {
         try (FDBRecordContext context = openContext(secondHook)) {
             FDBStoredRecord<?> loadedRecord1 = recordStore.loadRecord(Tuple.from(1066L));
             assertNotNull(loadedRecord1);
-            assertThat(loadedRecord1.hasVersion(), is(testFormatVersion >= FDBRecordStoreBase.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION));
+            assertThat(loadedRecord1.hasVersion(), is(testFormatVersion >= FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION));
             FDBStoredRecord<?> loadedRecord2 = recordStore.loadRecord(Tuple.from(1776L));
             assertNotNull(loadedRecord2);
             assertThat(loadedRecord2.hasVersion(), is(false));
@@ -1217,7 +1217,7 @@ public class VersionIndexTest {
         }
         try (FDBRecordContext context = openContext(thirdHook)) {
             FDBStoredRecord<?> loadedRecord1 = recordStore.loadRecord(Tuple.from(1066L));
-            assertThat(loadedRecord1.hasVersion(), is(testFormatVersion >= FDBRecordStoreBase.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION));
+            assertThat(loadedRecord1.hasVersion(), is(testFormatVersion >= FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION));
             FDBStoredRecord<?> loadedRecord2 = recordStore.loadRecord(Tuple.from(1776L));
             assertThat(loadedRecord2.hasVersion(), is(false));
             FDBStoredRecord<?> loadedRecord3 = recordStore.loadRecord(Tuple.from(1955L));
@@ -1229,7 +1229,7 @@ public class VersionIndexTest {
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(3, records.size());
 
-            if (testFormatVersion < FDBRecordStoreBase.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION) {
+            if (testFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION) {
                 FDBQueriedRecord<Message> queriedRecord1 = records.get(0);
                 assertEquals(Tuple.from(1066L), queriedRecord1.getPrimaryKey());
                 assertThat(queriedRecord1.hasVersion(), is(false));
@@ -1316,7 +1316,7 @@ public class VersionIndexTest {
                     .collect(Collectors.toList());
         }
         try (FDBRecordContext context = openContext(hook)) {
-            if (testFormatVersion < FDBRecordStoreBase.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION) {
+            if (testFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION) {
                 validateUsingOlderVersionFormat(storedRecords);
             } else {
                 validateUsingNewerVersionFormat(storedRecords);
@@ -1324,10 +1324,10 @@ public class VersionIndexTest {
         }
 
         // Update to the current format version
-        formatVersion = FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION;
+        formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
 
-        if (testFormatVersion < FDBRecordStoreBase.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION &&
-                (splitLongRecords || testFormatVersion >= FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION)) {
+        if (testFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION &&
+                (splitLongRecords || testFormatVersion >= FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION)) {
             // After format version upgrade, each record should now store that it has the version inlined
             storedRecords = storedRecords.stream()
                     .map(record -> new FDBStoredRecord<>(record.getPrimaryKey(), record.getRecordType(), record.getRecord(),
@@ -1337,7 +1337,7 @@ public class VersionIndexTest {
         }
 
         try (FDBRecordContext context = openContext(hook)) {
-            if (!splitLongRecords && testFormatVersion < FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
+            if (!splitLongRecords && testFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
                 validateUsingOlderVersionFormat(storedRecords);
             } else {
                 validateUsingNewerVersionFormat(storedRecords);
@@ -1360,14 +1360,14 @@ public class VersionIndexTest {
 
             assertThat(recordStore.deleteRecord(storedRecords.get(0).getPrimaryKey()), is(true));
             final List<FDBStoredRecord<Message>> fewerRecords = storedRecords.subList(1, storedRecords.size());
-            if (!splitLongRecords && testFormatVersion < FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
+            if (!splitLongRecords && testFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
                 validateUsingOlderVersionFormat(fewerRecords);
             } else {
                 validateUsingNewerVersionFormat(fewerRecords);
             }
 
             recordStore.saveRecord(storedRecords.get(0).getRecord());
-            if (!splitLongRecords && testFormatVersion < FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
+            if (!splitLongRecords && testFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
                 validateUsingOlderVersionFormat(fewerRecords);
             } else {
                 validateUsingNewerVersionFormat(fewerRecords);
@@ -1387,8 +1387,8 @@ public class VersionIndexTest {
         final List<FDBStoredRecord<Message>> newStoredRecords;
         try (FDBRecordContext context = openContext(hookWithNewIndexes)) {
             assertThat(recordStore.getRecordStoreState().isReadable(newValueIndex), is(true));
-            boolean performedMigration = testFormatVersion < FDBRecordStoreBase.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
-                                         && (splitLongRecords || testFormatVersion >= FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION);
+            boolean performedMigration = testFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
+                                         && (splitLongRecords || testFormatVersion >= FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION);
             assertThat(recordStore.getRecordStoreState().isReadable(newVersionIndex), is(!performedMigration));
 
             if (recordStore.getRecordStoreState().isReadable(newVersionIndex)) {
@@ -1421,7 +1421,7 @@ public class VersionIndexTest {
             );
         }
         try (FDBRecordContext context = openContext(hookWithNewIndexes)) {
-            if (!splitLongRecords && testFormatVersion < FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
+            if (!splitLongRecords && testFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
                 validateUsingOlderVersionFormat(newStoredRecords);
             } else {
                 validateUsingNewerVersionFormat(newStoredRecords);
@@ -1431,7 +1431,7 @@ public class VersionIndexTest {
 
     private <M extends Message> void validateUsingOlderVersionFormat(@Nonnull List<FDBStoredRecord<M>> storedRecords) {
         // Make sure all of the records have versions in the old keyspace
-        final Subspace legacyVersionSubspace = recordStore.getSubspace().subspace(Tuple.from(FDBRecordStoreBase.RECORD_VERSION_KEY));
+        final Subspace legacyVersionSubspace = recordStore.getSubspace().subspace(Tuple.from(FDBRecordStore.RECORD_VERSION_KEY));
         RecordCursor<Pair<Tuple, FDBRecordVersion>> versionKeyPairs = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
                 .setContext(recordStore.getRecordContext())
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
@@ -1457,7 +1457,7 @@ public class VersionIndexTest {
 
     private <M extends Message> void validateUsingNewerVersionFormat(@Nonnull List<FDBStoredRecord<M>> storedRecords) {
         // Make sure the old keyspace doesn't have anything in it
-        final Subspace legacyVersionSubspace = recordStore.getSubspace().subspace(Tuple.from(FDBRecordStoreBase.RECORD_VERSION_KEY));
+        final Subspace legacyVersionSubspace = recordStore.getSubspace().subspace(Tuple.from(FDBRecordStore.RECORD_VERSION_KEY));
         KeyValueCursor legacyKvs = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
                 .setContext(recordStore.getRecordContext())
                 .setScanProperties(ScanProperties.FORWARD_SCAN)

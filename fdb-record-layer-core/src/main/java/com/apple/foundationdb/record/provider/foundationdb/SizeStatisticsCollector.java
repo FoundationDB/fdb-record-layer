@@ -291,31 +291,31 @@ public class SizeStatisticsCollector {
     // Static initializers
 
     /**
-     * Create a statistics collector of all keys used by a given {@link FDBRecordStoreBase}.
+     * Create a statistics collector of all keys used by a given {@link FDBRecordStore}.
      * This includes records, indexes, and other meta-data.
      *
      * @param store the store from which to collect statistics on key and value sizes
      * @return a statistics collector of that store
      */
     @Nonnull
-    public static SizeStatisticsCollector ofStore(@Nonnull FDBRecordStoreBase<?> store) {
+    public static SizeStatisticsCollector ofStore(@Nonnull FDBRecordStore store) {
         return new SizeStatisticsCollector(store.getSubspace());
     }
 
     /**
-     * Create a statistics collector of all records stored within a given {@link FDBRecordStoreBase}.
+     * Create a statistics collector of all records stored within a given {@link FDBRecordStore}.
      * This only looks at the records stored by that store, not any indexes.
      *
      * @param store the store from which to collect statistics on key and value sizes
      * @return a statistics collector of the records of that store
      */
     @Nonnull
-    public static SizeStatisticsCollector ofRecords(@Nonnull FDBRecordStoreBase<?> store) {
+    public static SizeStatisticsCollector ofRecords(@Nonnull FDBRecordStore store) {
         return new SizeStatisticsCollector(store.recordsSubspace());
     }
 
     /**
-     * Create a statistics collector of all keys used by index within a given {@link FDBRecordStoreBase}.
+     * Create a statistics collector of all keys used by index within a given {@link FDBRecordStore}.
      * This includes only the key-value pairs within the index's primary subspace.
      *
      * @param store a store with the given index
@@ -323,13 +323,13 @@ public class SizeStatisticsCollector {
      * @return a statistics collector of the given index
      */
     @Nonnull
-    public static SizeStatisticsCollector ofIndex(@Nonnull FDBRecordStoreBase<?> store, @Nonnull String indexName) {
+    public static SizeStatisticsCollector ofIndex(@Nonnull FDBRecordStore store, @Nonnull String indexName) {
         final RecordMetaData metaData = store.getRecordMetaData();
         return ofIndex(store, metaData.getIndex(indexName));
     }
 
     /**
-     * Create a statistics collector of all keys used by index within a given {@link FDBRecordStoreBase}.
+     * Create a statistics collector of all keys used by index within a given {@link FDBRecordStore}.
      * This includes only the key-value pairs within the index's primary subspace.
      *
      * @param store a store with the given index
@@ -337,7 +337,7 @@ public class SizeStatisticsCollector {
      * @return a statistics collector of the given index
      */
     @Nonnull
-    public static SizeStatisticsCollector ofIndex(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static SizeStatisticsCollector ofIndex(@Nonnull FDBRecordStore store, @Nonnull Index index) {
         return new SizeStatisticsCollector(store.indexSubspace(index));
     }
 

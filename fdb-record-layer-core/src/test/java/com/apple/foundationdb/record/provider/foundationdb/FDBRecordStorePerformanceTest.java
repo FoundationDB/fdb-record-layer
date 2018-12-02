@@ -117,7 +117,7 @@ public class FDBRecordStorePerformanceTest {
         public int incrementValue = 1;
 
         @Parameter(names = "--pipeline", description = "Size of async read pipeline")
-        public int pipelineSize = FDBRecordStoreBase.DEFAULT_PIPELINE_SIZE;
+        public int pipelineSize = FDBRecordStore.DEFAULT_PIPELINE_SIZE;
 
         @Parameter(names = "--parallel-counts", splitter = CommaParameterSplitter.class)
         public List<Integer> parallelCounts = Arrays.asList(1, 2, 3, 4, 5, 10, 15, 20);

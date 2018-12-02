@@ -21,17 +21,40 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.RecordScanLimiter;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexRecordFunction;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.StoreRecordFunction;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.MessageBuilderRecordSerializer;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TypedRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -40,143 +63,444 @@ import java.util.function.Supplier;
 /**
  * A type-safe record store.
  *
- * Such a store can only contain a single record type, given by means of several method
- * references to its generated protobuf class.
+ * Takes a serializer that operates on a specific message type and an underlying record store and makes
+ * operations for reading and writing records type-safe while only operating on that one type.
+ * The record store can contain other record types which can be accessed using a different typed record
+ * store with the same underlying untyped record store.
  *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.MAINTAINED)
-public class FDBTypedRecordStore<M extends Message> extends FDBRecordStoreBase<M> {
+public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBase<M> {
 
-    protected FDBTypedRecordStore(@Nonnull FDBRecordContext context,
-                                  @Nonnull SubspaceProvider subspaceProvider,
-                                  int defaultOutputFormatVersion,
-                                  @Nonnull RecordMetaDataProvider metaDataProvider,
-                                  @Nonnull RecordSerializer<M> serializer,
-                                  @Nonnull IndexMaintainerRegistry indexMaintainerRegistry,
-                                  @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
-                                  @Nonnull FDBRecordStoreBase.PipelineSizer pipelineSizer) {
-        super(context, subspaceProvider, defaultOutputFormatVersion, metaDataProvider, serializer,
-              indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer);
+    @Nonnull
+    private final FDBRecordStore untypedStore;
+    @Nonnull
+    private final RecordSerializer<M> typedSerializer;
+
+    protected FDBTypedRecordStore(@Nonnull FDBRecordStore untypedStore, @Nonnull RecordSerializer<M> typedSerializer) {
+        this.untypedStore = untypedStore;
+        this.typedSerializer = typedSerializer;
+    }
+
+    @Override
+    public FDBRecordStore getUntypedRecordStore() {
+        return untypedStore;
+    }
+
+    @Nonnull
+    @Override
+    public RecordMetaData getRecordMetaData() {
+        return untypedStore.getRecordMetaData();
+    }
+
+    @Nullable
+    @Override
+    public FDBRecordContext getContext() {
+        return untypedStore.getContext();
+    }
+
+    @Nullable
+    @Override
+    public SubspaceProvider getSubspaceProvider() {
+        return untypedStore.getSubspaceProvider();
+    }
+
+    @Nonnull
+    @Override
+    public RecordSerializer<M> getSerializer() {
+        return typedSerializer;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M record, @Nonnull RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
+        return untypedStore.saveTypedRecord(this, record, existenceCheck, version, behavior);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<FDBStoredRecord<M>> loadRecordInternal(@Nonnull Tuple primaryKey, boolean snapshot) {
+        return untypedStore.loadTypedRecord(this, primaryKey, snapshot);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> preloadRecordAsync(@Nonnull Tuple primaryKey) {
+        return untypedStore.preloadRecordAsync(primaryKey);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> recordExistsAsync(@Nonnull Tuple primaryKey, boolean snapshot) {
+        return untypedStore.recordExistsAsync(primaryKey, snapshot);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        return untypedStore.scanTypedRecords(this, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Integer> countRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        return untypedStore.countRecords(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanType scanType, @Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties, @Nullable RecordScanLimiter recordScanLimiter) {
+        return untypedStore.scanIndex(index, scanType, range, continuation, scanProperties, recordScanLimiter);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        return untypedStore.scanUniquenessViolations(index, range, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> resolveUniquenessViolation(@Nonnull Index index, @Nonnull Tuple valueKey, @Nullable Tuple primaryKey) {
+        return untypedStore.resolveUniquenessViolation(index, valueKey, primaryKey);
+    }
+
+    @Override
+    @Nonnull
+    public IndexMaintainer<M> getIndexMaintainer(@Nonnull Index index) {
+        return untypedStore.getTypedIndexMaintainer(this, index);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull Tuple primaryKey) {
+        return untypedStore.deleteTypedRecord(this, primaryKey);
+    }
+
+    @Override
+    public void deleteAllRecords() {
+        untypedStore.deleteAllRecords();
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component) {
+        return untypedStore.deleteRecordsWhereAsync(component);
+    }
+
+    @Nonnull
+    @Override
+    public PipelineSizer getPipelineSizer() {
+        return untypedStore.getPipelineSizer();
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
+        return untypedStore.getSnapshotRecordCount(key, value);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName) {
+        return untypedStore.getSnapshotRecordCountForRecordType(recordTypeName);
+    }
+
+    @Nonnull
+    @Override
+    public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
+        return untypedStore.evaluateTypedIndexRecordFunction(evaluationContext, function, record);
+    }
+
+    @Nonnull
+    @Override
+    public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<M> evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
+        return untypedStore.evaluateTypedStoreFunction(evaluationContext, function, record);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames, @Nonnull IndexAggregateFunction aggregateFunction, @Nonnull TupleRange range, @Nonnull IsolationLevel isolationLevel) {
+        return untypedStore.evaluateAggregateFunction(recordTypeNames, aggregateFunction, range, isolationLevel);
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlan planQuery(@Nonnull RecordQuery query) {
+        return untypedStore.planQuery(query);
     }
 
     /**
      * A builder for {@link FDBTypedRecordStore}.
+     *
+     * This is only used when creating both the untyped and typed record stores at the same time.
+     * To create a new typed record store from an open record store, use {@link FDBRecordStoreBase#getTypedRecordStore}.
      * @param <M> generated Protobuf class for the record message type
-     * @param <U> generated Protobuf class for the union message
-     * @param <B> generated Protobuf class for the union message's builder
      * @see FDBTypedRecordStore#newBuilder
      */
-    public static class Builder<M extends Message, U extends Message, B extends Message.Builder> extends FDBRecordStoreBuilder<M, FDBTypedRecordStore<M>> {
-        protected Builder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                          @Nonnull Descriptors.FieldDescriptor fieldDescriptor,
-                          @Nonnull Supplier<B> builderSupplier,
-                          @Nonnull Predicate<U> tester,
-                          @Nonnull Function<U, M> getter,
-                          @Nonnull BiConsumer<B, M> setter) {
-            metaDataProvider = RecordMetaData.build(fileDescriptor);
-            serializer = new TypedRecordSerializer<>(fieldDescriptor, builderSupplier, tester, getter, setter);
+    public static class Builder<M extends Message> implements BaseBuilder<M, FDBTypedRecordStore<M>> {
+
+        @Nonnull
+        private FDBRecordStore.Builder untypedStoreBuilder;
+        @Nullable
+        private RecordSerializer<M> typedSerializer;
+
+        protected Builder() {
+            this.untypedStoreBuilder = FDBRecordStore.newBuilder();
         }
 
-        protected Builder(Builder<M, U, B> other) {
-            super(other);
+        protected Builder(Builder<M> other) {
+            this.untypedStoreBuilder = other.untypedStoreBuilder.copyBuilder();
+            this.typedSerializer = other.typedSerializer;
         }
 
         protected Builder(FDBTypedRecordStore<M> store) {
-            super(store);
+            this.untypedStoreBuilder = store.untypedStore.asBuilder();
+            this.typedSerializer = store.typedSerializer;
+        }
+
+        @Nullable
+        @Override
+        public RecordSerializer<M> getSerializer() {
+            return typedSerializer;
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setSerializer(@Nullable RecordSerializer<M> typedSerializer) {
+            this.typedSerializer = typedSerializer;
+            return this;
+        }
+
+        /**
+         * Get the serializer that will be used by the underlying record store for non-typed operations such as building indexes.
+         * @return untyped serializer
+         */
+        @Nonnull
+        public RecordSerializer<Message> getUntypedSerializer() {
+            return untypedStoreBuilder.getSerializer();
+        }
+
+        /**
+         * Get the serializer that will be used by the underlying record store for non-typed operations such as building indexes.
+         * @param serializer untyped serializer
+         * @return this builder
+         */
+        @Nonnull
+        public Builder<M> setUntypedSerializer(@Nonnull RecordSerializer<Message> serializer) {
+            untypedStoreBuilder.setSerializer(serializer);
+            return this;
         }
 
         @Override
+        public int getFormatVersion() {
+            return untypedStoreBuilder.getFormatVersion();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setFormatVersion(int formatVersion) {
+            untypedStoreBuilder.setFormatVersion(formatVersion);
+            return this;
+        }
+
+        @Nullable
+        @Override
+        public RecordMetaDataProvider getMetaDataProvider() {
+            return untypedStoreBuilder.getMetaDataProvider();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider) {
+            untypedStoreBuilder.setMetaDataProvider(metaDataProvider);
+            return this;
+        }
+
+        @Nullable
+        @Override
+        public FDBMetaDataStore getMetaDataStore() {
+            return untypedStoreBuilder.getMetaDataStore();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setMetaDataStore(@Nullable FDBMetaDataStore metaDataStore) {
+            untypedStoreBuilder.setMetaDataStore(metaDataStore);
+            return this;
+        }
+
+        @Nullable
+        @Override
+        public FDBRecordContext getContext() {
+            return untypedStoreBuilder.getContext();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setContext(@Nullable FDBRecordContext context) {
+            untypedStoreBuilder.setContext(context);
+            return this;
+        }
+
+        @Nullable
+        @Override
+        public SubspaceProvider getSubspaceProvider() {
+            return untypedStoreBuilder.getSubspaceProvider();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setSubspaceProvider(@Nullable SubspaceProvider subspaceProvider) {
+            untypedStoreBuilder.setSubspaceProvider(subspaceProvider);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setSubspace(@Nullable Subspace subspace) {
+            untypedStoreBuilder.setSubspace(subspace);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setKeySpacePath(@Nullable KeySpacePath keySpacePath) {
+            untypedStoreBuilder.setKeySpacePath(keySpacePath);
+            return this;
+        }
+
+        @Nullable
+        @Override
+        public UserVersionChecker getUserVersionChecker() {
+            return untypedStoreBuilder.getUserVersionChecker();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setUserVersionChecker(@Nullable UserVersionChecker userVersionChecker) {
+            untypedStoreBuilder.setUserVersionChecker(userVersionChecker);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        public IndexMaintainerRegistry getIndexMaintainerRegistry() {
+            return untypedStoreBuilder.getIndexMaintainerRegistry();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
+            untypedStoreBuilder.setIndexMaintainerRegistry(indexMaintainerRegistry);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        public IndexMaintenanceFilter getIndexMaintenanceFilter() {
+            return untypedStoreBuilder.getIndexMaintenanceFilter();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setIndexMaintenanceFilter(@Nonnull IndexMaintenanceFilter indexMaintenanceFilter) {
+            untypedStoreBuilder.setIndexMaintenanceFilter(indexMaintenanceFilter);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        public PipelineSizer getPipelineSizer() {
+            return untypedStoreBuilder.getPipelineSizer();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setPipelineSizer(@Nonnull PipelineSizer pipelineSizer) {
+            untypedStoreBuilder.setPipelineSizer(pipelineSizer);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<FDBTypedRecordStore<M>> uncheckedOpenAsync() {
+            return untypedStoreBuilder.uncheckedOpenAsync()
+                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, typedSerializer));
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<FDBTypedRecordStore<M>> createOrOpenAsync(@Nonnull StoreExistenceCheck existenceCheck) {
+            return untypedStoreBuilder.createOrOpenAsync(existenceCheck)
+                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, typedSerializer));
+        }
+
         @Nonnull
         public FDBTypedRecordStore<M> build() {
-            return new FDBTypedRecordStore<>(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
-                    serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer);
+            if (typedSerializer == null) {
+                throw new RecordCoreException("typed serializer must be specified");
+            }
+            if (untypedStoreBuilder.getSerializer() == null) {
+                untypedStoreBuilder.setSerializer(typedSerializer.widen());
+            }
+            return new FDBTypedRecordStore<>(untypedStoreBuilder.build(), typedSerializer);
         }
 
         @Override
         @Nonnull
-        public Builder<M, U, B> copyBuilder() {
+        public Builder<M> copyBuilder() {
             return new Builder<>(this);
         }
 
-        // Following Overrides only necessary to narrow the return type.
+    }
 
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setSerializer(@Nonnull RecordSerializer<M> serializer) {
-            super.setSerializer(serializer);
-            return this;
-        }
+    /**
+     * Create a new typed record store builder.
+     *
+     * @param <M> generated Protobuf class for the record message type
+     * @return an uninitialized builder
+     */
+    @Nonnull
+    public static <M extends Message> Builder<M> newBuilder() {
+        return new Builder<>();
+    }
 
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setFormatVersion(int formatVersion) {
-            super.setFormatVersion(formatVersion);
-            return this;
-        }
+    /**
+     * Create a new typed record store builder.
+     *
+     * @param serializer a typed serializer to use
+     * @param <M> generated Protobuf class for the record message type
+     * @return an uninitialized builder
+     */
+    @Nonnull
+    public static <M extends Message> Builder<M> newBuilder(@Nonnull RecordSerializer<M> serializer) {
+        return new Builder<M>().setSerializer(serializer);
+    }
 
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider) {
-            super.setMetaDataProvider(metaDataProvider);
-            return this;
-        }
-
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setMetaDataStore(@Nullable FDBMetaDataStore metaDataStore) {
-            super.setMetaDataStore(metaDataStore);
-            return this;
-        }
-
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setContext(@Nullable FDBRecordContext context) {
-            super.setContext(context);
-            return this;
-        }
-
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setSubspace(@Nullable Subspace subspace) {
-            super.setSubspace(subspace);
-            return this;
-        }
-
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setKeySpacePath(@Nullable KeySpacePath path) {
-            super.setKeySpacePath(path);
-            return this;
-        }
-
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setUserVersionChecker(@Nullable FDBRecordStoreBase.UserVersionChecker userVersionChecker) {
-            super.setUserVersionChecker(userVersionChecker);
-            return this;
-        }
-
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
-            super.setIndexMaintainerRegistry(indexMaintainerRegistry);
-            return this;
-        }
-
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setIndexMaintenanceFilter(@Nonnull IndexMaintenanceFilter indexMaintenanceFilter) {
-            super.setIndexMaintenanceFilter(indexMaintenanceFilter);
-            return this;
-        }
-
-        @Override
-        @Nonnull
-        public Builder<M, U, B> setPipelineSizer(@Nonnull FDBRecordStoreBase.PipelineSizer pipelineSizer) {
-            super.setPipelineSizer(pipelineSizer);
-            return this;
-        }
+    /**
+     * Create a new typed record store builder.
+     *
+     * @param fieldDescriptor field descriptor for the union field used to hold the target record type
+     * @param builderSupplier builder for the union message type
+     * @param tester predicate to determine whether an instance of the union message has the target record type
+     * @param getter accessor to get record message instance from union message instance
+     * @param setter access to store record message instance into union message instance
+     * @param <M> generated Protobuf class for the record message type
+     * @param <U> generated Protobuf class for the union message
+     * @param <B> generated Protobuf class for the union message's builder
+     * @return a builder using the given functions
+     */
+    @Nonnull
+    public static <M extends Message, U extends Message, B extends Message.Builder> Builder<M> newBuilder(@Nonnull Descriptors.FieldDescriptor fieldDescriptor,
+                                                                                                          @Nonnull Supplier<B> builderSupplier,
+                                                                                                          @Nonnull Predicate<U> tester,
+                                                                                                          @Nonnull Function<U, M> getter,
+                                                                                                          @Nonnull BiConsumer<B, M> setter) {
+        RecordSerializer<M> typedSerializer = new TypedRecordSerializer<>(fieldDescriptor, builderSupplier, tester, getter, setter);
+        RecordSerializer<Message> untypedSerializer = new MessageBuilderRecordSerializer(builderSupplier::get);
+        return newBuilder(typedSerializer).setUntypedSerializer(untypedSerializer);
     }
 
     /**
@@ -209,17 +533,18 @@ public class FDBTypedRecordStore<M extends Message> extends FDBRecordStoreBase<M
      * @return a builder using the given functions
      */
     @Nonnull
-    public static <M extends Message, U extends Message, B extends Message.Builder> Builder<M, U, B> newBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                                                                                                @Nonnull Descriptors.FieldDescriptor fieldDescriptor,
-                                                                                                                @Nonnull Supplier<B> builderSupplier,
-                                                                                                                @Nonnull Predicate<U> tester,
-                                                                                                                @Nonnull Function<U, M> getter,
-                                                                                                                @Nonnull BiConsumer<B, M> setter) {
-        return new Builder<>(fileDescriptor, fieldDescriptor, builderSupplier, tester, getter, setter);
+    public static <M extends Message, U extends Message, B extends Message.Builder> Builder<M> newBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                                                                                          @Nonnull Descriptors.FieldDescriptor fieldDescriptor,
+                                                                                                          @Nonnull Supplier<B> builderSupplier,
+                                                                                                          @Nonnull Predicate<U> tester,
+                                                                                                          @Nonnull Function<U, M> getter,
+                                                                                                          @Nonnull BiConsumer<B, M> setter) {
+        RecordMetaData metaData = RecordMetaData.build(fileDescriptor);
+        return newBuilder(fieldDescriptor, builderSupplier, tester, getter, setter).setMetaDataProvider(metaData);
     }
 
     @Nonnull
-    public Builder<M, ?, ?> asBuilder() {
+    public Builder<M> asBuilder() {
         return new Builder<>(this);
     }
 

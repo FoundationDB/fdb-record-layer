@@ -33,12 +33,12 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.tuple.Tuple;
@@ -342,7 +342,7 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
                     (byte[] rightContinuation) -> recordStore.scanIndex(numValue3Index, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(1)), rightContinuation, scanProperties),
                     null,
                     evaluationContext.getTimer())
-                    .mapPipelined(indexEntry -> recordStore.loadRecordAsync(FDBRecordStore.indexEntryPrimaryKey(strValueIndex, indexEntry.getKey())), recordStore.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
+                    .mapPipelined(indexEntry -> recordStore.loadRecordAsync(FDBRecordStoreBase.indexEntryPrimaryKey(strValueIndex, indexEntry.getKey())), recordStore.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
                     .map(this::storedRecordRecNo)
                     .asList()
                     .get();
@@ -356,7 +356,7 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
                     (byte[] rightContinuation) -> recordStore.scanIndex(numValue3Index, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(1)), rightContinuation, scanProperties),
                     null,
                     evaluationContext.getTimer())
-                .mapPipelined(indexEntry -> recordStore.loadRecordAsync(FDBRecordStore.indexEntryPrimaryKey(strValueIndex, indexEntry.getKey())), recordStore.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
+                .mapPipelined(indexEntry -> recordStore.loadRecordAsync(FDBRecordStoreBase.indexEntryPrimaryKey(strValueIndex, indexEntry.getKey())), recordStore.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
                 .map(this::storedRecordRecNo)
                 .asList()
                 .get();

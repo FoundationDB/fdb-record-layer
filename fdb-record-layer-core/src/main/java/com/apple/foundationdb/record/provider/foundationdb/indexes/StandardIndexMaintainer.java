@@ -43,10 +43,11 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
@@ -97,6 +98,11 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
         return state.context.getExecutor();
     }
 
+    @Nonnull
+    protected FDBRecordStore untypedStore() {
+        return state.store.getUntypedRecordStore();
+    }
+
     /**
      * Scan the primary index tree for the given range.
      * @param range range of index keys to scan
@@ -105,8 +111,8 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
      * @return a cursor of index entries within the given range
      */
     protected RecordCursor<IndexEntry> scan(@Nonnull final TupleRange range,
-                                               @Nullable byte[] continuation,
-                                               @Nonnull ScanProperties scanProperties) {
+                                            @Nullable byte[] continuation,
+                                            @Nonnull ScanProperties scanProperties) {
         final RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(state.indexSubspace)
                 .setContext(state.context)
                 .setRange(range)
@@ -114,7 +120,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
                 .setScanProperties(scanProperties)
                 .build();
         return keyValues.map(kv -> {
-            state.store.countKeyValue(FDBStoreTimer.Counts.LOAD_INDEX_KEY, FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES,
+            untypedStore().countKeyValue(FDBStoreTimer.Counts.LOAD_INDEX_KEY, FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES,
                     kv);
             return unpackKeyValue(kv);
         });
@@ -159,7 +165,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
 
     @Override
     @Nonnull
-    public CompletableFuture<Void> update(@Nullable final FDBStoredRecord<M> oldRecord, @Nullable final FDBStoredRecord<M> newRecord) {
+    public CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         final FDBEvaluationContext<M> context = state.store.emptyEvaluationContext();
         List<IndexEntry> oldIndexEntries = filteredIndexEntries(context, oldRecord);
         List<IndexEntry> newIndexEntries = filteredIndexEntries(context, newRecord);
@@ -206,7 +212,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
      */
     @Nullable
     protected List<IndexEntry> filteredIndexEntries(@Nonnull final FDBEvaluationContext<M> context,
-                                                    @Nullable final FDBStoredRecord<M> savedRecord) {
+                                                    @Nullable final FDBIndexableRecord<M> savedRecord) {
         if (savedRecord == null) {
             return null;
         }
@@ -269,7 +275,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
     }
 
     @Nonnull
-    protected Function<Void, CompletableFuture<Void>> updateIndexKeysFunction(@Nonnull final FDBStoredRecord<M> savedRecord,
+    protected Function<Void, CompletableFuture<Void>> updateIndexKeysFunction(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                                                               final boolean remove,
                                                                               @Nonnull final List<IndexEntry> indexEntries) {
         return vignore -> updateIndexKeys(savedRecord, remove, indexEntries);
@@ -283,7 +289,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
      * @param indexEntries the result of {@link #evaluateIndex(FDBEvaluationContext, FDBRecord)}
      * @return a future completed when update is done
      */
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBStoredRecord<M> savedRecord,
+    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                                       final boolean remove,
                                                       @Nonnull final List<IndexEntry> indexEntries) {
         for (IndexEntry entry : indexEntries) {
@@ -298,7 +304,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
      * @param remove <code>true</code> if removing from index
      * @param indexEntry the entry for the index to be updated
      */
-    protected void updateOneKey(@Nonnull final FDBStoredRecord<M> savedRecord,
+    protected void updateOneKey(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                 final boolean remove,
                                 @Nonnull final IndexEntry indexEntry) {
         final Tuple valueKey = indexEntry.getKey();
@@ -309,12 +315,12 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
         final byte[] valueBytes = value.pack();
         if (remove) {
             state.transaction.clear(keyBytes);
-            if (state.store.isIndexWriteOnly(state.index) && state.index.isUnique()) {
+            if (untypedStore().isIndexWriteOnly(state.index) && state.index.isUnique()) {
                 updateUniquenessViolations(valueKey, savedRecord.getPrimaryKey(), null, true);
             }
             if (state.store.getTimer() != null) {
                 state.store.getTimer().recordSinceNanoTime(FDBStoreTimer.Events.DELETE_INDEX_ENTRY, startTime);
-                state.store.countKeyValue(FDBStoreTimer.Counts.DELETE_INDEX_KEY, FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES, FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES,
+                untypedStore().countKeyValue(FDBStoreTimer.Counts.DELETE_INDEX_KEY, FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES, FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES,
                         keyBytes, valueBytes);
             }
         } else {
@@ -326,7 +332,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
                 synchronized (state.context) {
                     if (!indexEntry.keyContainsNonUniqueNull()) {
                         AsyncIterable<KeyValue> kvs = state.transaction.getRange(state.indexSubspace.range(valueKey));
-                        state.store.addUniquenessCheck(kvs, state.index, indexEntry, savedRecord.getPrimaryKey());
+                        untypedStore().addUniquenessCheck(kvs, state.index, indexEntry, savedRecord.getPrimaryKey());
                     }
                     state.transaction.set(keyBytes, valueBytes);
                 }
@@ -335,7 +341,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
             }
             if (state.store.getTimer() != null) {
                 state.store.getTimer().recordSinceNanoTime(FDBStoreTimer.Events.SAVE_INDEX_ENTRY, startTime);
-                state.store.countKeyValue(FDBStoreTimer.Counts.SAVE_INDEX_KEY, FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES,
+                untypedStore().countKeyValue(FDBStoreTimer.Counts.SAVE_INDEX_KEY, FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES,
                         keyBytes, valueBytes);
             }
         }
@@ -344,7 +350,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
     @Override
     @Nonnull
     public void updateUniquenessViolations(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey, boolean remove) {
-        byte[] uniquenessKeyBytes = state.store.indexUniquenessViolationsSubspace(state.index).pack(FDBRecordStore.uniquenessViolationKey(valueKey, primaryKey));
+        byte[] uniquenessKeyBytes = untypedStore().indexUniquenessViolationsSubspace(state.index).pack(FDBRecordStoreBase.uniquenessViolationKey(valueKey, primaryKey));
         if (remove) {
             state.transaction.clear(uniquenessKeyBytes);
         } else {
@@ -355,7 +361,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
     @Override
     @Nonnull
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
-        final Subspace uniquenessViolationsSubspace = state.store.indexUniquenessViolationsSubspace(state.index);
+        final Subspace uniquenessViolationsSubspace = untypedStore().indexUniquenessViolationsSubspace(state.index);
         RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(uniquenessViolationsSubspace)
                 .setContext(state.context)
                 .setRange(range)
@@ -365,16 +371,16 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
         return keyValues.map(kv -> unpackKeyValue(uniquenessViolationsSubspace, kv));
     }
 
-    protected void checkKeyValueSizes(@Nonnull FDBStoredRecord<M> savedRecord,
+    protected void checkKeyValueSizes(@Nonnull FDBIndexableRecord<M> savedRecord,
                                       @Nonnull Tuple valueKey, @Nonnull Tuple value,
                                       @Nonnull byte[] keyBytes, @Nonnull byte[] valueBytes) {
-        if (keyBytes.length > state.store.getKeySizeLimit()) {
+        if (keyBytes.length > untypedStore().getKeySizeLimit()) {
             throw new FDBExceptions.FDBStoreKeySizeException("index entry is too large to be stored in FDB key",
                         LogMessageKeys.PRIMARY_KEY, savedRecord.getPrimaryKey(),
                         LogMessageKeys.VALUE_KEY, trimTooLargeTuple(valueKey),
                         LogMessageKeys.INDEX_NAME, state.index.getName());
         }
-        if (valueBytes.length > state.store.getValueSizeLimit()) {
+        if (valueBytes.length > untypedStore().getValueSizeLimit()) {
             throw new FDBExceptions.FDBStoreValueSizeException("index entry is too large to be stored in FDB value",
                         LogMessageKeys.PRIMARY_KEY, savedRecord.getPrimaryKey(),
                         LogMessageKeys.VALUE, trimTooLargeTuple(value),
@@ -402,7 +408,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
      */
     @Nonnull
     protected Tuple indexEntryKey(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
-        return FDBRecordStore.indexEntryKey(state.index, valueKey, primaryKey);
+        return FDBRecordStoreBase.indexEntryKey(state.index, valueKey, primaryKey);
     }
 
     /**
@@ -456,7 +462,7 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
     @Override
     @Nonnull
     public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey) {
-        RangeSet rangeSet = new RangeSet(state.store.indexRangeSubspace(state.index));
+        RangeSet rangeSet = new RangeSet(untypedStore().indexRangeSubspace(state.index));
         return rangeSet.contains(state.transaction, primaryKey.pack());
     }
 

@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Exception thrown when {@link FDBRecordStoreBuilder#createOrOpen} is called, and the record store does
+ * Exception thrown when {@link FDBRecordStore.Builder#createOrOpen} is called, and the record store does
  * not have a store info header, but does have something else.
  * @see FDBRecordStoreBase.StoreExistenceCheck#ERROR_IF_NO_INFO_AND_NOT_EMPTY
  */

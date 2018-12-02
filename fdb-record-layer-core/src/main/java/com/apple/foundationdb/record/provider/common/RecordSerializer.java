@@ -76,6 +76,9 @@ public interface RecordSerializer<M extends Message> {
     M deserialize(@Nonnull RecordMetaData metaData, @Nonnull Tuple primaryKey,
                   @Nonnull byte[] serialized, @Nullable StoreTimer timer);
 
+    @Nonnull
+    public RecordSerializer<Message> widen();
+
     /**
      * Instrumentation events related to record serialization.
      */

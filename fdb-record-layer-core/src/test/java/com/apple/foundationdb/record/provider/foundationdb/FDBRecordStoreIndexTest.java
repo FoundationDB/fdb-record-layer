@@ -1055,7 +1055,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     assertNotNull(e);
                     assertThat(e, instanceOf(CompletionException.class));
                     assertNotNull(e.getCause());
-                    assertThat(e.getCause(), instanceOf(FDBRecordStoreBase.IndexNotBuiltException.class));
+                    assertThat(e.getCause(), instanceOf(FDBRecordStore.IndexNotBuiltException.class));
                     return null;
                 }).get();
                 assertThat(recordStore.isIndexReadable(index), is(false));
@@ -1183,7 +1183,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), null, FDBRecordStoreBase.RebuildIndexReason.TEST).get();
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), null, FDBRecordStore.RebuildIndexReason.TEST).get();
             assertThat(recordStore.isIndexReadable(indexName), is(true));
             context.commit();
         }

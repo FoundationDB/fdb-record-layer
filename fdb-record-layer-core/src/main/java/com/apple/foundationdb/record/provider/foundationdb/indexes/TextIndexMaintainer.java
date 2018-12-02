@@ -45,9 +45,9 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -222,7 +222,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
 
     @Nonnull
     private byte[] getRecordTokenizerKey(@Nonnull Tuple primaryKey) {
-        return state.store.indexSecondarySubspace(state.index).subspace(TOKENIZER_VERSION_SUBSPACE_TUPLE).subspace(primaryKey).pack();
+        return getSecondarySubspace().subspace(TOKENIZER_VERSION_SUBSPACE_TUPLE).subspace(primaryKey).pack();
     }
 
     @Nonnull
@@ -269,7 +269,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
     }
 
     @Nonnull
-    private CompletableFuture<Void> updateOneKeyAsync(@Nonnull FDBStoredRecord<M> savedRecord,
+    private CompletableFuture<Void> updateOneKeyAsync(@Nonnull FDBIndexableRecord<M> savedRecord,
                                                       final boolean remove,
                                                       @Nonnull IndexEntry entry,
                                                       int textPosition,
@@ -303,7 +303,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
                     IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, recordTokenizerVersion,
                     IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, addAggressiveConflictRanges,
                     "primaryKey", savedRecord.getPrimaryKey(),
-                    "subspace", ByteArrayUtil2.loggable(state.store.getSubspace().getKey()),
+                    "subspace", ByteArrayUtil2.loggable(untypedStore().getSubspace().getKey()),
                     "indexSubspace", ByteArrayUtil2.loggable(state.indexSubspace.getKey()),
                     "wroteIndex", true);
             LOGGER.debug(msg.toString());
@@ -348,7 +348,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
     }
 
     @Nonnull
-    private CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBStoredRecord<M> savedRecord,
+    private CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                                     final boolean remove,
                                                     @Nonnull final List<IndexEntry> indexEntries,
                                                     final int recordTokenizerVersion) {
@@ -390,7 +390,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
      */
     @Nonnull
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBStoredRecord<M> savedRecord,
+    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                                       final boolean remove,
                                                       @Nonnull final List<IndexEntry> indexEntries) {
         if (indexEntries.isEmpty()) {
@@ -419,12 +419,12 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
      * @return a future that is complete when the record update is done
-     * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer#update(FDBStoredRecord, FDBStoredRecord)
+     * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer#update(FDBIndexableRecord, FDBIndexableRecord)
      */
     @Nonnull
     @Override
     @SuppressWarnings("squid:S1604") // need annotation so no lambda
-    public CompletableFuture<Void> update(@Nullable FDBStoredRecord<M> oldRecord, @Nullable FDBStoredRecord<M> newRecord) {
+    public CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
         if (oldRecord == null && newRecord != null) {
             // Inserting a new record.
             // Write the tokenizer version now, then insert the record.

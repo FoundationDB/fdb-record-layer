@@ -64,6 +64,6 @@ public class IndexMaintainerState<M extends Message> {
     public IndexMaintainerState(@Nonnull FDBRecordStoreBase<M> store,
                                 @Nonnull Index index,
                                 @Nonnull IndexMaintenanceFilter filter) {
-        this(store, store.getRecordContext(), index, store.indexSubspace(index), store.ensureContextActive(), filter);
+        this(store, store.getContext(), index, store.getUntypedRecordStore().indexSubspace(index), store.getContext().ensureActive(), filter);
     }
 }

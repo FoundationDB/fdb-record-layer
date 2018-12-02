@@ -24,7 +24,7 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -163,7 +163,7 @@ public interface AtomicMutation {
                     if (remove) {
                         return null;
                     } else {
-                        return FDBRecordStoreBase.LITTLE_ENDIAN_INT64_ONE;
+                        return FDBRecordStore.LITTLE_ENDIAN_INT64_ONE;
                     }
                 case SUM_LONG:
                     numVal = (Number)entry.getKey().get(0);
@@ -193,9 +193,9 @@ public interface AtomicMutation {
         @Nonnull
         private byte[] getMutationParamForCount(boolean remove) {
             if (remove) {
-                return FDBRecordStoreBase.LITTLE_ENDIAN_INT64_MINUS_ONE;
+                return FDBRecordStore.LITTLE_ENDIAN_INT64_MINUS_ONE;
             } else {
-                return FDBRecordStoreBase.LITTLE_ENDIAN_INT64_ONE;
+                return FDBRecordStore.LITTLE_ENDIAN_INT64_ONE;
             }
         }
 

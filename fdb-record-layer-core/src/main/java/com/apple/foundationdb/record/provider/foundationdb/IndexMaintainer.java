@@ -71,6 +71,14 @@ public abstract class IndexMaintainer<M extends Message> {
     }
 
     /**
+     * Returns the secondary subspace in which the index data is stored.
+     * @return secondary subspace for index data
+     */
+    public Subspace getSecondarySubspace() {
+        return state.store.getUntypedRecordStore().indexSecondarySubspace(state.index);
+    }
+
+    /**
      * Scan entries in the index.
      * @param scanType the {@link IndexScanType type} of scan to perform
      * @param range the range to scan
@@ -91,8 +99,8 @@ public abstract class IndexMaintainer<M extends Message> {
      * @return a future that is complete when the record update is done
      */
     @Nonnull
-    public abstract CompletableFuture<Void> update(@Nullable FDBStoredRecord<M> oldRecord,
-                                                   @Nullable FDBStoredRecord<M> newRecord);
+    public abstract CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                   @Nullable FDBIndexableRecord<M> newRecord);
 
     /**
      * Remove or add a uniqueness violation within the database. This is used to keep track of

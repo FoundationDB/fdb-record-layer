@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.protobuf.Message;
 
@@ -39,7 +39,7 @@ public class ValueBuggyIndexMaintainer<M extends Message> extends ValueIndexMain
     }
 
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull FDBStoredRecord<M> savedRecord,
+    protected CompletableFuture<Void> updateIndexKeys(@Nonnull FDBIndexableRecord<M> savedRecord,
                                                       boolean remove,
                                                       @Nonnull List<IndexEntry> indexEntries) {
 

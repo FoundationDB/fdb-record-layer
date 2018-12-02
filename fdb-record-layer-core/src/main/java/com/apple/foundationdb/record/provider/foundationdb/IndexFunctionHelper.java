@@ -78,14 +78,15 @@ public class IndexFunctionHelper {
     public static <M extends Message> Optional<IndexMaintainer<M>> indexMaintainerForRecordFunction(@Nonnull FDBRecordStoreBase<M> store,
                                                                                                     @Nonnull IndexRecordFunction<?> function,
                                                                                                     @Nonnull List<String> recordTypeNames) {
+        final FDBRecordStore untypedStore = store.getUntypedRecordStore();
         if (function.getIndex() != null) {
             final Index index = store.getRecordMetaData().getIndex(function.getIndex());
-            if (store.getRecordStoreState().isReadable(index)) {
+            if (untypedStore.getRecordStoreState().isReadable(index)) {
                 return Optional.of(store.getIndexMaintainer(index));
             }
         }
         return indexesForRecordTypes(store, recordTypeNames)
-                .filter(store::isIndexReadable)
+                .filter(untypedStore::isIndexReadable)
                 .map(store::getIndexMaintainer)
                 .filter(i -> i.canEvaluateRecordFunction(function))
                 // Prefer the one that does it in the fewest number of columns.
@@ -95,14 +96,15 @@ public class IndexFunctionHelper {
     public static <M extends Message> Optional<IndexMaintainer<M>> indexMaintainerForAggregateFunction(@Nonnull FDBRecordStoreBase<M> store,
                                                                                                        @Nonnull IndexAggregateFunction function,
                                                                                                        @Nonnull List<String> recordTypeNames) {
+        final FDBRecordStore untypedStore = store.getUntypedRecordStore();
         if (function.getIndex() != null) {
             final Index index = store.getRecordMetaData().getIndex(function.getIndex());
-            if (store.getRecordStoreState().isReadable(index)) {
+            if (untypedStore.getRecordStoreState().isReadable(index)) {
                 return Optional.of(store.getIndexMaintainer(index));
             }
         }
         return indexesForRecordTypes(store, recordTypeNames)
-                .filter(store::isIndexReadable)
+                .filter(untypedStore::isIndexReadable)
                 .map(store::getIndexMaintainer)
                 .filter(i -> i.canEvaluateAggregateFunction(function))
                 // Prefer the one that does it in the fewest number of columns, because that will mean less rolling-up.

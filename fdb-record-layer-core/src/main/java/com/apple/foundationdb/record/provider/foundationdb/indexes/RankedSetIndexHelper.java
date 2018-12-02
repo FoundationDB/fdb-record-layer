@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -174,10 +175,15 @@ public class RankedSetIndexHelper {
 
     public static final Tuple COMPARISON_SKIPPED_SCORE = Tuple.from(Comparisons.COMPARISON_SKIPPED_BINDING);
 
+    @Nonnull
+    protected static FDBRecordStore untypedStore(@Nonnull IndexMaintainerState<?> state) {
+        return state.store.getUntypedRecordStore();
+    }
+
     public static CompletableFuture<Tuple> scoreForRank(@Nonnull IndexMaintainerState<?> state,
-                                                         @Nonnull RankedSet rankedSet,
-                                                         @Nullable Number rank,
-                                                         @Nullable Tuple outOfRange) {
+                                                        @Nonnull RankedSet rankedSet,
+                                                        @Nullable Number rank,
+                                                        @Nullable Tuple outOfRange) {
         if (rank == null) {
             return CompletableFuture.completedFuture(null);
         } else {
@@ -185,7 +191,7 @@ public class RankedSetIndexHelper {
             CompletableFuture<Tuple> result = rankedSet.getNth(state.transaction, rank.longValue())
                     .thenApply(scoreBytes -> scoreBytes == null ? outOfRange : Tuple.fromBytes(scoreBytes));
             if (state.store.getTimer() != null) {
-                result = state.store.instrument(Events.RANKED_SET_SCORE_FOR_RANK, result);
+                result = untypedStore(state).instrument(Events.RANKED_SET_SCORE_FOR_RANK, result);
             }
             return result;
         }
@@ -199,7 +205,7 @@ public class RankedSetIndexHelper {
         } else {
             rankedSet.preloadForLookup(state.context.readTransaction(true));
             CompletableFuture<Long> result = rankedSet.rank(state.transaction, score.pack());
-            return state.store.instrument(Events.RANKED_SET_RANK_FOR_SCORE, result);
+            return untypedStore(state).instrument(Events.RANKED_SET_RANK_FOR_SCORE, result);
         }
     }
 
@@ -223,7 +229,7 @@ public class RankedSetIndexHelper {
                             // It is okay if the score isn't in the ranked set yet if the index is
                             // write only because this means that the score just hasn't yet
                             // been added by some record. We still want the conflict ranges, though.
-                            if (!exists && !state.store.isIndexWriteOnly(state.index)) {
+                            if (!exists && !untypedStore(state).isIndexWriteOnly(state.index)) {
                                 throw new RecordCoreException("Score was not present in ranked set.");
                             }
                             return null;
@@ -234,7 +240,7 @@ public class RankedSetIndexHelper {
                 return rankedSet.add(state.transaction, score).thenApply(added -> null);
             }
         });
-        return state.store.instrument(Events.RANKED_SET_UPDATE, result);
+        return untypedStore(state).instrument(Events.RANKED_SET_UPDATE, result);
     }
 
     /**
