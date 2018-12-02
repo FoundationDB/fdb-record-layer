@@ -41,10 +41,9 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An {@link IndexMaintainer} that fails when trying to update.
- * @param <M> type used to represent stored records
  */
-public class TerribleIndexMaintainer<M extends Message> extends IndexMaintainer<M> {
-    protected TerribleIndexMaintainer(IndexMaintainerState<M> state) {
+public class TerribleIndexMaintainer extends IndexMaintainer {
+    protected TerribleIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
 
@@ -58,7 +57,7 @@ public class TerribleIndexMaintainer<M extends Message> extends IndexMaintainer<
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
+    public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
         try {
             if (newRecord != null && oldRecord != null) {
                 CompletableFuture<Void> future = new CompletableFuture<>();
@@ -109,9 +108,9 @@ public class TerribleIndexMaintainer<M extends Message> extends IndexMaintainer<
 
     @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                           @Nonnull IndexRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    public <T, C extends Message, M extends C> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<C> context,
+                                                                                           @Nonnull IndexRecordFunction<T> function,
+                                                                                           @Nonnull FDBRecord<M> record) {
         CompletableFuture<T> future = new CompletableFuture<>();
         future.completeExceptionally(new UnsupportedOperationException("TerribleIndexMaintainer does not implement evaluateRecordFunction"));
         return future;

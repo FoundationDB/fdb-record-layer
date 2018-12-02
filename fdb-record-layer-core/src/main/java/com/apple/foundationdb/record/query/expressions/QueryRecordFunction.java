@@ -137,7 +137,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
         return new QueryRecordFunctionWithComparison(function, new Comparisons.SimpleComparison(type, comparand));
     }
 
-    public <M extends Message> CompletableFuture<T> eval(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBStoredRecord<M> record) {
+    public <C extends Message, M extends C> CompletableFuture<T> eval(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBStoredRecord<M> record) {
         if (record == null) {
             return CompletableFuture.completedFuture(null);
         }

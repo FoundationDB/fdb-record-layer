@@ -166,12 +166,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         return untypedStore.resolveUniquenessViolation(index, valueKey, primaryKey);
     }
 
-    @Override
-    @Nonnull
-    public IndexMaintainer<M> getIndexMaintainer(@Nonnull Index index) {
-        return untypedStore.getTypedIndexMaintainer(this, index);
-    }
-
     @Nonnull
     @Override
     public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull Tuple primaryKey) {
@@ -209,13 +203,13 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
+    public <T, N extends M> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<N> record) {
         return untypedStore.evaluateTypedIndexRecordFunction(evaluationContext, function, record);
     }
 
     @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<M> evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
+    public <T, N extends M> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<M> evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<N> record) {
         return untypedStore.evaluateTypedStoreFunction(evaluationContext, function, record);
     }
 

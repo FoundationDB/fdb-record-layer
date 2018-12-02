@@ -50,7 +50,7 @@ public class NestedField extends BaseField implements ComponentWithSingleChild {
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         final QueryComponent component = getChild();
         if (message == null) {
             return component.evalMessage(context, record, null);

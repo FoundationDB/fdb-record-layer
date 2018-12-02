@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -58,7 +57,7 @@ public class NoOpIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Nonnull
     @Override
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(IndexMaintainerState<M> state) {
-        return new NoOpIndexMaintainer<>(state);
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+        return new NoOpIndexMaintainer(state);
     }
 }

@@ -70,7 +70,7 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Nonnull
     @Override
-    public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<Key.Evaluated> parentKeys = parent.evaluateMessage(context, record, message);
         List<Key.Evaluated> result = new ArrayList<>();
         // TODO make this more type safe. But those components should always be single messages

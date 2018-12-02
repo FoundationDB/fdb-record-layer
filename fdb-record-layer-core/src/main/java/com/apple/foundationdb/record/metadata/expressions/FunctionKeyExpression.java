@@ -166,7 +166,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     @Nonnull
     @Override
-    public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<Key.Evaluated> evaluatedArguments = getArguments().evaluateMessage(context, record, message);
         final List<Key.Evaluated> results = new ArrayList<>(evaluatedArguments.size());
         for (Key.Evaluated evaluatedArgument : evaluatedArguments) {
@@ -191,6 +191,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * the nullity of <code>record</code>.
      * </p>
      *
+     * @param <C> the type of record store
      * @param <M> the type of the records
      * @param context the evaluation context
      * @param record the record against which this function will produce a key
@@ -199,10 +200,10 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * @return the list of keys for the given record
      */
     @Nonnull
-    public abstract <M extends Message> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                                             @Nullable FDBRecord<M> record,
-                                                                             @Nullable Message message,
-                                                                             @Nonnull Key.Evaluated arguments);
+    public abstract <C extends Message, M extends C> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<C> context,
+                                                                                          @Nullable FDBRecord<M> record,
+                                                                                          @Nullable Message message,
+                                                                                          @Nonnull Key.Evaluated arguments);
 
     private void validateArgumentCount(Key.Evaluated arguments) {
         final int argumentCount = arguments.size();

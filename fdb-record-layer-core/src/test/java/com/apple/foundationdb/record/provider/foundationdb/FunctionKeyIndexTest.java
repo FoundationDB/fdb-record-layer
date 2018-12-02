@@ -371,10 +371,10 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                                        @Nullable FDBRecord<M> record,
-                                                                        @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+        public <C extends Message, M extends C> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<C> context,
+                                                                                     @Nullable FDBRecord<M> record,
+                                                                                     @Nullable Message message,
+                                                                                     @Nonnull Key.Evaluated arguments) {
             if (message == null) {
                 return Collections.emptyList();
             }

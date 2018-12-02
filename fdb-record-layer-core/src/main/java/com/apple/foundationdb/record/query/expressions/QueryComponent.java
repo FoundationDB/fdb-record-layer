@@ -55,6 +55,7 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      *
      * Implementations should override {@link #evalMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
+     * @param <C> the type of record store
      * @param <M> the type of records
      * @param context context against which evaluation takes place
      * @param record a record of the appropriate record type for this component
@@ -62,7 +63,7 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
-    default <M extends Message> Boolean eval(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record) {
+    default <C extends Message, M extends C> Boolean eval(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record) {
         return evalMessage(context, record, record == null ? null : record.getRecord());
     }
 
@@ -78,6 +79,7 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * Otherwise, {@code message} will be {@code record.getRecord()} or some submessage of that, possibly {@code null} if
      * the corresponding field is missing.
      * @see #eval
+     * @param <C> the type of record store
      * @param <M> the type of record
      * @param context context for bound expressions
      * @param record the record
@@ -86,10 +88,11 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
-    <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message);
+    <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message);
 
     /**
      * Asynchronous version of {@code eval}.
+     * @param <C> the type of record store
      * @param <M> the type of records
      * @param context context against which evaluation takes place
      * @param record a record of the appropriate record type for this component
@@ -97,13 +100,14 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * @see #eval
      */
     @Nonnull
-    default <M extends Message> CompletableFuture<Boolean> evalAsync(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record) {
+    default <C extends Message, M extends C> CompletableFuture<Boolean> evalAsync(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record) {
         return evalMessageAsync(context, record, record == null ? null : record.getRecord());
     }
 
     /**
      * Asynchronous version of {@code evalMessage}.
      * @see #eval
+     * @param <C> the type of record store
      * @param <M> the type of record
      * @param context context for bound expressions
      * @param record the record
@@ -111,7 +115,7 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * @return a future that completes with whether the record should be included in the query result
      */
     @Nonnull
-    default <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    default <C extends Message, M extends C> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         return CompletableFuture.completedFuture(evalMessage(context, record, message));
     }
 

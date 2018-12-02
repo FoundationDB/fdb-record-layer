@@ -1066,14 +1066,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     /**
-     * Get the maintainer for a given index.
-     * @param index the required index
-     * @return the maintainer for the given index
-     */
-    @Nonnull
-    IndexMaintainer<M> getIndexMaintainer(@Nonnull Index index);
-
-    /**
      * Async version of {@link #deleteRecord}.
      * @param primaryKey the primary key of the record to delete
      * @return a future that completes {@code true} if the record was present to be deleted
@@ -1254,12 +1246,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param function the function to evaluate
      * @param record the record to evaluate against
      * @param <T> the type of the result
+     * @param <N> the type of the record
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
-    default <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
-                                                            @Nonnull RecordFunction<T> function,
-                                                            @Nonnull FDBRecord<M> record) {
+    default <T, N extends M> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
+                                                                         @Nonnull RecordFunction<T> function,
+                                                                         @Nonnull FDBRecord<N> record) {
         if (function instanceof IndexRecordFunction<?>) {
             IndexRecordFunction<T> indexRecordFunction = (IndexRecordFunction<T>)function;
             return evaluateIndexRecordFunction(evaluationContext, indexRecordFunction, record);
@@ -1273,41 +1266,44 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Evaluate a {@link IndexRecordFunction} against a record.
      * @param <T> the type of the result
+     * @param <N> the type of the record
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
      * @param record the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
-    <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
-                                                         @Nonnull IndexRecordFunction<T> function,
-                                                         @Nonnull FDBRecord<M> record);
+    <T, N extends M> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
+                                                                      @Nonnull IndexRecordFunction<T> function,
+                                                                      @Nonnull FDBRecord<N> record);
 
     /**
      * Evaluate a {@link StoreRecordFunction} against a record.
      * @param <T> the type of the result
+     * @param <N> the type of the record
      * @param function the function to evaluate
      * @param record the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
-    default <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull StoreRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    default <T, N extends M> CompletableFuture<T> evaluateStoreFunction(@Nonnull StoreRecordFunction<T> function,
+                                                                        @Nonnull FDBRecord<N> record) {
         return evaluateStoreFunction(emptyEvaluationContext(), function, record);
     }
 
     /**
      * Evaluate a {@link StoreRecordFunction} against a record.
      * @param <T> the type of the result
+     * @param <N> the type of the record
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
      * @param record the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
-    <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
-                                                   @Nonnull StoreRecordFunction<T> function,
-                                                   @Nonnull FDBRecord<M> record);
+    <T, N extends M> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
+                                                                @Nonnull StoreRecordFunction<T> function,
+                                                                @Nonnull FDBRecord<N> record);
 
     /**
      * Evaluate an {@link IndexAggregateFunction} against a range of the store.

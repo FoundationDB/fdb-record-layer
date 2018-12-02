@@ -51,14 +51,13 @@ import java.util.concurrent.CompletableFuture;
  * Implementers should assume that the same maintainer might be used to perform multiple record updates,
  * even though this never happens today.
  *
- * @param <M> type used to represent stored records
  * @see IndexMaintainerFactory
  */
 @API(API.Status.MAINTAINED)
-public abstract class IndexMaintainer<M extends Message> {
-    protected final IndexMaintainerState<M> state;
+public abstract class IndexMaintainer {
+    protected final IndexMaintainerState state;
 
-    protected IndexMaintainer(IndexMaintainerState<M> state) {
+    protected IndexMaintainer(IndexMaintainerState state) {
         this.state = state;
     }
 
@@ -75,7 +74,7 @@ public abstract class IndexMaintainer<M extends Message> {
      * @return secondary subspace for index data
      */
     public Subspace getSecondarySubspace() {
-        return state.store.getUntypedRecordStore().indexSecondarySubspace(state.index);
+        return state.store.indexSecondarySubspace(state.index);
     }
 
     /**
@@ -96,11 +95,12 @@ public abstract class IndexMaintainer<M extends Message> {
      * Update associated index for a changed record.
      * @param oldRecord the previous stored record or <code>null</code> if a new record is being created
      * @param newRecord the new record or <code>null</code> if an old record is being deleted
+     * @param <M> type of message
      * @return a future that is complete when the record update is done
      */
     @Nonnull
-    public abstract CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
-                                                   @Nullable FDBIndexableRecord<M> newRecord);
+    public abstract <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                                       @Nullable FDBIndexableRecord<M> newRecord);
 
     /**
      * Remove or add a uniqueness violation within the database. This is used to keep track of
@@ -140,15 +140,17 @@ public abstract class IndexMaintainer<M extends Message> {
     /**
      * Evaluate a record function on the given record.
      * @param <T> the result type of the function
+     * @param <C> the message type of the record store
+     * @param <M> the message type of the record
      * @param context context for evaluation
      * @param function the record function to apply to the given record
      * @param record record against which to evaluate
      * @return a future that completes with the result of evaluation
      */
     @Nonnull
-    public abstract <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                                    @Nonnull IndexRecordFunction<T> function,
-                                                                    @Nonnull FDBRecord<M> record);
+    public abstract <T, C extends Message, M extends C> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<C> context,
+                                                                                                    @Nonnull IndexRecordFunction<T> function,
+                                                                                                    @Nonnull FDBRecord<M> record);
 
     @Nonnull
     protected <T> CompletableFuture<T> unsupportedRecordFunction(@Nonnull IndexRecordFunction<T> function) {

@@ -51,7 +51,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         if (message == null) {
             getComparison().eval(context, null);
         }

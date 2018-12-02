@@ -320,7 +320,7 @@ public class OnlineIndexer implements AutoCloseable {
         if (store.getRecordMetaData() != recordStoreBuilder.getMetaDataProvider().getRecordMetaData()) {
             throw new MetaDataException("Store does not have the same metadata");
         }
-        final IndexMaintainer<Message> maintainer = store.getIndexMaintainer(index);
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SERIALIZABLE);
         if (respectLimit) {

@@ -61,13 +61,13 @@ public class NotComponent implements ComponentWithSingleChild {
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         return invert(getChild().evalMessage(context, record, message));
     }
 
     @Override
     @Nonnull
-    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         return getChild().evalMessageAsync(context, record, message).thenApply(this::invert);
     }
 

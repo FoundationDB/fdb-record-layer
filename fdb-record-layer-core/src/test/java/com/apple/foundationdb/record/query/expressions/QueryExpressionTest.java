@@ -100,21 +100,21 @@ public class QueryExpressionTest {
     private static final QueryComponent TRUE = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+        public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
             return true;
         }
     };
     private static final QueryComponent FALSE = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+        public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
             return false;
         }
     };
     private static final QueryComponent NULL = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+        public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
             return null;
         }
     };

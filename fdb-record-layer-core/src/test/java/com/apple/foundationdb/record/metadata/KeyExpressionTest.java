@@ -843,10 +843,10 @@ public class KeyExpressionTest {
 
         @Nonnull
         @Override
-        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                                        @Nullable FDBRecord<M> record,
-                                                                        @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+        public <C extends Message, M extends C> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<C> context,
+                                                                                     @Nullable FDBRecord<M> record,
+                                                                                     @Nullable Message message,
+                                                                                     @Nonnull Key.Evaluated arguments) {
             return Collections.singletonList(arguments);
         }
 
@@ -881,10 +881,10 @@ public class KeyExpressionTest {
 
         @Nonnull
         @Override
-        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                                        @Nullable FDBRecord<M> record,
-                                                                        @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+        public <C extends Message, M extends C> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<C> context,
+                                                                                     @Nullable FDBRecord<M> record,
+                                                                                     @Nullable Message message,
+                                                                                     @Nonnull Key.Evaluated arguments) {
             final String value = arguments.getString(0);
             final Number startIdx = arguments.getObject(1, Number.class);
             final Number endIdx = (arguments.size() > 2) ? arguments.getObject(2, Number.class) : null;

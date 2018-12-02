@@ -75,7 +75,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         return evalMessageAsync(context, record, message).join();
     }
 
@@ -86,7 +86,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         if (record == null) {
             return CompletableFuture.completedFuture(getComparison().eval(context, null));
         }

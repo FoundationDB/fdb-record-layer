@@ -53,6 +53,7 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      *
      * Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
+     * @param <C> the type of record store
      * @param <M> the type of record
      * @param context context for bound expressions
      * @param record the record
@@ -61,19 +62,20 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      *         than the return value of {@link #getColumnSize()}
      */
     @Nonnull
-    default <M extends Message> List<Key.Evaluated> evaluate(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record) {
+    default <C extends Message, M extends C> List<Key.Evaluated> evaluate(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record) {
         return evaluateMessage(context, record, record == null ? null : record.getRecord());
     }
 
     /**
      * Evaluate this expression with the expectation of getting exactly one result.
+     * @param <C> the type of record store
      * @param <M> the type of record
      * @param context context for bound expressions
      * @param record the record
      * @return the evaluated keys for the given record
      */
     @Nonnull
-    default <M extends Message> Key.Evaluated evaluateSingleton(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record) {
+    default <C extends Message, M extends C> Key.Evaluated evaluateSingleton(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record) {
         final List<Key.Evaluated> keys = evaluate(context, record);
         if (keys.size() != 1) {
             throw new RecordCoreException("Should evaluate to single key only");
@@ -93,6 +95,7 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      * Otherwise, {@code message} will be {@code record.getRecord()} or some submessage of that, possibly {@code null} if
      * the corresponding field is missing.
      * @see #evaluate
+     * @param <C> the type of record store
      * @param <M> the type of record
      * @param context context for bound expressions
      * @param record the record
@@ -100,7 +103,7 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      * @return the evaluated keys for the given record
      */
     @Nonnull
-    <M extends Message> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message);
+    <C extends Message, M extends C> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message);
 
     /**
      * This states whether the given expression type is capable of evaluating more to more than

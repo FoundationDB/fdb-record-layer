@@ -24,7 +24,6 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.subspace.Subspace;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 
@@ -33,12 +32,11 @@ import javax.annotation.Nonnull;
  *
  * In particular, this includes the record store and index meta-data for the maintainer.
  *
- * @param <M> type used to represent stored records
  */
 @API(API.Status.MAINTAINED)
-public class IndexMaintainerState<M extends Message> {
+public class IndexMaintainerState {
     @Nonnull
-    public final FDBRecordStoreBase<M> store;
+    public final FDBRecordStore store;
     @Nonnull
     public final FDBRecordContext context;
     @Nonnull
@@ -50,7 +48,7 @@ public class IndexMaintainerState<M extends Message> {
     @Nonnull
     public final IndexMaintenanceFilter filter;
 
-    public IndexMaintainerState(@Nonnull FDBRecordStoreBase<M> store, @Nonnull FDBRecordContext context,
+    public IndexMaintainerState(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context,
                                 @Nonnull Index index, @Nonnull Subspace indexSubspace, @Nonnull Transaction transaction,
                                 @Nonnull IndexMaintenanceFilter filter) {
         this.store = store;
@@ -61,9 +59,9 @@ public class IndexMaintainerState<M extends Message> {
         this.filter = filter;
     }
 
-    public IndexMaintainerState(@Nonnull FDBRecordStoreBase<M> store,
+    public IndexMaintainerState(@Nonnull FDBRecordStore store,
                                 @Nonnull Index index,
                                 @Nonnull IndexMaintenanceFilter filter) {
-        this(store, store.getContext(), index, store.getUntypedRecordStore().indexSubspace(index), store.getContext().ensureActive(), filter);
+        this(store, store.getRecordContext(), index, store.indexSubspace(index), store.ensureContextActive(), filter);
     }
 }

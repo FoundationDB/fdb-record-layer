@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -62,7 +61,7 @@ public class TimeWindowLeaderboardIndexMaintainerFactory implements IndexMaintai
     }
 
     @Nonnull
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(IndexMaintainerState<M> state) {
-        return new TimeWindowLeaderboardIndexMaintainer<>(state);
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+        return new TimeWindowLeaderboardIndexMaintainer(state);
     }
 }

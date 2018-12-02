@@ -80,15 +80,12 @@ import java.util.stream.Collectors;
 /**
  * Maintainer for the <code>TIME_WINDOW_LEADERBOARD</code> index type.
  * @see com.apple.foundationdb.record.provider.foundationdb.leaderboard for details of how this works.
- *
- * @param <M> type used to represent stored records
- *
  */
 @API(API.Status.EXPERIMENTAL)
-public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
+public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeWindowLeaderboardIndexMaintainer.class);
 
-    public TimeWindowLeaderboardIndexMaintainer(IndexMaintainerState<M> state) {
+    public TimeWindowLeaderboardIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
 
@@ -123,9 +120,9 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     @Nonnull
     @Override
     public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                         @Nonnull TupleRange rankRange,
-                                         @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                            @Nonnull TupleRange rankRange,
+                                            @Nullable byte[] continuation,
+                                            @Nonnull ScanProperties scanProperties) {
         if (scanType != IndexScanType.BY_VALUE && scanType != IndexScanType.BY_RANK && scanType != IndexScanType.BY_TIME_WINDOW) {
             throw new RecordCoreException("Can only scan leaderboard index by time window, rank or value.");
         }
@@ -249,9 +246,9 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     }
 
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                      final boolean remove,
-                                                      @Nonnull final List<IndexEntry> indexEntries) {
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                          final boolean remove,
+                                                                          @Nonnull final List<IndexEntry> indexEntries) {
         final Subspace extraSubspace = getSecondarySubspace();
         // The value for the index key cannot vary from entry-to-entry, so get the value only from the first entry.
         final Tuple entryValue = indexEntries.isEmpty()
@@ -312,9 +309,9 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     @Nonnull
     @SuppressWarnings("unchecked")
     @SpotBugsSuppressWarnings("BC_UNCONFIRMED_CAST")
-    public <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                           @Nonnull IndexRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    public <T, C extends Message, M extends C> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<C> context,
+                                                                                           @Nonnull IndexRecordFunction<T> function,
+                                                                                           @Nonnull FDBRecord<M> record) {
         if (function.getName().equals(FunctionNames.RANK)) {
             final CompletableFuture<Long> rank = timeWindowRankAndEntry(context, record, TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0)
                     .thenApply(re -> re == null ? null : re.getLeft());
@@ -372,9 +369,9 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
         return unsupportedAggregateFunction(function);
     }
 
-    public CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull FDBEvaluationContext<M> context,
-                                                                      @Nonnull FDBRecord<M> record,
-                                                                      int type, long timestamp) {
+    public <C extends Message, M extends C> CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull FDBEvaluationContext<C> context,
+                                                                                                       @Nonnull FDBRecord<M> record,
+                                                                                                       int type, long timestamp) {
         final List<IndexEntry> indexEntries = evaluateIndex(context, record);
 
         final CompletableFuture<TimeWindowLeaderboard> leaderboardFuture = oldestLeaderboardMatching(type, timestamp);
@@ -601,7 +598,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                 saveDirectory(directory);
             }
             if (rebuild) {
-                return untypedStore().rebuildIndex(state.index);
+                return state.store.rebuildIndex(state.index);
             } else {
                 return AsyncUtil.DONE;
             }

@@ -31,17 +31,16 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * A {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer} that occasionally fails.
- * @param <M> type used to represent stored records
  */
-public class ValueBuggyIndexMaintainer<M extends Message> extends ValueIndexMaintainer<M> {
-    public ValueBuggyIndexMaintainer(IndexMaintainerState<M> state) {
+public class ValueBuggyIndexMaintainer extends ValueIndexMaintainer {
+    public ValueBuggyIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
 
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull FDBIndexableRecord<M> savedRecord,
-                                                      boolean remove,
-                                                      @Nonnull List<IndexEntry> indexEntries) {
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull FDBIndexableRecord<M> savedRecord,
+                                                                          boolean remove,
+                                                                          @Nonnull List<IndexEntry> indexEntries) {
 
         return super.updateIndexKeys(savedRecord, remove, indexEntries).thenApply( vignore -> {
             int num = ((Number)indexEntries.get(0).getKey().get(0)).intValue();

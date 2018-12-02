@@ -119,7 +119,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     @Nonnull
     @Override
     @SuppressWarnings("unchecked")
-    public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         if (message == null) {
             return getNullResult();
         }

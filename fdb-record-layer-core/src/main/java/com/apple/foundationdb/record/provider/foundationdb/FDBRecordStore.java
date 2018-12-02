@@ -362,7 +362,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
                 }
             }
-            return updateSecondaryIndexes(typedStore, oldRecord, newRecord).thenApply(v -> newRecord);
+            return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
         });
         return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
     }
@@ -437,14 +437,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    protected <M extends Message> CompletableFuture<Void> updateSecondaryIndexes(@Nonnull FDBRecordStoreBase<M> typedStore,
-                                                                                 @Nullable final FDBStoredRecord<M> oldRecord,
+    protected <M extends Message> CompletableFuture<Void> updateSecondaryIndexes(@Nullable final FDBStoredRecord<M> oldRecord,
                                                                                  @Nullable final FDBStoredRecord<M> newRecord) {
         if (oldRecord == null && newRecord == null) {
             return AsyncUtil.DONE;
         }
         if (recordStoreState == null) {
-            return preloadRecordStoreStateAsync().thenCompose(vignore -> updateSecondaryIndexes(typedStore, oldRecord, newRecord));
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> updateSecondaryIndexes(oldRecord, newRecord));
         }
 
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -462,9 +461,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         boolean haveFuture = false;
         try {
             if (sameRecordType != null) {
-                updateSecondaryIndexes(typedStore, oldRecord, newRecord, futures, getEnabledIndexes(sameRecordType));
-                updateSecondaryIndexes(typedStore, oldRecord, newRecord, futures, getEnabledUniversalIndexes());
-                updateSecondaryIndexes(typedStore, oldRecord, newRecord, futures, getEnabledMultiTypeIndexes(sameRecordType));
+                updateSecondaryIndexes(oldRecord, newRecord, futures, getEnabledIndexes(sameRecordType));
+                updateSecondaryIndexes(oldRecord, newRecord, futures, getEnabledUniversalIndexes());
+                updateSecondaryIndexes(oldRecord, newRecord, futures, getEnabledMultiTypeIndexes(sameRecordType));
             } else {
                 final List<Index> oldIndexes = new ArrayList<>();
                 if (oldRecord != null) {
@@ -484,9 +483,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 commonIndexes.retainAll(newIndexes);
                 oldIndexes.removeAll(commonIndexes);
                 newIndexes.removeAll(commonIndexes);
-                updateSecondaryIndexes(typedStore, oldRecord, null, futures, oldIndexes);
-                updateSecondaryIndexes(typedStore, null, newRecord, futures, newIndexes);
-                updateSecondaryIndexes(typedStore, oldRecord, newRecord, futures, commonIndexes);
+                updateSecondaryIndexes(oldRecord, null, futures, oldIndexes);
+                updateSecondaryIndexes(null, newRecord, futures, newIndexes);
+                updateSecondaryIndexes(oldRecord, newRecord, futures, commonIndexes);
             }
             haveFuture = true;
         } finally {
@@ -504,8 +503,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    protected <M extends Message> void updateSecondaryIndexes(@Nonnull FDBRecordStoreBase<M> typedStore,
-                                                              @Nullable final FDBIndexableRecord<M> oldRecord,
+    protected <M extends Message> void updateSecondaryIndexes(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                               @Nullable final FDBIndexableRecord<M> newRecord,
                                                               @Nonnull final List<CompletableFuture<Void>> futures,
                                                               @Nonnull final List<Index> indexes) {
@@ -513,7 +511,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return;
         }
         for (Index index : indexes) {
-            final IndexMaintainer<M> maintainer = getTypedIndexMaintainer(typedStore, index);
+            final IndexMaintainer maintainer = getIndexMaintainer(index);
             final CompletableFuture<Void> future;
             if (!maintainer.isIdempotent() && isIndexWriteOnly(index)) {
                 // In this case, the index is still being built, so we are not
@@ -592,16 +590,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return getSubspace().subspace(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, index.getSubspaceKey()));
     }
 
-    @Override
-    @Nonnull
-    public IndexMaintainer<Message> getIndexMaintainer(@Nonnull Index index) {
-        return getTypedIndexMaintainer(this, index);
-    }
-
-    @Nonnull
-    protected <M extends Message> IndexMaintainer<M> getTypedIndexMaintainer(@Nonnull FDBRecordStoreBase<M> typedStore,
-                                                                             @Nonnull Index index) {
-        return indexMaintainerRegistry.getIndexMaintainer(new IndexMaintainerState<>(typedStore, index, indexMaintenanceFilter));
+    /**
+     * Get the maintainer for a given index.
+     * @param index the required index
+     * @return the maintainer for the given index
+     */
+    public IndexMaintainer getIndexMaintainer(@Nonnull Index index) {
+        return indexMaintainerRegistry.getIndexMaintainer(new IndexMaintainerState(this, index, indexMaintenanceFilter));
     }
 
     public int getKeySizeLimit() {
@@ -631,7 +626,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull
         private CompletableFuture<Boolean> onHasNext;
         @Nonnull
-        private IndexMaintainer<Message> indexMaintainer;
+        private IndexMaintainer indexMaintainer;
 
         public IndexUniquenessCheck(@Nonnull AsyncIterable<KeyValue> iter,
                                     @Nonnull Index index,
@@ -1077,7 +1072,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     ensureContextActive().clear(getSubspace().pack(recordVersionKey(primaryKey)));
                 }
             }
-            CompletableFuture<Void> updateIndexesFuture = updateSecondaryIndexes(typedStore, oldRecord, null);
+            CompletableFuture<Void> updateIndexesFuture = updateSecondaryIndexes(oldRecord, null);
             if (oldHasIncompleteVersion) {
                 return updateIndexesFuture.thenApply(vignore -> {
                     context.removeLocalVersion(primaryKey);
@@ -1124,7 +1119,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull final Collection<RecordType> allRecordTypes;
         @Nonnull final Collection<Index> allIndexes;
 
-        @Nonnull final List<IndexMaintainer<Message>> indexMaintainers;
+        @Nonnull final List<IndexMaintainer> indexMaintainers;
 
         @Nullable final Key.Evaluated evaluated;
         @Nullable final Key.Evaluated indexEvaluated;
@@ -1227,7 +1222,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (evaluated == null) {
                 return;
             }
-            for (IndexMaintainer<Message> index : indexMaintainers) {
+            for (IndexMaintainer index : indexMaintainers) {
                 boolean canDelete;
                 if (recordType == null) {
                     canDelete = index.canDeleteWhere(matcher, evaluated);
@@ -1283,7 +1278,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
             final List<CompletableFuture<Void>> futures = new ArrayList<>();
             final Tuple indexPrefix = indexEvaluated.toTuple();
-            for (IndexMaintainer<Message> index : indexMaintainers) {
+            for (IndexMaintainer index : indexMaintainers) {
                 final CompletableFuture<Void> future;
                 // Only need to check key expression in the case where a normal index has a different prefix.
                 if (prefix == indexPrefix || Key.Expressions.hasRecordTypePrefix(index.state.index.getRootExpression())) {
@@ -1345,7 +1340,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName) {
         // A COUNT index on this record type.
         IndexAggregateFunction aggregateFunction = IndexFunctionHelper.count(EmptyKeyExpression.EMPTY);
-        Optional<IndexMaintainer<Message>> indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.singletonList(recordTypeName));
+        Optional<IndexMaintainer> indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.singletonList(recordTypeName));
         if (indexMaintainer.isPresent()) {
             return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT)
                     .thenApply(tuple -> tuple.getLong(0));
@@ -1369,17 +1364,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
-    public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<Message> evaluationContext,
-                                                                @Nonnull IndexRecordFunction<T> function,
-                                                                @Nonnull FDBRecord<Message> record) {
+    public <T, N extends Message> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<Message> evaluationContext,
+                                                                                   @Nonnull IndexRecordFunction<T> function,
+                                                                                   @Nonnull FDBRecord<N> record) {
         return evaluateTypedIndexRecordFunction(evaluationContext, function, record);
     }
 
     @Nonnull
-    protected <T, M extends Message> CompletableFuture<T> evaluateTypedIndexRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
-                                                                                           @Nonnull IndexRecordFunction<T> indexRecordFunction,
-                                                                                           @Nonnull FDBRecord<M> record) {
-        return IndexFunctionHelper.indexMaintainerForRecordFunction(evaluationContext.getStore(), indexRecordFunction, record)
+    protected <T, C extends Message, M extends C> CompletableFuture<T> evaluateTypedIndexRecordFunction(@Nonnull FDBEvaluationContext<C> evaluationContext,
+                                                                                                        @Nonnull IndexRecordFunction<T> indexRecordFunction,
+                                                                                                        @Nonnull FDBRecord<M> record) {
+        return IndexFunctionHelper.indexMaintainerForRecordFunction(this, indexRecordFunction, record)
                 .orElseThrow(() -> new RecordCoreException("Record function " + indexRecordFunction +
                                                            " requires appropriate index on " + record.getRecordType().getName()))
                 .evaluateRecordFunction(evaluationContext, indexRecordFunction, record);
@@ -1387,17 +1382,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
-    public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<Message> evaluationContext,
-                                                          @Nonnull StoreRecordFunction<T> function,
-                                                          @Nonnull FDBRecord<Message> record) {
+    public <T, N extends Message> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<Message> evaluationContext,
+                                                                             @Nonnull StoreRecordFunction<T> function,
+                                                                             @Nonnull FDBRecord<N> record) {
         return evaluateTypedStoreFunction(evaluationContext, function, record);
     }
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    public <T, M extends Message> CompletableFuture<T> evaluateTypedStoreFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
-                                                                                  @Nonnull StoreRecordFunction<T> function,
-                                                                                  @Nonnull FDBRecord<M> record) {
+    public <T, C extends Message, M extends C> CompletableFuture<T> evaluateTypedStoreFunction(@Nonnull FDBEvaluationContext<C> evaluationContext,
+                                                                                               @Nonnull StoreRecordFunction<T> function,
+                                                                                               @Nonnull FDBRecord<M> record) {
         if (function.getName().equals(FunctionNames.VERSION)) {
             if (record.hasVersion() && record.getVersion().isComplete()) {
                 return CompletableFuture.completedFuture((T) record.getVersion());

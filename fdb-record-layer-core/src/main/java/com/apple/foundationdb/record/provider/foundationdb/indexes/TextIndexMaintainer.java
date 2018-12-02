@@ -123,11 +123,9 @@ import java.util.function.Function;
  * are sorts involved in the query or if the filter involves using the position list to determine the
  * relative positions of tokens within a document.
  * </p>
- *
- * @param <M> message type of records used by index
  */
 @API(API.Status.EXPERIMENTAL)
-public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
+public class TextIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(TextIndexMaintainer.class);
     private static final TextTokenizerRegistry registry = TextTokenizerRegistryImpl.instance();
     private static final int BUNCH_SIZE = 20;
@@ -204,7 +202,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
         }
     }
 
-    protected TextIndexMaintainer(@Nonnull IndexMaintainerState<M> state) {
+    protected TextIndexMaintainer(@Nonnull IndexMaintainerState state) {
         super(state);
         this.tokenizer = getTokenizer(state.index);
         this.tokenizerVersion = getIndexTokenizerVersion(state.index);
@@ -269,11 +267,11 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
     }
 
     @Nonnull
-    private CompletableFuture<Void> updateOneKeyAsync(@Nonnull FDBIndexableRecord<M> savedRecord,
-                                                      final boolean remove,
-                                                      @Nonnull IndexEntry entry,
-                                                      int textPosition,
-                                                      int recordTokenizerVersion) {
+    private <M extends Message> CompletableFuture<Void> updateOneKeyAsync(@Nonnull FDBIndexableRecord<M> savedRecord,
+                                                                          final boolean remove,
+                                                                          @Nonnull IndexEntry entry,
+                                                                          int textPosition,
+                                                                          int recordTokenizerVersion) {
         long startTime = System.nanoTime();
         final Tuple indexEntryKey = indexEntryKey(entry.getKey(), savedRecord.getPrimaryKey());
         final String text = indexEntryKey.getString(textPosition);
@@ -303,7 +301,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
                     IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, recordTokenizerVersion,
                     IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, addAggressiveConflictRanges,
                     "primaryKey", savedRecord.getPrimaryKey(),
-                    "subspace", ByteArrayUtil2.loggable(untypedStore().getSubspace().getKey()),
+                    "subspace", ByteArrayUtil2.loggable(state.store.getSubspace().getKey()),
                     "indexSubspace", ByteArrayUtil2.loggable(state.indexSubspace.getKey()),
                     "wroteIndex", true);
             LOGGER.debug(msg.toString());
@@ -348,10 +346,10 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
     }
 
     @Nonnull
-    private CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                    final boolean remove,
-                                                    @Nonnull final List<IndexEntry> indexEntries,
-                                                    final int recordTokenizerVersion) {
+    private <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                        final boolean remove,
+                                                                        @Nonnull final List<IndexEntry> indexEntries,
+                                                                        final int recordTokenizerVersion) {
         if (indexEntries.isEmpty()) {
             return AsyncUtil.DONE;
         }
@@ -390,9 +388,9 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
      */
     @Nonnull
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                      final boolean remove,
-                                                      @Nonnull final List<IndexEntry> indexEntries) {
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                          final boolean remove,
+                                                                          @Nonnull final List<IndexEntry> indexEntries) {
         if (indexEntries.isEmpty()) {
             return AsyncUtil.DONE;
         }
@@ -424,7 +422,7 @@ public class TextIndexMaintainer<M extends Message> extends StandardIndexMaintai
     @Nonnull
     @Override
     @SuppressWarnings("squid:S1604") // need annotation so no lambda
-    public CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
+    public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
         if (oldRecord == null && newRecord != null) {
             // Inserting a new record.
             // Write the tokenizer version now, then insert the record.

@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -117,7 +116,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Nonnull
     @Override
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(IndexMaintainerState<M> state) {
-        return new TextIndexMaintainer<>(state);
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+        return new TextIndexMaintainer(state);
     }
 }

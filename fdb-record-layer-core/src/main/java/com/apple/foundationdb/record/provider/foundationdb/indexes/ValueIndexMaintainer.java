@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -47,12 +46,10 @@ import java.util.concurrent.CompletableFuture;
  * An index maintainer for an ordinary index by value, implementing ordered enumeration of records within a range of indexed values.
  *
  * When more than one field is indexed, records are ordered lexicographically.
- *
- * @param <M> type used to represent stored records
  */
 @API(API.Status.STABLE)
-public class ValueIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
-    public ValueIndexMaintainer(IndexMaintainerState<M> state) {
+public class ValueIndexMaintainer extends StandardIndexMaintainer {
+    public ValueIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
 

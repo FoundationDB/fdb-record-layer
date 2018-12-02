@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -50,7 +49,7 @@ public class ValueBuggyIndexMaintainerFactory implements IndexMaintainerFactory 
 
     @Nonnull
     @Override
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(IndexMaintainerState<M> state) {
-        return new ValueBuggyIndexMaintainer<>(state);
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+        return new ValueBuggyIndexMaintainer(state);
     }
 }

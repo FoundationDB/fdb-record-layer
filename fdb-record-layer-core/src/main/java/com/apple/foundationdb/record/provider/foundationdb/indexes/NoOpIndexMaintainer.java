@@ -49,25 +49,25 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An index maintainer that doesn't do anything.
- * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)
-public class NoOpIndexMaintainer<M extends Message> extends IndexMaintainer<M> {
-    protected NoOpIndexMaintainer(IndexMaintainerState<M> state) {
+public class NoOpIndexMaintainer extends IndexMaintainer {
+    protected NoOpIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
 
     @Nonnull
     @Override
     public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range,
-                                            @Nullable byte[] continuation,
-                                            @Nonnull ScanProperties scanProperties) {
+                                         @Nullable byte[] continuation,
+                                         @Nonnull ScanProperties scanProperties) {
         return RecordCursor.empty();
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
+    public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                              @Nullable FDBIndexableRecord<M> newRecord) {
         return AsyncUtil.DONE;
     }
 
@@ -90,9 +90,9 @@ public class NoOpIndexMaintainer<M extends Message> extends IndexMaintainer<M> {
 
     @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                           @Nonnull IndexRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    public <T, C extends Message, M extends C> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<C> context,
+                                                                                           @Nonnull IndexRecordFunction<T> function,
+                                                                                           @Nonnull FDBRecord<M> record) {
         return unsupportedRecordFunction(function);
     }
 

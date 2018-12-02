@@ -118,13 +118,14 @@ public class UnionCursor<T> extends UnionCursorBase<T> {
      * @param left a function to produce the first {@link RecordCursor} from a continuation
      * @param right a function to produce the second {@link RecordCursor} from a continuation
      * @param continuation any continuation from a previous scan
+     * @param <C> the type of the Protobuf record elements of the record store
      * @param <M> the type of the Protobuf record elements of the cursor
      * @param <S> the type of record wrapping a record of type <code>M</code>
      * @return a cursor containing any records in any child cursors
      */
     @Nonnull
-    public static <M extends Message, S extends FDBRecord<M>> UnionCursor<S> create(
-            @Nonnull FDBEvaluationContext<M> context,
+    public static <C extends Message, M extends C, S extends FDBRecord<M>> UnionCursor<S> create(
+            @Nonnull FDBEvaluationContext<C> context,
             @Nonnull KeyExpression comparisonKey, boolean reverse,
             @Nonnull Function<byte[], RecordCursor<S>> left,
             @Nonnull Function<byte[], RecordCursor<S>> right,
@@ -174,14 +175,15 @@ public class UnionCursor<T> extends UnionCursorBase<T> {
      * @param reverse whether records are returned in descending or ascending order by the comparison key
      * @param cursorFunctions a list of functions to produce {@link RecordCursor}s from a continuation
      * @param continuation any continuation from a previous scan
+     * @param <C> the type of the Protobuf record elements of the record store
      * @param <M> the type of the Protobuf record elements of the cursor
      * @param <S> the type of record wrapping a record of type <code>M</code>
      * @return a cursor containing any records in any child cursors
      * @see #create(Function, boolean, List, byte[], FDBStoreTimer)
      */
     @Nonnull
-    public static <M extends Message, S extends FDBRecord<M>> UnionCursor<S> create(
-            @Nonnull FDBEvaluationContext<M> context,
+    public static <C extends Message, M extends C, S extends FDBRecord<M>> UnionCursor<S> create(
+            @Nonnull FDBEvaluationContext<C> context,
             @Nonnull KeyExpression comparisonKey, boolean reverse,
             @Nonnull List<Function<byte[], RecordCursor<S>>> cursorFunctions,
             @Nullable byte[] continuation) {

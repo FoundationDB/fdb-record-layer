@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -57,12 +56,11 @@ public class IndexFunctionHelper {
      * @param store the record store containing the record
      * @param function the function to evaluate
      * @param record the record to evaluate against
-     * @param <M> the type of records in the store
      * @return an index maintainer that can evaluate the function or {@code Optional.empty()}
      */
-    public static <M extends Message> Optional<IndexMaintainer<M>> indexMaintainerForRecordFunction(@Nonnull FDBRecordStoreBase<M> store,
-                                                                                                    @Nonnull IndexRecordFunction<?> function,
-                                                                                                    @Nonnull FDBRecord<M> record) {
+    public static Optional<IndexMaintainer> indexMaintainerForRecordFunction(@Nonnull FDBRecordStore store,
+                                                                             @Nonnull IndexRecordFunction<?> function,
+                                                                             @Nonnull FDBRecord<?> record) {
         final String recordType = record.getRecordType().getName();
         return indexMaintainerForRecordFunction(store, function, Collections.singletonList(recordType));
     }
@@ -72,39 +70,36 @@ public class IndexFunctionHelper {
      * @param store the record store containing the record types
      * @param function the function to evaluate
      * @param recordTypeNames the names of all the record types for which the function will be evaluated
-     * @param <M> the type of records in the store
      * @return an index maintainer that can evaluate the function or {@code Optional.empty()}
      */
-    public static <M extends Message> Optional<IndexMaintainer<M>> indexMaintainerForRecordFunction(@Nonnull FDBRecordStoreBase<M> store,
-                                                                                                    @Nonnull IndexRecordFunction<?> function,
-                                                                                                    @Nonnull List<String> recordTypeNames) {
-        final FDBRecordStore untypedStore = store.getUntypedRecordStore();
+    public static Optional<IndexMaintainer> indexMaintainerForRecordFunction(@Nonnull FDBRecordStore store,
+                                                                             @Nonnull IndexRecordFunction<?> function,
+                                                                             @Nonnull List<String> recordTypeNames) {
         if (function.getIndex() != null) {
             final Index index = store.getRecordMetaData().getIndex(function.getIndex());
-            if (untypedStore.getRecordStoreState().isReadable(index)) {
+            if (store.getRecordStoreState().isReadable(index)) {
                 return Optional.of(store.getIndexMaintainer(index));
             }
         }
         return indexesForRecordTypes(store, recordTypeNames)
-                .filter(untypedStore::isIndexReadable)
+                .filter(store::isIndexReadable)
                 .map(store::getIndexMaintainer)
                 .filter(i -> i.canEvaluateRecordFunction(function))
                 // Prefer the one that does it in the fewest number of columns.
                 .min(Comparator.comparing(i -> i.state.index.getColumnSize()));
     }
 
-    public static <M extends Message> Optional<IndexMaintainer<M>> indexMaintainerForAggregateFunction(@Nonnull FDBRecordStoreBase<M> store,
-                                                                                                       @Nonnull IndexAggregateFunction function,
-                                                                                                       @Nonnull List<String> recordTypeNames) {
-        final FDBRecordStore untypedStore = store.getUntypedRecordStore();
+    public static Optional<IndexMaintainer> indexMaintainerForAggregateFunction(@Nonnull FDBRecordStore store,
+                                                                                @Nonnull IndexAggregateFunction function,
+                                                                                @Nonnull List<String> recordTypeNames) {
         if (function.getIndex() != null) {
             final Index index = store.getRecordMetaData().getIndex(function.getIndex());
-            if (untypedStore.getRecordStoreState().isReadable(index)) {
+            if (store.getRecordStoreState().isReadable(index)) {
                 return Optional.of(store.getIndexMaintainer(index));
             }
         }
         return indexesForRecordTypes(store, recordTypeNames)
-                .filter(untypedStore::isIndexReadable)
+                .filter(store::isIndexReadable)
                 .map(store::getIndexMaintainer)
                 .filter(i -> i.canEvaluateAggregateFunction(function))
                 // Prefer the one that does it in the fewest number of columns, because that will mean less rolling-up.
@@ -117,7 +112,7 @@ public class IndexFunctionHelper {
      * @param recordTypeNames the names of the record types for which indexes are needed
      * @return a stream of indexes
      */
-    public static Stream<Index> indexesForRecordTypes(@Nonnull FDBRecordStoreBase<? extends Message> store,
+    public static Stream<Index> indexesForRecordTypes(@Nonnull FDBRecordStore store,
                                                       @Nonnull List<String> recordTypeNames) {
         final RecordMetaData metaData = store.getRecordMetaData();
         if (recordTypeNames.isEmpty()) {
@@ -190,7 +185,7 @@ public class IndexFunctionHelper {
                 null);
     }
 
-    public static Optional<IndexAggregateFunction> bindAggregateFunction(@Nonnull FDBRecordStoreBase<? extends Message> store,
+    public static Optional<IndexAggregateFunction> bindAggregateFunction(@Nonnull FDBRecordStore store,
                                                                          @Nonnull IndexAggregateFunction function,
                                                                          @Nonnull List<String> recordTypeNames) {
         return indexMaintainerForAggregateFunction(store, function, recordTypeNames)

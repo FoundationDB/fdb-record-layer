@@ -64,14 +64,12 @@ import java.util.concurrent.CompletableFuture;
  *
  * Any number of fields in the index can optionally separate records into non-overlapping <i>groups</i>.
  * Each group, determined by the values of those fields, has separate ranking.
- *
- * @param <M> type used to represent stored records
  */
 @API(API.Status.MAINTAINED)
-public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
+public class RankIndexMaintainer extends StandardIndexMaintainer {
     private final int nlevels;
 
-    public RankIndexMaintainer(IndexMaintainerState<M> state) {
+    public RankIndexMaintainer(IndexMaintainerState state) {
         super(state);
         String nlevelsOption = state.index.getOption(IndexOptions.RANK_NLEVELS);
         this.nlevels = nlevelsOption == null ? RankedSet.DEFAULT_LEVELS : Integer.parseInt(nlevelsOption);
@@ -102,9 +100,9 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
     }
 
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                      final boolean remove,
-                                                      @Nonnull final List<IndexEntry> indexEntries) {
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                          final boolean remove,
+                                                                          @Nonnull final List<IndexEntry> indexEntries) {
         final int groupPrefixSize = getGroupingCount();
         final Subspace extraSubspace = getSecondarySubspace();
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -136,9 +134,9 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
     @Override
     @Nonnull
     @SuppressWarnings("unchecked")
-    public <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                           @Nonnull IndexRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    public <T, C extends Message, M extends C> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<C> context,
+                                                                                           @Nonnull IndexRecordFunction<T> function,
+                                                                                           @Nonnull FDBRecord<M> record) {
         if (function.getName().equals(FunctionNames.RANK)) {
             return (CompletableFuture<T>)rank(context, record);
         } else {
@@ -146,8 +144,8 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
         }
     }
 
-    public CompletableFuture<Long> rank(@Nonnull FDBEvaluationContext<M> context,
-                                        @Nonnull FDBRecord<M> record) {
+    public <C extends Message, M extends C> CompletableFuture<Long> rank(@Nonnull FDBEvaluationContext<C> context,
+                                                                         @Nonnull FDBRecord<M> record) {
         final int groupPrefixSize = getGroupingCount();
         KeyExpression indexExpr = state.index.getRootExpression();
         Key.Evaluated indexKey = indexExpr.evaluateSingleton(context, record);

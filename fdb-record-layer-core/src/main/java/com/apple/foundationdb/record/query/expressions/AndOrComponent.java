@@ -66,13 +66,13 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
 
     @Nullable
     @Override
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         return evalInternal(child -> (child.evalMessage(context, record, message)));
     }
 
     @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <C extends Message, M extends C> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         return new AsyncBoolean<>(isOr(), getChildren(), context, record, message).eval();
     }
 

@@ -33,12 +33,12 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
 
-class AsyncBoolean<M extends Message> {
+class AsyncBoolean<C extends Message, M extends C> {
     private final boolean isOr;
     @Nonnull
     private final Iterator<QueryComponent> operands;
     @Nonnull
-    private final FDBEvaluationContext<M> context;
+    private final FDBEvaluationContext<C> context;
     @Nullable
     private final FDBRecord<M> record;
     @Nullable
@@ -46,7 +46,7 @@ class AsyncBoolean<M extends Message> {
     @Nullable
     private Boolean retVal;
 
-    public AsyncBoolean(boolean isOr, @Nonnull List<QueryComponent> operands, @Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public AsyncBoolean(boolean isOr, @Nonnull List<QueryComponent> operands, @Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         this.isOr = isOr;
         this.operands = operands.iterator();
         this.context = context;

@@ -79,11 +79,12 @@ public abstract class FDBEvaluationContext<M extends Message> extends Evaluation
      * @param function the function to evaluate
      * @param record the record to evaluate against
      * @param <T> the type of the result
+     * @param <N> the type of the record
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
-    public <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull RecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    public <T, N extends M> CompletableFuture<T> evaluateRecordFunction(@Nonnull RecordFunction<T> function,
+                                                                        @Nonnull FDBRecord<N> record) {
         return getStore().evaluateRecordFunction(this, function, record);
     }
 

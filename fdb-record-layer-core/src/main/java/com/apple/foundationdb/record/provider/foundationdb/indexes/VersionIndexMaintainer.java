@@ -49,12 +49,10 @@ import javax.annotation.Nullable;
  * then it will set the key in such a way that the global version is filled in when the record is committed.
  * If one only ever serializes records with incomplete <code>RecordVersion</code>s, then this index guarantees
  * that the version column is strictly monotonically increasing with time.
- *
- * @param <M> type used to represent stored records
  */
 @API(API.Status.EXPERIMENTAL)
-public class VersionIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
-    protected VersionIndexMaintainer(IndexMaintainerState<M> state) {
+public class VersionIndexMaintainer extends StandardIndexMaintainer {
+    protected VersionIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
 
@@ -71,9 +69,9 @@ public class VersionIndexMaintainer<M extends Message> extends StandardIndexMain
 
     // Called by updateIndexKeys in StandardIndexMaintainer.
     @Override
-    protected void updateOneKey(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                final boolean remove,
-                                @Nonnull final IndexEntry indexEntry) {
+    protected <M extends Message> void updateOneKey(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                    final boolean remove,
+                                                    @Nonnull final IndexEntry indexEntry) {
         if (state.index.isUnique()) {
             throw new MetaDataException(String.format("%s index %s does not support unique indexes", state.index.getType(), state.index.getName()));
         }
