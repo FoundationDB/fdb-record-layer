@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
 import javax.annotation.Nonnull;
@@ -28,6 +29,7 @@ import javax.annotation.Nullable;
 /**
  * Exception thrown when there is a problem serializing or deserializing a record.
  */
+@API(API.Status.MAINTAINED)
 @SuppressWarnings("serial")
 public class RecordSerializationException extends RecordCoreException {
     public RecordSerializationException(@Nonnull String msg, @Nullable Object ... keyValues) {

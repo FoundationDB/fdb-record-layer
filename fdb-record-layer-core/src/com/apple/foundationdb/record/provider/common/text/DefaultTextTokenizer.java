@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.text.BreakIterator;
@@ -38,6 +40,7 @@ import java.util.NoSuchElementException;
  * it handle languages like Chinese, Japanese, or Thai that do not generally use whitespace
  * to indicate word boundaries.
  */
+@API(API.Status.EXPERIMENTAL)
 public class DefaultTextTokenizer implements TextTokenizer {
     @Nonnull
     private static final DefaultTextTokenizer INSTANCE = new DefaultTextTokenizer();

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -49,6 +50,7 @@ import java.util.stream.Stream;
  * If a context has a store timer, various operations will record timing information in it. It is up to the caller to provide the necessary integration
  * between this information and any system monitoring tools.
  */
+@API(API.Status.MAINTAINED)
 public class StoreTimer {
     static final Counter EMPTY_COUNTER = new Counter();
 
@@ -56,7 +58,7 @@ public class StoreTimer {
      * Confirm that there is no naming conflict among the event names that will be used.
      * @param events a stream of events to check for duplicates
      */
-    public static void checkEventNameUniqueness(Stream<Event> events) {
+    public static void checkEventNameUniqueness(@Nonnull Stream<Event> events) {
         final Set<String> seen = new HashSet<>();
         final Set<String> duplicates = events.map(Event::name).filter(n -> !seen.add(n)).collect(Collectors.toSet());
         if (!duplicates.isEmpty()) {
@@ -64,7 +66,8 @@ public class StoreTimer {
         }
     }
 
-    protected static Counter getCounter(Map<Event, Counter> counters, Event event, boolean create) {
+    @Nonnull
+    protected static Counter getCounter(@Nonnull Map<Event, Counter> counters, @Nonnull Event event, boolean create) {
         if (create) {
             return counters.computeIfAbsent(event, evignore -> new Counter());
         } else {
@@ -75,25 +78,25 @@ public class StoreTimer {
     /**
      * An identifier for occurrences that need to be timed.
      */
-    public static interface Event {
+    public interface Event {
         /**
          * Get the name of this event for machine processing.
          * @return the name
          */
-        public String name();
+        String name();
 
         /**
          * Get the title of this event for user displays.
          * @return the user-visible title
          */
-        public String title();
+        String title();
     }
 
     /**
      * {@link Event}s that are a significant part of a larger process.
      * The time in these events should be accounted for within another event and so should not be added to totals.
      */
-    public static interface DetailEvent extends Event {
+    public interface DetailEvent extends Event {
     }
 
     /**
@@ -101,19 +104,19 @@ public class StoreTimer {
      * The time for a {@code Wait} is the time actually waiting, which may be shorter than the time for the asynchronous
      * operation itself.
      */
-    public static interface Wait extends Event {
+    public interface Wait extends Event {
     }
 
     /**
      * {@link Event}s that only count occurrences or total size.
      * There is no meaningful time duration associated with these events.
      */
-    public static interface Count extends Event {
+    public interface Count extends Event {
         /**
          * Get whether the count value is actually a size in bytes.
          * @return {@code true} if the count value is actually a size in bytes
          */
-        public boolean isSize();
+        boolean isSize();
     }
 
     protected static class Counter {

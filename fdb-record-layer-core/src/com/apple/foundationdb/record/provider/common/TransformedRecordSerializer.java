@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -74,6 +75,7 @@ import java.util.zip.Inflater;
  *
  * @param <M> type of {@link Message} that underlying records will use
  */
+@API(API.Status.UNSTABLE)
 public class TransformedRecordSerializer<M extends Message> implements RecordSerializer<M> {
     @VisibleForTesting
     protected static final int ENCODING_ENCRYPTED = 1;
