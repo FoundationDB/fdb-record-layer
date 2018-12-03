@@ -212,19 +212,27 @@ public class FDBReverseDirectoryCacheTest {
             rdc.putIfNotExists(context, scopedName, id).get();
             rdc.putIfNotExists(context, scopedName, id).get();
             rdc.putIfNotExists(context, scopedName, id).get();
+
+            assertEquals(3L, rdc.getPersistentCacheHitCount());
+            assertEquals(1L, rdc.getPersistentCacheMissCount());
+            assertEquals(3L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
+            assertEquals(1L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT));
+
             commit(context);
         }
-        assertEquals(3L, rdc.getPersistentCacheHitCount());
-        assertEquals(1L, rdc.getPersistentCacheMissCount());
 
         // Second attempt should miss the in-memory cache but hit the persistent cache
         rdc.clearStats();
         try (FDBRecordContext context = openContext()) {
             rdc.putIfNotExists(context, scopedName, id).get();
+
+            assertEquals(1L, rdc.getPersistentCacheHitCount());
+            assertEquals(0L, rdc.getPersistentCacheMissCount());
+            assertEquals(1L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
+            assertEquals(0L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT));
+
             commit(context);
         }
-        assertEquals(1L, rdc.getPersistentCacheHitCount());
-        assertEquals(0L, rdc.getPersistentCacheMissCount());
     }
 
     @Test
@@ -309,11 +317,15 @@ public class FDBReverseDirectoryCacheTest {
         // Store the correct value
         try (FDBRecordContext context = openContext()) {
             rdc.putIfNotExists(context, scopedName, id).get();
+
+            // The put should be considered a hard miss because it had to write to the cache
+            assertEquals(0L, rdc.getPersistentCacheHitCount());
+            assertEquals(1L, rdc.getPersistentCacheMissCount());
+            assertEquals(0L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
+            assertEquals(1L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT));
+
             commit(context);
         }
-        // The put should be considered a hard miss because it had to write to the cache
-        assertEquals(0L, rdc.getPersistentCacheHitCount());
-        assertEquals(1L, rdc.getPersistentCacheMissCount());
 
         // Try again with a different value
         try (FDBRecordContext context = openContext()) {
@@ -552,6 +564,7 @@ public class FDBReverseDirectoryCacheTest {
                 assertEquals(entry.getValue(), name.get());
             }
             assertEquals((long)names.length, reverseDirectoryCache.getPersistentCacheHitCount());
+            assertEquals((long)names.length, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
 
             Long id = globalScope.resolve(context.getTimer(), afterRebuildName).get();
             reverseDirectoryCache.clearStats();

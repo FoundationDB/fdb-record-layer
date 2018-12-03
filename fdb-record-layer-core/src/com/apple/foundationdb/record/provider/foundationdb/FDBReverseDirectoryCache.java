@@ -240,6 +240,18 @@ public class FDBReverseDirectoryCache {
                 .whenComplete((result, exception) -> context.close());
     }
 
+    /**
+     * Helper method to log the cache stats to the StoreTimer.
+     * @param context the FDB record context
+     * @param event the event to log
+     */
+    private void logStatsToStoreTimer(@Nonnull final FDBRecordContext context,
+                                      @Nonnull FDBStoreTimer.Count event) {
+        if (context.getTimer() != null) {
+            context.getTimer().increment(event);
+        }
+    }
+
     private CompletableFuture<Optional<String>> getFromSubspace(@Nonnull final FDBRecordContext context,
                                                                 @Nonnull final Subspace reverseCacheSubspace,
                                                                 @Nonnull final ScopedValue<Long> scopedReverseDirectoryKey) {
@@ -252,10 +264,12 @@ public class FDBReverseDirectoryCache {
                                  + scopedReverseDirectoryKey + "'");
                 }
                 persistentCacheHitCount.incrementAndGet();
+                logStatsToStoreTimer(context, FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT);
                 context.close();
                 return Optional.of(dirString);
             }
             persistentCacheMissCount.incrementAndGet();
+            logStatsToStoreTimer(context, FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT);
             return Optional.empty();
         });
     }
@@ -435,6 +449,7 @@ public class FDBReverseDirectoryCache {
                             + pathValue + "'");
                 }
                 persistentCacheHitCount.incrementAndGet();
+                logStatsToStoreTimer(context, FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT);
             } else {
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("Adding '" + pathValue + "' to reverse lookup with key " + pathString);
@@ -443,6 +458,7 @@ public class FDBReverseDirectoryCache {
                 // so it is possible it could fail/rollback leaving our cache inconsistent.
                 transaction.set(reverseCacheSubspace.pack(pathValue), Tuple.from(pathString).pack());
                 persistentCacheMissCount.incrementAndGet();
+                logStatsToStoreTimer(context, FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT);
             }
             return null;
         });

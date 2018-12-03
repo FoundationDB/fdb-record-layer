@@ -337,6 +337,10 @@ public class FDBStoreTimer extends StoreTimer {
         DELETE_INDEX_VALUE_BYTES("number of index value bytes deleted", true),
         /** The previous size of values for record key-value pairs that are updated. */
         REPLACE_RECORD_VALUE_BYTES("number of record value bytes replaced", true),
+        /** The number of reverse directory cache misses.  */
+        REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT("number of persistent cache misses", false),
+        /** The number of reverse directory cache hits.  */
+        REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT("number of persistent cache hits", false),
         /** The number of query plans that use a covering index. */
         PLAN_COVERING_INDEX("number of covering index plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan}. */
