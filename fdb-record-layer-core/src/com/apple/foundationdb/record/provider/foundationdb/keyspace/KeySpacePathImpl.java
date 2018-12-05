@@ -24,6 +24,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -126,9 +127,11 @@ class KeySpacePathImpl implements KeySpacePath {
 
     @Nonnull
     @Override
-    public RecordCursor<KeySpacePath> listAsync(@Nonnull String subdirName, @Nullable byte[] continuation,
+    public RecordCursor<KeySpacePath> listAsync(@Nonnull String subdirName,
+                                                @Nullable TupleRange range,
+                                                @Nullable byte[] continuation,
                                                 @Nonnull ScanProperties scanProperties) {
-        return directory.listAsync(self(), context, subdirName, continuation, scanProperties);
+        return directory.listRangeAsync(self(), context, subdirName, range, continuation, scanProperties);
     }
 
 

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -244,8 +245,41 @@ public interface KeySpacePath {
      *    the directory tree
      */
     @Nonnull
-    RecordCursor<KeySpacePath> listAsync(@Nonnull String subdirName, @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties);
+    default RecordCursor<KeySpacePath> listAsync(@Nonnull String subdirName, @Nullable byte[] continuation,
+                                                 @Nonnull ScanProperties scanProperties) {
+        return listAsync(subdirName, null, continuation, scanProperties);
+    }
+
+    /**
+     * For a given subdirectory from this path element, return a list of paths for all available keys in the FDB
+     * keyspace for that directory. For example, given the tree:
+     * <pre>
+     * root
+     *   +- node
+     *       +- leaf
+     * </pre>
+     * Performing a <code>listAsync</code> from a given <code>node</code>, will result in a list of paths, one for
+     * each <code>leaf</code> that is available within the <code>node</code>'s scope.
+     *
+     * <p>The listing is performed by reading the first key of the data type (and possibly constant value) for the
+     * subdirectory and, if a key is found, skipping to the next available value after the first one that was found,
+     * and so one, each time resulting in an additional <code>KeySpacePath</code> that is returned.  In each case,
+     * the returned <code>KeySpacePath</code> may contain a remainder (see {@link #getRemainder()}) of the portion
+     * of the key tuple that was read.
+     *
+     * @param subdirName the name of the subdirectory that is to be listed
+     * @param range the range of the subdirectory values to be listed. All will be listed if it is <code>null</code>.
+     *     If the directory is restricted to a specific constant value, it has to be <code>null</code>
+     * @param continuation an optional continuation from a previous list attempt
+     * @param scanProperties details for how the scan should be performed
+     * @return a list of fully qualified paths for each value contained within this directory
+     * @throws NoSuchDirectoryException if the subdirectory name provided does not exist
+     * @throws com.apple.foundationdb.record.RecordCoreException if a key found during the listing process did not correspond to
+     *    the directory tree
+     */
+    @Nonnull
+    RecordCursor<KeySpacePath> listAsync(@Nonnull String subdirName, @Nullable TupleRange range,
+                                         @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
 
     /**
      * Synchronous version of <code>listAsync</code>.

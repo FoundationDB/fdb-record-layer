@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -36,6 +37,8 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,6 +62,8 @@ import java.util.function.Function;
  */
 @API(API.Status.MAINTAINED)
 public class KeySpaceDirectory {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(KeySpaceDirectory.class);
 
     /**
      * The available data types for directories.
@@ -477,12 +482,22 @@ public class KeySpaceDirectory {
     }
 
     @Nonnull
-    @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the cursor is wrapped and returned
     protected RecordCursor<KeySpacePath> listAsync(@Nullable KeySpacePath listFrom,
                                                    @Nonnull FDBRecordContext context,
                                                    @Nonnull String subdirName,
                                                    @Nullable byte[] continuation,
                                                    @Nonnull ScanProperties scanProperties) {
+        return listRangeAsync(listFrom, context, subdirName, null, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the cursor is wrapped and returned
+    protected RecordCursor<KeySpacePath> listRangeAsync(@Nullable KeySpacePath listFrom,
+                                                        @Nonnull FDBRecordContext context,
+                                                        @Nonnull String subdirName,
+                                                        @Nullable TupleRange range,
+                                                        @Nullable byte[] continuation,
+                                                        @Nonnull ScanProperties scanProperties) {
         if (listFrom != null && listFrom.getDirectory() != this) {
             throw new RecordCoreException("Provided path does not belong to this directory")
                     .addLogInfo("path", listFrom, "directory", this.getName());
@@ -495,22 +510,41 @@ public class KeySpaceDirectory {
 
         final byte[] startKey;
         final byte[] stopKey;
-        if (subdir.getValue() == KeySpaceDirectory.ANY_VALUE) {
-            startKey = new byte[subspaceBytes.length + 1];
-            System.arraycopy(subspaceBytes, 0, startKey, 0, subspaceBytes.length);
-            startKey[subspaceBytes.length] = subdir.getKeyType().getTypeLowBounds();
+        final EndpointType startType;
+        final EndpointType stopType;
+        if (subdir.getValue() == KeySpaceDirectory.ANY_VALUE || subdir.getValue() == null) {
+            if (range != null && range.getLowEndpoint() != EndpointType.TREE_START) {
+                startKey = subspace.pack(range.getLow());
+                startType = range.getLowEndpoint();
+            } else {
+                startKey = new byte[subspaceBytes.length + 1];
+                System.arraycopy(subspaceBytes, 0, startKey, 0, subspaceBytes.length);
+                startKey[subspaceBytes.length] = subdir.getKeyType().getTypeLowBounds();
+                startType = EndpointType.RANGE_INCLUSIVE;
+            }
 
-            stopKey = new byte[subspaceBytes.length + 1];
-            System.arraycopy(subspaceBytes, 0, stopKey, 0, subspaceBytes.length);
-            stopKey[subspaceBytes.length] = subdir.getKeyType().getTypeHighBounds();
+            if (range != null && range.getHighEndpoint() != EndpointType.TREE_END) {
+                stopKey = subspace.pack(range.getHigh());
+                stopType = range.getHighEndpoint();
+            } else {
+                stopKey = new byte[subspaceBytes.length + 1];
+                System.arraycopy(subspaceBytes, 0, stopKey, 0, subspaceBytes.length);
+                stopKey[subspaceBytes.length] = subdir.getKeyType().getTypeHighBounds();
+                stopType = EndpointType.RANGE_EXCLUSIVE;
+            }
         } else {
+            if (range != null) {
+                throw new RecordCoreArgumentException("range is not applicable when the subdirectory has a value.");
+            }
             PathValue resolvedValue = subdir.toTupleValue(context, subdir.getValue());
             startKey = subspace.pack(Tuple.from(resolvedValue.getResolvedValue()));
             stopKey = ByteArrayUtil.strinc(startKey);
+            startType = EndpointType.RANGE_INCLUSIVE;
+            stopType = EndpointType.RANGE_EXCLUSIVE;
         }
 
         final RecordCursor<Tuple> cursor = new ChainedCursor<>(
-                lastKey -> nextTuple(context, subspace, startKey, stopKey, lastKey, singleRowScan),
+                lastKey -> nextTuple(context, subspace, startKey, stopKey, startType, stopType, lastKey, singleRowScan),
                 Tuple::pack,
                 Tuple::fromBytes,
                 continuation,
@@ -527,14 +561,16 @@ public class KeySpaceDirectory {
                                                          @Nonnull Subspace subspace,
                                                          @Nonnull byte[] startKey,
                                                          @Nonnull byte[] stopKey,
+                                                         @Nonnull EndpointType startType,
+                                                         @Nonnull EndpointType stopType,
                                                          @Nonnull Optional<Tuple> lastTuple,
                                                          @Nonnull ScanProperties scanProperties) {
         final KeyValueCursor cursor;
         if (!lastTuple.isPresent()) {
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
-                    .setLow(startKey, EndpointType.RANGE_INCLUSIVE)
-                    .setHigh(stopKey, EndpointType.RANGE_EXCLUSIVE)
+                    .setLow(startKey, startType)
+                    .setHigh(stopKey, stopType)
                     .setContinuation(null)
                     .setScanProperties(scanProperties)
                     .build();
@@ -542,7 +578,7 @@ public class KeySpaceDirectory {
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(subspace.pack(lastTuple.get().get(0)), EndpointType.RANGE_EXCLUSIVE)
-                    .setHigh(stopKey, EndpointType.RANGE_EXCLUSIVE)
+                    .setHigh(stopKey, stopType)
                     .setContinuation(null)
                     .setScanProperties(scanProperties)
                     .build();
