@@ -61,7 +61,8 @@ public class Index {
     private int[] primaryKeyComponentPositions;
     @Nonnull
     private Object subspaceKey;
-    private int version;
+    private int addedVersion;
+    private int lastModifiedVersion;
 
     public static Object decodeSubspaceKey(@Nonnull ByteString bytes) {
         Tuple tuple = Tuple.fromBytes(bytes.toByteArray());
@@ -90,7 +91,7 @@ public class Index {
         this.type = type;
         this.options = options;
         this.subspaceKey = name;
-        this.version = 0;
+        this.lastModifiedVersion = 0;
     }
 
     public Index(@Nonnull String name,
@@ -134,7 +135,8 @@ public class Index {
             this.primaryKeyComponentPositions = null;
         }
         this.subspaceKey = Tuple.fromBytes(Tuple.from(orig.subspaceKey).pack()).get(0);
-        this.version = orig.version;
+        this.addedVersion = orig.addedVersion;
+        this.lastModifiedVersion = orig.lastModifiedVersion;
     }
 
     @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"}) // Old (deprecated) index type needs grouping compatibility
@@ -171,8 +173,15 @@ public class Index {
         } else {
             subspaceKey = name;
         }
-        if (proto.hasVersion()) {
-            version = proto.getVersion();
+        if (proto.hasAddedVersion()) {
+            addedVersion = proto.getAddedVersion();
+        } else {
+            // Indexes from before this field existed need to appear to be old.
+            // But addIndexCommon will set to lastModifiedVersion if kept at 0, so set to first valid version.
+            addedVersion = 1;
+        }
+        if (proto.hasLastModifiedVersion()) {
+            lastModifiedVersion = proto.getLastModifiedVersion();
         }
     }
 
@@ -324,12 +333,56 @@ public class Index {
         return total;
     }
 
+    /**
+     * Synonynm for {@link #getLastModifiedVersion}.
+     * @return the last modified version
+     * @deprecated use {@link #getLastModifiedVersion}.
+     */
     public int getVersion() {
-        return version;
+        return lastModifiedVersion;
     }
 
+    /**
+     * Synonynm for {@link #setLastModifiedVersion}.
+     * @param version the last modified version
+     * @deprecated use {@link #setLastModifiedVersion}.
+     */
     public void setVersion(int version) {
-        this.version = version;
+        this.lastModifiedVersion = version;
+    }
+
+    /**
+     * Get the version at which the index was first added.
+     * @return the added version
+     */
+    public int getAddedVersion() {
+        return addedVersion;
+    }
+
+    /**
+     * Set the version at which the index was first added.
+     * @param addedVersion the added version
+     */
+    public void setAddedVersion(int addedVersion) {
+        this.addedVersion = addedVersion;
+    }
+
+    /**
+     * Get the version at which the index was changed.
+     *
+     * Any record store older than this will need to have the index rebuilt.
+     * @return the last modified version
+     */
+    public int getLastModifiedVersion() {
+        return lastModifiedVersion;
+    }
+
+    /**
+     * Set the version at which the index was changed.
+     * @param lastModifiedVersion the last modified version
+     */
+    public void setLastModifiedVersion(int lastModifiedVersion) {
+        this.lastModifiedVersion = lastModifiedVersion;
     }
 
     public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor recordType) {
@@ -348,8 +401,11 @@ public class Index {
         if (!name.equals(subspaceKey)) {
             builder.setSubspaceKey(ByteString.copyFrom(Tuple.from(subspaceKey).pack()));
         }
-        if (version > 0) {
-            builder.setVersion(version);
+        if (addedVersion > 0) {
+            builder.setAddedVersion(addedVersion);
+        }
+        if (lastModifiedVersion > 0) {
+            builder.setLastModifiedVersion(lastModifiedVersion);
         }
         return builder.build();
     }
@@ -362,8 +418,8 @@ public class Index {
             str.append(", ").append(type);
         }
         str.append("}");
-        if (version > 0) {
-            str.append("#").append(version);
+        if (lastModifiedVersion > 0) {
+            str.append("#").append(lastModifiedVersion);
         }
         return str.toString();
     }

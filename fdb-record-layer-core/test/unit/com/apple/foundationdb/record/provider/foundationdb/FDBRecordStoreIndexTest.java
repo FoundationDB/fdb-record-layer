@@ -2054,5 +2054,50 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             });
         }
     }
+
+    @Test
+    public void formerIndexes() throws Exception {
+        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+
+        try (FDBRecordContext context = openContext()) {
+            createRecordStore(context, metaData.getRecordMetaData());
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
+            context.commit();
+        }
+
+        metaData.addIndex("MySimpleRecord", "num_value_2");
+
+        try (FDBRecordContext context = openContext()) {
+            createRecordStore(context, metaData.getRecordMetaData());
+            timer.reset();
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Events.REMOVE_FORMER_INDEX));
+            context.commit();
+        }
+
+        metaData.removeIndex("MySimpleRecord$num_value_2");
+
+        try (FDBRecordContext context = openContext()) {
+            createRecordStore(context, metaData.getRecordMetaData());
+            timer.reset();
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertEquals(0, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.REMOVE_FORMER_INDEX));
+            context.commit();
+        }
+
+        metaData.addIndex("MySimpleRecord", "num_value_2");
+        metaData.removeIndex("MySimpleRecord$num_value_2");
+
+        try (FDBRecordContext context = openContext()) {
+            createRecordStore(context, metaData.getRecordMetaData());
+            timer.reset();
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertEquals(0, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Events.REMOVE_FORMER_INDEX));
+            context.commit();
+        }
+    }
     
 }

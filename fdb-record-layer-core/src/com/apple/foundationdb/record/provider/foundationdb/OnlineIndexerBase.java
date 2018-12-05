@@ -266,7 +266,7 @@ public class OnlineIndexerBase<M extends Message> implements AutoCloseable {
                                 if (LOGGER.isInfoEnabled()) {
                                     LOGGER.info(KeyValueLogMessage.of("Lessening limit of online index build",
                                                     "indexName", index.getName(),
-                                                    "indexVersion", index.getVersion(),
+                                                    "indexVersion", index.getLastModifiedVersion(),
                                                     "error", fdbE.getMessage(),
                                                     "errorCode", fdbE.getCode(),
                                                     "limit", limit),
