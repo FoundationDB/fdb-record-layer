@@ -33,6 +33,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
@@ -767,8 +768,10 @@ public class SplitHelper {
         // Process the next key-value pair from the inner cursor; return whether unsplit complete.
         protected boolean append(@Nonnull KeyValue kv) {
             if (nextPrefix == null) {
+                continuation = inner.getContinuation();
                 return appendFirst(kv);
             } else if (ByteArrayUtil.startsWith(kv.getKey(), nextPrefix)) {
+                continuation = inner.getContinuation();
                 return appendNext(kv);
             } else {
                 if (reverse && nextIndex != UNSPLIT_RECORD && nextIndex != START_SPLIT_RECORD && nextIndex != RECORD_VERSION) {
@@ -794,7 +797,6 @@ public class SplitHelper {
                 // key), or we are going in the reverse direction, in which
                 // case there might be a version key before it.
                 sizeInfo.setSplit(false);
-                continuation = inner.getContinuation();
                 return !reverse;
             } else if (!reverse && nextIndex == RECORD_VERSION) {
                 if (oldVersionFormat) {
@@ -809,13 +811,11 @@ public class SplitHelper {
                 sizeInfo.setVersionedInline(true);
                 nextVersion = unpackVersion(kv.getValue());
                 next = null;
-                continuation = inner.getContinuation();
                 return false;
             } else if (reverse && nextIndex != RECORD_VERSION || nextIndex == START_SPLIT_RECORD) {
                 // The data is either the beginning or end of the split (depending
                 // on scan direction).
                 sizeInfo.setSplit(true);
-                continuation = inner.getContinuation();
                 return false;
             } else {
                 throw new FoundSplitWithoutStartException(nextIndex, reverse)
@@ -836,7 +836,6 @@ public class SplitHelper {
                 next = new KeyValue(nextPrefix, kv.getValue());
                 nextIndex = index;
                 sizeInfo.setSplit(index == START_SPLIT_RECORD);
-                continuation = inner.getContinuation();
                 return nextIndex == UNSPLIT_RECORD;
             } else if (!reverse && index == nextIndex + 1) {
                 // This is the second or later key (not counting a possible version key)
@@ -845,7 +844,6 @@ public class SplitHelper {
                 // no way to know if this is the last key or not.
                 next = new KeyValue(nextPrefix, ByteArrayUtil.join(next.getValue(), kv.getValue()));
                 nextIndex = index;
-                continuation = inner.getContinuation();
                 return false;
             } else if (reverse && index == RECORD_VERSION && (nextIndex == START_SPLIT_RECORD || nextIndex == UNSPLIT_RECORD)) {
                 // This is the record version key encountered during a backwards scan.
@@ -858,7 +856,6 @@ public class SplitHelper {
                 }
                 nextVersion = unpackVersion(kv.getValue());
                 nextIndex = index;
-                continuation = inner.getContinuation();
                 return true;
             } else if (reverse && index == nextIndex - 1 && index != RECORD_VERSION) {
                 // The second or later key in a backwards scan, but not the record version.
@@ -868,7 +865,6 @@ public class SplitHelper {
                 // possible that there is a record version before it).
                 next = new KeyValue(nextPrefix, ByteArrayUtil.join(kv.getValue(), next.getValue()));
                 nextIndex = index;
-                continuation = inner.getContinuation();
                 return false;
             } else {
                 final long expectedIndex = nextIndex + (reverse ? -1 : 1);
