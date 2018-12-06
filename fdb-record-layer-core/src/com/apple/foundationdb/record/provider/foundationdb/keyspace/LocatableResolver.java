@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.annotations.VisibleForTesting;
@@ -314,9 +313,7 @@ public abstract class LocatableResolver {
     /**
      * Retire this {@link LocatableResolver}, indicating that it should not be used for any future resolve operations.
      * This can be used to indicate that the current resolver has migrated to a new location and that clients should be
-     * using that resolver instead. See {@link GlobalResolverFactory} which uses the
-     * {@link com.apple.foundationdb.record.ResolverStateProto.WriteLock#RETIRED} state to signal that a migration has occurred
-     * from {@link ScopedDirectoryLayer} to {@link ScopedInterningLayer}.
+     * using that resolver instead.
      * @return a future that completes when the write lock has been cleared
      */
     public CompletableFuture<Void> retireLayer() {
@@ -352,7 +349,7 @@ public abstract class LocatableResolver {
 
     /**
      * Check whether this resolver has been retired. A retired state indicates that this resolver was once active but has
-     * since been migrated to a new keyspace (see {@link GlobalResolverFactory}).
+     * since been migrated to a new keyspace.
      * @param timer The store timer to instrument the transaction with.
      * @return A future that will complete with boolean indicating whether this resolver has been retired.
      */
@@ -362,8 +359,7 @@ public abstract class LocatableResolver {
 
     /**
      * Check whether this resolver has been retired. Skips the resolver state cache and reads the state directly. A
-     * retired state indicates that this resolver was once active but has  since been migrated to a new keyspace
-     * (see {@link GlobalResolverFactory}).
+     * retired state indicates that this resolver was once active but has since been migrated to a new keyspace.
      * @param context the transaction to use to access the database
      * @return A future that will complete with boolean indicating whether this resolver has been retired.
      */

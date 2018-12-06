@@ -22,15 +22,11 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.google.common.collect.ImmutableList;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -42,7 +38,6 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ResolverCreateHooks {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ResolverCreateHooks.class);
     public static final PreWriteCheck DEFAULT_CHECK = (ignore1, ignore2) -> AsyncUtil.READY_TRUE;
     public static final MetadataHook DEFAULT_HOOK = ignore -> null;
     @Nonnull
@@ -61,29 +56,12 @@ public class ResolverCreateHooks {
         this.metadataHook = metadataHook;
     }
 
-    public static ResolverCreateHooks getDefault() {
-        return new ResolverCreateHooks(DEFAULT_CHECK, DEFAULT_HOOK);
-    }
-
     /**
-     * Gets a set of hooks for checking the migration state of the global {@link LocatableResolver}. Does not set a
-     * metadata hook.
+     * Gets the default set of no-op create hooks.
      * @return the {@link ResolverCreateHooks}
      */
-    public static ResolverCreateHooks getMigratableGlobal() {
-        List<PreWriteCheck> checks = ImmutableList.of((context, providedResolver) ->
-                GlobalResolverFactory.globalResolverNoCache(context)
-                        .thenApply(resolver -> {
-                            if (!Objects.equals(resolver, providedResolver)) {
-                                LOGGER.warn(KeyValueLogMessage.of("LocatableResolver inconsistent with cached state",
-                                        "cachedResolver", providedResolver,
-                                        "readResolver", resolver));
-                                return false;
-                            }
-                            return true;
-                        })
-        );
-        return new ResolverCreateHooks(checks, DEFAULT_HOOK);
+    public static ResolverCreateHooks getDefault() {
+        return new ResolverCreateHooks(DEFAULT_CHECK, DEFAULT_HOOK);
     }
 
     @Nonnull

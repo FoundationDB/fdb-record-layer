@@ -95,7 +95,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>. Sets the <code>createHook</code> to
-     * {@link ResolverCreateHooks#getMigratableGlobal()}.
+     * {@link ResolverCreateHooks} their default values.
      * @param name The logical name of the directory
      * @param value The value of the directory entry (the string which will be translated to an int by the resolver)
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}
@@ -103,8 +103,8 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     public DirectoryLayerDirectory(@Nonnull String name, @Nullable Object value,
                                    @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
         this(name, value, wrapper,
-                context -> GlobalResolverFactory.globalResolver(context.getTimer(), context.getDatabase()),
-                ResolverCreateHooks.getMigratableGlobal());
+                context -> CompletableFuture.completedFuture(ExtendedDirectoryLayer.global(context.getDatabase())),
+                ResolverCreateHooks.getDefault());
     }
 
     /**

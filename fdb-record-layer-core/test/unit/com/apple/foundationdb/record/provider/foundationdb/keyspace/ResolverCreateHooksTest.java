@@ -20,11 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,55 +33,86 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@Tag(Tags.WipesFDB)
 @Tag(Tags.RequiresFDB)
 class ResolverCreateHooksTest {
     private FDBDatabase database;
+    private KeySpace keySpace;
+    private final Random random = new Random();
 
     @BeforeEach
     public void setup() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         database = factory.getDatabase();
         database.clearCaches();
-        wipeFDB();
+
+        keySpace = new KeySpace(
+                new KeySpaceDirectory("test-root", KeySpaceDirectory.KeyType.STRING, "test-" + random.nextLong())
+                        .addSubdirectory(new KeySpaceDirectory("resolvers", KeySpaceDirectory.KeyType.STRING, "resolvers")
+                                .addSubdirectory(new KeySpaceDirectory("resolverNode", KeySpaceDirectory.KeyType.STRING)))
+                        .addSubdirectory(new KeySpaceDirectory("should-use-A", KeySpaceDirectory.KeyType.STRING, "should-use-A")));
     }
 
     @AfterEach
     public void teardown() {
-        // tests that modify migration state of global directory layer need to wipe FDB to prevent pollution of other suites
-        wipeFDB();
-    }
-
-    private void wipeFDB() {
-        database.run((context -> {
-            context.ensureActive().clear(new Range(new byte[] {(byte)0x00}, new byte[] {(byte)0xFF}));
-            return null;
-        }));
+        database.run(context -> root(context).toTupleAsync().thenAccept(tuple -> context.ensureActive().clear(tuple.range())));
     }
 
     @Test
-    void testGetMigratableGlobal() {
-        final ResolverCreateHooks hooks = ResolverCreateHooks.getMigratableGlobal();
+    void testPreWriteChecks() {
+        // reads the key, and chooses the resolver based on the value
+        final PreWriteCheck check = (context, providedResolver) -> {
+            CompletableFuture<LocatableResolver> expectedResolverFuture = root(context).add("should-use-A").toTupleAsync()
+                    .thenCompose(keyTuple -> context.ensureActive().get(keyTuple.pack()))
+                    .thenApply(value -> {
+                        boolean useA = Tuple.fromBytes(value).getBoolean(0);
+                        return new ScopedInterningLayer(resolverPath(context, useA ? "A" : "B"));
+                    });
+            return expectedResolverFuture.thenApply(expectedResolver -> expectedResolver.equals(providedResolver));
+        };
 
-        // before migration
+        final ResolverCreateHooks hooks = new ResolverCreateHooks(check, ResolverCreateHooks.DEFAULT_HOOK);
+
+        // use resolver A
+        database.run(context ->
+                root(context).add("should-use-A").toTupleAsync()
+                        .thenAccept(tuple -> context.ensureActive().set(tuple.pack(), Tuple.from(true).pack())));
+
         try (FDBRecordContext context = database.openContext()) {
-            assertChecks(context, ScopedDirectoryLayer.global(database), hooks, true);
-            assertChecks(context, ScopedInterningLayer.global(database), hooks, false);
+            LocatableResolver resolverA = new ScopedInterningLayer(resolverPath(context, "A"));
+            LocatableResolver resolverB = new ScopedInterningLayer(resolverPath(context, "B"));
+
+            assertChecks(context, resolverA, hooks, true);
+            assertChecks(context, resolverB, hooks, false);
         }
 
-        // migrate
-        ScopedDirectoryLayer.global(database).retireLayer().join();
+        // use resolver B
+        database.run(context ->
+                root(context).add("should-use-A").toTupleAsync()
+                        .thenAccept(tuple -> context.ensureActive().set(tuple.pack(), Tuple.from(false).pack())));
 
         // after migration
         try (FDBRecordContext context = database.openContext()) {
-            assertChecks(context, ScopedDirectoryLayer.global(database), hooks, false);
-            assertChecks(context, ScopedInterningLayer.global(database), hooks, true);
+            LocatableResolver resolverA = new ScopedInterningLayer(resolverPath(context, "A"));
+            LocatableResolver resolverB = new ScopedInterningLayer(resolverPath(context, "B"));
+
+            assertChecks(context, resolverA, hooks, false);
+            assertChecks(context, resolverB, hooks, true);
         }
+    }
+
+    private KeySpacePath root(FDBRecordContext context) {
+        return keySpace.path(context, "test-root");
+    }
+
+    private KeySpacePath resolverPath(FDBRecordContext context, String value) {
+        return root(context).add("resolvers").add("resolverNode", value);
     }
 
     private static void assertChecks(FDBRecordContext context, LocatableResolver resolver, ResolverCreateHooks hooks, boolean shouldPass) {
