@@ -129,7 +129,7 @@ def build(release=False, proto2=False, proto3=False, publish=False):
     if proto2:
         # Make with protobuf 2.
         success = run_gradle(2, 'clean', 'build', 'destructiveTest',
-                                '-PreleaseBuild={0}'.format('true' if release else 'false')),
+                                '-PreleaseBuild={0}'.format('true' if release else 'false'))
         if not success:
             return False
 
