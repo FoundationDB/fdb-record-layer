@@ -338,6 +338,7 @@ public class Index {
      * @return the last modified version
      * @deprecated use {@link #getLastModifiedVersion}.
      */
+    @Deprecated
     public int getVersion() {
         return lastModifiedVersion;
     }
@@ -347,6 +348,7 @@ public class Index {
      * @param version the last modified version
      * @deprecated use {@link #setLastModifiedVersion}.
      */
+    @Deprecated
     public void setVersion(int version) {
         this.lastModifiedVersion = version;
     }
