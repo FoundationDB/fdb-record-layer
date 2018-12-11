@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
 
@@ -208,7 +208,7 @@ public class KeySpacePathWrapper implements KeySpacePath {
     @Nonnull
     @Override
     public RecordCursor<KeySpacePath> listAsync(@Nonnull String subdirName,
-                                                @Nullable TupleRange range,
+                                                @Nullable ValueRange<Object> range,
                                                 @Nullable byte[] continuation,
                                                 @Nonnull ScanProperties scanProperties) {
         return inner.listAsync(subdirName, range, continuation, scanProperties);

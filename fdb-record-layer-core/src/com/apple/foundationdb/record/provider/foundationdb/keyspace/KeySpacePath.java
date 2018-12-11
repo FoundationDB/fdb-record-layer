@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -278,7 +278,7 @@ public interface KeySpacePath {
      *    the directory tree
      */
     @Nonnull
-    RecordCursor<KeySpacePath> listAsync(@Nonnull String subdirName, @Nullable TupleRange range,
+    RecordCursor<KeySpacePath> listAsync(@Nonnull String subdirName, @Nullable ValueRange<Object> range,
                                          @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
 
     /**
