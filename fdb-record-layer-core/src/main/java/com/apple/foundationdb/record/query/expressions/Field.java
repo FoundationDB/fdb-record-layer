@@ -21,10 +21,12 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.Key;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Class that provides context for asserting about a field value.
@@ -275,5 +277,34 @@ public class Field {
     @Nonnull
     public QueryComponent equalsParameter(@Nonnull String param) {
         return new FieldWithComparison(fieldName, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, param));
+    }
+
+    /**
+     * Match {@code map} field entries.
+     *
+     * <pre><code>
+     * Query.field("map_field").mapMatches(k -&gt; k.equals("akey"), v -&gt; v.greaterThan(10))
+     * </code></pre>
+     * @param keyMatcher a function to apply to the key {@link Field} or {@code null} not to restrict the key
+     * @param valueMatcher a function to apply to the value {@link Field} or {@code null} not to restrict the value
+     * @return a new component that will return the record if the map field has an entry matching the key and value criteria
+     */
+    @Nonnull
+    public QueryComponent mapMatches(@Nullable Function<Field, QueryComponent> keyMatcher,
+                                     @Nullable Function<Field, QueryComponent> valueMatcher) {
+        final QueryComponent component;
+        if (keyMatcher != null) {
+            if (valueMatcher != null) {
+                component = Query.and(keyMatcher.apply(new Field(Key.Expressions.MAP_KEY_FIELD)),
+                                      valueMatcher.apply(new Field(Key.Expressions.MAP_VALUE_FIELD)));
+            } else {
+                component = keyMatcher.apply(new Field(Key.Expressions.MAP_KEY_FIELD));
+            }
+        } else if (valueMatcher != null) {
+            component = valueMatcher.apply(new Field(Key.Expressions.MAP_VALUE_FIELD));
+        } else {
+            throw new Query.InvalidExpressionException("must match the key or the value or both");
+        }
+        return oneOfThem().matches(component);
     }
 }
