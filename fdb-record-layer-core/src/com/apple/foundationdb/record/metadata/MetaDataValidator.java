@@ -52,8 +52,21 @@ public class MetaDataValidator implements RecordMetaDataProvider {
     }
 
     public void validate() {
-        metaData.getRecordTypes().values().stream().forEach(this::validateRecordType);
-        metaData.getAllIndexes().stream().forEach(this::validateIndex);
+        validateUnionDescriptor(metaData.getUnionDescriptor());
+        metaData.getRecordTypes().values().forEach(this::validateRecordType);
+        metaData.getAllIndexes().forEach(this::validateIndex);
+    }
+
+    protected void validateUnionDescriptor(Descriptors.Descriptor unionDescriptor) {
+        final List<Descriptors.OneofDescriptor> oneofs = unionDescriptor.getOneofs();
+        if (!oneofs.isEmpty()) {
+            if (oneofs.size() > 1) {
+                throw new MetaDataException("Union descriptor has more than one oneof");
+            }
+            if (oneofs.get(0).getFieldCount() != unionDescriptor.getFields().size()) {
+                throw new MetaDataException("Union descriptor oneof must contain every field");
+            }
+        }
     }
 
     protected void validateRecordType(@Nonnull RecordType recordType) {
