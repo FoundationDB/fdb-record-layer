@@ -27,6 +27,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -51,9 +52,17 @@ public class MessageBuilderRecordSerializer extends MessageBuilderRecordSerializ
     @Override
     protected Message getUnionField(@Nonnull Descriptors.Descriptor unionDescriptor,
                                     @Nonnull Message storedRecord) {
-        for (Descriptors.FieldDescriptor unionField : unionDescriptor.getFields()) {
-            if (storedRecord.hasField(unionField)) {
+        final List<Descriptors.OneofDescriptor> oneofs = unionDescriptor.getOneofs();
+        if (!oneofs.isEmpty()) {
+            Descriptors.FieldDescriptor unionField = storedRecord.getOneofFieldDescriptor(oneofs.get(0));
+            if (unionField != null) {
                 return (Message)storedRecord.getField(unionField);
+            }
+        } else {
+            for (Descriptors.FieldDescriptor unionField : unionDescriptor.getFields()) {
+                if (storedRecord.hasField(unionField)) {
+                    return (Message)storedRecord.getField(unionField);
+                }
             }
         }
         throw new RecordSerializationException("Union record does not have any fields")
