@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -81,6 +82,9 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
 
     @Nonnull
     protected FDBRecordStoreBase.PipelineSizer pipelineSizer = FDBRecordStoreBase.DEFAULT_PIPELINE_SIZER;
+
+    @Nullable
+    private Descriptors.FileDescriptor evolvedMetaDataFileDescriptor;
 
     protected FDBRecordStoreBuilder() {
     }
@@ -173,6 +177,21 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
         this.metaDataProvider = metaDataProvider;
         return this;
     }
+
+    /**
+     * Set the provider for the record store's meta-data.
+     * If {@link #setMetaDataStore} is also called, the provider will only be used to initialize the meta-data store when it is empty. The record store will be built using the store as its provider.
+     * @param metaDataProvider the meta-data source to use
+     * @param evolvedMetaDataFileDescriptor the file descriptor of the evolved meta-data
+     * @return this builder
+     */
+    @Nonnull
+    public FDBRecordStoreBuilder<M, R> setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider, @Nullable Descriptors.FileDescriptor evolvedMetaDataFileDescriptor) {
+        this.metaDataProvider = metaDataProvider;
+        this.evolvedMetaDataFileDescriptor = evolvedMetaDataFileDescriptor;
+        return this;
+    }
+
 
     @Nullable
     public FDBMetaDataStore getMetaDataStore() {
@@ -363,7 +382,7 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
 
     private CompletableFuture<Void> preloadMetaData() {
         if (metaDataStore != null) {
-            return metaDataStore.preloadMetaData(metaDataProvider);
+            return metaDataStore.preloadMetaData(metaDataProvider, evolvedMetaDataFileDescriptor);
         } else {
             return AsyncUtil.DONE;
         }

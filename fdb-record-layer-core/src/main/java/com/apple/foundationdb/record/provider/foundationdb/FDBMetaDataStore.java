@@ -214,9 +214,14 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     @Nonnull
     protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto, boolean validate) {
+        return buildMetaData(metaDataProto, validate, null);
+    }
+
+    @Nonnull
+    protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto, boolean validate, @Nullable Descriptors.FileDescriptor evolvedDescriptor) {
         RecordMetaDataBuilder builder = RecordMetaData.newBuilder()
                 .addDependencies(dependencies)
-                .setRecords(metaDataProto);
+                .setRecords(metaDataProto, evolvedDescriptor);
         return builder.build(validate);
     }
 
@@ -234,7 +239,17 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @return a future that completes when the save is done
      */
     public CompletableFuture<Void> saveAndSetCurrent(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
-        RecordMetaData validatedMetaData = buildMetaData(metaDataProto, true);
+        return saveAndSetCurrent(metaDataProto, null);
+    }
+
+    /**
+     * Build meta-data to use from Protobuf and save.
+     * @param metaDataProto the Protobuf form of the meta-data to save
+     * @param evolvedDescriptor the evolved descriptor of the meta-data
+     * @return a future that completes when the save is done
+     */
+    public CompletableFuture<Void> saveAndSetCurrent(@Nonnull RecordMetaDataProto.MetaData metaDataProto, @Nullable Descriptors.FileDescriptor evolvedDescriptor) {
+        RecordMetaData validatedMetaData = buildMetaData(metaDataProto, true, evolvedDescriptor);
 
         // Load even if not maintaining history so as to get compatibility upgrade before (over-)writing.
         CompletableFuture<Void> future = loadCurrentSerialized().thenApply(oldSerialized -> {
@@ -319,13 +334,25 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      */
     @Nonnull
     public CompletableFuture<Void> preloadMetaData(@Nullable RecordMetaDataProvider metaDataProvider) {
+        return preloadMetaData(metaDataProvider, null);
+    }
+
+    /**
+     * Prepare a meta-data store for use by loading any existing {@link RecordMetaData} or storing an initial
+     * seed from the given provider.
+     * @param metaDataProvider a provider for a seed meta-data to be used when this store is empty
+     * @param evolvedDescriptor the file descriptor of the evolved meta-data
+     * @return a future that is complete when this store is ready for use
+     */
+    @Nonnull
+    public CompletableFuture<Void> preloadMetaData(@Nullable RecordMetaDataProvider metaDataProvider, @Nullable Descriptors.FileDescriptor evolvedDescriptor) {
         // Must exist in store if don't have a separate seed meta-data.
         return getRecordMetaDataAsync(metaDataProvider == null)
                 .thenCompose(metaData -> {
                     if (metaData == null) {
                         RecordMetaData seedMetaData = metaDataProvider.getRecordMetaData();
                         RecordMetaDataProto.MetaData metaDataProto = seedMetaData.toProto();
-                        return saveAndSetCurrent(metaDataProto);
+                        return saveAndSetCurrent(metaDataProto, evolvedDescriptor);
                     } else {
                         return AsyncUtil.DONE;
                     }

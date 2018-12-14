@@ -218,7 +218,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                                  @Nonnull Descriptors.FileDescriptor[] dependencies,
                                  boolean processExtensionOptions) {
         this();
-        loadFromProto(metaDataProto, dependencies, processExtensionOptions);
+        loadFromProto(metaDataProto, dependencies, null, processExtensionOptions);
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -288,10 +288,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     private void loadFromProto(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
                                @Nonnull Descriptors.FileDescriptor[] dependencies,
+                               @Nullable Descriptors.FileDescriptor evolvedFileDescriptor,
                                boolean processExtensionOptions) {
         recordsDescriptor = buildFileDescriptor(metaDataProto.getRecords(), dependencies);
         validateRecords(recordsDescriptor);
-        unionDescriptor = initRecordTypes(processExtensionOptions);
+        RecordMetaData evolvedRecordMetaData = evolvedFileDescriptor == null ? null : RecordMetaData.build(evolvedFileDescriptor);
+        unionDescriptor = initRecordTypes(evolvedRecordMetaData, processExtensionOptions);
         loadProtoExceptRecords(metaDataProto);
         processSchemaOptions(processExtensionOptions);
     }
@@ -300,7 +302,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                                         boolean processExtensionOptions) {
         recordsDescriptor = fileDescriptor;
         validateRecords(fileDescriptor);
-        unionDescriptor = initRecordTypes(processExtensionOptions);
+        unionDescriptor = initRecordTypes(null, processExtensionOptions);
         processSchemaOptions(processExtensionOptions);
     }
 
@@ -338,6 +340,36 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     public RecordMetaDataBuilder setRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
                                             boolean processExtensionOptions) {
+        return setRecords(metaDataProto, null, processExtensionOptions);
+    }
+
+    /**
+     * Deserializes the meta-data proto into the builder. It can optionally take a file descriptor that contains a newer
+     * version of the record types. The descriptor needs to be compatible.
+     * TODO: add compatibility validator (related to issue #85)
+     * @param metaDataProto the proto of the {@link RecordMetaData}
+     * @param evolvedFileDescriptor a file descriptor that contains updated record types
+     * @return this builder
+     */
+    @Nonnull
+    public RecordMetaDataBuilder setRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+                                            @Nullable Descriptors.FileDescriptor evolvedFileDescriptor) {
+        return setRecords(metaDataProto, evolvedFileDescriptor, false);
+    }
+
+    /**
+     * Deserializes the meta-data proto into the builder. It can optionally take a file descriptor that contains a newer
+     * version of the record types. The descriptor needs to be compatible.
+     * TODO: add compatibility validator (related to issue #85)
+     * @param metaDataProto the proto of the {@link RecordMetaData}
+     * @param evolvedFileDescriptor a file descriptor that contains updated record types
+     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
+     * @return this builder
+     */
+    @Nonnull
+    public RecordMetaDataBuilder setRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+                                            @Nullable Descriptors.FileDescriptor evolvedFileDescriptor,
+                                            boolean processExtensionOptions) {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records already set.");
         }
@@ -348,7 +380,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
         Map<String, Descriptors.FileDescriptor> generatedDependencies = initGeneratedDependencies(protoDependencies);
         Descriptors.FileDescriptor[] dependencies = getDependencies(metaDataProto.getRecords(), generatedDependencies, protoDependencies);
-        loadFromProto(metaDataProto, dependencies, processExtensionOptions);
+        loadFromProto(metaDataProto, dependencies, evolvedFileDescriptor, processExtensionOptions);
         return this;
     }
 
@@ -484,7 +516,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private Descriptors.Descriptor initRecordTypes(boolean processExtensionOptions) {
+    private Descriptors.Descriptor initRecordTypes(@Nullable RecordMetaData evolvedRecordMetaData, boolean processExtensionOptions) {
         Descriptors.Descriptor union = null;
         for (Descriptors.Descriptor descriptor : recordsDescriptor.getMessageTypes()) {
             @Nullable Integer sinceVersion = null;
@@ -497,7 +529,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                         if (union != null) {
                             throw new MetaDataException("Only one union descriptor is allowed");
                         }
-                        union = descriptor;
+                        union = evolvedRecordMetaData == null ? descriptor : evolvedRecordMetaData.getUnionDescriptor();
+
                         continue;
                     case NESTED:
                         continue;
@@ -516,16 +549,21 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 if (union != null) {
                     throw new MetaDataException("Only one union descriptor is allowed");
                 }
-                union = descriptor;
+                union = evolvedRecordMetaData == null ? descriptor : evolvedRecordMetaData.getUnionDescriptor();
                 continue;
             }
 
-            RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
+            RecordTypeBuilder recordType;
+            if (evolvedRecordMetaData != null && evolvedRecordMetaData.getRecordTypes().containsKey(descriptor.getName())) {
+                recordType = new RecordTypeBuilder(evolvedRecordMetaData.getRecordTypes().get(descriptor.getName()).getDescriptor());
+            } else {
+                recordType = new RecordTypeBuilder(descriptor);
+            }
             recordTypes.put(recordType.getName(), recordType);
             if (processExtensionOptions) {
                 recordType.setSinceVersion(sinceVersion);
                 recordType.setRecordTypeKey(recordTypeKey);
-                protoFieldOptions(recordType, descriptor);
+                protoFieldOptions(recordType);
             }
         }
         if (union == null) {
@@ -533,6 +571,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
         fillUnionFields(union, processExtensionOptions);
         return union;
+    }
+
+    private boolean isImported(Descriptors.Descriptor descriptor) {
+        // TODO: Question for reviewers: could the file descriptor of the evolved metadata have a different file name?
+        return descriptor.getFile() != recordsDescriptor && !descriptor.getFile().getName().equals(recordsDescriptor.getName());
     }
 
     private void fillUnionFields(Descriptors.Descriptor union, boolean processExtensionOptions) {
@@ -556,14 +599,14 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                                                 " which is not a record");
                 }
 
-                if (descriptor.getFile() != recordsDescriptor) {
+                if (isImported(descriptor)) {
                     // An imported record type.
                     RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
                     if (recordTypes.putIfAbsent(recordType.getName(), recordType) != null) {
                         throw new MetaDataException("There is already a record type named" + recordType.getName());
                     }
                     if (processExtensionOptions) {
-                        protoFieldOptions(recordType, descriptor);
+                        protoFieldOptions(recordType);
                     }
                 }
 
@@ -575,20 +618,20 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private void protoFieldOptions(RecordTypeBuilder recordType, Descriptors.Descriptor descriptor) {
+    private void protoFieldOptions(RecordTypeBuilder recordType) {
         // Add indexes from custom options.
-        for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
+        for (Descriptors.FieldDescriptor fieldDescriptor : recordType.getDescriptor().getFields()) {
             RecordMetaDataOptionsProto.FieldOptions fieldOptions = fieldDescriptor.getOptions()
                     .getExtension(RecordMetaDataOptionsProto.field);
             if (fieldOptions != null) {
-                protoFieldOptions(recordType, descriptor, fieldDescriptor, fieldOptions);
+                protoFieldOptions(recordType, fieldDescriptor, fieldOptions);
             }
         }
     }
 
     @SuppressWarnings("deprecation")
-    private void protoFieldOptions(RecordTypeBuilder recordType, Descriptors.Descriptor descriptor,
-                                   Descriptors.FieldDescriptor fieldDescriptor, RecordMetaDataOptionsProto.FieldOptions fieldOptions) {
+    private void protoFieldOptions(RecordTypeBuilder recordType, Descriptors.FieldDescriptor fieldDescriptor, RecordMetaDataOptionsProto.FieldOptions fieldOptions) {
+        Descriptors.Descriptor descriptor = recordType.getDescriptor();
         if (fieldOptions.hasIndex() || fieldOptions.hasIndexed()) {
             String type;
             Map<String, String> options;

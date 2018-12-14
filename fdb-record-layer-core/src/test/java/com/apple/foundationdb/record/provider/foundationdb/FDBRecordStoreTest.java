@@ -65,7 +65,6 @@ import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -1762,7 +1761,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             final int version = origMetaData.getVersion();
 
             FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
-                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
+                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData, TestRecords1Proto.getDescriptor())
                     .createOrOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
@@ -1770,20 +1769,15 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(version, recordStore.getRecordMetaData().getVersion());
 
             metaDataBuilder.addIndex("MySimpleRecord", newIndex);
-            metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
+            metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto(), TestRecords1Proto.getDescriptor()).join();
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
-                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
+                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData, TestRecords1Proto.getDescriptor())
                     .open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
-
-            // TODO: clean up after https://github.com/FoundationDB/fdb-record-layer/issues/3 is addressed
-            Message recreatedRecord = DynamicMessage.parseFrom(
-                    recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getDescriptor(),
-                    record.toByteString());
-            recordStore.saveRecord(recreatedRecord); // This stops the index build.
+            recordStore.saveRecord(record);
 
             final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
 
@@ -1860,14 +1854,14 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             int version = origMetaData.getVersion();
 
             FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
-                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
+                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData, TestRecords1Proto.getDescriptor())
                     .uncheckedOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
             assertEquals(version, recordStore.getRecordMetaData().getVersion());
 
             metaDataBuilder.addIndex("MySimpleRecord", newIndex);
-            metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
+            metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto(), TestRecords1Proto.getDescriptor()).join();
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
                     .uncheckedOpen();
@@ -1875,11 +1869,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
 
-            // TODO: clean up after https://github.com/FoundationDB/fdb-record-layer/issues/3 is addressed
-            Message recreatedRecord = DynamicMessage.parseFrom(
-                    recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getDescriptor(),
-                    record.toByteString());
-            recordStore.saveRecord(recreatedRecord); // This would stop the build if this used checkVersion
+            recordStore.saveRecord(record); // This would stop the build if this used checkVersion
 
             final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
 
@@ -2551,5 +2541,4 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertThrows(KeyExpression.InvalidExpressionException.class, () -> openSimpleRecordStore(context, invalid));
         }
     }
-
 }

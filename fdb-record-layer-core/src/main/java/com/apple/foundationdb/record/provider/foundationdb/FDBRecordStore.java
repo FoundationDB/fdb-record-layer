@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSeriali
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -106,7 +107,12 @@ public class FDBRecordStore extends FDBRecordStoreBase<Message> {
         @Override
         @Nonnull
         public Builder setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider) {
-            super.setMetaDataProvider(metaDataProvider);
+            return setMetaDataProvider(metaDataProvider, null);
+        }
+
+        @Nonnull
+        public Builder setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider, @Nullable Descriptors.FileDescriptor evolvedMetaDataFileDescriptor) {
+            super.setMetaDataProvider(metaDataProvider, evolvedMetaDataFileDescriptor);
             return this;
         }
 
