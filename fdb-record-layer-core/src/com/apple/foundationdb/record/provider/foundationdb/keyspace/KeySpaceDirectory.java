@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -477,10 +478,20 @@ public class KeySpaceDirectory {
     }
 
     @Nonnull
+    protected RecordCursor<KeySpacePath> listAsync(@Nullable KeySpacePath listFrom,
+                                                   @Nonnull FDBRecordContext context,
+                                                   @Nonnull String subdirName,
+                                                   @Nullable byte[] continuation,
+                                                   @Nonnull ScanProperties scanProperties) {
+        return listAsync(listFrom, context, subdirName, null, continuation, scanProperties);
+    }
+
+    @Nonnull
     @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the cursor is wrapped and returned
     protected RecordCursor<KeySpacePath> listAsync(@Nullable KeySpacePath listFrom,
                                                    @Nonnull FDBRecordContext context,
                                                    @Nonnull String subdirName,
+                                                   @Nullable ValueRange<Object> range,
                                                    @Nullable byte[] continuation,
                                                    @Nonnull ScanProperties scanProperties) {
         if (listFrom != null && listFrom.getDirectory() != this) {
@@ -495,22 +506,61 @@ public class KeySpaceDirectory {
 
         final byte[] startKey;
         final byte[] stopKey;
-        if (subdir.getValue() == KeySpaceDirectory.ANY_VALUE) {
-            startKey = new byte[subspaceBytes.length + 1];
-            System.arraycopy(subspaceBytes, 0, startKey, 0, subspaceBytes.length);
-            startKey[subspaceBytes.length] = subdir.getKeyType().getTypeLowBounds();
+        final EndpointType startType;
+        final EndpointType stopType;
+        if (subdir.getValue() == KeySpaceDirectory.ANY_VALUE || subdir.getValue() == null) {
+            if (range != null && range.getLowEndpoint() != EndpointType.TREE_START) {
+                if (KeyType.typeOf(range.getLow()) != subdir.getKeyType()) {
+                    throwInvalidValueTypeException(KeyType.typeOf(range.getLow()), subdir.getKeyType(), listFrom,
+                            subdirName, range);
+                }
+                startKey = subspace.pack(range.getLow());
+                startType = range.getLowEndpoint();
+                if (startType != EndpointType.RANGE_INCLUSIVE && startType != EndpointType.RANGE_EXCLUSIVE) {
+                    throw new RecordCoreArgumentException("Endpoint type not supported for directory list",
+                            LogMessageKeys.ENDPOINT_TYPE, startType);
+                }
+            } else {
+                startKey = new byte[subspaceBytes.length + 1];
+                System.arraycopy(subspaceBytes, 0, startKey, 0, subspaceBytes.length);
+                startKey[subspaceBytes.length] = subdir.getKeyType().getTypeLowBounds();
+                startType = EndpointType.RANGE_INCLUSIVE;
+            }
 
-            stopKey = new byte[subspaceBytes.length + 1];
-            System.arraycopy(subspaceBytes, 0, stopKey, 0, subspaceBytes.length);
-            stopKey[subspaceBytes.length] = subdir.getKeyType().getTypeHighBounds();
+            if (range != null && range.getHighEndpoint() != EndpointType.TREE_END) {
+                if (KeyType.typeOf(range.getHigh()) != subdir.getKeyType()) {
+                    throwInvalidValueTypeException(KeyType.typeOf(range.getHigh()), subdir.getKeyType(), listFrom,
+                            subdirName, range);
+                }
+                stopKey = subspace.pack(range.getHigh());
+                stopType = range.getHighEndpoint();
+                if (stopType != EndpointType.RANGE_INCLUSIVE && stopType != EndpointType.RANGE_EXCLUSIVE) {
+                    throw new RecordCoreArgumentException("Endpoint type not supported for directory list",
+                            LogMessageKeys.ENDPOINT_TYPE, stopType);
+                }
+            } else {
+                stopKey = new byte[subspaceBytes.length + 1];
+                System.arraycopy(subspaceBytes, 0, stopKey, 0, subspaceBytes.length);
+                stopKey[subspaceBytes.length] = subdir.getKeyType().getTypeHighBounds();
+                stopType = EndpointType.RANGE_EXCLUSIVE;
+            }
         } else {
+            if (range != null) {
+                throw new RecordCoreArgumentException("range is not applicable when the subdirectory has a value.",
+                        LogMessageKeys.LIST_FROM, listFrom,
+                        LogMessageKeys.SUBDIR_NAME, subdirName,
+                        LogMessageKeys.RANGE, range);
+            }
             PathValue resolvedValue = subdir.toTupleValue(context, subdir.getValue());
             startKey = subspace.pack(Tuple.from(resolvedValue.getResolvedValue()));
             stopKey = ByteArrayUtil.strinc(startKey);
+            startType = EndpointType.RANGE_INCLUSIVE;
+            stopType = EndpointType.RANGE_EXCLUSIVE;
         }
 
+
         final RecordCursor<Tuple> cursor = new ChainedCursor<>(
-                lastKey -> nextTuple(context, subspace, startKey, stopKey, lastKey, singleRowScan),
+                lastKey -> nextTuple(context, subspace, startKey, stopKey, startType, stopType, lastKey, singleRowScan),
                 Tuple::pack,
                 Tuple::fromBytes,
                 continuation,
@@ -523,18 +573,30 @@ public class KeySpaceDirectory {
                 }, 1 );
     }
 
+    private void throwInvalidValueTypeException(KeyType rangeValueType, KeyType expectedValueType,
+                                                KeySpacePath listFrom, String subdirName, ValueRange<Object> range) {
+        throw new RecordCoreArgumentException("value type provided for range is invalid for directory type",
+                LogMessageKeys.RANGE_VALUE_TYPE, rangeValueType,
+                LogMessageKeys.EXPECTED_VALUE_TYPE, expectedValueType,
+                LogMessageKeys.LIST_FROM, listFrom,
+                LogMessageKeys.SUBDIR_NAME, subdirName,
+                LogMessageKeys.RANGE, range);
+    }
+
     private CompletableFuture<Optional<Tuple>> nextTuple(@Nonnull FDBRecordContext context,
                                                          @Nonnull Subspace subspace,
                                                          @Nonnull byte[] startKey,
                                                          @Nonnull byte[] stopKey,
+                                                         @Nonnull EndpointType startType,
+                                                         @Nonnull EndpointType stopType,
                                                          @Nonnull Optional<Tuple> lastTuple,
                                                          @Nonnull ScanProperties scanProperties) {
         final KeyValueCursor cursor;
         if (!lastTuple.isPresent()) {
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
-                    .setLow(startKey, EndpointType.RANGE_INCLUSIVE)
-                    .setHigh(stopKey, EndpointType.RANGE_EXCLUSIVE)
+                    .setLow(startKey, startType)
+                    .setHigh(stopKey, stopType)
                     .setContinuation(null)
                     .setScanProperties(scanProperties)
                     .build();
@@ -542,7 +604,7 @@ public class KeySpaceDirectory {
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(subspace.pack(lastTuple.get().get(0)), EndpointType.RANGE_EXCLUSIVE)
-                    .setHigh(stopKey, EndpointType.RANGE_EXCLUSIVE)
+                    .setHigh(stopKey, stopType)
                     .setContinuation(null)
                     .setScanProperties(scanProperties)
                     .build();

@@ -22,10 +22,13 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.ValueRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -39,16 +42,19 @@ import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -802,17 +808,168 @@ public class KeySpaceDirectoryTest {
 
         try (FDBRecordContext context = database.openContext()) {
             for (KeyTypeValue kv : valueOfEveryType) {
-                List<KeySpacePath> paths = root.path(context, "a").list(kv.keyType.toString());
                 List<Tuple> values = valuesForType.get(kv.keyType);
-                assertEquals(values.size(), paths.size());
-
-                for (KeySpacePath path : paths) {
-                    Tuple tuple = path.toTuple();
-                    assertTrue(values.remove(Tuple.from(tuple.get(1))), kv.keyType + " missing: " + tuple.get(1));
+                for (Pair<ValueRange<Object>, List<Tuple>> testCase : listRangeTestCases(values)) {
+                    testListRange(testCase.getLeft(), testCase.getRight(), context, root, kv.keyType);
                 }
-
-                assertTrue(values.isEmpty(), "Missing values of type: " + kv.keyType + ": " + values);
             }
+        }
+    }
+    
+    private Pair<ValueRange<Object>, List<Tuple>> newTestCase(@Nullable Tuple low, @Nullable Tuple high,
+                                                              @Nonnull EndpointType lowEndpoint,
+                                                              @Nonnull EndpointType highEndpoint,
+                                                              List<Tuple> expectedValues) {
+        return Pair.of(
+                new ValueRange<>(low == null ? null : low.get(0), high == null ? null : high.get(0), 
+                        lowEndpoint, highEndpoint),
+                expectedValues
+        );
+    }
+    
+    private List<Pair<ValueRange<Object>, List<Tuple>>> listRangeTestCases(List<Tuple> values) {
+        values.sort(null);
+
+        // Size >= 1. It is very likely to be 5 (but can be smaller) expect when the key type is NULL or BOOLEAN.
+        int size = values.size();
+        List<Pair<ValueRange<Object>, List<Tuple>>> testCases = new LinkedList<>();
+        testCases.add(Pair.of(null,
+                new ArrayList<>(values)));
+        testCases.add(newTestCase(values.get(0), null, EndpointType.RANGE_INCLUSIVE, EndpointType.TREE_END,
+                new ArrayList<>(values)));
+        testCases.add(newTestCase(values.get(0), null, EndpointType.RANGE_EXCLUSIVE, EndpointType.TREE_END,
+                new ArrayList<>(values.subList(1, size))));
+        testCases.add(newTestCase(null, values.get(size - 1), EndpointType.TREE_START, EndpointType.RANGE_INCLUSIVE,
+                new ArrayList<>(values)));
+        testCases.add(newTestCase(null, values.get(size - 1), EndpointType.TREE_START, EndpointType.RANGE_EXCLUSIVE,
+                new ArrayList<>(values.subList(0, size - 1))));
+        testCases.add(newTestCase(null, null, EndpointType.TREE_START, EndpointType.TREE_END,
+                new ArrayList<>(values)));
+        testCases.add(newTestCase(values.get(0), values.get(0), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE,
+                new ArrayList<>(values.subList(0, 1))));
+
+        // Only test this for LONG because it might be tricky to modify values for some other types.
+        if (KeyType.LONG.isMatch(values.get(0))) {
+            Tuple first = values.get(0);
+            Tuple justBeforeFirst = Tuple.from((Long)first.get(0) - 1);
+            Tuple justAfterFirst = Tuple.from((Long)first.get(0) + 1);
+
+            Tuple last = values.get(size - 1);
+            Tuple justBeforeLast = Tuple.from((Long)last.get(0) - 1);
+            Tuple justAfterLast = Tuple.from((Long)last.get(0) + 1);
+
+            // Endpoint type does not matters to the values who are not in the collection.
+            for (EndpointType endpointType : Arrays.asList(EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE)) {
+                testCases.add(newTestCase(justBeforeFirst, null, endpointType, EndpointType.TREE_END,
+                        new ArrayList<>(values.subList(0, size))));
+                testCases.add(newTestCase(justAfterFirst, null, endpointType, EndpointType.TREE_END,
+                        new ArrayList<>(values.subList(1, size))));
+
+                testCases.add(newTestCase(null, justBeforeLast, EndpointType.TREE_START, endpointType,
+                        new ArrayList<>(values.subList(0, size - 1))));
+                testCases.add(newTestCase(null, justAfterLast, EndpointType.TREE_START, endpointType,
+                        new ArrayList<>(values.subList(0, size))));
+            }
+        }
+
+        if (size >= 2) {
+            Tuple first = values.get(0);
+            Tuple last = values.get(size - 1);
+            testCases.add(newTestCase(first, last, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE,
+                    new ArrayList<>(values.subList(0, size))));
+            testCases.add(newTestCase(first, last, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE,
+                    new ArrayList<>(values.subList(0, size - 1))));
+            testCases.add(newTestCase(first, last, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_INCLUSIVE,
+                    new ArrayList<>(values.subList(1, size))));
+            testCases.add(newTestCase(first, last, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_EXCLUSIVE,
+                    new ArrayList<>(values.subList(1, size - 1))));
+        }
+
+        if (size >= 4) {
+            Tuple second = values.get(1);
+            Tuple secondLast = values.get(size - 2);
+            testCases.add(newTestCase(second, secondLast, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE,
+                    new ArrayList<>(values.subList(1, size - 1))));
+            testCases.add(newTestCase(second, secondLast, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE,
+                    new ArrayList<>(values.subList(1, size - 2))));
+            testCases.add(newTestCase(second, secondLast, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_INCLUSIVE,
+                    new ArrayList<>(values.subList(2, size - 1))));
+            testCases.add(newTestCase(second, secondLast, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_EXCLUSIVE,
+                    new ArrayList<>(values.subList(2, size - 2))));
+        }
+        return testCases;
+    }
+
+    private void testListRange(ValueRange<Object> range,
+                               List<Tuple> expectedValues,
+                               FDBRecordContext context,
+                               KeySpace root,
+                               KeyType keyType) {
+        String testCaseInfo = KeyValueLogMessage.build(" at testListRange",
+                "range", range,
+                "expectedValues", expectedValues,
+                "keyType", keyType).toString();
+
+        List<KeySpacePath> paths = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
+                root.path(context, "a")
+                        .listAsync(keyType.toString(), range, null, ScanProperties.FORWARD_SCAN).asList());
+
+        assertEquals(expectedValues.size(), paths.size(), "The result size does not match" + testCaseInfo);
+
+        for (KeySpacePath path : paths) {
+            Tuple tuple = path.toTuple();
+            assertTrue(expectedValues.remove(Tuple.from(tuple.get(1))), "missing: " + tuple.get(1) + testCaseInfo);
+        }
+
+        assertTrue(expectedValues.isEmpty(), "Missing values: " + expectedValues + testCaseInfo);
+    }
+
+    @Test
+    public void testInvalidListRange() throws Exception {
+        final String rootDir = "root_dir";
+        final String stringDir = "string_dir";
+        final String longConstDir = "long_const_dir";
+        KeySpaceDirectory dirA = new KeySpaceDirectory(rootDir, KeyType.LONG, random.nextLong())
+                .addSubdirectory(new KeySpaceDirectory(stringDir, KeyType.STRING))
+                .addSubdirectory(new KeySpaceDirectory(longConstDir, KeyType.LONG, 100));
+        KeySpace root = new KeySpace(dirA);
+
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+
+        try (FDBRecordContext context = database.openContext()) {
+            // Positive example.
+            root.path(context, rootDir)
+                    .listAsync(stringDir,
+                            new ValueRange<>("A", "B", EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
+                            null,
+                            ScanProperties.FORWARD_SCAN);
+
+            // The range value should be in the same type.
+            assertThrows(RecordCoreArgumentException.class, () ->
+                    root.path(context, rootDir).listAsync(
+                            stringDir,
+                            new ValueRange<>(100, 200, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
+                            null,
+                            ScanProperties.FORWARD_SCAN)
+            );
+
+            // PREFIX_STRING should not be used as a endpoint type.
+            assertThrows(RecordCoreArgumentException.class, () ->
+                    root.path(context, rootDir).listAsync(
+                            stringDir,
+                            new ValueRange<>("A", "B", EndpointType.PREFIX_STRING, EndpointType.RANGE_EXCLUSIVE),
+                            null,
+                            ScanProperties.FORWARD_SCAN)
+            );
+
+            // Range should be null when the subdirectory has a value.
+            assertThrows(RecordCoreArgumentException.class, () ->
+                    root.path(context, rootDir).listAsync(
+                            longConstDir,
+                            new ValueRange<>(100, 200, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
+                            null,
+                            ScanProperties.FORWARD_SCAN)
+            );
         }
     }
 

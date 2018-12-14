@@ -49,6 +49,12 @@ public enum LogMessageKeys {
     DIR_TYPE("dir_type"),
     DIR_VALUE("dir_value"),
     PROVIDED_VALUE("provided_value"),
+    LIST_FROM("list_from"),
+    SUBDIR_NAME("subdir_name"),
+    RANGE("range"),
+    RANGE_VALUE_TYPE("range_value_type"),
+    EXPECTED_VALUE_TYPE("expected_value_type"),
+    ENDPOINT_TYPE("endpoint_type"),
     // key expressions
     EXPECTED_COLUMN_SIZE("expected_column_size"),
     ACTUAL_COLUMN_SIZE("actual_column_size"),
