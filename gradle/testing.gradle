@@ -25,28 +25,6 @@ if (hasProperty('testEnableCoverage')) {
     }
 }
 
-sourceSets {
-    integrationTest {
-        java {
-            srcDir 'test/functional'
-        }
-    }
-}
-
-dependencies {
-    integrationTestCompile sourceSets.main.output
-    integrationTestCompile configurations.testCompile
-    integrationTestCompile sourceSets.test.output
-    integrationTestRuntime configurations.testRuntime
-}
-
-task integrationTest(type: Test, dependsOn: integrationTestClasses) {
-    group = 'Verification'
-    description = 'Run integration and functional tests.'
-    classpath = sourceSets.integrationTest.runtimeClasspath
-    testClassesDirs = sourceSets.integrationTest.output
-}
-
 test {
     useJUnit {
     }
@@ -154,5 +132,5 @@ task quickCheck {
     group = 'Verification'
     description = 'Perform fast build verification'
 
-    dependsOn testClasses, integrationTestClasses
+    dependsOn testClasses
 }

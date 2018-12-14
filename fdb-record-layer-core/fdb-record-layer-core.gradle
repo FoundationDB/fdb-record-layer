@@ -50,6 +50,12 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
+sourceSets {
+    test {
+        java.srcDir "src/test/java-proto${protoMajorVersion}"
+    }
+}
+
 test {
     useJUnitPlatform {
         if (System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true') {

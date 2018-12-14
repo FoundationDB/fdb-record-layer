@@ -175,31 +175,19 @@ subprojects {
     sourceCompatibility = '1.8.0'
     targetCompatibility = '1.8.0'
 
-    sourceSets {
-        main {
-            java {
-                srcDir 'src'
-                srcDir 'protogen/main/java'
-            }
-        }
-        test {
-            java {
-                srcDir 'test/unit'
-                srcDir 'protogen/test/java'
-            }
-            resources {
-                srcDir 'test/resources'
-            }
-        }
-    }
-
-    def protoMajorVersion
-    if (System.getenv('PROTO_VERSION') != null) {
-        protoMajorVersion = System.getenv('PROTO_VERSION')
-    } else {
-        protoMajorVersion = '2'
-    }
     ext {
+        if (System.getenv('PROTO_VERSION') != null) {
+            protoMajorVersion = System.getenv('PROTO_VERSION')
+        } else {
+            protoMajorVersion = '2'
+        }
+        if (protoMajorVersion == "2") {
+            protobufVersion = protobuf2Version
+        } else if (protoMajorVersion == "3") {
+            protobufVersion = protobuf3Version
+        } else {
+            throw new GradleException("Unknown protobuf major version: ${protoMajorVersion}")
+        }
         if (protoMajorVersion != "2") {
             coreProjectName = "fdb-record-layer-core-pb${protoMajorVersion}"
             shadedProjectName = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"

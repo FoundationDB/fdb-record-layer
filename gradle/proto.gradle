@@ -20,38 +20,24 @@
 
 apply plugin: 'com.google.protobuf'
 
-ext {
-    protoMajorVersion = '2'
-}
-
-if ( System.getenv('PROTO_VERSION') != null) {
-    protoMajorVersion = System.getenv('PROTO_VERSION')
-    if (protoMajorVersion != "2") {
-        if (protoMajorVersion == "3") {
-            protobufVersion = protobuf3Version
-        } else {
-            throw new GradleException("Unknown protobuf major version: ${protoMajorVersion}")
-        }
-    } else {
-        protobufVersion = protobuf2Version
-    }
-}
-
 sourceSets {
     main {
-        proto {
-            srcDirs = ['proto/main']
+        java {
+            srcDir 'protogen/main/java'
         }
     }
     test {
         proto {
-            srcDirs = ['proto/test', "proto${protoMajorVersion}/test"]
+            srcDir "src/test/proto${protoMajorVersion}"
+        }
+        java {
+            srcDir 'protogen/test/java'
         }
     }
 }
 
 protobuf {
-    generatedFilesBaseDir = "${projectDir}/${protobufOutDir}"
+    generatedFilesBaseDir = "${projectDir}/protogen"
     clean {
         delete generatedFilesBaseDir
     }
@@ -60,10 +46,10 @@ protobuf {
     }
     generateProtoTasks {
         all().each { task ->
-            task.include "${projectDir}/proto/include"
-            task.include "${projectDir}/proto${protoMajorVersion}/include"
+            task.include "${projectDir}/src/main/proto/include"
+            task.include "${projectDir}/src/main/proto${protoMajorVersion}/include"
             if (task.name != 'generateProto') {
-                task.include "${projectDir}/proto/main"
+                task.include "${projectDir}/src/main/proto"
             }
         }
     }
@@ -71,10 +57,10 @@ protobuf {
 
 // Configure the published jar to include any external protos
 jar {
-    from ("${projectDir}/proto/include") {
+    from ("${projectDir}/src/main/proto/include") {
         include '**/*.proto'
     }
-    from ("${projectDir}/proto${protoMajorVersion}/include") {
+    from ("${projectDir}/src/main/proto${protoMajorVersion}/include") {
         include '**/*.proto'
     }
 }
