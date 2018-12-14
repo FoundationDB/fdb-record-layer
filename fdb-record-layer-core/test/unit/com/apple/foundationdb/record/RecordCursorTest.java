@@ -27,11 +27,16 @@ import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.cursors.MapCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.cursors.SkipCursor;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,6 +64,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.isOneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -360,6 +368,62 @@ public class RecordCursorTest {
         adjusted.add(522);
         adjusted.addAll(expected.subList(22, expected.size()));
         assertEquals(adjusted, pieces);
+    }
+
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest(name = "pipelineWithInnerLimits [outOfBand = {0}]")
+    public void pipelineWithInnerLimits(TestHelpers.BooleanEnum outOfBandEnum) throws InvalidProtocolBufferException {
+        final boolean outOfBand = outOfBandEnum.toBoolean();
+        final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[]{
+                RecordCursor.NoNextReason.SOURCE_EXHAUSTED,
+                outOfBand ? RecordCursor.NoNextReason.TIME_LIMIT_REACHED : RecordCursor.NoNextReason.RETURN_LIMIT_REACHED
+        };
+        final List<Integer> ints = IntStream.range(0, 10).boxed().collect(Collectors.toList());
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final BiFunction<Integer, byte[], RecordCursor<Pair<Integer, Integer>>> innerFunc = (x, continuation) -> {
+            final RecordCursor<Integer> intCursor = RecordCursor.fromList(ints, continuation);
+            final RecordCursor<Integer> limitedCursor;
+            if (outOfBand) {
+                limitedCursor = new FakeOutOfBandCursor<>(intCursor, 3);
+            } else {
+                limitedCursor = intCursor.limitRowsTo(3);
+            }
+            return limitedCursor
+                    .filterInstrumented(y -> y < x, timer, FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Events.QUERY_FILTER, FDBStoreTimer.Counts.QUERY_FILTER_PASSED, FDBStoreTimer.Counts.QUERY_DISCARDED)
+                    .map(y -> Pair.of(x, y));
+        };
+        final Function<byte[], RecordCursor<Integer>> outerFunc = continuation -> RecordCursor.fromList(ints, continuation);
+
+        byte[] continuation = null;
+        int results = 0;
+        int leftSoFar = -1;
+        int rightSoFar = -1;
+        do {
+            RecordCursor<Pair<Integer, Integer>> cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 5);
+            while (cursor.hasNext()) {
+                Pair<Integer, Integer> value = cursor.next();
+                assertNotNull(value);
+                assertThat(value.getLeft(), greaterThan(value.getRight()));
+                assertThat(value.getLeft(), greaterThanOrEqualTo(leftSoFar));
+                if (value.getLeft() == leftSoFar) {
+                    assertThat(value.getRight(), greaterThan(rightSoFar));
+                    rightSoFar = value.getRight();
+                } else {
+                    leftSoFar = value.getLeft();
+                    rightSoFar = value.getRight();
+                }
+                results++;
+            }
+            assertThat(cursor.getNoNextReason(), isOneOf(possibleNoNextReasons));
+            continuation = cursor.getContinuation();
+        } while (continuation != null);
+
+        int expectedResults = ints.size() * (ints.size() - 1) / 2;
+        assertEquals(expectedResults, results);
+        assertEquals(ints.size() * ints.size(), timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN));
+        assertEquals(expectedResults, timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_PASSED));
+        assertEquals(ints.size() * ints.size() - expectedResults, timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED));
     }
 
     @Test
