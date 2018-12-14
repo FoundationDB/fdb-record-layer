@@ -70,6 +70,8 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     @Nonnull
     private Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[0];
     @Nullable
+    private Descriptors.FileDescriptor localFileDescriptor;
+    @Nullable
     private ExtensionRegistry extensionRegistry;
     @Nullable
     private RecordMetaData recordMetaData;
@@ -98,6 +100,33 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     public void setDependencies(@Nonnull Descriptors.FileDescriptor[] dependencies) {
         this.dependencies = dependencies;
+    }
+
+    /**
+     * Get the local meta-data file descriptor.
+     * See {@link RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)} for more information.
+     * @return the local meta-data file descriptor
+     */
+    @Nullable
+    public Descriptors.FileDescriptor getLocalFileDescriptor() {
+        return localFileDescriptor;
+    }
+
+    /**
+     * Set the local meta-data file descriptor.
+     *
+     * <p>
+     * A record store created off of the meta-data store may not be able to store a record created by a
+     * statically-generated proto file because the meta-data and record have mismatched descriptors. Using this method,
+     * the meta-data can use the same version of the descriptor as the record.
+     * See {@link RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)} for more information.
+     * </p>
+     *
+     * @param localFileDescriptor the local descriptor of the meta-data
+     */
+    @Nonnull
+    public void setLocalFileDescriptor(@Nullable Descriptors.FileDescriptor localFileDescriptor) {
+        this.localFileDescriptor = localFileDescriptor;
     }
 
     @Nullable
@@ -214,9 +243,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     @Nonnull
     protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto, boolean validate) {
-        RecordMetaDataBuilder builder = RecordMetaData.newBuilder()
-                .addDependencies(dependencies)
-                .setRecords(metaDataProto);
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().addDependencies(dependencies);
+        if (localFileDescriptor != null) {
+            builder.setLocalFileDescriptor(localFileDescriptor);
+        }
+        builder.setRecords(metaDataProto);
         return builder.build(validate);
     }
 

@@ -1,9 +1,9 @@
 /*
- * test_records_chained_2.proto
+ * test_records_marked_unmarked.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,23 +19,32 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.chained2;
+package com.apple.foundationdb.record.testmarkedunmarked;
 
 option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecordsChained2Proto";
+option java_outer_classname = "TestRecordsMarkedUnmarkedProto";
 
 import "record_metadata_options.proto";
-import "test_records_1.proto";
-import "test_records_2.proto";
 
-message MyChainedRecord2 {
+option (schema).store_record_versions = true;
+
+message MyMarkedRecord {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+  optional int64 rec_no = 1 [(field).primary_key = true];
+  optional int32 num_value = 2;
+}
+
+message MyUnmarkedRecord1 {
   required int64 rec_no = 1 [(field).primary_key = true];
-  optional int64 val = 2;
-  optional int32 indexed_val = 3 [(field).index = {}];
+  optional int32 num_value = 2;
+}
+
+message MyUnmarkedRecord2 {
+  required int64 rec_no = 1 [(field).primary_key = true];
+  optional int32 num_value = 2;
 }
 
 message RecordTypeUnion {
-  option (com.apple.foundationdb.record.record).usage = UNION;
-  optional MyChainedRecord2 _MyChainedRecord2 = 1;
-  optional com.apple.foundationdb.record.test2.MyLongRecord _MyLongRecord = 2;
+  optional MyMarkedRecord _MyMarkedRecord = 1;
+  optional MyUnmarkedRecord1 _MyUnmarkedRecord = 2;
 }

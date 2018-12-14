@@ -43,6 +43,7 @@ message NestedRankedRecord {
   repeated GameScore scores = 3;
 }
 
+// The primary key of this record type is set in test (RankIndexTest).
 message HeaderRankedRecord {
   message Header {
     required string group = 1;

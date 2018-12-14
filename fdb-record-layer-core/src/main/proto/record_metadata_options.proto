@@ -36,11 +36,12 @@ extend google.protobuf.FileOptions {
 
 message RecordTypeOptions {
   enum Usage {
+    UNSET = 0;
     RECORD = 1;
     UNION = 2;
     NESTED = 3;
   }
-  optional Usage usage = 1 [default = RECORD];
+  optional Usage usage = 1 [default = UNSET];
   optional int32 since_version = 2; // This record_type is introduced on this metadata version
   optional Value record_type_key = 3;
 }

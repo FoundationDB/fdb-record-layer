@@ -2599,6 +2599,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return assertThrows(clazz, () -> {
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
             metaDataBuilder.addIndex(recordType, index);
+            metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
             RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
         });
     }

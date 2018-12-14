@@ -24,16 +24,27 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecordsBadUnion1Proto;
 import com.apple.foundationdb.record.TestRecordsBadUnion2Proto;
 import com.apple.foundationdb.record.TestRecordsChained1Proto;
+import com.apple.foundationdb.record.TestRecordsImportFlatProto;
+import com.apple.foundationdb.record.TestRecordsImportProto;
+import com.apple.foundationdb.record.TestRecordsMarkedUnmarkedProto;
+import com.apple.foundationdb.record.TestRecordsNoPrimaryKeyProto;
+import com.apple.foundationdb.record.TestRecordsUnionMissingRecordProto;
+import com.apple.foundationdb.record.TestRecordsUnionWithImportedNestedProto;
+import com.apple.foundationdb.record.TestRecordsUnionWithNestedProto;
 import com.apple.foundationdb.record.TestRecordsUnsigned1Proto;
 import com.apple.foundationdb.record.TestRecordsUnsigned2Proto;
 import com.apple.foundationdb.record.TestRecordsUnsigned3Proto;
 import com.apple.foundationdb.record.TestRecordsUnsigned4Proto;
 import com.apple.foundationdb.record.TestRecordsUnsigned5Proto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
+import com.apple.foundationdb.record.TestTwoUnionsProto;
+import com.apple.foundationdb.record.TestUnionDefaultNameProto;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
@@ -217,11 +228,82 @@ public class RecordMetaDataBuilderTest {
 
     @Test
     public void badUnionFields() {
-        Throwable t = assertThrows(MetaDataException.class, () ->
+        MetaDataException t = assertThrows(MetaDataException.class, () ->
                 RecordMetaData.newBuilder().setRecords(TestRecordsBadUnion1Proto.getDescriptor()));
         assertEquals("Union field not_a_record is not a message", t.getMessage());
         t = assertThrows(MetaDataException.class, () ->
                 RecordMetaData.newBuilder().setRecords(TestRecordsBadUnion2Proto.getDescriptor()));
         assertEquals("Union field _MySimpleRecord should not be repeated", t.getMessage());
+    }
+
+    @Test
+    public void localMetaData() {
+        // Record type moved from being imported to being present in the local descriptor
+        RecordMetaDataProto.MetaData previouslyImportedMetaData = RecordMetaData.build(TestRecordsImportProto.getDescriptor()).toProto(null);
+        RecordMetaDataBuilder nowFlatMetaData = RecordMetaData.newBuilder()
+                .setLocalFileDescriptor(TestRecordsImportFlatProto.getDescriptor())
+                .setRecords(previouslyImportedMetaData);
+        assertNotNull(nowFlatMetaData.getRecordType("MySimpleRecord"));
+        assertSame(nowFlatMetaData.getRecordType("MySimpleRecord").getDescriptor(), TestRecordsImportFlatProto.MySimpleRecord.getDescriptor());
+        assertNotNull(nowFlatMetaData.getRecordType("MyLongRecord"));
+        assertSame(nowFlatMetaData.getRecordType("MyLongRecord").getDescriptor(), TestRecordsImportFlatProto.MyLongRecord.getDescriptor());
+        nowFlatMetaData.build(true);
+
+        // Record type moved from the descriptor to being in an imported file
+        RecordMetaDataProto.MetaData previouslyFlatMetaData = RecordMetaData.build(TestRecordsImportFlatProto.getDescriptor()).toProto(null);
+        RecordMetaDataBuilder nowImportedMetaData = RecordMetaData.newBuilder()
+                .setLocalFileDescriptor(TestRecordsImportProto.getDescriptor())
+                .setRecords(previouslyFlatMetaData);
+        assertNotNull(nowImportedMetaData.getRecordType("MySimpleRecord"));
+        assertSame(nowImportedMetaData.getRecordType("MySimpleRecord").getDescriptor(), TestRecords1Proto.MySimpleRecord.getDescriptor());
+        assertNotNull(nowImportedMetaData.getRecordType("MyLongRecord"));
+        assertSame(nowImportedMetaData.getRecordType("MyLongRecord").getDescriptor(), TestRecords2Proto.MyLongRecord.getDescriptor());
+        nowImportedMetaData.build(true);
+
+        // The original meta-data
+        RecordMetaDataProto.MetaData originalMetaData = RecordMetaData.build(TestRecords1Proto.getDescriptor()).toProto(null);
+
+        // Evolve the local file descriptor by adding a record type to the union
+        RecordMetaDataBuilder evolvedMetaDataBuilder = RecordMetaData.newBuilder()
+                .setLocalFileDescriptor(TestRecords1EvolvedProto.getDescriptor())
+                .setRecords(originalMetaData);
+        MetaDataException t = assertThrows(MetaDataException.class, () -> evolvedMetaDataBuilder.getRecordType("AnotherRecord"));
+        assertEquals("Unknown record type AnotherRecord", t.getMessage());
+        assertSame(evolvedMetaDataBuilder.build(true).getUnionDescriptor(), TestRecords1EvolvedProto.RecordTypeUnion.getDescriptor());
+    }
+
+    @Test
+    public void validUnion() {
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsMarkedUnmarkedProto.getDescriptor());
+        RecordMetaData recordMetaData = builder.build(true);
+        assertNotNull(recordMetaData.getRecordType("MyMarkedRecord"));
+        assertNotNull(recordMetaData.getRecordType("MyUnmarkedRecord1"));
+        MetaDataException t = assertThrows(MetaDataException.class, () -> recordMetaData.getRecordType("MyUnmarkedRecord2"));
+        assertEquals("Unknown record type MyUnmarkedRecord2", t.getMessage());
+
+        t = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().setRecords(TestUnionDefaultNameProto.getDescriptor()));
+        assertEquals("Union message type RecordTypeUnion cannot be a union field.", t.getMessage());
+
+        t = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().setRecords(TestTwoUnionsProto.getDescriptor()));
+        assertEquals("Only one union descriptor is allowed", t.getMessage());
+
+        t = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().setRecords(TestRecordsUnionMissingRecordProto.getDescriptor()));
+        assertEquals("Record message type MyMissingRecord must be a union field.", t.getMessage());
+
+        t = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().setRecords(TestRecordsUnionMissingRecordProto.getDescriptor()));
+        assertEquals("Record message type MyMissingRecord must be a union field.", t.getMessage());
+
+        t = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().setRecords(TestRecordsUnionWithNestedProto.getDescriptor()));
+        assertEquals("Union field _MyNestedRecord has type MyNestedRecord which is not a record", t.getMessage());
+
+        t = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().setRecords(TestRecordsUnionWithImportedNestedProto.getDescriptor()));
+        assertEquals("Union field _MyNestedRecord has type RestaurantReview which is not a record", t.getMessage());
+    }
+
+    @Test
+    public void noPrimaryKey() {
+        MetaDataException t = assertThrows(MetaDataException.class, () ->
+                RecordMetaData.newBuilder().setRecords(TestRecordsNoPrimaryKeyProto.getDescriptor()).getRecordMetaData());
+        assertEquals("Record type MyNoPrimaryKeyRecord must have a primary key", t.getMessage());
     }
 }

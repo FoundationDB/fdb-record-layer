@@ -26,6 +26,7 @@ option java_outer_classname = "TestRecords3Proto";
 
 import "record_metadata_options.proto";
 
+// The primary key is set in the test (see MetaDataProtoTest#metadataProtoComplex()).
 message MyHierarchicalRecord {
   optional string parent_path = 1;
   optional string child_name = 2;

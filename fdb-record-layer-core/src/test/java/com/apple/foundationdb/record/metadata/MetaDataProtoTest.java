@@ -31,10 +31,13 @@ import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords5Proto;
 import com.apple.foundationdb.record.TestRecords6Proto;
 import com.apple.foundationdb.record.TestRecords7Proto;
+import com.apple.foundationdb.record.TestRecordsChained1Proto;
+import com.apple.foundationdb.record.TestRecordsChained2Proto;
+import com.apple.foundationdb.record.TestRecordsImportFlatProto;
+import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsIndexCompatProto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
 import com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto;
-import com.apple.foundationdb.record.TestRecordsRankProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -181,9 +184,12 @@ public class MetaDataProtoTest {
                 TestRecords5Proto.getDescriptor(),
                 TestRecords6Proto.getDescriptor(),
                 TestRecords7Proto.getDescriptor(),
+                TestRecordsChained1Proto.getDescriptor(),
+                TestRecordsChained2Proto.getDescriptor(),
+                TestRecordsImportProto.getDescriptor(),
+                TestRecordsImportFlatProto.getDescriptor(),
                 TestRecordsMultiProto.getDescriptor(),
                 TestRecordsParentChildRelationshipProto.getDescriptor(),
-                TestRecordsRankProto.getDescriptor(),
                 TestRecordsWithUnionProto.getDescriptor(),
                 TestRecordsIndexCompatProto.getDescriptor()
         );
