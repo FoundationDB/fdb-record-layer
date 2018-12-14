@@ -34,6 +34,7 @@ dependencies {
     compile "com.google.guava:guava:${guavaVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
+    annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 
     testCompile project(path: ':fdb-extensions', configuration: 'tests')
     testCompile "org.hamcrest:hamcrest-all:1.3"

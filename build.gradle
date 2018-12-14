@@ -231,7 +231,7 @@ subprojects {
 
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version
 // you want and run the command _twice_.
-task wrapper(type: Wrapper) {
+wrapper {
     def gradleVersion = getProperty("gradleVersion") ?: project.gradle.gradleVersion
     conventionMapping.distributionUrl = {
         // use gradle-all rather than gradle-bin distribution because IntelliJ's Gradle integration
