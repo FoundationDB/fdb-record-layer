@@ -100,7 +100,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         if (nextFuture == null) {
             mayGetContinuation = false;
             nextFuture = AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
-                boolean result = !(pipeline.isEmpty() || (innerReason != null && innerReason.isOutOfBand()));
+                boolean result = !(pipeline.isEmpty() || (innerReason != null && !innerReason.isSourceExhausted()));
                 mayGetContinuation = !result;
                 return result;
             });
@@ -168,7 +168,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Override
     public NoNextReason getNoNextReason() {
-        if (innerReason != null && innerReason.isOutOfBand()) {
+        if (innerReason != null && !innerReason.isSourceExhausted()) {
             return innerReason;
         }
         return outerCursor.getNoNextReason();
@@ -239,14 +239,22 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
                 // Stop because next cursor has next.
                 return AsyncUtil.READY_FALSE;
             }
+            // Update the last entry to this entry. This will implicitly advance the continuation. This is safe
+            // because we have already hit the limit of this inner cursor. If the cursor is not exhausted, the
+            // whole cursor will stop and the advanced continuation will let it resume from where the cursor
+            // hit the limit. If the cursor is exhausted, then every item from this cursor has been returned to
+            // the user. That means that if the cursor is stopped right now, it will be resumed from the first
+            // item of the next element of the outer cursor, which is fine.
+            lastEntry = nextEntry;
             pipeline.remove();
             innerReason = nextEntry.innerCursor.getNoNextReason();
-            if (innerReason.isOutOfBand()) {
+            if (!innerReason.isSourceExhausted()) {
                 // Stop because inner cursor hit some limit.
                 // Not valid to take from later in the pipeline, even if available already.
                 return AsyncUtil.READY_FALSE;
+            } else {
+                return AsyncUtil.READY_TRUE;
             }
-            return AsyncUtil.READY_TRUE;
         }
         if (waitOuterNext == null) {
             // Recheck when cursor ready (pipeline is full).
