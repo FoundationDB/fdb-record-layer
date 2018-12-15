@@ -32,7 +32,7 @@ import java.util.Objects;
 /**
  * A function which is applied to a record with the help of an index.
  * @param <T> the result type of the function
- * @see com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext#evaluateRecordFunction
+ * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#evaluateRecordFunction
  */
 @API(API.Status.MAINTAINED)
 public class IndexRecordFunction<T> extends RecordFunction<T> {

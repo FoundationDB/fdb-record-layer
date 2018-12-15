@@ -100,7 +100,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -137,7 +137,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 int i = 0;
                 byte[] continuation = null;
                 do {
-                    try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext, continuation, ExecuteProperties.newBuilder()
+                    try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
                             .setReturnedRowLimit(limit)
                             .build())) {
                         while (cursor.hasNext()) {
@@ -183,7 +183,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -227,7 +227,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -271,7 +271,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -312,7 +312,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -351,7 +351,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             context.getTimer().reset();
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -393,7 +393,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                         .setReturnedRowLimit(limit)
                         .build();
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext, continuation, executeProperties)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
                     int i = 0;
                     Set<Tuple> keysThisIteration = new HashSet<>();
                     while (cursor.hasNext()) {
@@ -448,7 +448,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -491,7 +491,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -534,7 +534,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -578,8 +578,8 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor1 = plan1.execute(evaluationContext);
-                 RecordCursor<FDBQueriedRecord<Message>> cursor2 = plan2.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1);
+                 RecordCursor<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2)) {
                 while (cursor1.hasNext()) {
                     assertThat(cursor2.hasNext(), is(true));
                     FDBQueriedRecord<Message> rec1 = cursor1.next();
@@ -626,8 +626,8 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor1 = plan1.execute(evaluationContext);
-                    RecordCursor<FDBQueriedRecord<Message>> cursor2 = plan2.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1);
+                 RecordCursor<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2)) {
                 while (cursor1.hasNext()) {
                     assertThat(cursor2.hasNext(), is(true));
                     FDBQueriedRecord<Message> rec1 = cursor1.next();
@@ -670,7 +670,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext, null, ExecuteProperties.newBuilder().setReturnedRowLimit(5).build())) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(5).build())) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -716,7 +716,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -769,7 +769,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 int i = 0;
                 byte[] continuation = null;
                 do {
-                    try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext, continuation, ExecuteProperties.newBuilder()
+                    try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
                             .setReturnedRowLimit(limit)
                             .build())) {
                         while (cursor.hasNext()) {

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -56,7 +55,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
 
     @Nonnull
     @Override
-    public <C extends Message, M extends C> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final Key.Evaluated version = record != null && record.hasVersion() ? Key.Evaluated.scalar(record.getVersion()) : Key.Evaluated.NULL;
         return Collections.singletonList(version);
     }

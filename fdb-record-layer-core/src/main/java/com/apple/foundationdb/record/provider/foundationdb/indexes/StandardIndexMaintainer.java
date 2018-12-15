@@ -27,6 +27,7 @@ import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -41,7 +42,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -160,9 +160,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Nonnull
     public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                               @Nullable final FDBIndexableRecord<M> newRecord) {
-        final FDBEvaluationContext<Message> context = state.store.emptyEvaluationContext();
-        List<IndexEntry> oldIndexEntries = filteredIndexEntries(context, oldRecord);
-        List<IndexEntry> newIndexEntries = filteredIndexEntries(context, newRecord);
+        List<IndexEntry> oldIndexEntries = filteredIndexEntries(oldRecord);
+        List<IndexEntry> newIndexEntries = filteredIndexEntries(newRecord);
         if (oldIndexEntries != null && newIndexEntries != null && skipUpdateForUnchangedKeys()) {
             // Remove unchanged keys from list of keys to update.
             List<IndexEntry> commonKeys = commonKeys(oldIndexEntries, newIndexEntries);
@@ -200,15 +199,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     /**
      * Filter out index keys according to {@link IndexMaintenanceFilter}.
      * Keys that do not pass the filter will not be stored / removed from the index.
-     * @param <C> the message type of the record store
      * @param <M> the message type of the record
-     * @param context context for key evaluation
      * @param savedRecord record for key evaluation
      * @return filtered list of index keys for the given record
      */
     @Nullable
-    protected <C extends Message, M extends C> List<IndexEntry> filteredIndexEntries(@Nonnull final FDBEvaluationContext<C> context,
-                                                                                     @Nullable final FDBIndexableRecord<M> savedRecord) {
+    protected <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord) {
         if (savedRecord == null) {
             return null;
         }
@@ -228,7 +224,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             default:
                 break;
         }
-        List<IndexEntry> indexEntries = evaluateIndex(context, savedRecord);
+        List<IndexEntry> indexEntries = evaluateIndex(savedRecord);
         if (!filterIndexKeys) {
             return indexEntries;
         }
@@ -283,7 +279,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param <M> the message type of the record
      * @param savedRecord the record being indexed
      * @param remove <code>true</code> if removing from index
-     * @param indexEntries the result of {@link #evaluateIndex(FDBEvaluationContext, FDBRecord)}
+     * @param indexEntries the result of {@link #evaluateIndex(FDBRecord)}
      * @return a future completed when update is done
      */
     protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
@@ -425,9 +421,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     @Override
     @Nonnull
-    public <T, C extends Message, M extends C> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<C> context,
-                                                                                           @Nonnull IndexRecordFunction<T> function,
-                                                                                           @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
+                                                                              @Nonnull IndexRecordFunction<T> function,
+                                                                              @Nonnull FDBRecord<M> record) {
         return unsupportedRecordFunction(function);
     }
 
@@ -468,13 +464,13 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
             return false;
         }
-        if (evaluated.equals(match.getEquality(state.store.emptyEvaluationContext()))) {
+        if (evaluated.equals(match.getEquality(state.store, EvaluationContext.EMPTY))) {
             return true;
         }
         if (LOGGER.isWarnEnabled()) {
             LOGGER.warn(KeyValueLogMessage.of("IndexPrefixes don't align on deleteRecordsWhere",
                     LogMessageKeys.INITIAL_PREFIX, evaluated,
-                    LogMessageKeys.SECOND_PREFIX, match.getEquality(),
+                    LogMessageKeys.SECOND_PREFIX, match.getEquality(state.store, EvaluationContext.EMPTY),
                     LogMessageKeys.INDEX_NAME, state.index.getName()));
         }
         return false;
@@ -505,17 +501,14 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Apply the key and value expressions to a <code>record</code>.
-     * @param <C> the message type of the record store
      * @param <M> the message type of the record
-     * @param context context in which the operation is performed
      * @param record the record from which the index will extract its key and value
      * @return a list of index keys and values
      */
     @Nonnull
-    protected <C extends Message, M extends C> List<IndexEntry> evaluateIndex(@Nonnull FDBEvaluationContext<C> context,
-                                                                              @Nonnull FDBRecord<M> record) {
+    protected <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
         final KeyExpression rootExpression = state.index.getRootExpression();
-        final List<Key.Evaluated> indexKeys = rootExpression.evaluate(context, record);
+        final List<Key.Evaluated> indexKeys = rootExpression.evaluate(record);
 
         // A KeyWithValue expression returns a value that is both the key and the value of the index,
         // so we have to tease them apart.

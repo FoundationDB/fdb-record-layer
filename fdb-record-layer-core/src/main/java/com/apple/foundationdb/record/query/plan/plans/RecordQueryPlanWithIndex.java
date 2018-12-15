@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -57,19 +57,20 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
     IndexScanType getScanType();
 
     @Nonnull
-    <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBEvaluationContext<M> context,
+    <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store,
+                                                                @Nonnull EvaluationContext context,
                                                                 @Nullable byte[] continuation,
                                                                 @Nonnull ExecuteProperties executeProperties);
 
     @Nonnull
     @Override
-    default  <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    default  <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                           @Nonnull EvaluationContext context,
                                                                            @Nullable byte[] continuation,
                                                                            @Nonnull ExecuteProperties executeProperties) {
-        final FDBRecordStoreBase<M> store = context.getStore();
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(getIndexName());
-        final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(context, continuation, executeProperties);
+        final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
         return store.fetchIndexRecords(index, entryRecordCursor, IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord);
     }

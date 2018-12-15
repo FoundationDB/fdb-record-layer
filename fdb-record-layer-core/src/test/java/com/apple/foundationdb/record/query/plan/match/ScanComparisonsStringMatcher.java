@@ -43,7 +43,7 @@ public class ScanComparisonsStringMatcher extends TypeSafeMatcher<ScanComparison
     public boolean matchesSafely(@Nonnull ScanComparisons comparisons) {
         String range;
         try {
-            range = comparisons.toTupleRange(null).toString();
+            range = comparisons.toTupleRange().toString();
         } catch (Comparisons.EvaluationContextRequiredException ex) {
             range = comparisons.toString();
         }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
@@ -93,7 +94,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             final List<Long> whole;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 whole = cursor.map(getRecNo).asList().get();
             }
             assertTrue(whole.size() > amount, "should have more than one batch");
@@ -101,8 +102,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
             final List<Long> byCursors = new ArrayList<>();
             byte[] continuation = null;
             do {
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext,
-                        continuation, justLimit)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, justLimit)) {
                     byCursors.addAll(cursor.map(getRecNo).asList().get());
                     continuation = cursor.getContinuation();
                 }
@@ -117,8 +117,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
                         .setReturnedRowLimit(amount)
                         .setIsolationLevel(justLimit.getIsolationLevel())
                         .build();
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext,
-                        null, skipAndLimit)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, skipAndLimit)) {
                     final List<Long> next = cursor.map(getRecNo).asList().get();
                     byOffsets.addAll(next);
                     if (next.size() < amount) {
@@ -258,7 +257,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
 
             // Read with no filter.
             do {
-                RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext, continuation, ExecuteProperties.SERIAL_EXECUTE)
+                RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.SERIAL_EXECUTE)
                         .limitRowsTo(amount);
                 int count = cursor.getCount().get();
                 assertThat(count, lessThanOrEqualTo(amount));
@@ -272,9 +271,9 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
             continuation = null;
             int filteredCount = 0;
             do {
-                RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext, continuation, ExecuteProperties.SERIAL_EXECUTE)
+                RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.SERIAL_EXECUTE)
                         .limitRowsTo(amount)
-                        .filterInstrumented(rec -> filter.eval(evaluationContext, rec),
+                        .filterInstrumented(rec -> filter.eval(recordStore, EvaluationContext.EMPTY, rec),
                                 recordStore.getTimer(), Collections.singleton(FDBStoreTimer.Counts.QUERY_FILTER_PLAN_GIVEN), Collections.emptySet(),
                                 Collections.singleton(FDBStoreTimer.Counts.QUERY_FILTER_PLAN_PASSED), Collections.emptySet());
                 int count = cursor.getCount().get();

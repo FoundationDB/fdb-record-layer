@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -71,12 +71,12 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openJoinRecordStore(context);
-            RecordCursor<FDBQueriedRecord<Message>> parentCursor = parentPlan.execute(evaluationContext);
+            RecordCursor<FDBQueriedRecord<Message>> parentCursor = recordStore.executeQuery(parentPlan);
             RecordCursor<FDBQueriedRecord<Message>> childCursor = parentCursor.flatMapPipelined(rec -> {
                 TestRecordsParentChildRelationshipProto.MyParentRecord.Builder parentRec = TestRecordsParentChildRelationshipProto.MyParentRecord.newBuilder();
                 parentRec.mergeFrom(rec.getRecord());
-                FDBEvaluationContext<Message> childContext = evaluationContext.withBinding("parent", parentRec.getRecNo());
-                return childPlan.execute(childContext);
+                EvaluationContext childContext = EvaluationContext.forBinding("parent", parentRec.getRecNo());
+                return childPlan.execute(recordStore, childContext);
             }, 10);
             RecordCursor<String> resultsCursor = childCursor.map(rec -> {
                 TestRecordsParentChildRelationshipProto.MyChildRecord.Builder childRec = TestRecordsParentChildRelationshipProto.MyChildRecord.newBuilder();
@@ -104,14 +104,14 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openJoinRecordStore(context);
-            RecordCursor<FDBQueriedRecord<Message>> parentCursor = parentPlan.execute(evaluationContext);
+            RecordCursor<FDBQueriedRecord<Message>> parentCursor = recordStore.executeQuery(parentPlan);
             RecordCursor<FDBQueriedRecord<Message>> childCursor = parentCursor.flatMapPipelined(rec -> {
                 TestRecordsParentChildRelationshipProto.MyParentRecord.Builder parentRec = TestRecordsParentChildRelationshipProto.MyParentRecord.newBuilder();
                 parentRec.mergeFrom(rec.getRecord());
-                FDBEvaluationContext<Message> childContext = evaluationContext.withBinding("children", parentRec.getChildRecNosList().stream()
+                EvaluationContext childContext = EvaluationContext.forBinding("children", parentRec.getChildRecNosList().stream()
                         .map(Tuple::from)
                         .collect(Collectors.toList()));
-                return childPlan.execute(childContext);
+                return childPlan.execute(recordStore, childContext);
             }, 10);
             RecordCursor<String> resultsCursor = childCursor.map(rec -> {
                 TestRecordsParentChildRelationshipProto.MyChildRecord.Builder childRec = TestRecordsParentChildRelationshipProto.MyChildRecord.newBuilder();

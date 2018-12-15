@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
@@ -518,15 +519,15 @@ public class QueryToKeyMatcher {
 
         @Nonnull
         public Key.Evaluated getEquality() {
-            return getEquality(null);
+            return getEquality(null, null);
         }
 
         @Nonnull
-        public Key.Evaluated getEquality(@Nullable EvaluationContext context) {
+        public Key.Evaluated getEquality(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             List<Object> evaluated = new ArrayList<>();
             for (Comparison comparison : comparisons) {
                 if (comparison.getType().isEquality()) {
-                    evaluated.add(comparison.getComparand(context));
+                    evaluated.add(comparison.getComparand(store, context));
                 } else {
                     throw new RecordCoreException(
                             "Match is not equal, has comparison of type " + comparison.getType());

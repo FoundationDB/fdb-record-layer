@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.StorelessEvaluationContext;
 import com.apple.foundationdb.record.UnstoredRecord;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.Customer;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.NestedField;
@@ -36,7 +35,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.SplitKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -72,7 +70,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class KeyExpressionTest {
 
     private List<Key.Evaluated> evaluate(@Nonnull KeyExpression expression, @Nullable Message record) {
-        return expression.evaluate(StorelessEvaluationContext.EMPTY, new UnstoredRecord<>(record));
+        return expression.evaluate(new UnstoredRecord<>(record));
     }
 
     private static final TestScalarFieldAccess plantsBoxesAndBowls = TestScalarFieldAccess.newBuilder()
@@ -843,10 +841,9 @@ public class KeyExpressionTest {
 
         @Nonnull
         @Override
-        public <C extends Message, M extends C> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<C> context,
-                                                                                     @Nullable FDBRecord<M> record,
-                                                                                     @Nullable Message message,
-                                                                                     @Nonnull Key.Evaluated arguments) {
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
+                                                                        @Nullable Message message,
+                                                                        @Nonnull Key.Evaluated arguments) {
             return Collections.singletonList(arguments);
         }
 
@@ -881,10 +878,9 @@ public class KeyExpressionTest {
 
         @Nonnull
         @Override
-        public <C extends Message, M extends C> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<C> context,
-                                                                                     @Nullable FDBRecord<M> record,
-                                                                                     @Nullable Message message,
-                                                                                     @Nonnull Key.Evaluated arguments) {
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
+                                                                        @Nullable Message message,
+                                                                        @Nonnull Key.Evaluated arguments) {
             final String value = arguments.getString(0);
             final Number startIdx = arguments.getObject(1, Number.class);
             final Number endIdx = (arguments.size() > 2) ? arguments.getObject(2, Number.class) : null;

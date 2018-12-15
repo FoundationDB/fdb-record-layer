@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
@@ -66,23 +66,24 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                         @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> {
                     final List<Object> values = getValues(context);
                     if (values == null) {
-                        return RecordCursor.empty(context.getExecutor());
+                        return RecordCursor.empty(store.getExecutor());
                     } else {
-                        return RecordCursor.fromList(context.getExecutor(), values, outerContinuation);
+                        return RecordCursor.fromList(store.getExecutor(), values, outerContinuation);
                     }
                 },
-                (outerValue, innerContinuation) -> getInner().execute(context.withBinding(bindingName, outerValue),
+                (outerValue, innerContinuation) -> getInner().execute(store, context.withBinding(bindingName, outerValue),
                         innerContinuation, executeProperties.clearSkipAndLimit()),
                 outerObject -> Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack(),
                 continuation,
-                context.getStore().getPipelineSize(PipelineOperation.IN_JOIN))
+                store.getPipelineSize(PipelineOperation.IN_JOIN))
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 

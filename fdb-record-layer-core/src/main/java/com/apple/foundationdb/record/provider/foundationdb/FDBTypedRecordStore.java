@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -203,14 +204,14 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
-    public <T, N extends M> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<N> record) {
-        return untypedStore.evaluateTypedIndexRecordFunction(evaluationContext, function, record);
+    public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
+        return untypedStore.evaluateTypedIndexRecordFunction(this, evaluationContext, function, record);
     }
 
     @Nonnull
     @Override
-    public <T, N extends M> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<M> evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<N> record) {
-        return untypedStore.evaluateTypedStoreFunction(evaluationContext, function, record);
+    public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
+        return untypedStore.evaluateTypedStoreFunction(this, evaluationContext, function, record);
     }
 
     @Nonnull

@@ -71,7 +71,7 @@ public class FilterWithScanRule extends PlannerRule<LogicalFilterExpression> {
             call.yield(call.ref(new RecordQueryIndexPlan(
                     indexScan.getIndexName(),
                     indexScan.getScanType(),
-                    ScanComparisons.from(new Comparisons.SimpleComparison(comparison.getType(), comparison.getComparand(null))),
+                    ScanComparisons.from(new Comparisons.SimpleComparison(comparison.getType(), comparison.getComparand())),
                     indexScan.isReverse())));
             return ChangesMade.MADE_CHANGES;
         }

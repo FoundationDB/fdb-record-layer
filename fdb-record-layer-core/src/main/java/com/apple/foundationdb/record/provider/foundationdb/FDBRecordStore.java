@@ -32,6 +32,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
@@ -330,11 +331,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final RecordType recordType = metaData.getRecordTypeForDescriptor(recordDescriptor);
         final KeyExpression primaryKeyExpression = recordType.getPrimaryKey();
 
-        final FDBEvaluationContext<M> emptyEvaluationContext = typedStore.emptyEvaluationContext();
         final FDBStoredRecordBuilder<M> recordBuilder = FDBStoredRecord.newBuilder(record).setRecordType(recordType);
         final FDBRecordVersion recordVersion = recordVersionForSave(metaData, version, behavior);
         recordBuilder.setVersion(recordVersion);
-        final Tuple primaryKey = primaryKeyExpression.evaluateSingleton(emptyEvaluationContext, recordBuilder).toTuple();
+        final Tuple primaryKey = primaryKeyExpression.evaluateSingleton(recordBuilder).toTuple();
         recordBuilder.setPrimaryKey(primaryKey);
 
         CompletableFuture<FDBStoredRecord<M>> result = loadExistingRecord(typedStore, primaryKey).thenCompose(oldRecord -> {
@@ -345,7 +345,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             LogMessageKeys.PRIMARY_KEY, primaryKey);
                 }
                 if (metaData.getRecordCountKey() != null) {
-                    addRecordCount(metaData, newRecord, emptyEvaluationContext, LITTLE_ENDIAN_INT64_ONE);
+                    addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
                 }
             } else {
                 if (existenceCheck.errorIfExists()) {
@@ -367,9 +367,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
     }
 
-    protected <M extends Message> void addRecordCount(@Nonnull RecordMetaData metaData, @Nonnull FDBStoredRecord<M> record, @Nonnull FDBEvaluationContext<M> emptyEvaluationContext, @Nonnull byte[] increment) {
+    protected <M extends Message> void addRecordCount(@Nonnull RecordMetaData metaData, @Nonnull FDBStoredRecord<M> record, @Nonnull byte[] increment) {
         final Transaction tr = ensureContextActive();
-        Key.Evaluated subkey = metaData.getRecordCountKey().evaluateSingleton(emptyEvaluationContext, record);
+        Key.Evaluated subkey = metaData.getRecordCountKey().evaluateSingleton(record);
         final byte[] keyBytes = getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(subkey.toTupleAppropriateList()));
         tr.mutate(MutationType.ADD, keyBytes, increment);
     }
@@ -1061,7 +1061,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
                     oldRecord);
             if (metaData.getRecordCountKey() != null) {
-                addRecordCount(metaData, oldRecord, typedStore.emptyEvaluationContext(), LITTLE_ENDIAN_INT64_MINUS_ONE);
+                addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
             }
             final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
             if (useOldVersionFormat()) {
@@ -1179,7 +1179,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         private Key.Evaluated deleteRecordsWhereCheckRecordTypes() {
-            final FDBEvaluationContext<Message> evaluationContext = emptyEvaluationContext();
             Key.Evaluated evaluated = null;
 
             for (RecordType recordType : allRecordTypes) {
@@ -1189,11 +1188,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                recordType.getName());
                 }
                 if (evaluated == null) {
-                    evaluated = match.getEquality(evaluationContext);
-                } else if (!evaluated.equals(match.getEquality(evaluationContext))) {
+                    evaluated = match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY);
+                } else if (!evaluated.equals(match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY))) {
                     throw new RecordCoreException("Primary key prefixes don't align",
                             "initialPrefix", evaluated,
-                            "secondPrefix", match.getEquality(evaluationContext),
+                            "secondPrefix", match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY),
                             "recordType", recordType.getName());
                 }
             }
@@ -1207,11 +1206,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
                     throw new Query.InvalidExpressionException("Record count key not matching for deleteRecordsWhere");
                 }
-                final Key.Evaluated subkey = match.getEquality(evaluationContext);
+                final Key.Evaluated subkey = match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY);
                 if (!evaluated.equals(subkey)) {
                     throw new RecordCoreException("Record count key prefix doesn't align",
                             "initialPrefix", evaluated,
-                            "secondPrefix", match.getEquality());
+                            "secondPrefix", match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY));
                 }
             }
 
@@ -1364,35 +1363,37 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
-    public <T, N extends Message> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<Message> evaluationContext,
-                                                                                   @Nonnull IndexRecordFunction<T> function,
-                                                                                   @Nonnull FDBRecord<N> record) {
-        return evaluateTypedIndexRecordFunction(evaluationContext, function, record);
+    public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext,
+                                                                @Nonnull IndexRecordFunction<T> function,
+                                                                @Nonnull FDBRecord<Message> record) {
+        return evaluateTypedIndexRecordFunction(this, evaluationContext, function, record);
     }
 
     @Nonnull
-    protected <T, C extends Message, M extends C> CompletableFuture<T> evaluateTypedIndexRecordFunction(@Nonnull FDBEvaluationContext<C> evaluationContext,
-                                                                                                        @Nonnull IndexRecordFunction<T> indexRecordFunction,
-                                                                                                        @Nonnull FDBRecord<M> record) {
+    protected <T, M extends Message> CompletableFuture<T> evaluateTypedIndexRecordFunction(@Nonnull FDBRecordStoreBase<M> typedStore,
+                                                                                           @Nonnull EvaluationContext evaluationContext,
+                                                                                           @Nonnull IndexRecordFunction<T> indexRecordFunction,
+                                                                                           @Nonnull FDBRecord<M> record) {
         return IndexFunctionHelper.indexMaintainerForRecordFunction(this, indexRecordFunction, record)
                 .orElseThrow(() -> new RecordCoreException("Record function " + indexRecordFunction +
                                                            " requires appropriate index on " + record.getRecordType().getName()))
-                .evaluateRecordFunction(evaluationContext, indexRecordFunction, record);
+            .evaluateRecordFunction(evaluationContext, indexRecordFunction, record);
     }
 
     @Override
     @Nonnull
-    public <T, N extends Message> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<Message> evaluationContext,
-                                                                             @Nonnull StoreRecordFunction<T> function,
-                                                                             @Nonnull FDBRecord<N> record) {
-        return evaluateTypedStoreFunction(evaluationContext, function, record);
+    public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext,
+                                                          @Nonnull StoreRecordFunction<T> function,
+                                                          @Nonnull FDBRecord<Message> record) {
+        return evaluateTypedStoreFunction(this, evaluationContext, function, record);
     }
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    public <T, C extends Message, M extends C> CompletableFuture<T> evaluateTypedStoreFunction(@Nonnull FDBEvaluationContext<C> evaluationContext,
-                                                                                               @Nonnull StoreRecordFunction<T> function,
-                                                                                               @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateTypedStoreFunction(@Nonnull FDBRecordStoreBase<M> typedStore,
+                                                                                  @Nonnull EvaluationContext evaluationContext,
+                                                                                  @Nonnull StoreRecordFunction<T> function,
+                                                                                  @Nonnull FDBRecord<M> record) {
         if (function.getName().equals(FunctionNames.VERSION)) {
             if (record.hasVersion() && record.getVersion().isComplete()) {
                 return CompletableFuture.completedFuture((T) record.getVersion());
@@ -2696,7 +2697,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final Map<Key.Evaluated, Long> counts = new HashMap<>();
         final RecordCursor<FDBStoredRecord<Message>> records = scanRecords(null, ScanProperties.FORWARD_SCAN);
         CompletableFuture<Void> future = records.forEach(record -> {
-            Key.Evaluated subkey = recordCountKey.evaluateSingleton(emptyEvaluationContext(), record);
+            Key.Evaluated subkey = recordCountKey.evaluateSingleton(record);
             counts.compute(subkey, (k, v) -> (v == null) ? 1 : v + 1);
         }).thenApply(vignore -> {
             final Transaction tr = ensureContextActive();

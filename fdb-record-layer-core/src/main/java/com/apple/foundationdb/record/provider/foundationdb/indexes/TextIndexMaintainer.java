@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -383,7 +382,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      *
      * @param savedRecord the record being indexed
      * @param remove <code>true</code> if removing from index.
-     * @param indexEntries the result of {@link #evaluateIndex(FDBEvaluationContext, com.apple.foundationdb.record.provider.foundationdb.FDBRecord)}
+     * @param indexEntries the result of {@link #evaluateIndex(com.apple.foundationdb.record.provider.foundationdb.FDBRecord)}
      * @return a future completed when update is done
      */
     @Nonnull

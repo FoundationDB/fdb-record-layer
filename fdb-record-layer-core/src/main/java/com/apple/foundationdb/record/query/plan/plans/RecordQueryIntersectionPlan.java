@@ -21,13 +21,14 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -95,14 +96,15 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Nonnull
     @Override
     @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the intersection cursor is wrapped and returned
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                         @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
         final ExecuteProperties childExecuteProperties = executeProperties.clearSkipAndLimit();
-        return IntersectionCursor.create(context, getComparisonKey(), reverse,
+        return IntersectionCursor.create(store, getComparisonKey(), reverse,
                 children.stream()
                         .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
-                                ((byte[] childContinuation) -> childPlan.get().execute(context, childContinuation, childExecuteProperties)))
+                                ((byte[] childContinuation) -> childPlan.get().execute(store, context, childContinuation, childExecuteProperties)))
                         .collect(Collectors.toList()),
                 continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }

@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -1143,25 +1143,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     /**
-     * Get an empty evaluation context associated with this store.
-     * @return a new evaluation context initialized with empty bindings
-     */
-    @Nonnull
-    default FDBEvaluationContext<M> emptyEvaluationContext() {
-        return createEvaluationContext(Bindings.EMPTY_BINDINGS);
-    }
-
-    /**
-     * Get an evaluation context associated with this store for the given bindings.
-     * @param bindings value bindings
-     * @return a new evaluation context initialized with the given bindings
-     */
-    @Nonnull
-    default FDBEvaluationContext<M> createEvaluationContext(@Nonnull Bindings bindings) {
-        return new FDBRecordStoreEvaluationContext<>(this, bindings);
-    }
-
-    /**
      * Function for computing the number of elements to allow in the asynchronous pipeline for an operation of the given
      * type.
      */
@@ -1237,7 +1218,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @Nonnull
     default <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull RecordFunction<T> function,
                                                             @Nonnull FDBRecord<M> record) {
-        return evaluateRecordFunction(emptyEvaluationContext(), function, record);
+        return evaluateRecordFunction(EvaluationContext.EMPTY, function, record);
     }
 
     /**
@@ -1246,13 +1227,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param function the function to evaluate
      * @param record the record to evaluate against
      * @param <T> the type of the result
-     * @param <N> the type of the record
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
-    default <T, N extends M> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
-                                                                         @Nonnull RecordFunction<T> function,
-                                                                         @Nonnull FDBRecord<N> record) {
+    default <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext evaluationContext,
+                                                            @Nonnull RecordFunction<T> function,
+                                                            @Nonnull FDBRecord<M> record) {
         if (function instanceof IndexRecordFunction<?>) {
             IndexRecordFunction<T> indexRecordFunction = (IndexRecordFunction<T>)function;
             return evaluateIndexRecordFunction(evaluationContext, indexRecordFunction, record);
@@ -1266,47 +1246,47 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Evaluate a {@link IndexRecordFunction} against a record.
      * @param <T> the type of the result
-     * @param <N> the type of the record
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
      * @param record the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
-    <T, N extends M> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
-                                                                      @Nonnull IndexRecordFunction<T> function,
-                                                                      @Nonnull FDBRecord<N> record);
+    <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext,
+                                                         @Nonnull IndexRecordFunction<T> function,
+                                                         @Nonnull FDBRecord<M> record);
 
     /**
      * Evaluate a {@link StoreRecordFunction} against a record.
      * @param <T> the type of the result
-     * @param <N> the type of the record
      * @param function the function to evaluate
      * @param record the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
-    default <T, N extends M> CompletableFuture<T> evaluateStoreFunction(@Nonnull StoreRecordFunction<T> function,
-                                                                        @Nonnull FDBRecord<N> record) {
-        return evaluateStoreFunction(emptyEvaluationContext(), function, record);
+    default <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull StoreRecordFunction<T> function,
+                                                           @Nonnull FDBRecord<M> record) {
+        return evaluateStoreFunction(EvaluationContext.EMPTY, function, record);
     }
 
     /**
      * Evaluate a {@link StoreRecordFunction} against a record.
      * @param <T> the type of the result
-     * @param <N> the type of the record
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
      * @param record the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
-    <T, N extends M> CompletableFuture<T> evaluateStoreFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
-                                                                @Nonnull StoreRecordFunction<T> function,
-                                                                @Nonnull FDBRecord<N> record);
+    <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext,
+                                                   @Nonnull StoreRecordFunction<T> function,
+                                                   @Nonnull FDBRecord<M> record);
 
     /**
      * Evaluate an {@link IndexAggregateFunction} against a range of the store.
+     *
+     * Before calling {@link #evaluateAggregateFunction(List, IndexAggregateFunction, TupleRange, IsolationLevel)},
+     * this overload adjusts the given range to include any prefix in the function itself.
      * @param evaluationContext evaluation context containing parameter bindings
      * @param recordTypeNames record types for which to find a matching index
      * @param aggregateFunction the function to evaluate
@@ -1315,7 +1295,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will complete with the result of evaluating the aggregate
      */
     @Nonnull
-    default CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull FDBEvaluationContext<M> evaluationContext,
+    default CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull EvaluationContext evaluationContext,
                                                                @Nonnull List<String> recordTypeNames,
                                                                @Nonnull IndexAggregateFunction aggregateFunction,
                                                                @Nonnull TupleRange range,
@@ -1429,7 +1409,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQueryPlan query) {
-        return query.execute(emptyEvaluationContext());
+        return query.execute(this, EvaluationContext.EMPTY);
     }
 
     /**
@@ -1444,7 +1424,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQueryPlan query,
                                                            @Nullable byte[] continuation,
                                                            @Nonnull ExecuteProperties executeProperties) {
-        return query.execute(emptyEvaluationContext(), continuation, executeProperties);
+        return query.execute(this, EvaluationContext.EMPTY, continuation, executeProperties);
     }
 
     /**

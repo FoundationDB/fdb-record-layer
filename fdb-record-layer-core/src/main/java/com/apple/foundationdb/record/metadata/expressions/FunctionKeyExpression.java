@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
@@ -166,12 +165,12 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     @Nonnull
     @Override
-    public <C extends Message, M extends C> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
-        final List<Key.Evaluated> evaluatedArguments = getArguments().evaluateMessage(context, record, message);
+    public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
+        final List<Key.Evaluated> evaluatedArguments = getArguments().evaluateMessage(record, message);
         final List<Key.Evaluated> results = new ArrayList<>(evaluatedArguments.size());
         for (Key.Evaluated evaluatedArgument : evaluatedArguments) {
             validateArgumentCount(evaluatedArgument);
-            results.addAll(evaluateFunction(context, record, message, evaluatedArgument));
+            results.addAll(evaluateFunction(record, message, evaluatedArgument));
         }
         validateColumnCounts(results);
         return results;
@@ -191,19 +190,16 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * the nullity of <code>record</code>.
      * </p>
      *
-     * @param <C> the type of record store
      * @param <M> the type of the records
-     * @param context the evaluation context
      * @param record the record against which this function will produce a key
      * @param message the Protobuf message against which this function will produce a key
      * @param arguments the set of arguments to be applied by the function against the <code>record</code>
      * @return the list of keys for the given record
      */
     @Nonnull
-    public abstract <C extends Message, M extends C> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<C> context,
-                                                                                          @Nullable FDBRecord<M> record,
-                                                                                          @Nullable Message message,
-                                                                                          @Nonnull Key.Evaluated arguments);
+    public abstract <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
+                                                                             @Nullable Message message,
+                                                                             @Nonnull Key.Evaluated arguments);
 
     private void validateArgumentCount(Key.Evaluated arguments) {
         final int argumentCount = arguments.size();

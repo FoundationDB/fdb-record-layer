@@ -27,6 +27,7 @@ import com.apple.foundationdb.map.BunchedMap;
 import com.apple.foundationdb.map.BunchedMapMultiIterator;
 import com.apple.foundationdb.map.BunchedMapScanEntry;
 import com.apple.foundationdb.map.SubspaceSplitter;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -221,7 +222,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         hook.apply(metaDataBuilder);
         uncheckedOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
         recordStore = recordStore.asBuilder().setSerializer(COMPRESSING_SERIALIZER).build();
-        evaluationContext = recordStore.emptyEvaluationContext();
     }
 
     private static int getSaveIndexKeyCount(@Nonnull FDBRecordStore recordStore) {
@@ -2379,7 +2379,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context);
                 try (RecordCursor<Long> cursor = recordStore.scanRecords(continuation, scanProperties)
                         .filter(record -> record.getRecordType().getName().equals(SIMPLE_DOC))
-                        .filter(record -> filter.eval(evaluationContext, record) == Boolean.TRUE)
+                        .filter(record -> filter.eval(recordStore, EvaluationContext.EMPTY, record) == Boolean.TRUE)
                         .map(record -> record.getPrimaryKey().getLong(0))) {
                     while (cursor.hasNext()) {
                         results.add(cursor.next());
@@ -2414,7 +2414,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             plan = planner.plan(query);
             assertThat(plan, descendant(coveringIndexScan(textIndexScan(indexName(index.getName())))));
 
-            try (RecordCursor<Long> cursor = plan.execute(evaluationContext, null, executeProperties)
+            try (RecordCursor<Long> cursor = recordStore.executeQuery(plan, null, executeProperties)
                     .map(record -> record.getPrimaryKey().getLong(0))) {
                 while (cursor.hasNext()) {
                     results.add(cursor.next());
@@ -2430,7 +2430,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         while (continuation != null) {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, hook);
-                try (RecordCursor<Long> cursor = plan.execute(evaluationContext, continuation, executeProperties)
+                try (RecordCursor<Long> cursor = recordStore.executeQuery(plan, continuation, executeProperties)
                         .map(record -> record.getPrimaryKey().getLong(0))) {
                     while (cursor.hasNext()) {
                         results.add(cursor.next());

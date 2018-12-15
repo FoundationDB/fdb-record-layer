@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.Key;
@@ -29,7 +30,6 @@ import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,10 +48,12 @@ import java.util.stream.Collectors;
 public abstract class IndexAggregateGroupKeys {
     /**
      * Get the grouping key (GROUP BY) for the index aggregate from the given context. 
+     * @param store the record store for the query
      * @param context context in which to evaluate keys
      * @return the grouping key
      */
-    public abstract Key.Evaluated getGroupKeys(@Nonnull FDBEvaluationContext<? extends Message> context);
+    @Nonnull
+    public abstract Key.Evaluated getGroupKeys(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context);
 
     /**
      * Get the size of the prefix of the index aggregate that is returned.
@@ -97,11 +99,12 @@ public abstract class IndexAggregateGroupKeys {
         }
 
         @Override
-        public Key.Evaluated getGroupKeys(@Nonnull FDBEvaluationContext<? extends Message> context) {
+        @Nonnull
+        public Key.Evaluated getGroupKeys(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             if (comparisons.isEmpty()) {
                 return Key.Evaluated.EMPTY;
             } else {
-                return Key.Evaluated.concatenate(comparisons.stream().map(c -> c.getComparand(context)).collect(Collectors.toList()));
+                return Key.Evaluated.concatenate(comparisons.stream().map(c -> c.getComparand(store, context)).collect(Collectors.toList()));
             }
         }
 
@@ -123,7 +126,11 @@ public abstract class IndexAggregateGroupKeys {
         }
 
         @Override
-        public Key.Evaluated getGroupKeys(@Nonnull FDBEvaluationContext<? extends Message> context) {
+        @Nonnull
+        public Key.Evaluated getGroupKeys(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+            if (context == null) {
+                throw new Comparisons.EvaluationContextRequiredException("Cannot get parameter without context");
+            }
             final FDBQueriedRecord<?> record = (FDBQueriedRecord<?>) context.getBinding(recordKey);
             final IndexEntry indexEntry = record.getIndexEntry();
             return Key.Evaluated.fromTuple(TupleHelpers.subTuple(indexEntry.getKey(), 0, prefixSize));

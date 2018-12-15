@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnionCursor;
 import com.google.protobuf.Message;
@@ -53,10 +53,10 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    <M extends Message> RecordCursor<FDBQueriedRecord<M>> createUnionCursor(@Nonnull FDBEvaluationContext<M> context,
+    <M extends Message> RecordCursor<FDBQueriedRecord<M>> createUnionCursor(@Nonnull FDBRecordStoreBase<M> store,
                                                                             @Nonnull List<Function<byte[], RecordCursor<FDBQueriedRecord<M>>>> childCursorFunctions,
                                                                             @Nullable byte[] continuation) {
-        return UnorderedUnionCursor.create(childCursorFunctions, continuation, context.getTimer());
+        return UnorderedUnionCursor.create(childCursorFunctions, continuation, store.getTimer());
     }
 
     @Nonnull

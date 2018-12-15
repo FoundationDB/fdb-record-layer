@@ -26,6 +26,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -41,7 +42,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -309,25 +309,23 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     @Nonnull
     @SuppressWarnings("unchecked")
     @SpotBugsSuppressWarnings("BC_UNCONFIRMED_CAST")
-    public <T, C extends Message, M extends C> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<C> context,
-                                                                                           @Nonnull IndexRecordFunction<T> function,
-                                                                                           @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
+                                                                              @Nonnull IndexRecordFunction<T> function,
+                                                                              @Nonnull FDBRecord<M> record) {
         if (function.getName().equals(FunctionNames.RANK)) {
-            final CompletableFuture<Long> rank = timeWindowRankAndEntry(context, record, TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0)
+            final CompletableFuture<Long> rank = timeWindowRankAndEntry(record, TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0)
                     .thenApply(re -> re == null ? null : re.getLeft());
             return (CompletableFuture<T>)rank;
         } else if (function.getName().equals(FunctionNames.TIME_WINDOW_RANK)) {
             final TimeWindowRecordFunction<Long> timeWindowRank = (TimeWindowRecordFunction<Long>) function;
             final TimeWindowForFunction timeWindow = timeWindowRank.getTimeWindow();
-            final CompletableFuture<Long> rank = timeWindowRankAndEntry(context, record,
-                                                                        timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context))
+            final CompletableFuture<Long> rank = timeWindowRankAndEntry(context, timeWindow, record)
                     .thenApply(re -> re == null ? null : re.getLeft());
             return (CompletableFuture<T>)rank;
         } else if (function.getName().equals(FunctionNames.TIME_WINDOW_RANK_AND_ENTRY)) {
             final TimeWindowRecordFunction<Tuple> timeWindowRankAndEntry = (TimeWindowRecordFunction<Tuple>) function;
             final TimeWindowForFunction timeWindow = timeWindowRankAndEntry.getTimeWindow();
-            final CompletableFuture<Tuple> rankAndEntry = timeWindowRankAndEntry(context, record,
-                                                                                 timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context))
+            final CompletableFuture<Tuple> rankAndEntry = timeWindowRankAndEntry(context, timeWindow, record)
                     .thenApply(re -> re == null ? null : Tuple.from(re.getLeft()).addAll(re.getRight()));
             return (CompletableFuture<T>)rankAndEntry;
         } else {
@@ -369,10 +367,17 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         return unsupportedAggregateFunction(function);
     }
 
-    public <C extends Message, M extends C> CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull FDBEvaluationContext<C> context,
-                                                                                                       @Nonnull FDBRecord<M> record,
-                                                                                                       int type, long timestamp) {
-        final List<IndexEntry> indexEntries = evaluateIndex(context, record);
+    @Nonnull
+    public <M extends Message> CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull EvaluationContext context,
+                                                                                          @Nonnull TimeWindowForFunction timeWindow,
+                                                                                          @Nonnull FDBRecord<M> record) {
+        return timeWindowRankAndEntry(record, timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context));
+    }
+
+    @Nonnull
+    public <M extends Message> CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull FDBRecord<M> record,
+                                                                                          int type, long timestamp) {
+        final List<IndexEntry> indexEntries = evaluateIndex(record);
 
         final CompletableFuture<TimeWindowLeaderboard> leaderboardFuture = oldestLeaderboardMatching(type, timestamp);
         return leaderboardFuture.thenCompose(leaderboard -> {

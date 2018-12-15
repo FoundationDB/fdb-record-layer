@@ -24,6 +24,7 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -37,7 +38,6 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -134,21 +134,20 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     @Override
     @Nonnull
     @SuppressWarnings("unchecked")
-    public <T, C extends Message, M extends C> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<C> context,
-                                                                                           @Nonnull IndexRecordFunction<T> function,
-                                                                                           @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
+                                                                              @Nonnull IndexRecordFunction<T> function,
+                                                                              @Nonnull FDBRecord<M> record) {
         if (function.getName().equals(FunctionNames.RANK)) {
-            return (CompletableFuture<T>)rank(context, record);
+            return (CompletableFuture<T>)rank(record);
         } else {
             return unsupportedRecordFunction(function);
         }
     }
 
-    public <C extends Message, M extends C> CompletableFuture<Long> rank(@Nonnull FDBEvaluationContext<C> context,
-                                                                         @Nonnull FDBRecord<M> record) {
+    public <M extends Message> CompletableFuture<Long> rank(@Nonnull FDBRecord<M> record) {
         final int groupPrefixSize = getGroupingCount();
         KeyExpression indexExpr = state.index.getRootExpression();
-        Key.Evaluated indexKey = indexExpr.evaluateSingleton(context, record);
+        Key.Evaluated indexKey = indexExpr.evaluateSingleton(record);
         Tuple scoreValue = indexKey.toTuple();
         Subspace rankSubspace = getSecondarySubspace();
         if (groupPrefixSize > 0) {

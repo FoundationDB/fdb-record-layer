@@ -21,11 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
@@ -52,6 +52,7 @@ public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpressi
 
     /**
      * Execute this query plan.
+     * @param store record store from which to fetch records
      * @param context evaluation context containing parameter bindings
      * @param continuation continuation from a previous execution of this same plan
      * @param executeProperties limits on execution
@@ -59,38 +60,20 @@ public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpressi
      * @return a cursor of records that match the query criteria
      */
     @Nonnull
-    <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                  @Nonnull EvaluationContext context,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ExecuteProperties executeProperties);
 
     /**
      * Execute this query plan.
-     * @param context evaluation context containing parameter bindings
+     * @param store record store from which to fetch records
      * @param <M> type used to represent stored records
      * @return a cursor of records that match the query criteria
      */
     @Nonnull
-    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context) {
-        return execute(context, null, ExecuteProperties.SERIAL_EXECUTE);
-    }
-
-    /**
-     * Execute this query plan.
-     * @param store record store to access
-     * @param context evaluation context containing parameter bindings
-     * @param continuation continuation from a previous execution of this same plan
-     * @param executeProperties limits on execution
-     * @param <M> type used to represent stored records
-     * @return a cursor of records that match the query criteria
-     * @deprecated the {@code store} parameter is no longer needed
-     */
-    @Nonnull
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull FDBEvaluationContext<M> context,
-                                                                          @Nullable byte[] continuation,
-                                                                          @Nonnull ExecuteProperties executeProperties) {
-        return execute(context, continuation, executeProperties);
+    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store) {
+        return execute(store, EvaluationContext.EMPTY);
     }
 
     /**
@@ -99,13 +82,10 @@ public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpressi
      * @param context evaluation context containing parameter bindings
      * @param <M> type used to represent stored records
      * @return a cursor of records that match the query criteria
-     * @deprecated the {@code store} parameter is no longer needed
      */
     @Nonnull
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull FDBEvaluationContext<M> context) {
-        return execute(context, null, ExecuteProperties.SERIAL_EXECUTE);
+    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        return execute(store, context, null, ExecuteProperties.SERIAL_EXECUTE);
     }
 
     /**

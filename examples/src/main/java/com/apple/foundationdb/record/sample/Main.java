@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.sample;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
@@ -228,7 +229,7 @@ public class Main {
                     // Step 1: Get all of the vendors and initiate a query for items with their vendor ID.
                     .mapPipelined(record -> {
                         SampleProto.Vendor vendor = SampleProto.Vendor.newBuilder().mergeFrom(record.getRecord()).build();
-                        return innerPlan.execute(store.emptyEvaluationContext().withBinding("vid", vendor.getVendorId()))
+                        return innerPlan.execute(store, EvaluationContext.forBinding("vid", vendor.getVendorId()))
                                 .map(innerRecord -> SampleProto.Item.newBuilder().mergeFrom(innerRecord.getRecord()).getItemName())
                                 .asList()
                                 .thenApply(list -> Pair.of(vendor.getVendorName(), list));

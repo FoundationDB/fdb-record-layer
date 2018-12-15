@@ -769,7 +769,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             List<List<Object>> rows = new ArrayList<>();
             Index index = metaData.getIndex("MyRecord$path_str");
             ScanComparisons comparisons = ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "aaa"));
-            TupleRange range = comparisons.toTupleRange(null);
+            TupleRange range = comparisons.toTupleRange();
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range,
                                                                             null, ScanProperties.FORWARD_SCAN)) {
                 while (cursor.hasNext()) {

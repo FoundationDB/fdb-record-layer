@@ -344,7 +344,7 @@ It is also possible to specify the score and grouping keys separately:
 The rank itself is not stored in the record, because it is dynamic. To get the current rank for an indexed score, give the same field as used to build the index (simple or grouped) to evaluation as a special function:
 
 ```java
-  recordStore.getEvaluationContext().evaluateSpecialFunction(EvaluationContext.SpecialFunction.RANK, Key.Expressions.field("score"), rec)
+  recordStore.evaluateRecordFunction(Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("game_id"))), rec)
 ```
 
 ## Indexing by Version

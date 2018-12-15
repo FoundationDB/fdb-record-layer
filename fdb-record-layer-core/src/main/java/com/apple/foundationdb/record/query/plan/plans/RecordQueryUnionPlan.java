@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -79,10 +79,10 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    <M extends Message> RecordCursor<FDBQueriedRecord<M>> createUnionCursor(@Nonnull FDBEvaluationContext<M> context,
+    <M extends Message> RecordCursor<FDBQueriedRecord<M>> createUnionCursor(@Nonnull FDBRecordStoreBase<M> store,
                                                                             @Nonnull List<Function<byte[], RecordCursor<FDBQueriedRecord<M>>>> childCursorFunctions,
                                                                             @Nullable byte[] continuation) {
-        return UnionCursor.create(context, getComparisonKey(), isReverse(), childCursorFunctions, continuation);
+        return UnionCursor.create(store, getComparisonKey(), isReverse(), childCursorFunctions, continuation);
     }
 
     @Nonnull

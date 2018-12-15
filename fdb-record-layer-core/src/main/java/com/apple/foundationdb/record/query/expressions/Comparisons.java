@@ -26,12 +26,14 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -43,7 +45,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.Internal;
 import com.google.protobuf.ProtocolMessageEnum;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -573,12 +574,13 @@ public class Comparisons {
     public interface Comparison extends PlanHashable, PlannerExpression {
         /**
          * Evaluate this comparison for the value taken from the target record.
+         * @param store the record store for the query
          * @param context the evaluation context for getting the other comparison value
          * @param value the value taken from the record
          * @return the tri-valued logic result of the comparison
          */
         @Nullable
-        Boolean eval(@Nonnull EvaluationContext context, @Nullable Object value);
+        Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value);
 
         /**
          * Validate that this comparison is compatible with a given record field.
@@ -595,12 +597,22 @@ public class Comparisons {
         Type getType();
 
         /**
+         * Get the comparison value without any bindings.
+         * @return the value to be compared
+         */
+        @Nullable
+        default Object getComparand() {
+            return getComparand(null, null);
+        }
+
+        /**
          * Get the comparison value from the evaluation context.
+         * @param store the record store for the query
          * @param context the context for query evaluation
          * @return the value to be compared
          */
         @Nullable
-        Object getComparand(@Nullable EvaluationContext context);
+        Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context);
 
         /**
          * Get the printed representation of the comparison less the comparison operator itself.
@@ -684,7 +696,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Object getComparand(@Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             return comparand;
         }
 
@@ -703,7 +715,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             return evalComparison(type, value, comparand);
         }
 
@@ -795,9 +807,9 @@ public class Comparisons {
             return type;
         }
 
-        @Nonnull
+        @Nullable
         @Override
-        public Object getComparand(@Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             if (context == null) {
                 throw new EvaluationContextRequiredException("Cannot get parameter without context");
             }
@@ -813,7 +825,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             final Object comparand = context.getBinding(parameter);
             if (comparand == null) {
                 return null;
@@ -946,7 +958,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Object getComparand(@Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             return comparand;
         }
 
@@ -965,7 +977,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             return evalListComparison(type, value, comparand);
         }
 
@@ -1018,7 +1030,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             if (type == Type.IS_NULL) {
                 return value == null;
             } else {
@@ -1041,7 +1053,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             // Requires special handling in TupleRange.
             return null;
         }
@@ -1147,7 +1159,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             if (value == null) {
                 return null;
             }
@@ -1202,7 +1214,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             if (tokenList != null) {
                 return tokenList;
             } else {
@@ -1213,7 +1225,7 @@ public class Comparisons {
         @Nonnull
         @Override
         public String typelessString() {
-            final Object comparand = getComparand(null);
+            final Object comparand = getComparand(null, EvaluationContext.EMPTY);
             if (comparand == null) {
                 return "null";
             } else {
@@ -1244,19 +1256,19 @@ public class Comparisons {
             }
             TextComparison that = (TextComparison) o;
             return type == that.type &&
-                   Objects.equals(getComparand(null), that.getComparand(null)) &&
+                Objects.equals(getComparand(), that.getComparand()) &&
                    Objects.equals(tokenizerName, that.tokenizerName) &&
                    Objects.equals(fallbackTokenizerName, that.fallbackTokenizerName);
         }
 
         @Override
         public int planHash() {
-            return PlanHashable.objectsPlanHash(type, getComparand(null), tokenizerName, fallbackTokenizerName);
+            return PlanHashable.objectsPlanHash(type, getComparand(), tokenizerName, fallbackTokenizerName);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(type.name(), getComparand(null), tokenizerName, fallbackTokenizerName);
+            return Objects.hash(type.name(), getComparand(), tokenizerName, fallbackTokenizerName);
         }
     }
 

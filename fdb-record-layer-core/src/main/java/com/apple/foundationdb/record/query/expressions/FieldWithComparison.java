@@ -21,8 +21,9 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
@@ -51,17 +52,18 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
 
     @Override
     @Nullable
-    public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
         if (message == null) {
-            getComparison().eval(context, null);
+            getComparison().eval(store, context, null);
         }
         final Object value = getFieldValue(message);
         if (value == null) {
-            return getComparison().eval(context, null);
+            return getComparison().eval(store, context, null);
         } else if (value instanceof MessageOrBuilder && !allowWholeMessage()) {
             throw new Query.InvalidExpressionException("Expression requiring primitive found a message value");
         } else {
-            return getComparison().eval(context, value);
+            return getComparison().eval(store, context, value);
         }
     }
 

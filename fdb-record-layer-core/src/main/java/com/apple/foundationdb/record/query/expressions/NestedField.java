@@ -21,8 +21,9 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
@@ -50,16 +51,17 @@ public class NestedField extends BaseField implements ComponentWithSingleChild {
 
     @Override
     @Nullable
-    public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
         final QueryComponent component = getChild();
         if (message == null) {
-            return component.evalMessage(context, record, null);
+            return component.evalMessage(store, context, record, null);
         }
         final Object value = getFieldValue(message);
         if (value == null) {
-            return component.evalMessage(context, record, null);
+            return component.evalMessage(store, context, record, null);
         } else if (value instanceof Message) {
-            return component.evalMessage(context, record, (Message) value);
+            return component.evalMessage(store, context, record, (Message) value);
         } else {
             throw new Query.InvalidExpressionException("Expression requiring nesting found a non-message value");
         }

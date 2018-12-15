@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -140,7 +141,6 @@ public abstract class IndexMaintainer {
     /**
      * Evaluate a record function on the given record.
      * @param <T> the result type of the function
-     * @param <C> the message type of the record store
      * @param <M> the message type of the record
      * @param context context for evaluation
      * @param function the record function to apply to the given record
@@ -148,9 +148,9 @@ public abstract class IndexMaintainer {
      * @return a future that completes with the result of evaluation
      */
     @Nonnull
-    public abstract <T, C extends Message, M extends C> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<C> context,
-                                                                                                    @Nonnull IndexRecordFunction<T> function,
-                                                                                                    @Nonnull FDBRecord<M> record);
+    public abstract <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
+                                                                                       @Nonnull IndexRecordFunction<T> function,
+                                                                                       @Nonnull FDBRecord<M> record);
 
     @Nonnull
     protected <T> CompletableFuture<T> unsupportedRecordFunction(@Nonnull IndexRecordFunction<T> function) {

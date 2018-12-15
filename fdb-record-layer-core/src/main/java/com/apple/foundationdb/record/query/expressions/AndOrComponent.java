@@ -21,8 +21,9 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.google.protobuf.Message;
 
@@ -66,14 +67,16 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
 
     @Nullable
     @Override
-    public <C extends Message, M extends C> Boolean evalMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return evalInternal(child -> (child.evalMessage(context, record, message)));
+    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+        return evalInternal(child -> (child.evalMessage(store, context, record, message)));
     }
 
     @Nonnull
     @Override
-    public <C extends Message, M extends C> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return new AsyncBoolean<>(isOr(), getChildren(), context, record, message).eval();
+    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                                           @Nullable FDBRecord<M> record, @Nullable Message message) {
+        return new AsyncBoolean<>(isOr(), getChildren(), store, context, record, message).eval();
     }
 
     @Override

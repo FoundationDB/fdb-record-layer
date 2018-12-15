@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -278,7 +279,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             final Optional<IndexAggregateGroupKeys> keyFunction = IndexAggregateGroupKeys.conditionsToGroupKeys(subtotal, Query.field("num_value_3_indexed").equalsValue(1));
             assertTrue(keyFunction.isPresent(), "should match conditions");
-            final Key.Evaluated keys = keyFunction.get().getGroupKeys(evaluationContext);
+            final Key.Evaluated keys = keyFunction.get().getGroupKeys(recordStore, EvaluationContext.EMPTY);
             assertEquals(Key.Evaluated.scalar(1), keys);
 
             assertEquals((99 * 100) / (2 * 5) - 20, recordStore.evaluateAggregateFunction(allTypes, subtotal, keys, IsolationLevel.SNAPSHOT).join().getLong(0));

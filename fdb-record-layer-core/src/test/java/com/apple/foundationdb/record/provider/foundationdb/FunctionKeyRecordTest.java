@@ -181,7 +181,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecords8Proto.StringRecordId record = validateQueryData(cursor.next());
@@ -211,7 +211,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecords8Proto.StringRecordId record = validateQueryData(cursor.next());
@@ -238,7 +238,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecords8Proto.StringRecordId record = validateQueryData(cursor.next());
@@ -459,10 +459,9 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public <C extends Message, M extends C> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<C> context,
-                                                                                     @Nullable FDBRecord<M> record,
-                                                                                     @Nullable Message message,
-                                                                                     @Nonnull Key.Evaluated arguments) {
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
+                                                                        @Nullable Message message,
+                                                                        @Nonnull Key.Evaluated arguments) {
             final String origValue = arguments.getString(0);
             final Matcher matcher  = pattern.matcher(origValue);
             if (! matcher.matches()) {

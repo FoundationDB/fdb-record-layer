@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -28,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -66,9 +66,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBEvaluationContext<M> context, @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
-        final TupleRange range = comparisons.toTupleRange(context);
-        final FDBRecordStoreBase<M> store = context.getStore();
+    public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                                       @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
+        final TupleRange range = comparisons.toTupleRange(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
         return store.scanIndex(metaData.getIndex(indexName), scanType, range, continuation, executeProperties.asScanProperties(reverse));
     }
@@ -165,7 +165,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     protected void appendScanDetails(StringBuilder str) {
         String range;
         try {
-            range = comparisons.toTupleRange(null).toString();
+            range = comparisons.toTupleRange().toString();
         } catch (Comparisons.EvaluationContextRequiredException ex) {
             range = comparisons.toString();
         }

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
@@ -53,30 +52,26 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      *
      * Implementations should override {@link #evaluateMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
-     * @param <C> the type of record store
      * @param <M> the type of record
-     * @param context context for bound expressions
      * @param record the record
      * @return the list of evaluated keys for the given record
      * @throws InvalidResultException if any returned result has some number of columns other
      *         than the return value of {@link #getColumnSize()}
      */
     @Nonnull
-    default <C extends Message, M extends C> List<Key.Evaluated> evaluate(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record) {
-        return evaluateMessage(context, record, record == null ? null : record.getRecord());
+    default <M extends Message> List<Key.Evaluated> evaluate(@Nullable FDBRecord<M> record) {
+        return evaluateMessage(record, record == null ? null : record.getRecord());
     }
 
     /**
      * Evaluate this expression with the expectation of getting exactly one result.
-     * @param <C> the type of record store
      * @param <M> the type of record
-     * @param context context for bound expressions
      * @param record the record
      * @return the evaluated keys for the given record
      */
     @Nonnull
-    default <C extends Message, M extends C> Key.Evaluated evaluateSingleton(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record) {
-        final List<Key.Evaluated> keys = evaluate(context, record);
+    default <M extends Message> Key.Evaluated evaluateSingleton(@Nullable FDBRecord<M> record) {
+        final List<Key.Evaluated> keys = evaluate(record);
         if (keys.size() != 1) {
             throw new RecordCoreException("Should evaluate to single key only");
         }
@@ -95,15 +90,13 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      * Otherwise, {@code message} will be {@code record.getRecord()} or some submessage of that, possibly {@code null} if
      * the corresponding field is missing.
      * @see #evaluate
-     * @param <C> the type of record store
      * @param <M> the type of record
-     * @param context context for bound expressions
      * @param record the record
      * @param message the Protobuf message to evaluate against
      * @return the evaluated keys for the given record
      */
     @Nonnull
-    <C extends Message, M extends C> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<C> context, @Nullable FDBRecord<M> record, @Nullable Message message);
+    <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message);
 
     /**
      * This states whether the given expression type is capable of evaluating more to more than

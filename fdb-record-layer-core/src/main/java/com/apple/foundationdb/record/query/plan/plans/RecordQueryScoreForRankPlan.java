@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.EvaluationContextBuilder;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable;
@@ -29,8 +31,8 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -124,18 +126,20 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
         this.ranks = ranks;
     }
 
-    private <M extends Message> CompletableFuture<Tuple> bindScore(@Nonnull FDBEvaluationContext<M> context,
+    private <M extends Message> CompletableFuture<Tuple> bindScore(@Nonnull FDBRecordStoreBase<M> store,
+                                                                   @Nonnull EvaluationContext context,
                                                                    ScoreForRank scoreForRank,
                                                                    @Nonnull IsolationLevel isolationLevel) {
-        final Tuple operand = Tuple.fromList(scoreForRank.comparisons.stream().map(c -> c.getComparand(context)).collect(Collectors.toList()));
-        return context.evaluateAggregateFunction(Collections.emptyList(), scoreForRank.function, TupleRange.allOf(operand), isolationLevel);
+        final Tuple operand = Tuple.fromList(scoreForRank.comparisons.stream().map(c -> c.getComparand(store, context)).collect(Collectors.toList()));
+        return store.evaluateAggregateFunction(context, Collections.emptyList(), scoreForRank.function, TupleRange.allOf(operand), isolationLevel);
     }
     
-    private <M extends Message> CompletableFuture<FDBEvaluationContext<M>> bindScores(@Nonnull FDBEvaluationContext<M> context,
-                                                                                      @Nonnull IsolationLevel isolationLevel) {
-        final List<CompletableFuture<Tuple>> scores = ranks.stream().map(r -> bindScore(context, r, isolationLevel)).collect(Collectors.toList());
+    private <M extends Message> CompletableFuture<EvaluationContext> bindScores(@Nonnull FDBRecordStoreBase<M> store,
+                                                                                @Nonnull EvaluationContext context,
+                                                                                @Nonnull IsolationLevel isolationLevel) {
+        final List<CompletableFuture<Tuple>> scores = ranks.stream().map(r -> bindScore(store, context, r, isolationLevel)).collect(Collectors.toList());
         return AsyncUtil.whenAll(scores).thenApply(vignore -> {
-            FDBEvaluationContext.Builder<M> builder = context.childBuilder();
+            EvaluationContextBuilder builder = context.childBuilder();
             for (int i = 0; i < scores.size(); i++) {
                 final ScoreForRank rank = ranks.get(i);
                 final Tuple score = scores.get(i).join();
@@ -155,11 +159,12 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                         @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
-        return RecordCursor.mapFuture(context.getExecutor(), bindScores(context, executeProperties.getIsolationLevel()), continuation,
-                (innerContext, innerContinuation) -> getChild().execute(innerContext, innerContinuation, executeProperties));
+        return RecordCursor.mapFuture(store.getExecutor(), bindScores(store, context, executeProperties.getIsolationLevel()), continuation,
+                (innerContext, innerContinuation) -> getChild().execute(store, innerContext, innerContinuation, executeProperties));
     }
 
     @Override
