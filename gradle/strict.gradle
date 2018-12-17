@@ -34,8 +34,6 @@ checkstyle {
 }
 
 pmd {
-    ruleSets = []
-    ruleSetFiles = files("${rootProject.projectDir}/gradle/codequality/pmd-rules.xml")
     ignoreFailures = false
 }
 
