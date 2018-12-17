@@ -281,7 +281,12 @@ public class OnlineIndexerBase<M extends Message> implements AutoCloseable {
                             }
                         }
                     }
-                }).thenCompose(Function.identity()), runner.getExecutor());
+                }).thenCompose(Function.identity()), runner.getExecutor())
+                .whenComplete((vignore, e) -> {
+                    if (e != null) {
+                        ret.completeExceptionally(runner.getDatabase().mapAsyncToSyncException(e));
+                    }
+                });
 
         return ret;
     }

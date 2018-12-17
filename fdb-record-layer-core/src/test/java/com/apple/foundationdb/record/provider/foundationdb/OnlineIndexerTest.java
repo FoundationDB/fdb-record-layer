@@ -84,6 +84,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -144,6 +145,7 @@ public class OnlineIndexerTest {
     public void setUp() {
         if (fdb == null) {
             fdb = FDBDatabaseFactory.instance().getDatabase();
+            fdb.setAsyncToSyncTimeout(5, TimeUnit.MINUTES);
         }
         if (subspace == null) {
             subspace = DirectoryLayer.getDefault().createOrOpen(fdb.database(), Arrays.asList("record-test", "unit", "oib")).join();
@@ -2206,7 +2208,7 @@ public class OnlineIndexerTest {
             recordStore.clearAndMarkIndexWriteOnly(index).join();
             context.commit();
         }
-        
+
         final FDBStoreTimer timer = new FDBStoreTimer();
         final CompletableFuture<Void> future;
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
