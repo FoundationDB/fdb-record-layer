@@ -32,7 +32,7 @@ buildscript {
         classpath 'com.github.ben-manes:gradle-versions-plugin:0.13.0'
         classpath 'org.jboss.tattletale:tattletale:1.2.0.Beta2'
         classpath 'de.undercouch:gradle-download-task:3.1.1'
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.0'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.7'
         classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.2'
         //classpath 'gradle.plugin.com.github.spotbugs:spotbugs-gradle-plugin:1.6.4'
         classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
@@ -175,31 +175,19 @@ subprojects {
     sourceCompatibility = '1.8.0'
     targetCompatibility = '1.8.0'
 
-    sourceSets {
-        main {
-            java {
-                srcDir 'src'
-                srcDir 'protogen/main/java'
-            }
-        }
-        test {
-            java {
-                srcDir 'test/unit'
-                srcDir 'protogen/test/java'
-            }
-            resources {
-                srcDir 'test/resources'
-            }
-        }
-    }
-
-    def protoMajorVersion
-    if (System.getenv('PROTO_VERSION') != null) {
-        protoMajorVersion = System.getenv('PROTO_VERSION')
-    } else {
-        protoMajorVersion = '2'
-    }
     ext {
+        if (System.getenv('PROTO_VERSION') != null) {
+            protoMajorVersion = System.getenv('PROTO_VERSION')
+        } else {
+            protoMajorVersion = '2'
+        }
+        if (protoMajorVersion == "2") {
+            protobufVersion = protobuf2Version
+        } else if (protoMajorVersion == "3") {
+            protobufVersion = protobuf3Version
+        } else {
+            throw new GradleException("Unknown protobuf major version: ${protoMajorVersion}")
+        }
         if (protoMajorVersion != "2") {
             coreProjectName = "fdb-record-layer-core-pb${protoMajorVersion}"
             shadedProjectName = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"
@@ -243,7 +231,7 @@ subprojects {
 
 // Script for upgrading gradle. To upgrade the gradle version, set the property to the version
 // you want and run the command _twice_.
-task wrapper(type: Wrapper) {
+wrapper {
     def gradleVersion = getProperty("gradleVersion") ?: project.gradle.gradleVersion
     conventionMapping.distributionUrl = {
         // use gradle-all rather than gradle-bin distribution because IntelliJ's Gradle integration

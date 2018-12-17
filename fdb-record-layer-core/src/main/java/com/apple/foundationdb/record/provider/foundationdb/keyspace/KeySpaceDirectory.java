@@ -1,0 +1,813 @@
+/*
+ * KeySpaceDirectory.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.provider.foundationdb.keyspace;
+
+import com.apple.foundationdb.API;
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.ValueRange;
+import com.apple.foundationdb.record.cursors.ChainedCursor;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
+import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+
+/**
+ * Defines a directory within a {@link KeySpace}.
+ */
+@API(API.Status.MAINTAINED)
+public class KeySpaceDirectory {
+
+    /**
+     * The available data types for directories.
+     */
+    public enum KeyType {
+        // The values for typeLowBounds and typeHighBounds don't belong here, but rather belong
+        // either being exposed as part of TupleUtil's currently private constants, or via a
+        // method call that can take a subspace and produce a range that will scan all values of
+        // a given type in the subspace.
+        // TODO: API for string prefix queries within Tuples (https://github.com/apple/foundationdb/issues/282)
+        NULL(v -> v == null, null, (byte) 0x00, (byte) 0x01),
+        BYTES(v -> v instanceof byte[], (byte) 0x01, (byte) 0x02),
+        STRING(String.class, (byte) 0x02, (byte) 0x03),
+        LONG(v -> v instanceof Long || v instanceof Integer, (byte) 0x0b, (byte) 0x1e),
+        FLOAT(Float.class, (byte) 0x20, (byte) 0x21),
+        DOUBLE(Double.class, (byte) 0x21, (byte) 0x22),
+        BOOLEAN(v -> v instanceof Boolean, (byte) 0x26, (byte) 0x28),
+        UUID(UUID.class, (byte) 0x30, (byte) 0x31);
+
+        // Function that tests a value to see if it is of this type
+        @Nonnull
+        final Function<Object, Boolean> matcher;
+        // Value used by a directory to indicate that it can accept any value of this type
+        @Nullable
+        final Object anyValue;
+
+        @Nonnull
+        final byte typeLowBounds;
+        @Nonnull
+        final byte typeHighBounds;
+
+        KeyType(@Nonnull Class<?> expectedType, byte typeLowBounds, byte typeHighBounds) {
+            this(v -> v != null && expectedType.isAssignableFrom(v.getClass()), ANY_VALUE, typeLowBounds, typeHighBounds);
+        }
+
+        KeyType(@Nonnull Function<Object, Boolean> matcher, byte typeLowBounds, byte typeHighBounds) {
+            this(matcher, ANY_VALUE, typeLowBounds, typeHighBounds);
+        }
+
+        KeyType(@Nonnull Function<Object, Boolean> matcher, @Nullable Object anyValue,
+                byte typeLowBounds, byte typeHighBounds) {
+            this.matcher = matcher;
+            this.typeLowBounds = typeLowBounds;
+            this.typeHighBounds = typeHighBounds;
+            this.anyValue = anyValue;
+        }
+
+        /**
+         * Get whether the provided value can be represented by this type.
+         * @param value the value to check
+         * @return {@code true} if {@code value} can be represented by this type
+         */
+        public boolean isMatch(@Nullable Object value) {
+            return matcher.apply(value);
+        }
+
+        public Object getAnyValue() {
+            return anyValue;
+        }
+
+        @Nonnull
+        public byte getTypeLowBounds() {
+            return typeLowBounds;
+        }
+
+        @Nonnull
+        public byte getTypeHighBounds() {
+            return typeHighBounds;
+        }
+
+        public static KeyType typeOf(@Nullable Object value) {
+            for (KeyType type : values()) {
+                if (type.matcher.apply(value)) {
+                    return type;
+                }
+            }
+
+            throw new RecordCoreArgumentException("No directory type matches value",
+                    "value", value,
+                    "value_type", value.getClass().getName());
+        }
+    }
+
+    private static class AnyValue {
+        private AnyValue() {
+        }
+
+        @Override
+        public String toString() {
+            return "*any*";
+        }
+    }
+
+    /**
+     * Return value from <code>pathFromKey</code> to indicate that a given tuple value is not appropriate
+     * for a given directory.
+     */
+    protected static final CompletableFuture<Optional<KeySpacePath>> DIRECTORY_NOT_FOR_KEY =
+            CompletableFuture.completedFuture(Optional.empty());
+
+
+    /**
+     * The value of a directory that may contain any value of the type specified for the directory (as opposed
+     * to a directory that is restricted to a specific constant value).
+     */
+    public static final Object ANY_VALUE = new AnyValue();
+
+    @Nullable
+    protected KeySpaceDirectory parent;
+    @Nonnull
+    protected final String name;
+    @Nonnull
+    protected final KeyType keyType;
+    @Nullable
+    protected final Object value;
+    @Nonnull
+    protected final Map<String, KeySpaceDirectory> subdirsByName = new HashMap<>();
+    @Nonnull
+    protected final List<KeySpaceDirectory> subdirs = new ArrayList<>();
+    @Nullable
+    protected Function<KeySpacePath, KeySpacePath> wrapper;
+
+    /**
+     * Creates a directory.
+     * The wrapper is useful if you want to
+     * decorate the path with additional functionality, such as the ability to retrieve a child path
+     * element via an explicit function name rather than a string constant (e.g. <code>getEmployeePath(int id)</code>).
+     *
+     * @param name the name of the directory
+     * @param keyType the data type of the values that may be contained within the directory
+     * @param value a <code>value</code> of {@link #ANY_VALUE} indicates that any value of the specified
+     * type may be stored in the directory, otherwise specifies a constant value that represents the
+     * directory
+     * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
+     * objects return from {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
+     *
+     * @throws RecordCoreArgumentException if the provided value constant value is not valid for the
+     * type of directory being created
+     */
+    public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Object value,
+                             @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
+
+        this.name = name;
+        this.keyType = keyType;
+        this.value = value;
+        this.wrapper = wrapper;
+
+        if (value != keyType.getAnyValue()) {
+            validateConstant(value);
+        }
+    }
+
+    /**
+     * Creates a directory that can hold any value of a given type.
+     * The wrapper is useful if you want to
+     * decorate the path with additional functionality, such as the ability to retrieve a child path
+     * element via an explicit function name rather than a string constant (e.g. <code>getEmployeePath(int id)</code>).
+     * @param name the name of the directory
+     * @param keyType the data type of the values that may be contained within the directory
+     * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
+     * objects returned from {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
+     */
+    public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
+        this(name, keyType, keyType.getAnyValue(), wrapper);
+    }
+
+    /**
+     * Creates a directory that can hold any value of a given type.
+     * @param name the name of the directory
+     * @param keyType the data type of the values that may be contained within the directory
+     */
+    public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType) {
+        this(name, keyType, keyType.getAnyValue(), null);
+    }
+
+    public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Object value) {
+        this(name, keyType, value, null);
+    }
+
+    /**
+     * Get the depth in the directory tree of this directory.
+     * @return the depth in the directory tree of this directory
+     */
+    public int depth() {
+        int depth = 0;
+        KeySpaceDirectory current = this;
+        while (current != null) {
+            ++depth;
+            current = current.getParent();
+        }
+        return depth;
+    }
+
+    /**
+     * Called during creation to validate that the constant value provided is of a valid type for this
+     * directory.
+     * @param value constant value to validate
+     */
+    protected void validateConstant(@Nullable Object value) {
+        if (!keyType.isMatch(value)) {
+            throw new RecordCoreArgumentException("Illegal constant value provided for directory",
+                    LogMessageKeys.DIR_NAME, getName(),
+                    LogMessageKeys.DIR_VALUE, value);
+        }
+    }
+
+    /**
+     * Given a position in a tuple, checks to see if this directory is compatible with the value at the
+     * position, returning either a path indicating that it was compatible or nothing if it was not compatible.
+     * This method allows overriding implementations to consume as much or as little of the tuple as necessary
+     * (for example, you could have a directory that needed two tuple elements to represent itself) or to
+     * have finer grained control over how the <code>KeySpacePath</code> for itself is constructed.
+     * If key size if less than the actual key length, the path remainder will reflect
+     * the left over key elements.
+     *
+     * @param context the database context
+     * @param parent the parent path element
+     * @param key the tuple being parsed
+     * @param keySize the logical key size.
+     * @param keyIndex the position in the index being parsed
+     * @return the {@link KeySpacePath} representing the leaf-most path for the provided {@code key}
+     * or <code>Optional.empty()</code> if this directory is not compatible with the element at
+     * {@code keyIndex} position in the {@code key}
+     */
+    @Nonnull
+    protected CompletableFuture<Optional<KeySpacePath>> pathFromKey(@Nonnull FDBRecordContext context,
+                                                                    @Nullable KeySpacePath parent,
+                                                                    @Nonnull Tuple key,
+                                                                    final int keySize,
+                                                                    final int keyIndex) {
+        final Object tupleValue = key.get(keyIndex);
+        if (KeyType.typeOf(tupleValue) != getKeyType()
+                || (this.value != ANY_VALUE && !areEqual(this.value, tupleValue))) {
+            return DIRECTORY_NOT_FOR_KEY;
+        }
+
+        final CompletableFuture<PathValue> resolvedValue = toTupleValueAsync(context, tupleValue);
+
+        // Have we hit the leaf of the tree or run out of tuple to process?
+        if (subdirs.isEmpty() || keyIndex + 1 == keySize) {
+            return CompletableFuture.completedFuture(
+                    Optional.of(KeySpacePathImpl.newPath(parent, this, context, tupleValue, resolvedValue,
+                            (keyIndex + 1 == key.size()) ? null : TupleHelpers.subTuple(key, keyIndex + 1, key.size()))));
+        } else {
+            return findChildForKey(context,
+                    KeySpacePathImpl.newPath(parent, this, context, tupleValue, resolvedValue, null),
+                    key, keySize, keyIndex + 1).thenApply(Optional::of);
+        }
+    }
+
+    /**
+     * Iterates over the subdirectories of this directory looking for one that is compatible with the
+     * <code>key</code> tuple, starting at position <code>keyIndex</code>.
+     * If the key size is less than the actual key length, the path remainder will reflect
+     * the left over key elements.
+     * @param context the database context
+     * @param parent the parent path element
+     * @param key the tuple being parsed
+     * @param keySize the logical key size
+     * @param keyIndex the position in the index being parsed
+     * @return a future that completes with the matching keyspace path
+     * @throws RecordCoreArgumentException if no compatible child can be found
+     */
+    @Nonnull
+    protected CompletableFuture<KeySpacePath> findChildForKey(@Nonnull FDBRecordContext context,
+                                                              @Nullable KeySpacePath parent,
+                                                              @Nonnull Tuple key,
+                                                              final int keySize,
+                                                              final int keyIndex) {
+        return nextChildForKey(0, context, parent, key, keySize, keyIndex);
+    }
+
+    protected CompletableFuture<KeySpacePath> nextChildForKey(final int childIndex,
+                                                              @Nonnull FDBRecordContext context,
+                                                              @Nullable KeySpacePath parent,
+                                                              @Nonnull Tuple key,
+                                                              final int keySize,
+                                                              final int keyIndex) {
+        if (childIndex >= subdirs.size()) {
+            throw new RecordCoreArgumentException("No subdirectory available to hold provided type",
+                    LogMessageKeys.PARENT_DIR, getName(),
+                    "key_tuple", key,
+                    "key_tuple_pos", keyIndex,
+                    "key_tuple_type", key.get(keyIndex) == null ? "NULL" : key.get(keyIndex).getClass().getName());
+        }
+
+        KeySpaceDirectory subdir = subdirs.get(childIndex);
+        return subdir.pathFromKey(context, parent, key, keySize, keyIndex).thenCompose(maybeChildPath -> {
+            if (maybeChildPath.isPresent()) {
+                return CompletableFuture.completedFuture(maybeChildPath.get());
+            }
+            return nextChildForKey(childIndex + 1, context, parent, key, keySize, keyIndex);
+        });
+    }
+
+    /**
+     * Adds a subdirectory within the directory.
+     * @param subdirectory the subdirectory to add
+     * @return this directory
+     * @throws RecordCoreArgumentException if a subdirectory of the same name already exists, or a subdirectory of the
+     *   same type already exists with the same constant value
+     */
+    @Nonnull
+    public KeySpaceDirectory addSubdirectory(@Nonnull KeySpaceDirectory subdirectory) {
+        for (KeySpaceDirectory existingSubdir : subdirsByName.values()) {
+            if (existingSubdir.getName().equals(subdirectory.getName())) {
+                throw new RecordCoreArgumentException("Subdirectory already exists",
+                        LogMessageKeys.PARENT_DIR, getName(),
+                        LogMessageKeys.DIR_NAME, subdirectory.getName());
+            }
+
+            if (existingSubdir.getKeyType() == subdirectory.getKeyType()) {
+                if (existingSubdir.getValue() == ANY_VALUE || subdirectory.getValue() == ANY_VALUE) {
+                    throw new RecordCoreArgumentException("Cannot add directory due to overlapping type",
+                            LogMessageKeys.PARENT_DIR, getName(),
+                            LogMessageKeys.DIR_NAME, existingSubdir.getName(),
+                            LogMessageKeys.DIR_TYPE, subdirectory.getKeyType());
+                }
+                if (Objects.equals(subdirectory.getValue(), existingSubdir.getValue())) {
+                    throw new RecordCoreArgumentException("Cannot add directory due to overlapping constant value",
+                            LogMessageKeys.PARENT_DIR, getName(),
+                            LogMessageKeys.DIR_NAME, existingSubdir.getName(),
+                            LogMessageKeys.DIR_TYPE, existingSubdir.getKeyType(),
+                            LogMessageKeys.DIR_VALUE, existingSubdir.getValue());
+                }
+
+                // Check compatibility in both directions
+                if (!existingSubdir.isCompatible(this, subdirectory)
+                        || !subdirectory.isCompatible(this, existingSubdir)) {
+                    throw new RecordCoreArgumentException("Cannot add directory due to incompatibility with existing subdirectory",
+                            LogMessageKeys.PARENT_DIR, getName(),
+                            LogMessageKeys.DIR_TYPE, existingSubdir.getKeyType(),
+                            LogMessageKeys.DIR_VALUE, existingSubdir.getValue());
+                }
+            }
+        }
+        subdirectory.setParent(this);
+        subdirsByName.put(subdirectory.getName(), subdirectory);
+        subdirs.add(subdirectory);
+        return this;
+    }
+
+    /**
+     * When a subdirectory is being added to a directory and an existing subdirectory is found that stores the
+     * same data type but with a different constant value, this method will be called both on the directory being
+     * added as well as the existing subdirectory to allow them to determine if they are compatible with each other.
+     * A concrete example use case for this is the <code>DirectoryLayerDirectory</code>: let's say we had something
+     * like:
+     * <pre>
+     *    dir.addSubdirectory(new DirectoryLayerDirectory("dir1", "constValue"))
+     *       .addSubdirectory(new KeySpaceDirectory("dir2", KeyType.LONG, 1)
+     * </pre>
+     * In this case, we are adding two directories which are of the same type, LONG (<code>DirectorylayerDirectory</code>
+     * is implicitly of type long) and, although, the two appear to have different constant values and, thus, should
+     * be compatible with each other, the <code>DirectoryLayerDirectory</code> dynamically converts it's
+     * <code>"constValue"</code> into a LONG and, thus, <b>could</b> end up colliding with the constant value of <code>1</code>
+     * used for <code>"dir2"</code>. To prevent this, the <code>DirectoryLayerDirectory</code> must override this method
+     * to block any peer that isn't also a <code>DirectorylayerDirectory</code>.
+     *
+     * If this directory is being added to <code>parent</code>, then <code>dir</code> is the existing
+     * peer that has the same storage data type but a different constant value.  If this directory already exists
+     * in <code>parent</code>, then <code>dir</code> is a new peer that is being added that has the same data type
+     * but a different constant value.
+     *
+     * @param parent the parent directory in which a subdirectory is being added
+     * @param dir the existing peer directory
+     * @return true if the directories can co-exist, false otherwise
+     */
+    protected boolean isCompatible(@Nonnull KeySpaceDirectory parent, @Nonnull KeySpaceDirectory dir) {
+        return true;
+    }
+
+    private void setParent(@Nonnull KeySpaceDirectory parent) {
+        if (this.parent != null) {
+            throw new RecordCoreArgumentException("Cannot re-parent a directory");
+        }
+        this.parent = parent;
+    }
+
+    /**
+     * Returns whether or not the directory is a leaf directory (has no subdirectories).
+     * @return true if the directory is a leaf directory, false otherwise.
+     */
+    public boolean isLeaf() {
+        return subdirsByName.isEmpty();
+    }
+
+    /**
+     * Retrieves a subdirectory.
+     * @param name the name of the subdirectory to return
+     * @return the subdirectory with the specified <code>name</code>
+     * @throws NoSuchDirectoryException if the directory does not exist
+     */
+    @Nonnull
+    public KeySpaceDirectory getSubdirectory(@Nonnull String name) {
+        KeySpaceDirectory dir = subdirsByName.get(name);
+        if (dir == null) {
+            throw new NoSuchDirectoryException(getName(), name);
+        }
+        return dir;
+    }
+
+    /**
+     * If a <code>wrapper</code> was installed for this directory, the provided <code>path</code> will be
+     * wrapped by the <code>wrapper</code> and returned, otherwise the original <code>path</code> is returned.
+     *
+     * @param path the path to be wrapped
+     * @return the wrapped path or the path provided if no wrapper is installed
+     */
+    @Nonnull
+    protected KeySpacePath wrap(@Nonnull KeySpacePath path) {
+        if (wrapper != null) {
+            return wrapper.apply(path);
+        }
+        return path;
+    }
+
+    @Nonnull
+    protected RecordCursor<KeySpacePath> listAsync(@Nullable KeySpacePath listFrom,
+                                                   @Nonnull FDBRecordContext context,
+                                                   @Nonnull String subdirName,
+                                                   @Nullable byte[] continuation,
+                                                   @Nonnull ScanProperties scanProperties) {
+        return listAsync(listFrom, context, subdirName, null, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the cursor is wrapped and returned
+    protected RecordCursor<KeySpacePath> listAsync(@Nullable KeySpacePath listFrom,
+                                                   @Nonnull FDBRecordContext context,
+                                                   @Nonnull String subdirName,
+                                                   @Nullable ValueRange<Object> range,
+                                                   @Nullable byte[] continuation,
+                                                   @Nonnull ScanProperties scanProperties) {
+        if (listFrom != null && listFrom.getDirectory() != this) {
+            throw new RecordCoreException("Provided path does not belong to this directory")
+                    .addLogInfo("path", listFrom, "directory", this.getName());
+        }
+
+        final KeySpaceDirectory subdir = getSubdirectory(subdirName);
+        final Subspace subspace = listFrom == null ? new Subspace() : new Subspace(listFrom.toTuple().pack());
+        final byte[] subspaceBytes = subspace.pack();
+        final ScanProperties singleRowScan = scanProperties.with(props -> props.setReturnedRowLimit(1));
+
+        final byte[] startKey;
+        final byte[] stopKey;
+        final EndpointType startType;
+        final EndpointType stopType;
+        if (subdir.getValue() == KeySpaceDirectory.ANY_VALUE || subdir.getValue() == null) {
+            if (range != null && range.getLowEndpoint() != EndpointType.TREE_START) {
+                if (KeyType.typeOf(range.getLow()) != subdir.getKeyType()) {
+                    throwInvalidValueTypeException(KeyType.typeOf(range.getLow()), subdir.getKeyType(), listFrom,
+                            subdirName, range);
+                }
+                startKey = subspace.pack(range.getLow());
+                startType = range.getLowEndpoint();
+                if (startType != EndpointType.RANGE_INCLUSIVE && startType != EndpointType.RANGE_EXCLUSIVE) {
+                    throw new RecordCoreArgumentException("Endpoint type not supported for directory list",
+                            LogMessageKeys.ENDPOINT_TYPE, startType);
+                }
+            } else {
+                startKey = new byte[subspaceBytes.length + 1];
+                System.arraycopy(subspaceBytes, 0, startKey, 0, subspaceBytes.length);
+                startKey[subspaceBytes.length] = subdir.getKeyType().getTypeLowBounds();
+                startType = EndpointType.RANGE_INCLUSIVE;
+            }
+
+            if (range != null && range.getHighEndpoint() != EndpointType.TREE_END) {
+                if (KeyType.typeOf(range.getHigh()) != subdir.getKeyType()) {
+                    throwInvalidValueTypeException(KeyType.typeOf(range.getHigh()), subdir.getKeyType(), listFrom,
+                            subdirName, range);
+                }
+                stopKey = subspace.pack(range.getHigh());
+                stopType = range.getHighEndpoint();
+                if (stopType != EndpointType.RANGE_INCLUSIVE && stopType != EndpointType.RANGE_EXCLUSIVE) {
+                    throw new RecordCoreArgumentException("Endpoint type not supported for directory list",
+                            LogMessageKeys.ENDPOINT_TYPE, stopType);
+                }
+            } else {
+                stopKey = new byte[subspaceBytes.length + 1];
+                System.arraycopy(subspaceBytes, 0, stopKey, 0, subspaceBytes.length);
+                stopKey[subspaceBytes.length] = subdir.getKeyType().getTypeHighBounds();
+                stopType = EndpointType.RANGE_EXCLUSIVE;
+            }
+        } else {
+            if (range != null) {
+                throw new RecordCoreArgumentException("range is not applicable when the subdirectory has a value.",
+                        LogMessageKeys.LIST_FROM, listFrom,
+                        LogMessageKeys.SUBDIR_NAME, subdirName,
+                        LogMessageKeys.RANGE, range);
+            }
+            PathValue resolvedValue = subdir.toTupleValue(context, subdir.getValue());
+            startKey = subspace.pack(Tuple.from(resolvedValue.getResolvedValue()));
+            stopKey = ByteArrayUtil.strinc(startKey);
+            startType = EndpointType.RANGE_INCLUSIVE;
+            stopType = EndpointType.RANGE_EXCLUSIVE;
+        }
+
+
+        final RecordCursor<Tuple> cursor = new ChainedCursor<>(
+                lastKey -> nextTuple(context, subspace, startKey, stopKey, startType, stopType, lastKey, singleRowScan),
+                Tuple::pack,
+                Tuple::fromBytes,
+                continuation,
+                context.getExecutor());
+
+        return cursor.limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit())
+                .mapPipelined( tuple -> {
+                    final Tuple key = Tuple.fromList(tuple.getItems());
+                    return findChildForKey(context, listFrom, key, 1,  0);
+                }, 1 );
+    }
+
+    private void throwInvalidValueTypeException(KeyType rangeValueType, KeyType expectedValueType,
+                                                KeySpacePath listFrom, String subdirName, ValueRange<Object> range) {
+        throw new RecordCoreArgumentException("value type provided for range is invalid for directory type",
+                LogMessageKeys.RANGE_VALUE_TYPE, rangeValueType,
+                LogMessageKeys.EXPECTED_VALUE_TYPE, expectedValueType,
+                LogMessageKeys.LIST_FROM, listFrom,
+                LogMessageKeys.SUBDIR_NAME, subdirName,
+                LogMessageKeys.RANGE, range);
+    }
+
+    private CompletableFuture<Optional<Tuple>> nextTuple(@Nonnull FDBRecordContext context,
+                                                         @Nonnull Subspace subspace,
+                                                         @Nonnull byte[] startKey,
+                                                         @Nonnull byte[] stopKey,
+                                                         @Nonnull EndpointType startType,
+                                                         @Nonnull EndpointType stopType,
+                                                         @Nonnull Optional<Tuple> lastTuple,
+                                                         @Nonnull ScanProperties scanProperties) {
+        final KeyValueCursor cursor;
+        if (!lastTuple.isPresent()) {
+            cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setLow(startKey, startType)
+                    .setHigh(stopKey, stopType)
+                    .setContinuation(null)
+                    .setScanProperties(scanProperties)
+                    .build();
+        } else {
+            cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setLow(subspace.pack(lastTuple.get().get(0)), EndpointType.RANGE_EXCLUSIVE)
+                    .setHigh(stopKey, stopType)
+                    .setContinuation(null)
+                    .setScanProperties(scanProperties)
+                    .build();
+        }
+
+        return cursor.onHasNext().thenApply( hasNext -> {
+            if (hasNext) {
+                KeyValue kv = cursor.next();
+                return Optional.of(subspace.unpack(kv.getKey()));
+            }
+            return Optional.empty();
+        } );
+    }
+
+    /**
+     * Returns the set of subdirectories contained within this directory.
+     * @return the set of subdirectories contained within this directory
+     */
+    @Nonnull
+    public List<KeySpaceDirectory> getSubdirectories() {
+        return subdirs;
+    }
+
+    /**
+     * Called during the process of turning a {@link KeySpacePath} into a <code>Tuple</code>, providing a place
+     * for overriding implementations to map an input value into the representation to be used to physically
+     * represent the value. For example, the {@link DirectoryLayerDirectory} overrides this method to map
+     * a provided <code>STRING</code> value into a <code>LONG</code> via the FDB directory layer.
+     *
+     * @param context the context in which the tuple is being constructed
+     * @param value the value that was provided to be stored in this directory
+     * @return a future that will result in the value to be physically stored for the provided input <code>value</code>
+     * @throws RecordCoreArgumentException if the value provided for this directory is incompatible with the
+     *   definition of this directory
+     */
+    @Nonnull
+    protected CompletableFuture<PathValue> toTupleValueAsync(@Nonnull FDBRecordContext context, @Nullable Object value) {
+        if (this.value != ANY_VALUE && !areEqual(this.value, value)) {
+            throw new RecordCoreArgumentException("Illegal value provided",
+                    "provided_value", value,
+                    "expected_value", this.value);
+        }
+        return CompletableFuture.completedFuture(new PathValue(value));
+    }
+
+    @Nullable
+    protected PathValue toTupleValue(@Nonnull FDBRecordContext context, @Nullable Object value) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, toTupleValueAsync(context, value));
+    }
+
+    /**
+     * Ensures that a value is suitable to be stored within this directory.
+     *
+     * @param value the value to be stored in this directory
+     * @return the <code>value</code>
+     * @throws RecordCoreArgumentException if the value is not suitable for storing in this directory
+     */
+    @Nullable
+    protected Object validateResolvedValue(@Nullable Object value) {
+        if (!keyType.isMatch(value)) {
+            throw new RecordCoreArgumentException("Illegal value type provided for directory",
+                    LogMessageKeys.DIR_NAME, getName(),
+                    "provided_value", value,
+                    "expected_type", keyType,
+                    "provided_type", (value == null ? "NULL" : value.getClass().getName()));
+        }
+
+        return value;
+    }
+
+    /**
+     * Returns this directory's parent.
+     * @return this directory's parent, or {@code null} if there is no parent
+     */
+    @Nullable
+    public KeySpaceDirectory getParent() {
+        return parent;
+    }
+
+    /**
+     * Returns the name of this directory.
+     * @return the name of this directory
+     */
+    @Nonnull
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * When displaying the name of this directory in the tree output from {@link #toString()} allows the
+     * directory implementation to ornament the name in any fashion it sees fit.
+     * @return the display name of the directory in the tree output
+     */
+    @Nonnull
+    public String getNameInTree() {
+        return name;
+    }
+
+    /**
+     * Returns the type of values this directory stores.
+     * @return the type of values this directory stores
+     */
+    @Nonnull
+    public KeyType getKeyType() {
+        return keyType;
+    }
+
+    /**
+     * Returns the constant value that this directory stores.
+     * A return value of {@link #ANY_VALUE} indicates
+     * that this directory may contain any value of the type indicated by {@link #getKeyType()}
+     * @return the constant value that this directory stores
+     */
+    @Nullable
+    public Object getValue() {
+        return value;
+    }
+
+    protected static boolean areEqual(Object o1, Object o2) {
+        if (o1 == null) {
+            return o2 == null;
+        } else {
+            if (o2 == null) {
+                return false;
+            }
+        }
+
+        KeyType o1Type = KeyType.typeOf(o1);
+        if (o1Type != KeyType.typeOf(o2)) {
+            return false;
+        }
+
+        switch (o1Type) {
+            case BYTES:
+                return Arrays.equals((byte[]) o1, (byte[]) o2);
+            case LONG:
+                return ((Number)o1).longValue() == ((Number)o2).longValue();
+            case STRING:
+            case FLOAT:
+            case DOUBLE:
+            case BOOLEAN:
+            case UUID:
+                return o1.equals(o2);
+            default:
+                throw new RecordCoreException("Unexpected key type " + o1Type);
+        }
+    }
+
+    @Override
+    public String toString() {
+        try {
+            try (StringWriter out = new StringWriter()) {
+                toTree(out);
+                return out.toString();
+            }
+        } catch (IOException e) {
+            // Should never happen
+            throw new RecordCoreException(e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Sends the keyspace as an ascii-art tree to an output stream.
+     * @param out the print destination
+     * @throws IOException if there is a problem with the destination
+     */
+    public void toTree(Writer out) throws IOException {
+        toTree(out, this, 0, false, new BitSet());
+    }
+
+    private void toTree(Writer out, KeySpaceDirectory dir, int indent, boolean hasAnotherSibling,
+                        BitSet downspouts) throws IOException {
+
+        for (int i = 0; i < indent; i++) {
+            if (downspouts.get(i)) {
+                out.append(" | ");
+            } else {
+                out.append("   ");
+            }
+        }
+
+        if (dir.getParent() != null) {
+            out.append(" +- ");
+        }
+
+        out.append(dir.getNameInTree());
+        out.append(" (");
+        out.append(dir.getKeyType().toString());
+        if (dir.getValue() != dir.getKeyType().getAnyValue()) {
+            out.append("=");
+            out.append(dir.getValue() == null ? "null" : dir.getValue().toString());
+        }
+        out.append(")").append("\n");
+
+        if (!dir.isLeaf()) {
+            List<KeySpaceDirectory> dirSubdirs = dir.getSubdirectories();
+            downspouts.set(indent, hasAnotherSibling);
+            for (int i = 0; i < dirSubdirs.size(); i++) {
+                toTree(out, dirSubdirs.get(i), indent + 1, i < (dirSubdirs.size() - 1), downspouts);
+            }
+            downspouts.set(indent, false);
+        }
+    }
+}
+
+

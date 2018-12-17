@@ -126,11 +126,10 @@ pmd {
     ruleSets = []
     ruleSetFiles = rootProject.files("gradle/codequality/pmd-rules.xml")
 }
-tasks.withType(Pmd) { t ->
-    // the PMD plugin doesn't respect exclusions, so we manually set the source directory instead
-    // this might mess with Gradle's caching/change detection, but it works
-    t.setSource 'src'
-    t.exclude '**/protogen/**'
+tasks.withType(Pmd) { task ->
+    task.exclude '**/protogen/**'
+    // the PMD plugin doesn't respect above exclusion, so we manually set the source directory instead
+    task.setSource 'src/main/java'
 }
 
 task banSnapshots {

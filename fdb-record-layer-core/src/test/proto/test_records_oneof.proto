@@ -1,5 +1,5 @@
 /*
- * strict.gradle
+ * test_records_oneof.proto
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -17,26 +17,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+syntax = "proto2";
 
-// apply this to subprojects to use stricter correctness checks
+package com.apple.foundationdb.record.testOneOf;
 
-tasks.withType(JavaCompile) {
-    // suppress static due to protoc generating super.addAll calls.
-    options.compilerArgs += ["-Xlint:all", "-Xlint:-processing", "-Xlint:-options", "-Xlint:-static", "-Werror"]
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestRecordsOneOfProto";
+
+import "record_metadata_options.proto";
+
+message MySimpleRecord {
+  optional int64 rec_no = 1;
+  optional string str_value_indexed = 2;
 }
 
-spotbugs {
-    ignoreFailures = false
+message MyOtherRecord {
+  required int64 rec_no = 1;
+  optional int32 num_value_2 = 4;
 }
 
-checkstyle {
-    ignoreFailures = false
-}
-
-pmd {
-    ignoreFailures = false
-}
-
-ext {
-    useStrictChecks = true
+message RecordTypeUnion {
+  oneof type {
+    MySimpleRecord _MySimpleRecord = 1;
+    MyOtherRecord _MyOtherRecord = 2;
+  }
 }

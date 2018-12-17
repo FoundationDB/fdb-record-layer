@@ -52,7 +52,7 @@ clean.dependsOn cleanJacocoData
 //runlpStartapps.mustRunAfter cleanJacocoData
 
 def mergeExecFiles = task mergeJacocoFiles (type: JacocoMerge) {
-    destinationFile = file ("$buildDir/jacoco-bin/merge.exec")
+    destinationFile = file("$buildDir/jacoco-bin/merge.exec")
     onlyIf { task ->
         task.executionData &&
             task.executionData.size() > 0 &&
@@ -67,7 +67,7 @@ def jacocoReportTask = task jacocoReport(type: JacocoReport) {
     reports {
         xml.enabled false
         csv.enabled false
-        html.destination "${buildDir}/jacocoHtml"
+        html.destination file("${buildDir}/jacocoHtml")
     }
 
     classDirectories = files(coverageClassesDir)
