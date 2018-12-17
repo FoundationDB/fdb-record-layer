@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
@@ -157,6 +158,68 @@ public class Key {
                 exprs.add(field(field));
             }
             return new ThenKeyExpression(exprs);
+        }
+
+        /** The name of the key field in Protobuf {@code map} messages. */
+        @Nonnull
+        public static final String MAP_KEY_FIELD = "key";
+        /** The name of the value field in Protobuf {@code map} messages. */
+        @Nonnull
+        public static final String MAP_VALUE_FIELD = "value";
+
+        /**
+         * Index key and value from a {@code map}.
+         *
+         * A map can be an actual Protobuf 3 {@code map} field or, 
+         * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
+         * @param name name of the map field
+         * @return a new expression which evaluates to the key and value pairs of the given {@code map} field.
+         */
+        @Nonnull
+        public static NestingKeyExpression mapKeyValues(@Nonnull String name) {
+            return field(name, KeyExpression.FanType.FanOut).nest(concatenateFields(MAP_KEY_FIELD, MAP_VALUE_FIELD));
+        }
+
+        /**
+         * Index key from a {@code map}.
+         *
+         * A map can be an actual Protobuf 3 {@code map} field or, 
+         * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
+         * @param name name of the map field
+         * @return a new expression which evaluates to the values of the given {@code map} field.
+         */
+        @Nonnull
+        public static NestingKeyExpression mapKeys(@Nonnull String name) {
+            return field(name, KeyExpression.FanType.FanOut).nest(field(MAP_KEY_FIELD));
+        }
+
+        /**
+         * Index value from a {@code map}.
+         *
+         * A map can be an actual Protobuf 3 {@code map} field or, 
+         * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
+         * @param name name of the map field
+         * @return a new expression which evaluates to the values of the given {@code map} field.
+         */
+        @Nonnull
+        public static NestingKeyExpression mapValues(@Nonnull String name) {
+            return field(name, KeyExpression.FanType.FanOut).nest(field(MAP_VALUE_FIELD));
+        }
+
+        /**
+         * Index value and key from a {@code map}.
+         *
+         * Like {@link #mapKeyValues}, but with the key and value field order reversed. This allows queries
+         * such as equality on the value and inequality on the key or equality on the value ordered by the key.
+         *
+         * A map can be an actual Protobuf 3 {@code map} field or, 
+         * in Protobuf 2, a {@code repeated} message field with fields named {@code key} and {@code value}.
+         * @param name name of the map field
+         * @return a new expression which evaluates to the value and key pairs of the given {@code map} field.
+         */
+        @Nonnull
+        public static NestingKeyExpression mapValueKeys(@Nonnull String name) {
+            return field(name, KeyExpression.FanType.FanOut).nest(concatenateFields(MAP_VALUE_FIELD, MAP_KEY_FIELD));
         }
 
         /**
