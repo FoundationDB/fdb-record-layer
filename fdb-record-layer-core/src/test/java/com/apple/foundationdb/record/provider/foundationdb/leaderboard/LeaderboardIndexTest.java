@@ -61,6 +61,8 @@ import com.apple.test.Tags;
 import com.google.common.primitives.Longs;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -89,8 +91,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class LeaderboardIndexTest {
     FDBDatabase fdb;
     FDBStoreTimer metrics;
+    private static int oldMaxAttempts;
+    private static final int TEST_MAX_ATTEMPTS = 100;
+    private static long oldMaxDelay;
+    private static final long TEST_MAX_DELAY = 10L;
 
     private static final boolean TRACE = false;
+
+    @BeforeAll
+    public static void initializeRetryPolicy() {
+        oldMaxAttempts = FDBDatabaseFactory.instance().getMaxAttempts();
+        FDBDatabaseFactory.instance().setMaxAttempts(TEST_MAX_ATTEMPTS);
+        oldMaxDelay = FDBDatabaseFactory.instance().getMaxDelayMillis();
+        FDBDatabaseFactory.instance().setMaxDelayMillis(TEST_MAX_DELAY);
+    }
+
+    @AfterAll
+    public static void resetRetryPolicy() {
+        FDBDatabaseFactory.instance().setMaxAttempts(oldMaxAttempts);
+        FDBDatabaseFactory.instance().setMaxDelayMillis(oldMaxDelay);
+    }
 
     @BeforeEach
     public void getFDB() {
