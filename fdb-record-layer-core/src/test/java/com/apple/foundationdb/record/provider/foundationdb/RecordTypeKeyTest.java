@@ -351,7 +351,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
     @Test
     public void testBuildIndexIndexThreshold() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, BASIC_HOOK);
+            uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
             context.commit();
         }
@@ -360,8 +360,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         saveManyRecords(BASIC_HOOK, 10, 500);
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, BASIC_HOOK);
-
+            uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
             assertEquals(10, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord").join().intValue());
@@ -374,7 +373,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         };
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
+            uncheckedOpenSimpleRecordStore(context, hook);
  
             timer.reset();
 
@@ -395,7 +394,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
     @Test
     public void testOnlineIndexBuilder() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, BASIC_HOOK);
+            uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
             context.commit();
         }
@@ -403,8 +402,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         saveManyRecords(BASIC_HOOK, 250, 250);
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, BASIC_HOOK);
-
+            uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
             assertEquals(250, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord").join().intValue());
@@ -417,8 +415,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         };
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
-
+            uncheckedOpenSimpleRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
             assertTrue(recordStore.isIndexWriteOnly("newIndex"));
@@ -441,8 +438,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
-
+            uncheckedOpenSimpleRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
             assertTrue(recordStore.isIndexReadable("newIndex"));

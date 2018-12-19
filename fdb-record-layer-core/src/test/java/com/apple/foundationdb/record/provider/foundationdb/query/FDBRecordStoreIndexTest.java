@@ -45,6 +45,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Function;
@@ -60,15 +61,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
+
+    private void uncheckedOpenNestedRecordStore(FDBRecordContext context) throws Exception {
+        uncheckedOpenNestedRecordStore(context, NO_HOOK);
+    }
+
+    private void uncheckedOpenNestedRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
+        uncheckedOpenRecordStore(context, nestedMetaData(hook));
+    }
+
     /**
      * Verify that building a universal index works.
      */
     @Test
     public void buildNewUniversalIndex() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openNestedRecordStore(context);
+            uncheckedOpenNestedRecordStore(context);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 10; i++) {
                 recordStore.saveRecord(TestRecords4Proto.RestaurantReviewer.newBuilder()
@@ -89,15 +98,15 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                               descriptor.findFieldByNumber(TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER));
         };
         assertEquals(Arrays.asList(8L, 108L),
-                fetchResultValues(planner.plan(query), this::openNestedRecordStore, getIds));
+                fetchResultValues(planner.plan(query), this::uncheckedOpenNestedRecordStore, getIds));
 
         // Adds an index for that query.
         RecordMetaDataHook hook = metaData -> metaData.addUniversalIndex(new Index("new_index", "name"));
 
-        Opener openWithNewIndex = context -> openNestedRecordStore(context, hook);
+        Opener openWithNewIndex = context -> uncheckedOpenNestedRecordStore(context, hook);
 
         try (FDBRecordContext context = openContext()) {
-            openNestedRecordStore(context, hook);
+            uncheckedOpenNestedRecordStore(context, hook);
 
             for (int i = 10; i < 20; i++) {
                 recordStore.saveRecord(TestRecords4Proto.RestaurantReviewer.newBuilder()
@@ -113,7 +122,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                 fetchResultValues(planner.plan(query), openWithNewIndex, getIds));
 
         try (FDBRecordContext context = openContext()) {
-            openNestedRecordStore(context, hook);
+            uncheckedOpenNestedRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).join();
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX), "should build new index");
             commit(context);
@@ -130,9 +139,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void buildNewIndex() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 10; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -150,16 +158,16 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
         assertEquals(Arrays.asList(6L),
                 fetchResultValues(planner.plan(query),
                         TestRecords1Proto.MySimpleRecord.REC_NO_FIELD_NUMBER,
-                        this::openSimpleRecordStore,
+                        this::uncheckedOpenSimpleRecordStore,
                         context -> assertDiscardedAtLeast(9, context)));
 
         // Adds an index for that query.
         RecordMetaDataHook hook = metaData -> metaData.addIndex("MySimpleRecord", "new_index", "num_value_2");
 
-        Opener openWithNewIndex = context -> openSimpleRecordStore(context, hook);
+        Opener openWithNewIndex = context -> uncheckedOpenSimpleRecordStore(context, hook);
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
+            uncheckedOpenSimpleRecordStore(context, hook);
 
             for (int i = 10; i < 20; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -178,7 +186,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                         TestHelpers::assertDiscardedNone));
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
+            uncheckedOpenSimpleRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).join();
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX), "should build new index");
             commit(context);

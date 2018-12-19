@@ -740,7 +740,6 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     public void testOrQuerySplitContinuations() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             for (int i = 0; i < 100; i++) {

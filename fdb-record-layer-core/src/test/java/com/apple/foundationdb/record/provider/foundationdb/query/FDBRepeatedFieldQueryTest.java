@@ -78,7 +78,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addIndex("MyRepeatedRecord", "rep_strings", concat(field("s1", FanType.Concatenate), field("s2", FanType.Concatenate)));
         metaDataBuilder.addIndex("MyRepeatedRecord", "s1$concat", field("s1", FanType.Concatenate));
-        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
     /**
@@ -88,7 +88,6 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void doublyRepeated() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openDoublyRepeatedRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords6Proto.MyRepeatedRecord.Builder recBuilder = TestRecords6Proto.MyRepeatedRecord.newBuilder();
             recBuilder.setRecNo(1);
@@ -130,7 +129,6 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void doublyRepeatedComparison() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openDoublyRepeatedRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords6Proto.MyRepeatedRecord.Builder recBuilder = TestRecords6Proto.MyRepeatedRecord.newBuilder();
             recBuilder.setRecNo(1);
@@ -185,7 +183,6 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void sortRepeated() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords4Proto.RestaurantReviewer reviewer = TestRecords4Proto.RestaurantReviewer.newBuilder()
                     .setId(1L)
@@ -465,7 +462,6 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recordBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
 
@@ -530,7 +526,6 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 3; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -572,7 +567,6 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
-            recordStore.deleteAllRecords();
 
             recordStore.saveRecord(TestRecordsWithHeaderProto.MyRecord.newBuilder()
                     .setHeader(TestRecordsWithHeaderProto.HeaderRecord.newBuilder()

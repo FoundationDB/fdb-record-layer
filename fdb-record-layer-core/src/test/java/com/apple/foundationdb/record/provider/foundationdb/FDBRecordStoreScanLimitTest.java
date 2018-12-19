@@ -321,7 +321,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreTestBase {
     public void testSplitContinuation() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            recordStore.deleteAllRecords();
+            recordStore.deleteAllRecords(); // Undo setupRecordStore().
             commit(context);
         }
 

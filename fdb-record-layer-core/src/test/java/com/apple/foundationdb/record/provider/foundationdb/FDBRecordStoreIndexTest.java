@@ -108,7 +108,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         assertThrows(RecordIndexUniquenessViolation.class, () -> {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
-                recordStore.deleteAllRecords();
 
                 recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(1)
@@ -137,8 +136,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         };
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
-
 
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(1)
@@ -166,7 +163,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         };
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(1)
@@ -192,7 +188,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             assertEquals(0L, recordStore.evaluateAggregateFunction(allTypes, total, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join().getLong(0));
             assertEquals(0L, recordStore.evaluateAggregateFunction(allTypes, subtotal, Key.Evaluated.scalar(1), IsolationLevel.SNAPSHOT).join().getLong(0));
@@ -238,7 +233,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1066L);
@@ -265,7 +259,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -352,7 +345,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             assertNull(recordStore.evaluateAggregateFunction(types, minOverall, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
             assertNull(recordStore.evaluateAggregateFunction(types, maxOverall, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
@@ -424,7 +416,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1066L);
@@ -458,7 +449,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             assertNull(recordStore.evaluateAggregateFunction(types, min, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
             assertNull(recordStore.evaluateAggregateFunction(types, max, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
@@ -499,7 +489,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             assertNull(recordStore.evaluateAggregateFunction(types, minOverall, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
             assertNull(recordStore.evaluateAggregateFunction(types, maxOverall, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
@@ -544,7 +533,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             assertNull(recordStore.evaluateAggregateFunction(types, min, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
             assertNull(recordStore.evaluateAggregateFunction(types, max, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
@@ -594,7 +582,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             assertNull(recordStore.evaluateAggregateFunction(types, min, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
             assertNull(recordStore.evaluateAggregateFunction(types, max, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
@@ -645,7 +632,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             assertNull(recordStore.evaluateAggregateFunction(types, minOverall, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
             assertNull(recordStore.evaluateAggregateFunction(types, maxOverall, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join());
@@ -732,7 +718,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -784,7 +769,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -980,7 +964,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             recordStore.saveRecord(evenRec);
             fail("Added record with even value for terrible index");
         } catch (UnsupportedOperationException e) {
@@ -989,7 +972,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             recordStore.saveRecord(oddRec);
             recordStore.deleteRecord(Tuple.from(1776));
             fail("Removed record with odd value for terrible index");
@@ -999,7 +981,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             recordStore.saveRecord(oddRec);
             recordStore.saveRecord(oddRec2);
             fail("Updating record not caught.");
@@ -1023,7 +1004,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             recordStore.saveRecord(oddRec);
             fail("Added record with odd value for index key");
         } catch (UnsupportedOperationException e) {
@@ -1032,7 +1012,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             recordStore.saveRecord(evenRec);
             recordStore.deleteRecord(Tuple.from(1066));
             fail("Removed record with even value for index key");
@@ -1042,7 +1021,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             recordStore.saveRecord(evenRec);
             recordStore.saveRecord(evenRec2);
             fail("Updated record with bad values for index key");
@@ -1056,7 +1034,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         final String indexName = "MySimpleRecord$str_value_indexed";
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             assertThat(recordStore.isIndexWriteOnly(indexName), is(false));
             recordStore.markIndexWriteOnly(indexName).get();
             assertThat(recordStore.isIndexWriteOnly(indexName), is(true));
@@ -1064,7 +1042,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index).build()) {
@@ -1092,7 +1070,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index).build()) {
@@ -1581,7 +1559,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void noMaintenanceFilteredOnIndex() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openAnyRecordStore(TestRecordsIndexFilteringProto.getDescriptor(), context);
-            recordStore.deleteAllRecords();
 
             TestRecordsIndexFilteringProto.MyBasicRecord recordA = TestRecordsIndexFilteringProto.MyBasicRecord.newBuilder()
                     .setRecNo(1001).setNumValue2(101).build();
@@ -1637,7 +1614,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void noMaintenanceFilteredIndexOnCheckVersion() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openAnyRecordStore(TestRecordsIndexFilteringProto.getDescriptor(), context);
-            recordStore.deleteAllRecords();
 
             TestRecordsIndexFilteringProto.MyBasicRecord recordA = TestRecordsIndexFilteringProto.MyBasicRecord.newBuilder()
                     .setRecNo(1001).setNumValue2(101).build();
@@ -1744,7 +1720,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             }
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
                     .setUserVersionChecker(alwaysEnabled).createOrOpen();
-            recordStore.deleteAllRecords();
             assertTrue(recordStore.getRecordStoreState().isReadable(COUNT_INDEX.getName()));
             TestNoIndexesProto.MySimpleRecord recordA = TestNoIndexesProto.MySimpleRecord.newBuilder()
                     .setNumValue(3).setStrValue("boo").build();
@@ -1796,7 +1771,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
-            recordStore.deleteAllRecords();
             // Save 200 records without any indexes.
             for (int i = 0; i < 200; i++) {
                 TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
@@ -1887,7 +1861,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).setKeySpacePath(path).create(); // builds count index
-            recordStore.deleteAllRecords();
             assertTrue(recordStore.getRecordStoreState().isReadable(COUNT_INDEX.getName()));
             TestNoIndexesProto.MySimpleRecord recordA = TestNoIndexesProto.MySimpleRecord.newBuilder()
                     .setNumValue(3).setStrValue("boo").build();
@@ -1956,8 +1929,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void orphanedIndexEntry() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
+            uncheckedOpenSimpleRecordStore(context);
 
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(1)
@@ -1979,7 +1951,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         // Delete the "bar" record with the index removed.
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, builder -> {
+            uncheckedOpenSimpleRecordStore(context, builder -> {
                 builder.removeIndex("MySimpleRecord$str_value_indexed");
             });
             recordStore.deleteRecord(Tuple.from(2));
@@ -1989,7 +1961,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         // Scan the records normally, this will fail when it hits the index entry that has no
         // associated record.
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
 
             // Verify our entries
             assertTrue(recordStore.hasIndexEntryRecord(
@@ -2013,7 +1985,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         // Try again, but this time scan allowing orphaned entries.
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             List<FDBIndexedRecord<Message>> records =
                     recordStore.scanIndexRecords("MySimpleRecord$str_value_indexed",
                             IndexScanType.BY_VALUE, TupleRange.ALL, null, IndexOrphanBehavior.RETURN, ScanProperties.FORWARD_SCAN).asList().get();
@@ -2033,7 +2005,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         // Try once again, but this time skipping orphaned entries
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             List<FDBIndexedRecord<Message>> records =
                     recordStore.scanIndexRecords("MySimpleRecord$str_value_indexed",
                             IndexScanType.BY_VALUE, TupleRange.ALL, null, IndexOrphanBehavior.SKIP, ScanProperties.FORWARD_SCAN).asList().get();
@@ -2060,7 +2032,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, metaData.getRecordMetaData());
+            uncheckedOpenRecordStore(context, metaData.getRecordMetaData());
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
             context.commit();
         }
@@ -2068,7 +2040,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         metaData.addIndex("MySimpleRecord", "num_value_2");
 
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, metaData.getRecordMetaData());
+            uncheckedOpenRecordStore(context, metaData.getRecordMetaData());
             timer.reset();
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
@@ -2079,7 +2051,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         metaData.removeIndex("MySimpleRecord$num_value_2");
 
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, metaData.getRecordMetaData());
+            uncheckedOpenRecordStore(context, metaData.getRecordMetaData());
             timer.reset();
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
             assertEquals(0, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
@@ -2091,7 +2063,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         metaData.removeIndex("MySimpleRecord$num_value_2");
 
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, metaData.getRecordMetaData());
+            uncheckedOpenRecordStore(context, metaData.getRecordMetaData());
             timer.reset();
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
             assertEquals(0, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));

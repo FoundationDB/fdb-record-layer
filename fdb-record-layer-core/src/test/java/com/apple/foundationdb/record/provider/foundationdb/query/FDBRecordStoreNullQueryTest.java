@@ -196,7 +196,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testProto2() {
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, proto2MetaData());
+            createOrOpenRecordStore(context, proto2MetaData());
             saveTestRecords(FDBRecordStoreNullQueryTest::buildRecord2);
 
             assertThat(executeQuery(RecordQuery.newBuilder()
@@ -252,7 +252,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     @MethodSource("testProto3Params")
     public void testProto3(String testName, boolean buildDynamic, boolean scalarFieldsNotNull) {
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, scalarFieldsNotNull ? proto3ScalarNotNullMetaData() : proto3MetaData());
+            createOrOpenRecordStore(context, scalarFieldsNotNull ? proto3ScalarNotNullMetaData() : proto3MetaData());
             saveTestRecords(buildDynamic ?
                             FDBRecordStoreNullQueryTest::buildRecord3Dynamic :
                             FDBRecordStoreNullQueryTest::buildRecord3);
@@ -324,7 +324,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testProto3Nested() {
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, proto3NestedMetaData());
+            createOrOpenRecordStore(context, proto3NestedMetaData());
             saveTestRecords(FDBRecordStoreNullQueryTest::buildRecord3Nested);
 
             assertThat(executeQuery(RecordQuery.newBuilder()
@@ -528,7 +528,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFbytes(TupleFieldsHelper.toProto(ByteString.copyFrom(" ", "UTF-8")))
                 .build();
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, tupleFieldsMetaData());
+            createOrOpenRecordStore(context, tupleFieldsMetaData());
 
             recordStore.saveRecord(nullRecord);
             recordStore.saveRecord(emptyRecord);
@@ -538,7 +538,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, tupleFieldsMetaData());
+            createOrOpenRecordStore(context, tupleFieldsMetaData());
 
             assertEquals(nullId, fieldsRecordId(recordStore.loadRecord(Tuple.from(nullId))));
             assertEquals(otherId, fieldsRecordId(recordStore.loadRecord(Tuple.from(otherId))));

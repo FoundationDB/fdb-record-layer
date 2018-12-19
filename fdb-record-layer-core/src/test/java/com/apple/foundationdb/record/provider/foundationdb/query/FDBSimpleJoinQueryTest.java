@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Tag(Tags.RequiresFDB)
 public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
     private void openJoinRecordStore(FDBRecordContext context) throws Exception {
-        createRecordStore(context, RecordMetaData.build(TestRecordsParentChildRelationshipProto.getDescriptor()));
+        createOrOpenRecordStore(context, RecordMetaData.build(TestRecordsParentChildRelationshipProto.getDescriptor()));
     }
 
     /**
@@ -126,7 +126,6 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
     protected void createJoinRecords(boolean parentToChild) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openJoinRecordStore(context);
-            recordStore.deleteAllRecords();
 
             for (int i = 1; i <= 4; i++) {
                 TestRecordsParentChildRelationshipProto.MyParentRecord.Builder parentBuilder = TestRecordsParentChildRelationshipProto.MyParentRecord.newBuilder();

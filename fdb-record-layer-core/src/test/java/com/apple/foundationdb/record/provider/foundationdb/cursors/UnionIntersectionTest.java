@@ -74,7 +74,6 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
     public void setupRecords() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             comparisonKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
 

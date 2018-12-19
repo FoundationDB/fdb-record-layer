@@ -53,7 +53,7 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
     @Test
     public void empty() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             SizeStatisticsCollector statisticsCollector = SizeStatisticsCollector.ofStore(recordStore);
             assertThat(statisticsCollector.collect(context, ExecuteProperties.SERIAL_EXECUTE), is(true));
             assertEquals(0L, statisticsCollector.getKeyCount());
