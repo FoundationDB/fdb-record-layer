@@ -165,4 +165,27 @@ public class FDBExceptions {
         return new RecordCoreException(ex.getMessage(), ex);
     }
 
+    /**
+     * Returns whether an exception is retriable or is caused by a retriable error.
+     * This will walk up the exception hierarchy and return <code>true</code> if
+     * it finds an exception that it knows to be retriable. This could occur, for
+     * example, if the given exception is caused by a retriable {@link FDBException}
+     * such as a network failure or a recovery.
+     *
+     * @param ex the exception to check for a retriable cause
+     * @return <code>true</code> if this exception was caused by something retriable
+     *  and <code>false</code> otherwise
+     */
+    public static boolean isRetriable(@Nullable Throwable ex) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof RecordCoreRetriableTransactionException) {
+                return true;
+            } else if (current instanceof FDBException) {
+                return ((FDBException)current).isRetryable();
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
 }

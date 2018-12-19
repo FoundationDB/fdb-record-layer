@@ -268,7 +268,9 @@ public class FDBStoreTimer extends StoreTimer {
         /** Wait for {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverMappingReplicator} to copy a directory layer. */
         WAIT_LOCATABLE_RESOLVER_MAPPING_COPY("wait for copying contents of directory layer"),
         /** Wait for a backoff delay on retryable error in {@link FDBDatabase#run}. */
-        WAIT_RETRY_DELAY("wait for retry delay");
+        WAIT_RETRY_DELAY("wait for retry delay"),
+        /** Wait for statistics to be collected by a {@link SizeStatisticsCollector}. */
+        WAIT_COLLECT_STATISTICS("wait for statistics to be collected of a record store or index");
 
         private final String title;
         Waits(String title) {
