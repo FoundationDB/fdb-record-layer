@@ -1991,6 +1991,84 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    public void queryComplexDocumentsCovering() throws Exception {
+        final List<String> textSamples = Arrays.asList(
+                TextSamples.FRENCH,
+                TextSamples.GERMAN,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.YIDDISH
+        );
+        final List<ComplexDocument> documents = IntStream.range(0, textSamples.size())
+                .mapToObj(i -> ComplexDocument.newBuilder()
+                        .setDocId(i)
+                        .setGroup(i % 2)
+                        .setText(textSamples.get(i))
+                        .setScore(i)
+                        .build())
+                .collect(Collectors.toList());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_TEXT_BY_GROUP);
+            });
+            documents.forEach(recordStore::saveRecord);
+
+            // Try to plan a covered query with separate group and doc_id fields
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(COMPLEX_DOC)
+                    .setRequiredResults(Arrays.asList(field("group"), field("doc_id")))
+                    .setFilter(Query.and(
+                            Query.field("group").equalsValue(0L),
+                            Query.field("text").text().containsPhrase("continuance of their parents' rage")
+                    ))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            assertThat(plan, coveringIndexScan(textIndexScan(allOf(
+                    indexName(COMPLEX_TEXT_BY_GROUP.getName()),
+                    groupingBounds(hasTupleString("[[0],[0]]")),
+                    textComparison(equalTo(new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_PHRASE, "continuance of their parents' rage", null, DefaultTextTokenizer.NAME)))))));
+            assertEquals(822541560, plan.planHash());
+            List<ComplexDocument> results = recordStore.executeQuery(plan)
+                    .map(rec -> ComplexDocument.newBuilder().mergeFrom(rec.getRecord()).build())
+                    .asList()
+                    .get();
+            assertEquals(results.size(), 1);
+            ComplexDocument result = results.get(0);
+            assertEquals(result.getGroup(), 0L);
+            assertEquals(result.getDocId(), 2L);
+            assertThat(result.hasScore(), is(false));
+
+            // Try to plan a covered query with one concatenated field
+            query = RecordQuery.newBuilder()
+                    .setRecordType(COMPLEX_DOC)
+                    .setRequiredResults(Collections.singletonList(concatenateFields("group", "doc_id")))
+                    .setFilter(Query.and(
+                            Query.field("group").equalsValue(0L),
+                            Query.field("text").text().containsPhrase("continuance of their parents' rage")
+                    ))
+                    .build();
+            plan = planner.plan(query);
+            assertThat(plan, coveringIndexScan(textIndexScan(allOf(
+                    indexName(COMPLEX_TEXT_BY_GROUP.getName()),
+                    groupingBounds(hasTupleString("[[0],[0]]")),
+                    textComparison(equalTo(new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_PHRASE, "continuance of their parents' rage", null, DefaultTextTokenizer.NAME)))))));
+            assertEquals(822541560, plan.planHash());
+            results = recordStore.executeQuery(plan)
+                    .map(rec -> ComplexDocument.newBuilder().mergeFrom(rec.getRecord()).build())
+                    .asList()
+                    .get();
+            assertEquals(results.size(), 1);
+            result = results.get(0);
+            assertEquals(result.getGroup(), 0L);
+            assertEquals(result.getDocId(), 2L);
+            assertThat(result.hasScore(), is(false));
+
+            commit(context);
+        }
+    }
+
     @Nonnull
     private List<Long> queryMultiTypeDocuments(@Nonnull QueryComponent textFilter, @Nonnull List<String> recordTypes, int planHash) throws InterruptedException, ExecutionException {
         if (!(textFilter instanceof ComponentWithComparison)) {
