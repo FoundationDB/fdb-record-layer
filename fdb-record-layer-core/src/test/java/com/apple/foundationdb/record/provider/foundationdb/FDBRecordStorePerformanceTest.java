@@ -161,7 +161,7 @@ public class FDBRecordStorePerformanceTest {
         factory.setDirectoryCacheSize(databaseParameters.pathCache);
         fdb = factory.getDatabase();
 
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.setSplitLongRecords(databaseParameters.splitRecords);
         if (databaseParameters.stringSize > 100) {
             metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");

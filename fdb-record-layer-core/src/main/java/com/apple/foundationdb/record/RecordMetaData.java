@@ -76,6 +76,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nullable
     private final KeyExpression recordCountKey;
 
+    private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = new Descriptors.FileDescriptor[] {
+            RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
+    };
+
     @SuppressWarnings("squid:S00107") // There is a Builder.
     protected RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
                              @Nonnull Descriptors.Descriptor unionDescriptor,
@@ -99,6 +103,15 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.storeRecordVersions = storeRecordVersions;
         this.version = version;
         this.recordCountKey = recordCountKey;
+    }
+
+    /**
+     * Creates an instance of {@link RecordMetaDataBuilder}.
+     * @return a new builder
+     */
+    @Nonnull
+    public static RecordMetaDataBuilder newBuilder() {
+        return new RecordMetaDataBuilder();
     }
 
     @Nonnull
@@ -269,15 +282,78 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return this;
     }
 
-    public static RecordMetaData build(Descriptors.FileDescriptor descriptor) {
-        return new RecordMetaDataBuilder(descriptor).getRecordMetaData();
+    @Nonnull
+    public static RecordMetaData build(@Nonnull Descriptors.FileDescriptor descriptor) {
+        return RecordMetaData.newBuilder().setRecords(descriptor).getRecordMetaData();
     }
 
+    /**
+     * Factory method to deserialize a record meta-data proto. It assumes that the proto contains all of the dependencies
+     * and does not process extension options.
+     * @param proto the serialized proto message of the {@code RecordMetaData}
+     * @return the {@code RecordMetaData} object
+     */
+    @Nonnull
+    public static RecordMetaData build(@Nonnull RecordMetaDataProto.MetaData proto) {
+        return RecordMetaData.newBuilder().setRecords(proto).getRecordMetaData();
+    }
+
+    private static void getDependencies(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                        @Nonnull Map<String, Descriptors.FileDescriptor> allDependencies,
+                                        @Nullable Map<String, Descriptors.FileDescriptor> excludedDependencies) {
+        for (Descriptors.FileDescriptor dependency : fileDescriptor.getDependencies()) {
+            if (excludedDependencies != null && excludedDependencies.containsKey(dependency.getName())) {
+                // Just pass.
+                continue;
+            } else if (!allDependencies.containsKey(dependency.getName())) {
+                allDependencies.put(dependency.getName(), dependency);
+                getDependencies(dependency, allDependencies, excludedDependencies);
+            } else if (!allDependencies.get(dependency.getName()).equals(dependency)) {
+                throw new MetaDataException(String.format("Dependency mismatch found for file %s", dependency.getName()));
+            }
+        }
+    }
+
+    /**
+     * Serializes the record meta-data to a <code>MetaData</code> proto message. By default, it includes all of the
+     * dependencies except <code>TupleFieldsProto</code>, <code>RecordMetaDataOptionsProto</code> and <code>RecordMetaDataProto</code>.
+     * @return the serialized <code>MetaData</code> proto message
+     */
+    @Nonnull
+    public RecordMetaDataProto.MetaData toProto() {
+        return this.toProto(defaultExcludedDependencies);
+    }
+
+    /**
+     * Serializes the record meta-data to a <code>MetaData</code> proto message.
+     * @param excludedDependencies a list of dependencies not to include in the serialized proto
+     * @return the serialized <code>MetaData</code> proto message
+     * @throws KeyExpression.SerializationException on any serialization failures
+     */
     @Nonnull
     @SuppressWarnings("deprecation")
-    public RecordMetaDataProto.MetaData toProto() throws KeyExpression.SerializationException {
+    public RecordMetaDataProto.MetaData toProto(@Nullable Descriptors.FileDescriptor[] excludedDependencies)
+            throws KeyExpression.SerializationException {
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
+
+        // Set the root records.
         builder.setRecords(recordsDescriptor.toProto());
+
+        // Convert the exclusion list to a map
+        Map<String, Descriptors.FileDescriptor> excludeMap = null;
+        if (excludedDependencies != null) {
+            excludeMap = new HashMap<>(excludedDependencies.length);
+            for (Descriptors.FileDescriptor dependency : excludedDependencies) {
+                excludeMap.put(dependency.getName(), dependency);
+            }
+        }
+
+        // Add in the rest of dependencies.
+        Map<String, Descriptors.FileDescriptor> allDependencies = new TreeMap<>();
+        getDependencies(recordsDescriptor, allDependencies, excludeMap);
+        for (Descriptors.FileDescriptor dependency : allDependencies.values()) {
+            builder.addDependencies(dependency.toProto());
+        }
 
         // Create builders for each index so that we can then add associated record types (etc.).
         Map<String, RecordMetaDataProto.Index.Builder> indexBuilders = new TreeMap<>();

@@ -215,7 +215,10 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     @Nonnull
     protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto) {
-        return new RecordMetaDataBuilder(metaDataProto, dependencies, false).getRecordMetaData();
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder()
+                .addDependencies(dependencies)
+                .setRecords(metaDataProto);
+        return builder.getRecordMetaData();
     }
 
     public CompletableFuture<RecordMetaData> loadVersion(int version) {
@@ -232,7 +235,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @return a future that completes when the save is done
      */
     public CompletableFuture<Void> saveAndSetCurrent(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
-        RecordMetaData validatedMetaData = new RecordMetaDataBuilder(metaDataProto, dependencies, false).getRecordMetaData();
+        RecordMetaData validatedMetaData = buildMetaData(metaDataProto);
         MetaDataValidator validator = new MetaDataValidator(validatedMetaData, IndexMaintainerRegistryImpl.instance());
         validator.validate();
 

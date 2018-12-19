@@ -569,7 +569,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     @SuppressWarnings("deprecation")
     public void testUpdateRecordCounts() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
+            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(concatenateFields("path", "num", "rec_no")));
             builder.setRecordCountKey(field("header").nest(concat(field("path"), field("num"))));
@@ -742,7 +742,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     @Test
     public void testDeleteWhereMissingIndex() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
+            RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
                 .setPrimaryKey(field("header").nest(concatenateFields("rec_no", "path")));
             builder.addIndex("MyRecord", "MyRecord$str_value", concat(field("header").nest("path"),
@@ -757,7 +757,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     @Test
     public void testOverlappingPrimaryKey() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
+            RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
                 .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
             builder.addIndex("MyRecord", "MyRecord$path_str", concat(field("header").nest("path"),
@@ -1736,7 +1736,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         // Test open without a MetaDataStore
 
         try (FDBRecordContext context = fdb.openContext()) {
-            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
             FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataProvider(metaDataBuilder).createOrOpen();
@@ -1788,7 +1788,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                         return null;
                     }).join();
 
-            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
             RecordMetaData origMetaData = metaDataBuilder.getRecordMetaData();
             final int version = origMetaData.getVersion();
 
@@ -1836,7 +1836,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         // Test uncheckedOpen without a MetaDataStore
 
         try (FDBRecordContext context = openContext()) {
-            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
             FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataProvider(metaDataBuilder).uncheckedOpen();
@@ -1886,7 +1886,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                         return null;
                     }).join();
 
-            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
             RecordMetaData origMetaData = metaDataBuilder.getRecordMetaData();
             int version = origMetaData.getVersion();
 
@@ -2120,7 +2120,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             }
         };
 
-        final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         try (FDBRecordContext context = openContext()) {
             recordStore = FDBRecordStore.newBuilder()
                 .setContext(context).setKeySpacePath(path).setMetaDataProvider(builder).setUserVersionChecker(userVersion1)
@@ -2177,7 +2177,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testUserVersionDeterminesMetaData() throws Exception {
-        final RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         builder.setVersion(101);
         final RecordMetaData metaData1 = builder.getRecordMetaData();
         builder.setVersion(102);

@@ -163,7 +163,7 @@ public abstract class FDBRecordStoreTestBase {
     }
 
     public void openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.addUniversalIndex(COUNT_INDEX);
         metaData.addUniversalIndex(COUNT_UPDATES_INDEX);
         if (hook != null) {
@@ -177,7 +177,7 @@ public abstract class FDBRecordStoreTestBase {
     }
 
     public void openRecordWithHeader(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecordsWithHeaderProto.getDescriptor());
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
         if (hook != null) {
             hook.apply(metaData);
         }
@@ -190,7 +190,7 @@ public abstract class FDBRecordStoreTestBase {
 
     @Nonnull
     protected FDBRecordStore openNewUnionRecordStore(FDBRecordContext context) {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsWithUnionProto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsWithUnionProto.getDescriptor());
         metaDataBuilder.addUniversalIndex(
                 new Index("versions", field("etag")));
         metaDataBuilder.addMultiTypeIndex(
@@ -214,7 +214,7 @@ public abstract class FDBRecordStoreTestBase {
     }
 
     public void openAnyRecordStore(Descriptors.FileDescriptor fileDescriptor, FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
-        RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(fileDescriptor);
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(fileDescriptor);
         if (hook != null) {
             hook.apply(metaData);
         }
@@ -222,7 +222,7 @@ public abstract class FDBRecordStoreTestBase {
     }
 
     public void openMultiRecordStore(FDBRecordContext context) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsMultiProto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsMultiProto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(metaDataBuilder.getRecordType("MultiRecordOne"), metaDataBuilder.getRecordType("MultiRecordTwo")),
                 new Index("onetwo$element", field("element", FanType.FanOut)));

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords3Proto;
@@ -276,7 +277,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void nestedAndOnNestedMap() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsNestedMapProto.getDescriptor());
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsNestedMapProto.getDescriptor());
             metaDataBuilder.addIndex("OuterRecord", "key_index", concat(
                     field("other_id"),
                     field("map").nest(field("entry", KeyExpression.FanType.FanOut).nest("key"))));

@@ -76,7 +76,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testExplicitKeys() throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         final RecordTypeBuilder t1 = metaDataBuilder.getRecordType("MySimpleRecord");
         final RecordTypeBuilder t2 = metaDataBuilder.getRecordType("MyOtherRecord");
         final KeyExpression pkey = concat(recordType(), field("rec_no"));
@@ -87,15 +87,14 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
         assertEquals("t1", metaData.getRecordType("MySimpleRecord").getExplicitRecordTypeKey());
         assertNull(metaData.getRecordType("MyOtherRecord").getExplicitRecordTypeKey());
 
-        metaDataBuilder = new RecordMetaDataBuilder(metaData.toProto(), false);
-        metaData = metaDataBuilder.getRecordMetaData();
+        metaData = RecordMetaData.build(metaData.toProto());
         assertEquals("t1", metaData.getRecordType("MySimpleRecord").getExplicitRecordTypeKey());
         assertNull(metaData.getRecordType("MyOtherRecord").getExplicitRecordTypeKey());
     }
 
     @Test
     public void testIllegalKey() throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         final RecordTypeBuilder t1 = metaDataBuilder.getRecordType("MySimpleRecord");
         assertThrows(MetaDataException.class, () -> {
             t1.setRecordTypeKey(this);

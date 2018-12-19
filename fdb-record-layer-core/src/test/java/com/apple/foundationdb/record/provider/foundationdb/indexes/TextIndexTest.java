@@ -218,7 +218,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsTextProto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);
         createRecordStore(context, metaDataBuilder.getRecordMetaData());
@@ -2320,7 +2320,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     public static Stream<Arguments> indexArguments() {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsTextProto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         Index simpleIndex = metaDataBuilder.getIndex(SIMPLE_DEFAULT_NAME);
         return Stream.of(simpleIndex, SIMPLE_TEXT_FILTERING, SIMPLE_TEXT_PREFIX, SIMPLE_TEXT_SUFFIXES)
                 .map(Arguments::of);
@@ -2467,7 +2467,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private <T extends Exception> T invalidateIndex(@Nonnull Class<T> clazz, @Nonnull String recordType, @Nonnull Index index) {
         return assertThrows(clazz, () -> {
-            RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecordsTextProto.getDescriptor());
+            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
             metaDataBuilder.addIndex(recordType, index);
             RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
             MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());

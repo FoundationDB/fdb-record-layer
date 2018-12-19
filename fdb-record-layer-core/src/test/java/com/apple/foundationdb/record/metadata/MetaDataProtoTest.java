@@ -197,7 +197,13 @@ public class MetaDataProtoTest {
         for (int i = 0; i < files.size(); i++) {
             Descriptors.FileDescriptor file = files.get(i);
             RecordMetaData metaData = RecordMetaData.build(file);
-            RecordMetaData metaDataRedone = new RecordMetaDataBuilder(metaData.toProto(), i == 0 ? FULL_DEPENDENCIES : BASE_DEPENDENCIES, false).getRecordMetaData();
+            RecordMetaDataBuilder builder = RecordMetaData.newBuilder();
+            if (i == 0) {
+                builder.addDependencies(FULL_DEPENDENCIES);
+            } else {
+                builder.addDependencies(BASE_DEPENDENCIES);
+            }
+            RecordMetaData metaDataRedone = builder.setRecords(metaData.toProto()).getRecordMetaData();
             verifyEquals(metaData, metaDataRedone);
         }
     }
@@ -209,20 +215,23 @@ public class MetaDataProtoTest {
         metaDataBuilder.getOnlyRecordType().setPrimaryKey(Key.Expressions.concatenateFields("parent_path", "child_name"));
         metaDataBuilder.addIndex("MyHierarchicalRecord", new Index("MHR$child$parentpath", Key.Expressions.concatenateFields("child_name", "parent_path"), IndexTypes.VALUE));
         RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
-        RecordMetaData metaDataRedone = new RecordMetaDataBuilder(metaData.toProto(), BASE_DEPENDENCIES, false).getRecordMetaData();
+        RecordMetaData metaDataRedone = RecordMetaData.newBuilder()
+                .addDependencies(BASE_DEPENDENCIES)
+                .setRecords(metaData.toProto())
+                .getRecordMetaData();
         verifyEquals(metaData, metaDataRedone);
 
         metaDataBuilder = new RecordMetaDataBuilder(TestRecords4Proto.getDescriptor());
         metaDataBuilder.addIndex("RestaurantRecord", new Index("RR$ratings", Key.Expressions.field("review", KeyExpression.FanType.FanOut).nest("rating").ungrouped(), IndexTypes.RANK));
         metaDataBuilder.removeIndex("RestaurantReviewer$name");
         metaData = metaDataBuilder.getRecordMetaData();
-        metaDataRedone = new RecordMetaDataBuilder(metaData.toProto(), BASE_DEPENDENCIES, false).getRecordMetaData();
+        metaDataRedone = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES).setRecords(metaData.toProto()).getRecordMetaData();
         assertEquals(1, metaData.getFormerIndexes().size());
         assertFalse(metaData.isSplitLongRecords());
         assertFalse(metaData.isStoreRecordVersions());
         verifyEquals(metaData, metaDataRedone);
 
-        metaDataBuilder = new RecordMetaDataBuilder(TestRecordsMultiProto.getDescriptor());
+        metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsMultiProto.getDescriptor());
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(
                     metaDataBuilder.getRecordType("MultiRecordOne"),
                     metaDataBuilder.getRecordType("MultiRecordTwo"),
@@ -242,13 +251,13 @@ public class MetaDataProtoTest {
         assertEquals(1, metaData.getFormerIndexes().size());
         assertTrue(metaData.isSplitLongRecords());
         assertTrue(metaData.isStoreRecordVersions());
-        metaDataRedone = new RecordMetaDataBuilder(metaData.toProto(), BASE_DEPENDENCIES, false).getRecordMetaData();
+        metaDataRedone = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES).setRecords(metaData.toProto()).getRecordMetaData();
         verifyEquals(metaData, metaDataRedone);
     }
 
     @Test
     public void indexProtoOptions() throws Exception {
-        RecordMetaData metaData = new RecordMetaDataBuilder(TestRecordsIndexCompatProto.getDescriptor()).getRecordMetaData();
+        RecordMetaData metaData = RecordMetaData.newBuilder().setRecords(TestRecordsIndexCompatProto.getDescriptor()).getRecordMetaData();
 
         // Basic check that options are obeyed.
         assertTrue(metaData.hasIndex("MyModernRecord$index"));
@@ -287,7 +296,9 @@ public class MetaDataProtoTest {
                                                                 .setField(scalarField("childA")))
                                                         .addChild(RecordMetaDataProto.KeyExpression.newBuilder()
                                                                 .setVersion(RecordMetaDataProto.Version.newBuilder()))))));
-        RecordMetaData metaData = new RecordMetaDataBuilder(protoBuilder.build(), BASE_DEPENDENCIES, false).getRecordMetaData();
+        RecordMetaData metaData = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES)
+                .setRecords(protoBuilder.build())
+                .getRecordMetaData();
         Index versionstampIndex = metaData.getIndex("VersionstampIndex");
         assertEquals(1, versionstampIndex.getRootExpression().versionColumns());
     }
@@ -323,7 +334,7 @@ public class MetaDataProtoTest {
                                 .addChild(RecordMetaDataProto.KeyExpression.newBuilder()
                                         .setField(scalarField("rec_no")))));
 
-        RecordMetaData metaData = new RecordMetaDataBuilder(protoBuilder.build(), BASE_DEPENDENCIES, true).getRecordMetaData();
+        RecordMetaData metaData = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES).setRecords(protoBuilder.build(), true).getRecordMetaData();
 
         Index regularIndex = metaData.getIndex("MyCompatRecord$index");
         assertFalse(regularIndex.getRootExpression() instanceof GroupingKeyExpression, "should not have Grouping");
