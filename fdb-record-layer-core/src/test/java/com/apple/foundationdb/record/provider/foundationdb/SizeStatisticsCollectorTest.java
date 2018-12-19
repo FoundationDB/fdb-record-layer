@@ -212,7 +212,9 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            context.ensureActive().setReadVersion(commitVersion - 6_000_000); // somewhat leaky, but should get transaction_too_old
+            // Somewhat leaky, but should get transaction_too_old.
+            // One can set knob_max_read_transaction_life_versions up to max_versions_in_flight, which is 100000000.
+            context.ensureActive().setReadVersion(commitVersion - 101_000_000);
             assertThat(statisticsCollector.collect(context, ExecuteProperties.SERIAL_EXECUTE), is(false));
             assertThrows(FDBExceptions.FDBStoreTransactionIsTooOldException.class, context::commit);
         }
