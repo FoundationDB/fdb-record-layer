@@ -2075,13 +2075,14 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         if (recordStoreState == null) {
             storeInfoFuture = preloadRecordStoreStateAsync().thenCombine(storeInfoFuture, (v, b) -> b);
         }
-        return checkVersion(storeInfoFuture, userVersionChecker, existenceCheck);
+        return checkVersion(storeInfoFuture, userVersionChecker, existenceCheck, false);
     }
 
     @Nonnull
     protected CompletableFuture<Boolean> checkVersion(@Nonnull CompletableFuture<byte[]> storeInfoFuture,
                                                       @Nullable UserVersionChecker userVersionChecker,
-                                                      @Nonnull StoreExistenceCheck existenceCheck) {
+                                                      @Nonnull StoreExistenceCheck existenceCheck,
+                                                      boolean validateMetaData) {
         CompletableFuture<Boolean> result = storeInfoFuture.thenCompose(bytes -> {
             RecordMetaDataProto.DataStoreInfo.Builder info = RecordMetaDataProto.DataStoreInfo.newBuilder();
             final int oldMetaDataVersion;
@@ -2121,7 +2122,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
             }
             final boolean[] dirty = new boolean[1];
             final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, oldUserVersion, oldMetaDataVersion, info, dirty);
-            final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
+            final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty, validateMetaData));
             return checkedRebuild.thenApply(vignore -> {
                 if (dirty[0]) {
                     info.setLastUpdateTime(System.currentTimeMillis());
@@ -2880,7 +2881,12 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
     private CompletableFuture<Void> checkPossiblyRebuild(@Nullable UserVersionChecker userVersionChecker,
                                                          @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
-                                                         @Nonnull boolean[] dirty) {
+                                                         @Nonnull boolean[] dirty,
+                                                         boolean validateMetaData) {
+        if (validateMetaData) {
+            validateMetaData();
+        }
+
         final int oldFormatVersion = info.getFormatVersion();
         final int newFormatVersion = Math.max(oldFormatVersion, formatVersion);
         final boolean formatVersionChanged = oldFormatVersion != newFormatVersion;

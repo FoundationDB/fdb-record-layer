@@ -112,7 +112,6 @@ public abstract class FDBRecordStoreTestBase {
         recordStore = FDBRecordStore.newBuilder()
                 .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
                 .createOrOpen();
-        recordStore.validateMetaData();
         setupPlanner(null);
         evaluationContext = recordStore.emptyEvaluationContext();
     }
@@ -121,6 +120,7 @@ public abstract class FDBRecordStoreTestBase {
         recordStore = FDBRecordStore.newBuilder()
                 .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
                 .uncheckedOpen();
+        // Still validate like createOrOpen() would.
         recordStore.validateMetaData();
         setupPlanner(null);
         evaluationContext = recordStore.emptyEvaluationContext();
