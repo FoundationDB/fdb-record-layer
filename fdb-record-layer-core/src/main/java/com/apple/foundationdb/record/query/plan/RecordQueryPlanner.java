@@ -1293,13 +1293,20 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nonnull
     private RecordQueryPlan tryToConvertToCoveringPlan(@Nonnull PlanContext context, @Nonnull RecordQueryPlanWithIndex chosenPlan) {
+        if (context.query.getRequiredResults() == null) {
+            // This should already be true when calling, but as a safety precaution, check here anyway.
+            return chosenPlan;
+        }
         final Index index = metaData.getIndex(chosenPlan.getIndexName());
         Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
             return chosenPlan;
         }
         final RecordType recordType = recordTypes.iterator().next();
-        final List<KeyExpression> resultFields = context.query.getRequiredResults();
+        final List<KeyExpression> resultFields = new ArrayList<>(context.query.getRequiredResults().size());
+        for (KeyExpression resultField : context.query.getRequiredResults()) {
+            resultFields.addAll(resultField.normalizeKeyForPositions());
+        }
         final KeyExpression rootExpression = index.getRootExpression();
         final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
         final List<KeyExpression> keyFields;

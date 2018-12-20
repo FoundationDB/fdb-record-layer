@@ -35,11 +35,14 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
@@ -56,6 +59,10 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unboun
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -75,8 +82,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").greaterThan(990))
-                .setSort(Key.Expressions.field("num_value_unique"))
-                .setRequiredResults(Arrays.asList(Key.Expressions.field("num_value_unique")))
+                .setSort(field("num_value_unique"))
+                .setRequiredResults(Collections.singletonList(field("num_value_unique")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>"))))));
@@ -109,8 +116,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setSort(Key.Expressions.field("num_value_3_indexed"))
-                .setRequiredResults(Arrays.asList(Key.Expressions.field("num_value_3_indexed")))
+                .setSort(field("num_value_3_indexed"))
+                .setRequiredResults(Collections.singletonList(field("num_value_3_indexed")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(unbounded())))));
@@ -127,10 +134,10 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").greaterThan(990))
-                .setSort(Key.Expressions.field("num_value_unique"), true)
+                .setSort(field("num_value_unique"), true)
                 .setRequiredResults(Arrays.asList(
-                        Key.Expressions.field("num_value_unique"),
-                        Key.Expressions.field("num_value_3_indexed")))
+                        field("num_value_unique"),
+                        field("num_value_3_indexed")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
@@ -147,7 +154,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setRequiredResults(Arrays.asList(Key.Expressions.field("num_value_3_indexed")))
+                .setRequiredResults(Collections.singletonList(field("num_value_3_indexed")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
@@ -165,7 +172,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.and(Query.field("num_value_3_indexed").equalsValue(1), Query.field("num_value_2").lessThan(2)))
-                .setRequiredResults(Arrays.asList(Key.Expressions.field("num_value_3_indexed")))
+                .setRequiredResults(Collections.singletonList(field("num_value_3_indexed")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
@@ -188,10 +195,10 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").greaterThan(990))
-                .setSort(Key.Expressions.field("num_value_unique"))
+                .setSort(field("num_value_unique"))
                 .setRequiredResults(Arrays.asList(
-                        Key.Expressions.field("num_value_unique"),
-                        Key.Expressions.field("num_value_2")))
+                        field("num_value_unique"),
+                        field("num_value_2")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([990],>"))))));
@@ -234,10 +241,10 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").greaterThan(990))
-                .setSort(Key.Expressions.field("num_value_unique"))
+                .setSort(field("num_value_unique"))
                 .setRequiredResults(Arrays.asList(
-                        Key.Expressions.field("num_value_unique"),
-                        Key.Expressions.field("num_value_2")))
+                        field("num_value_unique"),
+                        field("num_value_2")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index_value"), bounds(hasTupleString("([990],>"))))));
@@ -280,11 +287,37 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MyRecord")
                 .setFilter(Query.field("str_value").equalsValue("lion"))
-                .setRequiredResults(Arrays.asList(Key.Expressions.field("header").nest("path")))
+                .setRequiredResults(Collections.singletonList(field("header").nest("path")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
         assertEquals(-629018945, plan.planHash());
+    }
+
+    /**
+     * Verify that an index can be covering for concatenated nested fields in the value of the index.
+     */
+    @Test
+    public void coveringWithHeaderConcatenatedValue() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.getRecordType("MyRecord")
+                    .setPrimaryKey(field("header").nest(field("rec_no")));
+            metaData.addIndex("MyRecord", new Index("MyRecord$str_value", field("str_value"), field("header").nest(concatenateFields("path", "num")),
+                    IndexTypes.VALUE, Collections.emptyMap()));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+        }
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyRecord")
+                .setFilter(Query.field("str_value").equalsValue("leopard"))
+                .setRequiredResults(Collections.singletonList(field("header").nest(concatenateFields("num", "path"))))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[leopard],[leopard]]"))))));
+        assertEquals(-568702564, plan.planHash());
     }
 
     /**
@@ -315,7 +348,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MyRecord")
                 .setFilter(Query.field("str_value").equalsValue("lion"))
-                .setRequiredResults(Arrays.asList(Key.Expressions.field("header").nest("rec_no")))
+                .setRequiredResults(Collections.singletonList(field("header").nest("rec_no")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
@@ -332,6 +365,70 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 }
             }
             context.commit();
+            assertDiscardedNone(context);
+        }
+
+        query = RecordQuery.newBuilder()
+                .setRecordType("MyRecord")
+                .setFilter(Query.field("str_value").startsWith("l"))
+                .setRequiredResults(Arrays.asList(field("header").nest(concatenateFields("path", "rec_no")), field("str_value")))
+                .build();
+        plan = planner.plan(query);
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("{[l],[l]}"))))));
+        assertEquals(-1471907004, plan.planHash());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            List<Pair<String, Long>> results = new ArrayList<>();
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecordsWithHeaderProto.MyRecord.Builder myrec = TestRecordsWithHeaderProto.MyRecord.newBuilder();
+                    myrec.mergeFrom(rec.getRecord());
+                    assertThat(myrec.getStrValue(), startsWith("l"));
+                    assertThat(myrec.getHeader().hasPath(), is(true));
+                    assertThat(myrec.getHeader().hasRecNo(), is(true));
+                    results.add(Pair.of(myrec.getHeader().getPath(), myrec.getHeader().getRecNo()));
+                }
+            }
+            assertEquals(Arrays.asList(Pair.of("b", 2L), Pair.of("b", 3L), Pair.of("a", 1L)), results);
+            context.commit();
+            assertDiscardedNone(context);
+        }
+    }
+
+    /**
+     * Verify that if given a concatenated required-results field that a covering index is returned.
+     */
+    @Test
+    public void coveringConcatenatedFields() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("MySimpleRecord", "MySimpleRecord$2+3", concatenateFields("num_value_2", "num_value_3_indexed"));
+        };
+        complexQuerySetup(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(Query.field("num_value_2").greaterThan(0), Query.field("num_value_2").lessThan(10)))
+                .setRequiredResults(Collections.singletonList(concatenateFields("num_value_2", "num_value_3_indexed")))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$2+3"), bounds(hasTupleString("([0],[10])"))))));
+        assertEquals(-152048326, plan.planHash());
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(rec.getRecord());
+                    assertThat(myrec.getNumValue2(), greaterThan(0));
+                    assertThat(myrec.getNumValue2(), lessThan(10));
+                    assertThat(myrec.hasNumValue3Indexed(), is(true));
+                }
+            }
+            commit(context);
             assertDiscardedNone(context);
         }
     }
@@ -357,7 +454,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MyRecord")
                 .setFilter(Query.field("str_value").equalsValue("lion"))
-                .setRequiredResults(Arrays.asList(Key.Expressions.field("header").nest("rec_no")))
+                .setRequiredResults(Collections.singletonList(field("header").nest("rec_no")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
