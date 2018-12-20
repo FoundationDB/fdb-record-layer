@@ -68,7 +68,6 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     public void setupStore() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 200; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder builder = TestRecords1Proto.MySimpleRecord.newBuilder();

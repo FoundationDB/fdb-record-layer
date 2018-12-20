@@ -63,7 +63,6 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recordBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
 

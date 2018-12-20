@@ -119,7 +119,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Key.Expressions.field("score", KeyExpression.FanType.FanOut).ungrouped(),
                         IndexTypes.RANK));
         hook.apply(metaDataBuilder);
-        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
     static final Object[][] RECORDS = new Object[][] {
@@ -496,7 +496,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
         fdb = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            recordStore.deleteAllRecords();
+            recordStore.deleteAllRecords(); // Undo loadRecords().
 
             TestRecordsRankProto.BasicRankedRecord.Builder rec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
             rec.setName("achilles");
@@ -604,7 +604,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
         fdb = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            recordStore.deleteAllRecords();
+            recordStore.deleteAllRecords(); // Undo loadRecords().
             
             TestRecordsRankProto.NestedRankedRecord.Builder rec;
             TestRecordsRankProto.NestedRankedRecord.GameScore.Builder score;
@@ -685,7 +685,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
         fdb = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            recordStore.deleteAllRecords();
+            recordStore.deleteAllRecords(); // Undo loadRecords().
 
             TestRecordsRankProto.RepeatedRankedRecord.Builder rec = TestRecordsRankProto.RepeatedRankedRecord.newBuilder();
 
@@ -1072,6 +1072,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void uniquenessViolationWithTies() throws Exception {
+        clearAndInitialize();   // Undo loadRecords.
         assertThrows(RecordIndexUniquenessViolation.class, () -> {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, md -> {
@@ -1081,7 +1082,6 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                             new Index("rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), EmptyKeyExpression.EMPTY,
                                     IndexTypes.RANK, IndexOptions.UNIQUE_OPTIONS));
                 });
-                recordStore.deleteAllRecords();
                 for (Object[] rec : RECORDS) {
                     recordStore.saveRecord(TestRecordsRankProto.BasicRankedRecord.newBuilder()
                             .setName((String) rec[0])
@@ -1098,7 +1098,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
     public void countIfUnique() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            recordStore.deleteAllRecords();
+            recordStore.deleteAllRecords(); // Undo loadRecords().
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {

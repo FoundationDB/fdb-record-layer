@@ -300,7 +300,6 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
-            recordStore.deleteAllRecords();
 
             saveHeaderRecord(1, "a", 0, "lynx");
             saveHeaderRecord(2, "a", 1, "bobcat");
@@ -378,7 +377,6 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             for (int i = 0; i < 20; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
                 recBuilder.setRecNo(i);

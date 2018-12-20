@@ -68,7 +68,6 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
     public void testCrossRecordTypeQuery() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            recordStore.deleteAllRecords();
 
             saveSimpleRecord(100, "first", 1);
             saveSimpleRecord(110, "second", 2);
@@ -119,7 +118,6 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
     public void testMultiRecordTypeIndexScan() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            recordStore.deleteAllRecords();
 
             saveSimpleRecord(100, "first", 1);
             saveSimpleRecord(110, "second", 2);
@@ -264,7 +262,6 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
     public void testCrossRecordTypeQueryFiltered() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            recordStore.deleteAllRecords();
 
             saveSimpleRecord(100, "first", 1);
             saveSimpleRecord(110, "second", 2);
@@ -311,7 +308,6 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
     public void testNestedCrossRecordTypeQueryFilteredAndSorted() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            recordStore.deleteAllRecords();
 
             recordStore.saveRecord(TestRecordsWithUnionProto.MySimpleRecord.newBuilder().setRecNo(80).setStrValueIndexed("box").setNested(TestRecordsWithUnionProto.Nested.newBuilder().setEtag(1)).build());
             recordStore.saveRecord(TestRecordsWithUnionProto.MySimpleRecord2.newBuilder().setStrValueIndexed("of").setNested(TestRecordsWithUnionProto.Nested.newBuilder().setEtag(2)).build());
@@ -353,7 +349,6 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
     public void testNestedPartialCrossRecordTypeQuery() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            recordStore.deleteAllRecords();
 
             recordStore.saveRecord(TestRecordsWithUnionProto.MySimpleRecord.newBuilder().setRecNo(80).setStrValueIndexed("box").setEtag(1).setNested(TestRecordsWithUnionProto.Nested.newBuilder().setEtag(1)).build());
             recordStore.saveRecord(TestRecordsWithUnionProto.MySimpleRecord2.newBuilder().setStrValueIndexed("of").setEtag(1).setNested(TestRecordsWithUnionProto.Nested.newBuilder().setEtag(2)).build());

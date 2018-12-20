@@ -376,7 +376,6 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
                 metaData.addIndex("MySimpleRecord", new Index("index_2_3", "num_value_2", "num_value_3_indexed"));
             });
-            recordStore.deleteAllRecords();
         }
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")

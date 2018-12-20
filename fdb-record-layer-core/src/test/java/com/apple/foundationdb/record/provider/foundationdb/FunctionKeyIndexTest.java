@@ -134,7 +134,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         for (Index index : indexes) {
             metaDataBuilder.addIndex(scalarRecordType, index);
         }
-        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
     protected void saveRecords(Records records, Index ... indexes) throws Exception {

@@ -93,7 +93,6 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     public void query() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -136,7 +135,6 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     public void queryByteString() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openBytesRecordStore(context);
-            recordStore.deleteAllRecords();
 
             recordStore.saveRecord(TestRecordsBytesProto.ByteStringRecord.newBuilder()
                     .setPkey(byteString(0, 1, 2)).setSecondary(byteString(0, 1, 2)).setUnique(byteString(0, 2))
@@ -479,7 +477,6 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     public void nullQuery() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
@@ -557,7 +554,6 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     public void testUncommonPrimaryKey() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openMultiRecordStore(context);
-            recordStore.deleteAllRecords();
 
             Message record = TestRecordsMultiProto.MultiRecordOne.newBuilder()
                     .setId(1066L)
@@ -637,7 +633,6 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     public void queryExcludeNull() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();

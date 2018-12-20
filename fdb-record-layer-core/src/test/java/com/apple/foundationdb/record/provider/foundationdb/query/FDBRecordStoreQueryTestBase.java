@@ -68,7 +68,6 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder record = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -112,7 +111,6 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     protected void complexQuerySetup(RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -145,7 +143,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.getRecordType("MyHierarchicalRecord").setPrimaryKey(
                 concatenateFields("parent_path", "child_name"));
-        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
     protected void openNestedRecordStore(FDBRecordContext context) throws Exception {
@@ -153,6 +151,10 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void openNestedRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
+        createOrOpenRecordStore(context, nestedMetaData(hook));
+    }
+
+    protected RecordMetaData nestedMetaData(@Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.FanOut).nest("rating"));
@@ -164,13 +166,12 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         if (hook != null) {
             hook.apply(metaDataBuilder);
         }
-        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        return metaDataBuilder.getRecordMetaData();
     }
 
     protected void nestedWithAndSetup(@Nullable RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             TestRecords4Proto.RestaurantReviewer reviewer1 = TestRecords4Proto.RestaurantReviewer.newBuilder()
                     .setId(1L)
@@ -208,7 +209,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                 field("recurrence", FanType.FanOut).nest("start")));
         metaDataBuilder.addIndex("CalendarEvent", "event_start", field("eventIndex").nest(
                 field("recurrence", FanType.FanOut).nest("start")));
-        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
     public void openConcatNestedRecordStore(FDBRecordContext context) throws Exception {
@@ -216,7 +217,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addIndex("CalendarEvent", "versions", concat(field("alarmIndex").nest("version"),
                 field("eventIndex").nest("version")));
-        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
     protected List<Object> fetchResultValues(RecordQueryPlan plan, final int fieldNumber, Opener opener,
@@ -254,7 +255,6 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                                         BiConsumer<Integer, TestRecordsWithHeaderProto.MyRecord.Builder> buildRecord) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, recordMetaDataHook);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecordsWithHeaderProto.MyRecord.Builder record = TestRecordsWithHeaderProto.MyRecord.newBuilder();
@@ -321,13 +321,12 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         if (hook != null) {
             hook.apply(metaData);
         }
-        createRecordStore(context, metaData.getRecordMetaData());
+        createOrOpenRecordStore(context, metaData.getRecordMetaData());
     }
 
     protected void setupEnumShapes(RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openEnumRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             int n = 0;
             for (TestRecordsEnumProto.MyShapeRecord.Size size : TestRecordsEnumProto.MyShapeRecord.Size.values()) {
                 for (TestRecordsEnumProto.MyShapeRecord.Color color : TestRecordsEnumProto.MyShapeRecord.Color.values()) {

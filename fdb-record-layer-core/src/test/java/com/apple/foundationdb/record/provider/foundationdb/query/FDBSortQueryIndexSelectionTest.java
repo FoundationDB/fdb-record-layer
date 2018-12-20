@@ -125,7 +125,6 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     public void sort() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -166,11 +165,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     @ParameterizedTest
     @MethodSource("hooks")
     public void sortWithScannableFilterOnIndex(RecordMetaDataHook hook, PlannableIndexTypes indexTypes) throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            setupSimpleRecordStore(hook, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
-            commit(context);
-        }
+        setupSimpleRecordStore(hook, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
 
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -183,7 +178,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertEquals(1008857205, plan.planHash());
 
         AtomicInteger lastNumValue3 = new AtomicInteger(Integer.MIN_VALUE);
-        int returned = querySimpleRecordStore(NO_HOOK, plan, Function.identity(),
+        int returned = querySimpleRecordStore(hook, plan, Function.identity(),
                 builder -> {
                     assertThat(builder.getNumValue3Indexed(), greaterThanOrEqualTo(2));
                     assertThat(builder.getNumValue3Indexed(), greaterThanOrEqualTo(lastNumValue3.get()));
@@ -202,11 +197,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     @ParameterizedTest
     @MethodSource("hooks")
     public void sortWithNonScannableFilterOnIndex(RecordMetaDataHook hook, PlannableIndexTypes indexTypes) throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            setupSimpleRecordStore(hook, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
-            commit(context);
-        }
+        setupSimpleRecordStore(hook, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
 
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -220,7 +211,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertEquals(-799849347, plan.planHash());
 
         AtomicInteger lastNumValue3 = new AtomicInteger(Integer.MIN_VALUE);
-        int returned = querySimpleRecordStore(NO_HOOK, plan, Function.identity(),
+        int returned = querySimpleRecordStore(hook, plan, Function.identity(),
                 builder -> {
                     assertThat(builder.getNumValue3Indexed(), not(equalTo(1)));
                     assertThat(builder.getNumValue3Indexed(), greaterThanOrEqualTo(lastNumValue3.get()));
@@ -238,11 +229,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     @ParameterizedTest
     @MethodSource("hooks")
     public void sortWithNonScannableFilterWithAnd(RecordMetaDataHook hook, PlannableIndexTypes indexTypes) throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            setupSimpleRecordStore(hook, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
-            commit(context);
-        }
+        setupSimpleRecordStore(hook, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
 
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -259,7 +246,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertEquals(735933204, plan.planHash());
 
         AtomicInteger lastNumValue3 = new AtomicInteger(Integer.MIN_VALUE);
-        int returned = querySimpleRecordStore(NO_HOOK, plan, Function.identity(),
+        int returned = querySimpleRecordStore(hook, plan, Function.identity(),
                 builder -> {
                     assertThat(builder.getNumValue3Indexed(), not(equalTo(1)));
                     assertThat(builder.getNumValue2(), equalTo(0));
@@ -277,11 +264,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     @ParameterizedTest(name = "sortByPrimaryKey() [{0}]")
     @EnumSource(TestHelpers.BooleanEnum.class)
     public void sortByPrimaryKey(TestHelpers.BooleanEnum reverse) throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            setupSimpleRecordStore(NO_HOOK, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2));
-            commit(context);
-        }
+        setupSimpleRecordStore(NO_HOOK, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2));
 
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -351,11 +334,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     @EnumSource(TestHelpers.BooleanEnum.class)
     public void sortByPrimaryKeyWithFilter(@Nonnull TestHelpers.BooleanEnum reverseEnum) throws Exception {
         final boolean reverse = reverseEnum.toBoolean();
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            setupSimpleRecordStore(NO_HOOK, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
-            commit(context);
-        }
+        setupSimpleRecordStore(NO_HOOK, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
 
         // Case 1: Equality filter on a single field with primary key as next field.
         // TODO: Queries with order-preserving filter sorting by primary key will not use index for filter (https://github.com/FoundationDB/fdb-record-layer/issues/5)
@@ -591,8 +570,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
             builder.addIndex("MyRecord", "MyRecord$header_num", concat(field("header").nest("num"),
                     field("str_value")));
             RecordMetaData metaData = builder.getRecordMetaData();
-            createRecordStore(context, metaData);
-            recordStore.deleteAllRecords();
+            createOrOpenRecordStore(context, metaData);
 
             for (int i = 0; i < 100; i++) {
                 TestRecordsWithHeaderProto.MyRecord.Builder recBuilder = TestRecordsWithHeaderProto.MyRecord.newBuilder();

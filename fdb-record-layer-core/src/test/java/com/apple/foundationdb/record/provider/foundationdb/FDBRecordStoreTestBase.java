@@ -113,7 +113,16 @@ public abstract class FDBRecordStoreTestBase {
         path = TestKeySpace.getKeyspacePath(context, PATH_OBJECTS);
     }
 
-    protected void createRecordStore(FDBRecordContext context, RecordMetaData metaData) {
+    protected void createOrOpenRecordStore(FDBRecordContext context, RecordMetaData metaData) {
+        recordStore = FDBRecordStore.newBuilder()
+                .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
+                .createOrOpen();
+        recordStore.validateMetaData();
+        setupPlanner(null);
+        evaluationContext = recordStore.emptyEvaluationContext();
+    }
+
+    protected void uncheckedOpenRecordStore(FDBRecordContext context, RecordMetaData metaData) {
         recordStore = FDBRecordStore.newBuilder()
                 .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
                 .uncheckedOpen();
@@ -163,17 +172,29 @@ public abstract class FDBRecordStoreTestBase {
     }
 
     public void openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
+        createOrOpenRecordStore(context, simpleMetaData(hook));
+    }
+
+    public void uncheckedOpenSimpleRecordStore(FDBRecordContext context) throws Exception {
+        uncheckedOpenSimpleRecordStore(context, NO_HOOK);
+    }
+
+    public void uncheckedOpenSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
+        uncheckedOpenRecordStore(context, simpleMetaData(hook));
+    }
+
+    private RecordMetaData simpleMetaData(@Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.addUniversalIndex(COUNT_INDEX);
         metaData.addUniversalIndex(COUNT_UPDATES_INDEX);
         if (hook != null) {
             hook.apply(metaData);
         }
-        createRecordStore(context, metaData.getRecordMetaData());
+        return metaData.getRecordMetaData();
     }
 
     public void openBytesRecordStore(FDBRecordContext context) throws Exception {
-        createRecordStore(context, RecordMetaData.build(TestRecordsBytesProto.getDescriptor()));
+        createOrOpenRecordStore(context, RecordMetaData.build(TestRecordsBytesProto.getDescriptor()));
     }
 
     public void openRecordWithHeader(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
@@ -181,7 +202,7 @@ public abstract class FDBRecordStoreTestBase {
         if (hook != null) {
             hook.apply(metaData);
         }
-        createRecordStore(context, metaData.getRecordMetaData());
+        createOrOpenRecordStore(context, metaData.getRecordMetaData());
     }
 
     public void openUnionRecordStore(FDBRecordContext context) throws Exception {
@@ -205,7 +226,7 @@ public abstract class FDBRecordStoreTestBase {
                         metaDataBuilder.getRecordType("MySimpleRecord2"),
                         metaDataBuilder.getRecordType("MySimpleRecord3")),
                 new Index("partial_nested_versions", concat(field("nested").nest(field("etag")), field("etag"))));
-        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
         return recordStore;
     }
 
@@ -218,7 +239,7 @@ public abstract class FDBRecordStoreTestBase {
         if (hook != null) {
             hook.apply(metaData);
         }
-        createRecordStore(context, metaData.getRecordMetaData());
+        createOrOpenRecordStore(context, metaData.getRecordMetaData());
     }
 
     public void openMultiRecordStore(FDBRecordContext context) throws Exception {
@@ -226,7 +247,7 @@ public abstract class FDBRecordStoreTestBase {
         metaDataBuilder.addUniversalIndex(COUNT_INDEX);
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(metaDataBuilder.getRecordType("MultiRecordOne"), metaDataBuilder.getRecordType("MultiRecordTwo")),
                 new Index("onetwo$element", field("element", FanType.FanOut)));
-        createRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
     protected void saveSimpleRecord(long recNo, String strValue, int etag) {

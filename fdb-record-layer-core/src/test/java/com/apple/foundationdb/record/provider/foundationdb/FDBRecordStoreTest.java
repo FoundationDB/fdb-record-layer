@@ -117,7 +117,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreTest.class);
 
     private void openLongRecordStore(FDBRecordContext context) throws Exception {
-        createRecordStore(context, RecordMetaData.build(TestRecords2Proto.getDescriptor()));
+        createOrOpenRecordStore(context, RecordMetaData.build(TestRecords2Proto.getDescriptor()));
     }
 
     @SuppressWarnings("deprecation")
@@ -140,7 +140,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void writeRead() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(1L)
@@ -165,7 +164,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void writeCheckExists() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(1L)
@@ -188,7 +186,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void writeCheckExistsConcurrently() throws Exception {
         try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
             openSimpleRecordStore(context1);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(1066L)
@@ -231,7 +228,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void writeByteString() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openBytesRecordStore(context);
-            recordStore.deleteAllRecords();
 
             recordStore.saveRecord(TestRecordsBytesProto.ByteStringRecord.newBuilder()
                     .setPkey(byteString(0, 1, 2)).setSecondary(byteString(0, 1, 2)).setName("foo").build());
@@ -255,7 +251,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void writeUniqueByteString() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openBytesRecordStore(context);
-            recordStore.deleteAllRecords();
 
             recordStore.saveRecord(TestRecordsBytesProto.ByteStringRecord.newBuilder()
                     .setPkey(byteString(0, 1, 2)).setSecondary(byteString(0, 1, 2)).setUnique(byteString(0, 2))
@@ -271,7 +266,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void writeNotUnionType() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            recordStore.deleteAllRecords();
 
             assertThrows(MetaDataException.class, () -> {
                 TestRecordsWithUnionProto.NotInUnion.Builder recBuilder = TestRecordsWithUnionProto.NotInUnion.newBuilder();
@@ -297,7 +291,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             CompletableFuture<?>[] futures = new CompletableFuture<?>[records.size()];
             for (int i = 0; i < records.size(); i++) {
@@ -321,7 +314,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void asyncNotUniqueInserts() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             CompletableFuture<?>[] futures = new CompletableFuture<?>[2];
             futures[0] = recordStore.saveRecordAsync(TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -356,7 +348,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openLongRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords2Proto.MyLongRecord.Builder recBuilder = TestRecords2Proto.MyLongRecord.newBuilder();
             recBuilder.setRecNo(1);
@@ -420,7 +411,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void scanContinuations() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             for (int i = 0; i < 100; i++) {
@@ -480,7 +470,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void delete() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
@@ -491,7 +480,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
             recordStore.deleteRecord(Tuple.from(1L));
             commit(context);
         }
@@ -507,7 +495,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testCountRecords() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            recordStore.deleteAllRecords();
 
             saveSimpleRecord2("a", 1);
 
@@ -573,8 +560,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             builder.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(concatenateFields("path", "num", "rec_no")));
             builder.setRecordCountKey(field("header").nest(concat(field("path"), field("num"))));
-            createRecordStore(context, builder.getRecordMetaData());
-            recordStore.deleteAllRecords();
+            createOrOpenRecordStore(context, builder.getRecordMetaData());
 
             saveHeaderRecord(1, "/FirstPath", 0, "johnny");
             saveHeaderRecord(2, "/FirstPath", 0, "apple");
@@ -634,7 +620,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     private void testDeleteWhere(boolean useCountIndex) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeaderPrimaryKey(context, useCountIndex);
-            recordStore.deleteAllRecords();
 
             saveHeaderRecord(1, "a", 0, "lynx");
             saveHeaderRecord(1, "b", 1, "bobcat");
@@ -696,7 +681,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         };
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
-            recordStore.deleteAllRecords();
 
             saveHeaderRecord(1, "a", 0, "lynx");
             saveHeaderRecord(1, "a", 1, "bobcat");
@@ -748,7 +732,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             builder.addIndex("MyRecord", "MyRecord$str_value", concat(field("header").nest("path"),
                     field("str_value")));
             RecordMetaData metaData = builder.getRecordMetaData();
-            createRecordStore(context, metaData);
+            createOrOpenRecordStore(context, metaData);
             assertThrows(Query.InvalidExpressionException.class, () ->
                     recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("rec_no").equalsValue(1))));
         }
@@ -763,8 +747,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             builder.addIndex("MyRecord", "MyRecord$path_str", concat(field("header").nest("path"),
                     field("str_value")));
             RecordMetaData metaData = builder.getRecordMetaData();
-            createRecordStore(context, metaData);
-            recordStore.deleteAllRecords();
+            createOrOpenRecordStore(context, metaData);
 
             TestRecordsWithHeaderProto.MyRecord.Builder recBuilder = TestRecordsWithHeaderProto.MyRecord.newBuilder();
             TestRecordsWithHeaderProto.HeaderRecord.Builder headerBuilder = recBuilder.getHeaderBuilder();
@@ -804,7 +787,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         assertThrows(FDBExceptions.FDBStoreKeySizeException.class, () -> {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
-                recordStore.deleteAllRecords();
 
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
                 recBuilder.setRecNo(1);
@@ -830,7 +812,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                             IndexTypes.VALUE,
                             Collections.emptyMap()));
                 });
-                recordStore.deleteAllRecords();
 
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
                 recBuilder.setRecNo(1);
@@ -846,7 +827,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testStoredRecordSizeIsPlausible() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
 
@@ -888,7 +868,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             List<FDBStoredRecord<Message>> saving = new ArrayList<>();
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 10; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -926,7 +905,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testSplitContinuation() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            recordStore.deleteAllRecords();
             commit(context);
         }
 
@@ -971,7 +949,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testSaveRecordWithDifferentSplits() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            recordStore.deleteAllRecords();
             commit(context);
         }
         
@@ -1263,7 +1240,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             recBuilder.setStrValueIndexed("abc");
             recordStore.saveRecord(recBuilder.build());
@@ -1325,7 +1301,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             assertEquals(0, recordStore.getSnapshotRecordCount().join().longValue());
 
@@ -1390,7 +1365,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             assertEquals(0, recordStore.getSnapshotRecordUpdateCount().join().longValue());
 
@@ -1466,7 +1440,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 recordStore.saveRecord(makeRecord(i, 0, i % 5));
@@ -1516,7 +1489,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         final int value2 = 54321;
         final int value3 = 24567;
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, countMetaDataHook);
+            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
             recordStore.deleteAllRecords();
             // Simulate the state the store would be in if this were done before counting was added.
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.INFO_ADDED_FORMAT_VERSION).build();
@@ -1533,7 +1506,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         countMetaDataHook.baseHook = countKeyHook(key3, useIndex, countMetaDataHook.metaDataVersion);
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, countMetaDataHook);
+            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION).build();
 
             for (int i = 90; i < 100; i++) {
@@ -1543,7 +1516,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, countMetaDataHook);
+            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION).build();
 
             assertEquals(10, recordStore.getSnapshotRecordCount().join().longValue(), "should only see new records");
@@ -1564,7 +1537,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         };
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, countMetaDataHook);
+            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
             recordStore.checkVersion(alwaysEnabled, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join(); // Index is rebuilt here automatically in useIndex case
 
             assertEquals(100, recordStore.getSnapshotRecordCount().join().longValue(), "should see all records");
@@ -1577,7 +1550,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         countMetaDataHook.baseHook = countKeyHook(key2, useIndex, countMetaDataHook.metaDataVersion);
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, countMetaDataHook);
+            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
             if (useIndex) {
@@ -1596,7 +1569,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, countMetaDataHook);
+            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
             assertEquals(90, recordStore.getSnapshotRecordCount(key2, Key.Evaluated.scalar(value1)).join().longValue());
             assertEquals(10, recordStore.getSnapshotRecordCount(key2, Key.Evaluated.scalar(value2)).join().longValue());
             assertEquals(32, recordStore.getSnapshotRecordCount(key2, Key.Evaluated.scalar(value3)).join().longValue());
@@ -1607,7 +1580,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         countMetaDataHook.baseHook = countKeyHook(pkey, useIndex, countMetaDataHook.metaDataVersion);
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, countMetaDataHook);
+            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).join();
 
             if (useIndex) {
@@ -1633,8 +1606,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, removeCountHook);
-            recordStore.deleteAllRecords();
-            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).join();
 
             for (int i = 0; i < 10; i++) {
                 recordStore.saveRecord(makeRecord(i, 1066, i % 5));
@@ -1654,7 +1625,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).join();
             commit(context);
         }
 
@@ -1683,8 +1653,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     @Test
     public void typeChange() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            createRecordStore(context, RecordMetaData.build(TestRecords7Proto.getDescriptor()));
-            recordStore.deleteAllRecords();
+            createOrOpenRecordStore(context, RecordMetaData.build(TestRecords7Proto.getDescriptor()));
 
             TestRecords7Proto.MyRecord1.Builder rec1Builder = TestRecords7Proto.MyRecord1.newBuilder();
             rec1Builder.setRecNo(1);
@@ -1935,7 +1904,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             final long readVersion = context.ensureActive().getReadVersion().get();
 
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
@@ -1957,7 +1925,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testVersionStamp() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
@@ -2020,22 +1987,22 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testSubspaceWriteConflict() throws Exception {
         // Double check that it works to have two contexts on same space without conflict.
         FDBRecordContext context1 = openContext();
-        openSimpleRecordStore(context1);
+        uncheckedOpenSimpleRecordStore(context1);
         FDBRecordStore recordStore1 = recordStore;
         try (FDBRecordContext context2 = openContext()) {
-            openSimpleRecordStore(context2);
+            uncheckedOpenSimpleRecordStore(context2);
             commit(context2);
         }
         commit(context1);
 
         // Again with conflict.
         FDBRecordContext context3 = openContext();
-        openSimpleRecordStore(context3);
+        uncheckedOpenSimpleRecordStore(context3);
         FDBRecordStore recordStore3 = recordStore;
         recordStore3.loadRecord(Tuple.from(0L)); // Need to read something as write-only transactions never conflict
         recordStore3.addConflictForSubspace(true);
         try (FDBRecordContext context4 = openContext()) {
-            openSimpleRecordStore(context4);
+            uncheckedOpenSimpleRecordStore(context4);
             recordStore.addConflictForSubspace(true);
             commit(context4);
         }
@@ -2052,11 +2019,11 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testSubspaceReadWriteConflict() throws Exception {
         // Double check that it works to have two contexts on same space writing different records without conflict.
         FDBRecordContext context1 = openContext();
-        openSimpleRecordStore(context1);
+        uncheckedOpenSimpleRecordStore(context1);
         FDBRecordStore recordStore1 = recordStore;
         recordStore1.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1).build());
         try (FDBRecordContext context2 = openContext()) {
-            openSimpleRecordStore(context2);
+            uncheckedOpenSimpleRecordStore(context2);
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2).build());
             commit(context2);
         }
@@ -2064,12 +2031,12 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         // Again with requested conflict.
         FDBRecordContext context3 = openContext();
-        openSimpleRecordStore(context3);
+        uncheckedOpenSimpleRecordStore(context3);
         FDBRecordStore recordStore3 = recordStore;
         recordStore3.addConflictForSubspace(false);
         recordStore3.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(3).build());
         try (FDBRecordContext context4 = openContext()) {
-            openSimpleRecordStore(context4);
+            uncheckedOpenSimpleRecordStore(context4);
             recordStore.addConflictForSubspace(false);
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(4).build());
             commit(context4);
@@ -2086,19 +2053,19 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     @Test
     public void testFormatVersionUpgrade() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION - 1).create();
             assertEquals(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION - 1, recordStore.getFormatVersion());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION).open();
             assertEquals(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION - 1).open();
             assertEquals(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
@@ -2218,7 +2185,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void unsplitCompatibility() throws Exception {
         TestRecords1Proto.MySimpleRecord rec1 = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build();
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            uncheckedOpenSimpleRecordStore(context);
             // Write a record using the old format
             recordStore = recordStore.asBuilder()
                     .setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1)
@@ -2294,7 +2261,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Add an index so that we have to check the record count. (This automatic upgrade happens only
             // if we are already reading the record count anyway, which is why it happens here.)
-            openSimpleRecordStore(context, metaDataBuilder ->
+            uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
                     metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION).open();
@@ -2319,7 +2286,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             // Read from the now upgraded store with a record store that sets its format version to be older to make sure
             // it correctly switches to the new one.
             // Use same meta-data as last test
-            openSimpleRecordStore(context, metaDataBuilder ->
+            uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
                     metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1).open();
@@ -2356,7 +2323,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                                                     .setStrValueIndexed(Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE + 2))
                                                     .build();
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaDataBuilder -> {
+            uncheckedOpenSimpleRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
                 metaDataBuilder.setStoreRecordVersions(false);
             });
@@ -2382,7 +2349,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+            uncheckedOpenSimpleRecordStore(context, TEST_SPLIT_HOOK);
             assertTrue(recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).get());
             assertTrue(recordStore.getRecordMetaData().isSplitLongRecords());
 
@@ -2466,7 +2433,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openAnyRecordStore(TestRecordsImportProto.getDescriptor(), context, hook);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
@@ -2497,7 +2463,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void existenceChecks() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords1Proto.MySimpleRecord.Builder simple = TestRecords1Proto.MySimpleRecord.newBuilder();
             simple.setRecNo(1);

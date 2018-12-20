@@ -77,7 +77,6 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void hierarchical() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openHierarchicalRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords3Proto.MyHierarchicalRecord.Builder recBuilder = TestRecords3Proto.MyHierarchicalRecord.newBuilder();
             recBuilder.setChildName("photos");
@@ -152,7 +151,6 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void nested() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords4Proto.RestaurantReviewer.Builder reviewerBuilder = TestRecords4Proto.RestaurantReviewer.newBuilder();
             reviewerBuilder.setId(1);
@@ -281,7 +279,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             metaDataBuilder.addIndex("OuterRecord", "key_index", concat(
                     field("other_id"),
                     field("map").nest(field("entry", KeyExpression.FanType.FanOut).nest("key"))));
-            createRecordStore(context, metaDataBuilder.getRecordMetaData());
+            createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
             commit(context);
         }
 
@@ -381,7 +379,6 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void doublyNested() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openDoublyNestedRecordStore(context);
-            recordStore.deleteAllRecords();
 
             TestRecords5Proto.CalendarEvent.Builder eventBuilder = TestRecords5Proto.CalendarEvent.newBuilder();
             eventBuilder.setPath("ev1");
@@ -451,7 +448,6 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     public void testConcatNested() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openConcatNestedRecordStore(context);
-            recordStore.deleteAllRecords();
             recordStore.saveRecord(createVersionedCalendarEvent("ev1", 1, 1));
             recordStore.saveRecord(createVersionedCalendarEvent("ev2", 1, 2));
             recordStore.saveRecord(createVersionedCalendarEvent("ev3", 2, 4));
@@ -518,7 +514,6 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         };
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
-            recordStore.deleteAllRecords();
 
             saveHeaderRecord(1, "a", 0, "able");
             saveHeaderRecord(2, "a", 3, "baker");

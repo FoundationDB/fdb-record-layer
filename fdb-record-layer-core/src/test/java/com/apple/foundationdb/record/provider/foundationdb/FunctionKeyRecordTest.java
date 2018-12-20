@@ -72,7 +72,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
     private void openRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords8Proto.getDescriptor());
         hook.apply(metaData);
-        createRecordStore(context, metaData.getRecordMetaData());
+        createOrOpenRecordStore(context, metaData.getRecordMetaData());
     }
 
     @Test
@@ -86,7 +86,6 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         // Create some records
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             for (int i = 0; i < 5; i++) {
                 recordStore.saveRecord(TestRecords8Proto.StringRecordId.newBuilder()
                         .setRecId("/s" + i + ":foo_" + i)
@@ -301,7 +300,6 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         // Create some records
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            recordStore.deleteAllRecords();
             for (int i = 0; i < 5; i++) {
                 TestRecords8Proto.StringRecordId.Builder builder =
                         TestRecords8Proto.StringRecordId.newBuilder()
