@@ -541,6 +541,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 throw new MetaDataException("Union field " + unionField.getName() +
                                             " is not a message");
             }
+            if (unionField.isRepeated()) {
+                throw new MetaDataException("Union field " + unionField.getName() +
+                                            " should not be repeated");
+            }
             Descriptors.Descriptor descriptor = unionField.getMessageType();
             if (!unionFields.containsKey(descriptor)) {
                 RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()

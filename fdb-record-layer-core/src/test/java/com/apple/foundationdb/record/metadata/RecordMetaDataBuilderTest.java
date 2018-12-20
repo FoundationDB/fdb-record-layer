@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecordsBadUnion1Proto;
+import com.apple.foundationdb.record.TestRecordsBadUnion2Proto;
 import com.apple.foundationdb.record.TestRecordsChained1Proto;
 import com.apple.foundationdb.record.TestRecordsUnsigned1Proto;
 import com.apple.foundationdb.record.TestRecordsUnsigned2Proto;
@@ -52,7 +54,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link RecordMetaDataBuilder}.
@@ -136,36 +137,21 @@ public class RecordMetaDataBuilderTest {
 
     @Test
     public void unsignedFields() {
-        try {
-            RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned1Proto.getDescriptor());
-            fail("Did not throw exception for TestRecordsUnsigned1Proto");
-        } catch (MetaDataException e) {
-            assertEquals("Field unsigned_rec_no in message com.apple.foundationdb.record.unsigned.SimpleUnsignedRecord has illegal unsigned type UINT64", e.getMessage());
-        }
-        try {
-            RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned2Proto.getDescriptor());
-            fail("Did not throw exception for TestRecordsUnsigned2Proto");
-        } catch (MetaDataException e) {
-            assertEquals("Field unsigned_field in message com.apple.foundationdb.record.unsigned.NestedWithUnsigned has illegal unsigned type UINT32", e.getMessage());
-        }
-        try {
-            RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned3Proto.getDescriptor());
-            fail("Did not throw exception for TestRecordsUnsigned3Proto");
-        } catch (MetaDataException e) {
-            assertEquals("Field unsigned_field in message com.apple.foundationdb.record.unsigned.Fixed32UnsignedRecord has illegal unsigned type FIXED32", e.getMessage());
-        }
-        try {
-            RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned4Proto.getDescriptor());
-            fail("Did not throw exception for TestRecordsUnsigned4Proto");
-        } catch (MetaDataException e) {
-            assertEquals("Field unsigned_field in message com.apple.foundationdb.record.unsigned.Fixed64UnsignedRecord has illegal unsigned type FIXED64", e.getMessage());
-        }
-        try {
-            RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned5Proto.getDescriptor());
-            fail("Did not throw exception for TestRecordsUnsigned5Proto");
-        } catch (MetaDataException e) {
-            assertEquals("Field unsigned_rec_no in message com.apple.foundationdb.record.unsigned.SimpleUnsignedRecord has illegal unsigned type UINT64", e.getMessage());
-        }
+        Throwable t = assertThrows(MetaDataException.class, () ->
+                RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned1Proto.getDescriptor()));
+        assertEquals("Field unsigned_rec_no in message com.apple.foundationdb.record.unsigned.SimpleUnsignedRecord has illegal unsigned type UINT64", t.getMessage());
+        t = assertThrows(MetaDataException.class, () ->
+                RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned2Proto.getDescriptor()));
+        assertEquals("Field unsigned_field in message com.apple.foundationdb.record.unsigned.NestedWithUnsigned has illegal unsigned type UINT32", t.getMessage());
+        t = assertThrows(MetaDataException.class, () ->
+                RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned3Proto.getDescriptor()));
+        assertEquals("Field unsigned_field in message com.apple.foundationdb.record.unsigned.Fixed32UnsignedRecord has illegal unsigned type FIXED32", t.getMessage());
+        t = assertThrows(MetaDataException.class, () ->
+                RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned4Proto.getDescriptor()));
+        assertEquals("Field unsigned_field in message com.apple.foundationdb.record.unsigned.Fixed64UnsignedRecord has illegal unsigned type FIXED64", t.getMessage());
+        t = assertThrows(MetaDataException.class, () ->
+                RecordMetaData.newBuilder().setRecords(TestRecordsUnsigned5Proto.getDescriptor()));
+        assertEquals("Field unsigned_rec_no in message com.apple.foundationdb.record.unsigned.SimpleUnsignedRecord has illegal unsigned type UINT64", t.getMessage());
     }
 
     @Test
@@ -227,5 +213,15 @@ public class RecordMetaDataBuilderTest {
         t = assertThrows(MetaDataException.class, () ->
                 builder.getRecordMetaData().getIndex("MySimpleRecord$testIndex"));
         assertEquals("Index MySimpleRecord$testIndex not defined", t.getMessage());
+    }
+
+    @Test
+    public void badUnionFields() {
+        Throwable t = assertThrows(MetaDataException.class, () ->
+                RecordMetaData.newBuilder().setRecords(TestRecordsBadUnion1Proto.getDescriptor()));
+        assertEquals("Union field not_a_record is not a message", t.getMessage());
+        t = assertThrows(MetaDataException.class, () ->
+                RecordMetaData.newBuilder().setRecords(TestRecordsBadUnion2Proto.getDescriptor()));
+        assertEquals("Union field _MySimpleRecord should not be repeated", t.getMessage());
     }
 }
