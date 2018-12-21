@@ -299,12 +299,26 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        if (cursorStates.stream().anyMatch(cursorState -> !cursorState.hasNext) && !getNoNextReason().isOutOfBand()
-                && cursorStates.stream().anyMatch(cursorState -> cursorState.continuation == null)) {
+
+        // A CursorState can have a null continuation for one of two reasons:
+        //
+        // 1. Its cursor has been exhausted.
+        // 2. The intersection cursor has not "consumed" that cursor yet.
+        //
+        // If any child has been exhausted, then the intersection cursor should return a null (i.e., exhausted)
+        // continuation as it will never return any more results. If the cursor state hasn't been consumed yet
+        // (which can happen if the first element of that cursor compares greater than all elements seen from
+        // other cursors), then the correct behavior is to restart that child from the beginning on subsequent
+        // runs of this intersection cursor, so the corresponding entry in the continuation proto is marked as
+        // not "started" for that child.
+
+        if (cursorStates.stream().anyMatch(cursorState -> !cursorState.hasNext && cursorState.cursor.getNoNextReason().isSourceExhausted())) {
             // one of the children have actually stopped, so the intersection will have no more records
             return null;
         }
 
+        // From here below, any null child-state continuation is null because it hasn't been consumed, not because
+        // it is exhausted.
         final RecordCursorProto.IntersectionContinuation.Builder builder = RecordCursorProto.IntersectionContinuation.newBuilder();
         final Iterator<CursorState<T>> cursorStateIterator = cursorStates.iterator();
         // First two cursors are handled differently (essentially for compatibility reasons)

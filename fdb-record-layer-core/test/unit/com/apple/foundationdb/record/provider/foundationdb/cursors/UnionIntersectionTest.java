@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -148,7 +150,7 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
 
     @Test
     public void intersectionReasons() throws Exception {
-        final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> left = continuation -> scanRecordsBetween(10L, 20L, continuation);
+        final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> left = continuation -> scanRecordsBetween(7L, 20L, continuation);
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> leftLimited = left.andThen(cursor -> new RecordCursorTest.FakeOutOfBandCursor<>(cursor, 3));
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> right = continuation -> scanRecordsBetween(12L, 15L, continuation);
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> rightLimited = right.andThen(cursor -> new RecordCursorTest.FakeOutOfBandCursor<>(cursor, 2));
@@ -157,6 +159,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
             FDBEvaluationContext<Message> evaluationContext = recordStore.emptyEvaluationContext();
 
             RecordCursor<FDBStoredRecord<Message>> cursor = IntersectionCursor.create(evaluationContext, comparisonKey, false, leftLimited, right, null);
+            assertEquals(Collections.emptyList(), cursor.map(this::storedRecordRecNo).asList().get());
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
+            cursor = IntersectionCursor.create(evaluationContext, comparisonKey, false, leftLimited, right, cursor.getContinuation());
             assertEquals(Arrays.asList(12L), cursor.map(this::storedRecordRecNo).asList().get());
             assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
             cursor = IntersectionCursor.create(evaluationContext, comparisonKey, false, left, rightLimited, cursor.getContinuation());
@@ -166,6 +171,32 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
             assertEquals(Collections.emptyList(), cursor.map(this::storedRecordRecNo).asList().get());
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
         }
+    }
+
+    @Test
+    public void nonIntersectingReasons() {
+        final List<Integer> leftList = Arrays.asList(0, 2, 4, 6);
+        final Function<byte[], RecordCursor<Integer>> left = continuation -> RecordCursor.fromList(leftList, continuation).limitRowsTo(1);
+        final List<Integer> rightList = Arrays.asList(1, 3, 5, 7);
+        final Function<byte[], RecordCursor<Integer>> right = continuation -> RecordCursor.fromList(rightList, continuation).limitRowsTo(1);
+
+        FDBStoreTimer timer = new FDBStoreTimer();
+        boolean done = false;
+        byte[] continuation = null;
+        List<Integer> results = new ArrayList<>();
+        while (!done) {
+            IntersectionCursor<Integer> intersectionCursor = IntersectionCursor.create(Collections::singletonList, false, left, right, continuation, timer);
+            while (intersectionCursor.hasNext()) {
+                results.add(intersectionCursor.next());
+            }
+            done = intersectionCursor.getNoNextReason().isSourceExhausted();
+            continuation = intersectionCursor.getContinuation();
+            if (!done) {
+                assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, intersectionCursor.getNoNextReason());
+            }
+        }
+        assertEquals(Collections.emptyList(), results);
+        System.out.println(timer.getKeysAndValues());
     }
 
     @Test
