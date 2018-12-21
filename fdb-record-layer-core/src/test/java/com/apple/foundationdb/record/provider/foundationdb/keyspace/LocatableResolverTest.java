@@ -97,7 +97,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 public abstract class LocatableResolverTest {
     protected FDBDatabase database;
     protected LocatableResolver globalScope;
-    protected Function<KeySpacePath, LocatableResolver> scopedDirectoryGenerator;
+    protected BiFunction<FDBRecordContext, KeySpacePath, LocatableResolver> scopedDirectoryGenerator;
     protected Function<FDBDatabase, LocatableResolver> globalScopeGenerator;
     protected Random random;
 
@@ -123,7 +123,7 @@ public abstract class LocatableResolverTest {
 
         FDBRecordContext context = database.openContext();
         KeySpacePath path1 = keySpace.pathFromKey(context, Tuple.from("path"));
-        LocatableResolver resolver = scopedDirectoryGenerator.apply(path1);
+        LocatableResolver resolver = scopedDirectoryGenerator.apply(context, path1);
 
         Long value = resolver.resolve(context.getTimer(), "foo").join();
 
@@ -149,9 +149,9 @@ public abstract class LocatableResolverTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath path1 = keySpace.pathFromKey(context, Tuple.from("path", "to", "dirLayer1"));
             KeySpacePath path2 = keySpace.pathFromKey(context, Tuple.from("path", "to", "dirLayer2"));
-            LocatableResolver resolver = scopedDirectoryGenerator.apply(path1);
-            LocatableResolver sameResolver = scopedDirectoryGenerator.apply(path1);
-            LocatableResolver differentResolver = scopedDirectoryGenerator.apply(path2);
+            LocatableResolver resolver = scopedDirectoryGenerator.apply(context, path1);
+            LocatableResolver sameResolver = scopedDirectoryGenerator.apply(context, path1);
+            LocatableResolver differentResolver = scopedDirectoryGenerator.apply(context, path2);
 
             List<String> names = ImmutableList.of("a", "set", "of", "names", "to", "resolve");
             List<Long> resolved = new ArrayList<>();
@@ -176,7 +176,7 @@ public abstract class LocatableResolverTest {
 
         FDBRecordContext context = database.openContext();
         final KeySpacePath path1 = keySpace.pathFromKey(context, Tuple.from("path1"));
-        final LocatableResolver resolver1 = scopedDirectoryGenerator.apply(path1);
+        final LocatableResolver resolver1 = scopedDirectoryGenerator.apply(context, path1);
 
         Cache<ScopedValue<String>, Long> cache = CacheBuilder.newBuilder().build();
         cache.put(resolver1.wrap("stuff"), 1L);
@@ -187,11 +187,11 @@ public abstract class LocatableResolverTest {
                 cache.getIfPresent(resolver1.wrap("missing")), equalTo(null));
 
         final KeySpacePath path2 = keySpace.pathFromKey(context, Tuple.from("path2"));
-        final LocatableResolver resolver2 = scopedDirectoryGenerator.apply(path2);
+        final LocatableResolver resolver2 = scopedDirectoryGenerator.apply(context, path2);
         assertThat("cache misses when string is not in this scope",
                 cache.getIfPresent(resolver2.wrap("stuff")), equalTo(null));
 
-        final LocatableResolver newResolver = scopedDirectoryGenerator.apply(path1);
+        final LocatableResolver newResolver = scopedDirectoryGenerator.apply(context, path1);
         assertThat("scoping is determined by value of scope directory, not a reference to it",
                 cache.getIfPresent(newResolver.wrap("stuff")), is(1L));
     }
@@ -469,13 +469,12 @@ public abstract class LocatableResolverTest {
 
         LocatableResolver resolver1;
         LocatableResolver resolver2;
-        try (FDBRecordContext context = database.openContext()) {
-            resolver1 = scopedDirectoryGenerator.apply(keySpace.path(context, "resolver1"));
-            resolver2 = scopedDirectoryGenerator.apply(keySpace.path(context, "resolver2"));
-        }
 
         FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = database.openContext()) {
+            resolver1 = scopedDirectoryGenerator.apply(context, keySpace.path("resolver1"));
+            resolver2 = scopedDirectoryGenerator.apply(context, keySpace.path("resolver2"));
+
             context.setTimer(timer);
             for (int i = 0; i < 10; i++) {
                 resolver1.getVersion(context.getTimer()).join();
@@ -489,7 +488,7 @@ public abstract class LocatableResolverTest {
             resolver2.getVersion(context.getTimer()).join();
             assertThat("We have to read the value for the new resolver", timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(1));
 
-            LocatableResolver newResolver1 = scopedDirectoryGenerator.apply(keySpace.path(context, "resolver1"));
+            LocatableResolver newResolver1 = scopedDirectoryGenerator.apply(context, keySpace.path("resolver1"));
             timer = new FDBStoreTimer();
             assertThat("count is reset", timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(0));
 
@@ -721,10 +720,10 @@ public abstract class LocatableResolverTest {
         final LocatableResolver path1Resolver;
         final LocatableResolver path2Resolver;
         try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath path1 = keySpace.path(context, "path1");
-            KeySpacePath path2 = keySpace.path(context, "path2");
-            path1Resolver = scopedDirectoryGenerator.apply(path1);
-            path2Resolver = scopedDirectoryGenerator.apply(path2);
+            KeySpacePath path1 = keySpace.path("path1");
+            KeySpacePath path2 = keySpace.path("path2");
+            path1Resolver = scopedDirectoryGenerator.apply(context, path1);
+            path2Resolver = scopedDirectoryGenerator.apply(context, path2);
         }
 
         PreWriteCheck validCheck = (context, resolver) ->

@@ -40,6 +40,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * An implementation of {@link LocatableResolver} that uses a key format that is compatible with the {@link ScopedDirectoryLayer}
@@ -52,6 +53,10 @@ import java.util.function.Function;
 public class ExtendedDirectoryLayer extends LocatableResolver {
     private static final byte[] RESERVED_CONTENT_SUBSPACE_PREFIX = {(byte)0xFD};
     private static final int STATE_SUBSPACE_KEY_SUFFIX = -10;
+    private static final Subspace DEFAULT_BASE_SUBSPACE = new Subspace();
+    private static final Subspace DEFAULT_NODE_SUBSPACE = new Subspace(
+            Bytes.concat(DEFAULT_BASE_SUBSPACE.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey()));
+    private static final Subspace DEFAULT_CONTENT_SUBSPACE = DEFAULT_BASE_SUBSPACE;
     private final boolean isRootLevel;
     private final Subspace baseSubspace;
     private final Subspace nodeSubspace;
@@ -60,22 +65,45 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     private final String infoString;
     private final int hashCode;
 
+    /**
+     * Create an extended directory layer. This constructor utilizes blocking calls and should not
+     * be used in an asynchronous context.
+     *
+     * @param path the path at which the directory layer should store its mappings
+     * @deprecated Use {@link #ExtendedDirectoryLayer(FDBRecordContext, KeySpacePath)} instead
+     */
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     public ExtendedDirectoryLayer(@Nonnull KeySpacePath path) {
-        this(path.getContext().getDatabase(), path);
+        this(path.getContext(), path);
+    }
+
+    /**
+     * Create an extended directory layer. This constructor utilizes blocking calls and should not
+     * be used in an asynchronous context.
+     *
+     * @param context the context that will be used to resolve the provided path into the subspace at which
+     *   the directory layer will be created. This context is only used during the construction of the
+     *   this class is not subsequently used
+     * @param path the path at which the directory layer should store its mappings.
+     */
+    public ExtendedDirectoryLayer(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
+        this(context.getDatabase(), path, () -> path.toTuple(context));
     }
 
     private ExtendedDirectoryLayer(@Nonnull FDBDatabase database,
-                                   @Nullable KeySpacePath path) {
+                                   @Nullable KeySpacePath path,
+                                   @Nonnull Supplier<Tuple> pathTuple) {
         super(database, path);
         if (path == null) {
             this.isRootLevel = true;
-            this.baseSubspace = new Subspace();
-            this.nodeSubspace = new Subspace(Bytes.concat(baseSubspace.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey()));
-            this.contentSubspace = new Subspace();
+            this.baseSubspace = DEFAULT_BASE_SUBSPACE;
+            this.nodeSubspace = DEFAULT_NODE_SUBSPACE;
+            this.contentSubspace = DEFAULT_CONTENT_SUBSPACE;
             this.infoString = "ExtendedDirectoryLayer:GLOBAL";
         } else {
             this.isRootLevel = false;
-            this.baseSubspace = path.toSubspace();
+            this.baseSubspace = new Subspace(pathTuple.get());
             this.nodeSubspace = new Subspace(Bytes.concat(baseSubspace.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey()));
             this.contentSubspace = new Subspace(RESERVED_CONTENT_SUBSPACE_PREFIX);
             this.infoString = "ExtendedDirectoryLayer:" + path.toString();
@@ -92,7 +120,7 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
      * @return The global <code>ExtendedDirectoryLayer</code> for this database
      */
     public static ExtendedDirectoryLayer global(@Nonnull FDBDatabase database) {
-        return new ExtendedDirectoryLayer(database, null);
+        return new ExtendedDirectoryLayer(database, null, () -> null);
     }
 
     @Override
@@ -173,8 +201,8 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
     private HighContentionAllocator getHca(@Nonnull FDBRecordContext context) {
         return isRootLevel ?
-               HighContentionAllocator.forRoot(context.ensureActive(), getCounterSubspace(), getAllocationSubspace()) :
-               new HighContentionAllocator(context.ensureActive(), getCounterSubspace(), getAllocationSubspace());
+               HighContentionAllocator.forRoot(context, getCounterSubspace(), getAllocationSubspace()) :
+               new HighContentionAllocator(context, getCounterSubspace(), getAllocationSubspace());
     }
 
     @Override

@@ -1686,9 +1686,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         Subspace expectedSubspace;
         Subspace metaDataSubspace;
         try (FDBRecordContext context = fdb.openContext()) {
-            metaDataPath = TestKeySpace.getKeyspacePath(context, metaDataPathObjects);
-            expectedSubspace = new Subspace(path.toTuple());
-            metaDataSubspace = new Subspace(metaDataPath.toTuple());
+            metaDataPath = TestKeySpace.getKeyspacePath(metaDataPathObjects);
+            expectedSubspace = path.toSubspace(context);
+            metaDataSubspace = metaDataPath.toSubspace(context);
             context.ensureActive().clear(Range.startsWith(metaDataSubspace.pack()));
             context.commit();
         }

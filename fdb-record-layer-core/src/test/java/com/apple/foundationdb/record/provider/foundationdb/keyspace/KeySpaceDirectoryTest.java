@@ -213,14 +213,12 @@ public class KeySpaceDirectoryTest {
 
     @Test
     public void testBadDirectoryLayerTypes() throws Exception {
-        for (KeyType keyType : KeyType.values()) {
-            for (KeyTypeValue keyTypeValue : valueOfEveryType) {
-                if (! (keyTypeValue.keyType == KeyType.STRING)) {
-                    assertThrows(RecordCoreArgumentException.class, () ->
-                            new KeySpace(new DirectoryLayerDirectory("root", keyTypeValue.value)));
-                } else {
-                    new KeySpace(new DirectoryLayerDirectory("root", keyTypeValue.value));
-                }
+        for (KeyTypeValue keyTypeValue : valueOfEveryType) {
+            if (! (keyTypeValue.keyType == KeyType.STRING)) {
+                assertThrows(RecordCoreArgumentException.class, () ->
+                        new KeySpace(new DirectoryLayerDirectory("root", keyTypeValue.value)));
+            } else {
+                new KeySpace(new DirectoryLayerDirectory("root", keyTypeValue.value));
             }
         }
     }
@@ -278,21 +276,22 @@ public class KeySpaceDirectoryTest {
                                         .addSubdirectory(new KeySpaceDirectory("dataStore", KeyType.NULL))
                                         .addSubdirectory(new DirectoryLayerDirectory("metadataStore", "S")))));
 
+        final KeySpacePath path1 = root.path("production")
+                .add("userid", 123456789L)
+                .add("application", "com.mybiz.application1")
+                .add("dataStore");
+
+        final KeySpacePath path2 = root.path("test")
+                .add("userid", 987654321L)
+                .add("application", "com.mybiz.application2")
+                .add("metadataStore");
+
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         final Tuple path1Tuple;
         final Tuple path2Tuple;
         try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath path1 = root.path(context, "production")
-                    .add("userid", 123456789L)
-                    .add("application", "com.mybiz.application1")
-                    .add("dataStore");
-            path1Tuple = path1.toTuple();
-
-            KeySpacePath path2 = root.path(context, "test")
-                    .add("userid", 987654321L)
-                    .add("application", "com.mybiz.application2")
-                    .add("metadataStore");
-            path2Tuple = path2.toTuple();
+            path1Tuple = path1.toTuple(context);
+            path2Tuple = path2.toTuple(context);
             context.commit();
         }
 
@@ -308,24 +307,24 @@ public class KeySpaceDirectoryTest {
             assertEquals(path2ExpectedTuple, path2Tuple);
 
             // Now, make sure that we can take a tuple and turn it back into a keyspace path.
-            List<KeySpacePath> path1 = root.pathFromKey(context, path1ExpectedTuple).flatten();
-            assertEquals("production", path1.get(0).getDirectoryName());
-            assertEquals(entries.get(0), path1.get(0).getResolvedValue().get());
-            assertEquals("userid", path1.get(1).getDirectoryName());
-            assertEquals(123456789L, path1.get(1).getResolvedValue().get());
-            assertEquals("application", path1.get(2).getDirectoryName());
-            assertEquals(entries.get(2), path1.get(2).getResolvedValue().get());
-            assertEquals("dataStore", path1.get(3).getDirectoryName());
-            assertEquals(null, path1.get(3).getResolvedValue().get());
+            List<KeySpacePath> revPath1 = root.pathFromKey(context, path1ExpectedTuple).flatten();
+            assertEquals("production", revPath1.get(0).getDirectoryName());
+            assertEquals(entries.get(0), revPath1.get(0).resolveAsync(context).get().getResolvedValue());
+            assertEquals("userid", revPath1.get(1).getDirectoryName());
+            assertEquals(123456789L, revPath1.get(1).resolveAsync(context).get().getResolvedValue());
+            assertEquals("application", revPath1.get(2).getDirectoryName());
+            assertEquals(entries.get(2), revPath1.get(2).resolveAsync(context).get().getResolvedValue());
+            assertEquals("dataStore", revPath1.get(3).getDirectoryName());
+            assertEquals(null, revPath1.get(3).resolveAsync(context).get().getResolvedValue());
 
             // Tack on extra value to make sure it is in the remainder.
             Tuple extendedPath2 = path2ExpectedTuple.add(10L);
-            List<KeySpacePath> path2 = root.pathFromKey(context, extendedPath2).flatten();
-            assertEquals("test", path2.get(0).getDirectoryName());
-            assertEquals("userid", path2.get(1).getDirectoryName());
-            assertEquals("application", path2.get(2).getDirectoryName());
-            assertEquals("metadataStore", path2.get(3).getDirectoryName());
-            assertEquals(Tuple.from(10L), path2.get(3).getRemainder());
+            List<KeySpacePath> revPath2 = root.pathFromKey(context, extendedPath2).flatten();
+            assertEquals("test", revPath2.get(0).getDirectoryName());
+            assertEquals("userid", revPath2.get(1).getDirectoryName());
+            assertEquals("application", revPath2.get(2).getDirectoryName());
+            assertEquals("metadataStore", revPath2.get(3).getDirectoryName());
+            assertEquals(Tuple.from(10L), revPath2.get(3).getRemainder());
         }
     }
 
@@ -339,14 +338,14 @@ public class KeySpaceDirectoryTest {
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext context = database.openContext()) {
             // Building a tuple in the correct order works
-            Tuple tuple = root.path(context,"root")
+            Tuple tuple = root.path("root")
                     .add("a", "foo")
-                    .add("b", "bar").toTuple();
+                    .add("b", "bar").toTuple(context);
             assertEquals(Tuple.from("production", "foo", "bar"), tuple);
 
             // Walking in the wrong order fails
             assertThrows(NoSuchDirectoryException.class,
-                    () -> root.path(context,"root").add("b", "foo").add("a", "bar").toTuple());
+                    () -> root.path("foo").add("a", "bar").toTuple(context));
         }
     }
 
@@ -366,11 +365,11 @@ public class KeySpaceDirectoryTest {
                 // Test that we can set a good type and get the right tuple back
                 final Object value = kv.generator.get();
                 assertEquals(Tuple.from(1L, value),
-                        root.path(context, "root").add(kv.keyType.toString(), value).toTuple());
+                        root.path("root").add(kv.keyType.toString(), value).toTuple(context));
 
                 final Object badValue = pickDifferentType(kv.keyType).generator.get();
                 assertThrows(RecordCoreArgumentException.class,
-                        () -> root.path(context, "root").add(kv.keyType.toString(), badValue).toTuple());
+                        () -> root.path("root").add(kv.keyType.toString(), badValue).toTuple(context));
             }
         }
     }
@@ -398,20 +397,20 @@ public class KeySpaceDirectoryTest {
             // Test all constants that match the ones we created with
             for (KeyTypeValue kv : valueOfEveryType) {
                 assertEquals(Tuple.from(1L, kv.value),
-                        root.path(context, "root").add(kv.keyType.toString()).toTuple());
+                        root.path("root").add(kv.keyType.toString()).toTuple(context));
                 assertEquals(Tuple.from(1L, kv.value),
-                        root.path(context, "root").add(kv.keyType.toString(), kv.value).toTuple());
+                        root.path("root").add(kv.keyType.toString(), kv.value).toTuple(context));
 
                 // Try a different value of the same type and make sure that fails
                 if (kv.keyType != KeyType.NULL) {
                     assertThrows(RecordCoreArgumentException.class,
-                            () -> root.path(context, "root").add(kv.keyType.toString(), kv.value2).toTuple());
+                            () -> root.path("root").add(kv.keyType.toString(), kv.value2).toTuple(context));
                 }
 
                 // Try a completely different type and make sure that fails
                 final Object badValue = pickDifferentType(kv.keyType).generator.get();
                 assertThrows(RecordCoreArgumentException.class,
-                        () -> root.path(context, "root").add(kv.keyType.toString(), badValue).toTuple());
+                        () -> root.path("root").add(kv.keyType.toString(), badValue).toTuple(context));
             }
         }
 
@@ -426,17 +425,17 @@ public class KeySpaceDirectoryTest {
         final Tuple senetTuple;
         final Tuple urTuple;
         try (FDBRecordContext context = database.openContext()) {
-            senetTuple = root.path(context, "cabinet").add("game", "senet").toTuple();
-            urTuple = root.path(context, "cabinet").add("game", "royal_game_of_ur").toTuple();
+            senetTuple = root.path("cabinet").add("game", "senet").toTuple(context);
+            urTuple = root.path("cabinet").add("game", "royal_game_of_ur").toTuple(context);
             context.commit();
         }
 
         try (FDBRecordContext context = database.openContext()) {
             // Verify that I can create the tuple again using the directory layer values.
-            assertEquals(senetTuple, root.path(context, "cabinet")
-                    .add("game", senetTuple.getLong(1)).toTuple());
-            assertEquals(urTuple, root.path(context, "cabinet")
-                    .add("game", urTuple.getLong(1)).toTuple());
+            assertEquals(senetTuple, root.path("cabinet")
+                    .add("game", senetTuple.getLong(1)).toTuple(context));
+            assertEquals(urTuple, root.path("cabinet")
+                    .add("game", urTuple.getLong(1)).toTuple(context));
         }
     }
 
@@ -451,27 +450,27 @@ public class KeySpaceDirectoryTest {
         final Tuple teachersTuple;
         final Tuple studentsTuple;
         try (FDBRecordContext context = database.openContext()) {
-            teachersTuple = root.path(context, "school").add("school_name", "Football Tech").add("teachers").toTuple();
-            studentsTuple = root.path(context, "school").add("school_name", "Football Tech").add("students").toTuple();
+            teachersTuple = root.path("school").add("school_name", "Football Tech").add("teachers").toTuple(context);
+            studentsTuple = root.path("school").add("school_name", "Football Tech").add("students").toTuple(context);
             context.commit();
         }
 
         try (FDBRecordContext context = database.openContext()) {
             // Use the wrong directory layer value for the students and teachers
             assertThrows(RecordCoreArgumentException.class,
-                    () -> root.path(context, "school")
+                    () -> root.path("school")
                             .add("school_name", "Football Tech")
-                            .add("teachers", studentsTuple.getLong(1)).toTuple());
+                            .add("teachers", studentsTuple.getLong(1)).toTuple(context));
             assertThrows(RecordCoreArgumentException.class,
-                    () -> root.path(context, "school")
+                    () -> root.path("school")
                             .add("school_name", "Football Tech")
-                            .add("students", teachersTuple.getLong(1)).toTuple());
+                            .add("students", teachersTuple.getLong(1)).toTuple(context));
 
             // Use a value that does not exist in the directory layer as the school name.
             assertThrows(NoSuchElementException.class,
-                    () -> root.path(context, "school")
+                    () -> root.path("school")
                             .add("school_name", -746464638L)
-                            .add("teachers").toTuple());
+                            .add("teachers").toTuple(context));
         }
     }
 
@@ -484,15 +483,15 @@ public class KeySpaceDirectoryTest {
         try (FDBRecordContext context = database.openContext()) {
             String dir1 = "test-string-" + random.nextInt();
             String dir2 = "test-string-" + random.nextInt();
-            KeySpacePath path1 = root.path(context, testRoot).add("dir_with_metadata_name", dir1);
-            KeySpacePath path2 = root.path(context, testRoot).add("dir_with_metadata_name", dir2);
+            KeySpacePath path1 = root.path(testRoot).add("dir_with_metadata_name", dir1);
+            KeySpacePath path2 = root.path(testRoot).add("dir_with_metadata_name", dir2);
 
             assertThat("path gets wrapped", path1, is(instanceOf(DirWithMetadataWrapper.class)));
             assertThat("path gets wrapped", path2, is(instanceOf(DirWithMetadataWrapper.class)));
             DirWithMetadataWrapper wrapped1 = (DirWithMetadataWrapper) path1;
             DirWithMetadataWrapper wrapped2 = (DirWithMetadataWrapper) path2;
-            assertArrayEquals(wrapped1.metadata().join(), Tuple.from(dir1, dir1.length()).pack());
-            assertArrayEquals(wrapped2.metadata().join(), Tuple.from(dir2, dir2.length()).pack());
+            assertArrayEquals(wrapped1.metadata(context).join(), Tuple.from(dir1, dir1.length()).pack());
+            assertArrayEquals(wrapped2.metadata(context).join(), Tuple.from(dir2, dir2.length()).pack());
         }
     }
 
@@ -505,18 +504,18 @@ public class KeySpaceDirectoryTest {
         Tuple tuple;
         String dir = "test-string-" + random.nextInt();
         try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath path1 = root.path(context, testRoot).add("dir_with_metadata_name", dir);
-            tuple = path1.toTuple();
+            KeySpacePath path1 = root.path(testRoot).add("dir_with_metadata_name", dir);
+            tuple = path1.toTuple(context);
             context.ensureActive().set(tuple.pack(), Tuple.from(0).pack());
 
             DirWithMetadataWrapper wrapped = (DirWithMetadataWrapper) path1;
-            assertArrayEquals(wrapped.metadata().join(), DirWithMetadataWrapper.metadataHook(dir));
+            assertArrayEquals(wrapped.metadata(context).join(), DirWithMetadataWrapper.metadataHook(dir));
             context.commit();
         }
 
         try (FDBRecordContext context = database.openContext()) {
             DirWithMetadataWrapper fromPath = (DirWithMetadataWrapper) root.pathFromKey(context, tuple);
-            assertArrayEquals(fromPath.metadata().join(), DirWithMetadataWrapper.metadataHook(dir));
+            assertArrayEquals(fromPath.metadata(context).join(), DirWithMetadataWrapper.metadataHook(dir));
         }
     }
 
@@ -529,10 +528,10 @@ public class KeySpaceDirectoryTest {
         database.setResolverStateRefreshTimeMillis(100);
         String dir = "test-string-" + random.nextInt();
         try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath path1 = root.path(context, testRoot).add("dir_with_metadata_name", dir);
+            KeySpacePath path1 = root.path(testRoot).add("dir_with_metadata_name", dir);
 
             DirWithMetadataWrapper wrapped = (DirWithMetadataWrapper) path1;
-            assertThat("there's no metadata", wrapped.metadata().join(), is(nullValue()));
+            assertThat("there's no metadata", wrapped.metadata(context).join(), is(nullValue()));
         }
 
         try (FDBRecordContext context = database.openContext()) {
@@ -543,8 +542,8 @@ public class KeySpaceDirectoryTest {
 
         eventually("we see the new metadata for the path", () -> {
             try (FDBRecordContext context = database.openContext()) {
-                KeySpacePath path1 = root.path(context, testRoot).add("dir_with_metadata_name", dir);
-                return ((DirWithMetadataWrapper) path1).metadata().join();
+                KeySpacePath path1 = root.path(testRoot).add("dir_with_metadata_name", dir);
+                return ((DirWithMetadataWrapper) path1).metadata(context).join();
             }
         }, is(Tuple.from("new-metadata").pack()), 120, 10);
     }
@@ -553,7 +552,7 @@ public class KeySpaceDirectoryTest {
         String tmpDirLayer = "tmp-dir-layer-" + random.nextLong();
         KeySpace dirLayerKeySpace = new KeySpace(new KeySpaceDirectory(tmpDirLayer, KeyType.STRING, tmpDirLayer));
         return context ->
-                CompletableFuture.completedFuture(new ScopedInterningLayer(dirLayerKeySpace.path(context, tmpDirLayer)));
+                CompletableFuture.completedFuture(new ScopedInterningLayer(context, dirLayerKeySpace.path(tmpDirLayer)));
     }
 
     private KeySpace rootForMetadataTests(String name,
@@ -572,7 +571,7 @@ public class KeySpaceDirectoryTest {
                         .addSubdirectory(new DirectoryLayerDirectory("dir_with_metadata_name", DirWithMetadataWrapper::new, generator, hooks))
         );
 
-        database.run(context -> root.path(context, name).deleteAllDataAsync());
+        database.run(context -> root.path(name).deleteAllDataAsync(context));
         return root;
     }
 
@@ -585,8 +584,8 @@ public class KeySpaceDirectoryTest {
             return Tuple.from(schoolName, schoolName.length()).pack();
         }
 
-        CompletableFuture<byte[]> metadata() {
-            return inner.getResolvedPathMetadata();
+        CompletableFuture<byte[]> metadata(@Nonnull FDBRecordContext context) {
+            return inner.resolveAsync(context).thenApply(PathValue::getMetadata);
         }
     }
 
@@ -600,9 +599,9 @@ public class KeySpaceDirectoryTest {
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext context = database.openContext()) {
             assertEquals(Tuple.from(1L, "val15"),
-                    root.path(context, "root").add("toString", 15).toTuple());
+                    root.path("root").add("toString", 15).toTuple(context));
             assertThrows(RecordCoreArgumentException.class,
-                    () -> root.path(context,"root").add("toWrongType", 21L).toTuple());
+                    () -> root.path("root").add("toWrongType", 21L).toTuple(context));
         }
     }
 
@@ -617,11 +616,11 @@ public class KeySpaceDirectoryTest {
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext context = database.openContext()) {
             Tuple tuple = Tuple.from(1L, "a");
-            assertEquals(tuple, root.pathFromKey(context, tuple).toTuple());
+            assertEquals(tuple, root.pathFromKey(context, tuple).toTuple(context));
             tuple = Tuple.from(1L, "b");
-            assertEquals(tuple, root.pathFromKey(context, tuple).toTuple());
+            assertEquals(tuple, root.pathFromKey(context, tuple).toTuple(context));
             final Tuple badTuple1 = Tuple.from(1L, "c", "d");
-            assertThrows(RecordCoreArgumentException.class, () -> root.pathFromKey(context, badTuple1).toTuple(),
+            assertThrows(RecordCoreArgumentException.class, () -> root.pathFromKey(context, badTuple1).toTuple(context),
                     "key_tuple", badTuple1,
                     "key_tuple_pos", 1);
         }
@@ -653,14 +652,9 @@ public class KeySpaceDirectoryTest {
             assertEquals("/root:14/dir3:4/dir4:" + barValue + "->_bar", root.pathFromKey(context, Tuple.from(14L, 4L, barValue)).toString());
 
             assertEquals("/root:11/dir3:17/dir4:" + fooValue,
-                    root.path(context, "root", 11L)
+                    root.path("root", 11L)
                             .add("dir3", 17L)
                             .add("dir4", fooValue).toString());
-            KeySpacePath path = root.path(context, "root", 11L)
-                            .add("dir3", 17L).add("dir4", "_foo");
-            // path.toTuple() forces the directory layer value to resolve
-            path.toTuple();
-            assertEquals("/root:11/dir3:17/dir4:" + fooValue + "->_foo", path.toString());
         }
     }
 
@@ -677,10 +671,10 @@ public class KeySpaceDirectoryTest {
         try (FDBRecordContext context = database.openContext()) {
             Transaction tr = context.ensureActive();
             for (int i = 0; i < 5; i++) {
-                tr.set(root.path(context, "a")
+                tr.set(root.path("a")
                         .add("b", "foo_" + i)
                         .add("c", "hi_" + i)
-                        .add("d", new byte[] { (byte) i } ).toTuple().pack(), Tuple.from(i).pack());
+                        .add("d", new byte[] { (byte) i } ).toTuple(context).pack(), Tuple.from(i).pack());
             }
             context.commit();
         }
@@ -698,7 +692,7 @@ public class KeySpaceDirectoryTest {
             assertThat("Remainder size of 'a'", paths.get(0).getRemainder().size(), is(3));
 
             // List from "b"
-            paths = root.path(context, "a").list("b");
+            paths = root.path("a").list(context, "b");
             assertThat("Number of paths in 'b'", paths.size(), is(5));
             for (KeySpacePath path : paths) {
                 assertThat("Listing of 'b' directory", path.getDirectoryName(), is("b"));
@@ -709,7 +703,7 @@ public class KeySpaceDirectoryTest {
             }
 
             // List from "c"
-            paths = root.path(context, "a").add("b", "foo_0").list("c");
+            paths = root.path("a").add("b", "foo_0").list(context, "c");
             assertThat("Number of paths in 'c'", paths.size(), is(1));
             for (KeySpacePath path  : paths) {
                 assertThat("Listing of 'c' directory", path.getDirectoryName(), is("c"));
@@ -719,13 +713,13 @@ public class KeySpaceDirectoryTest {
             }
 
             // List from "d"
-            paths = root.path(context, "a").add("b", "foo_0").add("c", "hi_0").list("d");
+            paths = root.path("a").add("b", "foo_0").add("c", "hi_0").list(context, "d");
             assertThat("Number of paths in 'd'", paths.size(), is(1));
             KeySpacePath path = paths.get(0);
             assertThat("Remainder of 'd'", path.getRemainder(), is((Tuple) null));
 
             // List from "e" (which has no data)
-            paths = root.path(context, "a").add("b", "foo_0").add("c", "hi_0").add("d", new byte[] { 0x00 }).list("e");
+            paths = root.path("a").add("b", "foo_0").add("c", "hi_0").add("d", new byte[] { 0x00 }).list(context, "e");
             assertThat("Number of paths in 'e'", paths.size(), is(0));
         }
     }
@@ -745,9 +739,9 @@ public class KeySpaceDirectoryTest {
         try (FDBRecordContext context = database.openContext()) {
             Transaction tr = context.ensureActive();
             for (int i = 0; i < 5; i++) {
-                tr.set(root.path(context, "root").add("dir1").add("dir1_1", i).toTuple().pack(), Tuple.from(i).pack());
-                tr.set(root.path(context, "root").add("dir2").add("dir2_1", i).toTuple().pack(), Tuple.from(i).pack());
-                tr.set(root.path(context, "root").add("dir3").add("dir3_1", i).toTuple().pack(), Tuple.from(i).pack());
+                tr.set(root.path("root").add("dir1").add("dir1_1", i).toTuple(context).pack(), Tuple.from(i).pack());
+                tr.set(root.path("root").add("dir2").add("dir2_1", i).toTuple(context).pack(), Tuple.from(i).pack());
+                tr.set(root.path("root").add("dir3").add("dir3_1", i).toTuple(context).pack(), Tuple.from(i).pack());
             }
             context.commit();
         }
@@ -755,17 +749,17 @@ public class KeySpaceDirectoryTest {
         try (FDBRecordContext context = database.openContext()) {
             // All directories hava data?
             for (int i = 1; i <= 3; i++) {
-                assertTrue(root.path(context, "root").add("dir" + i).hasData(), "dir" + i + " is empty!");
+                assertTrue(root.path("root").add("dir" + i).hasData(context), "dir" + i + " is empty!");
             }
             // Clear out dir2
-            root.path(context, "root").add("dir2").deleteAllData();
+            root.path("root").add("dir2").deleteAllData(context);
             context.commit();
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            assertTrue(root.path(context, "root").add("dir1").hasData(), "dir1 is empty!");
-            assertFalse(root.path(context, "root").add("dir2").hasData(), "dir2 has data!");
-            assertTrue(root.path(context, "root").add("dir3").hasData(), "dir3 is empty!");
+            assertTrue(root.path("root").add("dir1").hasData(context), "dir1 is empty!");
+            assertFalse(root.path("root").add("dir2").hasData(context), "dir2 has data!");
+            assertTrue(root.path("root").add("dir3").hasData(context), "dir3 is empty!");
         }
     }
 
@@ -808,9 +802,11 @@ public class KeySpaceDirectoryTest {
 
         try (FDBRecordContext context = database.openContext()) {
             for (KeyTypeValue kv : valueOfEveryType) {
-                List<Tuple> values = valuesForType.get(kv.keyType);
-                for (Pair<ValueRange<Object>, List<Tuple>> testCase : listRangeTestCases(values)) {
-                    testListRange(testCase.getLeft(), testCase.getRight(), context, root, kv.keyType);
+                if (kv.keyType != KeyType.NULL) {
+                    List<Tuple> values = valuesForType.get(kv.keyType);
+                    for (Pair<ValueRange<Object>, List<Tuple>> testCase : listRangeTestCases(values)) {
+                        testListRange(testCase.getLeft(), testCase.getRight(), context, root, kv.keyType);
+                    }
                 }
             }
         }
@@ -911,13 +907,13 @@ public class KeySpaceDirectoryTest {
                 "keyType", keyType).toString();
 
         List<KeySpacePath> paths = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
-                root.path(context, "a")
-                        .listAsync(keyType.toString(), range, null, ScanProperties.FORWARD_SCAN).asList());
+                root.path("a")
+                        .listAsync(context, keyType.toString(), range, null, ScanProperties.FORWARD_SCAN).asList());
 
         assertEquals(expectedValues.size(), paths.size(), "The result size does not match" + testCaseInfo);
 
         for (KeySpacePath path : paths) {
-            Tuple tuple = path.toTuple();
+            Tuple tuple = path.toTuple(context);
             assertTrue(expectedValues.remove(Tuple.from(tuple.get(1))), "missing: " + tuple.get(1) + testCaseInfo);
         }
 
@@ -938,15 +934,16 @@ public class KeySpaceDirectoryTest {
 
         try (FDBRecordContext context = database.openContext()) {
             // Positive example.
-            root.path(context, rootDir)
-                    .listAsync(stringDir,
+            root.path(rootDir)
+                    .list(context, stringDir,
                             new ValueRange<>("A", "B", EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
                             null,
                             ScanProperties.FORWARD_SCAN);
 
             // The range value should be in the same type.
             assertThrows(RecordCoreArgumentException.class, () ->
-                    root.path(context, rootDir).listAsync(
+                    root.path(rootDir).list(
+                            context,
                             stringDir,
                             new ValueRange<>(100, 200, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
                             null,
@@ -955,7 +952,8 @@ public class KeySpaceDirectoryTest {
 
             // PREFIX_STRING should not be used as a endpoint type.
             assertThrows(RecordCoreArgumentException.class, () ->
-                    root.path(context, rootDir).listAsync(
+                    root.path(rootDir).list(
+                            context,
                             stringDir,
                             new ValueRange<>("A", "B", EndpointType.PREFIX_STRING, EndpointType.RANGE_EXCLUSIVE),
                             null,
@@ -964,7 +962,8 @@ public class KeySpaceDirectoryTest {
 
             // Range should be null when the subdirectory has a value.
             assertThrows(RecordCoreArgumentException.class, () ->
-                    root.path(context, rootDir).listAsync(
+                    root.path(rootDir).list(
+                            context,
                             longConstDir,
                             new ValueRange<>(100, 200, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
                             null,
@@ -982,11 +981,10 @@ public class KeySpaceDirectoryTest {
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         final List<String> directoryEntries = IntStream.range(0, 10).boxed().map(i -> "val_" + i).collect(Collectors.toList());
 
-        final KeySpacePath rootPath;
+        final KeySpacePath rootPath = root.path("a");
         try (final FDBRecordContext context = database.openContext()) {
-            rootPath = root.path(context, "a");
             final Transaction tr = context.ensureActive();
-            directoryEntries.forEach(name -> tr.set(rootPath.add("b",  name).toTuple().pack(), TupleHelpers.EMPTY.pack()));
+            directoryEntries.forEach(name -> tr.set(rootPath.add("b",  name).toTuple(context).pack(), TupleHelpers.EMPTY.pack()));
             context.commit();
         }
 
@@ -994,14 +992,13 @@ public class KeySpaceDirectoryTest {
         int idx = 0;
         do {
             try (final FDBRecordContext context = database.openContext()) {
-                final KeySpacePath rootWithNewContext = rootPath.copyWithNewContext(context);
-                final RecordCursor<KeySpacePath>  cursor = rootWithNewContext.listAsync("b", continuation,
+                final RecordCursor<KeySpacePath>  cursor = rootPath.listAsync(context, "b", continuation,
                         new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(2).build()));
                 List<KeySpacePath> subdirs = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST, cursor.asList());
                 if (!subdirs.isEmpty()) {
                     assertEquals(2, subdirs.size(), "Wrong number of path entries returned");
-                    assertEquals("val_" + idx, subdirs.get(0).getResolvedValue().get());
-                    assertEquals("val_" + (idx + 1), subdirs.get(1).getResolvedValue().get());
+                    assertEquals("val_" + idx, subdirs.get(0).resolveAsync(context).get().getResolvedValue());
+                    assertEquals("val_" + (idx + 1), subdirs.get(1).resolveAsync(context).get().getResolvedValue());
                     idx += 2;
                     continuation = cursor.getContinuation();
                     System.out.println(continuation == null ? "null" : Tuple.fromBytes(continuation));
@@ -1013,28 +1010,6 @@ public class KeySpaceDirectoryTest {
         } while (continuation != null);
 
         assertEquals(directoryEntries.size(), idx);
-    }
-
-    @Test
-    public void testPathCopyRetainsWrapper() throws Exception {
-        KeySpace root = new KeySpace(
-                new KeySpaceDirectory("a", KeyType.LONG, random.nextLong(), TestWrapper1::new)
-                        .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING, TestWrapper2::new)));
-
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        KeySpacePath path;
-        try (final FDBRecordContext context = database.openContext()) {
-            path = root.path(context, "a");
-            assertTrue(path instanceof TestWrapper1, "root isn't a testWrapper1");
-            path = path.add("b", 10);
-            assertTrue(path instanceof TestWrapper2, "b isn't a testWrapper2");
-        }
-
-        try (final FDBRecordContext context = database.openContext()) {
-            KeySpacePath copyPath = path.copyWithNewContext(context);
-            assertTrue(copyPath instanceof TestWrapper2, "b isn't a testWrapper2");
-            assertTrue(copyPath.getParent() instanceof TestWrapper1, "root isn't a testWrapper1");
-        }
     }
 
     private static class TestWrapper1 extends KeySpacePathWrapper {
@@ -1075,12 +1050,12 @@ public class KeySpaceDirectoryTest {
             for (KeyTypeValue kv : valueOfEveryType) {
                 KeySpaceDirectory dir = root.getDirectory("a").getSubdirectory(kv.keyType.name());
 
-                List<KeySpacePath> paths = root.path(context, "a").list(kv.keyType.toString());
+                List<KeySpacePath> paths = root.path("a").list(context, kv.keyType.toString());
                 assertEquals(1, paths.size());
                 if (dir.getKeyType() == KeyType.BYTES) {
-                    assertTrue(Arrays.equals((byte[]) dir.getValue(), paths.get(0).toTuple().getBytes(1)));
+                    assertTrue(Arrays.equals((byte[]) dir.getValue(), paths.get(0).toTuple(context).getBytes(1)));
                 } else {
-                    assertEquals(dir.getValue(), paths.get(0).toTuple().get(1));
+                    assertEquals(dir.getValue(), paths.get(0).toTuple(context).get(1));
                 }
             }
         }
@@ -1102,22 +1077,22 @@ public class KeySpaceDirectoryTest {
 
             for (int i = 0; i < 10; i++) {
                 for (int j = 0; j < 5; j++) {
-                    Tuple key = root.path(context, "a").add("b", "value_" + i).toTuple().add(i).add(j);
+                    Tuple key = root.path("a").add("b", "value_" + i).toTuple(context).add(i).add(j);
                     tr.set(key.pack(), Tuple.from(i).pack());
                 }
             }
 
             for (int i = 0; i < 5; i++) {
-                tr.set(root.path(context, "a").add("c").add("d").toTuple().add(i).pack(), Tuple.from(i).pack());
-                tr.set(root.path(context, "a").add("c").add("e").toTuple().add(i).pack(), Tuple.from(i).pack());
-                tr.set(root.path(context, "a").add("c").add("f").toTuple().add(i).pack(), Tuple.from(i).pack());
+                tr.set(root.path("a").add("c").add("d").toTuple(context).add(i).pack(), Tuple.from(i).pack());
+                tr.set(root.path("a").add("c").add("e").toTuple(context).add(i).pack(), Tuple.from(i).pack());
+                tr.set(root.path("a").add("c").add("f").toTuple(context).add(i).pack(), Tuple.from(i).pack());
             }
 
             context.commit();
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            List<KeySpacePath> paths = root.path(context, "a").list("b");
+            List<KeySpacePath> paths = root.path("a").list(context, "b");
             assertEquals(10, paths.size());
 
             for (KeySpacePath path : paths) {
@@ -1131,7 +1106,7 @@ public class KeySpaceDirectoryTest {
             }
 
             for (String subdir : ImmutableList.of("d", "e", "f")) {
-                paths = root.path(context, "a").add("c").list(subdir);
+                paths = root.path("a").add("c").list(context, subdir);
                 assertEquals(1, paths.size());
                 assertEquals(subdir, paths.get(0).getValue());
                 assertEquals(0L, paths.get(0).getRemainder().getLong(0));
@@ -1155,9 +1130,9 @@ public class KeySpaceDirectoryTest {
         final Tuple dataStoreTuple;
         final Tuple metadataStoreTuple;
         try (FDBRecordContext context = database.openContext()) {
-            ApplicationPath application = keySpace.root(context).userid(123).application("myApplication");
-            dataStoreTuple = application.dataStore().toTuple();
-            metadataStoreTuple = application.metadataStore().toTuple();
+            ApplicationPath application = keySpace.root().userid(123).application("myApplication");
+            dataStoreTuple = application.dataStore().toTuple(context);
+            metadataStoreTuple = application.metadataStore().toTuple(context);
             context.commit();
         }
 
@@ -1173,11 +1148,11 @@ public class KeySpaceDirectoryTest {
 
             DataPath mainStorePath = (DataPath) path;
             assertEquals(EnvironmentKeySpace.DATA_VALUE, mainStorePath.getValue());
-            assertEquals(EnvironmentKeySpace.DATA_VALUE, mainStorePath.getResolvedValue().get());
-            assertEquals(entries.get(1), mainStorePath.parent().getResolvedValue().get());
+            assertEquals(EnvironmentKeySpace.DATA_VALUE, mainStorePath.resolveAsync(context).get().getResolvedValue());
+            assertEquals(entries.get(1), mainStorePath.parent().resolveAsync(context).get().getResolvedValue());
             assertEquals("myApplication", mainStorePath.parent().getValue());
             assertEquals(123L, mainStorePath.parent().parent().getValue());
-            assertEquals(entries.get(0), mainStorePath.parent().parent().parent().getResolvedValue().get());
+            assertEquals(entries.get(0), mainStorePath.parent().parent().parent().resolveAsync(context).get().getResolvedValue());
             assertEquals("production", mainStorePath.parent().parent().parent().getValue());
             assertEquals(null, mainStorePath.parent().parent().parent().parent());
 
@@ -1190,11 +1165,11 @@ public class KeySpaceDirectoryTest {
 
             MetadataPath metadataPath = (MetadataPath) path;
             assertEquals(EnvironmentKeySpace.METADATA_VALUE, metadataPath.getValue());
-            assertEquals(EnvironmentKeySpace.METADATA_VALUE, metadataPath.getResolvedValue().get());
-            assertEquals(entries.get(1), metadataPath.parent().getResolvedValue().get());
+            assertEquals(EnvironmentKeySpace.METADATA_VALUE, metadataPath.resolveAsync(context).get().getResolvedValue());
+            assertEquals(entries.get(1), metadataPath.parent().resolveAsync(context).get().getResolvedValue());
             assertEquals("myApplication", metadataPath.parent().getValue());
             assertEquals(123L, metadataPath.parent().parent().getValue());
-            assertEquals(entries.get(0), metadataPath.parent().parent().parent().getResolvedValue().get());
+            assertEquals(entries.get(0), metadataPath.parent().parent().parent().resolveAsync(context).get().getResolvedValue());
             assertEquals("production", metadataPath.parent().parent().parent().getValue());
             assertEquals(null, metadataPath.parent().parent().parent().parent());
 
@@ -1207,7 +1182,7 @@ public class KeySpaceDirectoryTest {
             path =  keySpace.fromKey(context, recordTuple);
             assertThat(path, instanceOf(DataPath.class));
             assertEquals(Tuple.from(1L, "someStr", 0L), path.getRemainder());
-            assertEquals(dataStoreTuple, path.toTuple());
+            assertEquals(dataStoreTuple, path.toTuple(context));
         }
     }
 
@@ -1235,18 +1210,52 @@ public class KeySpaceDirectoryTest {
                 new KeySpaceDirectory("a", KeyType.STRING, PathA::new)
                     .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING, PathB::new))
                     .addSubdirectory(new DirectoryLayerDirectory("c", PathC::new)));
+        PathA a = (PathA) keySpace.path("a", "foo");
+        PathB b = (PathB) a.add("b", "bar");
+        PathC c = (PathC) a.add("c", "bax");
+        assertThat("parent of b should be a PathA", b.getParent(), instanceOf(PathA.class));
+        assertThat("parent of c should be a PathA", c.getParent(), instanceOf(PathA.class));
+    }
+
+    @Test
+    public void testListPreservesWrapper() {
+        KeySpace keySpace = new KeySpace(
+                new KeySpaceDirectory("a", KeyType.STRING, PathA::new)
+                        .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING, PathB::new)));
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext context = database.openContext()) {
-            PathA a = (PathA) keySpace.path(context, "a", "foo");
-            PathB b = (PathB) a.add("b", "bar");
-            PathC c = (PathC) a.add("c", "bax");
-            assertThat("parent of b should be a PathA", b.getParent(), instanceOf(PathA.class));
-            assertThat("parent of c should be a PathA", c.getParent(), instanceOf(PathA.class));
+            Transaction tr = context.ensureActive();
+
+            PathA root = (PathA) keySpace.path("a", "foo");
+            tr.set(root.add("b", "one").toTuple(context).pack(), TupleHelpers.EMPTY.pack());
+            tr.set(root.add("b", "two").toTuple(context).pack(), TupleHelpers.EMPTY.pack());
+            tr.set(root.add("b", "three").toTuple(context).pack(), TupleHelpers.EMPTY.pack());
+            tr.commit();
+        }
+
+        try (FDBRecordContext context = database.openContext()) {
+            List<KeySpacePath> paths = keySpace.path("a", "foo").list(context, "b");
+            for (KeySpacePath path : paths) {
+                assertThat("Path should be PathB", path, instanceOf(PathB.class));
+                assertThat("parent should be PathA", path.getParent(), instanceOf(PathA.class));
+            }
         }
     }
 
     @Test
-    public void testCopyPreservesWrapper() {
+    public void flattenPreservesWrapper() {
+        KeySpace keySpace = new KeySpace(
+                new KeySpaceDirectory("a", KeyType.STRING, PathA::new)
+                        .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING, PathB::new)));
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        List<KeySpacePath> path = keySpace.path("a", "foo").add("b", "bar").flatten();
+        assertThat("a should be pathA", path.get(0), instanceOf(PathA.class));
+        assertThat("b should be pathB", path.get(1), instanceOf(PathB.class));
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void deprecatedtestCopyPreservesWrapper() {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("a", KeyType.STRING, PathA::new)
                         .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING, PathB::new))
@@ -1268,42 +1277,33 @@ public class KeySpaceDirectoryTest {
         }
     }
 
+    @SuppressWarnings("deprecation")
     @Test
-    public void testListPreservesWrapper() {
+    public void deprecatedMixDeprecatedAndNew() throws Exception {
         KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("a", KeyType.STRING, PathA::new)
-                        .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING, PathB::new)));
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        try (FDBRecordContext context = database.openContext()) {
-            Transaction tr = context.ensureActive();
+                new KeySpaceDirectory("a", KeyType.LONG, random.nextInt(Integer.MAX_VALUE)).addSubdirectory(
+                        new KeySpaceDirectory("b", KeyType.LONG).addSubdirectory(
+                                new KeySpaceDirectory("c", KeyType.LONG))));
 
-            PathA root = (PathA) keySpace.path(context, "a", "foo");
-            tr.set(root.add("b", "one").toTuple().pack(), TupleHelpers.EMPTY.pack());
-            tr.set(root.add("b", "two").toTuple().pack(), TupleHelpers.EMPTY.pack());
-            tr.set(root.add("b", "three").toTuple().pack(), TupleHelpers.EMPTY.pack());
-            tr.commit();
-        }
+        KeySpacePath path = keySpace.path("a").add("b", 15L);
 
-        try (FDBRecordContext context = database.openContext()) {
-            List<KeySpacePath> paths = keySpace.path(context, "a", "foo").list("b");
-            for (KeySpacePath path : paths) {
-                assertThat("Path should be PathB", path, instanceOf(PathB.class));
-                assertThat("parent should be PathA", path.getParent(), instanceOf(PathA.class));
-            }
-        }
+        // Cannot use a method that requires a context without creating the path with one
+        assertThrows(IllegalStateException.class, path::toTuple);
+        assertThrows(IllegalStateException.class, path::toSubspace);
+        assertThrows(IllegalStateException.class, path::hasData);
+        assertThrows(IllegalStateException.class, () -> {
+            path.deleteAllData();
+            return null;
+        });
+        assertThrows(IllegalStateException.class, () -> path.list("c"));
     }
 
-    @Test
-    public void flattenPreservesWrapper() {
-        KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("a", KeyType.STRING, PathA::new)
-                        .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING, PathB::new)));
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        try (FDBRecordContext context = database.openContext()) {
-            List<KeySpacePath> path = keySpace.path(context, "a", "foo").add("b", "bar").flatten();
-            assertThat("a should be pathA", path.get(0), instanceOf(PathA.class));
-            assertThat("b should be pathB", path.get(1), instanceOf(PathB.class));
+    private List<Long> resolveBatch(FDBRecordContext context, String... names) {
+        List<CompletableFuture<Long>> futures = new ArrayList<>();
+        for (String name : names) {
+            futures.add(ScopedDirectoryLayer.global(context.getDatabase()).resolve(context.getTimer(), name));
         }
+        return AsyncUtil.getAll(futures).join();
     }
 
     /** Used to validate wrapping of path names. */
@@ -1327,14 +1327,6 @@ public class KeySpaceDirectoryTest {
         }
     }
 
-    private List<Long> resolveBatch(FDBRecordContext context, String... names) {
-        List<CompletableFuture<Long>> futures = new ArrayList<>();
-        for (String name : names) {
-            futures.add(ScopedDirectoryLayer.global(context.getDatabase()).resolve(context.getTimer(), name));
-        }
-        return AsyncUtil.getAll(futures).join();
-    }
-
     private static class ConstantResolvingKeySpaceDirectory extends KeySpaceDirectory {
 
         private final Function<Object, Object> resolver;
@@ -1345,7 +1337,7 @@ public class KeySpaceDirectoryTest {
         }
 
         @Override
-        protected CompletableFuture<PathValue> toTupleValueAsync(FDBRecordContext context, Object value) {
+        protected CompletableFuture<PathValue> toTupleValueAsyncImpl(FDBRecordContext context, Object value) {
             return CompletableFuture.completedFuture(new PathValue(resolver.apply(value)));
         }
     }
@@ -1402,8 +1394,8 @@ public class KeySpaceDirectoryTest {
         /**
          * Returns an implementation of a <code>KeySpacePath</code> that represents the start of the environment.
          */
-        public EnvironmentRoot root(FDBRecordContext context)  {
-            return (EnvironmentRoot) root.path(context, rootName);
+        public EnvironmentRoot root()  {
+            return (EnvironmentRoot) root.path(rootName);
         }
 
         /**

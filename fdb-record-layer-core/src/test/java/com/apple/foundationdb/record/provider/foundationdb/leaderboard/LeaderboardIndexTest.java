@@ -150,9 +150,9 @@ public class LeaderboardIndexTest {
         public abstract void addIndex(RecordMetaDataBuilder metaDataBuilder);
 
         public void openRecordStore(FDBRecordContext context, boolean clearFirst) {
-            final KeySpacePath path = TestKeySpace.getKeyspacePath(context, "record-test", "unit", "indexTest", "leaderboard");
+            final KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit", "indexTest", "leaderboard");
             if (clearFirst) {
-                context.ensureActive().clear(path.toTuple().range());
+                path.deleteAllData(context);
             }
 
             recordStore = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context).setKeySpacePath(path).build();

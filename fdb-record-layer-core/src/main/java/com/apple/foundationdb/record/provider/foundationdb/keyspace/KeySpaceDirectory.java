@@ -23,12 +23,14 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
+import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -296,18 +298,19 @@ public class KeySpaceDirectory {
             return DIRECTORY_NOT_FOR_KEY;
         }
 
-        final CompletableFuture<PathValue> resolvedValue = toTupleValueAsync(context, tupleValue);
+        return toTupleValueAsync(context, tupleValue).thenCompose(resolvedValue -> {
+            // Have we hit the leaf of the tree or run out of tuple to process?
+            if (subdirs.isEmpty() || keyIndex + 1 == keySize) {
+                return CompletableFuture.completedFuture(
+                        Optional.of(KeySpacePathImpl.newPath(parent, this, context, tupleValue, true, resolvedValue,
+                                (keyIndex + 1 == key.size()) ? null : TupleHelpers.subTuple(key, keyIndex + 1, key.size()))));
+            } else {
+                return findChildForKey(context,
+                        KeySpacePathImpl.newPath(parent, this, context, tupleValue, true, resolvedValue, null),
+                        key, keySize, keyIndex + 1).thenApply(Optional::of);
+            }
 
-        // Have we hit the leaf of the tree or run out of tuple to process?
-        if (subdirs.isEmpty() || keyIndex + 1 == keySize) {
-            return CompletableFuture.completedFuture(
-                    Optional.of(KeySpacePathImpl.newPath(parent, this, context, tupleValue, resolvedValue,
-                            (keyIndex + 1 == key.size()) ? null : TupleHelpers.subTuple(key, keyIndex + 1, key.size()))));
-        } else {
-            return findChildForKey(context,
-                    KeySpacePathImpl.newPath(parent, this, context, tupleValue, resolvedValue, null),
-                    key, keySize, keyIndex + 1).thenApply(Optional::of);
-        }
+        });
     }
 
     /**
@@ -441,7 +444,7 @@ public class KeySpaceDirectory {
 
     /**
      * Returns whether or not the directory is a leaf directory (has no subdirectories).
-     * @return true if the directory is a leaf directory, false otherwise.
+     * @return true if the directory is a leaf directory, false otherwise
      */
     public boolean isLeaf() {
         return subdirsByName.isEmpty();
@@ -491,7 +494,7 @@ public class KeySpaceDirectory {
     protected RecordCursor<KeySpacePath> listAsync(@Nullable KeySpacePath listFrom,
                                                    @Nonnull FDBRecordContext context,
                                                    @Nonnull String subdirName,
-                                                   @Nullable ValueRange<Object> range,
+                                                   @Nullable ValueRange<?> valueRange,
                                                    @Nullable byte[] continuation,
                                                    @Nonnull ScanProperties scanProperties) {
         if (listFrom != null && listFrom.getDirectory() != this) {
@@ -500,103 +503,112 @@ public class KeySpaceDirectory {
         }
 
         final KeySpaceDirectory subdir = getSubdirectory(subdirName);
-        final Subspace subspace = listFrom == null ? new Subspace() : new Subspace(listFrom.toTuple().pack());
-        final byte[] subspaceBytes = subspace.pack();
-        final ScanProperties singleRowScan = scanProperties.with(props -> props.setReturnedRowLimit(1));
+        final CompletableFuture<Subspace> fromSubspaceFuture = listFrom == null
+                ? CompletableFuture.completedFuture(new Subspace())
+                : listFrom.toSubspaceAsync(context);
 
+        final ScanProperties singleRowScan = scanProperties.with(props -> props.setReturnedRowLimit(1));
+        return new LazyCursor<>(
+                fromSubspaceFuture.thenCompose(subspace ->
+                        subdir.getValueRange(context, valueRange, subspace).thenApply(range -> {
+                            final RecordCursor<Tuple> cursor = new ChainedCursor<>(
+                                    lastKey -> nextTuple(context, subspace, range, lastKey, singleRowScan),
+                                    Tuple::pack,
+                                    Tuple::fromBytes,
+                                    continuation,
+                                    context.getExecutor());
+
+                            return cursor.limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit())
+                                    .mapPipelined(tuple -> {
+                                        final Tuple key = Tuple.fromList(tuple.getItems());
+                                        return findChildForKey(context, listFrom, key, 1, 0);
+                                    }, 1);
+                        })),
+                context.getExecutor()
+        );
+    }
+
+    @Nonnull
+    private CompletableFuture<KeyRange> getValueRange(@Nonnull FDBRecordContext context,
+                                                      @Nullable ValueRange<?> valueRange,
+                                                      @Nonnull Subspace subspace) {
         final byte[] startKey;
         final byte[] stopKey;
         final EndpointType startType;
         final EndpointType stopType;
-        if (subdir.getValue() == KeySpaceDirectory.ANY_VALUE || subdir.getValue() == null) {
-            if (range != null && range.getLowEndpoint() != EndpointType.TREE_START) {
-                if (KeyType.typeOf(range.getLow()) != subdir.getKeyType()) {
-                    throwInvalidValueTypeException(KeyType.typeOf(range.getLow()), subdir.getKeyType(), listFrom,
-                            subdirName, range);
+
+        if (getValue() == KeySpaceDirectory.ANY_VALUE) {
+            if (valueRange != null && valueRange.getLowEndpoint() != EndpointType.TREE_START) {
+                if (KeyType.typeOf(valueRange.getLow()) != getKeyType()) {
+                    throw invalidValueTypeException(KeyType.typeOf(valueRange.getLow()), getKeyType(), getName(), valueRange);
                 }
-                startKey = subspace.pack(range.getLow());
-                startType = range.getLowEndpoint();
+                startKey = subspace.pack(valueRange.getLow());
+                startType = valueRange.getLowEndpoint();
                 if (startType != EndpointType.RANGE_INCLUSIVE && startType != EndpointType.RANGE_EXCLUSIVE) {
                     throw new RecordCoreArgumentException("Endpoint type not supported for directory list",
                             LogMessageKeys.ENDPOINT_TYPE, startType);
                 }
             } else {
+                final byte[] subspaceBytes = subspace.pack();
                 startKey = new byte[subspaceBytes.length + 1];
                 System.arraycopy(subspaceBytes, 0, startKey, 0, subspaceBytes.length);
-                startKey[subspaceBytes.length] = subdir.getKeyType().getTypeLowBounds();
+                startKey[subspaceBytes.length] = getKeyType().getTypeLowBounds();
                 startType = EndpointType.RANGE_INCLUSIVE;
             }
 
-            if (range != null && range.getHighEndpoint() != EndpointType.TREE_END) {
-                if (KeyType.typeOf(range.getHigh()) != subdir.getKeyType()) {
-                    throwInvalidValueTypeException(KeyType.typeOf(range.getHigh()), subdir.getKeyType(), listFrom,
-                            subdirName, range);
+            if (valueRange != null && valueRange.getHighEndpoint() != EndpointType.TREE_END) {
+                if (KeyType.typeOf(valueRange.getHigh()) != getKeyType()) {
+                    throw invalidValueTypeException(KeyType.typeOf(valueRange.getHigh()), getKeyType(), getName(), valueRange);
                 }
-                stopKey = subspace.pack(range.getHigh());
-                stopType = range.getHighEndpoint();
+                stopKey = subspace.pack(valueRange.getHigh());
+                stopType = valueRange.getHighEndpoint();
                 if (stopType != EndpointType.RANGE_INCLUSIVE && stopType != EndpointType.RANGE_EXCLUSIVE) {
                     throw new RecordCoreArgumentException("Endpoint type not supported for directory list",
                             LogMessageKeys.ENDPOINT_TYPE, stopType);
                 }
             } else {
+                final byte[] subspaceBytes = subspace.pack();
                 stopKey = new byte[subspaceBytes.length + 1];
                 System.arraycopy(subspaceBytes, 0, stopKey, 0, subspaceBytes.length);
-                stopKey[subspaceBytes.length] = subdir.getKeyType().getTypeHighBounds();
+                stopKey[subspaceBytes.length] = getKeyType().getTypeHighBounds();
                 stopType = EndpointType.RANGE_EXCLUSIVE;
             }
+
+            return CompletableFuture.completedFuture(new KeyRange(startKey, startType, stopKey, stopType));
         } else {
-            if (range != null) {
+            if (valueRange != null) {
                 throw new RecordCoreArgumentException("range is not applicable when the subdirectory has a value.",
-                        LogMessageKeys.LIST_FROM, listFrom,
-                        LogMessageKeys.SUBDIR_NAME, subdirName,
-                        LogMessageKeys.RANGE, range);
+                        LogMessageKeys.DIR_NAME, getName(),
+                        LogMessageKeys.RANGE, valueRange);
             }
-            PathValue resolvedValue = subdir.toTupleValue(context, subdir.getValue());
-            startKey = subspace.pack(Tuple.from(resolvedValue.getResolvedValue()));
-            stopKey = ByteArrayUtil.strinc(startKey);
-            startType = EndpointType.RANGE_INCLUSIVE;
-            stopType = EndpointType.RANGE_EXCLUSIVE;
+            return toTupleValueAsync(context, this.value)
+                    .thenApply(resolvedValue -> {
+                        final byte[] key = subspace.pack(Tuple.from(resolvedValue.getResolvedValue()));
+                        return new KeyRange(key, EndpointType.RANGE_INCLUSIVE,
+                                ByteArrayUtil.strinc(key), EndpointType.RANGE_EXCLUSIVE);
+                    });
         }
-
-
-        final RecordCursor<Tuple> cursor = new ChainedCursor<>(
-                lastKey -> nextTuple(context, subspace, startKey, stopKey, startType, stopType, lastKey, singleRowScan),
-                Tuple::pack,
-                Tuple::fromBytes,
-                continuation,
-                context.getExecutor());
-
-        return cursor.limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit())
-                .mapPipelined( tuple -> {
-                    final Tuple key = Tuple.fromList(tuple.getItems());
-                    return findChildForKey(context, listFrom, key, 1,  0);
-                }, 1 );
     }
 
-    private void throwInvalidValueTypeException(KeyType rangeValueType, KeyType expectedValueType,
-                                                KeySpacePath listFrom, String subdirName, ValueRange<Object> range) {
+    private RecordCoreArgumentException invalidValueTypeException(KeyType rangeValueType, KeyType expectedValueType,
+                                                                  String dirName, ValueRange<?> range) {
         throw new RecordCoreArgumentException("value type provided for range is invalid for directory type",
                 LogMessageKeys.RANGE_VALUE_TYPE, rangeValueType,
                 LogMessageKeys.EXPECTED_VALUE_TYPE, expectedValueType,
-                LogMessageKeys.LIST_FROM, listFrom,
-                LogMessageKeys.SUBDIR_NAME, subdirName,
+                LogMessageKeys.DIR_NAME, dirName,
                 LogMessageKeys.RANGE, range);
     }
 
     private CompletableFuture<Optional<Tuple>> nextTuple(@Nonnull FDBRecordContext context,
                                                          @Nonnull Subspace subspace,
-                                                         @Nonnull byte[] startKey,
-                                                         @Nonnull byte[] stopKey,
-                                                         @Nonnull EndpointType startType,
-                                                         @Nonnull EndpointType stopType,
+                                                         @Nonnull KeyRange range,
                                                          @Nonnull Optional<Tuple> lastTuple,
                                                          @Nonnull ScanProperties scanProperties) {
         final KeyValueCursor cursor;
         if (!lastTuple.isPresent()) {
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
-                    .setLow(startKey, startType)
-                    .setHigh(stopKey, stopType)
+                    .setRange(range)
                     .setContinuation(null)
                     .setScanProperties(scanProperties)
                     .build();
@@ -604,7 +616,7 @@ public class KeySpaceDirectory {
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(subspace.pack(lastTuple.get().get(0)), EndpointType.RANGE_EXCLUSIVE)
-                    .setHigh(stopKey, stopType)
+                    .setHigh(range.getHighKey(), range.getHighEndpoint())
                     .setContinuation(null)
                     .setScanProperties(scanProperties)
                     .build();
@@ -629,10 +641,31 @@ public class KeySpaceDirectory {
     }
 
     /**
-     * Called during the process of turning a {@link KeySpacePath} into a <code>Tuple</code>, providing a place
-     * for overriding implementations to map an input value into the representation to be used to physically
-     * represent the value. For example, the {@link DirectoryLayerDirectory} overrides this method to map
-     * a provided <code>STRING</code> value into a <code>LONG</code> via the FDB directory layer.
+     * Asks the directory implementation to "resolve" a tuple value. The meaning of resolve can vary amongst different
+     * types of directorys but, for example, the <code>DirectoryLayerDirectory</code> would be expecting the value to be
+     * a <code>String</code> and would use the directory layer to then convert it into a <code>Long</code>.
+     * @param context the context in which to perform the resolution
+     * @param value the value to be resolved
+     * @return a future containing the resolved value
+     */
+    @Nonnull
+    protected final CompletableFuture<PathValue> toTupleValueAsync(@Nonnull FDBRecordContext context, @Nullable Object value) {
+        return toTupleValueAsyncImpl(context, value)
+                .thenApply( pathValue -> {
+                    validateResolvedValue(pathValue.getResolvedValue());
+                    return pathValue;
+                });
+    }
+
+    @Nullable
+    protected PathValue toTupleValue(@Nonnull FDBRecordContext context, @Nullable Object value) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, toTupleValueAsync(context, value));
+    }
+
+    /**
+     * This method is called during the process of turning a {@link KeySpacePath} into a <code>Tuple</code>. This
+     * method should never be directly invoked from anything other than <code>toTupleValueAsync</code>, it is purely
+     * intended for new  <code>KeySpaceDirectory</code> implementations to override.
      *
      * @param context the context in which the tuple is being constructed
      * @param value the value that was provided to be stored in this directory
@@ -641,18 +674,13 @@ public class KeySpaceDirectory {
      *   definition of this directory
      */
     @Nonnull
-    protected CompletableFuture<PathValue> toTupleValueAsync(@Nonnull FDBRecordContext context, @Nullable Object value) {
+    protected CompletableFuture<PathValue> toTupleValueAsyncImpl(@Nonnull FDBRecordContext context, @Nullable Object value) {
         if (this.value != ANY_VALUE && !areEqual(this.value, value)) {
             throw new RecordCoreArgumentException("Illegal value provided",
                     "provided_value", value,
                     "expected_value", this.value);
         }
         return CompletableFuture.completedFuture(new PathValue(value));
-    }
-
-    @Nullable
-    protected PathValue toTupleValue(@Nonnull FDBRecordContext context, @Nullable Object value) {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, toTupleValueAsync(context, value));
     }
 
     /**

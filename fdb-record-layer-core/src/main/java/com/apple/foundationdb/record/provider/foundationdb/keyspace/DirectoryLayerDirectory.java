@@ -51,11 +51,11 @@ import java.util.function.Function;
  * <p>When creating a path through a directory layer directory, you may either specify the string name that
  * you wish to place in the directory, like so:
  * <pre>
- *     keySpace.path("library").add("book_title", "Twenty Thousand Leagues Under the Sea").toTuple();
+ *     keySpace.path("library").add("book_title", "Twenty Thousand Leagues Under the Sea").toTuple(context);
  * </pre>
  * or you may retrieve it by directory layer value:
  * <pre>
- *     keySpace.path("library").add(443L).toTuple();
+ *     keySpace.path("library").add(443L).toTuple(context);
  * </pre>
  * Retrieving by directory layer value will result in an exception if the value provided is either not a valid
  * directory layer value, or it is not the value that corresponds to the constant name for this directory.
@@ -167,7 +167,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     @Override
     @Nonnull
     @SuppressWarnings("squid:S1604") // need annotation so no lambda
-    protected CompletableFuture<PathValue> toTupleValueAsync(@Nonnull FDBRecordContext context, @Nullable Object value) {
+    protected CompletableFuture<PathValue> toTupleValueAsyncImpl(@Nonnull FDBRecordContext context, @Nullable Object value) {
         // We allow someone to explicitly pass the value of a directory layer entry, however if
         // this directory is hard-wired to a specific value, then the value passed in is compared
         // with the directory layer to ensure it is valid.
@@ -253,8 +253,8 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
                                                 : TupleHelpers.subTuple(key, childKeyIndex, key.size());
 
                         // Make sure that the path is constructed with the text-name from the directory layer.
-                        KeySpacePath myPath = KeySpacePathImpl.newPath(parent, this, context, directoryString,
-                                CompletableFuture.completedFuture(toPathValue(directoryResolverResult)), remainder);
+                        KeySpacePath myPath = KeySpacePathImpl.newPath(parent, this, context, directoryString, true,
+                                toPathValue(directoryResolverResult), remainder);
 
                         // We are finished if there are no more subdirectories or no more tuple to consume
                         if (!canHaveChild) {

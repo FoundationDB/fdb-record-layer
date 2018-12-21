@@ -69,9 +69,9 @@ public class ResolverMappingDigestTest {
         factory.setDirectoryCacheSize(100);
         database = factory.getDatabase();
         // wipe test keyspace
+        KeySpacePath basePath = keySpace.path("test-path");
         database.run(context -> {
-            KeySpacePath basePath = keySpace.path(context, "test-path");
-            basePath.deleteAllData();
+            basePath.deleteAllData(context);
             return null;
         });
     }
@@ -81,8 +81,8 @@ public class ResolverMappingDigestTest {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedDirectoryLayer(keySpace.path(context, "test-path").add("to").add("primary"));
-            replica = new ScopedInterningLayer(keySpace.path(context, "test-path").add("to").add("replica"));
+            primary = new ScopedDirectoryLayer(context, keySpace.path("test-path").add("to").add("primary"));
+            replica = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("replica"));
         }
 
         testComputeDigest(primary, replica, false);
@@ -93,8 +93,8 @@ public class ResolverMappingDigestTest {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(keySpace.path(context, "test-path").add("to").add("primary"));
-            replica = new ScopedInterningLayer(keySpace.path(context, "test-path").add("to").add("replica"));
+            primary = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("primary"));
+            replica = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("replica"));
         }
 
         testComputeDigest(primary, replica, false);
@@ -105,8 +105,8 @@ public class ResolverMappingDigestTest {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(keySpace.path(context, "test-path").add("to").add("primary"));
-            replica = new ScopedInterningLayer(keySpace.path(context, "test-path").add("to").add("replica"));
+            primary = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("primary"));
+            replica = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("replica"));
         }
 
         byte[] metadata = Tuple.from("some-metadata").pack();
@@ -118,8 +118,8 @@ public class ResolverMappingDigestTest {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(keySpace.path(context, "test-path").add("to").add("primary"));
-            replica = new ExtendedDirectoryLayer(keySpace.path(context, "test-path").add("to").add("replica"));
+            primary = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("primary"));
+            replica = new ExtendedDirectoryLayer(context, keySpace.path("test-path").add("to").add("replica"));
         }
 
         testComputeDigest(primary, replica, false);
@@ -130,8 +130,8 @@ public class ResolverMappingDigestTest {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(keySpace.path(context, "test-path").add("to").add("primary"));
-            replica = new ExtendedDirectoryLayer(keySpace.path(context, "test-path").add("to").add("replica"));
+            primary = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("primary"));
+            replica = new ExtendedDirectoryLayer(context, keySpace.path("test-path").add("to").add("replica"));
         }
 
         testComputeDigest(primary, replica, true);

@@ -94,12 +94,14 @@ public class KeySpacePathWrapper implements KeySpacePath {
         this.inner = inner;
     }
 
+    @Deprecated
     @Nonnull
     @Override
     public KeySpacePath copyWithNewContext(@Nonnull FDBRecordContext newContext) {
         return inner.copyWithNewContext(newContext);
     }
 
+    @Deprecated
     @Nonnull
     @Override
     public FDBRecordContext getContext() {
@@ -147,28 +149,26 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.getValue();
     }
 
-    @Override
-    @Nonnull
-    public CompletableFuture<Object> getResolvedValue() {
-        return inner.getResolvedValue();
-    }
-
     @Nonnull
     @Override
-    public CompletableFuture<byte[]> getResolvedPathMetadata() {
-        return inner.getResolvedPathMetadata();
+    public PathValue getStoredValue() {
+        return inner.getStoredValue();
     }
 
     @Override
-    @Nonnull
-    public Tuple toTuple() {
-        return inner.toTuple();
+    public boolean hasStoredValue() {
+        return inner.hasStoredValue();
     }
 
     @Override
     @Nonnull
-    public CompletableFuture<Tuple> toTupleAsync() {
-        return inner.toTupleAsync();
+    public CompletableFuture<PathValue> resolveAsync(@Nonnull FDBRecordContext context) {
+        return inner.resolveAsync(context);
+    }
+
+    @Nonnull
+    public CompletableFuture<Tuple> toTupleAsync(@Nonnull FDBRecordContext context) {
+        return inner.toTupleAsync(context);
     }
 
     @Override
@@ -179,39 +179,24 @@ public class KeySpacePathWrapper implements KeySpacePath {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> hasDataAsync() {
-        return inner.hasDataAsync();
-    }
-
-    @Override
-    public boolean hasData() {
-        return inner.hasData();
+    public CompletableFuture<Boolean> hasDataAsync(@Nonnull FDBRecordContext context) {
+        return inner.hasDataAsync(context);
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> deleteAllDataAsync() {
-        return inner.deleteAllDataAsync();
-    }
-
-    @Override
-    public void deleteAllData() {
-        inner.deleteAllData();
+    public CompletableFuture<Void> deleteAllDataAsync(@Nonnull FDBRecordContext context) {
+        return inner.deleteAllDataAsync(context);
     }
 
     @Nonnull
     @Override
-    public List<KeySpacePath> list(@Nonnull String subdirName, ScanProperties scanProperties ) {
-        return inner.list(subdirName, scanProperties);
-    }
-
-    @Nonnull
-    @Override
-    public RecordCursor<KeySpacePath> listAsync(@Nonnull String subdirName,
-                                                @Nullable ValueRange<Object> range,
+    public RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context,
+                                                @Nonnull String subdirName,
+                                                @Nullable ValueRange<?> range,
                                                 @Nullable byte[] continuation,
                                                 @Nonnull ScanProperties scanProperties) {
-        return inner.listAsync(subdirName, range, continuation, scanProperties);
+        return inner.listAsync(context, subdirName, range, continuation, scanProperties);
     }
 
     @Override

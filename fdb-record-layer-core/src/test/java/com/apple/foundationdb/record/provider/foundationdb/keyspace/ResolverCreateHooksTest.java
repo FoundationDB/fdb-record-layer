@@ -61,18 +61,18 @@ class ResolverCreateHooksTest {
 
     @AfterEach
     public void teardown() {
-        database.run(context -> root(context).toTupleAsync().thenAccept(tuple -> context.ensureActive().clear(tuple.range())));
+        database.run(context -> root().deleteAllDataAsync(context));
     }
 
     @Test
     void testPreWriteChecks() {
         // reads the key, and chooses the resolver based on the value
         final PreWriteCheck check = (context, providedResolver) -> {
-            CompletableFuture<LocatableResolver> expectedResolverFuture = root(context).add("should-use-A").toTupleAsync()
+            CompletableFuture<LocatableResolver> expectedResolverFuture = root().add("should-use-A").toTupleAsync(context)
                     .thenCompose(keyTuple -> context.ensureActive().get(keyTuple.pack()))
                     .thenApply(value -> {
                         boolean useA = Tuple.fromBytes(value).getBoolean(0);
-                        return new ScopedInterningLayer(resolverPath(context, useA ? "A" : "B"));
+                        return new ScopedInterningLayer(context, resolverPath(useA ? "A" : "B"));
                     });
             return expectedResolverFuture.thenApply(expectedResolver -> expectedResolver.equals(providedResolver));
         };
@@ -81,12 +81,12 @@ class ResolverCreateHooksTest {
 
         // use resolver A
         database.run(context ->
-                root(context).add("should-use-A").toTupleAsync()
+                root().add("should-use-A").toTupleAsync(context)
                         .thenAccept(tuple -> context.ensureActive().set(tuple.pack(), Tuple.from(true).pack())));
 
         try (FDBRecordContext context = database.openContext()) {
-            LocatableResolver resolverA = new ScopedInterningLayer(resolverPath(context, "A"));
-            LocatableResolver resolverB = new ScopedInterningLayer(resolverPath(context, "B"));
+            LocatableResolver resolverA = new ScopedInterningLayer(context, resolverPath("A"));
+            LocatableResolver resolverB = new ScopedInterningLayer(context, resolverPath("B"));
 
             assertChecks(context, resolverA, hooks, true);
             assertChecks(context, resolverB, hooks, false);
@@ -94,25 +94,25 @@ class ResolverCreateHooksTest {
 
         // use resolver B
         database.run(context ->
-                root(context).add("should-use-A").toTupleAsync()
+                root().add("should-use-A").toTupleAsync(context)
                         .thenAccept(tuple -> context.ensureActive().set(tuple.pack(), Tuple.from(false).pack())));
 
         // after migration
         try (FDBRecordContext context = database.openContext()) {
-            LocatableResolver resolverA = new ScopedInterningLayer(resolverPath(context, "A"));
-            LocatableResolver resolverB = new ScopedInterningLayer(resolverPath(context, "B"));
+            LocatableResolver resolverA = new ScopedInterningLayer(context, resolverPath("A"));
+            LocatableResolver resolverB = new ScopedInterningLayer(context, resolverPath("B"));
 
             assertChecks(context, resolverA, hooks, false);
             assertChecks(context, resolverB, hooks, true);
         }
     }
 
-    private KeySpacePath root(FDBRecordContext context) {
-        return keySpace.path(context, "test-root");
+    private KeySpacePath root() {
+        return keySpace.path("test-root");
     }
 
-    private KeySpacePath resolverPath(FDBRecordContext context, String value) {
-        return root(context).add("resolvers").add("resolverNode", value);
+    private KeySpacePath resolverPath(String value) {
+        return root().add("resolvers").add("resolverNode", value);
     }
 
     private static void assertChecks(FDBRecordContext context, LocatableResolver resolver, ResolverCreateHooks hooks, boolean shouldPass) {

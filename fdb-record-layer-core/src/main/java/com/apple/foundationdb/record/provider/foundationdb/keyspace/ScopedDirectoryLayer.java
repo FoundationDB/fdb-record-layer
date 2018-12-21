@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBReverseDirectoryCache;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Bytes;
 
@@ -36,6 +37,7 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * An implementation of {@link LocatableResolver} that uses the FDB directory layer to keep track of the allocation of
@@ -54,19 +56,51 @@ public class ScopedDirectoryLayer extends LocatableResolver {
     private final String infoString;
     private final int hashCode;
 
+    /**
+     * Creates a scoped directory layer. This constructor invokes blocking calls and must not
+     * not be called in the context of an asynchronous operation.
+     *
+     * @param path the path at which the directory layer should live
+     * @deprecated use {@link #ScopedDirectoryLayer(FDBRecordContext, KeySpacePath)} instead
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     public ScopedDirectoryLayer(@Nonnull KeySpacePath path) {
         this(path.getContext().getDatabase(), path);
     }
 
+    /**
+     * Creates a scoped directory layer. This constructor invokes blocking calls and must not
+     * not be called in the context of an asynchronous operation.
+     *
+     * @param context a context that is used only during the construction of this scope in order to
+     *   resolve the provided path into a subspace
+     * @param path the path at which the directory layer should live
+     */
+    public ScopedDirectoryLayer(@Nonnull FDBRecordContext context,
+                                @Nonnull KeySpacePath path) {
+        this(context.getDatabase(), path, () -> path.toTuple(context));
+    }
+
     private ScopedDirectoryLayer(@Nonnull FDBDatabase database,
-                                 @Nullable KeySpacePath path) {
+                                 @Nonnull KeySpacePath path) {
+        this(database, path, () -> {
+            try (FDBRecordContext context = database.openContext()) {
+                return path.toTuple(context);
+            }
+        });
+    }
+
+    private ScopedDirectoryLayer(@Nonnull FDBDatabase database,
+                                 @Nullable KeySpacePath path,
+                                 @Nonnull Supplier<Tuple> pathTuple) {
         super(database, path);
         if (path == null) {
             this.baseSubspace = new Subspace();
             this.contentSubspace = new Subspace();
             this.infoString = "ScopedDirectoryLayer:GLOBAL";
         } else {
-            this.baseSubspace = new Subspace(path.toTuple());
+            this.baseSubspace = new Subspace(pathTuple.get());
             this.contentSubspace = new Subspace(RESERVED_CONTENT_SUBSPACE_PREFIX);
             this.infoString = "ScopedDirectoryLayer:" + path.toString();
         }
@@ -79,11 +113,11 @@ public class ScopedDirectoryLayer extends LocatableResolver {
     /**
      * Creates a default instance of the scoped directory layer. This is a {@link LocatableResolver} that is backed by
      * the default instance of the FDB directory layer.
-     * @param database The {@link FDBDatabase} for this resolver
-     * @return The global <code>ScopedDirectoryLayer</code> for this database
+     * @param database the {@link FDBDatabase} for this resolver
+     * @return the global <code>ScopedDirectoryLayer</code> for this database
      */
     public static ScopedDirectoryLayer global(@Nonnull FDBDatabase database) {
-        return new ScopedDirectoryLayer(database, null);
+        return new ScopedDirectoryLayer(database, null, () -> null);
     }
 
     private CompletableFuture<Boolean> exists(@Nonnull FDBRecordContext context, String key) {

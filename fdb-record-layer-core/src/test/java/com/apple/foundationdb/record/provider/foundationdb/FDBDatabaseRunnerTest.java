@@ -149,7 +149,7 @@ public class FDBDatabaseRunnerTest {
 
             runner.run(context -> {
                 FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(context, PATH_OBJECTS))
+                        .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                         .build();
                 store.deleteRecord(Tuple.from(1066L));
                 return null;
@@ -157,7 +157,7 @@ public class FDBDatabaseRunnerTest {
 
             FDBStoredRecord<Message> retrieved2 = runner.run(context -> {
                 FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(context, PATH_OBJECTS))
+                        .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                         .build();
                 return store.loadRecord(Tuple.from(1066L));
             });
@@ -286,14 +286,14 @@ public class FDBDatabaseRunnerTest {
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.runAsync(context -> {
                 FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(context, PATH_OBJECTS))
+                        .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                         .build();
                 return store.deleteRecordAsync(Tuple.from(1066L));
             }).join();
 
             FDBStoredRecord<Message> retrieved2 = runner.runAsync(context -> {
                 FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(context, PATH_OBJECTS))
+                        .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                         .build();
                 return store.loadRecordAsync(Tuple.from(1066L));
             }).join();

@@ -53,11 +53,11 @@ public class TestKeySpace {
      * A method that roughly approximates mapPathKeys, designed only for use in test suite setup. The provided path
      * must be valid in the test keys space.
      */
-    public static KeySpacePath getKeyspacePath(FDBRecordContext context, Object... pathElements) {
+    public static KeySpacePath getKeyspacePath(Object... pathElements) {
         if (pathElements.length <= 0) {
             fail("must call this method with at least one path element");
         }
-        KeySpacePath path = keySpace.path(context, (String) pathElements[0]);
+        KeySpacePath path = keySpace.path((String) pathElements[0]);
         for (int i = 1; i < pathElements.length; i++) {
             path = path.add((String) pathElements[i]);
         }
