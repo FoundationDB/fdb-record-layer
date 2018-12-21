@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -62,6 +63,8 @@ class TextCursor implements BaseCursor<IndexEntry> {
     private final CursorLimitManager limitManager;
     @Nullable
     private CompletableFuture<Boolean> hasNextFuture;
+    @Nullable
+    private FDBStoreTimer timer;
     private int limitRemaining;
     @Nullable
     private RecordCursorResult<IndexEntry> nextResult;
@@ -75,6 +78,7 @@ class TextCursor implements BaseCursor<IndexEntry> {
         this.limitManager = new CursorLimitManager(context, scanProperties);
 
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
+        this.timer = context.getTimer();
     }
 
     @Nonnull
@@ -84,6 +88,10 @@ class TextCursor implements BaseCursor<IndexEntry> {
             return underlying.onHasNext().thenApply(hasNext -> {
                 if (hasNext) {
                     BunchedMapScanEntry<Tuple, List<Integer>, Tuple> nextItem = underlying.next();
+                    if (timer != null) {
+                        timer.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
+                        timer.increment(FDBStoreTimer.Counts.LOAD_TEXT_ENTRY);
+                    }
                     Tuple k = nextItem.getKey();
                     Tuple subspaceTag = nextItem.getSubspaceTag();
                     if (subspaceTag != null) {

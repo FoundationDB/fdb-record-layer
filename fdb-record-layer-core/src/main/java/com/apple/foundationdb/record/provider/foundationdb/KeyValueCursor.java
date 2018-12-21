@@ -150,6 +150,7 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
                 if (hasNext) {
                     KeyValue kv = iter.next();
                     if (context != null) {
+                        context.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
                         context.increment(FDBStoreTimer.Counts.LOAD_KEY_VALUE);
                     }
                     // Note that this mutates the pointer and NOT the array.

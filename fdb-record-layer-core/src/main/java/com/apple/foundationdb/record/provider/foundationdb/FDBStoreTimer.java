@@ -299,8 +299,12 @@ public class FDBStoreTimer extends StoreTimer {
         SAVE_RECORD_KEY_BYTES("number of record key bytes saved", true),
         /** The size of values for record key-value pairs saved. */
         SAVE_RECORD_VALUE_BYTES("number of record value bytes saved", true),
+        /** The number of entries (e.g., key-value pairs or text index entries) loaded by a scan. */
+        LOAD_SCAN_ENTRY("number of entries loaded by some scan", false),
         /** The number of key-value pairs loaded by a range scan. */
         LOAD_KEY_VALUE("number of keys loaded", false),
+        /** The number of entries loaded when scanning a text index. */
+        LOAD_TEXT_ENTRY("number of text entries loaded", false),
         /** The number of record key-value pairs loaded. */
         LOAD_RECORD_KEY("number of record keys loaded", false),
         /** The size of keys for record key-value pairs loaded. */

@@ -162,6 +162,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -1419,6 +1420,62 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix(Normalizer.normalize("한국", Normalizer.Form.NFKD)), -1860545817));
             assertEquals(Collections.singletonList(5L),
                     querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("한구"), 1377518291)); // note that the second character is only 2 of the 3 Jamo components
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void queryDocumentsWithScanLimit() throws Exception {
+        // Load a big (ish) data set
+        final int recordCount = 100;
+        final int batchSize = 10;
+
+        for (int i = 0; i < recordCount; i += batchSize) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context);
+                for (int j = 0; j < batchSize; j++) {
+                    SimpleDocument document = SimpleDocument.newBuilder()
+                            .setDocId(i + j)
+                            .setText((i + j) % 2 == 0 ? "some" : "text")
+                            .build();
+                    recordStore.saveRecord(document);
+                }
+                commit(context);
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(SIMPLE_DOC)
+                    .setFilter(Query.field("text").text().containsAll("some text"))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+
+            boolean done = false;
+            int totalKeysLoaded = 0;
+            byte[] continuation = null;
+            while (!done) {
+                final int priorKeysLoaded = recordStore.getTimer().getCount(FDBStoreTimer.Counts.LOAD_TEXT_ENTRY);
+                ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(50).build();
+                RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties);
+                assertEquals(Collections.emptyList(), cursor.asList().get());
+                assertThat(cursor.hasNext(), is(false));
+                final int newKeysLoaded = recordStore.getTimer().getCount(FDBStoreTimer.Counts.LOAD_TEXT_ENTRY);
+                totalKeysLoaded += newKeysLoaded - priorKeysLoaded;
+                if (!cursor.getNoNextReason().isSourceExhausted()) {
+                    assertEquals(50, newKeysLoaded - priorKeysLoaded);
+                    assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, cursor.getNoNextReason());
+                    assertNotNull(cursor.getContinuation());
+                } else {
+                    assertNull(cursor.getContinuation());
+                    done = true;
+                }
+                continuation = cursor.getContinuation();
+            }
+            assertEquals(recordCount + 2, totalKeysLoaded);
 
             commit(context);
         }
