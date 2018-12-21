@@ -370,6 +370,41 @@ public class RecordCursorTest {
         assertEquals(adjusted, pieces);
     }
 
+    private int iterateGrid(@Nonnull Function<byte[], RecordCursor<Pair<Integer, Integer>>> cursorFunction,
+                            @Nonnull RecordCursor.NoNextReason[] possibleNoNextReasons) {
+        int results = 0;
+        int leftSoFar = -1;
+        int rightSoFar = -1;
+        boolean done = false;
+        byte[] continuation = null;
+        while (!done) {
+            RecordCursor<Pair<Integer, Integer>> cursor = cursorFunction.apply(continuation);
+            while (cursor.hasNext()) {
+                Pair<Integer, Integer> value = cursor.next();
+                assertNotNull(value);
+                assertThat(value.getLeft(), greaterThan(value.getRight()));
+                assertThat(value.getLeft(), greaterThanOrEqualTo(leftSoFar));
+                if (value.getLeft() == leftSoFar) {
+                    assertThat(value.getRight(), greaterThan(rightSoFar));
+                    rightSoFar = value.getRight();
+                } else {
+                    leftSoFar = value.getLeft();
+                    rightSoFar = value.getRight();
+                }
+                results++;
+            }
+            assertThat(cursor.getNoNextReason(), isOneOf(possibleNoNextReasons));
+            continuation = cursor.getContinuation();
+            if (cursor.getNoNextReason().isSourceExhausted()) {
+                assertNull(continuation);
+                done = true;
+            } else {
+                assertNotNull(continuation);
+            }
+        }
+        return results;
+    }
+
     @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "pipelineWithInnerLimits [outOfBand = {0}]")
     public void pipelineWithInnerLimits(TestHelpers.BooleanEnum outOfBandEnum) throws InvalidProtocolBufferException {
@@ -395,35 +430,63 @@ public class RecordCursorTest {
         };
         final Function<byte[], RecordCursor<Integer>> outerFunc = continuation -> RecordCursor.fromList(ints, continuation);
 
-        byte[] continuation = null;
-        int results = 0;
-        int leftSoFar = -1;
-        int rightSoFar = -1;
-        do {
-            RecordCursor<Pair<Integer, Integer>> cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 5);
-            while (cursor.hasNext()) {
-                Pair<Integer, Integer> value = cursor.next();
-                assertNotNull(value);
-                assertThat(value.getLeft(), greaterThan(value.getRight()));
-                assertThat(value.getLeft(), greaterThanOrEqualTo(leftSoFar));
-                if (value.getLeft() == leftSoFar) {
-                    assertThat(value.getRight(), greaterThan(rightSoFar));
-                    rightSoFar = value.getRight();
-                } else {
-                    leftSoFar = value.getLeft();
-                    rightSoFar = value.getRight();
-                }
-                results++;
-            }
-            assertThat(cursor.getNoNextReason(), isOneOf(possibleNoNextReasons));
-            continuation = cursor.getContinuation();
-        } while (continuation != null);
-
+        int results = iterateGrid(continuation -> RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 5), possibleNoNextReasons);
         int expectedResults = ints.size() * (ints.size() - 1) / 2;
         assertEquals(expectedResults, results);
         assertEquals(ints.size() * ints.size(), timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN));
         assertEquals(expectedResults, timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_PASSED));
         assertEquals(ints.size() * ints.size() - expectedResults, timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED));
+    }
+
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest(name = "pipelineWithOuterLimits [outOfBand = {0}]")
+    public void pipelineWithOuterLimits(TestHelpers.BooleanEnum outOfBandEnum) throws InvalidProtocolBufferException {
+        final boolean outOfBand = outOfBandEnum.toBoolean();
+        final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[]{
+                RecordCursor.NoNextReason.SOURCE_EXHAUSTED,
+                outOfBand ? RecordCursor.NoNextReason.TIME_LIMIT_REACHED : RecordCursor.NoNextReason.RETURN_LIMIT_REACHED
+        };
+        final List<Integer> ints = IntStream.range(0, 10).boxed().collect(Collectors.toList());
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final BiFunction<Integer, byte[], RecordCursor<Pair<Integer, Integer>>> innerFunc = (x, continuation) -> {
+            final RecordCursor<Integer> intCursor = RecordCursor.fromList(ints, continuation);
+            final RecordCursor<Integer> limitedCursor;
+            if (outOfBand) {
+                limitedCursor = new FakeOutOfBandCursor<>(intCursor, 3);
+            } else {
+                limitedCursor = intCursor.limitRowsTo(3);
+            }
+            return limitedCursor.filter(y -> y < x).map(y -> Pair.of(x, y));
+        };
+        final Function<byte[], RecordCursor<Integer>> outerFunc = continuation -> {
+            final RecordCursor<Integer> intCursor = RecordCursor.fromList(ints, continuation);
+            final RecordCursor<Integer> limitedCursor;
+            if (outOfBand) {
+                limitedCursor = new FakeOutOfBandCursor<>(intCursor, 3);
+            } else {
+                limitedCursor = intCursor.limitRowsTo(3);
+            }
+            return limitedCursor.filterInstrumented(x -> x >= 7 && x < 9, timer, FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Events.QUERY_FILTER, FDBStoreTimer.Counts.QUERY_FILTER_PASSED, FDBStoreTimer.Counts.QUERY_DISCARDED);
+        };
+
+        int results = iterateGrid(continuation -> RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 5), possibleNoNextReasons);
+        assertEquals(15, results);
+
+        // Note that as only the outer filter is instrumented, these assertions are based on only the outer filter.
+        // Should be:
+        //  Itr 1: 0, 1, 2
+        //  Itr 2: 3, 4, 5
+        //  Itr 3: 6, 7 (0, 1, 2), 8
+        //  Itr 4: 7 (3, 4, 5), 8, 9
+        //  Itr 5: 7 (6, 7, 8), 8, 9
+        //  Itr 6: 7 (9), 8 (0, 1, 2), 9
+        //  Itr 7: 8 (3, 4, 5), 9
+        //  Itr 8: 8 (6, 7, 8), 9
+        //  Itr 9: 8 (9), 9
+        assertEquals(24, timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN));
+        assertEquals(11, timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_PASSED));
+        assertEquals(13, timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED));
     }
 
     @Test
