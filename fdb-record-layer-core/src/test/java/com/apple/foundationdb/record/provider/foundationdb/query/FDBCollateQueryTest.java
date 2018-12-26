@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.TestRecords1Proto;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.CollateFunctionKeyExpressionFactoryJRE;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -36,7 +39,16 @@ import java.util.List;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -80,10 +92,14 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    protected List<String> queryNames(RecordQuery query, RecordMetaDataHook hook) throws Exception {
+    protected List<String> queryNames(RecordQuery query, RecordMetaDataHook hook, String... bindings) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            return recordStore.executeQuery(query).map(r -> {
+            Bindings.Builder builder = Bindings.newBuilder();
+            for (int i = 0; i < bindings.length; i += 2) {
+                builder.set(bindings[i], bindings[i + 1]);
+            }
+            return recordStore.planQuery(query).execute(recordStore, EvaluationContext.forBindings(builder.build())).map(r -> {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
                         .mergeFrom(r.getRecord())
                         .build();
@@ -92,15 +108,16 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    protected static final KeyExpression NAME_FIELD = field("str_value_indexed");
+
     protected void sortOnly(String locale, String... expected) throws Exception {
-        final KeyExpression nameField = field("str_value_indexed");
         final KeyExpression key;
         final RecordMetaDataHook hook;
         if (locale == null) {
-            key = nameField;
+            key = NAME_FIELD;
             hook = NO_HOOK;
         } else {
-            key = Key.Expressions.function(collateFunctionName, concat(nameField, value(locale)));
+            key = function(collateFunctionName, concat(NAME_FIELD, value(locale)));
             hook = md -> {
                 md.removeIndex("MySimpleRecord$str_value_indexed");
                 md.addIndex("MySimpleRecord", "collated_name", key);
@@ -110,7 +127,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setSort(key)
-                .setRequiredResults(Arrays.asList(nameField))
+                .setRequiredResults(Arrays.asList(NAME_FIELD))
                 .build();
         final List<String> actual = queryNames(query, hook);
         assertEquals(Arrays.asList(expected), actual);
@@ -134,6 +151,82 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         } else {
             sortOnly("fr_FR", "Ampère", "Ångström", "Faraday", "Gauß", "Maxwell", "Ørsted", "Stokes");
         }
+    }
+
+    @Test
+    public void noIndex() throws Exception {
+        loadNames(NO_HOOK);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.keyExpression(function(collateFunctionName, NAME_FIELD)).equalsValue("ampere"))
+                .setRequiredResults(Arrays.asList(NAME_FIELD))
+                .build();
+        final List<String> expected = Arrays.asList("Ampère");
+        final List<String> actual = queryNames(query, NO_HOOK);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void rangeScan() throws Exception {
+        final KeyExpression key = function(collateFunctionName, concat(NAME_FIELD, value("da_DK")));
+        final RecordMetaDataHook hook = md -> {
+            md.removeIndex("MySimpleRecord$str_value_indexed");
+            md.addIndex("MySimpleRecord", "collated_name", key);
+        };
+        loadNames(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.keyExpression(key).greaterThan("Z"))
+                .setRequiredResults(Arrays.asList(NAME_FIELD))
+                .build();
+        final List<String> actual = queryNames(query, hook);
+        final List<String> expected = Arrays.asList("Ørsted", "Ångström");
+        assertEquals(expected, actual);
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, indexScan(indexName("collated_name")));
+    }
+
+    @Test
+    public void coveringIndex() throws Exception {
+        // Note how the name field needs to be repeated in the value because it can't be recovered from an index
+        // entry after transformation to a collation key.
+        final KeyExpression collateKey = function(collateFunctionName, concat(NAME_FIELD, value("da_DK")));
+        final KeyExpression indexKey = keyWithValue(concat(collateKey, NAME_FIELD), 1);
+        final RecordMetaDataHook hook = md -> {
+            md.removeIndex("MySimpleRecord$str_value_indexed");
+            md.addIndex("MySimpleRecord", "collated_name", indexKey);
+        };
+        loadNames(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.keyExpression(collateKey).lessThan("B"))
+                .setRequiredResults(Arrays.asList(NAME_FIELD))
+                .build();
+        final List<String> actual = queryNames(query, hook);
+        final List<String> expected = Arrays.asList("Ampère");
+        assertEquals(expected, actual);
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, coveringIndexScan(indexScan(indexName("collated_name"))));
+    }
+
+    @Test
+    public void compareParameter() throws Exception {
+        final KeyExpression key = function(collateFunctionName, concat(NAME_FIELD, value("de_DE")));
+        final RecordMetaDataHook hook = md -> {
+            md.removeIndex("MySimpleRecord$str_value_indexed");
+            md.addIndex("MySimpleRecord", "collated_name", key);
+        };
+        loadNames(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.keyExpression(key).equalsParameter("name"))
+                .setRequiredResults(Arrays.asList(NAME_FIELD))
+                .build();
+        final List<String> actual = queryNames(query, hook, "name", "gauss");
+        final List<String> expected = Arrays.asList("Gauß");
+        assertEquals(expected, actual);
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, indexScan(allOf(indexName("collated_name"), bounds(hasTupleString(String.format("[EQUALS %s($name)]", collateFunctionName))))));
     }
 
 }

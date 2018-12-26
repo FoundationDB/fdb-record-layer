@@ -24,8 +24,11 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.StoreRecordFunction;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowForFunction;
 import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowRecordFunction;
@@ -247,6 +250,20 @@ public class Query {
     @Nonnull
     public static QueryRecordFunction<FDBRecordVersion> version() {
         return new QueryRecordFunction<>(new StoreRecordFunction<>(FunctionNames.VERSION));
+    }
+
+    /**
+     * Build query components using a key expression.
+     * @param keyExpression the key expression to compare with values
+     * @return a {@code QueryKeyExpression} for matching
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public static QueryKeyExpression keyExpression(@Nonnull KeyExpression keyExpression) {
+        if (!(keyExpression instanceof QueryableKeyExpression)) {
+            throw new MetaDataException("query key expression must be queryable");
+        }
+        return new QueryKeyExpression((QueryableKeyExpression)keyExpression);
     }
 
     /**
