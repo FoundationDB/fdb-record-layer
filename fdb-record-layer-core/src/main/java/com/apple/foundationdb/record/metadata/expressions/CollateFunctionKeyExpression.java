@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -31,14 +32,41 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * {@code COLLATE} function.
  *
  * Turns a string into a locale-specific sort key.
+ *
+ * <p>
+ * The name of the function is determined by the underlying collation rules chosen.
+ * For the Java Platform's own collations, this is {@code collate_jre}.
+ *
+ * <p>
+ * The function takes the following arguments:<ol>
+ * <li>text field to be collated (mandatory)</li>
+ * <li>collation to use (optional)</li>
+ * <li>strength of character matching (optional)</li>
+ * </ol>
+ *
+ * <p>
+ * For example,
+ * <pre>
+ * Key.Expressions.function("collate_jre")
+ * </pre>
+ * is the default locale (from the JVM) and the default (weakest -- ignoring almost all character modifiers) strength.
+ *
+ * <pre>
+ * Key.Expressions.function("collate_jre", Key.Expressions.concat(Key.Expressions.field("text_field"),
+ *     Key.Expressions.value("fr_CA"), Key.Expressions.value(TextCollator.Strength.SECONDARY)))
+ * </pre>
+ * is case-insensitive, accent-sensitive, Canadian French.
+ *
+ * @see TextCollator
  */
 @API(API.Status.EXPERIMENTAL)
-public class CollateFunctionKeyExpression extends FunctionKeyExpression {
+public class CollateFunctionKeyExpression extends FunctionKeyExpression implements QueryableKeyExpression {
     @Nonnull
     private final TextCollatorRegistry collatorRegistry;
     @Nullable
@@ -143,4 +171,13 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression {
         return 1;
     }
 
+    @Nullable
+    @Override
+    public Function<Object, Object> getComparandConversionFunction() {
+        final TextCollator textCollator = invariableCollator;
+        if (textCollator == null) {
+            throw new MetaDataException("can only be used in queries when collation name is constant");
+        }
+        return o -> textCollator.getKey((String)o);
+    }
 }
