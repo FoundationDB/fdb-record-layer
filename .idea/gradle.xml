@@ -15,6 +15,7 @@
             <option value="$PROJECT_DIR$/fdb-extensions" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core-shaded" />
+            <option value="$PROJECT_DIR$/fdb-record-layer-geophile" />
             <option value="$PROJECT_DIR$/fdb-record-layer-icu" />
           </set>
         </option>
