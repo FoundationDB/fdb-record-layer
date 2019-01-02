@@ -72,6 +72,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     private CompletableFuture<Boolean> outerNextFuture;
     @Nullable
     private NoNextReason innerReason;
+    private boolean outerExhausted = false;
 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
@@ -100,7 +101,9 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         if (nextFuture == null) {
             mayGetContinuation = false;
             nextFuture = AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
-                boolean result = !(pipeline.isEmpty() || (innerReason != null && !innerReason.isSourceExhausted()));
+                boolean result = !pipeline.isEmpty()
+                                 && (innerReason == null || innerReason.isSourceExhausted())
+                                 && pipeline.peek().innerCursor != null;
                 mayGetContinuation = !result;
                 return result;
             });
@@ -129,7 +132,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             return null;
         }
         final RecordCursorProto.FlatMapContinuation.Builder builder = RecordCursorProto.FlatMapContinuation.newBuilder();
-        final byte[] innerContinuation = lastEntry.innerCursor.getContinuation();
+        final byte[] innerContinuation = lastEntry.innerCursor != null ? lastEntry.innerCursor.getContinuation() : null;
         if (innerContinuation == null) {
             // This was the last of the inner cursor. Take continuation from outer after it.
             if (lastEntry.outerContinuation == null) {
@@ -157,7 +160,10 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             nextFuture = null;
         }
         while (!pipeline.isEmpty()) {
-            pipeline.remove().innerCursor.close();
+            PipelineQueueEntry<V> pipelineEntry = pipeline.remove();
+            if (pipelineEntry.innerCursor != null) {
+                pipelineEntry.innerCursor.close();
+            }
         }
         if (outerNextFuture != null) {
             outerNextFuture.cancel(false);
@@ -194,7 +200,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      */
     protected CompletableFuture<Boolean> tryToFillPipeline() {
         CompletableFuture<Boolean> waitOuterNext = null;
-        while (pipeline.size() < pipelineSize) {
+        while (!outerExhausted && pipeline.size() < pipelineSize) {
             if (outerNextFuture == null) {
                 outerNextFuture = outerCursor.onHasNext();
             }
@@ -202,22 +208,28 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
                 waitOuterNext = outerNextFuture;
                 break;
             }
-            if (!outerNextFuture.join()) {
-                break;
-            }
-            final byte[] priorOuterContinuation = outerContinuation;
-            final T outerValue = outerCursor.next();
-            final byte[] outerCheckValue = checkValueFunction == null ? null : checkValueFunction.apply(outerValue);
-            byte[] innerContinuation = null;
-            if (initialInnerContinuation != null) {
-                // If possible, ensure that we just positioned to the same place.
-                // Otherwise, take the whole inner cursor, rather applying initial continuation.
-                if (initialCheckValue == null || outerCheckValue == null || Arrays.equals(initialCheckValue, outerCheckValue)) {
-                    innerContinuation = initialInnerContinuation;
-                    initialInnerContinuation = null;
+            final RecordCursor<V> innerCursor;
+            final byte[] outerCheckValue;
+            if (outerNextFuture.join()) {
+                final T outerValue = outerCursor.next();
+                outerCheckValue = checkValueFunction == null ? null : checkValueFunction.apply(outerValue);
+                byte[] innerContinuation = null;
+                if (initialInnerContinuation != null) {
+                    // If possible, ensure that we just positioned to the same place.
+                    // Otherwise, take the whole inner cursor, rather applying initial continuation.
+                    if (initialCheckValue == null || outerCheckValue == null || Arrays.equals(initialCheckValue, outerCheckValue)) {
+                        innerContinuation = initialInnerContinuation;
+                        initialInnerContinuation = null;
+                    }
                 }
+                innerCursor = innerCursorFunction.apply(outerValue, innerContinuation);
+            } else {
+                // Add sentinel to the end of pipeline.
+                innerCursor = null;
+                outerCheckValue = null;
+                outerExhausted = true;
             }
-            final RecordCursor<V> innerCursor = innerCursorFunction.apply(outerValue, innerContinuation);
+            byte[] priorOuterContinuation = outerContinuation;
             outerContinuation = outerCursor.getContinuation();
             pipeline.add(new PipelineQueueEntry<>(innerCursor, priorOuterContinuation, outerContinuation, outerCheckValue));
             outerNextFuture = null;
@@ -232,6 +244,11 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
                 // Loop to whileTrue to fill pipeline.
                 return waitOuterNext;
             }
+        } else if (nextEntry.innerCursor == null) {
+            // Hit sentinel; outer cursor has no more values.
+            lastEntry = nextEntry;
+            innerReason = null; // we are stopping because of the outer reason--not the inner reason
+            return AsyncUtil.READY_FALSE;
         }
         final CompletableFuture<Boolean> entryFuture = nextEntry.innerCursor.onHasNext();
         if (entryFuture.isDone()) {
@@ -266,9 +283,13 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     }
 
     static class PipelineQueueEntry<V> {
+        @Nullable
         final RecordCursor<V> innerCursor;
+        @Nullable
         final byte[] priorOuterContinuation;
+        @Nullable
         final byte[] outerContinuation;
+        @Nullable
         final byte[] outerCheckValue;
 
         public PipelineQueueEntry(RecordCursor<V> innerCursor,
