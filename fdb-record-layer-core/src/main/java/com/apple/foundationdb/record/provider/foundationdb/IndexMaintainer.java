@@ -123,12 +123,6 @@ public abstract class IndexMaintainer<M extends Message> {
     public abstract RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
 
     /**
-     * Validate index metadata for use by this maintainer.
-     * @see com.apple.foundationdb.record.metadata.IndexValidator#validate(com.apple.foundationdb.record.metadata.MetaDataValidator)
-     */
-    public abstract void validate();
-
-    /**
      * Return <code>true</code> if this index be used to evaluate the given record function.
      * @param function requested function
      * @return {@code true} if this index can be used to evaluate the given function

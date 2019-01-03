@@ -273,6 +273,7 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
      * @param indexMaintainerRegistry the index registry to use
      * @return this builder
      * @see FDBRecordStoreBase#getIndexMaintainer
+     * @see FDBRecordStoreBuilder#setIndexMaintainerRegistry
      */
     @Nonnull
     public FDBRecordStoreBuilder<M, R> setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {

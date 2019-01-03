@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -489,7 +488,6 @@ public class VersionIndexTest {
             metaDataBuilder.addUniversalIndex(globalCountIndex);
             metaDataBuilder.setStoreRecordVersions(false);
         })) {
-            recordStore.validateMetaData();
             assertThat(metaData.isStoreRecordVersions(), is(false));
             recordStore.saveRecord(record1);
             recordStore.saveRecord(record2);
@@ -502,7 +500,6 @@ public class VersionIndexTest {
             metaDataBuilder.setStoreRecordVersions(true);
             functionVersionHook.apply(metaDataBuilder);
         })) {
-            recordStore.validateMetaData();
             assertThat(metaData.isStoreRecordVersions(), is(true));
             FDBStoredRecord<Message> storedRecord1 = recordStore.loadRecord(Tuple.from(871L));
             assertNotNull(storedRecord1);
@@ -1274,10 +1271,7 @@ public class VersionIndexTest {
                 Index index = new Index("test_index", expression, IndexTypes.VERSION);
                 RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
                 metaDataBuilder.addIndex("MySimpleRecord", index);
-                RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
-                MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
-                validator.validate();
-                fail("did not invalidate version index expression: " + expression);
+                metaDataBuilder.getRecordMetaData();
             });
         }
 
@@ -1285,18 +1279,14 @@ public class VersionIndexTest {
             Index index = new Index("test_index", VersionKeyExpression.VERSION, EmptyKeyExpression.EMPTY, IndexTypes.VERSION, IndexOptions.UNIQUE_OPTIONS);
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
             metaDataBuilder.addIndex("MySimpleRecord", index);
-            RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
-            MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
-            validator.validate();
+            metaDataBuilder.getRecordMetaData();
         });
 
         assertThrows(MetaDataException.class, () -> {
             Index index = new Index("global_version", VersionKeyExpression.VERSION, IndexTypes.VERSION);
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords2Proto.getDescriptor());
             metaDataBuilder.addUniversalIndex(index);
-            RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
-            MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
-            validator.validate();
+            metaDataBuilder.getRecordMetaData();
         });
     }
 

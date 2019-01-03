@@ -84,11 +84,6 @@ public class NoOpIndexMaintainer<M extends Message> extends IndexMaintainer<M> {
     }
 
     @Override
-    public void validate() {
-        // Does not call base class.
-    }
-
-    @Override
     public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
         return false;
     }

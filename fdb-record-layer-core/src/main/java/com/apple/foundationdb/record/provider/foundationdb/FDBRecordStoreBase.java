@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordScanLimiter;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -90,7 +91,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -3302,15 +3302,11 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
     /**
      * Validate the current meta-data for this store.
+     * @deprecated validation is done by {@link com.apple.foundationdb.record.RecordMetaDataBuilder}
      */
+    @Deprecated
     public void validateMetaData() {
-        final MetaDataValidator validator = new MetaDataValidator(metaDataProvider, indexMaintainerRegistry) {
-                @Override
-                protected void validateIndex(@Nonnull Index index) {
-                    super.validateIndex(index);
-                    getIndexMaintainer(index).validate();
-                }
-        };
+        final MetaDataValidator validator = new MetaDataValidator(metaDataProvider, indexMaintainerRegistry);
         validator.validate();
     }
 

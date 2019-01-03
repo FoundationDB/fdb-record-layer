@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -71,7 +70,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndOrComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -2548,8 +2546,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
             metaDataBuilder.addIndex(recordType, index);
             RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
-            MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
-            validator.validate();
         });
     }
 

@@ -2511,4 +2511,14 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    public void invalidMetaData() throws Exception {
+        RecordMetaDataHook invalid = metaData -> {
+            metaData.addIndex("MySimpleRecord", "no_such_field");
+        };
+        try (FDBRecordContext context = openContext()) {
+            assertThrows(KeyExpression.InvalidExpressionException.class, () -> openSimpleRecordStore(context, invalid));
+        }
+    }
+
 }

@@ -27,11 +27,14 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import org.slf4j.Logger;
@@ -102,6 +105,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private int version;
     @Nonnull
     private final List<FormerIndex> formerIndexes;
+    @Nonnull
+    private IndexMaintainerRegistry indexMaintainerRegistry;
     @Nullable
     private KeyExpression recordCountKey;
     @Nullable
@@ -119,6 +124,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes = new ArrayList<>();
         unionFields = new HashMap<>();
         explicitDependencies = new TreeMap<>();
+        indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
     }
 
     /**
@@ -851,20 +857,60 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return recordTypes.values().iterator().next();
     }
 
+    /**
+     * Get the index registry used for validation.
+     * @return the index maintainer registry
+     */
+    @Nonnull
+    public IndexMaintainerRegistry getIndexMaintainerRegistry() {
+        return indexMaintainerRegistry;
+    }
+
+    /**
+     * Set the index registry used for validation.
+     *
+     * If a record store has a custom index maintainer registry, that same registry may need to be used to properly
+     * validate the meta-data.
+     * @param indexMaintainerRegistry the index maintainer registry
+     * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBuilder#setIndexMaintainerRegistry
+     */
+    public void setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
+        this.indexMaintainerRegistry = indexMaintainerRegistry;
+    }
+
     @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
-        if (recordMetaData != null && recordMetaData.getVersion() == version) {
-            return recordMetaData;
+        if (recordMetaData == null || recordMetaData.getVersion() != version) {
+            recordMetaData = build();
         }
+        return recordMetaData;
+    }
+
+    /**
+     * Build and validate meta-data.
+     * @return new validated meta-data
+     */
+    @Nonnull
+    public RecordMetaData build() {
+        return build(true);
+    }
+
+    /**
+     * Build and validate meta-data with specific index registry.
+     * @param validate {@code true} to validate the new meta-data
+     * @return new meta-data
+     */
+    @Nonnull
+    public RecordMetaData build(boolean validate) {
         Map<String, RecordType> recordTypeBuilders = new HashMap<>();
-        recordMetaData = new RecordMetaData(recordsDescriptor, unionDescriptor, unionFields, recordTypeBuilders,
+        RecordMetaData metaData = new RecordMetaData(recordsDescriptor, unionDescriptor, unionFields, recordTypeBuilders,
                 indexes, universalIndexes, formerIndexes,
                 splitLongRecords, storeRecordVersions, version, recordCountKey);
         for (RecordTypeBuilder recordTypeBuilder : this.recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();
             if (primaryKey != null) {
-                recordTypeBuilders.put(recordTypeBuilder.getName(), recordTypeBuilder.build(recordMetaData));
+                recordTypeBuilders.put(recordTypeBuilder.getName(), recordTypeBuilder.build(metaData));
                 for (Index index : recordTypeBuilder.getIndexes()) {
                     index.setPrimaryKeyComponentPositions(buildPrimaryKeyComponentPositions(index.getRootExpression(), primaryKey));
                 }
@@ -879,7 +925,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 }
             }
         }
-        return recordMetaData;
+        if (validate) {
+            final MetaDataValidator validator = new MetaDataValidator(metaData, indexMaintainerRegistry);
+            validator.validate();
+        }
+        return metaData;
     }
 
     // Note that there is no harm in this returning null for very complex overlaps; that just results in some duplication.

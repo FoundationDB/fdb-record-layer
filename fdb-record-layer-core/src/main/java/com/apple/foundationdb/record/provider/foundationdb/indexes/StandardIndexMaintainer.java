@@ -393,11 +393,6 @@ public abstract class StandardIndexMaintainer<M extends Message> extends IndexMa
         }
     }
 
-    @Override
-    public void validate() {
-        // Non-store-specific stuff is handled by index validator.
-    }
-
     /**
      * The entire index key to be used, including both the indexed value(s) and the primary key(s), with redundancy
      * removed.

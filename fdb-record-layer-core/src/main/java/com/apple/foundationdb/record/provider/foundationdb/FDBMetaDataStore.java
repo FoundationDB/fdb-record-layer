@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -38,7 +38,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -132,7 +131,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                 RecordMetaDataProto.MetaData metaDataProto = parseMetaDataProto(serialized);
                 cachedSerializedVersion = metaDataProto.getVersion();
                 if (currentVersion < 0 || currentVersion == cachedSerializedVersion) {
-                    recordMetaData = buildMetaData(metaDataProto);
+                    recordMetaData = buildMetaData(metaDataProto, false);
                     addPendingCacheUpdate(recordMetaData);
                     if (LOGGER.isDebugEnabled()) {
                         LOGGER.debug(KeyValueLogMessage.of("Using cached serialized meta-data",
@@ -159,7 +158,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                         return null;
                     }
                     RecordMetaDataProto.MetaData metaDataProto = parseMetaDataProto(serialized);
-                    recordMetaData = buildMetaData(metaDataProto);
+                    recordMetaData = buildMetaData(metaDataProto, false);
                     if (cache != null) {
                         int serializedVersion = recordMetaData.getVersion();
                         if (currentVersion != serializedVersion) {
@@ -214,11 +213,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     }
 
     @Nonnull
-    protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto) {
+    protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto, boolean validate) {
         RecordMetaDataBuilder builder = RecordMetaData.newBuilder()
                 .addDependencies(dependencies)
                 .setRecords(metaDataProto);
-        return builder.getRecordMetaData();
+        return builder.build(validate);
     }
 
     public CompletableFuture<RecordMetaData> loadVersion(int version) {
@@ -226,7 +225,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
             throw new RecordCoreException("This store does not maintain a history of older versions");
         }
         return SplitHelper.loadWithSplit(ensureContextActive(), context, getSubspace(), HISTORY_KEY_PREFIX.add(version), true, false, null)
-                .thenApply(rawRecord -> (rawRecord == null) ? null : buildMetaData(parseMetaDataProto(rawRecord.getRawRecord())));
+                .thenApply(rawRecord -> (rawRecord == null) ? null : buildMetaData(parseMetaDataProto(rawRecord.getRawRecord()), false));
     }
 
     /**
@@ -235,9 +234,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @return a future that completes when the save is done
      */
     public CompletableFuture<Void> saveAndSetCurrent(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
-        RecordMetaData validatedMetaData = buildMetaData(metaDataProto);
-        MetaDataValidator validator = new MetaDataValidator(validatedMetaData, IndexMaintainerRegistryImpl.instance());
-        validator.validate();
+        RecordMetaData validatedMetaData = buildMetaData(metaDataProto, true);
 
         // Load even if not maintaining history so as to get compatibility upgrade before (over-)writing.
         CompletableFuture<Void> future = loadCurrentSerialized().thenApply(oldSerialized -> {
