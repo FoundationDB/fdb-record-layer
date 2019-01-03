@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -38,7 +38,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -236,8 +235,6 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      */
     public CompletableFuture<Void> saveAndSetCurrent(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
         RecordMetaData validatedMetaData = buildMetaData(metaDataProto);
-        MetaDataValidator validator = new MetaDataValidator(validatedMetaData, IndexMaintainerRegistryImpl.instance());
-        validator.validate();
 
         // Load even if not maintaining history so as to get compatibility upgrade before (over-)writing.
         CompletableFuture<Void> future = loadCurrentSerialized().thenApply(oldSerialized -> {

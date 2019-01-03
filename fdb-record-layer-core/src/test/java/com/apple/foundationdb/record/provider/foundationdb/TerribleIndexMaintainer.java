@@ -103,10 +103,6 @@ public class TerribleIndexMaintainer<M extends Message> extends IndexMaintainer<
     }
 
     @Override
-    public void validate() {
-    }
-
-    @Override
     public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
         return false;
     }

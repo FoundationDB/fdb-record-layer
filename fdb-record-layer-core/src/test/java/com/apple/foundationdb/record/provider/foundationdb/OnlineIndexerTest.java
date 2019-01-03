@@ -2138,13 +2138,13 @@ public class OnlineIndexerTest {
 
     @Test
     public void illegalConstructorParams() {
-        Index newIndex = new Index("newIndex", field("num_value_3"));
+        Index newIndex = new Index("newIndex", field("num_value_2"));
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", newIndex));
         Index indexPrime = metaData.getIndex("newIndex");
         Collection<RecordType> recordTypes = metaData.recordTypesForIndex(indexPrime);
         // Absent index
         try {
-            Index absentIndex = new Index("absent", field("num_value_3"));
+            Index absentIndex = new Index("absent", field("num_value_2"));
             OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(absentIndex).setSubspace(subspace).build();
             fail("Did not catch absent index.");
         } catch (MetaDataException e) {

@@ -222,7 +222,7 @@ public class MetaDataProtoTest {
         verifyEquals(metaData, metaDataRedone);
 
         metaDataBuilder = new RecordMetaDataBuilder(TestRecords4Proto.getDescriptor());
-        metaDataBuilder.addIndex("RestaurantRecord", new Index("RR$ratings", Key.Expressions.field("review", KeyExpression.FanType.FanOut).nest("rating").ungrouped(), IndexTypes.RANK));
+        metaDataBuilder.addIndex("RestaurantRecord", new Index("RR$ratings", Key.Expressions.field("reviews", KeyExpression.FanType.FanOut).nest("rating").ungrouped(), IndexTypes.RANK));
         metaDataBuilder.removeIndex("RestaurantReviewer$name");
         metaData = metaDataBuilder.getRecordMetaData();
         metaDataRedone = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES).setRecords(metaData.toProto()).getRecordMetaData();
@@ -283,9 +283,11 @@ public class MetaDataProtoTest {
     public void versionstampIndexDeserialization() throws Exception {
         RecordMetaDataProto.MetaData.Builder protoBuilder = RecordMetaDataProto.MetaData.newBuilder();
         protoBuilder.setRecords(TestRecordsIndexCompatProto.getDescriptor().toProto());
+        protoBuilder.setStoreRecordVersions(true);
 
         protoBuilder.addIndexesBuilder()
                 .setName("VersionstampIndex")
+                .setType(IndexTypes.VERSION)
                 .setRootExpression(
                         RecordMetaDataProto.KeyExpression.newBuilder()
                                 .setNesting(RecordMetaDataProto.Nesting.newBuilder()

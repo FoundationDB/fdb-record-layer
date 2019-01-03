@@ -63,8 +63,6 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
     @Nullable
     protected FDBMetaDataStore metaDataStore;
 
-    protected boolean validateMetaData = true;
-
     @Nullable
     protected FDBRecordContext context;
 
@@ -99,7 +97,6 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
         this.formatVersion = other.formatVersion;
         this.metaDataProvider = other.metaDataProvider;
         this.metaDataStore = other.metaDataStore;
-        this.validateMetaData = other.validateMetaData;
         this.context = other.context;
         this.subspaceProvider = other.subspaceProvider;
         this.userVersionChecker = other.userVersionChecker;
@@ -112,7 +109,6 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
         this.serializer = store.serializer;
         this.formatVersion = store.formatVersion;
         this.metaDataProvider = store.metaDataProvider;
-        this.validateMetaData = false;  // Presumably already validated in store.
         this.context = store.context;
         this.subspaceProvider = store.subspaceProvider;
         this.indexMaintainerRegistry = store.indexMaintainerRegistry;
@@ -191,7 +187,6 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
     @Nonnull
     public FDBRecordStoreBuilder<M, R> setMetaDataStore(@Nullable FDBMetaDataStore metaDataStore) {
         this.metaDataStore = metaDataStore;
-        this.validateMetaData = false;  // This is done when storing.
         return this;
     }
 
@@ -278,6 +273,7 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
      * @param indexMaintainerRegistry the index registry to use
      * @return this builder
      * @see FDBRecordStoreBase#getIndexMaintainer
+     * @see FDBRecordStoreBuilder#setIndexMaintainerRegistry
      */
     @Nonnull
     public FDBRecordStoreBuilder<M, R> setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
@@ -315,38 +311,6 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
     @Nonnull
     public FDBRecordStoreBuilder<M, R> setPipelineSizer(@Nonnull FDBRecordStoreBase.PipelineSizer pipelineSizer) {
         this.pipelineSizer = pipelineSizer;
-        return this;
-    }
-
-    /**
-     * Get whether to check that the meta-data set by {@link #setMetaDataProvider} is valid.
-     *
-     * Validation is performed as part of {@link #createOrOpen}.
-     * The default is {@code true}.
-     * @return {@code true} if the meta-data should be validated when opening the store.
-     * @see FDBRecordStoreBase#validateMetaData
-     * @see com.apple.foundationdb.record.metadata.MetaDataValidator
-     */
-    public boolean isValidateMetaData() {
-        return validateMetaData;
-    }
-
-    /**
-     * Set whether to check that the meta-data set by {@link #setMetaDataProvider} is valid.
-     *
-     * Validation is performed as part of {@link #createOrOpen}.
-     *
-     * If the {@link com.apple.foundationdb.record.RecordMetaData} has just been built, it is good practice to validate.
-     * If it is stored persistently, some expense can be saved in {@link #open} by not validating for every record store.
-     * In particular, {@link FDBMetaDataStore} validates when the meta-data is stored, so there is no need to validate
-     * again when it is used.
-     * @param validateMetaData {@code true} if the meta-data should be validated when opening the store.
-     * @return this builder
-     * @see FDBRecordStoreBase#validateMetaData
-     * @see com.apple.foundationdb.record.metadata.MetaDataValidator
-     */
-    public FDBRecordStoreBuilder<M, R> setValidateMetaData(boolean validateMetaData) {
-        this.validateMetaData = validateMetaData;
         return this;
     }
 
@@ -463,7 +427,7 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
         final CompletableFuture<byte[]> loadStoreInfo = recordStore.readStoreInfo();
         final CompletableFuture<byte[]> combinedFuture = CompletableFuture.allOf(preloadMetaData, subspaceFuture,
                 loadStoreState).thenCombine(loadStoreInfo, (v, b) -> b);
-        final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(combinedFuture, userVersionChecker, existenceCheck, validateMetaData);
+        final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(combinedFuture, userVersionChecker, existenceCheck);
         return checkVersion.thenApply(vignore -> recordStore);
     }
 

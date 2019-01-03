@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordScanLimiter;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -90,7 +91,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -2075,14 +2075,13 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
         if (recordStoreState == null) {
             storeInfoFuture = preloadRecordStoreStateAsync().thenCombine(storeInfoFuture, (v, b) -> b);
         }
-        return checkVersion(storeInfoFuture, userVersionChecker, existenceCheck, false);
+        return checkVersion(storeInfoFuture, userVersionChecker, existenceCheck);
     }
 
     @Nonnull
     protected CompletableFuture<Boolean> checkVersion(@Nonnull CompletableFuture<byte[]> storeInfoFuture,
                                                       @Nullable UserVersionChecker userVersionChecker,
-                                                      @Nonnull StoreExistenceCheck existenceCheck,
-                                                      boolean validateMetaData) {
+                                                      @Nonnull StoreExistenceCheck existenceCheck) {
         CompletableFuture<Boolean> result = storeInfoFuture.thenCompose(bytes -> {
             RecordMetaDataProto.DataStoreInfo.Builder info = RecordMetaDataProto.DataStoreInfo.newBuilder();
             final int oldMetaDataVersion;
@@ -2122,7 +2121,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
             }
             final boolean[] dirty = new boolean[1];
             final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, oldUserVersion, oldMetaDataVersion, info, dirty);
-            final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty, validateMetaData));
+            final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
             return checkedRebuild.thenApply(vignore -> {
                 if (dirty[0]) {
                     info.setLastUpdateTime(System.currentTimeMillis());
@@ -2881,12 +2880,7 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
     private CompletableFuture<Void> checkPossiblyRebuild(@Nullable UserVersionChecker userVersionChecker,
                                                          @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
-                                                         @Nonnull boolean[] dirty,
-                                                         boolean validateMetaData) {
-        if (validateMetaData) {
-            validateMetaData();
-        }
-
+                                                         @Nonnull boolean[] dirty) {
         final int oldFormatVersion = info.getFormatVersion();
         final int newFormatVersion = Math.max(oldFormatVersion, formatVersion);
         final boolean formatVersionChanged = oldFormatVersion != newFormatVersion;
@@ -3308,15 +3302,11 @@ public abstract class FDBRecordStoreBase<M extends Message> extends FDBStoreBase
 
     /**
      * Validate the current meta-data for this store.
+     * @deprecated validation is done by {@link com.apple.foundationdb.record.RecordMetaDataBuilder}
      */
+    @Deprecated
     public void validateMetaData() {
-        final MetaDataValidator validator = new MetaDataValidator(metaDataProvider, indexMaintainerRegistry) {
-                @Override
-                protected void validateIndex(@Nonnull Index index) {
-                    super.validateIndex(index);
-                    getIndexMaintainer(index).validate();
-                }
-        };
+        final MetaDataValidator validator = new MetaDataValidator(metaDataProvider, indexMaintainerRegistry);
         validator.validate();
     }
 

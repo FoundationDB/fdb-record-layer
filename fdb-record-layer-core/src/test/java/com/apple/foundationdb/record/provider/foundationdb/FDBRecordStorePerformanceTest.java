@@ -182,7 +182,6 @@ public class FDBRecordStorePerformanceTest {
                         .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
                         .uncheckedOpen();
                 if (n == 0) {
-                    recordStore.validateMetaData();
                     recordStore.deleteAllRecords();
                 }
                 int c = 0;
