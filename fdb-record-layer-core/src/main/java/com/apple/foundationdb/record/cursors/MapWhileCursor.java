@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -95,21 +94,19 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
                 return nextResult;
             }
             // return no record, handle special cases for continuation
-            final RecordCursorContinuation continuation;
             switch (stopContinuation) {
                 case NONE:
-                    continuation = RecordCursorEndContinuation.END;
+                    nextResult = RecordCursorResult.exhausted();
                     break;
                 case BEFORE:
-                    continuation = nextResult.getContinuation(); // previous saved result
+                    final RecordCursorContinuation continuation = nextResult.getContinuation(); // previous saved result
+                    nextResult = RecordCursorResult.withoutNextValue(continuation, NoNextReason.SCAN_LIMIT_REACHED);
                     break;
                 case AFTER:
                 default:
-                    continuation = innerResult.getContinuation();
+                    nextResult = RecordCursorResult.withoutNextValue(innerResult.getContinuation(), NoNextReason.SCAN_LIMIT_REACHED);
                     break;
             }
-            // TODO what should the NoNextReason be here?
-            nextResult = RecordCursorResult.withoutNextValue(continuation, NoNextReason.SCAN_LIMIT_REACHED);
             return nextResult;
         });
     }

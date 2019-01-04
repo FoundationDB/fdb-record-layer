@@ -158,9 +158,12 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
 
         /**
          * The limit on the number record to return was reached.
+         * This limit may be specified by a an explicit {@link ExecuteProperties#setReturnedRowLimit} of by an implicit
+         * limit based on a predicate for continuing, as in {@link com.apple.foundationdb.record.cursors.MapWhileCursor}.
          * {@link #getContinuation()} may return a continuation for after the requested limit.
          * @see ExecuteProperties#setReturnedRowLimit
          * @see #limitRowsTo
+         * @see com.apple.foundationdb.record.cursors.MapWhileCursor
          */
         RETURN_LIMIT_REACHED(false),
 
