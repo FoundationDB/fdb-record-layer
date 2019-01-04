@@ -26,7 +26,10 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -103,16 +106,24 @@ public interface PlannerExpression extends Bindable {
     @Nonnull
     Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren();
 
-    default boolean acceptPropertyVisitor(@Nonnull PlannerProperty visitor) {
-        if (visitor.visitEnter(this)) {
+    /**
+     * Apply the given property visitor to this planner expression and its children. Returns {@code null} if
+     * {@link PlannerProperty#shouldVisit(PlannerExpression)} called on this expression returns {@code false}.
+     * @param visitor a {@link PlannerProperty} visitor to evaluate
+     * @param <U> the type of the evaluated property
+     * @return the result of evaluating the property on the subtree rooted at this expression
+     */
+    @Nullable
+    default <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> visitor) {
+        if (visitor.shouldVisit(this)) {
+            final List<U> childResults = new ArrayList<>();
             Iterator<? extends ExpressionRef<? extends PlannerExpression>> children = getPlannerExpressionChildren();
             while (children.hasNext()) {
-                if (!children.next().acceptPropertyVisitor(visitor)) {
-                    break;
-                }
+                childResults.add(children.next().acceptPropertyVisitor(visitor));
             }
+            return visitor.evaluateAtExpression(this, childResults);
         }
-        return visitor.visitLeave(this);
+        return null;
     }
 }
 
