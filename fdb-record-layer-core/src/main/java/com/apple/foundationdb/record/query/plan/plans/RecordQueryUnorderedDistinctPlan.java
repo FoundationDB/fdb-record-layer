@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.Key;
@@ -49,6 +50,7 @@ import java.util.Set;
 /**
  * A query plan that removes duplicates by means of a hash table of previously seen values.
  */
+@API(API.Status.MAINTAINED)
 public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChild {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnorderedDistinctPlan.class);
 
@@ -129,6 +131,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
     }

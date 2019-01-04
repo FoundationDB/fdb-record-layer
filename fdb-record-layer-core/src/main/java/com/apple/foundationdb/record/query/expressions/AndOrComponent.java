@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -34,6 +35,7 @@ import java.util.function.Function;
 /**
  * The common base class for Boolean {@code And} and {@code Or} query components.
  */
+@API(API.Status.INTERNAL)
 public abstract class AndOrComponent extends SimpleComponentWithChildren implements ComponentWithChildren {
 
     protected abstract boolean isOr();

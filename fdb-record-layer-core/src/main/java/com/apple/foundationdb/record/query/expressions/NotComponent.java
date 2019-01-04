@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -40,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
+@API(API.Status.MAINTAINED)
 public class NotComponent implements ComponentWithSingleChild {
     @Nonnull
     private final ExpressionRef<QueryComponent> child;
@@ -121,6 +123,7 @@ public class NotComponent implements ComponentWithSingleChild {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.child);
     }

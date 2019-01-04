@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -35,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
  * Class that provides context for asserting about a specially calculated value.
  * @param <T> the result type of the function
  */
+@API(API.Status.MAINTAINED)
 public class QueryRecordFunction<T> implements PlanHashable {
     @Nonnull
     private final RecordFunction<T> function;

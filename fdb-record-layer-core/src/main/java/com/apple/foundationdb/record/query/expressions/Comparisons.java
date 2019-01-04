@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
@@ -62,6 +63,7 @@ import java.util.UUID;
 /**
  * Helper methods for building {@link Comparison}s.
  */
+@API(API.Status.STABLE)
 public class Comparisons {
     private Comparisons() {
     }
@@ -694,6 +696,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @API(API.Status.EXPERIMENTAL)
         public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
             return Collections.emptyIterator();
         }
@@ -803,6 +806,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @API(API.Status.EXPERIMENTAL)
         public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
             return Collections.emptyIterator();
         }
@@ -954,6 +958,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @API(API.Status.EXPERIMENTAL)
         public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
             return Collections.emptyIterator();
         }
@@ -1043,6 +1048,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @API(API.Status.EXPERIMENTAL)
         public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
             return Collections.emptyIterator();
         }
@@ -1217,6 +1223,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @API(API.Status.EXPERIMENTAL)
         public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
             return Collections.emptyIterator();
         }

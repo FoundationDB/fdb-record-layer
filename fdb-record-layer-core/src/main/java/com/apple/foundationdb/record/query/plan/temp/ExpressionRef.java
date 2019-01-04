@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
 import javax.annotation.Nonnull;
@@ -30,6 +31,7 @@ import javax.annotation.Nonnull;
  * so the rule would need to cast the reference back to {@link MutableExpressionRef} before modifying it.
  * @param <T> the type of planner expression that is contained in this reference
  */
+@API(API.Status.EXPERIMENTAL)
 public interface ExpressionRef<T extends PlannerExpression> extends Bindable {
     /**
      * Return the expression contained in this reference. If the reference does not support getting its expresssion

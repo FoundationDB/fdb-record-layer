@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
  * A {@link PlanContext} where the underlying meta-data comes from {@link RecordMetaData} and {@link RecordStoreState}
  * objects, as is generally the case when planning actual queries.
  */
+@API(API.Status.EXPERIMENTAL)
 public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     private final RecordStoreState recordStoreState;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.planning;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
@@ -50,6 +51,7 @@ import java.util.stream.Collectors;
 /**
  * Extract {@code IN} predicates in a query filter by replacing them with equality comparisons with a bound parameter that will take on the values of the comparison list in turn.
  */
+@API(API.Status.INTERNAL)
 public class InExtractor {
 
     private final QueryComponent filter;

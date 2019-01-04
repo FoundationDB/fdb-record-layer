@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.planning;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -37,6 +38,7 @@ import java.util.function.Function;
 /**
  * Helper methods for manipulating parameter values passed in {@link com.apple.foundationdb.record.Bindings}.
  */
+@API(API.Status.INTERNAL)
 public class BindingFunctions {
     private BindingFunctions() {
     }

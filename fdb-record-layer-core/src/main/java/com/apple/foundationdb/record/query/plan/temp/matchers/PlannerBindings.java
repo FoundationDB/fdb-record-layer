@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -36,6 +37,7 @@ import java.util.NoSuchElementException;
  * A binding keys is a pointer to the {@link ExpressionMatcher} that created the binding, eliminating the need for a
  * unique string or symbol identifier.
  */
+@API(API.Status.EXPERIMENTAL)
 public class PlannerBindings {
     @Nonnull
     private final Map<ExpressionMatcher<? extends Bindable>, Bindable> bindings = new HashMap<>();

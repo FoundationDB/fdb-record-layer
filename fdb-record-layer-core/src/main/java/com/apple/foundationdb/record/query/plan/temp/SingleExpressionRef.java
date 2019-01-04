@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
@@ -32,6 +33,7 @@ import java.util.Optional;
  * access to it via the {@link #get()} method.
  * @param <T> the type of planner expression that is contained in this reference
  */
+@API(API.Status.EXPERIMENTAL)
 public class SingleExpressionRef<T extends PlannerExpression> implements MutableExpressionRef<T> {
     @Nonnull
     private T expression;

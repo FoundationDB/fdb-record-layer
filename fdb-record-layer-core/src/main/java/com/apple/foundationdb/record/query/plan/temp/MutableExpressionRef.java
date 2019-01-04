@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -30,6 +32,7 @@ import javax.annotation.Nonnull;
  * replaces the current expression with the given new one.
  * @param <T> the type of planner expression that is contained in this reference
  */
+@API(API.Status.EXPERIMENTAL)
 public interface MutableExpressionRef<T extends PlannerExpression> extends ExpressionRef<T> {
     void insert(@Nonnull T newValue);
 }

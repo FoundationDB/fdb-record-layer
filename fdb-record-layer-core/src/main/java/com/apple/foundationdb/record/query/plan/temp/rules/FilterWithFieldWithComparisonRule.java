@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
@@ -46,6 +47,7 @@ import java.util.Objects;
  *
  * Like the {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner}
  */
+@API(API.Status.EXPERIMENTAL)
 public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<Comparisons.Comparison> comparisonMatcher = TypeMatcher.of(Comparisons.Comparison.class);
     private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class, comparisonMatcher);

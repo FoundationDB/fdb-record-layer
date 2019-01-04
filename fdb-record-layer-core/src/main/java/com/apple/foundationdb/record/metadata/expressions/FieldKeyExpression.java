@@ -205,6 +205,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Collections.emptyIterator();
     }

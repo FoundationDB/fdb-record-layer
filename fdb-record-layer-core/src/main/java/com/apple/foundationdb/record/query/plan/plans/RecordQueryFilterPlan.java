@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCursor;
@@ -49,6 +50,7 @@ import java.util.Set;
 /**
  * A query plan that filters out records from a child plan that do not satisfy a filter component.
  */
+@API(API.Status.MAINTAINED)
 public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryFilterPlan.class);
 
@@ -126,6 +128,7 @@ public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return children.iterator();
     }

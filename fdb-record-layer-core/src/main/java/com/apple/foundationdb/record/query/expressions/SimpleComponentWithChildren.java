@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
@@ -31,6 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@API(API.Status.INTERNAL)
 class SimpleComponentWithChildren implements PlannerExpression {
     /**
      * Children for this component, at least 2 of them.
@@ -70,6 +72,7 @@ class SimpleComponentWithChildren implements PlannerExpression {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return childrenRefView.iterator();
     }

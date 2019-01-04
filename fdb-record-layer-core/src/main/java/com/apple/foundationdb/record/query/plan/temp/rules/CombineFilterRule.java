@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -38,6 +39,7 @@ import javax.annotation.Nonnull;
  * A simple rule that combines two nested filter plans and combines them into a single filter plan with a conjunction
  * of the two filters.
  */
+@API(API.Status.EXPERIMENTAL)
 public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
     public static final ExpressionMatcher<ExpressionRef<QueryComponent>> firstMatcher = ReferenceMatcher.anyRef();
     public static final ExpressionMatcher<ExpressionRef<QueryComponent>> secondMatcher = ReferenceMatcher.anyRef();

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -40,6 +41,7 @@ import java.util.TreeMap;
 /**
  * Construct a record from a covering index.
  */
+@API(API.Status.INTERNAL)
 public class IndexKeyValueToPartialRecord {
     static interface Copier {
         public void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,

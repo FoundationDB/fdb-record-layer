@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
@@ -47,6 +48,7 @@ import java.util.List;
  * will throw a {@link ClassCastException}.
  * @param <T> the type of planner expression that this matcher will always bind to
  */
+@API(API.Status.EXPERIMENTAL)
 public class ReferenceMatcher<T extends PlannerExpression> implements ExpressionMatcher<ExpressionRef<T>> {
     @Nonnull
     @Override

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
@@ -35,6 +36,7 @@ import java.util.List;
  * relational planner expression.
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan for the fallback implementation
  */
+@API(API.Status.EXPERIMENTAL)
 public class LogicalTypeFilterExpression implements TypeFilterExpression {
     @Nonnull
     private final Collection<String> recordTypes;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -47,6 +48,7 @@ import java.util.Set;
 /**
  * A query plan that executes a child plan once for each of the elements of some {@code IN} list.
  */
+@API(API.Status.MAINTAINED)
 public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild {
     protected final ExpressionRef<RecordQueryPlan> plan;
     protected final List<ExpressionRef<? extends PlannerExpression>> children;
@@ -122,6 +124,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return children.iterator();
     }

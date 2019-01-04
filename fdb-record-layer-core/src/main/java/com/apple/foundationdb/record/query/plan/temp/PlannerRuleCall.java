@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
@@ -36,6 +37,7 @@ import javax.annotation.Nonnull;
  * structures to include the new expression. In general, each planner will have an associated implementation of
  * <code>PlannerRuleCall</code>.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface PlannerRuleCall {
     /**
      * Return the map of bindings that this rule's matcher expression produced, which includes (by contract) all of the

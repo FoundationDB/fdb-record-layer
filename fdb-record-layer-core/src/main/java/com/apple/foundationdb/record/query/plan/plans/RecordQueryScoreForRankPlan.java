@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -54,6 +55,7 @@ import java.util.stream.Collectors;
 /**
  * A query plan that converts ranks to scores and executes a child plan with the conversion results bound in named parameters.
  */
+@API(API.Status.MAINTAINED)
 public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     /**
      * A single conversion of a rank to a score to be bound to some name.
@@ -189,6 +191,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.plan);
     }

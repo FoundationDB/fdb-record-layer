@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
@@ -39,6 +40,7 @@ import java.util.Set;
  * A rule that eliminates logical type filters that are completely redundant; that is, when the child of the logical
  * type filter is guaranteed to return records of types included in the filter.
  */
+@API(API.Status.EXPERIMENTAL)
 public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
     private static ExpressionMatcher<ExpressionRef<RelationalPlannerExpression>> childMatcher = ReferenceMatcher.anyRef();
     private static ExpressionMatcher<LogicalTypeFilterExpression> root = TypeMatcher.of(LogicalTypeFilterExpression.class, childMatcher);

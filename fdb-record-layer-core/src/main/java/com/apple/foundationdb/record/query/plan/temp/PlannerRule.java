@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
@@ -56,6 +57,7 @@ import java.util.Optional;
  * @see com.apple.foundationdb.record.query.plan.temp
  * @see PlannerRuleCall
  */
+@API(API.Status.EXPERIMENTAL)
 public abstract class PlannerRule<T extends PlannerExpression> {
     @Nonnull
     private final ExpressionMatcher<T> matcher;

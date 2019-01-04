@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -47,6 +48,7 @@ import java.util.stream.Collectors;
  * A property visitor that determines the set of record type names (as Strings) that a {@link RelationalPlannerExpression}
  * could produce. This property is used in determining whether type filters are necessary, among other things.
  */
+@API(API.Status.EXPERIMENTAL)
 public class RecordTypesProperty implements PlannerProperty {
     @Nonnull
     private final PlanContext context;

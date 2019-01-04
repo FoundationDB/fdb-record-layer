@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
@@ -44,6 +45,7 @@ import java.util.Optional;
  *
  * TODO this planner might have bugs since we don't currently have enough rules to write good tests for it.
  */
+@API(API.Status.EXPERIMENTAL)
 public class RewritePlanner implements QueryPlanner {
     @Nonnull
     private static final List<PlannerRuleSet> PHASES = ImmutableList.of(PlannerRuleSet.REWRITE, PlannerRuleSet.IMPLEMENTATION);

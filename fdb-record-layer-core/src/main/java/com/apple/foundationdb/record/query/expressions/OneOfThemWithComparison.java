@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -38,6 +39,7 @@ import java.util.Objects;
 /**
  * A {@link QueryComponent} that evaluates a {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} against each of the values of a repeated field and is satisfied if any of those are.
  */
+@API(API.Status.MAINTAINED)
 public class OneOfThemWithComparison extends BaseRepeatedField implements ComponentWithComparison {
     @Nonnull
     private final ExpressionRef<Comparisons.Comparison> comparison;
@@ -86,6 +88,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.comparison);
     }

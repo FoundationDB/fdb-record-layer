@@ -129,6 +129,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.innerKey);
     }

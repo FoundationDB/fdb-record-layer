@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
  * A simple rule that looks for a filter (with an equality comparison on a field) and a trivial but compatibly
  * ordered index scan with no existing comparisons and pushes the equality comparison down to the index scan.
  */
+@API(API.Status.EXPERIMENTAL)
 public class FilterWithScanRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<Comparisons.Comparison> comparisonMatcher = TypeMatcher.of(Comparisons.Comparison.class);
     private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class, comparisonMatcher);

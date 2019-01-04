@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
@@ -35,6 +36,7 @@ import java.util.List;
  * matcher provide access to a single expression only, and allow it to be accessed by the rule.
  * @param <T> the bindable type that this matcher binds to
  */
+@API(API.Status.EXPERIMENTAL)
 public class TypeMatcher<T extends PlannerExpression> implements ExpressionMatcher<T> {
     @Nonnull
     private final Class<? extends T> expressionClass;

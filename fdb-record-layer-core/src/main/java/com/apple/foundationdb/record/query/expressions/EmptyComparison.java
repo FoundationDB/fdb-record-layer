@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -36,6 +37,7 @@ import java.util.Objects;
 /**
  * A comparison to determine whether a repeated field is empty (has no occurrences).
  */
+@API(API.Status.MAINTAINED)
 public class EmptyComparison extends BaseRepeatedField implements ComponentWithNoChildren {
     @Nonnull
     private final boolean isEmpty;
@@ -76,6 +78,7 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Collections.emptyIterator();
     }

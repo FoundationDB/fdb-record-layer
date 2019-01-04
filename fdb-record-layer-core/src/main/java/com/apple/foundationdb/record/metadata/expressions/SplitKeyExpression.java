@@ -156,6 +156,7 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.joined);
     }

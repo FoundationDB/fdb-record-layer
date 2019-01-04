@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
@@ -46,6 +47,7 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan
  *
  */
+@API(API.Status.STABLE)
 public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpression  {
 
     /**
@@ -84,6 +86,7 @@ public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpressi
      */
     @Nonnull
     @Deprecated
+    @API(API.Status.DEPRECATED)
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull FDBEvaluationContext<M> context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
@@ -100,6 +103,7 @@ public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpressi
      */
     @Nonnull
     @Deprecated
+    @API(API.Status.DEPRECATED)
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull FDBEvaluationContext<M> context) {
         return execute(context, null, ExecuteProperties.SERIAL_EXECUTE);
     }

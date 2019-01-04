@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.planning;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -64,6 +65,7 @@ import java.util.stream.Collectors;
 /**
  * Track comparisons involving rank-type functions.
  */
+@API(API.Status.INTERNAL)
 public class RankComparisons {
     /**
      * A single rank function comparison.

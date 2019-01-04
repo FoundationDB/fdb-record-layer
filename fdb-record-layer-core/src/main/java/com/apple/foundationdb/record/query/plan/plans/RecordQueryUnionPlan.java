@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -48,6 +49,7 @@ import java.util.function.Function;
  * A query plan that executes by taking the union of records from two or more compatibly-sorted child plans.
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
+@API(API.Status.MAINTAINED)
 public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlan.class);
 
@@ -90,6 +92,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
     }
