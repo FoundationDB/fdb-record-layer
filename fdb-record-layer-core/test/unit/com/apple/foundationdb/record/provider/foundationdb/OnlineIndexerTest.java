@@ -187,7 +187,7 @@ public class OnlineIndexerTest {
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData).setContext(context).setSubspace(subspace);
         if (checked) {
-            recordStore = builder.createOrOpen();
+            recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
         } else {
             recordStore = builder.uncheckedOpen();
         }
