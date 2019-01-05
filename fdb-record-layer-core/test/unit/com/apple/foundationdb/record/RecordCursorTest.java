@@ -23,6 +23,7 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.cursors.FilterCursor;
+import com.apple.foundationdb.record.cursors.FirableCursor;
 import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.cursors.MapCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
@@ -30,7 +31,6 @@ import com.apple.foundationdb.record.cursors.SkipCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +58,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -66,6 +67,7 @@ import java.util.stream.IntStream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isOneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -407,7 +409,7 @@ public class RecordCursorTest {
 
     @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "pipelineWithInnerLimits [outOfBand = {0}]")
-    public void pipelineWithInnerLimits(TestHelpers.BooleanEnum outOfBandEnum) throws InvalidProtocolBufferException {
+    public void pipelineWithInnerLimits(TestHelpers.BooleanEnum outOfBandEnum) {
         final boolean outOfBand = outOfBandEnum.toBoolean();
         final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[]{
                 RecordCursor.NoNextReason.SOURCE_EXHAUSTED,
@@ -440,7 +442,7 @@ public class RecordCursorTest {
 
     @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "pipelineWithOuterLimits [outOfBand = {0}]")
-    public void pipelineWithOuterLimits(TestHelpers.BooleanEnum outOfBandEnum) throws InvalidProtocolBufferException {
+    public void pipelineWithOuterLimits(TestHelpers.BooleanEnum outOfBandEnum) {
         final boolean outOfBand = outOfBandEnum.toBoolean();
         final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[]{
                 RecordCursor.NoNextReason.SOURCE_EXHAUSTED,
@@ -487,6 +489,76 @@ public class RecordCursorTest {
         assertEquals(24, timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN));
         assertEquals(11, timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_PASSED));
         assertEquals(13, timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED));
+    }
+
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest(name = "pipelineWithOuterLimitsWithSomeDelay [outOfBand = {0}]")
+    public void pipelineWithOuterLimitsWithSomeDelay(TestHelpers.BooleanEnum outOfBandEnum) {
+        final boolean outOfBand = outOfBandEnum.toBoolean();
+        final RecordCursor.NoNextReason limitReason = outOfBand ? RecordCursor.NoNextReason.TIME_LIMIT_REACHED : RecordCursor.NoNextReason.RETURN_LIMIT_REACHED;
+        final List<Integer> ints = IntStream.range(0, 10).boxed().collect(Collectors.toList());
+
+        final BiFunction<Integer, byte[], RecordCursor<Pair<Integer, Integer>>> innerFunc = (x, continuation) -> RecordCursor.fromList(ints, continuation).map(y -> Pair.of(x, y));
+        final AtomicReference<FirableCursor<Integer>> outerCursorRef = new AtomicReference<>();
+        final Function<byte[], RecordCursor<Integer>> outerFunc = continuation -> {
+            final RecordCursor<Integer> intCursor = RecordCursor.fromList(ints, continuation);
+            final RecordCursor<Integer> limitedCursor;
+            if (outOfBand) {
+                limitedCursor = new FakeOutOfBandCursor<>(intCursor, 3);
+            } else {
+                limitedCursor = intCursor.limitRowsTo(3);
+            }
+            final FirableCursor<Integer> outerCursor = new FirableCursor<>(limitedCursor.filter(x -> x > 7));
+            outerCursorRef.set(outerCursor);
+            return outerCursor;
+        };
+
+        // Outer cursor = 0, 1, 2, all filtered
+        RecordCursor<Pair<Integer, Integer>> cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, null, 5);
+        assertThat(cursor.onHasNext().isDone(), is(false));
+        outerCursorRef.get().fire();
+        assertThat(cursor.hasNext(), is(false));
+        assertEquals(limitReason, cursor.getNoNextReason());
+        assertNotNull(cursor.getContinuation());
+        byte[] continuation = cursor.getContinuation();
+
+        // Outer cursor = 3, 4, 5, all filtered
+        cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 5);
+        assertThat(cursor.onHasNext().isDone(), is(false));
+        outerCursorRef.get().fire();
+        assertThat(cursor.hasNext(), is(false));
+        assertEquals(limitReason, cursor.getNoNextReason());
+        assertNotNull(cursor.getContinuation());
+        continuation = cursor.getContinuation();
+
+        // Outer cursor = 6 (filtered), 7 (filtered), 8 (not filtered)
+        cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 5);
+        outerCursorRef.get().fire();
+        for (int i = 0; i < ints.size(); i++) {
+            Pair<Integer, Integer> nextValue = cursor.next();
+            assertEquals(8, (int)nextValue.getLeft());
+            assertEquals(i, (int)nextValue.getRight());
+        }
+        assertThat(cursor.onHasNext().isDone(), is(false));
+        outerCursorRef.get().fire();
+        assertThat(cursor.hasNext(), is(false));
+        assertEquals(limitReason, cursor.getNoNextReason());
+        assertNotNull(cursor.getContinuation());
+        continuation = cursor.getContinuation();
+
+        // Outer cursor = 9 (not filtered)
+        cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 5);
+        outerCursorRef.get().fire();
+        for (int i = 0; i < ints.size(); i++) {
+            Pair<Integer, Integer> nextValue = cursor.next();
+            assertEquals(9, (int)nextValue.getLeft());
+            assertEquals(i, (int)nextValue.getRight());
+        }
+        assertThat(cursor.onHasNext().isDone(), is(false));
+        outerCursorRef.get().fire();
+        assertThat(cursor.hasNext(), is(false));
+        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
+        assertNull(cursor.getContinuation());
     }
 
     @Test

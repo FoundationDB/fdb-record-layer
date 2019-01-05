@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -236,13 +237,15 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         }
         final PipelineQueueEntry<V> nextEntry = pipeline.peek();
         if (nextEntry == null) {
-            // Nothing more in pipeline.
+            // Nothing in pipeline.
             if (waitOuterNext == null) {
-                // Stop when source empty.
-                return AsyncUtil.READY_FALSE;
+                // If there are no pipeline entries, this should only be because there is outstanding work to
+                // determine what the next entry should be.
+                throw new RecordCoreException("Empty pipeline but no outer future or entry");
             } else {
                 // Loop to whileTrue to fill pipeline.
-                return waitOuterNext;
+                // If the outer cursor has no more results, still loop once more to get the continuation and NoNextReason.
+                return waitOuterNext.thenApply(b -> true);
             }
         } else if (nextEntry.innerCursor == null) {
             // Hit sentinel; outer cursor has no more values.
