@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
@@ -43,9 +45,11 @@ public class ChainedCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final Executor executor;
     @Nullable
-    private CompletableFuture<Optional<T>> nextFuture;
+    private CompletableFuture<Boolean> nextFuture;
     @Nonnull
     private Optional<T> lastValue;
+    @Nullable
+    private RecordCursorResult<T> lastResult;
 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
@@ -68,20 +72,28 @@ public class ChainedCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        return nextGenerator.apply(lastValue).thenApply(nextValue -> {
+            if (nextValue.isPresent()) {
+                lastValue = nextValue;
+                lastResult = RecordCursorResult.withNextValue(nextValue.get(), new Continuation<>(nextValue, getContinuation));
+            } else {
+                lastValue = nextValue;
+                lastResult = RecordCursorResult.exhausted();
+                mayGetContinuation = true;
+            }
+            return lastResult;
+        });
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             mayGetContinuation = false;
-            nextFuture = nextGenerator.apply(lastValue).thenApply(nextValue -> {
-                if (!nextValue.isPresent()) {
-                    lastValue = nextValue;
-                }
-                return nextValue;
-            });
+            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
-        return nextFuture.thenApply(next -> {
-            mayGetContinuation = !next.isPresent();
-            return next.isPresent();
-        });
+        return nextFuture;
     }
 
     @Nullable
@@ -91,27 +103,21 @@ public class ChainedCursor<T> implements RecordCursor<T> {
             throw new NoSuchElementException();
         }
 
-        lastValue = nextFuture.join();
         nextFuture = null;
-
-        if (!lastValue.isPresent()) {
-            throw new NoSuchElementException();
-        }
-
         mayGetContinuation = true;
-        return lastValue.get();
+        return lastResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return lastValue.map(getContinuation).orElse(null);
+        return lastResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return NoNextReason.SOURCE_EXHAUSTED;
+        return lastResult.getNoNextReason();
     }
 
     @Override
@@ -131,5 +137,33 @@ public class ChainedCursor<T> implements RecordCursor<T> {
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
+    }
+
+    private static class Continuation<T> implements RecordCursorContinuation {
+        @Nonnull
+        private final Optional<T> lastValue;
+        @Nonnull
+        private final Function<T, byte[]> getContinuation;
+        @Nullable
+        private byte[] cachedBytes;
+
+        public Continuation(@Nonnull Optional<T> lastValue, @Nonnull Function<T, byte[]> getContinuation) {
+            this.lastValue = lastValue;
+            this.getContinuation = getContinuation;
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (cachedBytes == null) {
+                cachedBytes = lastValue.map(getContinuation).orElse(null);
+            }
+            return cachedBytes;
+        }
+
+        @Override
+        public boolean isEnd() {
+            return toBytes() == null;
+        }
     }
 }

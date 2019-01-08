@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 
@@ -41,13 +42,11 @@ public class FilterCursor<T> implements RecordCursor<T> {
     private final RecordCursor<T> inner;
     @Nonnull
     private final Function<T, Boolean> pred;
-    @Nullable
-    private T next;
     private boolean hasNext;
     @Nullable
     private CompletableFuture<Boolean> nextFuture;
     @Nullable
-    private byte[] lastContinuation;
+    private RecordCursorResult<T> nextResult;
 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
@@ -59,25 +58,23 @@ public class FilterCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        mayGetContinuation = false;
+        return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
+            nextResult = innerResult;
+            hasNext = innerResult.hasNext() && (Boolean.TRUE.equals(pred.apply(innerResult.get()))); // relies on short circuiting
+            return innerResult.hasNext() && !hasNext; // keep looping only if we might find more records and we filtered a record out
+        })).thenApply(vignore -> {
+            mayGetContinuation = !hasNext;
+            return nextResult;
+        });
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
-            mayGetContinuation = false;
-            nextFuture = AsyncUtil.whileTrue(() -> inner.onHasNext()
-                    .thenApply(innerHasNext -> {
-                        if (!innerHasNext) {
-                            hasNext = false;
-                            lastContinuation = inner.getContinuation();
-                            return false; // Stop waiting because empty.
-                        } else {
-                            next = inner.next();
-                            lastContinuation = inner.getContinuation();
-                            hasNext = (Boolean.TRUE.equals(pred.apply(next)));
-                            return !hasNext; // Stop when matches.
-                        }
-                    }), getExecutor()).thenApply(vignore -> {
-                        mayGetContinuation = !hasNext;
-                        return hasNext;
-                    });
+            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
         return nextFuture;
     }
@@ -90,7 +87,7 @@ public class FilterCursor<T> implements RecordCursor<T> {
         }
         nextFuture = null;
         mayGetContinuation = true;
-        return next;
+        return nextResult.get();
     }
 
     @Nullable
@@ -98,12 +95,12 @@ public class FilterCursor<T> implements RecordCursor<T> {
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return lastContinuation;
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return inner.getNoNextReason();
+        return nextResult.getNoNextReason();
     }
 
     @Override

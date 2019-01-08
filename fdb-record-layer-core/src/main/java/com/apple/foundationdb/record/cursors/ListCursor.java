@@ -20,10 +20,17 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorVisitor;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 
@@ -31,43 +38,114 @@ import java.util.concurrent.ForkJoinPool;
  * A cursor that returns the elements of a list.
  * @param <T> the type of elements of the cursor
  */
-public class ListCursor<T> extends IteratorCursor<T> {
-    private int position;
+public class ListCursor<T> implements RecordCursor<T> {
+    @Nonnull
+    private final Executor executor;
+    @Nonnull
+    private final List<T> list;
+    private int nextPosition; // position of the next value to return
+
+    @Nullable
+    private RecordCursorResult<T> nextResult;
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
 
     public ListCursor(@Nonnull List<T> list, byte []continuation) {
-        super(ForkJoinPool.commonPool(), list.iterator());
-        if (continuation != null) {
-            position = ByteBuffer.wrap(continuation).getInt();
-            for (int i = 0; i < position; i++) {
-                iterator.next();
-            }
-        }
+        this(ForkJoinPool.commonPool(), list, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
     }
 
-    public ListCursor(@Nonnull Executor executor, @Nonnull List<T> list, int position) {
-        super(executor, list.iterator());
-        this.position = position;
+    public ListCursor(@Nonnull Executor executor, @Nonnull List<T> list, int nextPosition) {
+        this.executor = executor;
+        this.list = list;
+        this.nextPosition = nextPosition;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        if (nextPosition < list.size()) {
+            nextResult = RecordCursorResult.withNextValue(list.get(nextPosition), new Continuation(nextPosition + 1, list.size()));
+            nextPosition++;
+        } else {
+            nextResult = RecordCursorResult.exhausted();
+        }
+        return CompletableFuture.completedFuture(nextResult);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> onHasNext() {
+        if (hasNextFuture == null) {
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
+        }
+        return hasNextFuture;
     }
 
     @Nullable
     @Override
     public T next() {
-        T next = super.next();
-        if (iterator.hasNext()) {
-            position++;
-        } else {
-            position = -1;
+        if (!hasNext()) {
+            throw new NoSuchElementException();
         }
-        return next;
+        hasNextFuture = null;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
-        if (position < 0) {
-            return null;
-        } else {
-            return ByteBuffer.allocate(Integer.BYTES).putInt(position).array();
+        return nextResult.getContinuation().toBytes();
+    }
+
+    @Override
+    public NoNextReason getNoNextReason() {
+        return nextResult.getNoNextReason();
+    }
+
+    @Override
+    public void close() {
+        if (hasNextFuture != null) {
+            hasNextFuture.cancel(false);
+        }
+    }
+
+    @Override
+    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+        visitor.visitEnter(this);
+        return visitor.visitLeave(this);
+    }
+
+    @Override
+    @Nonnull
+    public Executor getExecutor() {
+        return executor;
+    }
+
+    private static class Continuation implements RecordCursorContinuation {
+        private final int listSize;
+        private final int nextPosition;
+
+        public Continuation(int nextPosition, int listSize) {
+            this.nextPosition = nextPosition;
+            this.listSize = listSize;
+        }
+
+        @Override
+        public boolean isEnd() {
+            // If a next value is returned as part of a cursor result, the continuation must not be an end continuation
+            // (i.e., isEnd() must be false), per the contract of RecordCursorResult. This is the case even if the
+            // cursor knows for certain that there is no more after that result, as in the ListCursor.
+            // Concretely, this means that we really need a > here, rather than >=.
+            return nextPosition > listSize;
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (isEnd()) {
+                return null;
+            }
+            return ByteBuffer.allocate(Integer.BYTES).putInt(nextPosition).array();
         }
     }
 }

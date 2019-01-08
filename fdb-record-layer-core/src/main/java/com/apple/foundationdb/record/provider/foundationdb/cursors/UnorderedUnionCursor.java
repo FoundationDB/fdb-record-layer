@@ -22,11 +22,11 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,7 +49,7 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T> {
 
     protected UnorderedUnionCursor(@Nonnull List<CursorState<T>> cursorStates,
                                    @Nullable FDBStoreTimer timer) {
-        super(ignore -> Collections.emptyList(), cursorStates, timer);
+        super(cursorStates, timer);
     }
 
     @Nonnull
@@ -61,14 +61,13 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T> {
             boolean anyLimitReached = false;
             boolean allExhausted = true;
             for (CursorState<T> cursorState : cursorStates) {
-                if (!cursorState.getOnHasNextFuture().isDone()) {
+                if (!cursorState.getOnNextFuture().isDone()) {
                     allExhausted = false;
                     continue;
                 }
-                if (!cursorState.hasNext) {
-                    // Continuation is valid immediately.
-                    cursorState.continuation = cursorState.cursor.getContinuation();
-                    if (cursorState.cursor.getNoNextReason().isLimitReached()) {
+                final RecordCursorResult<T> result = cursorState.getResult();
+                if (!result.hasNext()) {
+                    if (result.getNoNextReason().isLimitReached()) {
                         anyLimitReached = true;
                         allExhausted = false;
                     }
@@ -97,9 +96,9 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T> {
     void chooseStates(@Nonnull List<CursorState<T>> allStates, @Nonnull List<CursorState<T>> chosenStates, @Nonnull List<CursorState<T>> otherStates) {
         boolean found = false;
         for (CursorState<T> cursorState : allStates) {
-            if (found || cursorState.isExhausted() || !cursorState.getOnHasNextFuture().isDone() || cursorState.element == null) {
+            if (found || cursorState.isExhausted() || !cursorState.getOnNextFuture().isDone() || cursorState.getResult().get() == null) {
                 otherStates.add(cursorState);
-            } else if (cursorState.getOnHasNextFuture().isDone()) {
+            } else if (cursorState.getOnNextFuture().isDone()) {
                 chosenStates.add(cursorState);
                 found = true;
             }

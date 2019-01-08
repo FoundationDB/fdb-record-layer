@@ -58,26 +58,48 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * An asynchronous extension of {@link Iterator}.
+ * An asynchronous iterator that supports continuations.
+ *
+ * Much like an {@code Iterator}, a {@code RecordCursor} provides one-item-at-a-time access to an ordered collection.
+ * It differs in three primary respects:
+ *
+ * <ol>
+ * <li>
+ * A {@code RecordCursor} is <em>asynchronous</em>. Instead of the synchronous {@link Iterator#hasNext()} and
+ * {@link Iterator#next()} methods, {@code RecordCursor} advances the iteration using the asynchronous {@link #onNext()}
+ * method, which returns a {@link CompletableFuture}.
+ * </li>
+ *
+ * <li>
+ * {@code RecordCursor} supports <em>continuations</em>, which are opaque tokens that represent the position of the
+ * cursor between records. Continuations can be used to restart the iteration at the same point later. Continuations
+ * represent all of the state needed to do this restart, even if the original objects no longer exist.
+ * </li>
+ *
+ * <li>
+ * Finally, {@code RecordCursor}'s API offers <em>correctness by construction</em>. In contrast to the {@code hasNext()}/
+ * {@code next()} API used by {@code Iterator}, {@code RecordCursor}'s primary API is{@link RecordCursor#onNext()} which
+ * produces the next value if one is present, or an object indicating that there is no such record. The presence of a
+ * next value is instead indicated by {@link RecordCursorResult#hasNext()}. This API serves to bundle a continuation
+ * (and possible a {@link NoNextReason}) with the result, ensuring that a continuation is obtained only when it is valid.
+ * For compatibility with {@code Iterator}, {@code RecordCursor} also supports {@link RecordCursor#onHasNext()} and
+ * {@link RecordCursor#next()}, but continuations must be used carefully with this API, as described below.
+ * </li>
+ * </ol>
  *
  * <p>
- * To the ordinary synchronous {@code Iterator} behavior, a {@code RecordCursor} adds an {@link #onHasNext()} method,
- * which returns a future that completes when it is known whether the next element is available. When this completes to
- * to {@code true}, {@code #next} will return another element without blocking the calling thread.
+ * {@code RecordCursor} supports {@link #getContinuation} for use with the {@code Iterator}-style API. A cursor is
+ * between records and valid for getting its continuation after calling {@link #next} or after {@link #hasNext} returns
+ * {@code false}.
  * </p>
  *
  * <p>
- * {@code RecordCursor} also supports {@link #getContinuation}. A continuation is an opaque byte array representing the
- * position between records that can be used to restart iteration at the same point later. A cursor is between records
- * and valid for getting its continuation after calling {@link #next} or after {@link #hasNext} returns false.
- * </p>
- *
- * <p>
- * When a cursor is done, that is, {@link #hasNext} returns {@code false}, {@link #getNoNextReason} can be used to determine
- * why it stopped. No-next-reasons are fundamentally distinguished between those that are due to the data itself (in-band)
- * and those that are due to the environment / context (out-of-band). For example, running out of data or having returned
- * the maximum number of records requested are in-band, while reaching a limit on the number of key-value pairs scanned
- * by the transaction or the time that a transaction has been open are out-of-band.
+ * When a cursor stops producing values, it can report why using a {@link NoNextReason}. This can be returned as part of
+ * a {@link RecordCursorResult} if using the {@link #onNext()} API or using {@link #getNoNextReason()} if using the
+ * {@code Iterator}-style API. No-next-reasons are fundamentally distinguished between those that are due to the data
+ * itself (in-band) and those that are due to the environment / context (out-of-band). For example, running out of data
+ * or having returned the maximum number of records requested are in-band, while reaching a limit on the number of
+ * key-value pairs scanned by the transaction or the time that a transaction has been open are out-of-band.
  * </p>
  *
  * @param <T> the type of elements of the cursor
@@ -90,9 +112,9 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @see com.apple.foundationdb.async.AsyncIterator#onHasNext()
      */
     @Nonnull
-    public CompletableFuture<Boolean> onHasNext();
+    CompletableFuture<Boolean> onHasNext();
 
-    public default boolean hasNext() {
+    default boolean hasNext() {
         try {
             return onHasNext().get();
         } catch (ExecutionException ex) {
@@ -104,7 +126,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     }
 
     @Nullable
-    public T next();
+    T next();
 
     /**
      * Get a byte string that can be used to continue a query after the last record returned.
@@ -122,12 +144,12 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * "between" records from a <code>while (hasNext) next</code> loop or after its end.
      */
     @Nullable
-    public byte[] getContinuation();
+    byte[] getContinuation();
 
     /**
      * The reason that {@link #hasNext} returned <code>false</code>.
      */
-    public enum NoNextReason {
+    enum NoNextReason {
         /**
          * The underlying scan, irrespective of any limit, has reached the end.
          * {@link #getContinuation()} should return <code>null</code>.
@@ -136,9 +158,12 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
 
         /**
          * The limit on the number record to return was reached.
+         * This limit may be specified by a an explicit {@link ExecuteProperties#setReturnedRowLimit} of by an implicit
+         * limit based on a predicate for continuing, as in {@link com.apple.foundationdb.record.cursors.MapWhileCursor}.
          * {@link #getContinuation()} may return a continuation for after the requested limit.
          * @see ExecuteProperties#setReturnedRowLimit
          * @see #limitRowsTo
+         * @see com.apple.foundationdb.record.cursors.MapWhileCursor
          */
         RETURN_LIMIT_REACHED(false),
 
@@ -207,13 +232,46 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * may be an exception.
      * @return the reason that the cursor stopped
      */
-    public NoNextReason getNoNextReason();
+    NoNextReason getNoNextReason();
+
+    /**
+     * Asynchronously return the next result from this cursor. When complete, the future will contain a
+     * {@link RecordCursorResult}, which represents exactly one of the following:
+     * <ol>
+     *     <li>
+     *         The next object of type {@code T} produced by the cursor. In addition to the next record, this result
+     *         includes a {@link RecordCursorContinuation} that can be used to continue the cursor after the last record
+     *         returned. The returned continuation is guaranteed not to be an "end continuation" representing the end of
+     *         the cursor: specifically, {@link RecordCursorContinuation#isEnd()} is always {@code false} on the returned
+     *         continuation.
+     *     </li>
+     *     <li>
+     *         The fact that the cursor is stopped and cannot produce another record and a {@link NoNextReason} that
+     *         explains why no record could be produced. The result include a continuation that can be used to continue
+     *         the cursor after the last record returned.
+     *
+     *         If the result's {@code NoNextReason} is anything other than {@link NoNextReason#SOURCE_EXHAUSTED}, the
+     *         returned continuation must not be an end continuation. Conversely, if the result's {@code NoNextReason}
+     *         is {@code SOURCE_EXHAUSTED}, then the returned continuation must be an an "end continuation".
+     *     </li>
+     * </ol>
+     * In either case, the returned {@code RecordCursorContinuation} can be serialized to an opaque byte array using
+     * {@link RecordCursorContinuation#toBytes()}. This can be passed back into a new cursor of the same type, with all
+     * other parameters remaining the same.
+     *
+     * @return a future for the next result from this cursor representing either the next record or an indication of
+     *         why the cursor stopped
+     * @see RecordCursorResult
+     * @see RecordCursorContinuation
+     */
+    @Nonnull
+    CompletableFuture<RecordCursorResult<T>> onNext();
 
     @Override
-    public void close();
+    void close();
 
     @Nonnull
-    public Executor getExecutor();
+    Executor getExecutor();
 
     /**
      * Accept a visit from hierarchical visitor, which implements {@link RecordCursorVisitor}.
@@ -229,7 +287,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a future that when complete has a list with all remaining records.
      */
     @Nonnull
-    public default CompletableFuture<List<T>> asList() {
+    default CompletableFuture<List<T>> asList() {
         final List<T> result = new ArrayList<>();
         return forEach(result::add).thenApply(vignore -> result);
     }
@@ -239,7 +297,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a future that completes to the number of records in the cursor
      */
     @Nonnull
-    public default CompletableFuture<Integer> getCount() {
+    default CompletableFuture<Integer> getCount() {
         final int[] i = new int[] {0};
         return AsyncUtil.whileTrue(() -> onHasNext().thenApply(hasNext -> {
             if (hasNext) {
@@ -267,7 +325,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that applies the given function
      */
     @Nonnull
-    public default <V> RecordCursor<V> map(@Nonnull Function<T, V> func) {
+    default <V> RecordCursor<V> map(@Nonnull Function<T, V> func) {
         return new MapCursor<>(this, func);
     }
 
@@ -277,7 +335,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that applies the given consumer
      */
     @Nonnull
-    public default RecordCursor<T> mapEffect(@Nonnull Consumer<T> consumer) {
+    default RecordCursor<T> mapEffect(@Nonnull Consumer<T> consumer) {
         return new MapCursor<>(this, record -> {
             consumer.accept(record);
             return record;
@@ -290,7 +348,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that runs the given runnable as record pass through
      */
     @Nonnull
-    public default RecordCursor<T> mapEffect(@Nonnull Runnable runnable) {
+    default RecordCursor<T> mapEffect(@Nonnull Runnable runnable) {
         return new MapCursor<>(this, record -> {
             runnable.run();
             return record;
@@ -303,12 +361,12 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that filters out records for which {@code pred} returns {@code false}
      */
     @Nonnull
-    public default RecordCursor<T> filter(@Nonnull Function<T, Boolean> pred) {
+    default RecordCursor<T> filter(@Nonnull Function<T, Boolean> pred) {
         return new FilterCursor<>(this, pred);
     }
 
     @Nonnull
-    public default RecordCursor<T> filterInstrumented(@Nonnull Function<T, Boolean> pred,
+    default RecordCursor<T> filterInstrumented(@Nonnull Function<T, Boolean> pred,
                                                       @Nullable StoreTimer timer, @Nullable StoreTimer.Count in,
                                                       @Nullable StoreTimer.Event during,
                                                       @Nullable StoreTimer.Count success, @Nullable StoreTimer.Count failure) {
@@ -333,7 +391,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that skips records for which {@code pred} returns {@code false}
      */
     @Nonnull
-    public default RecordCursor<T> filterInstrumented(@Nonnull Function<T, Boolean> pred,
+    default RecordCursor<T> filterInstrumented(@Nonnull Function<T, Boolean> pred,
                                                       @Nullable StoreTimer timer,
                                                       @Nonnull Set<StoreTimer.Count> inSet,
                                                       @Nonnull Set<StoreTimer.Event> duringSet,
@@ -372,7 +430,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @param skip number of records to skip
      * @return a new cursor that starts after {@code skip} records
      */
-    public default RecordCursor<T> skip(int skip) {
+    default RecordCursor<T> skip(int skip) {
         if (skip < 0) {
             throw new RecordCoreException("Invalid skip count: " + skip);
         }
@@ -388,7 +446,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that will return at most {@code limit} records
      */
     @Deprecated
-    public default RecordCursor<T> limitTo(int limit) {
+    default RecordCursor<T> limitTo(int limit) {
         return limitRowsTo(limit);
     }
 
@@ -398,7 +456,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that will return at most {@code limit} records
      */
     @Nonnull
-    public default RecordCursor<T> limitRowsTo(int limit) {
+    default RecordCursor<T> limitRowsTo(int limit) {
         if (limit < 0) {
             throw new RecordCoreException("Invalid row limit: " + limit);
         }
@@ -418,7 +476,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      */
     @Deprecated
     @Nonnull
-    public default RecordCursor<T> limitTimeTo(long timeLimit) {
+    default RecordCursor<T> limitTimeTo(long timeLimit) {
         return limitTimeTo(System.currentTimeMillis(), timeLimit);
     }
 
@@ -431,7 +489,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      */
     @Deprecated
     @Nonnull
-    public default RecordCursor<T> limitTimeTo(long timeStartingFrom, long timeLimit) {
+    default RecordCursor<T> limitTimeTo(long timeStartingFrom, long timeLimit) {
         if (timeLimit < 0L) {
             throw new RecordCoreException("Invalid time limit: " + timeLimit);
         }
@@ -444,7 +502,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     }
 
     @Nonnull
-    public default RecordCursor<T> skipThenLimit(int skip, int limit) {
+    default RecordCursor<T> skipThenLimit(int skip, int limit) {
         return skip(skip).limitRowsTo(limit);
     }
 
@@ -456,7 +514,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that applies the given function to each record
      */
     @Nonnull
-    public default <V> RecordCursor<V> mapPipelined(@Nonnull Function<T, CompletableFuture<V>> func, int pipelineSize) {
+    default <V> RecordCursor<V> mapPipelined(@Nonnull Function<T, CompletableFuture<V>> func, int pipelineSize) {
         return new MapPipelinedCursor<>(this, func, pipelineSize);
     }
 
@@ -468,14 +526,14 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that applies the given function to produce a cursor of records that gets flattened
      */
     @Nonnull
-    public default <V> RecordCursor<V> flatMapPipelined(@Nonnull Function<T, ? extends RecordCursor<V>> func, int pipelineSize) {
+    default <V> RecordCursor<V> flatMapPipelined(@Nonnull Function<T, ? extends RecordCursor<V>> func, int pipelineSize) {
         return new FlatMapPipelinedCursor<>(this, (t, cignore) -> func.apply(t),
                 null, null, null, null,
                 pipelineSize);
     }
 
     @Nonnull
-    public static <T, V> RecordCursor<V> flatMapPipelined(@Nonnull Function<byte[], ? extends RecordCursor<T>> outerFunc,
+    static <T, V> RecordCursor<V> flatMapPipelined(@Nonnull Function<byte[], ? extends RecordCursor<T>> outerFunc,
                                                           @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
                                                           @Nullable byte[] continuation,
                                                           int pipelineSize) {
@@ -497,7 +555,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @param continuation the continuation returned from a previous instance of this pipeline or <code>null</code> at start.
      * @param pipelineSize the number of outer items to work ahead; inner cursors for these will be started in parallel.
      */
-    public static <T, V> RecordCursor<V> flatMapPipelined(@Nonnull Function<byte[], ? extends RecordCursor<T>> outerFunc,
+    static <T, V> RecordCursor<V> flatMapPipelined(@Nonnull Function<byte[], ? extends RecordCursor<T>> outerFunc,
                                                           @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
                                                           @Nullable Function<T, byte[]> checker,
                                                           @Nullable byte[] continuation,
@@ -528,7 +586,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that filters out records for which {@code pred} returned a future that completed to {@code false}
      */
     @Nonnull
-    public default RecordCursor<T> filterAsync(@Nonnull Function<T, CompletableFuture<Boolean>> pred, int pipelineSize) {
+    default RecordCursor<T> filterAsync(@Nonnull Function<T, CompletableFuture<Boolean>> pred, int pipelineSize) {
         return mapPipelined(t -> pred.apply(t).thenApply((Function<Boolean, Optional<T>>) matches -> matches != null && matches ? Optional.of(t) : Optional.empty()),
                             pipelineSize)
             .filter(Optional::isPresent)
@@ -536,7 +594,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     }
 
     @Nonnull
-    public default RecordCursor<T> filterAsyncInstrumented(@Nonnull Function<T, CompletableFuture<Boolean>> pred, int pipelineSize,
+    default RecordCursor<T> filterAsyncInstrumented(@Nonnull Function<T, CompletableFuture<Boolean>> pred, int pipelineSize,
                                                            @Nullable StoreTimer timer,
                                                            @Nullable StoreTimer.Count in,
                                                            @Nullable StoreTimer.Event during,
@@ -565,7 +623,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      */
     @Nonnull
     @SuppressWarnings("squid:S1604") // need annotation so no lambda
-    public default RecordCursor<T> filterAsyncInstrumented(@Nonnull Function<T, CompletableFuture<Boolean>> pred,
+    default RecordCursor<T> filterAsyncInstrumented(@Nonnull Function<T, CompletableFuture<Boolean>> pred,
                                                            int pipelineSize,
                                                            @Nullable StoreTimer timer,
                                                            @Nonnull Set<StoreTimer.Count> inSet,
@@ -610,7 +668,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a future that is complete when the consumer has been called on all remaining records
      */
     @Nonnull
-    public default CompletableFuture<Void> forEach(Consumer<T> consumer) {
+    default CompletableFuture<Void> forEach(Consumer<T> consumer) {
         return AsyncUtil.whileTrue(() -> onHasNext().thenApply(hasNext -> {
             if (hasNext) {
                 consumer.accept(next());
@@ -629,7 +687,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * records and the result has then completed
      */
     @Nonnull
-    public default CompletableFuture<Void> forEachAsync(@Nonnull Function<T,CompletableFuture<Void>> func, int pipelineSize) {
+    default CompletableFuture<Void> forEachAsync(@Nonnull Function<T,CompletableFuture<Void>> func, int pipelineSize) {
         return mapPipelined(func, pipelineSize).reduce(null, (v1, v2) -> null);
     }
 
@@ -640,7 +698,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * or the result of {@code func} if this cursor does not produce any records
      */
     @Nonnull
-    public default RecordCursor<T> orElse(@Nonnull Function<Executor, RecordCursor<T>> func) {
+    default RecordCursor<T> orElse(@Nonnull Function<Executor, RecordCursor<T>> func) {
         return new OrElseCursor<>(this, func);
     }
 
@@ -651,12 +709,12 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that produces the elements of the given iterator
      */
     @Nonnull
-    public static <T> RecordCursor<T> fromIterator(@Nonnull Iterator<T> iterator) {
+    static <T> RecordCursor<T> fromIterator(@Nonnull Iterator<T> iterator) {
         return fromIterator(ForkJoinPool.commonPool(), iterator);
     }
 
     @Nonnull
-    public static <T> RecordCursor<T> fromIterator(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
+    static <T> RecordCursor<T> fromIterator(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
         if (iterator instanceof RecordCursor) {
             return (RecordCursor<T>)iterator;
         }
@@ -670,12 +728,12 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that produces the items of {@code list}
      */
     @Nonnull
-    public static <T> RecordCursor<T> fromList(@Nonnull List<T> list) {
+    static <T> RecordCursor<T> fromList(@Nonnull List<T> list) {
         return fromList(ForkJoinPool.commonPool(), list);
     }
 
     @Nonnull
-    public static <T> RecordCursor<T> fromList(@Nonnull Executor executor, @Nonnull List<T> list) {
+    static <T> RecordCursor<T> fromList(@Nonnull Executor executor, @Nonnull List<T> list) {
         return new ListCursor<>(executor, list, 0);
     }
 
@@ -687,16 +745,15 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor that produces the items of {@code list}, resuming if {@code continuation} is not {@code null}
      */
     @Nonnull
-    public static <T> RecordCursor<T> fromList(@Nonnull List<T> list, @Nullable byte[] continuation) {
+    static <T> RecordCursor<T> fromList(@Nonnull List<T> list, @Nullable byte[] continuation) {
         return fromList(ForkJoinPool.commonPool(), list, continuation);
     }
 
     @Nonnull
-    public static <T> RecordCursor<T> fromList(@Nonnull Executor executor, @Nonnull List<T> list, @Nullable byte[] continuation) {
+    static <T> RecordCursor<T> fromList(@Nonnull Executor executor, @Nonnull List<T> list, @Nullable byte[] continuation) {
         int position = 0;
         if (continuation != null) {
             position = ByteBuffer.wrap(continuation).getInt();
-            list = list.subList(position, list.size());
         }
         return new ListCursor<>(executor, list, position);
     }
@@ -709,12 +766,12 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new cursor producing the contents of {@code future}
      */
     @Nonnull
-    public static <T> RecordCursor<T> fromFuture(@Nonnull CompletableFuture<T> future) {
+    static <T> RecordCursor<T> fromFuture(@Nonnull CompletableFuture<T> future) {
         return fromFuture(ForkJoinPool.commonPool(), future);
     }
 
     @Nonnull
-    public static <T> RecordCursor<T> fromFuture(@Nonnull Executor executor, @Nonnull CompletableFuture<T> future) {
+    static <T> RecordCursor<T> fromFuture(@Nonnull Executor executor, @Nonnull CompletableFuture<T> future) {
         return new FutureCursor<>(executor, future);
     }
 
@@ -729,7 +786,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @param <V> the return type of the function
      * @return a new cursor from applying {@code function} to {@code future} and {@code continuation}
      */
-    public static <T, V> RecordCursor<T> mapFuture(@Nonnull Executor executor, @Nonnull CompletableFuture<V> future,
+    static <T, V> RecordCursor<T> mapFuture(@Nonnull Executor executor, @Nonnull CompletableFuture<V> future,
                                                    @Nullable byte[] continuation,
                                                    @Nonnull BiFunction<V, byte[], ? extends RecordCursor<T>> function) {
         return flatMapPipelined(
@@ -744,12 +801,12 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a new empty cursor
      */
     @Nonnull
-    public static <T> RecordCursor<T> empty() {
+    static <T> RecordCursor<T> empty() {
         return empty(ForkJoinPool.commonPool());
     }
 
     @Nonnull
-    public static <T> RecordCursor<T> empty(@Nonnull Executor executor) {
+    static <T> RecordCursor<T> empty(@Nonnull Executor executor) {
         return new EmptyCursor<>(executor);
     }
 
@@ -761,7 +818,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a future that completes to the result of reduction
      */
     @Nullable
-    public default <U> CompletableFuture<U> reduce(U identity, BiFunction<U, ? super T, U> accumulator) {
+    default <U> CompletableFuture<U> reduce(U identity, BiFunction<U, ? super T, U> accumulator) {
         MoreAsyncUtil.Holder<U> holder = new MoreAsyncUtil.Holder<>(identity);
         return AsyncUtil.whileTrue(() -> onHasNext().thenApply(hasNext -> {
             if (hasNext) {

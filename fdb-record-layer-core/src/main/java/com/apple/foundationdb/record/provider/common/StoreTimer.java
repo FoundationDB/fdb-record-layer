@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.common;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 
@@ -402,12 +403,22 @@ public class StoreTimer {
     public <T> RecordCursor<T> instrument(Event event, RecordCursor<T> inner) {
         return new RecordCursor<T>() {
             CompletableFuture<Boolean> nextFuture = null;
+            RecordCursorResult<T> nextResult;
+
+            @Nonnull
+            @Override
+            public CompletableFuture<RecordCursorResult<T>> onNext() {
+                return instrument(event, inner.onNext(), inner.getExecutor()).thenApply(result -> {
+                    nextResult = result;
+                    return nextResult;
+                });
+            }
 
             @Override
             @Nonnull
             public CompletableFuture<Boolean> onHasNext() {
                 if (nextFuture == null) {
-                    nextFuture = instrument(event, inner.onHasNext(), inner.getExecutor());
+                    nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
                 }
                 return nextFuture;
             }
@@ -419,18 +430,18 @@ public class StoreTimer {
                     throw new NoSuchElementException();
                 }
                 nextFuture = null;
-                return inner.next();
+                return nextResult.get();
             }
 
             @Override
             @Nullable
             public byte[] getContinuation() {
-                return inner.getContinuation();
+                return nextResult.getContinuation().toBytes();
             }
 
             @Override
             public NoNextReason getNoNextReason() {
-                return inner.getNoNextReason();
+                return nextResult.getNoNextReason();
             }
 
             @Override

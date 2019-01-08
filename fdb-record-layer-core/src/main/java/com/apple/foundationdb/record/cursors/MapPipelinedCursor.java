@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 
@@ -52,15 +54,17 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     private final Function<T, CompletableFuture<V>> func;
     private final int pipelineSize;
     @Nonnull
-    private final Queue<PipelineQueueEntry<V>> pipeline;
-    @Nullable
-    private PipelineQueueEntry<V> lastEntry;
+    private final Queue<CompletableFuture<RecordCursorResult<V>>> pipeline;
     @Nullable
     private CompletableFuture<Boolean> nextFuture;
     @Nullable
     private CompletableFuture<Boolean> innerFuture;
+    private boolean innerExhausted = false;
+
     @Nullable
-    private byte[] continuation;
+    private CompletableFuture<RecordCursorResult<T>> waitInnerFuture = null;
+    @Nullable
+    private RecordCursorResult<V> nextResult = null;
 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
@@ -75,13 +79,26 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
+    public CompletableFuture<RecordCursorResult<V>> onNext() {
+        mayGetContinuation = false;
+        return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor())
+                // pipeline will necessarily contain something if we stopped looping, so pipeline.remove() is nonnull
+                .thenCompose(vignore -> pipeline.peek()) // future should already be (nearly) ready if we stopped looping
+                .thenApply(result -> {
+                    if (result.hasNext()) {
+                        pipeline.remove();
+                    }
+                    mayGetContinuation = !result.hasNext();
+                    nextResult = result;
+                    return result;
+                });
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
-            mayGetContinuation = false;
-            nextFuture = AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
-                mayGetContinuation = pipeline.isEmpty();
-                return !pipeline.isEmpty();
-            });
+            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
         return nextFuture;
     }
@@ -94,10 +111,8 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
             throw new NoSuchElementException();
         }
         nextFuture = null;
-        lastEntry = pipeline.remove();
-        continuation = lastEntry.innerContinuation;
         mayGetContinuation = true;
-        return lastEntry.future.join();
+        return nextResult.get();
     }
 
     @Nullable
@@ -105,12 +120,12 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @SpotBugsSuppressWarnings(value = "EI", justification = "copies are expensive")
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return continuation;
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return inner.getNoNextReason();
+        return nextResult.getNoNextReason();
     }
 
     @Override
@@ -120,7 +135,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
             nextFuture = null;
         }
         while (!pipeline.isEmpty()) {
-            pipeline.remove().future.cancel(false);
+            pipeline.remove().cancel(false);
         }
         if (innerFuture != null) {
             innerFuture.cancel(false);
@@ -148,89 +163,74 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
     protected CompletableFuture<Boolean> tryToFillPipeline() {
-        CompletableFuture<Boolean> waitInnerFuture = null;
-        while (pipeline.size() < pipelineSize) {
-            if (innerFuture == null) {
-                innerFuture = inner.onHasNext();
-            }
-            if (!innerFuture.isDone()) {
-                waitInnerFuture = innerFuture;
-                break;
+        while (!innerExhausted && pipeline.size() < pipelineSize) {
+            // try to add a future to the pipeline
+            if (waitInnerFuture == null) {
+                waitInnerFuture = inner.onNext();
             }
 
-            if (!innerFuture.join()) {
-                if (pipeline.isEmpty()) {
-                    continuation = inner.getContinuation();
+            if (!waitInnerFuture.isDone()) {
+                // still waiting for inner future, check back once something has finished
+                CompletableFuture<RecordCursorResult<V>> nextEntry = pipeline.peek();
+                if (nextEntry == null) {
+                    return waitInnerFuture.thenApply(vignore -> true); // loop back to process inner result
+                } else {
+                    // keep looping unless the next entry is done
+                    return CompletableFuture.anyOf(waitInnerFuture, nextEntry).thenApply(vignore -> !nextEntry.isDone());
                 }
-                if (inner.getNoNextReason() == NoNextReason.TIME_LIMIT_REACHED && lastEntry != null) {
+            }
+
+            final RecordCursorResult<T> innerResult = waitInnerFuture.join(); // future is ready, doesn't block
+            pipeline.add(innerResult.mapAsync(func));
+
+            if (innerResult.hasNext()) { // just added something to the pipeline, so pipeline will contain an entry
+                waitInnerFuture = null; // done with this future, should advanced cursor next time
+                if (pipeline.peek().isDone()) { //
+                    return AsyncUtil.READY_FALSE; // next entry ready, don't loop
+                }
+                // otherwise, keep looping
+            } else { // don't have next, and won't ever with this cursor
+                innerExhausted = true;
+                if (innerResult.getNoNextReason() == NoNextReason.TIME_LIMIT_REACHED && nextResult != null) {
                     // Under time pressure, do not want to wait for any futures to complete.
                     // For other out-of-band reasons, still return results from the futures that were
                     // already started.
                     // Cannot do this for the very first entry, because do not have a continuation before that.
-                    cancelPendingFutures();
+                    RecordCursorContinuation lastFinishedContinuation = cancelPendingFutures();
+                    pipeline.add(CompletableFuture.completedFuture(
+                            RecordCursorResult.withoutNextValue(lastFinishedContinuation, NoNextReason.TIME_LIMIT_REACHED)));
                 }
+                // Wait for next entry, as if pipeline were full
                 break;
             }
-            T n = inner.next();
-            pipeline.add(new PipelineQueueEntry<>(func.apply(n),
-                    inner.getContinuation()));
-            innerFuture = null;
         }
-        PipelineQueueEntry<V> nextEntry = pipeline.peek();
-        if (nextEntry == null) {
-            // Nothing more in pipeline.
-            if (waitInnerFuture == null) {
-                // Stop when source empty.
-                return AsyncUtil.READY_FALSE;
-            } else {
-                // Loop to whileTrue to fill pipeline.
-                return waitInnerFuture.thenApply(hasNext -> {
-                    if (!hasNext) {
-                        // Nothing in pipeline and nothing else to get, so the continuation might be stale
-                        // once waitInnerFuture completes.
-                        continuation = inner.getContinuation();
-                    }
-                    return hasNext;
-                });
-            }
-        }
-        if (nextEntry.future.isDone()) {
-            // Stop because next mapped value ready.
-            return AsyncUtil.READY_FALSE;
-        }
-        if (waitInnerFuture == null) {
-            // Stop when value ready (pipeline is full).
-            return nextEntry.future.thenApply(vignore -> false);
-        }
-        return CompletableFuture.anyOf(waitInnerFuture, nextEntry.future)
-                // Recheck when either ready.
-                .thenApply(vignore -> true);
+
+        // just added something to the pipeline, so pipeline will contain an entry
+        return pipeline.peek().thenApply(vignore -> false); // the next result is ready
     }
 
-    private void cancelPendingFutures() {
-        Iterator<PipelineQueueEntry<V>> iter = pipeline.iterator();
+    @Nonnull
+    private RecordCursorContinuation cancelPendingFutures() {
+        Iterator<CompletableFuture<RecordCursorResult<V>>> iter = pipeline.iterator();
+        // the earliest continuation we could need to start with is the one from the last result returned
+        RecordCursorContinuation continuation = nextResult.getContinuation();
         while (iter.hasNext()) {
-            PipelineQueueEntry<V> pendingEntry = iter.next();
-            if (!pendingEntry.future.isDone()) {
+            CompletableFuture<RecordCursorResult<V>> pendingEntry = iter.next();
+            if (!pendingEntry.isDone()) {
                 while (true) {
                     iter.remove();
-                    pendingEntry.future.cancel(false);
+                    pendingEntry.cancel(false);
                     if (!iter.hasNext()) {
-                        return;
+                        return continuation;
                     }
                     pendingEntry = iter.next();
                 }
+            } else {
+                // Entry is done, record continuation
+                continuation = pendingEntry.join().getContinuation();
             }
         }
+        return continuation;
     }
 
-    static class PipelineQueueEntry<V> {
-        final CompletableFuture<V> future;
-        final byte[] innerContinuation;
-
-        public PipelineQueueEntry(CompletableFuture<V> future, byte[] innerContinuation) {
-            this.future = future;
-            this.innerContinuation = innerContinuation;
-        }
-    }
 }

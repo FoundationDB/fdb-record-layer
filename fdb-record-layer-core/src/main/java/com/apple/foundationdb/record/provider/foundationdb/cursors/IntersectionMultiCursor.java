@@ -49,7 +49,7 @@ public class IntersectionMultiCursor<T> extends IntersectionCursorBase<T, List<T
     @Nonnull
     List<T> getNextResult(@Nonnull List<CursorState<T>> cursorStates) {
         List<T> result = new ArrayList<>(cursorStates.size());
-        cursorStates.forEach(cursorState -> result.add(cursorState.getElement()));
+        cursorStates.forEach(cursorState -> result.add(cursorState.getResult().get()));
         return result;
     }
 

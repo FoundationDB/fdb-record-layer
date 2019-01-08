@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -40,12 +41,15 @@ import java.util.function.Function;
  * @param <T> the type of elements returned by the cursor
  */
 public class UnionCursor<T> extends UnionCursorBase<T> {
+    @Nonnull
+    private final Function<? super T, ? extends List<Object>> comparisonKeyFunction;
     private final boolean reverse;
 
     private UnionCursor(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
                         boolean reverse, @Nonnull List<CursorState<T>> cursorStates,
                         @Nullable FDBStoreTimer timer) {
-        super(comparisonKeyFunction, cursorStates, timer);
+        super(cursorStates, timer);
+        this.comparisonKeyFunction = comparisonKeyFunction;
         this.reverse = reverse;
     }
 
@@ -53,19 +57,14 @@ public class UnionCursor<T> extends UnionCursorBase<T> {
     @Override
     CompletableFuture<Boolean> getIfAnyHaveNext(@Nonnull List<CursorState<T>> cursorStates) {
         return whenAll(cursorStates).thenApply(vignore -> {
-            cursorStates.forEach(cursorState -> {
-                if (!cursorState.hasNext) { // continuation is valid immediately
-                    cursorState.continuation = cursorState.cursor.getContinuation();
-                }
-            });
             boolean anyHasNext = false;
             for (CursorState<T> cursorState : cursorStates) {
-                if (!cursorState.hasNext && cursorState.cursor.getNoNextReason().isLimitReached()) { // continuation is valid immediately
+                if (cursorState.getResult().hasNext()) {
+                    anyHasNext = true;
+                } else if (cursorState.getResult().getNoNextReason().isLimitReached()) {
                     // If any side stopped due to limit reached, need to stop completely,
                     // since might otherwise duplicate ones after that, if other side still available.
                     return false;
-                } else if (cursorState.hasNext) {
-                    anyHasNext = true;
                 }
             }
             return anyHasNext;
@@ -76,29 +75,31 @@ public class UnionCursor<T> extends UnionCursorBase<T> {
     void chooseStates(@Nonnull List<CursorState<T>> allStates, @Nonnull List<CursorState<T>> chosenStates, @Nonnull List<CursorState<T>> otherStates) {
         List<Object> nextKey = null;
         for (CursorState<T> cursorState : allStates) {
-            if (cursorState.element == null) {
-                cursorState.continuation = null;
-            } else {
+            final RecordCursorResult<T> result = cursorState.getResult();
+            if (result.hasNext()) {
                 int compare;
+                final List<Object> resultKey = comparisonKeyFunction.apply(result.get());
                 if (nextKey == null) {
                     // This is the first key we've seen, so always chose it.
                     compare = -1;
                 } else {
                     // Choose the minimum of the previous minimum key and this next one
                     // If doing a reverse scan, choose the maximum.
-                    compare = KeyComparisons.KEY_COMPARATOR.compare(cursorState.key, nextKey) * (reverse ? -1 : 1);
+                    compare = KeyComparisons.KEY_COMPARATOR.compare(resultKey, nextKey) * (reverse ? -1 : 1);
                 }
                 if (compare < 0) {
                     // We have a new next key. Reset the book-keeping information.
                     otherStates.addAll(chosenStates);
                     chosenStates.clear();
-                    nextKey = cursorState.key;
+                    nextKey = resultKey;
                 }
                 if (compare <= 0) {
                     chosenStates.add(cursorState);
                 } else {
                     otherStates.add(cursorState);
                 }
+            } else {
+                otherStates.add(cursorState);
             }
         }
     }
@@ -141,7 +142,7 @@ public class UnionCursor<T> extends UnionCursorBase<T> {
      * @param reverse whether records are returned in descending or ascending order by the comparison key
      * @param left a function to produce the first {@link RecordCursor} from a continuation
      * @param right a function to produce the second {@link RecordCursor} from a continuation
-     * @param continuation any continuation from a previous scan
+     * @param byteContinuation any continuation from a previous scan
      * @param timer the timer used to instrument events
      * @param <T> the type of elements returned by the cursor
      * @return a cursor containing all elements in both child cursors
@@ -153,9 +154,9 @@ public class UnionCursor<T> extends UnionCursorBase<T> {
             boolean reverse,
             @Nonnull Function<byte[], RecordCursor<T>> left,
             @Nonnull Function<byte[], RecordCursor<T>> right,
-            @Nullable byte[] continuation,
+            @Nullable byte[] byteContinuation,
             @Nullable FDBStoreTimer timer) {
-        final List<CursorState<T>> cursorStates = createCursorStates(left, right, continuation);
+        final List<CursorState<T>> cursorStates = createCursorStates(left, right, byteContinuation);
         return new UnionCursor<>(comparisonKeyFunction, reverse, cursorStates, timer);
     }
 
@@ -213,7 +214,7 @@ public class UnionCursor<T> extends UnionCursorBase<T> {
      * @param comparisonKeyFunction the function evaluated to compare elements from different cursors
      * @param reverse whether records are returned in descending or ascending order by the comparison key
      * @param cursorFunctions a list of functions to produce {@link RecordCursor}s from a continuation
-     * @param continuation any continuation from a previous scan
+     * @param byteContinuation any continuation from a previous scan
      * @param timer the timer used to instrument events
      * @param <T> the type of elements returned by this cursor
      * @return a cursor containing any records in any child cursors
@@ -223,13 +224,13 @@ public class UnionCursor<T> extends UnionCursorBase<T> {
             @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
             boolean reverse,
             @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
-            @Nullable byte[] continuation,
+            @Nullable byte[] byteContinuation,
             @Nullable FDBStoreTimer timer) {
         if (cursorFunctions.size() < 2) {
             throw new RecordCoreArgumentException("not enough child cursors provided to UnionCursor")
                     .addLogInfo(LogMessageKeys.CHILD_COUNT, cursorFunctions.size());
         }
-        final List<CursorState<T>> cursorStates = createCursorStates(cursorFunctions, continuation);
+        final List<CursorState<T>> cursorStates = createCursorStates(cursorFunctions, byteContinuation);
         return new UnionCursor<>(comparisonKeyFunction, reverse, cursorStates, timer);
     }
 }

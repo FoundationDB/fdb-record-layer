@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
@@ -41,6 +41,11 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
     private final int limit;
     private int soFar;
 
+    @Nullable
+    protected RecordCursorResult<T> nextResult;
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
+
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
 
@@ -52,17 +57,31 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> onHasNext() {
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (limitReached()) {
             mayGetContinuation = true;
-            return AsyncUtil.READY_FALSE;
+            NoNextReason reason = (!nextResult.hasNext() && nextResult.getContinuation().isEnd())
+                                  ? nextResult.getNoNextReason() : NoNextReason.RETURN_LIMIT_REACHED;
+            nextResult = RecordCursorResult.withoutNextValue(nextResult.getContinuation(), reason);
+            return CompletableFuture.completedFuture(nextResult);
         } else {
             mayGetContinuation = false;
-            return inner.onHasNext().thenApply(hasNext -> {
-                mayGetContinuation = !hasNext;
-                return hasNext;
+            return inner.onNext().thenApply(result -> {
+                soFar++;
+                nextResult = result;
+                mayGetContinuation = !result.hasNext();
+                return result;
             });
         }
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> onHasNext() {
+        if (hasNextFuture == null) {
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
+        }
+        return hasNextFuture;
     }
 
     @Nullable
@@ -70,27 +89,22 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
-        } else {
-            mayGetContinuation = true;
-            soFar += 1;
-            return inner.next();
         }
+        hasNextFuture = null;
+        mayGetContinuation = true;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return inner.getContinuation();
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        if (limitReached() && getContinuation() != null) {
-            return NoNextReason.RETURN_LIMIT_REACHED;
-        } else {
-            return inner.getNoNextReason();
-        }
+        return nextResult.getNoNextReason();
     }
 
     protected boolean limitReached() {

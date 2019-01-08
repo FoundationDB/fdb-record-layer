@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.cursors;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
@@ -42,10 +43,11 @@ import java.util.concurrent.Executor;
 public class FirableCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final RecordCursor<T> underlying;
-    private byte[] continuation;
     private boolean mayGetContinuation;
     @Nullable
     private CompletableFuture<Boolean> onHasNextFuture;
+    @Nullable
+    private RecordCursorResult<T> nextResult;
     @Nonnull
     private CompletableFuture<Void> fireSignal;
     private volatile boolean fireWhenReady;
@@ -57,16 +59,25 @@ public class FirableCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        mayGetContinuation = false;
+        return fireSignal.thenCompose(vignore -> underlying.onNext()).thenApply(result -> {
+            mayGetContinuation = !result.hasNext();
+            nextResult = result;
+            synchronized (this) {
+                if (!fireWhenReady) {
+                    fireSignal = new CompletableFuture<>();
+                }
+            }
+            return result;
+        });
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<Boolean> onHasNext() {
         if (onHasNextFuture == null) {
-            mayGetContinuation = false;
-            onHasNextFuture = fireSignal.thenCompose(vignore -> underlying.onHasNext().thenApply(cursorHasNext -> {
-                this.mayGetContinuation = !cursorHasNext;
-                if (!cursorHasNext) {
-                    this.continuation = underlying.getContinuation();
-                }
-                return cursorHasNext;
-            }));
+            onHasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
         return onHasNextFuture;
     }
@@ -77,16 +88,21 @@ public class FirableCursor<T> implements RecordCursor<T> {
         if (!hasNext()) {
             throw new NoSuchElementException();
         }
-        final T elem = underlying.next();
-        continuation = underlying.getContinuation();
         onHasNextFuture = null;
         mayGetContinuation = true;
-        synchronized (this) {
-            if (!fireWhenReady) {
-                fireSignal = new CompletableFuture<>();
-            }
-        }
-        return elem;
+        return nextResult.get();
+    }
+
+    @Nullable
+    @Override
+    public byte[] getContinuation() {
+        IllegalContinuationAccessChecker.check(mayGetContinuation);
+        return nextResult.getContinuation().toBytes();
+    }
+
+    @Override
+    public NoNextReason getNoNextReason() {
+        return nextResult.getNoNextReason();
     }
 
     /**
@@ -106,18 +122,6 @@ public class FirableCursor<T> implements RecordCursor<T> {
             fireWhenReady = true;
             fireSignal = AsyncUtil.DONE;
         }
-    }
-
-    @Nullable
-    @Override
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return continuation;
-    }
-
-    @Override
-    public NoNextReason getNoNextReason() {
-        return underlying.getNoNextReason();
     }
 
     @Override

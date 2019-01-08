@@ -111,6 +111,20 @@ public class RecordCursorTest {
 
         @Nonnull
         @Override
+        public CompletableFuture<RecordCursorResult<Integer>> onNext() {
+            onHasNextCalled++;
+            return CompletableFuture.completedFuture(count).thenApplyAsync(c -> {
+                count--;
+                if (c > 0) {
+                    return RecordCursorResult.withNextValue(c, ByteArrayContinuation.fromInt(count));
+                } else {
+                    return RecordCursorResult.withoutNextValue(RecordCursorEndContinuation.END, NoNextReason.SOURCE_EXHAUSTED);
+                }
+            });
+        }
+
+        @Nonnull
+        @Override
         public CompletableFuture<Boolean> onHasNext() {
             onHasNextCalled++;
             // Use thenApplyAsync to deliberately introduce a delay.
@@ -598,13 +612,15 @@ public class RecordCursorTest {
             this(inner, limit, NoNextReason.TIME_LIMIT_REACHED);
         }
 
+        @Nonnull
         @Override
-        public NoNextReason getNoNextReason() {
-            if (limitReached() && getContinuation() != null) {
-                return noNextReason;
-            } else {
-                return super.getNoNextReason();
-            }
+        public CompletableFuture<RecordCursorResult<T>> onNext() {
+            return super.onNext().thenApply(result -> {
+                if (!result.hasNext() && result.getNoNextReason() == NoNextReason.RETURN_LIMIT_REACHED) {
+                    nextResult = RecordCursorResult.withoutNextValue(result.getContinuation(), noNextReason);
+                }
+                return nextResult;
+            });
         }
     }
 
@@ -672,6 +688,11 @@ public class RecordCursorTest {
         assertNotNull(cursor.getContinuation());
         cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(list, cursor.getContinuation()), 1).filter(filter).mapPipelined(map, 10);
         assertEquals(Arrays.asList(4), cursor.asList().join());
+        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
+        assertNotNull(cursor.getContinuation());
+        cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(list, cursor.getContinuation()), 1).filter(filter).mapPipelined(map, 10);
+        assertEquals(Collections.emptyList(), cursor.asList().join());
+        // we've only just looked at the last element of the list so the cursor doesn't know that we've exhausted yet
         assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
         assertNotNull(cursor.getContinuation());
         cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(list, cursor.getContinuation()), 1).filter(filter).mapPipelined(map, 10);
@@ -770,10 +791,16 @@ public class RecordCursorTest {
     static class BrokenCursor implements RecordCursor<String> {
         @Nonnull
         @Override
-        public CompletableFuture<Boolean> onHasNext() {
+        public CompletableFuture<RecordCursorResult<String>> onNext() {
             return CompletableFuture.supplyAsync(() -> {
                 throw new RuntimeException("sorry");
             }, getExecutor());
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<Boolean> onHasNext() {
+            return onNext().thenApply(RecordCursorResult::hasNext);
         }
 
         @Nullable

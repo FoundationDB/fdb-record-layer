@@ -27,11 +27,13 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
@@ -62,10 +64,12 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     @Nonnull
     private final CursorLimitManager limitManager;
     private int limitRemaining;
+    // the pointer may be mutated, but the actual array must never be mutated or continuations will break
     @Nullable
     private byte[] lastKey;
     @Nullable
     private CompletableFuture<Boolean> hasNextFuture = null;
+    private RecordCursorResult<KeyValue> nextResult;
 
     private KeyValueCursor(@Nonnull final FDBRecordContext recordContext,
                            @Nonnull Subspace subspace,
@@ -138,6 +142,45 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
         }
     }
 
+    @Nonnull
+    @Override
+    public CompletableFuture<RecordCursorResult<KeyValue>> onNext() {
+        if (limitManager.tryRecordScan()) {
+            return iter.onHasNext().thenApply(hasNext -> {
+                if (hasNext) {
+                    KeyValue kv = iter.next();
+                    if (context != null) {
+                        context.increment(FDBStoreTimer.Counts.LOAD_KEY_VALUE);
+                    }
+                    // Note that this mutates the pointer and NOT the array.
+                    // If the value of lastKey is mutated, the Continuation class will break.
+                    lastKey = kv.getKey();
+                    limitRemaining--;
+                    nextResult = RecordCursorResult.withNextValue(kv, continuationHelper());
+                } else if (limitRemaining <= 0) {
+                    // Source iterator hit limit that we passed down.
+                    nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), NoNextReason.RETURN_LIMIT_REACHED);
+                } else {
+                    // Source iterator is exhausted.
+                    nextResult = RecordCursorResult.exhausted();
+                }
+                return nextResult;
+            });
+        } else { // a limit must have been exceeded
+            final Optional<NoNextReason> stoppedReason = limitManager.getStoppedReason();
+            if (!stoppedReason.isPresent()) {
+                throw new RecordCoreException("limit manager stopped KeyValueCursor but did not report a reason");
+            }
+            nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), stoppedReason.get());
+            return CompletableFuture.completedFuture(nextResult);
+        }
+    }
+
+    @Nonnull
+    private RecordCursorContinuation continuationHelper() {
+        return new Continuation(lastKey, prefixLength);
+    }
+
     @Override
     public boolean hasNext() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onHasNext());
@@ -146,14 +189,8 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     @Nonnull
     @Override
     public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture != null) {
-            return hasNextFuture;
-        }
-
-        if (limitManager.tryRecordScan()) {
-            hasNextFuture = iter.onHasNext();
-        } else { // exceeded record scan limit
-            hasNextFuture = AsyncUtil.READY_FALSE;
+        if (hasNextFuture == null) {
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
         return hasNextFuture;
     }
@@ -165,41 +202,18 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
             throw new NoSuchElementException();
         }
         hasNextFuture = null;
-
-        KeyValue kv = iter.next();
-        if (context != null) {
-            context.increment(FDBStoreTimer.Counts.LOAD_KEY_VALUE);
-        }
-        lastKey = kv.getKey();
-        limitRemaining--;
-        return kv;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
-        if (lastKey == null) {
-            return null;
-        }
-        return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        if (lastKey == null) {
-            return NoNextReason.SOURCE_EXHAUSTED;
-        }
-
-        Optional<NoNextReason> reason = limitManager.getStoppedReason();
-        if (reason.isPresent()) {
-            return reason.get();
-        }
-
-        // address limits not managed by the limit manager
-        if (limitRemaining <= 0) {
-            return NoNextReason.RETURN_LIMIT_REACHED;
-        }
-        return NoNextReason.SOURCE_EXHAUSTED;
+        return nextResult.getNoNextReason();
     }
 
     @Override
@@ -217,6 +231,35 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
+    }
+
+    private static class Continuation implements RecordCursorContinuation {
+        @Nullable
+        private final byte[] lastKey;
+        private final int prefixLength;
+
+        public Continuation(@Nullable final byte[] lastKey, final int prefixLength) {
+            // Note that doing this without a full copy is dangerous if the array is ever mutated.
+            // Currently, this never happens and the only thing that changes is which array lastKey points to.
+            // However, if logic in KeyValueCursor or KeyValue changes, this could break continuations.
+            // To resolve it, we could resort to doing a full copy here, although that's somewhat expensive.
+            this.lastKey = lastKey;
+            this.prefixLength = prefixLength;
+        }
+
+        @Override
+        public boolean isEnd() {
+            return lastKey == null;
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (lastKey == null) {
+                return null;
+            }
+            return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+        }
     }
 
     /**

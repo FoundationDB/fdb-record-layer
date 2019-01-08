@@ -20,18 +20,23 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
  * A cursor that returns the elements of an ordinary synchronous iterator.
+ * While it supports continuation, resuming an iterator cursor with a continuation is very inefficient since it needs to
+ * advance the underlying iterator up to the point that stopped.
  * @param <T> the type of elements of the cursor
  */
 public class IteratorCursor<T> implements RecordCursor<T> {
@@ -39,6 +44,12 @@ public class IteratorCursor<T> implements RecordCursor<T> {
     private final Executor executor;
     @Nonnull
     protected final Iterator<T> iterator;
+    private int valuesSeen;
+
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
+    @Nullable
+    private RecordCursorResult<T> nextResult;
 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
@@ -46,43 +57,54 @@ public class IteratorCursor<T> implements RecordCursor<T> {
     public IteratorCursor(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
         this.executor = executor;
         this.iterator = iterator;
+        this.valuesSeen = 0;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        boolean hasNext = iterator.hasNext();
+        mayGetContinuation = !hasNext;
+        if (hasNext) {
+            valuesSeen++;
+            nextResult = RecordCursorResult.withNextValue(iterator.next(), ByteArrayContinuation.fromInt(valuesSeen));
+        } else {
+            nextResult = RecordCursorResult.exhausted();
+        }
+        return CompletableFuture.completedFuture(nextResult);
     }
 
     @Nonnull
     @Override
     public CompletableFuture<Boolean> onHasNext() {
-        boolean hasNext = iterator.hasNext();
-        mayGetContinuation = !hasNext;
-        return CompletableFuture.completedFuture(hasNext);
-    }
-
-    @Override
-    public boolean hasNext() {
-        return iterator.hasNext();
+        if (hasNextFuture == null) {
+            mayGetContinuation = false;
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
+        }
+        return hasNextFuture;
     }
 
     @Nullable
     @Override
     public T next() {
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
         mayGetContinuation = true;
-        return iterator.next();
-    }
-
-    @Override
-    public void remove() {
-        iterator.remove();
+        hasNextFuture = null;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return null;
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return NoNextReason.SOURCE_EXHAUSTED;
+        return nextResult.getNoNextReason();
     }
 
     @Override
@@ -95,6 +117,9 @@ public class IteratorCursor<T> implements RecordCursor<T> {
             } catch (Exception ex) {
                 throw new RecordCoreException(ex.getMessage(), ex);
             }
+        }
+        if (hasNextFuture != null) {
+            hasNextFuture.cancel(false);
         }
     }
 

@@ -21,16 +21,22 @@
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.cursors.IllegalContinuationAccessChecker;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -46,6 +52,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Common implementation code for performing an intersection shared between
@@ -64,7 +71,9 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
     @Nullable
     private final FDBStoreTimer timer;
     @Nullable
-    private CompletableFuture<Boolean> nextFuture;
+    private CompletableFuture<Boolean> hasNextFuture;
+    @Nullable
+    private RecordCursorResult<U> nextResult;
 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
@@ -78,93 +87,58 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_INTERSECTION_PLAN_NONMATCHES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
     protected static class CursorState<T> {
-        private static final RecordCursorProto.IntersectionContinuation.CursorState NOT_STARTED_PROTO = RecordCursorProto.IntersectionContinuation.CursorState.newBuilder()
-                .setStarted(false)
-                .build();
-
         @Nonnull
         private final RecordCursor<T> cursor;
         @Nullable
-        private CompletableFuture<Void> onHasNextFuture;
-        private boolean hasNext;
-        @Nullable
-        private T element;
+        private CompletableFuture<RecordCursorResult<T>> onNextFuture;
         private List<Object> key;
+        @Nonnull
+        private RecordCursorContinuation continuation;
         @Nullable
-        private byte[] continuation;
+        private RecordCursorResult<T> result;
 
-        CursorState(@Nonnull RecordCursor<T> cursor, @Nullable byte[] continuation) {
+        CursorState(@Nonnull RecordCursor<T> cursor, @Nonnull RecordCursorContinuation continuation) {
             this.cursor = cursor;
             this.continuation = continuation;
         }
 
         @Nonnull
-        public CompletableFuture<Void> getOnHasNextFuture() {
-            if (onHasNextFuture == null) {
-                onHasNextFuture = cursor.onHasNext().thenAccept(cursorHasNext -> {
-                    this.hasNext = cursorHasNext;
-                    if (!cursorHasNext) {
-                        this.continuation = cursor.getContinuation();
+        public CompletableFuture<RecordCursorResult<T>> getOnNextFuture(@Nonnull Function<? super T, ? extends List<Object>> keyFunction) {
+            if (onNextFuture == null) {
+                onNextFuture = cursor.onNext().thenApply(cursorResult -> {
+                    result = cursorResult;
+                    if (result.hasNext()) {
+                        key = keyFunction.apply(result.get());
+                    } else {
+                        continuation = result.getContinuation(); // no result, so we advanced the cached continuation
                     }
+                    return cursorResult;
                 });
             }
-            return onHasNextFuture;
-        }
-
-        public void ready(@Nonnull Function<? super T, ? extends List<Object>> keyFunction) {
-            if (element == null) {
-                element = cursor.next();
-                key = keyFunction.apply(element);
-            }
+            return onNextFuture;
         }
 
         public void consume() {
             // after consuming a element from a cursor, we should never need to query it again,
             // so we update its continuation information now
-            onHasNextFuture = null;
-            element = null;
-            continuation = cursor.getContinuation();
-        }
-
-        @Nonnull
-        public RecordCursorProto.IntersectionContinuation.CursorState getContinuationProto() {
-            if (continuation == null) {
-                return NOT_STARTED_PROTO;
-            } else {
-                return RecordCursorProto.IntersectionContinuation.CursorState.newBuilder()
-                        .setStarted(true)
-                        .setContinuation(ByteString.copyFrom(continuation))
-                        .build();
-            }
-        }
-
-        @Nonnull
-        public static <T> CursorState<T> exhausted() {
-            return new CursorState<>(RecordCursor.empty(), null);
-        }
-
-        @Nonnull
-        public static <T> CursorState<T> fromProto(
-                @Nonnull Function<byte[], RecordCursor<T>> cursorFunction,
-                @Nonnull RecordCursorProto.IntersectionContinuation.CursorStateOrBuilder proto) {
-            if (proto.getStarted()) {
-                byte[] continuation = proto.hasContinuation() ? proto.getContinuation().toByteArray() : null;
-                return from(cursorFunction, continuation);
-            } else {
-                return from(cursorFunction, null);
-            }
+            onNextFuture = null;
+            continuation = result.getContinuation();
         }
 
         @Nonnull
         public static <T> CursorState<T> from(
                 @Nonnull Function<byte[], RecordCursor<T>> cursorFunction,
-                @Nullable byte[] continuation) {
-            return new CursorState<>(cursorFunction.apply(continuation), continuation);
+                @Nonnull RecordCursorContinuation continuation) {
+            if (continuation.isEnd()) {
+                return new CursorState<>(RecordCursor.empty(), RecordCursorEndContinuation.END);
+            } else {
+                return new CursorState<>(cursorFunction.apply(continuation.toBytes()), continuation);
+            }
         }
 
         @Nullable
-        public T getElement() {
-            return element;
+        public RecordCursorResult<T> getResult() {
+            return result;
         }
     }
 
@@ -222,50 +196,52 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> onHasNext() {
-        if (nextFuture == null) {
-            mayGetContinuation = false;
-            nextFuture = AsyncUtil.whileTrue(() -> {
-                // The continuation handling here is tricky. We need to save "the previous continuation" (i.e. the
-                // continuation from before we called onHasNext()) for each child, in case one of them (but not both!)
-                // ends for an out-of-band reason.
-                // The idea is that we update the continuation and advance it only when we are certain that we
-                // won't need the previous value ever again.
-                // This _almost_ works, but it fails if we resume a cursor which immediately runs out of records for an
-                // "in band" reason (because the underlying source is exhausted, or because it hit a limit on the
-                // number of returned records). In this case, we need to update the cached cursor or we'll loop forever!
-                // In all cases except this one, this update is redundant but harmless.
-                CompletableFuture<?>[] onHasNextFutures = new CompletableFuture<?>[cursorStates.size()];
-                int i = 0;
-                for (CursorState<T> cursorState : cursorStates) {
-                    onHasNextFutures[i] = cursorState.getOnHasNextFuture();
-                    i++;
+    public CompletableFuture<RecordCursorResult<U>> onNext() {
+        mayGetContinuation = false;
+        return AsyncUtil.whileTrue(() -> {
+            CompletableFuture<?>[] onNextFutures = new CompletableFuture<?>[cursorStates.size()];
+            int i = 0;
+            for (CursorState<T> cursorState : cursorStates) {
+                onNextFutures[i] = cursorState.getOnNextFuture(comparisonKeyFunction);
+                i++;
+            }
+            return CompletableFuture.allOf(onNextFutures).thenApply(vignore -> {
+                // If any of the cursors do not have a next element, then we are done.
+                if (cursorStates.stream().anyMatch(cursorState -> !cursorState.result.hasNext())) {
+                    return false;
                 }
-                return CompletableFuture.allOf(onHasNextFutures).thenApply(vignore -> {
-                    // If any of the cursors do not have a next element, then we are done.
-                    if (cursorStates.stream().anyMatch(cursorState -> !cursorState.hasNext)) {
-                        return false;
-                    }
 
-                    long startTime = System.nanoTime();
-
-                    cursorStates.forEach(cursorState -> cursorState.ready(comparisonKeyFunction));
-
-                    // If everything compares equally, then we have a match and should return it.
-                    // Otherwise, everything except for the maximum iterator values is guaranteed
-                    // not to match, so null those values out and then move on.
-                    List<CursorState<T>> maxCursors = new ArrayList<>(cursorStates.size());
-                    List<CursorState<T>> nonMaxCursors = new ArrayList<>(cursorStates.size());
-                    mergeStates(maxCursors, nonMaxCursors, startTime);
-                    return !nonMaxCursors.isEmpty();
-                });
-            }, getExecutor()).thenApply(vignore -> {
-                boolean result = cursorStates.stream().allMatch(cursorState -> cursorState.hasNext);
-                mayGetContinuation = !result;
-                return result;
+                long startTime = System.nanoTime();
+                // If everything compares equally, then we have a match and should return it.
+                // Otherwise, everything except for the maximum iterator values is guaranteed
+                // not to match, so null those values out and then move on.
+                List<CursorState<T>> maxCursors = new ArrayList<>(cursorStates.size());
+                List<CursorState<T>> nonMaxCursors = new ArrayList<>(cursorStates.size());
+                mergeStates(maxCursors, nonMaxCursors, startTime);
+                return !nonMaxCursors.isEmpty();
             });
+        }, getExecutor()).thenApply(vignore -> {
+            boolean hasNext = cursorStates.stream().allMatch(cursorState -> cursorState.result.hasNext());
+            mayGetContinuation = !hasNext;
+            if (!hasNext) {
+                nextResult = RecordCursorResult.withoutNextValue(IntersectionContinuation.from(this), mergeNoNextReasons());
+            } else {
+                final U result = getNextResult(cursorStates);
+                cursorStates.forEach(CursorState::consume);
+                nextResult = RecordCursorResult.withNextValue(result, IntersectionContinuation.from(this));
+            }
+            return nextResult;
+        });
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> onHasNext() {
+        if (hasNextFuture == null) {
+            mayGetContinuation = false;
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
-        return nextFuture;
+        return hasNextFuture;
     }
 
     /**
@@ -286,13 +262,9 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
         if (!hasNext()) {
             throw new NoSuchElementException();
         }
-        final U result = getNextResult(cursorStates);
-        // never need to query these records again, so consume all cursors
-        cursorStates.forEach(CursorState::consume);
-
-        nextFuture = null;
         mayGetContinuation = true;
-        return result;
+        hasNextFuture = null;
+        return nextResult.get();
     }
 
     @Nullable
@@ -300,52 +272,12 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
 
-        // A CursorState can have a null continuation for one of two reasons:
-        //
-        // 1. Its cursor has been exhausted.
-        // 2. The intersection cursor has not "consumed" that cursor yet.
-        //
-        // If any child has been exhausted, then the intersection cursor should return a null (i.e., exhausted)
-        // continuation as it will never return any more results. If the cursor state hasn't been consumed yet
-        // (which can happen if the first element of that cursor compares greater than all elements seen from
-        // other cursors), then the correct behavior is to restart that child from the beginning on subsequent
-        // runs of this intersection cursor, so the corresponding entry in the continuation proto is marked as
-        // not "started" for that child.
-
-        if (cursorStates.stream().anyMatch(cursorState -> !cursorState.hasNext && cursorState.cursor.getNoNextReason().isSourceExhausted())) {
-            // one of the children have actually stopped, so the intersection will have no more records
-            return null;
-        }
-
-        // From here below, any null child-state continuation is null because it hasn't been consumed, not because
-        // it is exhausted.
-        final RecordCursorProto.IntersectionContinuation.Builder builder = RecordCursorProto.IntersectionContinuation.newBuilder();
-        final Iterator<CursorState<T>> cursorStateIterator = cursorStates.iterator();
-        // First two cursors are handled differently (essentially for compatibility reasons)
-        final CursorState<T> firstCursorState = cursorStateIterator.next();
-        if (firstCursorState.continuation == null) { // first cursor has not started
-            builder.setFirstStarted(false);
-        } else {
-            builder.setFirstStarted(true);
-            builder.setFirstContinuation(ByteString.copyFrom(firstCursorState.continuation));
-        }
-        final CursorState<T> secondCursorState = cursorStateIterator.next();
-        if (secondCursorState.continuation == null) { // second cursor has not started
-            builder.setSecondStarted(false);
-        } else {
-            builder.setSecondStarted(true);
-            builder.setSecondContinuation(ByteString.copyFrom(secondCursorState.continuation));
-        }
-        // The rest of the cursor states get written as elements in a repeated message field
-        while (cursorStateIterator.hasNext()) {
-            builder.addOtherChildState(cursorStateIterator.next().getContinuationProto());
-        }
-        return builder.build().toByteArray();
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        return mergeNoNextReasons();
+        return nextResult.getNoNextReason();
     }
 
     @Override
@@ -384,13 +316,13 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
      * @return the weakest reason for stopping
      */
     private NoNextReason mergeNoNextReasons() {
-        if (cursorStates.stream().allMatch(cursorState -> cursorState.hasNext)) {
+        if (cursorStates.stream().allMatch(cursorState -> cursorState.result.hasNext())) {
             throw new RecordCoreException("mergeNoNextReason should not be called when all sides have next");
         }
 
         NoNextReason reason = null;
         for (CursorState<T> cursorState : cursorStates) {
-            if (!cursorState.hasNext) {
+            if (!cursorState.result.hasNext()) {
                 NoNextReason cursorReason = cursorState.cursor.getNoNextReason();
                 if (cursorReason.isSourceExhausted()) {
                     // one of the cursors is exhausted, so regardless of the other cursors'
@@ -408,83 +340,176 @@ abstract class IntersectionCursorBase<T, U> implements RecordCursor<U> {
         return reason;
     }
 
-    @Nonnull
-    protected static RecordCursorProto.IntersectionContinuation parseContinuation(@Nonnull byte[] continuation) {
-        try {
-            return RecordCursorProto.IntersectionContinuation.parseFrom(continuation);
-        } catch (InvalidProtocolBufferException ex) {
-            throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(continuation));
+    private static class IntersectionContinuation implements RecordCursorContinuation {
+        private static final RecordCursorProto.IntersectionContinuation.CursorState EXHAUSTED_PROTO = RecordCursorProto.IntersectionContinuation.CursorState.newBuilder()
+                .setStarted(true)
+                .build();
+        private static final RecordCursorProto.IntersectionContinuation.CursorState START_PROTO = RecordCursorProto.IntersectionContinuation.CursorState.newBuilder()
+                .setStarted(false)
+                .build();
+
+        @Nonnull
+        private final List<RecordCursorContinuation> continuations; // all continuations must themselves be immutable
+        @Nullable
+        private RecordCursorProto.IntersectionContinuation cachedProto;
+
+        private IntersectionContinuation(@Nonnull List<RecordCursorContinuation> continuations) {
+            this(continuations, null);
         }
-    }
 
-    protected static <T> void addFirstTwoCursorStates(
-            @Nullable RecordCursorProto.IntersectionContinuation parsed,
-            @Nonnull Function<byte[], RecordCursor<T>> first,
-            @Nonnull Function<byte[], RecordCursor<T>> second,
-            @Nonnull List<CursorState<T>> destination) {
-        if (parsed != null) {
-            byte[] firstContinuation = null;
-            if (parsed.getFirstStarted()) {
-                firstContinuation = parsed.getFirstContinuation().toByteArray();
-            }
-            destination.add(CursorState.from(first, firstContinuation));
-
-            byte[] secondContinuation = null;
-            if (parsed.getSecondStarted()) {
-                secondContinuation = parsed.getSecondContinuation().toByteArray();
-            }
-            destination.add(CursorState.from(second, secondContinuation));
-        } else {
-            destination.add(CursorState.from(first, null));
-            destination.add(CursorState.from(second, null));
+        private IntersectionContinuation(@Nonnull List<RecordCursorContinuation> continuations, @Nullable RecordCursorProto.IntersectionContinuation proto) {
+            this.continuations = continuations;
+            this.cachedProto = proto;
         }
-    }
 
-    @Nonnull
-    protected static <T> List<CursorState<T>> createCursorStates(@Nonnull Function<byte[], RecordCursor<T>> left, @Nonnull Function<byte[], RecordCursor<T>> right,
-                                                                 @Nullable byte[] continuation) {
-        final RecordCursorProto.IntersectionContinuation parsed;
-        if (continuation != null) {
-            parsed = parseContinuation(continuation);
-            if (parsed.getOtherChildStateCount() != 0) {
+        public static IntersectionContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
+            if (bytes == null) {
+                return new IntersectionContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));
+            }
+            try {
+                return IntersectionContinuation.from(RecordCursorProto.IntersectionContinuation.parseFrom(bytes), numberOfChildren);
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreException("invalid continuation", ex)
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+            }
+        }
+
+        public static IntersectionContinuation from(@Nonnull RecordCursorProto.IntersectionContinuation parsed, int numberOfChildren) {
+            ImmutableList.Builder<RecordCursorContinuation> builder = ImmutableList.builder();
+            if (!parsed.getFirstStarted()) {
+                builder.add(RecordCursorStartContinuation.START);
+            } else if (parsed.hasFirstContinuation()) {
+                builder.add(ByteArrayContinuation.fromNullable(parsed.getFirstContinuation().toByteArray()));
+            } else {
+                builder.add(RecordCursorEndContinuation.END);
+            }
+            if (!parsed.getSecondStarted()) {
+                builder.add(RecordCursorStartContinuation.START);
+            } else if (parsed.hasSecondContinuation()) {
+                builder.add(ByteArrayContinuation.fromNullable(parsed.getSecondContinuation().toByteArray()));
+            } else {
+                builder.add(RecordCursorEndContinuation.END);
+            }
+            for (RecordCursorProto.IntersectionContinuation.CursorState state : parsed.getOtherChildStateList()) {
+                if (!state.getStarted()) {
+                    builder.add(RecordCursorStartContinuation.START);
+                } else if (state.hasContinuation()) {
+                    builder.add(ByteArrayContinuation.fromNullable(state.getContinuation().toByteArray()));
+                } else {
+                    builder.add(RecordCursorEndContinuation.END);
+                }
+            }
+            ImmutableList<RecordCursorContinuation> children = builder.build();
+            if (children.size() != numberOfChildren) {
                 throw new RecordCoreArgumentException("invalid continuation (extraneous child state information present)")
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(continuation))
-                        .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, 0)
+                        .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, numberOfChildren - 2)
                         .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, parsed.getOtherChildStateCount());
             }
-        } else {
-            parsed = null;
+            return new IntersectionContinuation(children, parsed);
         }
-        final List<CursorState<T>> cursorStates = new ArrayList<>(2);
-        addFirstTwoCursorStates(parsed, left, right, cursorStates);
-        return cursorStates;
+
+        public static <U, T> IntersectionContinuation from(@Nonnull IntersectionCursorBase<U, T> cursor) {
+            return new IntersectionContinuation(cursor.cursorStates.stream().map(cursorState -> cursorState.continuation).collect(Collectors.toList()));
+        }
+
+        public RecordCursorProto.IntersectionContinuation toProto() {
+            if (cachedProto == null) {
+                final RecordCursorProto.IntersectionContinuation.Builder builder = RecordCursorProto.IntersectionContinuation.newBuilder();
+                final Iterator<RecordCursorContinuation> continuationIterator = continuations.iterator();
+
+                // A CursorState can have a null continuation for one of two reasons:
+                //
+                // 1. Its cursor has been exhausted.
+                // 2. The intersection cursor has not "consumed" that cursor yet.
+                //
+                // If any child has been exhausted, then the intersection cursor should return a null (i.e., exhausted)
+                // continuation as it will never return any more results. If the cursor state hasn't been consumed yet
+                // (which can happen if the first element of that cursor compares greater than all elements seen from
+                // other cursors), then the correct behavior is to restart that child from the beginning on subsequent
+                // runs of this intersection cursor, so the corresponding entry in the continuation proto is marked as
+                // not "started" for that child.
+
+                // First two cursors are handled differently (essentially for compatibility reasons)
+                final RecordCursorContinuation firstContinuation = continuationIterator.next();
+                byte[] asBytes = firstContinuation.toBytes();
+                if (asBytes == null && !firstContinuation.isEnd()) { // first cursor has not started
+                    builder.setFirstStarted(false);
+                } else {
+                    builder.setFirstStarted(true);
+                    if (asBytes != null) {
+                        builder.setFirstContinuation(ByteString.copyFrom(asBytes));
+                    }
+                }
+                final RecordCursorContinuation secondContinuation = continuationIterator.next();
+                asBytes = secondContinuation.toBytes();
+                if (asBytes == null && !secondContinuation.isEnd()) { // second cursor not started
+                    builder.setSecondStarted(false);
+                } else {
+                    builder.setSecondStarted(true);
+                    if (asBytes != null) {
+                        builder.setSecondContinuation(ByteString.copyFrom(asBytes));
+                    }
+                }
+
+                // The rest of the cursor states get written as elements in a repeated message field
+                while (continuationIterator.hasNext()) {
+                    final RecordCursorProto.IntersectionContinuation.CursorState cursorState;
+                    final RecordCursorContinuation continuation = continuationIterator.next();
+                    if (continuation.isEnd()) {
+                        cursorState = EXHAUSTED_PROTO;
+                    } else {
+                        asBytes = continuation.toBytes();
+                        if (asBytes == null && !continuation.isEnd()) {
+                            cursorState = START_PROTO;
+                        } else {
+                            cursorState = RecordCursorProto.IntersectionContinuation.CursorState.newBuilder()
+                                    .setStarted(true)
+                                    .setContinuation(ByteString.copyFrom(asBytes))
+                                    .build();
+                        }
+                    }
+                    builder.addOtherChildState(cursorState);
+                }
+                cachedProto = builder.build();
+            }
+            return cachedProto;
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (isEnd()) {
+                return null;
+            }
+            return toProto().toByteArray();
+        }
+
+        @Override
+        public boolean isEnd() {
+            // one of the children have actually stopped, so the intersection will have no more records
+            return continuations.stream().anyMatch(RecordCursorContinuation::isEnd);
+        }
     }
 
-    @Nonnull
-    protected static <T> List<CursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions, @Nullable byte[] continuation) {
+    protected static <T> List<CursorState<T>> createCursorStates(@Nonnull Function<byte[], RecordCursor<T>> left, @Nonnull Function<byte[], RecordCursor<T>> right,
+                                                                 @Nullable byte[] byteContinuation) {
+        final IntersectionContinuation continuation = IntersectionContinuation.from(byteContinuation, 2);
+        return ImmutableList.of(
+                CursorState.from(left, continuation.continuations.get(0)),
+                CursorState.from(right, continuation.continuations.get(1)));
+    }
+
+    protected static <T> List<CursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions, @Nullable byte[] byteContinuation) {
         if (cursorFunctions.size() < 2) {
             throw new RecordCoreArgumentException("not enough child cursors provided to IntersectionCursor")
                     .addLogInfo(LogMessageKeys.CHILD_COUNT, cursorFunctions.size());
         }
         final List<CursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
-        if (continuation != null) {
-            final RecordCursorProto.IntersectionContinuation parsed = parseContinuation(continuation);
-            if (cursorFunctions.size() != parsed.getOtherChildStateCount() + 2) {
-                throw new RecordCoreArgumentException("invalid continuation (expected continuation count does not match read)")
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(continuation))
-                        .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, cursorFunctions.size() - 2)
-                        .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, parsed.getOtherChildStateCount());
-            }
-            addFirstTwoCursorStates(parsed, cursorFunctions.get(0), cursorFunctions.get(1), cursorStates);
-            Iterator<RecordCursorProto.IntersectionContinuation.CursorState> protoStateIterator = parsed.getOtherChildStateList().iterator();
-            for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions.subList(2, cursorFunctions.size())) {
-                cursorStates.add(CursorState.fromProto(cursorFunction, protoStateIterator.next()));
-            }
-        } else {
-            for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
-                cursorStates.add(CursorState.from(cursorFunction, null));
-            }
+        final IntersectionContinuation continuation = IntersectionContinuation.from(byteContinuation, cursorFunctions.size());
+        int i = 0;
+        for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
+            cursorStates.add(CursorState.from(cursorFunction, continuation.continuations.get(i)));
+            i++;
         }
         return cursorStates;
     }

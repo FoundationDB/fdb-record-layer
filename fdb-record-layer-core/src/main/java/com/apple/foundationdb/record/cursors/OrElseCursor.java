@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
@@ -46,6 +46,11 @@ public class OrElseCursor<T> implements RecordCursor<T> {
     @Nullable
     private RecordCursor<T> other;
 
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
+    @Nullable
+    private RecordCursorResult<T> nextResult;
+
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
 
@@ -57,38 +62,41 @@ public class OrElseCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> onHasNext() {
-        mayGetContinuation = false;
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (first) {
-            if (firstFuture == null) {
-                firstFuture = inner.onHasNext().thenCompose(hasNext -> {
-                    if (hasNext) {
-                        return AsyncUtil.READY_TRUE;
-                    } else {
-                        if (inner.getNoNextReason().isOutOfBand()) {
-                            // Do not know whether to select else yet or not.
-                            return AsyncUtil.READY_FALSE;
-                        }
-                        other = func.apply(getExecutor());
-                        return other.onHasNext();
-                    }
-                });
-            }
-            return firstFuture.thenApply(hasNext -> {
-                mayGetContinuation = !hasNext;
-                return hasNext;
-            });
+            return inner.onNext().thenCompose(result -> {
+                first = false;
+                firstFuture = null;
+                if (result.hasNext() || result.getNoNextReason().isOutOfBand()) {
+                    // Either have result or do not know whether to select else yet or not.
+                    return CompletableFuture.completedFuture(result);
+                } else {
+                    other = func.apply(getExecutor());
+                    return other.onNext();
+                }
+            }).thenApply(this::postProcess);
         }
         if (other != null) {
-            return other.onHasNext().thenApply(hasNext -> {
-                mayGetContinuation = !hasNext;
-                return hasNext;
-            });
+            return other.onNext().thenApply(this::postProcess);
         }
-        return inner.onHasNext().thenApply(hasNext -> {
-            mayGetContinuation = !hasNext;
-            return hasNext;
-        });
+        return inner.onNext().thenApply(this::postProcess);
+    }
+
+    // shim to support old continuation style
+    private RecordCursorResult<T> postProcess(RecordCursorResult<T> result) {
+        mayGetContinuation = !result.hasNext();
+        nextResult = result;
+        return result;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> onHasNext() {
+        if (hasNextFuture == null) {
+            mayGetContinuation = false;
+            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
+        }
+        return hasNextFuture;
     }
 
     @Nullable
@@ -98,32 +106,20 @@ public class OrElseCursor<T> implements RecordCursor<T> {
             throw new NoSuchElementException();
         }
         mayGetContinuation = true;
-        if (first) {
-            firstFuture = null;
-            first = false;
-        }
-        if (other != null) {
-            return other.next();
-        }
-        return inner.next();
+        hasNextFuture = null;
+        return nextResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        if (other != null) {
-            return other.getContinuation();
-        }
-        return inner.getContinuation();
+        return nextResult.getContinuation().toBytes();
     }
 
     @Override
     public NoNextReason getNoNextReason() {
-        if (other != null) {
-            return other.getNoNextReason();
-        }
-        return inner.getNoNextReason();
+        return nextResult.getNoNextReason();
     }
 
     @Override
@@ -132,6 +128,9 @@ public class OrElseCursor<T> implements RecordCursor<T> {
             other.close();
         }
         inner.close();
+        if (hasNextFuture != null) {
+            hasNextFuture.cancel(false);
+        }
     }
 
     @Nonnull

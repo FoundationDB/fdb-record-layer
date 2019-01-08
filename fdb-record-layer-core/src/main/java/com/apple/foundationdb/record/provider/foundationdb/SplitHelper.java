@@ -33,6 +33,8 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
@@ -600,13 +602,15 @@ public class SplitHelper {
         @Nullable
         private NoNextReason innerNoNextReason;
         @Nullable
-        private KeyValue pending;
+        private RecordCursorResult<KeyValue> pending;
         @Nullable
-        private byte[] lastPrefix;
-        @Nullable
-        private byte[] continuation;
+        private RecordCursorContinuation continuation;
         @Nonnull
         private final CursorLimitManager limitManager;
+
+        // for supporting old cursor API
+        @Nullable
+        private RecordCursorResult<FDBRawRecord> nextResult;
 
         // for detecting incorrect cursor usage
         private boolean mayGetContinuation = false;
@@ -632,36 +636,54 @@ public class SplitHelper {
 
         @Nonnull
         @Override
+        public CompletableFuture<RecordCursorResult<FDBRawRecord>> onNext() {
+            if (limitManager.isStopped()) {
+                mayGetContinuation = true;
+                nextResult = RecordCursorResult.withoutNextValue(continuation, mergeNoNextReason());
+                return CompletableFuture.completedFuture(nextResult);
+            } else {
+                return appendUntilNewKey().thenApply(vignore -> {
+                    if (nextVersion != null && next == null) {
+                        throw new FoundSplitWithoutStartException(RECORD_VERSION, reverse)
+                                .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
+                                .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
+                                .addLogInfo(LogMessageKeys.VERSION, nextVersion);
+                    }
+                    if (!oldVersionFormat && nextKey != null) {
+                        // Account for incomplete version
+                        context.getLocalVersion(nextKey).ifPresent(localVersion -> {
+                            nextVersion = FDBRecordVersion.incomplete(localVersion);
+                            sizeInfo.setVersionedInline(true);
+                            sizeInfo.keyCount += 1;
+                            sizeInfo.keySize += subspace.subspace(nextKey).pack(RECORD_VERSION).length;
+                            sizeInfo.valueSize += 1 + FDBRecordVersion.VERSION_LENGTH;
+                        });
+                    }
+
+                    if (next == null) { // no next result
+                        nextResult = RecordCursorResult.withoutNextValue(continuation, mergeNoNextReason());
+                    } else { // has next result
+                        sizeInfo.setVersionedInline(nextVersion != null);
+                        final FDBRawRecord result = new FDBRawRecord(nextKey, next.getValue(), nextVersion, sizeInfo);
+                        next = null;
+                        nextKey = null;
+                        nextVersion = null;
+                        nextPrefix = null;
+                        nextResult =  RecordCursorResult.withNextValue(result, continuation);
+                    }
+                    mayGetContinuation = next == null;
+                    return nextResult;
+                });
+            }
+        }
+
+        @Nonnull
+        @Override
         public CompletableFuture<Boolean> onHasNext() {
             if (nextFuture == null) {
                 mayGetContinuation = false;
-                if (limitManager.isStopped()) {
-                    mayGetContinuation = true;
-                    nextFuture = AsyncUtil.READY_FALSE;
-                } else {
-                    nextFuture = appendUntilNewKey().thenApply(vignore -> {
-                        if (nextVersion != null && next == null) {
-                            throw new FoundSplitWithoutStartException(RECORD_VERSION, reverse)
-                                    .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
-                                    .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
-                                    .addLogInfo(LogMessageKeys.VERSION, nextVersion);
-                        }
-                        if (!oldVersionFormat && nextKey != null) {
-                            // Account for incomplete version
-                            context.getLocalVersion(nextKey).ifPresent(localVersion -> {
-                                nextVersion = FDBRecordVersion.incomplete(localVersion);
-                                sizeInfo.setVersionedInline(true);
-                                sizeInfo.keyCount += 1;
-                                sizeInfo.keySize += subspace.subspace(nextKey).pack(RECORD_VERSION).length;
-                                sizeInfo.valueSize += 1 + FDBRecordVersion.VERSION_LENGTH;
-                            });
-                        }
-                        mayGetContinuation = next == null;
-                        return (next != null);
-                    });
-                }
+                nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
             }
-
             return nextFuture;
         }
 
@@ -680,33 +702,25 @@ public class SplitHelper {
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
-            assert nextKey != null;
-            assert next != null;
-            sizeInfo.setVersionedInline(nextVersion != null);
-            final FDBRawRecord result = new FDBRawRecord(nextKey, next.getValue(), nextVersion, sizeInfo);
-            lastPrefix = nextPrefix;
-            next = null;
-            nextKey = null;
-            nextVersion = null;
-            nextFuture = null;
-            nextPrefix = null;
             mayGetContinuation = true;
-            return result;
+            nextFuture = null;
+            return nextResult.get();
         }
 
         @Nullable
         @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
         public byte[] getContinuation() {
             IllegalContinuationAccessChecker.check(mayGetContinuation);
-            if (next != null && lastPrefix == null) {
-                throw new RecordCoreException("getContinuation() before next() was called");
-            }
-
-            return continuation;
+            return nextResult.getContinuation().toBytes();
         }
 
         @Override
         public NoNextReason getNoNextReason() {
+            return nextResult.getNoNextReason();
+        }
+
+        @Nonnull
+        public NoNextReason mergeNoNextReason() {
             if (innerNoNextReason == NoNextReason.SOURCE_EXHAUSTED) {
                 return innerNoNextReason;
             }
@@ -747,17 +761,22 @@ public class SplitHelper {
                         return AsyncUtil.READY_FALSE;
                     }
                 }
-                return inner.onHasNext().thenApply(innerHasNext -> {
-                    if (!innerHasNext) {
+                return inner.onNext().thenApply(innerResult -> {
+                    if (!innerResult.hasNext()) {
                         if (reverse && next != null && nextIndex != START_SPLIT_RECORD && nextIndex != UNSPLIT_RECORD && nextIndex != RECORD_VERSION) {
                             throw new FoundSplitWithoutStartException(nextIndex, true);
                         }
-                        innerNoNextReason = inner.getNoNextReason();
+                        innerNoNextReason = innerResult.getNoNextReason();
+                        // If we already built up some values, then we already cached an appropriate continuation.
+                        // If we haven't the continuation might have changed so we need to refresh it.
+                        if (next == null) {
+                            continuation = innerResult.getContinuation();
+                        }
                         return false;
                     } else {
                         innerNoNextReason = null; // currently, we have a next value
                         limitManager.tryRecordScan();
-                        boolean complete = append(inner.next());
+                        boolean complete = append(innerResult);
                         return !complete;
                     }
                 });
@@ -765,16 +784,19 @@ public class SplitHelper {
         }
 
         // Process the next key-value pair from the inner cursor; return whether unsplit complete.
-        protected boolean append(@Nonnull KeyValue kv) {
+        protected boolean append(@Nonnull RecordCursorResult<KeyValue> resultWithKv) {
+            KeyValue kv = resultWithKv.get();
             if (nextPrefix == null) {
+                continuation = resultWithKv.getContinuation();
                 return appendFirst(kv);
             } else if (ByteArrayUtil.startsWith(kv.getKey(), nextPrefix)) {
+                continuation = resultWithKv.getContinuation();
                 return appendNext(kv);
             } else {
                 if (reverse && nextIndex != UNSPLIT_RECORD && nextIndex != START_SPLIT_RECORD && nextIndex != RECORD_VERSION) {
                     throw new FoundSplitWithoutStartException(nextIndex, true);
                 }
-                pending = kv;
+                pending = resultWithKv;
                 return true;
             }
         }
@@ -794,7 +816,6 @@ public class SplitHelper {
                 // key), or we are going in the reverse direction, in which
                 // case there might be a version key before it.
                 sizeInfo.setSplit(false);
-                continuation = inner.getContinuation();
                 return !reverse;
             } else if (!reverse && nextIndex == RECORD_VERSION) {
                 if (oldVersionFormat) {
@@ -809,13 +830,11 @@ public class SplitHelper {
                 sizeInfo.setVersionedInline(true);
                 nextVersion = unpackVersion(kv.getValue());
                 next = null;
-                continuation = inner.getContinuation();
                 return false;
             } else if (reverse && nextIndex != RECORD_VERSION || nextIndex == START_SPLIT_RECORD) {
                 // The data is either the beginning or end of the split (depending
                 // on scan direction).
                 sizeInfo.setSplit(true);
-                continuation = inner.getContinuation();
                 return false;
             } else {
                 throw new FoundSplitWithoutStartException(nextIndex, reverse)
@@ -836,7 +855,6 @@ public class SplitHelper {
                 next = new KeyValue(nextPrefix, kv.getValue());
                 nextIndex = index;
                 sizeInfo.setSplit(index == START_SPLIT_RECORD);
-                continuation = inner.getContinuation();
                 return nextIndex == UNSPLIT_RECORD;
             } else if (!reverse && index == nextIndex + 1) {
                 // This is the second or later key (not counting a possible version key)
@@ -845,7 +863,6 @@ public class SplitHelper {
                 // no way to know if this is the last key or not.
                 next = new KeyValue(nextPrefix, ByteArrayUtil.join(next.getValue(), kv.getValue()));
                 nextIndex = index;
-                continuation = inner.getContinuation();
                 return false;
             } else if (reverse && index == RECORD_VERSION && (nextIndex == START_SPLIT_RECORD || nextIndex == UNSPLIT_RECORD)) {
                 // This is the record version key encountered during a backwards scan.
@@ -858,7 +875,6 @@ public class SplitHelper {
                 }
                 nextVersion = unpackVersion(kv.getValue());
                 nextIndex = index;
-                continuation = inner.getContinuation();
                 return true;
             } else if (reverse && index == nextIndex - 1 && index != RECORD_VERSION) {
                 // The second or later key in a backwards scan, but not the record version.
@@ -868,7 +884,6 @@ public class SplitHelper {
                 // possible that there is a record version before it).
                 next = new KeyValue(nextPrefix, ByteArrayUtil.join(kv.getValue(), next.getValue()));
                 nextIndex = index;
-                continuation = inner.getContinuation();
                 return false;
             } else {
                 final long expectedIndex = nextIndex + (reverse ? -1 : 1);

@@ -21,9 +21,12 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.google.protobuf.ByteString;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
@@ -56,24 +59,23 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     private final BiFunction<T, byte[], ? extends RecordCursor<V>> innerCursorFunction;
     @Nullable
     private final Function<T, byte[]> checkValueFunction;
-    @Nullable
-    private byte[] outerContinuation;
+    @Nonnull
+    private RecordCursorContinuation outerContinuation;
     @Nullable
     private final byte[] initialCheckValue;
     @Nullable
     private byte[] initialInnerContinuation;
     private final int pipelineSize;
     @Nonnull
-    private final Queue<PipelineQueueEntry<V>> pipeline;
-    @Nullable
-    private PipelineQueueEntry<V> lastEntry;
+    private final Queue<PipelineQueueEntry> pipeline;
     @Nullable
     private CompletableFuture<Boolean> nextFuture;
     @Nullable
-    private CompletableFuture<Boolean> outerNextFuture;
-    @Nullable
-    private NoNextReason innerReason;
+    private CompletableFuture<RecordCursorResult<T>> outerNextFuture;
     private boolean outerExhausted = false;
+
+    @Nullable
+    private RecordCursorResult<V> lastResult;
 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
@@ -89,11 +91,29 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         this.outerCursor = outerCursor;
         this.innerCursorFunction = innerCursorFunction;
         this.checkValueFunction = checkValueFunction;
-        this.outerContinuation = outerContinuation;
-        this.initialCheckValue = initialCheckValue;
+        if (outerContinuation == null) {
+            // Because of the semantics of byte array continuations, ByteArrayContinuation.fromNullable(null) is the
+            // end continuation, not the start continuation! This is a bit ugly, but it's temporary until we replace
+            // byte array continuations entirely.
+            this.outerContinuation = RecordCursorStartContinuation.START;
+        } else {
+            this.outerContinuation = ByteArrayContinuation.fromNullable(outerContinuation);
+        }
         this.initialInnerContinuation = initialInnerContinuation;
+        this.initialCheckValue = initialCheckValue;
         this.pipelineSize = pipelineSize;
         this.pipeline = new ArrayDeque<>(pipelineSize);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<RecordCursorResult<V>> onNext() {
+        mayGetContinuation = false;
+        return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
+            lastResult = pipeline.peek().nextResult();
+            mayGetContinuation = !lastResult.hasNext();
+            return lastResult;
+        });
     }
 
     @Nonnull
@@ -101,13 +121,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             mayGetContinuation = false;
-            nextFuture = AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
-                boolean result = !pipeline.isEmpty()
-                                 && (innerReason == null || innerReason.isSourceExhausted())
-                                 && pipeline.peek().innerCursor != null;
-                mayGetContinuation = !result;
-                return result;
-            });
+            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
         }
         return nextFuture;
     }
@@ -119,39 +133,15 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             throw new NoSuchElementException();
         }
         nextFuture = null;
-        innerReason = null;
-        lastEntry = pipeline.peek();
         mayGetContinuation = true;
-        return lastEntry.innerCursor.next();
+        return lastResult.get();
     }
 
     @Nullable
     @Override
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        if (lastEntry == null) {
-            return null;
-        }
-        final RecordCursorProto.FlatMapContinuation.Builder builder = RecordCursorProto.FlatMapContinuation.newBuilder();
-        final byte[] innerContinuation = lastEntry.innerCursor != null ? lastEntry.innerCursor.getContinuation() : null;
-        if (innerContinuation == null) {
-            // This was the last of the inner cursor. Take continuation from outer after it.
-            if (lastEntry.outerContinuation == null) {
-                // Both exhausted.
-                return null;
-            }
-            builder.setOuterContinuation(ByteString.copyFrom(lastEntry.outerContinuation));
-        } else {
-            // This was in the middle of the inner cursor. Take continuation from outer before it and arrange to skip to it.
-            if (lastEntry.priorOuterContinuation != null) {
-                builder.setOuterContinuation(ByteString.copyFrom(lastEntry.priorOuterContinuation));
-            }
-            if (lastEntry.outerCheckValue != null) {
-                builder.setCheckValue(ByteString.copyFrom(lastEntry.outerCheckValue));
-            }
-            builder.setInnerContinuation(ByteString.copyFrom(innerContinuation));
-        }
-        return builder.build().toByteArray();
+        return lastResult.getContinuation().toBytes();
     }
 
     @Override
@@ -161,10 +151,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             nextFuture = null;
         }
         while (!pipeline.isEmpty()) {
-            PipelineQueueEntry<V> pipelineEntry = pipeline.remove();
-            if (pipelineEntry.innerCursor != null) {
-                pipelineEntry.innerCursor.close();
-            }
+            pipeline.remove().close();
         }
         if (outerNextFuture != null) {
             outerNextFuture.cancel(false);
@@ -175,10 +162,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Override
     public NoNextReason getNoNextReason() {
-        if (innerReason != null && !innerReason.isSourceExhausted()) {
-            return innerReason;
-        }
-        return outerCursor.getNoNextReason();
+        return lastResult.getNoNextReason();
     }
 
     @Override
@@ -200,107 +184,200 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
     protected CompletableFuture<Boolean> tryToFillPipeline() {
-        CompletableFuture<Boolean> waitOuterNext = null;
+        // Clear pipeline entries left behind by exhausted inner cursors.
+        while (!pipeline.isEmpty() && pipeline.peek().doesNotHaveReturnableResult()) {
+            pipeline.remove().close();
+        }
+        
         while (!outerExhausted && pipeline.size() < pipelineSize) {
             if (outerNextFuture == null) {
-                outerNextFuture = outerCursor.onHasNext();
+                outerNextFuture = outerCursor.onNext();
             }
+
             if (!outerNextFuture.isDone()) {
-                waitOuterNext = outerNextFuture;
-                break;
+                // Still waiting for outer future. Check back when it has finished.
+                final PipelineQueueEntry nextEntry = pipeline.peek();
+                if (nextEntry == null) {
+                    return outerNextFuture.thenApply(vignore -> true); // loop back to process outer result
+                } else {
+                    // keep looping unless we get something from the next entry's inner cursor or the next cursor is ready
+                    final CompletableFuture<PipelineQueueEntry> innerPipelineFuture = nextEntry.getNextInnerPipelineFuture();
+                    return CompletableFuture.anyOf(outerNextFuture, innerPipelineFuture).thenApply(vignore ->
+                        !innerPipelineFuture.isDone() || innerPipelineFuture.join().doesNotHaveReturnableResult());
+                }
             }
-            final RecordCursor<V> innerCursor;
-            final byte[] outerCheckValue;
-            if (outerNextFuture.join()) {
-                final T outerValue = outerCursor.next();
-                outerCheckValue = checkValueFunction == null ? null : checkValueFunction.apply(outerValue);
+
+            final RecordCursorResult<T> outerResult = outerNextFuture.join();
+
+            if (outerResult.hasNext()) {
+                final RecordCursorContinuation priorOuterContinuation = outerContinuation;
+                final T outerValue = outerResult.get();
+                final byte[] outerCheckValue = checkValueFunction == null ? null : checkValueFunction.apply(outerValue);
                 byte[] innerContinuation = null;
                 if (initialInnerContinuation != null) {
-                    // If possible, ensure that we just positioned to the same place.
-                    // Otherwise, take the whole inner cursor, rather applying initial continuation.
+                    // Check if the outer cursor is positioned to the same place as before, by comparing the outer
+                    // check value to the initial check value used to build the cursor. If they match (or one is missing),
+                    // use the given initial inner continuation. Otherwise, something about the outer cursor changed,
+                    // so we should start the inner cursor from the beginning.
                     if (initialCheckValue == null || outerCheckValue == null || Arrays.equals(initialCheckValue, outerCheckValue)) {
                         innerContinuation = initialInnerContinuation;
                         initialInnerContinuation = null;
                     }
                 }
-                innerCursor = innerCursorFunction.apply(outerValue, innerContinuation);
-            } else {
-                // Add sentinel to the end of pipeline.
-                innerCursor = null;
-                outerCheckValue = null;
+                final RecordCursor<V> innerCursor = innerCursorFunction.apply(outerValue, innerContinuation);
+                outerContinuation = outerResult.getContinuation();
+                pipeline.add(new PipelineQueueEntry(innerCursor, priorOuterContinuation, outerResult, outerCheckValue));
+                outerNextFuture = null; // done with this future, advance outer cursor next time
+                // keep looping to fill pipeline
+            } else { // don't have next, and won't ever with this cursor
+                // Add sentinel to end of pipeline
+                pipeline.add(new PipelineQueueEntry(null, outerContinuation, outerResult, null));
                 outerExhausted = true;
-            }
-            byte[] priorOuterContinuation = outerContinuation;
-            outerContinuation = outerCursor.getContinuation();
-            pipeline.add(new PipelineQueueEntry<>(innerCursor, priorOuterContinuation, outerContinuation, outerCheckValue));
-            outerNextFuture = null;
-        }
-        final PipelineQueueEntry<V> nextEntry = pipeline.peek();
-        if (nextEntry == null) {
-            // Nothing in pipeline.
-            if (waitOuterNext == null) {
-                // If there are no pipeline entries, this should only be because there is outstanding work to
-                // determine what the next entry should be.
-                throw new RecordCoreException("Empty pipeline but no outer future or entry");
-            } else {
-                // Loop to whileTrue to fill pipeline.
-                // If the outer cursor has no more results, still loop once more to get the continuation and NoNextReason.
-                return waitOuterNext.thenApply(b -> true);
-            }
-        } else if (nextEntry.innerCursor == null) {
-            // Hit sentinel; outer cursor has no more values.
-            lastEntry = nextEntry;
-            innerReason = null; // we are stopping because of the outer reason--not the inner reason
-            return AsyncUtil.READY_FALSE;
-        }
-        final CompletableFuture<Boolean> entryFuture = nextEntry.innerCursor.onHasNext();
-        if (entryFuture.isDone()) {
-            if (entryFuture.join()) {
-                // Stop because next cursor has next.
-                return AsyncUtil.READY_FALSE;
-            }
-            // Update the last entry to this entry. This will implicitly advance the continuation. This is safe
-            // because we have already hit the limit of this inner cursor. If the cursor is not exhausted, the
-            // whole cursor will stop and the advanced continuation will let it resume from where the cursor
-            // hit the limit. If the cursor is exhausted, then every item from this cursor has been returned to
-            // the user. That means that if the cursor is stopped right now, it will be resumed from the first
-            // item of the next element of the outer cursor, which is fine.
-            lastEntry = nextEntry;
-            pipeline.remove();
-            innerReason = nextEntry.innerCursor.getNoNextReason();
-            if (!innerReason.isSourceExhausted()) {
-                // Stop because inner cursor hit some limit.
-                // Not valid to take from later in the pipeline, even if available already.
-                return AsyncUtil.READY_FALSE;
-            } else {
-                return AsyncUtil.READY_TRUE;
+                // Wait for next entry, as if pipeline were full
+                break;
             }
         }
-        if (waitOuterNext == null) {
-            // Recheck when cursor ready (pipeline is full).
-            return entryFuture.thenApply(b -> true);
-        }
-        return CompletableFuture.anyOf(waitOuterNext, entryFuture)
-                // Recheck when either ready.
-                .thenApply(vignore -> true);
+
+        // One of the following holds:
+        // 1) The pipeline is full.
+        // 2) We just added something to it.
+        // 3) The outer cursor is exhausted and so the last element in the pipeline is a sentinel that will never be removed.
+        // In any case, it contains an entry so pipeline.peek() will be non-null.
+        return pipeline.peek().getNextInnerPipelineFuture().thenApply(PipelineQueueEntry::doesNotHaveReturnableResult);
     }
 
-    static class PipelineQueueEntry<V> {
-        @Nullable
+    private class PipelineQueueEntry {
         final RecordCursor<V> innerCursor;
-        @Nullable
-        final byte[] priorOuterContinuation;
-        @Nullable
-        final byte[] outerContinuation;
-        @Nullable
+        final RecordCursorContinuation priorOuterContinuation;
+        final RecordCursorResult<T> outerResult;
         final byte[] outerCheckValue;
 
+        private CompletableFuture<RecordCursorResult<V>> innerFuture;
+
         public PipelineQueueEntry(RecordCursor<V> innerCursor,
-                                  byte[] priorOuterContinuation, byte[] outerContinuation, byte[] outerCheckValue) {
+                                  RecordCursorContinuation priorOuterContinuation,
+                                  RecordCursorResult<T> outerResult,
+                                  byte[] outerCheckValue) {
             this.innerCursor = innerCursor;
             this.priorOuterContinuation = priorOuterContinuation;
-            this.outerContinuation = outerContinuation;
+            this.outerResult = outerResult;
             this.outerCheckValue = outerCheckValue;
+        }
+
+        @Nonnull
+        public CompletableFuture<PipelineQueueEntry> getNextInnerPipelineFuture() {
+            if (innerFuture == null) {
+                if (innerCursor == null) {
+                    innerFuture = CompletableFuture.completedFuture(RecordCursorResult.exhausted());
+                } else {
+                    innerFuture = innerCursor.onNext();
+                }
+            }
+            return innerFuture.thenApply(vignore -> this);
+        }
+
+        public boolean doesNotHaveReturnableResult() {
+            if (innerCursor == null ||       // Hit sentinel, so we have a returnable result
+                    innerFuture == null ||   // Inner future hasn't been started yet.
+                    !innerFuture.isDone()) { // No result yet. Don't know whether result will be returnable.
+                return false;
+            }
+
+            final RecordCursorResult<V> innerResult = innerFuture.join();
+            if (innerResult.hasNext()) {
+                return false; // a result with a value is returnable by the cursor
+            } else { // inner cursor exhausted
+                // If the inner cursor is exhausted, we should return the first value from the next inner cursor.
+                // If the inner cursor stopped for any other reason, it's not valid to take from later in the pipeline.
+                return innerResult.getNoNextReason().isSourceExhausted();
+            }
+        }
+
+        public void close() {
+            if (innerFuture != null && innerFuture.cancel(false)) {
+                innerCursor.close();
+            }
+        }
+
+        @Nonnull
+        public RecordCursorResult<V> nextResult() {
+            // Only called after the future from getNextInnerPipelineFuture() has completed, so this join() is non-blocking.
+            final RecordCursorResult<V> innerResult = innerFuture.join();
+            final RecordCursorResult<V> result;
+            if (innerResult.hasNext()) {
+                result = RecordCursorResult.withNextValue(innerResult.get(), toContinuation());
+            } else {
+                NoNextReason reason;
+                if (innerResult.getNoNextReason().isSourceExhausted()) {
+                    // If the outer cursor had another result, we would have skipped over this exhausted result from
+                    // the inner cursor and moved on to the next inner cursor (as indicated by
+                    // doesNotHaveReturnableResult()). Thus, the outer cursor must be stopped.
+                    reason = outerResult.getNoNextReason();
+                } else {
+                    reason = innerResult.getNoNextReason();
+                }
+                result = RecordCursorResult.withoutNextValue(toContinuation(), reason);
+            }
+            innerFuture = null;
+            return result;
+        }
+
+        @Nonnull
+        private Continuation<T, V> toContinuation() {
+            return new Continuation<>(priorOuterContinuation, outerResult, outerCheckValue, innerFuture.join());
+        }
+    }
+
+    private static class Continuation<T, V> implements RecordCursorContinuation {
+        @Nonnull
+        private final RecordCursorContinuation priorOuterContinuation;
+        @Nonnull
+        private final RecordCursorResult<T> outerResult;
+        @Nullable
+        private final byte[] outerCheckValue;
+        @Nonnull
+        private final RecordCursorResult<V> innerResult;
+
+        public Continuation(@Nonnull RecordCursorContinuation priorOuterContinuation,
+                            @Nonnull RecordCursorResult<T> outerResult,
+                            @Nullable byte[] outerCheckValue,
+                            @Nonnull RecordCursorResult<V> innerResult) {
+            this.priorOuterContinuation = priorOuterContinuation;
+            this.outerResult = outerResult;
+            this.outerCheckValue = outerCheckValue;
+            this.innerResult = innerResult;
+        }
+
+        @Override
+        public boolean isEnd() {
+            return outerResult.getContinuation().isEnd() && innerResult.getContinuation().isEnd();
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (isEnd()) {
+                return null;
+            }
+
+            final RecordCursorProto.FlatMapContinuation.Builder builder = RecordCursorProto.FlatMapContinuation.newBuilder();
+            final RecordCursorContinuation innerContinuation = innerResult.getContinuation();
+
+            if (innerContinuation.isEnd()) {
+                // This was the last of the inner cursor. Take continuation from outer after it.
+                builder.setOuterContinuation(ByteString.copyFrom(outerResult.getContinuation().toBytes()));
+            } else {
+                // This was in the middle of the inner cursor. Take continuation from outer before it and arrange to skip to it.
+                final byte[] priorOuterContinuationBytes = priorOuterContinuation.toBytes();
+                if (priorOuterContinuationBytes != null) { // isn't start or end continuation
+                    builder.setOuterContinuation(ByteString.copyFrom(priorOuterContinuation.toBytes()));
+                }
+                if (outerCheckValue != null) {
+                    builder.setCheckValue(ByteString.copyFrom(outerCheckValue));
+                }
+                builder.setInnerContinuation(ByteString.copyFrom(innerContinuation.toBytes()));
+            }
+            return builder.build().toByteArray();
         }
     }
 }
