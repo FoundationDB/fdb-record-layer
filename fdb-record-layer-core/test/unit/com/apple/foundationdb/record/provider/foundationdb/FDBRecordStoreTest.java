@@ -2493,6 +2493,37 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
+
+    @Test
+    public void storeExistenceChecks() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            RecordMetaDataBuilder metaData = new RecordMetaDataBuilder(TestRecords1Proto.getDescriptor());
+            FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
+                    .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData);
+            assertThrows(RecordStoreDoesNotExistException.class, storeBuilder::open);
+            recordStore = storeBuilder.uncheckedOpen();
+            TestRecords1Proto.MySimpleRecord.Builder simple = TestRecords1Proto.MySimpleRecord.newBuilder();
+            simple.setRecNo(1);
+            recordStore.insertRecord(simple.build());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.Builder storeBuilder = recordStore.asBuilder()
+                    .setContext(context);
+            assertThrows(RecordStoreNoInfoAndNotEmptyException.class, storeBuilder::createOrOpen);
+            recordStore = storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.Builder storeBuilder = recordStore.asBuilder()
+                    .setContext(context);
+            assertThrows(RecordStoreAlreadyExistsException.class, storeBuilder::create);
+            recordStore = storeBuilder.open();
+            assertNotNull(recordStore.loadRecord(Tuple.from(1)));
+            commit(context);
+        }
+    }
+
     @Test
     public void existenceChecks() throws Exception {
         try (FDBRecordContext context = openContext()) {
