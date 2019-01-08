@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
@@ -354,10 +355,10 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
     @Nonnull
     public CompletableFuture<R> uncheckedOpenAsync() {
         final CompletableFuture<Void> preloadMetaData = preloadMetaData();
-        final CompletableFuture<Subspace> subspaceFuture = subspaceProvider.getSubspaceAsync();
         R recordStore = build();
-        final CompletableFuture<Void> loadStoreState = recordStore.preloadRecordStoreStateAsync();
-        return CompletableFuture.allOf(preloadMetaData, subspaceFuture, loadStoreState).thenApply(vignore -> recordStore);
+        final CompletableFuture<Void> subspaceFuture = recordStore.preloadSubspaceAsync();
+        final CompletableFuture<Void> loadStoreState = subspaceFuture.thenCompose(vignore -> recordStore.preloadRecordStoreStateAsync());
+        return CompletableFuture.allOf(preloadMetaData, loadStoreState).thenApply(vignore -> recordStore);
     }
 
     private CompletableFuture<Void> preloadMetaData() {
@@ -368,19 +369,41 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
         }
     }
 
+    /**
+     * Synchronous version of {@link #createAsync}.
+     * @return a newly created record store
+     */
     @Nonnull
     public R create() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createAsync());
     }
 
+    /**
+     * Synchronous version of {@link #openAsync}.
+     * @return an open record store
+     */
     @Nonnull
     public R open() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, openAsync());
     }
 
+    /**
+     * Synchronous version of {@link #createOrOpenAsync()}.
+     * @return an open record store
+     */
     @Nonnull
     public R createOrOpen() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync());
+    }
+
+    /**
+     * Synchronous version of {@link #createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck)}.
+     * @param existenceCheck whether the store must already exist
+     * @return an open record store
+     */
+    @Nonnull
+    public R createOrOpen(@Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync(existenceCheck));
     }
 
     /**
@@ -409,7 +432,7 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
      */
     @Nonnull
     public CompletableFuture<R> createOrOpenAsync() {
-        return createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+        return createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY);
     }
 
     /**
@@ -419,14 +442,14 @@ public abstract class FDBRecordStoreBuilder<M extends Message, R extends FDBReco
      */
     @Nonnull
     public CompletableFuture<R> createOrOpenAsync(@Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
-        // Might be as many as three reads: meta-data store, store index state, store info header. Try to do them in parallel.
+        // Might be as many as four reads: meta-data store, keyspace path, store index state, store info header.
+        // Try to do them as much in parallel as possible.
         final CompletableFuture<Void> preloadMetaData = preloadMetaData();
-        final CompletableFuture<Subspace> subspaceFuture = subspaceProvider.getSubspaceAsync();
         R recordStore = build();
-        final CompletableFuture<Void> loadStoreState = recordStore.preloadRecordStoreStateAsync();
-        final CompletableFuture<byte[]> loadStoreInfo = recordStore.readStoreInfo();
-        final CompletableFuture<byte[]> combinedFuture = CompletableFuture.allOf(preloadMetaData, subspaceFuture,
-                loadStoreState).thenCombine(loadStoreInfo, (v, b) -> b);
+        final CompletableFuture<Void> subspaceFuture = recordStore.preloadSubspaceAsync();
+        final CompletableFuture<Void> loadStoreState = subspaceFuture.thenCompose(vignore -> recordStore.preloadRecordStoreStateAsync());
+        final CompletableFuture<KeyValue> loadStoreInfo = subspaceFuture.thenCompose(vignore -> recordStore.readStoreFirstKey());
+        final CompletableFuture<KeyValue> combinedFuture = CompletableFuture.allOf(preloadMetaData, loadStoreState).thenCombine(loadStoreInfo, (v, kv) -> kv);
         final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(combinedFuture, userVersionChecker, existenceCheck);
         return checkVersion.thenApply(vignore -> recordStore);
     }
