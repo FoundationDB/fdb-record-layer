@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nullable;
 import java.util.Arrays;
 
@@ -29,7 +31,8 @@ import java.util.Arrays;
  * is invoked. The <code>metadata</code> is left null by {@link KeySpaceDirectory} but other implementations may make use
  * of it (e.g. {@link DirectoryLayerDirectory}.
  */
-class PathValue {
+@API(API.Status.MAINTAINED)
+public class PathValue {
     @Nullable
     private Object resolvedValue;
     @Nullable
