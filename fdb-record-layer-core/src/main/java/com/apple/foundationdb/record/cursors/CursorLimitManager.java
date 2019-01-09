@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordScanLimiter;
@@ -48,6 +49,7 @@ import java.util.Optional;
  * and {@link IntersectionCursor}) can always make progress. This "free
  * initial pass" is provided per cursor, not per limit: all out-band-limits share the same initial pass.
  */
+@API(API.Status.UNSTABLE)
 public class CursorLimitManager {
     @Nullable
     private final RecordScanLimiter recordScanLimiter;

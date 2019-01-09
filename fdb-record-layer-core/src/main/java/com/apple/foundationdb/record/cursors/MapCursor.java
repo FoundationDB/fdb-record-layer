@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -36,6 +37,7 @@ import java.util.function.Function;
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor after applying the function
  */
+@API(API.Status.MAINTAINED)
 public class MapCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private final RecordCursor<T> inner;
@@ -56,6 +58,7 @@ public class MapCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<V>> onNext() {
         mayGetContinuation = false;
         return inner.onNext().thenApply(result -> result.map(func))

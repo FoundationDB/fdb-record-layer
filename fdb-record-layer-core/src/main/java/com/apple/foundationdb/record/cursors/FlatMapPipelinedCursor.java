@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
@@ -52,6 +53,7 @@ import java.util.function.Function;
  * @param <T> the type of elements of the source cursor
  * @param <V> the type of elements of the cursor produced by the function
  */
+@API(API.Status.MAINTAINED)
 public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private final RecordCursor<T> outerCursor;
@@ -107,6 +109,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<V>> onNext() {
         mayGetContinuation = false;
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {

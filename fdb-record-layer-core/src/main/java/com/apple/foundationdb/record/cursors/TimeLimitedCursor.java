@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -40,6 +41,7 @@ import java.util.concurrent.Executor;
  * deprecated {@link #limitTimeTo(long)} methods.
  * @param <T> the type of elements of the cursor
  */
+@API(API.Status.DEPRECATED)
 public class TimeLimitedCursor<T> implements RecordCursor<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeLimitedCursor.class);
 
@@ -71,6 +73,7 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (timedOutResult != null) {
             nextResult = timedOutResult;

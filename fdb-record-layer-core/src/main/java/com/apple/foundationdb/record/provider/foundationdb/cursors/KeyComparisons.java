@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 
 import java.util.Comparator;
@@ -28,6 +29,7 @@ import java.util.List;
 /**
  * {@link Comparator}s for key expressions.
  */
+@API(API.Status.MAINTAINED)
 public class KeyComparisons {
     @SuppressWarnings("unchecked")
     public static final Comparator<Object> FIELD_COMPARATOR = (o1, o2) ->  {

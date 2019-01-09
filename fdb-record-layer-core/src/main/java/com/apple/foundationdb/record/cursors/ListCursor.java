@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -38,6 +39,7 @@ import java.util.concurrent.ForkJoinPool;
  * A cursor that returns the elements of a list.
  * @param <T> the type of elements of the cursor
  */
+@API(API.Status.MAINTAINED)
 public class ListCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final Executor executor;
@@ -62,6 +64,7 @@ public class ListCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (nextPosition < list.size()) {
             nextResult = RecordCursorResult.withNextValue(list.get(nextPosition), new Continuation(nextPosition + 1, list.size()));

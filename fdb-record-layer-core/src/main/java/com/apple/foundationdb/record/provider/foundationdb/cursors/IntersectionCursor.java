@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -41,6 +42,7 @@ import java.util.function.Function;
  * @param <T> the type of elements returned by the cursor
  * @see IntersectionMultiCursor
  */
+@API(API.Status.MAINTAINED)
 public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
 
     private IntersectionCursor(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,

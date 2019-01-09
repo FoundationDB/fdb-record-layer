@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -35,6 +36,7 @@ import java.util.concurrent.Executor;
  * A cursor that skips a specified number of initial elements.
  * @param <T> the type of elements of the cursor
  */
+@API(API.Status.MAINTAINED)
 public class SkipCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final RecordCursor<T> inner;
@@ -55,6 +57,7 @@ public class SkipCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (skipRemaining <= 0) {
             return inner.onNext().thenApply(result -> {

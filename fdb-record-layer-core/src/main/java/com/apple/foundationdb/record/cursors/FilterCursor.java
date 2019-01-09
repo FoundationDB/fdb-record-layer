@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -37,6 +38,7 @@ import java.util.function.Function;
  * A cursor that filters elements using a predicate.
  * @param <T> the type of elements of the cursor
  */
+@API(API.Status.MAINTAINED)
 public class FilterCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final RecordCursor<T> inner;
@@ -58,6 +60,7 @@ public class FilterCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         mayGetContinuation = false;
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {

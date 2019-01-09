@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -36,6 +37,7 @@ import java.util.concurrent.Executor;
  * A cursor that returns a single element when a future completes.
  * @param <T> the type of elements of the cursor
  */
+@API(API.Status.MAINTAINED)
 public class FutureCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final Executor executor;
@@ -61,6 +63,7 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (done) {
             nextResult = RecordCursorResult.exhausted();

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
-import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -63,7 +62,6 @@ import java.util.stream.Collectors;
  *
  * @param <T> the type of elements returned by each child cursor
  */
-@API(API.Status.INTERNAL)
 abstract class UnionCursorBase<T> implements RecordCursor<T> {
     @Nonnull
     private final List<CursorState<T>> cursorStates;

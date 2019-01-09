@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -36,9 +37,11 @@ import java.util.concurrent.Executor;
 /**
  * A cursor that returns the elements of an ordinary synchronous iterator.
  * While it supports continuation, resuming an iterator cursor with a continuation is very inefficient since it needs to
- * advance the underlying iterator up to the point that stopped.
+ * advance the underlying iterator up to the point that stopped. For that reason, the {@link ListCursor} should be used
+ * instead where possible.
  * @param <T> the type of elements of the cursor
  */
+@API(API.Status.MAINTAINED)
 public class IteratorCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final Executor executor;
@@ -62,6 +65,7 @@ public class IteratorCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         boolean hasNext = iterator.hasNext();
         mayGetContinuation = !hasNext;

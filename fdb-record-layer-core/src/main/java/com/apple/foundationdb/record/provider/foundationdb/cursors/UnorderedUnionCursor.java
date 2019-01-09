@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -45,6 +46,7 @@ import java.util.function.Function;
  *
  * @param <T> the type of elements returned by the cursor
  */
+@API(API.Status.EXPERIMENTAL)
 public class UnorderedUnionCursor<T> extends UnionCursorBase<T> {
 
     protected UnorderedUnionCursor(@Nonnull List<CursorState<T>> cursorStates,
