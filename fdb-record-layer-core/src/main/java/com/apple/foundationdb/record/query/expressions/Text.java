@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 
 import javax.annotation.Nonnull;
@@ -67,6 +68,7 @@ import java.util.List;
  * @see com.apple.foundationdb.record.provider.common.text.TextTokenizer TextTokenizer
  * @see DefaultTextTokenizer
  */
+@API(API.Status.EXPERIMENTAL)
 public abstract class Text {
     @Nullable
     private final String tokenizerName;

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
@@ -27,6 +29,7 @@ import java.util.Collection;
  * A relational planner expression that represents a type filter. This includes both logical and physical type filtering
  * expressions.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface TypeFilterExpression extends RelationalExpressionWithChildren {
     @Nonnull
     Collection<String> getRecordTypes();

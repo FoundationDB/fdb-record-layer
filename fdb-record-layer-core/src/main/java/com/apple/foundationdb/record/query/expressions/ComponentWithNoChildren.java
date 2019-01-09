@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
+
 /**
  * A {@link QueryComponent} that does not have any child components.
  */
+@API(API.Status.MAINTAINED)
 public interface ComponentWithNoChildren extends QueryComponent {
 }

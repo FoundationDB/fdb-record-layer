@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
@@ -31,6 +32,7 @@ import java.util.Optional;
  * When a new expression is yieled by the rule's {@link PlannerRule#onMatch} method, the rule call substitutes the
  * existing contents of the root with the yielded expression.
  */
+@API(API.Status.EXPERIMENTAL)
 public class RewriteRuleCall implements PlannerRuleCall {
     @Nonnull
     private final PlannerRule<? extends PlannerExpression> rule;

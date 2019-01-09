@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 
 /**
  * A {@link QueryComponent} with exactly one child component.
  */
+@API(API.Status.MAINTAINED)
 public interface ComponentWithSingleChild extends QueryComponent {
     @Nonnull
     QueryComponent getChild();

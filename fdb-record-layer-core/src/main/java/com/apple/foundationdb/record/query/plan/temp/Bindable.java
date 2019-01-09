@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
@@ -30,6 +31,7 @@ import java.util.Optional;
  * A planner type that supports rule binding. Both {@link PlannerExpression} and {@link ExpressionRef} implement
  * <code>Bindable</code> to allow binding to both concrete expressions and groups.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface Bindable {
     /**
      * Attempt to match the binding to this bindable object.

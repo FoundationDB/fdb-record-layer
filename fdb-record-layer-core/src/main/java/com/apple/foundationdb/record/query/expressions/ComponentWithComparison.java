@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 
 /**
  * A {@link QueryComponent} that uses a {@link Comparisons.Comparison} on the record.
  */
+@API(API.Status.MAINTAINED)
 public interface ComponentWithComparison extends ComponentWithNoChildren {
     @Nonnull
     Comparisons.Comparison getComparison();

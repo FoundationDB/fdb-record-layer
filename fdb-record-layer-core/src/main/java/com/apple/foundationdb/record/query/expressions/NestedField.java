@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -37,6 +38,7 @@ import java.util.Objects;
 /**
  * A {@link QueryComponent} that evaluates a nested component against a {@link com.google.protobuf.Message}-valued field.
  */
+@API(API.Status.MAINTAINED)
 public class NestedField extends BaseField implements ComponentWithSingleChild {
     @Nonnull
     private final ExpressionRef<QueryComponent> childComponent;
@@ -85,6 +87,7 @@ public class NestedField extends BaseField implements ComponentWithSingleChild {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.childComponent);
     }

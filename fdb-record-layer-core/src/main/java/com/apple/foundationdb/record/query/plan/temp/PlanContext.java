@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -33,6 +34,7 @@ import java.util.Set;
  * It provides access to this information to the planner and the
  * {@link PlannerRule#onMatch(PlannerRuleCall)} method.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface PlanContext {
     @Nonnull
     Set<Index> getIndexes();

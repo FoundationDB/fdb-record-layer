@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -39,6 +40,7 @@ import java.util.function.Function;
  * in any order). However, this plan also makes no effort to remove duplicates from its children, and it also
  * makes no guarantees as to what order it will return results.
  */
+@API(API.Status.EXPERIMENTAL)
 public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
     public RecordQueryUnorderedUnionPlan(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {

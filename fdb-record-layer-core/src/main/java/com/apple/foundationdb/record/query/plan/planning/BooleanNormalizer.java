@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.planning;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.ComponentWithChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
  * The intermediate form for the normalizer is a list of lists.
  * </p>
  */
+@API(API.Status.INTERNAL)
 public class BooleanNormalizer {
     private BooleanNormalizer() {
     }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
@@ -53,6 +54,7 @@ import java.util.stream.Stream;
  * A query plan that executes by taking the union of records from two or more compatibly-sorted child plans.
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
+@API(API.Status.MAINTAINED)
 public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIntersectionPlan.class);
 
@@ -153,6 +155,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
     }

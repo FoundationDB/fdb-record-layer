@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -44,6 +45,7 @@ import java.util.Set;
  * A query plan that can scan text indexes. These work slightly differently than reqular indexes
  * in that the comparison on a query might actually be split into multiple queries.
  */
+@API(API.Status.MAINTAINED)
 public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex {
 
     @Nonnull
@@ -149,6 +151,7 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Collections.emptyIterator();
     }

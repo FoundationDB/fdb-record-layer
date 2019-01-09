@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
  * A {@link QueryComponent} that has child components.
  */
+@API(API.Status.MAINTAINED)
 public interface ComponentWithChildren extends QueryComponent {
     @Nonnull
     List<QueryComponent> getChildren();

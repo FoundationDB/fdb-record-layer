@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -40,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
  * A {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} whose value from the record,
  * to be compared with the comparison's value, is the result of applying a {@link RecordFunction} to the record.
  */
+@API(API.Status.MAINTAINED)
 public class QueryRecordFunctionWithComparison implements ComponentWithComparison {
     @Nonnull
     private final RecordFunction<?> function;
@@ -98,6 +100,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.comparison);
     }

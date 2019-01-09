@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -88,6 +89,7 @@ import java.util.Objects;
  * return <code>NO_MATCH</code>.
  * </p>
  */
+@API(API.Status.INTERNAL)
 public class QueryToKeyMatcher {
 
     @Nonnull

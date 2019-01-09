@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
@@ -49,6 +50,7 @@ import java.util.Set;
 /**
  * A query plan that reconstructs records from the entries in a covering index.
  */
+@API(API.Status.MAINTAINED)
 public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
@@ -172,6 +174,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(indexPlan);
     }

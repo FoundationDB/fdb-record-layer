@@ -20,10 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
 
 /**
  * A query plan with child plans.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithChildren extends RecordQueryPlan, RelationalExpressionWithChildren {
 }

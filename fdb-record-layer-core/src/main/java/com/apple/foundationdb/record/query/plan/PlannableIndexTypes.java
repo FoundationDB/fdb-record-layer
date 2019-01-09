@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.google.common.collect.Sets;
 
@@ -37,6 +38,7 @@ import java.util.Set;
  *
  * @see IndexTypes
  */
+@API(API.Status.EXPERIMENTAL)
 public class PlannableIndexTypes {
     public static final PlannableIndexTypes DEFAULT = new PlannableIndexTypes(
             Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),

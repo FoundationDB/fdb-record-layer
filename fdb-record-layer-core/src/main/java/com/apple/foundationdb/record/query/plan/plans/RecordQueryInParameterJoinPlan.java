@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -31,6 +32,7 @@ import java.util.Objects;
 /**
  * A query plan that executes a child plan once for each of the elements of an {@code IN} list taken from a parameter.
  */
+@API(API.Status.MAINTAINED)
 public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     private final String externalBinding;
 

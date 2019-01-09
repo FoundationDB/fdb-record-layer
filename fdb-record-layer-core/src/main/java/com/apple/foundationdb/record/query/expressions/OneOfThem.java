@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
@@ -30,6 +32,7 @@ import java.util.List;
  * to true. Unless specified otherwise, none of the components require that the record be returned only once.
  * The child components only see one of the values when evaluating.
  */
+@API(API.Status.MAINTAINED)
 public class OneOfThem {
     @Nonnull
     private final String fieldName;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 
@@ -35,6 +36,7 @@ import java.util.List;
  * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
  * @param <T> the bindable type that this matcher binds to
  */
+@API(API.Status.EXPERIMENTAL)
 public interface ExpressionMatcher<T extends Bindable> {
     /**
      * Get a class or interface extending {@link PlannerExpression} that is a super class of every planner expression

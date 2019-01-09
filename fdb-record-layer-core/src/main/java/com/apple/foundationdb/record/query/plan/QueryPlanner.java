@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
@@ -29,6 +30,7 @@ import javax.annotation.Nonnull;
  * A common interface for classes that can plan a {@link RecordQuery} into a {@link RecordQueryPlan}. The common
  * interface allows tests to be run against several planners.
  */
+@API(API.Status.STABLE)
 public interface QueryPlanner {
     /**
      * Preference between index scan and record scan.

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithFieldWithComparisonRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithScanRule;
@@ -39,6 +40,7 @@ import java.util.Optional;
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
  */
+@API(API.Status.EXPERIMENTAL)
 public class PlannerRuleSet {
     private static final List<PlannerRule<? extends PlannerExpression>> REWRITE_RULES = ImmutableList.of(
             new FilterWithScanRule(),

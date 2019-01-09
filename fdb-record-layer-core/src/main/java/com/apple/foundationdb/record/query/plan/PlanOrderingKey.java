@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -48,6 +49,7 @@ import java.util.List;
  * <code>primaryKeyStart</code> is the earlier position for part of the primary key; in this case, <code>0</code>.
  * <code>primaryKeyTail</code> is the position after which only primary key fields appear; in this case, <code>3</code>.
  */
+@API(API.Status.INTERNAL)
 public class PlanOrderingKey {
     @Nonnull
     private final List<KeyExpression> keys;

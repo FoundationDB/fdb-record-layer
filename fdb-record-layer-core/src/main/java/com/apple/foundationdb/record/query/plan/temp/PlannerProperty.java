@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -32,6 +34,7 @@ import javax.annotation.Nonnull;
  * as visitors on the tree of {@code PlannerExpression}s and {@link ExpressionRef}s. A property can be evaluated against
  * an expression tree by having the visitor traverse the tree.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface PlannerProperty {
     /**
      * Called on nodes in the expression tree in visit pre-order of the depth-first traversal of the tree.

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
@@ -39,6 +40,7 @@ import java.util.Objects;
  * <li>Else {@code null}.</li>
  * </ul>
  */
+@API(API.Status.MAINTAINED)
 public class AndComponent extends AndOrComponent {
 
     public AndComponent(@Nonnull List<ExpressionRef<QueryComponent>> operands) {

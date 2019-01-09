@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
@@ -56,6 +57,7 @@ import java.util.Optional;
  * fact that there's a filter. Similarly, they should both be memoized separately, since there might be many possible
  * implementations of each.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface PlannerExpression extends Bindable {
     /**
      * Matches a matcher expression to an expression tree rooted at this node, adding to some existing bindings.

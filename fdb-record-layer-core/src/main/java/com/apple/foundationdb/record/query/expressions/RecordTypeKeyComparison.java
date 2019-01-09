@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
@@ -43,6 +44,7 @@ import java.util.Set;
  * A {@link QueryComponent} that implements checking for a given record type.
  * Not normally used in queries.
  */
+@API(API.Status.MAINTAINED)
 public class RecordTypeKeyComparison implements ComponentWithComparison {
     static class RecordTypeComparison implements Comparisons.Comparison {
         private final String recordTypeName;
@@ -93,6 +95,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Nonnull
         @Override
+        @API(API.Status.EXPERIMENTAL)
         public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
             return Collections.emptyIterator();
         }
@@ -159,6 +162,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(comparison);
     }

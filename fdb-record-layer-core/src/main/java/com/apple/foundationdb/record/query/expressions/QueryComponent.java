@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -39,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
  * {@link #validate(Descriptors.Descriptor)} must be called before calling {@link #eval(FDBEvaluationContext, FDBRecord)}, or bad
  * things may happen.
  */
+@API(API.Status.STABLE)
 public interface QueryComponent extends PlanHashable, PlannerExpression {
     /**
      * Return whether or not the given record matches this component.

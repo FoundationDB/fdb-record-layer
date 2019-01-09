@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.planning;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
@@ -39,6 +40,7 @@ import java.util.List;
  * or {@value com.apple.foundationdb.record.metadata.IndexTypes#TEXT} indexes) where queries
  * cannot span multiple values of the grouping key.
  */
+@API(API.Status.INTERNAL)
 class GroupingValidator {
     // TODO: Use QueryToKeyMatcher when planning groups (https://github.com/FoundationDB/fdb-record-layer/issues/21)
     //  Most of what's done here is also done in the QueryToKeyMatcher class, it just also needs information

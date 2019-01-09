@@ -143,6 +143,7 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return children.iterator();
     }

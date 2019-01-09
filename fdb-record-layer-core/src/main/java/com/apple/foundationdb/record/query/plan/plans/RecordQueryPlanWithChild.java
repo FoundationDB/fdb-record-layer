@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
+
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
@@ -27,6 +29,7 @@ import java.util.List;
 /**
  * A query plan with a single child plan.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     @Override
     @Nonnull

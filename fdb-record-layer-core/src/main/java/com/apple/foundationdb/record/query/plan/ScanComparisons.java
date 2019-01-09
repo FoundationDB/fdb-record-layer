@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
@@ -45,6 +46,7 @@ import java.util.stream.Stream;
  * A <em>prefix</em> of zero or more equality comparisons for each of
  * the corresponding indexed fields, followed by zero or more
  * inequality comparisons to be applied to the next field. */
+@API(API.Status.INTERNAL)
 public class ScanComparisons implements PlanHashable {
     @Nonnull
     protected final List<Comparisons.Comparison> equalityComparisons;

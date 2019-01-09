@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -36,6 +37,7 @@ import javax.annotation.Nonnull;
  * be executed directly (such as an unimplemented sort). Other planner expressions such as {@link com.apple.foundationdb.record.query.expressions.QueryComponent}
  * and {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression} do not represent streams of records.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface RelationalPlannerExpression extends PlannerExpression {
     static PlannerExpression fromRecordQuery(@Nonnull RecordQuery query) {
         if (query.getSort() != null) {

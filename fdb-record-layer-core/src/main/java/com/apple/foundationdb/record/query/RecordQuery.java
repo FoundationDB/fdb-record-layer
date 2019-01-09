@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -45,6 +46,7 @@ import java.util.List;
  *
  * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan
  */
+@API(API.Status.STABLE)
 public class RecordQuery {
     public static final Collection<String> ALL_TYPES = Collections.emptyList();
 

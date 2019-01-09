@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 
 import javax.annotation.Nonnull;
@@ -27,6 +28,7 @@ import javax.annotation.Nonnull;
 /**
  * A query plan that uses {@link ScanComparisons} to drive some scan of the record store.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
     @Nonnull
     ScanComparisons getComparisons();

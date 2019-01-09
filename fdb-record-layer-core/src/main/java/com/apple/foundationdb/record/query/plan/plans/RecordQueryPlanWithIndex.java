@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -41,6 +42,7 @@ import javax.annotation.Nullable;
  * such as the {@link RecordQueryIndexPlan}. Plans that use an index but only
  * through one of their child plans will not implement this interface.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
 
     /**

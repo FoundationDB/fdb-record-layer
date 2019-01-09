@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
@@ -49,6 +50,7 @@ import java.util.Set;
 /**
  * A query plan that returns records whose primary keys are taken from some list.
  */
+@API(API.Status.MAINTAINED)
 public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren {
     /**
      * A source for the primary keys for records.
@@ -126,6 +128,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.keysSource);
     }
@@ -182,6 +185,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
 
         @Nonnull
         @Override
+        @API(API.Status.EXPERIMENTAL)
         public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
             return Collections.emptyIterator();
         }
@@ -229,6 +233,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
 
         @Nonnull
         @Override
+        @API(API.Status.EXPERIMENTAL)
         public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
             return Collections.emptyIterator();
         }
