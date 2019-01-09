@@ -116,13 +116,13 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Nonnull
     @Override
     public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M record, @Nonnull RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
-        return untypedStore.saveTypedRecord(this, record, existenceCheck, version, behavior);
+        return untypedStore.saveTypedRecord(typedSerializer, record, existenceCheck, version, behavior);
     }
 
     @Nonnull
     @Override
     public CompletableFuture<FDBStoredRecord<M>> loadRecordInternal(@Nonnull Tuple primaryKey, boolean snapshot) {
-        return untypedStore.loadTypedRecord(this, primaryKey, snapshot);
+        return untypedStore.loadTypedRecord(typedSerializer, primaryKey, snapshot);
     }
 
     @Nonnull
@@ -133,14 +133,14 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
-    public CompletableFuture<Boolean> recordExistsAsync(@Nonnull Tuple primaryKey, boolean snapshot) {
-        return untypedStore.recordExistsAsync(primaryKey, snapshot);
+    public CompletableFuture<Boolean> recordExistsAsync(@Nonnull Tuple primaryKey, @Nonnull final IsolationLevel isolationLevel) {
+        return untypedStore.recordExistsAsync(primaryKey, isolationLevel);
     }
 
     @Nonnull
     @Override
     public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
-        return untypedStore.scanTypedRecords(this, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+        return untypedStore.scanTypedRecords(typedSerializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
 
     @Nonnull
@@ -170,7 +170,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Nonnull
     @Override
     public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull Tuple primaryKey) {
-        return untypedStore.deleteTypedRecord(this, primaryKey);
+        return untypedStore.deleteTypedRecord(typedSerializer, primaryKey);
     }
 
     @Override
@@ -205,13 +205,13 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Nonnull
     @Override
     public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
-        return untypedStore.evaluateTypedIndexRecordFunction(this, evaluationContext, function, record);
+        return untypedStore.evaluateTypedIndexRecordFunction(evaluationContext, function, record);
     }
 
     @Nonnull
     @Override
     public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
-        return untypedStore.evaluateTypedStoreFunction(this, evaluationContext, function, record);
+        return untypedStore.evaluateTypedStoreFunction(evaluationContext, function, record);
     }
 
     @Nonnull

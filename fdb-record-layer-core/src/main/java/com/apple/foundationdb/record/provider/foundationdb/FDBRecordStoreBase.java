@@ -505,13 +505,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *     <code>false</code> otherwise
      */
     @Nonnull
-    default CompletableFuture<Boolean> recordExistsAsync(@Nonnull final Tuple primaryKey,
-                                                         @Nonnull final IsolationLevel isolationLevel) {
-        return recordExistsAsync(primaryKey, isolationLevel.isSnapshot());
-    }
-
-    @Nonnull
-    CompletableFuture<Boolean> recordExistsAsync(@Nonnull Tuple primaryKey, boolean snapshot);
+    CompletableFuture<Boolean> recordExistsAsync(@Nonnull final Tuple primaryKey, @Nonnull final IsolationLevel isolationLevel);
 
     /**
      * Check if a record exists in the record store with the given primary key.
@@ -716,8 +710,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanType the type of scan to perform
      * @param range the range of the index to scan
      * @param continuation any continuation from a previous scan
-     * @param orphanBehavior How the iteration process should respond in the face of entries in the index for which
-     *    there is no associated record.
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
+     *    there is no associated record
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that return records pointed to by the index
      */
@@ -737,8 +731,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanType the type of scan to perform
      * @param range the range of the index to scan
      * @param continuation any continuation from a previous scan
-     * @param orphanBehavior How the iteration process should respond in the face of entries in the index for which
-     *    there is no associated record.
+     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
+     *    there is no associated record
      * @param scanProperties skip, limit and other scan properties
      * @param recordScanLimiter the scan limit to use
      * @return a cursor that return records pointed to by the index
@@ -810,14 +804,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Determine if a given index entry points to a record.
      * @param index the index to check
      * @param entry the index entry to check
-     * @param snapshot whether to use snapshot read
+     * @param isolationLevel whether to use snapshot read
      * @return a future that completes with {@code true} if the given index entry still points to a record
      */
     default CompletableFuture<Boolean> hasIndexEntryRecord(@Nonnull final Index index,
                                                            @Nonnull final IndexEntry entry,
-                                                           boolean snapshot) {
+                                                           @Nonnull final IsolationLevel isolationLevel) {
         final Tuple primaryKey = indexEntryPrimaryKey(index, entry.getKey());
-        return recordExistsAsync(primaryKey, snapshot);
+        return recordExistsAsync(primaryKey, isolationLevel);
     }
 
     @Nonnull
@@ -1007,6 +1001,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * They will be returned in an order that is grouped by the index value keys that they have in common
      * and will be ordered within the grouping by the primary key.
      *
+     * <p>
      * Because of how the data are stored, each primary key that is part of a uniqueness violation
      * will appear at most once for each index key that is causing a violation. The associated
      * existing key is going to be one of the other keys, but it might not be the only one.
@@ -1043,7 +1038,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Removes all of the records that have the given value set as their index value (and are thus causing a
      * uniqueness violation) except for the one that has the given primary key (if the key is not <code>null</code>).
      * It also cleans up the set of uniqueness violations so that none of the remaining entries will
-     * have be associated with the given value key.
+     * be associated with the given value key.
      * @param index the index to resolve uniqueness violations for
      * @param valueKey the value of the index that is being removed
      * @param primaryKey the primary key of the record that should remain (or <code>null</code> to remove all of them)
@@ -1159,7 +1154,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     PipelineSizer getPipelineSizer();
 
     /**
-     * the number of elements to allow in the asynchronous pipeline for an operation of the given type.
+     * Get the number of elements to allow in the asynchronous pipeline for an operation of the given type.
      * @param pipelineOperation the operation
      * @return the number of elements to pipeline
      */

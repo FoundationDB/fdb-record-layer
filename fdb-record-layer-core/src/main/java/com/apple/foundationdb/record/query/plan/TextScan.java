@@ -102,8 +102,8 @@ public class TextScan implements PlanHashable {
 
     // Get the comparand as a list of strings. This might involve tokenizing the
     // query string if the comparison didn't do that already.
-    private List<String> getTokenList(boolean removeStopWords) {
-        final Object comparand = textComparison.getComparand();
+    private List<String> getTokenList(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, boolean removeStopWords) {
+        final Object comparand = textComparison.getComparand(store, context);
         List<String> tokenList;
         if (comparand instanceof List<?>) {
             tokenList = ((List<?>)comparand).stream().map(Object::toString).collect(Collectors.toList());
@@ -121,8 +121,8 @@ public class TextScan implements PlanHashable {
         return tokenList;
     }
 
-    private List<String> getTokenList() {
-        return getTokenList(true);
+    private List<String> getTokenList(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context) {
+        return getTokenList(store, context, true);
     }
 
     // As we get index entries back, we will compare their values and consider two entries
@@ -158,13 +158,14 @@ public class TextScan implements PlanHashable {
                                                              @Nonnull ScanProperties scanProperties) {
         final Tuple prefix = groupingComparisons != null ? groupingComparisons.toTupleRange(store, context).getHigh() : null;
         final TupleRange suffix = suffixComparisons != null ? suffixComparisons.toTupleRange(store, context) : null;
-        final List<String> tokenList = getTokenList();
-        return scan(store, prefix, suffix, index, tokenList, continuation, scanProperties);
+        final List<String> tokenList = getTokenList(store, context);
+        return scan(store, context, prefix, suffix, index, tokenList, continuation, scanProperties);
     }
 
     @Nonnull
     @SuppressWarnings("squid:S2095") // try-with-resources - the two cursors returned cannot be closed because they are wrapped and returned
     private <M extends Message> RecordCursor<IndexEntry> scan(@Nonnull FDBRecordStoreBase<M> store,
+                                                              @Nonnull EvaluationContext context,
                                                               @Nullable Tuple prefix, @Nullable TupleRange suffix,
                                                               @Nonnull Index index, @Nonnull List<String> tokenList,
                                                               @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
@@ -223,7 +224,7 @@ public class TextScan implements PlanHashable {
                 int maxDistance = ((Comparisons.TextWithMaxDistanceComparison)textComparison).getMaxDistance();
                 predicate = entries -> entriesContainAllWithin(entries, maxDistance);
             } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_PHRASE)) {
-                List<String> tokensWithStopWords = getTokenList(false);
+                List<String> tokensWithStopWords = getTokenList(store, context, false);
                 predicate = entries -> entriesContainPhrase(entries, tokensWithStopWords);
             } else {
                 throw new RecordCoreException("unsupported comparison type for text query: " + comparisonType);

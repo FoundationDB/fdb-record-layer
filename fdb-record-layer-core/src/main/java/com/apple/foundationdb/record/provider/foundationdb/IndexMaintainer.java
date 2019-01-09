@@ -66,6 +66,7 @@ public abstract class IndexMaintainer {
      * Returns the subspace in which the index data is stored.
      * @return subspace for index data
      */
+    @Nonnull
     public Subspace getIndexSubspace() {
         return state.indexSubspace;
     }
@@ -74,6 +75,7 @@ public abstract class IndexMaintainer {
      * Returns the secondary subspace in which the index data is stored.
      * @return secondary subspace for index data
      */
+    @Nonnull
     public Subspace getSecondarySubspace() {
         return state.store.indexSecondarySubspace(state.index);
     }

@@ -65,6 +65,18 @@ public class EvaluationContext {
     }
 
     /**
+     * Create a new <code>EvaluationContext</code> with a single binding.
+     *
+     * @param bindingName the binding name to add
+     * @param value the value to bind the name to
+     * @return a new <code>EvaluationContext</code> with the new binding
+     */
+    @Nonnull
+    public static EvaluationContext forBinding(@Nonnull String bindingName, @Nullable Object value) {
+        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build());
+    }
+
+    /**
      * Retrieve the mapping from parameter names to values associated with
      * this context.
      *
@@ -105,6 +117,7 @@ public class EvaluationContext {
      *
      * @return a builder for this class based on this instance
      */
+    @Nonnull
     public static EvaluationContextBuilder newBuilder() {
         return new EvaluationContextBuilder();
     }
@@ -119,19 +132,9 @@ public class EvaluationContext {
      * @param value the value to bind the name to
      * @return a new <code>EvaluationContext</code> with the new binding
      */
+    @Nonnull
     public EvaluationContext withBinding(@Nonnull String bindingName, @Nullable Object value) {
         return childBuilder().setBinding(bindingName, value).build();
-    }
-
-    /**
-     * Create a new <code>EvaluationContext</code> with a single binding.
-     *
-     * @param bindingName the binding name to add
-     * @param value the value to bind the name to
-     * @return a new <code>EvaluationContext</code> with the new binding
-     */
-    public static EvaluationContext forBinding(@Nonnull String bindingName, @Nullable Object value) {
-        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build());
     }
 
 }

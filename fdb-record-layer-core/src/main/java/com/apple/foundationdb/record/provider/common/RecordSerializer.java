@@ -77,7 +77,7 @@ public interface RecordSerializer<M extends Message> {
                   @Nonnull byte[] serialized, @Nullable StoreTimer timer);
 
     @Nonnull
-    public RecordSerializer<Message> widen();
+    RecordSerializer<Message> widen();
 
     /**
      * Instrumentation events related to record serialization.

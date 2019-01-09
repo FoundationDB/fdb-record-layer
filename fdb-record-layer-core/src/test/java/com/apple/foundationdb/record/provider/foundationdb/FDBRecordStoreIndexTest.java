@@ -1967,13 +1967,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // Verify our entries
             assertTrue(recordStore.hasIndexEntryRecord(
                     recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"),
-                    new IndexEntry(Tuple.from("foo", 1), TupleHelpers.EMPTY), false).get(), "'Foo' should exist");
+                    new IndexEntry(Tuple.from("foo", 1), TupleHelpers.EMPTY), IsolationLevel.SERIALIZABLE).get(), "'Foo' should exist");
             assertFalse(recordStore.hasIndexEntryRecord(
                     recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"),
-                    new IndexEntry(Tuple.from("bar", 2), TupleHelpers.EMPTY), false).get(), "'Bar' should be deleted");
+                    new IndexEntry(Tuple.from("bar", 2), TupleHelpers.EMPTY), IsolationLevel.SERIALIZABLE).get(), "'Bar' should be deleted");
             assertTrue(recordStore.hasIndexEntryRecord(
                     recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"),
-                    new IndexEntry(Tuple.from("baz", 3), TupleHelpers.EMPTY), false).get(), "'Baz' should exist");
+                    new IndexEntry(Tuple.from("baz", 3), TupleHelpers.EMPTY), IsolationLevel.SERIALIZABLE).get(), "'Baz' should exist");
 
             try {
                 recordStore.scanIndexRecords("MySimpleRecord$str_value_indexed").asList().get();
