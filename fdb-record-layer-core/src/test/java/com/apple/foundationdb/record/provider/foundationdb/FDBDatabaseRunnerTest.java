@@ -49,7 +49,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link FDBDatabaseRunner}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBDatabaseRunnerTest {
+public class FDBDatabaseRunnerTest extends FDBTestBase {
 
     private static final Object[] PATH_OBJECTS = {"record-test", "unit"};
 

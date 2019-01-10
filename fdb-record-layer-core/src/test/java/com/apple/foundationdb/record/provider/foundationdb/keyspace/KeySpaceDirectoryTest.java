@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
 import com.apple.foundationdb.tuple.Tuple;
@@ -84,7 +85,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link KeySpaceDirectory}.
  */
 @Tag(Tags.RequiresFDB)
-public class KeySpaceDirectoryTest {
+public class KeySpaceDirectoryTest extends FDBTestBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KeySpaceDirectoryTest.class);
 

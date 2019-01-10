@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * Test use of {@code oneof} to define the union message.
  */
 @Tag(Tags.RequiresFDB)
-public class OneOfTest {
+public class OneOfTest extends FDBTestBase {
 
     private static final Object[] PATH = { "record-test", "unit", "recordStore" };
 

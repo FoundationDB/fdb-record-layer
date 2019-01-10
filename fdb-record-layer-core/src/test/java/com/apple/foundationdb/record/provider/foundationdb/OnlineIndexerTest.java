@@ -110,7 +110,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link OnlineIndexer}.
  */
 @Tag(Tags.RequiresFDB)
-public class OnlineIndexerTest {
+public class OnlineIndexerTest extends FDBTestBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerTest.class);
 
     private RecordMetaData metaData;

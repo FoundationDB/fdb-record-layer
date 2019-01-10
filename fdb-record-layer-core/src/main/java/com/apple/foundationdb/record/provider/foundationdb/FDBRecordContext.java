@@ -308,6 +308,34 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return database.asyncToSync(timer, event, async);
     }
 
+    /**
+     * Join a future following the same logic that <code>asyncToSync(FDBStoreTimer.Wait, CompletableFuture)</code> uses
+     * to validate that the operation isn't blocking in an asynchronous context.
+     *
+     * @param future the future to be completed
+     * @param <T> the type of the value produced by the future
+     * @return the result value
+     */
+    public <T> T join(CompletableFuture<T> future) {
+        return database.join(future);
+    }
+
+    /**
+     * Get a future following the same logic that <code>asyncToSync(FDBStoreTimer.Wait, CompletableFuture)</code> uses
+     * to validate that the operation isn't blocking in an asynchronous context.
+     *
+     * @param future the future to be completed
+     * @param <T> the type of the value produced by the future
+     * @return the result value
+     *
+     * @throws java.util.concurrent.CancellationException if the future was cancelled
+     * @throws ExecutionException if the future completed exceptionally
+     * @throws InterruptedException if the current thread was interrupted
+     */
+    public <T> T get(CompletableFuture<T> future) throws InterruptedException, ExecutionException {
+        return database.get(future);
+    }
+
     public void timeReadSampleKey(byte[] key) {
         if (timer != null) {
             CompletableFuture<byte[]> future = instrument(FDBStoreTimer.Events.READ_SAMPLE_KEY,

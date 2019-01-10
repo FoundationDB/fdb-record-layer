@@ -23,6 +23,10 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.util.LoggableException;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -30,12 +34,18 @@ import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.function.Executable;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -75,6 +85,68 @@ public class TestHelpers {
                 throw new AssertionError("Callable threw non-RuntimeException", e);
             }
         };
+    }
+
+    public static void assertLogs(Class<?> loggingClass, Pattern pattern, Callable<?> callable) {
+        assertLogs(loggingClass.getName(), pattern, callable);
+    }
+
+    public static void assertLogs(String loggerName, Pattern pattern, Callable<?> callable) {
+        MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), pattern);
+        assertLogs(loggerName, appender, callable);
+    }
+
+    public static void assertLogs(Class<?> loggingClass, String messagePrefix, Callable<?> callable) {
+        assertLogs(loggingClass.getName(), messagePrefix, callable);
+    }
+
+    public static void assertLogs(String loggerName, String messagePrefix, Callable<?> callable) {
+        MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), messagePrefix);
+        assertLogs(loggerName, appender, callable);
+    }
+
+    private static void assertLogs(String loggerName, MatchingAppender appender, Callable<?> callable) {
+        callAndMonitorLogging(loggerName, appender, callable);
+        assertTrue(appender.matched(), () -> "No messages were logged matching [" + appender + "]");
+    }
+
+    public static void assertDidNotLog(Class<?> loggingClass, Pattern pattern, Callable<?> callable) {
+        assertDidNotLog(loggingClass.getName(), pattern, callable);
+    }
+
+    public static void assertDidNotLog(String loggerName, Pattern pattern, Callable<?> callable) {
+        MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), pattern);
+        assertDidNotLog(loggerName, appender, callable);
+    }
+
+    public static void assertDidNotLog(Class<?> loggingClass, String messagePrefix, Callable<?> callable) {
+        assertDidNotLog(loggingClass.getName(), messagePrefix, callable);
+    }
+
+    public static void assertDidNotLog(String loggerName, String messagePrefix, Callable<?> callable) {
+        MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), messagePrefix);
+        assertDidNotLog(loggerName, appender, callable);
+    }
+
+    private static void assertDidNotLog(String loggerName, MatchingAppender appender, Callable<?> callable) {
+        callAndMonitorLogging(loggerName, appender, callable);
+        assertFalse(appender.matched(), () -> "Test should not have produced log message matching [" + appender + "]");
+    }
+
+    private static void callAndMonitorLogging(String loggerName, MatchingAppender appender, Callable<?> callable) {
+        LoggerContext context = LoggerContext.getContext(false);
+        Logger logger = context.getLogger(loggerName);
+        logger.addAppender(appender);
+        try {
+            callable.call();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AssertionError("Unexpected exception", e);
+        } finally {
+            logger.removeAppender(appender);
+        }
+
     }
 
     public static void assertThrows(Class<? extends Exception> expectedType, Callable<?> callable, Object ...keyValues) throws Exception {
@@ -238,5 +310,52 @@ public class TestHelpers {
         assertNotNull(context.getTimer());
         int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded == 0, "discarded records unnecessarily\nExpected: 0\nActual: " + discarded);
+    }
+
+    @SuppressWarnings("serial")
+    private static class MatchingAppender extends AbstractAppender {
+        @Nullable
+        private final Pattern pattern;
+        @Nullable
+        private final String messagePrefix;
+
+        private List<LogEvent> matchedEvents = new ArrayList<>();
+
+        protected MatchingAppender(@Nonnull String name, @Nonnull Pattern pattern) {
+            super(name, null, null);
+            this.pattern = pattern;
+            this.messagePrefix = null;
+        }
+
+        protected MatchingAppender(@Nonnull String name, @Nonnull String messagePrefix) {
+            super(name, null, null);
+            this.pattern = null;
+            this.messagePrefix = messagePrefix;
+        }
+
+        public boolean matched() {
+            return !matchedEvents.isEmpty();
+        }
+
+        @Nonnull
+        public List<LogEvent> getMatchedEvents() {
+            return matchedEvents;
+        }
+
+        @Override
+        public void append(@Nonnull LogEvent event) {
+            if ((pattern != null && pattern.matcher(event.getMessage().getFormattedMessage()).matches())
+                    || (messagePrefix != null && event.getMessage().getFormattedMessage().startsWith(messagePrefix)))  {
+                matchedEvents.add(event);
+            }
+        }
+
+        @Override
+        public String toString() {
+            if (pattern != null) {
+                return pattern.toString();
+            }
+            return messagePrefix;
+        }
     }
 }

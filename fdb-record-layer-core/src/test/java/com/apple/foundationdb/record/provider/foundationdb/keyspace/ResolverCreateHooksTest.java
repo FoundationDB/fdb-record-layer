@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
 import com.apple.foundationdb.tuple.Tuple;
@@ -41,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag(Tags.RequiresFDB)
-class ResolverCreateHooksTest {
+class ResolverCreateHooksTest extends FDBTestBase {
     private FDBDatabase database;
     private KeySpace keySpace;
     private final Random random = new Random();

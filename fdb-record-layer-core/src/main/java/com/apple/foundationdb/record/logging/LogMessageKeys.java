@@ -34,6 +34,10 @@ public enum LogMessageKeys {
     TITLE("ttl"),
     SUBSPACE("subspace"),
     SUBSPACE_KEY("subspace_key"),
+    CALLING_CLASS("calling_class"),
+    CALLING_METHOD("calling_method"),
+    CALLING_LINE("calling_line"),
+    FUTURE_COMPLETED("future_completed"),
     // record splitting/unsplitting
     KEY("key"),
     KEY_TUPLE("key_tuple"),

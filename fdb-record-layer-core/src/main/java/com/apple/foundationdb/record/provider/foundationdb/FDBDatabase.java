@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.AsyncLoadingCache;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
@@ -85,6 +86,19 @@ public class FDBDatabase {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabase.class);
 
+    /**
+     * Text of message that is logged or exception that is thrown when a blocking API call
+     * (<code>asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, CompletableFuture)</code>, {@link #join(CompletableFuture)},
+     * or {@link #get(CompletableFuture)}) is called from within a <code>CompletableFuture</code> completion state.
+     */
+    protected static final String BLOCKING_IN_ASYNC_CONTEXT_MESSAGE = "Blocking in an asynchronous context";
+
+    /**
+     * Message that logged when it is detected that a blocking call is being made in a method that may be producing
+     * a future (specifically a method that ends in "<code>Async</code>".
+     */
+    protected static final String BLOCKING_RETURNING_ASYNC_MESSAGE = "Blocking in future producing call";
+
     @Nonnull
     private final FDBDatabaseFactory factory;
     @Nullable
@@ -121,6 +135,9 @@ public class FDBDatabase {
     private boolean trackLastSeenVersionOnRead = false;
     private boolean trackLastSeenVersionOnCommit = false;
 
+    @Nonnull
+    private final Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier;
+
     private String datacenterId;
 
     @Nonnull
@@ -136,6 +153,7 @@ public class FDBDatabase {
         this.reverseDirectoryMaxRowsPerTransaction = factory.getReverseDirectoryRowsPerTransaction();
         this.reverseDirectoryMaxMillisPerTransaction = factory.getReverseDirectoryMaxMillisPerTransaction();
         this.transactionIsTracedSupplier = factory.getTransactionIsTracedSupplier();
+        this.blockingInAsyncDetectionSupplier = factory.getBlockingInAsyncDetectionSupplier();
         this.reverseDirectoryInMemoryCache = CacheBuilder.newBuilder()
                 .maximumSize(DEFAULT_MAX_REVERSE_CACHE_ENTRIES)
                 .recordStats()
@@ -664,6 +682,11 @@ public class FDBDatabase {
         }
     }
 
+    @Nullable
+    public Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> getAsyncToSyncTimeout() {
+        return asyncToSyncTimeout;
+    }
+
     public void setAsyncToSyncTimeout(@Nullable Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout) {
         this.asyncToSyncTimeout = asyncToSyncTimeout;
     }
@@ -686,6 +709,7 @@ public class FDBDatabase {
 
     @Nullable
     public <T> T asyncToSync(@Nullable FDBStoreTimer timer, FDBStoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+        checkIfBlockingInFuture(async);
         if (async.isDone()) {
             try {
                 return async.get();
@@ -696,6 +720,7 @@ public class FDBDatabase {
                 throw asyncToSyncExceptionMapper.apply(ex, event);
             }
         } else {
+
             final Pair<Long, TimeUnit> timeout = getAsyncToSyncTimeout(event);
             final long startTime = System.nanoTime();
             try {
@@ -719,6 +744,107 @@ public class FDBDatabase {
                     timer.recordSinceNanoTime(event, startTime);
                 }
             }
+        }
+    }
+
+    /**
+     * Join a future, following the same logic that <code>asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, CompletableFuture)</code>
+     * uses to validate that the operation isn't blocking in an asynchronous context.
+     *
+     * @param future the future to be completed
+     * @param <T> the type of the value produced by the future
+     * @return the result value
+     */
+    public <T> T join(CompletableFuture<T> future) {
+        checkIfBlockingInFuture(future);
+        return future.join();
+    }
+
+    /**
+     * Get a future, following the same logic that <code>asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, CompletableFuture)</code>
+     * uses to validate that the operation isn't blocking in an asynchronous context.
+     *
+     * @param future the future to be completed
+     * @param <T> the type of the value produced by the future
+     * @return the result value
+     *
+     * @throws java.util.concurrent.CancellationException if the future was cancelled
+     * @throws ExecutionException if the future completed exceptionally
+     * @throws InterruptedException if the current thread was interrupted
+     */
+    public <T> T get(CompletableFuture<T> future) throws InterruptedException, ExecutionException {
+        checkIfBlockingInFuture(future);
+        return future.get();
+    }
+
+    @API(API.Status.INTERNAL)
+    public BlockingInAsyncDetection getBlockingInAsyncDetection() {
+        return blockingInAsyncDetectionSupplier.get();
+    }
+
+    private void checkIfBlockingInFuture(CompletableFuture<?> future) {
+        BlockingInAsyncDetection behavior = getBlockingInAsyncDetection();
+        if (behavior == BlockingInAsyncDetection.DISABLED) {
+            return;
+        }
+
+        final boolean isComplete = future.isDone();
+        if (isComplete && behavior.ignoreComplete()) {
+            return;
+        }
+
+        final StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+
+        // If, during our traversal of the stack looking for blocking calls, we discover that one of our
+        // callers may have been a method that was producing a CompletableFuture (as indicated by a method name
+        // ending in "Async"), we will keep track of where this happened. What this may indicate is that some
+        // poor, otherwise well-intentioned individual, may be doing something like:
+        //
+        // @Nonnull
+        // public CompletableFuture<Void> doSomethingAsync(@Nonnull FDBRecordStore store) {
+        //    Message record = store.loadRecord(Tuple.from(1066L));
+        //    return AsyncUtil.DONE;
+        // }
+        //
+        // There are possibly legitimate situations in which this might occur, but those are probably rare, so
+        // just we will log the fact that this has taken place and where it has taken place here.
+        StackTraceElement possiblyAsyncReturningLocation = null;
+
+        for (StackTraceElement stackElement : stack) {
+            if (stackElement.getClassName().startsWith(CompletableFuture.class.getName())) {
+                logOrThrowBlockingInAsync(behavior, isComplete, stackElement, BLOCKING_IN_ASYNC_CONTEXT_MESSAGE);
+            } else if (stackElement.getMethodName().endsWith("Async")) {
+                possiblyAsyncReturningLocation = stackElement;
+            }
+        }
+
+        if (possiblyAsyncReturningLocation != null && !isComplete) {
+            // Maybe one day this will be configurable, but for now we will only allow this situation to log
+            logOrThrowBlockingInAsync(BlockingInAsyncDetection.IGNORE_COMPLETE_WARN_BLOCKING, isComplete,
+                    possiblyAsyncReturningLocation, BLOCKING_RETURNING_ASYNC_MESSAGE);
+        }
+    }
+
+    private void logOrThrowBlockingInAsync(@Nonnull BlockingInAsyncDetection behavior,
+                                           boolean isComplete,
+                                           @Nonnull StackTraceElement stackElement,
+                                           @Nonnull String title) {
+        final RuntimeException exception = new BlockingInAsyncException(title)
+                .addLogInfo(
+                        LogMessageKeys.FUTURE_COMPLETED, isComplete,
+                        LogMessageKeys.CALLING_CLASS, stackElement.getClassName(),
+                        LogMessageKeys.CALLING_METHOD, stackElement.getMethodName(),
+                        LogMessageKeys.CALLING_LINE, stackElement.getLineNumber());
+
+        if (!isComplete && behavior.throwExceptionOnBlocking()) {
+            throw exception;
+        } else {
+            LOGGER.warn(KeyValueLogMessage.of(title,
+                    LogMessageKeys.FUTURE_COMPLETED, isComplete,
+                    LogMessageKeys.CALLING_CLASS, stackElement.getClassName(),
+                    LogMessageKeys.CALLING_METHOD, stackElement.getMethodName(),
+                    LogMessageKeys.CALLING_LINE, stackElement.getLineNumber()),
+                    exception);
         }
     }
 
