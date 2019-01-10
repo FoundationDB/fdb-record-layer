@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -37,6 +38,7 @@ import java.util.function.Function;
  * A cursor that produces items by applying a given function to the previous item.
  * @param <T> the type of elements of the cursor
  */
+@API(API.Status.MAINTAINED)
 public class ChainedCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator;
@@ -72,6 +74,7 @@ public class ChainedCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return nextGenerator.apply(lastValue).thenApply(nextValue -> {
             if (nextValue.isPresent()) {

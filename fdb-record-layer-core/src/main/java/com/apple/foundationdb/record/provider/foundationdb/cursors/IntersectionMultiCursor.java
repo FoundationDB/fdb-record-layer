@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
@@ -37,6 +38,7 @@ import java.util.function.Function;
  * @param <T> the type of elements returned by the child cursors
  * @see IntersectionCursor
  */
+@API(API.Status.EXPERIMENTAL)
 public class IntersectionMultiCursor<T> extends IntersectionCursorBase<T, List<T>> {
 
     private IntersectionMultiCursor(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,

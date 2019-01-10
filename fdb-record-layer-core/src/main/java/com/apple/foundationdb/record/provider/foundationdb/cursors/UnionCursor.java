@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -40,6 +41,7 @@ import java.util.function.Function;
  * A cursor that implements a union of all the records from a set of cursors all of whom are ordered compatibly.
  * @param <T> the type of elements returned by the cursor
  */
+@API(API.Status.MAINTAINED)
 public class UnionCursor<T> extends UnionCursorBase<T> {
     @Nonnull
     private final Function<? super T, ? extends List<Object>> comparisonKeyFunction;

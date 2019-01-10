@@ -265,6 +265,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @see RecordCursorContinuation
      */
     @Nonnull
+    @API(API.Status.EXPERIMENTAL)
     CompletableFuture<RecordCursorResult<T>> onNext();
 
     @Override

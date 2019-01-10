@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 
 /**
@@ -30,5 +31,6 @@ import com.apple.foundationdb.record.RecordCursor;
  * @see CursorLimitManager
  * @param <T> the type of elements of the cursor
  */
+@API(API.Status.MAINTAINED)
 public interface BaseCursor<T> extends RecordCursor<T> {
 }

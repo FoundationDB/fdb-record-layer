@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
 /**
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.RecordCoreException;
  *
  * The check can be enabled / disabled globally.
  */
+@API(API.Status.EXPERIMENTAL)
 public class IllegalContinuationAccessChecker {
     private static boolean shouldCheckContinuationAccess = true;
 
