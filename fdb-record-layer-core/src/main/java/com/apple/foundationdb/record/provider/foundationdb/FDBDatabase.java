@@ -723,11 +723,42 @@ public class FDBDatabase {
         }
     }
 
+    /**
+     * Join a future, following the same logic that asyncToSync uses to validate that the operation isn't blocking
+     * in an asynchronous context.
+     *
+     * @param future the future to be completed
+     * @param <T> the type of the value produced by the future
+     * @return the result value
+     */
+    public <T> T join(CompletableFuture<T> future) {
+        checkIfBlockingInAsync(future);
+        return future.join();
+    }
+
+    /**
+     * Get a future, following the same logic that asyncToSync uses to validate that the operation isn't blocking
+     * in an asynchronous context.
+     *
+     * @param future the future to be completed
+     * @param <T> the type of the value produced by the future
+     * @return the result value
+     *
+     * @throws java.util.concurrent.CancellationException if the future was cancelled
+     * @throws ExecutionException if the future completed exceptionally
+     * @throws InterruptedException if the current thread was interrupted
+     */
+    public <T> T get(CompletableFuture<T> future) throws InterruptedException, ExecutionException {
+        checkIfBlockingInAsync(future);
+        return future.get();
+    }
+
     @API(API.Status.INTERNAL)
     public BlockingInAsyncDetection getBlockingInAsyncDetection() {
         return blockingInAsyncDetectionSupplier.get();
     }
 
+    @API(API.Status.INTERNAL)
     private void checkIfBlockingInAsync(CompletableFuture<?> future) {
         BlockingInAsyncDetection behavior = getBlockingInAsyncDetection();
         if (behavior == BlockingInAsyncDetection.DISABLED) {
