@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -33,7 +34,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -41,6 +44,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -156,6 +160,24 @@ public class FDBDatabaseTest {
 
         long readVersion5 = getReadVersionInRetryLoop(database, 0L, 5L, async);
         assertThat(readVersion5, greaterThanOrEqualTo(outOfBandReadVersion));
+    }
+
+    @Test
+    public void testBlockingInAsyncDetection() {
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
+
+        // Make sure that we aren't holding on to previously created databases
+        factory.clear();
+
+        FDBDatabase database = factory.getDatabase();
+        assertEquals(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING, database.getBlockingInAsyncDetection());
+        final CompletableFuture<Long> incompleteFuture = MoreAsyncUtil.delayedFuture(5, TimeUnit.SECONDS).thenApply(ignore -> 10L);
+
+        assertThrows(BlockingInAsyncException.class, () -> {
+            database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK,
+                    CompletableFuture.supplyAsync(() -> database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK, incompleteFuture)));
+        });
     }
 
     private long getReadVersionInRetryLoop(FDBDatabase database, Long minVersion, Long stalenessBoundMillis, boolean async) throws InterruptedException, ExecutionException {

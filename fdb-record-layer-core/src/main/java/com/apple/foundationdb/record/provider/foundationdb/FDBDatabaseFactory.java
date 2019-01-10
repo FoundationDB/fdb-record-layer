@@ -24,8 +24,8 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +44,8 @@ import java.util.function.Supplier;
 @API(API.Status.STABLE)
 public class FDBDatabaseFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
+
+    public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
 
     @Nonnull
     private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactory();
@@ -78,8 +80,10 @@ public class FDBDatabaseFactory {
      * (such as by request) using {@link #setTransactionIsTracedSupplier(Supplier)}.
      */
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
+    private Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = getDefaultBlockInAsyncDetection();
 
     private final Map<String, FDBDatabase> databases = new HashMap<>();
+
 
     @Nonnull
     public static FDBDatabaseFactory instance() {
@@ -333,6 +337,38 @@ public class FDBDatabaseFactory {
         return transactionIsTracedSupplier;
     }
 
+    /**
+     * Controls if calls to <code>FDBRecordContext.asyncToSync()</code> or <code>FDBDatabase.asyncToAsync()</code>
+     * will attempt to detect when they are being called from within an asynchronous context and how they should
+     * react to this fact, when they are. Note that the process of performing this detection is quite expensive
+     * so running with detection enabled in not recommended for environments other than testing.
+     *
+     * @param behavior the blocking desired blocking detection behavior
+     * (see {@link BlockingInAsyncDetection})
+     */
+    public void setBlockingInAsyncDetection(BlockingInAsyncDetection behavior) {
+        setBlockingInAsyncDetection(() -> behavior);
+    }
+
+    /**
+     * Provides a supplier tha controls if calls to <code>FDBRecordContext.asyncToSync()</code>
+     * or <code>FDBDatabase.asyncToAsync()</code> * will attempt to detect when they are being called from
+     * within an asynchronous context and how they should * react to this fact, when they are.  Because such detection
+     * is quite expensive, it is suggested that it is either <code>DISABLED</code> for anything other than testing
+     * environments, or that the supplier randomly chooses a small sample rate in which detection should be
+     * enabled.
+     *
+     * @param supplier a supplier that produces the blocking desired blocking detection behavior
+     * (see {@link BlockingInAsyncDetection})
+     */
+    public void setBlockingInAsyncDetection(Supplier<BlockingInAsyncDetection> supplier) {
+        this.blockingInAsyncDetectionSupplier = supplier;
+    }
+
+    protected Supplier<BlockingInAsyncDetection> getBlockingInAsyncDetectionSupplier() {
+        return this.blockingInAsyncDetectionSupplier;
+    }
+
     public long getStateRefreshTimeMillis() {
         return stateRefreshTimeMillis;
     }
@@ -364,6 +400,18 @@ public class FDBDatabaseFactory {
     @Nonnull
     public synchronized FDBDatabase getDatabase() {
         return getDatabase(null);
+    }
+
+    private static Supplier<BlockingInAsyncDetection> getDefaultBlockInAsyncDetection() {
+        final String str = System.getProperty(BLOCKING_IN_ASYNC_PROPERTY);
+        if (str != null) {
+            try {
+                return () -> BlockingInAsyncDetection.valueOf(str);
+            } catch (Exception e) {
+                System.err.println("Illegal value provided for " + BLOCKING_IN_ASYNC_PROPERTY + ": " + str);
+            }
+        }
+        return () -> BlockingInAsyncDetection.DISABLED;
     }
 
 }

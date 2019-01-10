@@ -135,6 +135,8 @@ public class FDBDatabase {
     private boolean trackLastSeenVersionOnRead = false;
     private boolean trackLastSeenVersionOnCommit = false;
 
+    private final Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier;
+
     private String datacenterId;
 
     private static ImmutablePair<Long, Long> initialVersionPair = new ImmutablePair<>(null, null);
@@ -148,6 +150,7 @@ public class FDBDatabase {
         this.reverseDirectoryMaxRowsPerTransaction = factory.getReverseDirectoryRowsPerTransaction();
         this.reverseDirectoryMaxMillisPerTransaction = factory.getReverseDirectoryMaxMillisPerTransaction();
         this.transactionIsTracedSupplier = factory.getTransactionIsTracedSupplier();
+        this.blockingInAsyncDetectionSupplier = factory.getBlockingInAsyncDetectionSupplier();
         this.reverseDirectoryInMemoryCache = CacheBuilder.newBuilder()
                 .maximumSize(DEFAULT_MAX_REVERSE_CACHE_ENTRIES)
                 .recordStats()
@@ -682,6 +685,7 @@ public class FDBDatabase {
 
     @Nullable
     public <T> T asyncToSync(@Nullable FDBStoreTimer timer, FDBStoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+        checkIfBlockingInAsync(async);
         if (async.isDone()) {
             try {
                 return async.get();
@@ -692,6 +696,7 @@ public class FDBDatabase {
                 throw asyncToSyncExceptionMapper.apply(ex, event);
             }
         } else {
+
             final Pair<Long, TimeUnit> timeout = getAsyncToSyncTimeout(event);
             final long startTime = System.nanoTime();
             try {
@@ -713,6 +718,38 @@ public class FDBDatabase {
             } finally {
                 if (timer != null) {
                     timer.recordSinceNanoTime(event, startTime);
+                }
+            }
+        }
+    }
+
+    @API(API.Status.INTERNAL)
+    public BlockingInAsyncDetection getBlockingInAsyncDetection() {
+        return blockingInAsyncDetectionSupplier.get();
+    }
+
+    private void checkIfBlockingInAsync(CompletableFuture<?> future) {
+        BlockingInAsyncDetection behavior = getBlockingInAsyncDetection();
+        if (behavior == BlockingInAsyncDetection.DISABLED) {
+            return;
+        }
+
+        final boolean isComplete = future.isDone();
+        if (isComplete && behavior.ignoreComplete()) {
+            return;
+        }
+
+        final StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        for (StackTraceElement stackElement : stack) {
+            if (stackElement.getClassName().startsWith(CompletableFuture.class.getName())) {
+                final Exception locationException = new Exception("Location of blocking call");
+
+                if (isComplete) {
+                    LOGGER.warn("asyncToSync called with completed future in an asynchronous context", locationException);
+                } else if (behavior.throwExceptionOnBlocking()) {
+                    throw new BlockingInAsyncException("asyncToSync called in an asynchronous context", locationException);
+                } else {
+                    LOGGER.warn("asyncToSync called with non-completed future in an asynchronous context", locationException);
                 }
             }
         }
