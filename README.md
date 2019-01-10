@@ -33,9 +33,8 @@ layer on which more complex systems can be constructed.
 
 ## Documentation
 
-* [Overview and Examples](docs/Overview.md)
-* [Building](docs/Building.md)
+* [Documentation Home](docs/Index.md)
 * [Contributing](CONTRIBUTING.md)
 * [Code of Conduct](CODE_OF_CONDUCT.md)
-* [Frequently Asked Questions](docs/FAQ.md)
 * [License](LICENSE)
+
