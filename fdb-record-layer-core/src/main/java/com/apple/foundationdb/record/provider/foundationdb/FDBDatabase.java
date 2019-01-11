@@ -758,7 +758,6 @@ public class FDBDatabase {
         return blockingInAsyncDetectionSupplier.get();
     }
 
-    @API(API.Status.INTERNAL)
     private void checkIfBlockingInAsync(CompletableFuture<?> future) {
         BlockingInAsyncDetection behavior = getBlockingInAsyncDetection();
         if (behavior == BlockingInAsyncDetection.DISABLED) {

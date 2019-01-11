@@ -57,7 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Base class for tests for {@link FDBRecordStore}.
  */
-public abstract class FDBRecordStoreTestBase {
+public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreTestBase.class);
 
     private static final Object[] PATH_OBJECTS = new Object[]{"record-test", "unit", "recordStore"};

@@ -45,8 +45,6 @@ import java.util.function.Supplier;
 public class FDBDatabaseFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
 
-    public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
-
     @Nonnull
     private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactory();
 
@@ -80,7 +78,7 @@ public class FDBDatabaseFactory {
      * (such as by request) using {@link #setTransactionIsTracedSupplier(Supplier)}.
      */
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
-    private Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = getDefaultBlockInAsyncDetection();
+    private Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = () -> BlockingInAsyncDetection.DISABLED;
 
     private final Map<String, FDBDatabase> databases = new HashMap<>();
 
@@ -401,17 +399,4 @@ public class FDBDatabaseFactory {
     public synchronized FDBDatabase getDatabase() {
         return getDatabase(null);
     }
-
-    private static Supplier<BlockingInAsyncDetection> getDefaultBlockInAsyncDetection() {
-        final String str = System.getProperty(BLOCKING_IN_ASYNC_PROPERTY);
-        if (str != null) {
-            try {
-                return () -> BlockingInAsyncDetection.valueOf(str);
-            } catch (Exception e) {
-                System.err.println("Illegal value provided for " + BLOCKING_IN_ASYNC_PROPERTY + ": " + str);
-            }
-        }
-        return () -> BlockingInAsyncDetection.DISABLED;
-    }
-
 }

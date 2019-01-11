@@ -102,7 +102,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@code VERSION} type indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class VersionIndexTest {
+public class VersionIndexTest extends FDBTestBase {
     private static final byte VERSIONSTAMP_CODE = Tuple.from(Versionstamp.complete(new byte[10])).pack()[0];
 
     private RecordMetaData metaData;

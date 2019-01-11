@@ -26,6 +26,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
@@ -55,7 +56,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link ResolverMappingReplicator}.
  */
 @Tag(Tags.RequiresFDB)
-public abstract class ResolverMappingReplicatorTest {
+public abstract class ResolverMappingReplicatorTest extends FDBTestBase {
     protected LocatableResolver primary;
     protected LocatableResolver replica;
     protected FDBDatabase database;

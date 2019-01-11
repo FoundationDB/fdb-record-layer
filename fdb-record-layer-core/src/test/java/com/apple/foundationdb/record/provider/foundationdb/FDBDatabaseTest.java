@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBDatabase}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBDatabaseTest {
+public class FDBDatabaseTest extends FDBTestBase {
 
     private static final Object[] PATH_OBJECTS = {"record-test", "unit"};
 

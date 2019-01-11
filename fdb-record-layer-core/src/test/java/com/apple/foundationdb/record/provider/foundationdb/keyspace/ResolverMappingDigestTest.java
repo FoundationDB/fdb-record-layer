@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
@@ -50,7 +51,7 @@ import static org.hamcrest.Matchers.not;
  * Tests for {@link ResolverMappingDigest}.
  */
 @Tag(Tags.RequiresFDB)
-public class ResolverMappingDigestTest {
+public class ResolverMappingDigestTest extends FDBTestBase {
     private FDBDatabase database;
     private Random random = new Random();
     private KeySpace keySpace;

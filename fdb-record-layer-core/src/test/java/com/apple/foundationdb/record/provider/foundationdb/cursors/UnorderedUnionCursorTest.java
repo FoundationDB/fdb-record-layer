@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorTest;
 import com.apple.foundationdb.record.cursors.FirableCursor;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -49,7 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * makes almost no guarantees about the order in which things come in.
  */
 @Tag(Tags.RequiresFDB)
-public class UnorderedUnionCursorTest {
+public class UnorderedUnionCursorTest extends FDBTestBase {
 
     @Nonnull
     private <T> List<Function<byte[], RecordCursor<T>>> functionsFromLists(@Nonnull List<List<T>> lists) {

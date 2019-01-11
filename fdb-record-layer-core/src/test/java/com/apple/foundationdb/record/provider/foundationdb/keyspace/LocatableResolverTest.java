@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver.LocatableResolverLockedException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
@@ -94,7 +95,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.WipesFDB)
 @Tag(Tags.RequiresFDB)
-public abstract class LocatableResolverTest {
+public abstract class LocatableResolverTest extends FDBTestBase {
     protected FDBDatabase database;
     protected LocatableResolver globalScope;
     protected BiFunction<FDBRecordContext, KeySpacePath, LocatableResolver> scopedDirectoryGenerator;
