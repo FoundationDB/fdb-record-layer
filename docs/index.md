@@ -25,6 +25,7 @@ reliability, and performance in a distributed setting.
 * [Overview and Examples](Overview.md)
 * [Getting Started](GettingStarted.md)
 * [Building](Building.md)
+* [Release Notes](ReleaseNotes.md)
 * [Frequently Asked Questions](FAQ.md)
 * [Contributing](../CONTRIBUTING.md)
 * [Code of Conduct](../CODE_OF_CONDUCT.md)
