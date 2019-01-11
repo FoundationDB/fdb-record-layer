@@ -358,9 +358,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
             if (oldRecord == null) {
-                if (metaData.getRecordCountKey() != null) {
-                    addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
-                }
+                addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
             } else {
                 if (getTimer() != null) {
                     getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
@@ -372,6 +370,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private <M extends Message> void addRecordCount(@Nonnull RecordMetaData metaData, @Nonnull FDBStoredRecord<M> record, @Nonnull byte[] increment) {
+        if (metaData.getRecordCountKey() == null) {
+            return;
+        }
         final Transaction tr = ensureContextActive();
         Key.Evaluated subkey = metaData.getRecordCountKey().evaluateSingleton(record);
         final byte[] keyBytes = getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(subkey.toTupleAppropriateList()));
@@ -1063,9 +1064,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldRecord);
             countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
                     oldRecord);
-            if (metaData.getRecordCountKey() != null) {
-                addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
-            }
+            addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
             final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
             if (useOldVersionFormat()) {
                 if (oldHasIncompleteVersion) {

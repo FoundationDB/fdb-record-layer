@@ -76,6 +76,23 @@ public interface RecordSerializer<M extends Message> {
     M deserialize(@Nonnull RecordMetaData metaData, @Nonnull Tuple primaryKey,
                   @Nonnull byte[] serialized, @Nullable StoreTimer timer);
 
+    /**
+     * Convert this typed record serializer to an untyped one.
+     *
+     * <ul>
+     * <li>If this serializer wraps another serializer, for example, because it does compressions, then
+     * {@code widen} that serializer and return the result wrapped equivalently.</li>
+     * <li>If this serializer parses messages in a type-sensitive way, return the closest general purpose way.</li>
+     * <li>If this serializer is inherently bound to its type parameter, throw an exception.</li>
+     * </ul>
+     *
+     * <p>
+     * If a {@link com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore} is created without calling
+     * {@link com.apple.foundationdb.record.provider.foundationdb.FDBTypedRecordStore.Builder#setUntypedSerializer}, then
+     * in order to make the untyped record store that is paired with the typed store (used, for instance, to rebuild indexes),
+     * the given typed serializer will be widened by calling this method.
+     * @return a new serializer that works the same way but handles all record types.
+     */
     @Nonnull
     RecordSerializer<Message> widen();
 
