@@ -84,6 +84,13 @@ This will automatically create an association between the PR and the issue that
 it is addressing and, upon merging of the PR into the main code line, will 
 automatically mark the issue as resolved.
 
+If your pull request results in a user-visible change to the Record Layer, you should
+also update the [release notes](docs/ReleaseNotes.md). For most changes, it
+is sufficient to fill in one of the bullets in the "next release" section of that
+document. You should include a short description of the change as well as filling in
+the issue number. The "next release" section is commented out, so the change won't
+be visible in our documentation until the next time a release is cut.
+
 ### Reporting issues
 
 Please refer to the section below on [using GitHub issues and the community forums](#using-github-issues-and-community-forums) for more info.
