@@ -23,7 +23,7 @@
  *
  * <p>
  * The result of planning a query is a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}, which supports an {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan#execute execute} method
- * against an {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore} with an {@link com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext} holding dynamic parameter values.
+ * against an {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore} with an {@link com.apple.foundationdb.record.EvaluationContext} holding dynamic parameter values.
  * </p>
  *
  * <p>

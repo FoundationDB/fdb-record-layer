@@ -135,8 +135,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreTestBase {
                 context.getTimer().reset();
             }
 
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext,
-                    null, executeProperties)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
                 while (cursor.hasNext()) {
                     cursor.next().getRecord();
                 }
@@ -156,8 +155,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreTestBase {
                 context.getTimer().reset();
             }
 
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext,
-                    null, executeProperties)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
                 boolean caughtScanLimitReached = false;
                 try {
                     while (cursor.hasNext()) {
@@ -187,8 +185,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreTestBase {
         if (plan instanceof RecordQueryPlanWithNoChildren) {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext,
-                        null, ExecuteProperties.SERIAL_EXECUTE)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.SERIAL_EXECUTE)) {
                     int maximumToScan = 0;
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> record = cursor.next();
@@ -289,15 +286,14 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
                 final List<Long> allAtOnce;
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                     allAtOnce = cursor.map(getRecNo).asList().get();
                 }
 
                 final List<Long> byContinuation = new ArrayList<>();
                 byte[] continuation = null;
                 do {
-                    try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext,
-                            continuation, properties.build())) {
+                    try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, properties.build())) {
                         if (context.getTimer() != null) {
                             context.getTimer().reset();
                         }
@@ -369,8 +365,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             byte[] continuation = null;
             do {
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext,
-                        continuation, properties)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, properties)) {
                     int retrieved = 0;
                     while (cursor.hasNext()) {
                         cursor.next();

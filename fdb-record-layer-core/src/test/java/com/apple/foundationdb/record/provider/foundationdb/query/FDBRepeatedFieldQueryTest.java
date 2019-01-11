@@ -440,7 +440,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("repeater$fanout"), bounds(hasTupleString("[[100],[100]]"))))));
             assertEquals(-784887869, plan.planHash());
-            List<Message> byQuery = plan.execute(evaluationContext).map(FDBQueriedRecord::getRecord).asList().get();
+            List<Message> byQuery = recordStore.executeQuery(plan).map(FDBQueriedRecord::getRecord).asList().get();
             assertEquals(1, byQuery.size());
             assertDiscardedNone(context);
             TestRecords1Proto.MySimpleRecord simpleByQuery = builder.clear().mergeFrom(byQuery.get(0)).build();
@@ -498,13 +498,13 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            List<Long> recnos = plan1.execute(evaluationContext)
+            List<Long> recnos = recordStore.executeQuery(plan1)
                     .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
                     .asList().join();
             assertEquals(Arrays.asList(1L, 3L), recnos);
             assertDiscardedAtMost(1, context);
             clearStoreCounter(context);
-            recnos = plan2.execute(evaluationContext)
+            recnos = recordStore.executeQuery(plan2)
                     .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
                     .asList().join();
             assertEquals(Arrays.asList(1L), recnos);
@@ -544,7 +544,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             assertEquals(LongStream.range(0, 3).mapToObj(Long::valueOf).collect(Collectors.toList()),
-                    plan.execute(evaluationContext)
+                    recordStore.executeQuery(plan)
                             .map(FDBQueriedRecord::getRecord)
                             .map(message -> message.getField(message.getDescriptorForType().findFieldByNumber(1)))
                             .asList().join());
@@ -608,7 +608,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
             assertEquals(LongStream.range(2L, 4L).mapToObj(Long::valueOf).collect(Collectors.toList()),
-                    plan.execute(evaluationContext)
+                    recordStore.executeQuery(plan)
                             .map(FDBQueriedRecord::getRecord)
                             .map(this::parseMyRecord)
                             .map(myRecord -> myRecord.getHeader().getRecNo())

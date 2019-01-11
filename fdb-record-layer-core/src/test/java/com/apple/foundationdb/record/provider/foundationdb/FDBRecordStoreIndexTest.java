@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -278,7 +279,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             final Optional<IndexAggregateGroupKeys> keyFunction = IndexAggregateGroupKeys.conditionsToGroupKeys(subtotal, Query.field("num_value_3_indexed").equalsValue(1));
             assertTrue(keyFunction.isPresent(), "should match conditions");
-            final Key.Evaluated keys = keyFunction.get().getGroupKeys(evaluationContext);
+            final Key.Evaluated keys = keyFunction.get().getGroupKeys(recordStore, EvaluationContext.EMPTY);
             assertEquals(Key.Evaluated.scalar(1), keys);
 
             assertEquals((99 * 100) / (2 * 5) - 20, recordStore.evaluateAggregateFunction(allTypes, subtotal, keys, IsolationLevel.SNAPSHOT).join().getLong(0));
@@ -1055,7 +1056,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     assertNotNull(e);
                     assertThat(e, instanceOf(CompletionException.class));
                     assertNotNull(e.getCause());
-                    assertThat(e.getCause(), instanceOf(FDBRecordStoreBase.IndexNotBuiltException.class));
+                    assertThat(e.getCause(), instanceOf(FDBRecordStore.IndexNotBuiltException.class));
                     return null;
                 }).get();
                 assertThat(recordStore.isIndexReadable(index), is(false));
@@ -1183,7 +1184,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), null, FDBRecordStoreBase.RebuildIndexReason.TEST).get();
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), null, FDBRecordStore.RebuildIndexReason.TEST).get();
             assertThat(recordStore.isIndexReadable(indexName), is(true));
             context.commit();
         }
@@ -1966,13 +1967,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // Verify our entries
             assertTrue(recordStore.hasIndexEntryRecord(
                     recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"),
-                    new IndexEntry(Tuple.from("foo", 1), TupleHelpers.EMPTY), false).get(), "'Foo' should exist");
+                    new IndexEntry(Tuple.from("foo", 1), TupleHelpers.EMPTY), IsolationLevel.SERIALIZABLE).get(), "'Foo' should exist");
             assertFalse(recordStore.hasIndexEntryRecord(
                     recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"),
-                    new IndexEntry(Tuple.from("bar", 2), TupleHelpers.EMPTY), false).get(), "'Bar' should be deleted");
+                    new IndexEntry(Tuple.from("bar", 2), TupleHelpers.EMPTY), IsolationLevel.SERIALIZABLE).get(), "'Bar' should be deleted");
             assertTrue(recordStore.hasIndexEntryRecord(
                     recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"),
-                    new IndexEntry(Tuple.from("baz", 3), TupleHelpers.EMPTY), false).get(), "'Baz' should exist");
+                    new IndexEntry(Tuple.from("baz", 3), TupleHelpers.EMPTY), IsolationLevel.SERIALIZABLE).get(), "'Baz' should exist");
 
             try {
                 recordStore.scanIndexRecords("MySimpleRecord$str_value_indexed").asList().get();

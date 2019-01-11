@@ -61,6 +61,12 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
 
     @Nonnull
     @Override
+    public RecordSerializer<Message> widen() {
+        return this;
+    }
+
+    @Nonnull
+    @Override
     public byte[] serialize(@Nonnull RecordMetaData metaData,
                             @Nonnull RecordType recordType,
                             @Nonnull Message record,

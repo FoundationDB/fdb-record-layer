@@ -21,8 +21,9 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
@@ -51,7 +52,8 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
         if (message == null) {
             return null;
         }
@@ -62,7 +64,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
             for (Object value : values) {
                 if (value != null) {
                     if (value instanceof Message) {
-                        final Boolean val = getChild().evalMessage(context, record, (Message) value);
+                        final Boolean val = getChild().evalMessage(store, context, record, (Message) value);
                         if (val != null && val) {
                             return true;
                         }

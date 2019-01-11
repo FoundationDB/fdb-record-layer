@@ -21,8 +21,9 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -38,7 +39,9 @@ class AsyncBoolean<M extends Message> {
     @Nonnull
     private final Iterator<QueryComponent> operands;
     @Nonnull
-    private final FDBEvaluationContext<M> context;
+    private final FDBRecordStoreBase<M> store;
+    @Nonnull
+    private final EvaluationContext context;
     @Nullable
     private final FDBRecord<M> record;
     @Nullable
@@ -46,9 +49,12 @@ class AsyncBoolean<M extends Message> {
     @Nullable
     private Boolean retVal;
 
-    public AsyncBoolean(boolean isOr, @Nonnull List<QueryComponent> operands, @Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public AsyncBoolean(boolean isOr, @Nonnull List<QueryComponent> operands,
+                        @Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                        @Nullable FDBRecord<M> record, @Nullable Message message) {
         this.isOr = isOr;
         this.operands = operands.iterator();
+        this.store = store;
         this.context = context;
         this.record = record;
         this.message = message;
@@ -60,7 +66,7 @@ class AsyncBoolean<M extends Message> {
             if (!operands.hasNext()) {
                 return READY_FALSE;
             } else {
-                return operands.next().evalMessageAsync(context, record, message)
+                return operands.next().evalMessageAsync(store, context, record, message)
                     .thenApply(val -> {
                         if (val == null) {
                             retVal = null;
@@ -78,6 +84,6 @@ class AsyncBoolean<M extends Message> {
                         return true;
                     });
             }
-        }, context.getExecutor()).thenApply(vignore -> retVal);
+        }, store.getExecutor()).thenApply(vignore -> retVal);
     }
 }

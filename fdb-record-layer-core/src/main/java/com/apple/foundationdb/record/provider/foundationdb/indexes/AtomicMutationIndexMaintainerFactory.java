@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -127,8 +126,8 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
     }
 
     @Nonnull
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(IndexMaintainerState<M> state) {
-        return new AtomicMutationIndexMaintainer<>(state);
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+        return new AtomicMutationIndexMaintainer(state);
     }
 
 }

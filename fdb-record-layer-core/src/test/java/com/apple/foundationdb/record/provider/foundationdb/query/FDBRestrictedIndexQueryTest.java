@@ -107,7 +107,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, hasNoDescendant(indexScan(indexName(containsString("num_value_3_indexed")))));
             assertEquals(-625770250, plan.planHash());
 
-            List<TestRecords1Proto.MySimpleRecord> results = plan.execute(evaluationContext)
+            List<TestRecords1Proto.MySimpleRecord> results = recordStore.executeQuery(plan)
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                     .asList().get();
             assertEquals(1, results.size());
@@ -134,7 +134,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     bounds(hasTupleString("[[5],>")))));
             assertEquals(1008857208, plan.planHash());
 
-            List<TestRecords1Proto.MySimpleRecord> results = plan.execute(evaluationContext)
+            List<TestRecords1Proto.MySimpleRecord> results = recordStore.executeQuery(plan)
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                     .asList().get();
             assertEquals(1, results.size());
@@ -174,7 +174,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, hasNoDescendant(indexScan(indexName(containsString("str_value_indexed")))));
             assertEquals(423324446, plan.planHash());
 
-            List<Long> keys = plan.execute(evaluationContext)
+            List<Long> keys = recordStore.executeQuery(plan)
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).getRecNo()).asList().get();
             assertEquals(Collections.singletonList(1066L), keys);
 
@@ -194,7 +194,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     bounds(hasTupleString("[[not_actually_indexed],[not_actually_indexed]]")))));
             assertEquals(-1270285984, plan.planHash());
 
-            List<Long> keys = plan.execute(evaluationContext)
+            List<Long> keys = recordStore.executeQuery(plan)
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).getRecNo()).asList().get();
             assertEquals(Collections.emptyList(), keys);
 
@@ -396,7 +396,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan1.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan1)) {
                 assertTrue(cursor.hasNext());
                 FDBQueriedRecord<Message> rec = cursor.next();
                 TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -420,7 +420,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan2.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan2)) {
                 assertTrue(cursor.hasNext());
                 FDBQueriedRecord<Message> rec = cursor.next();
                 TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();

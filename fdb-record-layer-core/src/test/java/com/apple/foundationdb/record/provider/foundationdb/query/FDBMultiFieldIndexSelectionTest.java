@@ -98,13 +98,13 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            List<Long> recnos = plan1.execute(evaluationContext)
+            List<Long> recnos = recordStore.executeQuery(plan1)
                     .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
                     .asList().join();
             assertEquals(Arrays.asList(3L, 1L), recnos);
             TestHelpers.assertDiscardedNone(context);
             clearStoreCounter(context);
-            recnos = plan2.execute(evaluationContext)
+            recnos = recordStore.executeQuery(plan2)
                     .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
                     .asList().join();
             assertEquals(Arrays.asList(1L), recnos);
@@ -134,7 +134,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -173,7 +173,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -227,7 +227,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -263,7 +263,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();

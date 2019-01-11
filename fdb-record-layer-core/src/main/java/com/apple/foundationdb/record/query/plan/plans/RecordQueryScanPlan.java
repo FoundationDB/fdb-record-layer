@@ -21,11 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -59,11 +59,11 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                         @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
-        final TupleRange range = comparisons.toTupleRange(context);
-        final FDBRecordStoreBase<M> store = context.getStore();
+        final TupleRange range = comparisons.toTupleRange(store, context);
         return store.scanRecords(
                 range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation,
                 executeProperties.asScanProperties(reverse))
@@ -115,7 +115,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     public String toString() {
         String range;
         try {
-            range = comparisons.toTupleRange(null).toString();
+            range = comparisons.toTupleRange().toString();
         } catch (Comparisons.EvaluationContextRequiredException ex) {
             range = comparisons.toString();
         }

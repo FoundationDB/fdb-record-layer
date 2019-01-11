@@ -21,11 +21,12 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
@@ -68,12 +69,13 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                         @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
         final Set<Tuple> seen = new HashSet<>();
-        return getInner().execute(context, continuation, executeProperties.clearSkipAndLimit())
-            .filterInstrumented(record -> seen.add(record.getPrimaryKey()), context.getTimer(),
+        return getInner().execute(store, context, continuation, executeProperties.clearSkipAndLimit())
+            .filterInstrumented(record -> seen.add(record.getPrimaryKey()), store.getTimer(),
                 Collections.emptySet(), duringEvents, uniqueCounts, duplicateCounts)
             .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }

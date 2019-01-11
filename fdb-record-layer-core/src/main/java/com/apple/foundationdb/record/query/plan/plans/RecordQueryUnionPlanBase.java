@@ -21,12 +21,13 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
@@ -76,14 +77,15 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     }
 
     @Nonnull
-    abstract <M extends Message> RecordCursor<FDBQueriedRecord<M>> createUnionCursor(@Nonnull FDBEvaluationContext<M> context,
+    abstract <M extends Message> RecordCursor<FDBQueriedRecord<M>> createUnionCursor(@Nonnull FDBRecordStoreBase<M> store,
                                                                                      @Nonnull List<Function<byte[], RecordCursor<FDBQueriedRecord<M>>>> childCursorFunctions,
                                                                                      @Nullable byte[] continuation);
 
     @Nonnull
     @Override
     @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the union cursor is wrapped and returned
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                         @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
         final ExecuteProperties childExecuteProperties;
@@ -95,9 +97,9 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
         }
         final List<Function<byte[], RecordCursor<FDBQueriedRecord<M>>>> childCursorFunctions = getChildStream()
                 .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
-                        ((byte[] childContinuation) -> childPlan.execute(context, childContinuation, childExecuteProperties)))
+                        ((byte[] childContinuation) -> childPlan.execute(store, context, childContinuation, childExecuteProperties)))
                 .collect(Collectors.toList());
-        return createUnionCursor(context, childCursorFunctions, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        return createUnionCursor(store, childCursorFunctions, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.google.auto.service.AutoService;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -47,7 +46,7 @@ public class TerribleIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Nonnull
     @Override
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(IndexMaintainerState<M> state) {
-        return new TerribleIndexMaintainer<>(state);
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+        return new TerribleIndexMaintainer(state);
     }
 }

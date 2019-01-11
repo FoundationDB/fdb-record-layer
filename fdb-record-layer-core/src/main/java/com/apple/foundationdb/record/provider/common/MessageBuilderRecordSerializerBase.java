@@ -125,4 +125,9 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
     protected abstract M getUnionField(@Nonnull Descriptors.Descriptor unionDescriptor,
                                        @Nonnull U storedRecord);
 
+    @Nonnull
+    @Override
+    public RecordSerializer<Message> widen() {
+        return new MessageBuilderRecordSerializer(builderSupplier::get);
+    }
 }

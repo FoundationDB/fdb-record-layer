@@ -530,7 +530,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(1265534819, plan.planHash());
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 assertTrue(cursor.hasNext());
                 TestRecordsWithHeaderProto.MyRecord record = parseMyRecord(cursor.next().getRecord());
                 assertEquals("baker", record.getStrValue());

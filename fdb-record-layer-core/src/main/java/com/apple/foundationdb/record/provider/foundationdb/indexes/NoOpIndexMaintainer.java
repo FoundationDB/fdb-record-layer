@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -32,9 +33,8 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
@@ -49,25 +49,25 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An index maintainer that doesn't do anything.
- * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)
-public class NoOpIndexMaintainer<M extends Message> extends IndexMaintainer<M> {
-    protected NoOpIndexMaintainer(IndexMaintainerState<M> state) {
+public class NoOpIndexMaintainer extends IndexMaintainer {
+    protected NoOpIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
 
     @Nonnull
     @Override
     public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range,
-                                            @Nullable byte[] continuation,
-                                            @Nonnull ScanProperties scanProperties) {
+                                         @Nullable byte[] continuation,
+                                         @Nonnull ScanProperties scanProperties) {
         return RecordCursor.empty();
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> update(@Nullable FDBStoredRecord<M> oldRecord, @Nullable FDBStoredRecord<M> newRecord) {
+    public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                              @Nullable FDBIndexableRecord<M> newRecord) {
         return AsyncUtil.DONE;
     }
 
@@ -90,9 +90,9 @@ public class NoOpIndexMaintainer<M extends Message> extends IndexMaintainer<M> {
 
     @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                           @Nonnull IndexRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
+                                                                              @Nonnull IndexRecordFunction<T> function,
+                                                                              @Nonnull FDBRecord<M> record) {
         return unsupportedRecordFunction(function);
     }
 

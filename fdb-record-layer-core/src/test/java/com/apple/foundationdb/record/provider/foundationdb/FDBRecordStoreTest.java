@@ -769,7 +769,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             List<List<Object>> rows = new ArrayList<>();
             Index index = metaData.getIndex("MyRecord$path_str");
             ScanComparisons comparisons = ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "aaa"));
-            TupleRange range = comparisons.toTupleRange(null);
+            TupleRange range = comparisons.toTupleRange();
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range,
                                                                             null, ScanProperties.FORWARD_SCAN)) {
                 while (cursor.hasNext()) {
@@ -1044,7 +1044,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
 
             // Corrupt the data by removing the first key.
-            byte[] key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStoreBase.RECORD_KEY, recno, SplitHelper.START_SPLIT_RECORD));
+            byte[] key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, recno, SplitHelper.START_SPLIT_RECORD));
             context.ensureActive().clear(key);
 
             runAndCheckSplitException(() -> recordStore.loadRecord(Tuple.from(recno)),
@@ -1085,7 +1085,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
 
             // Corrupt the data by removing a middle key.
-            byte[] key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStoreBase.RECORD_KEY, recno, SplitHelper.START_SPLIT_RECORD + 1));
+            byte[] key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, recno, SplitHelper.START_SPLIT_RECORD + 1));
             context.ensureActive().clear(key);
 
             runAndCheckSplitException(() -> recordStore.loadRecord(Tuple.from(recno)),
@@ -2054,20 +2054,20 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testFormatVersionUpgrade() throws Exception {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context);
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION - 1).create();
-            assertEquals(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1).create();
+            assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1, recordStore.getFormatVersion());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context);
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION).open();
-            assertEquals(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
+            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION).open();
+            assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context);
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION - 1).open();
-            assertEquals(FDBRecordStoreBase.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
+            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1).open();
+            assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
         }
     }
@@ -2190,7 +2190,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             recordStore = recordStore.asBuilder()
                     .setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1)
                     .create();
-            assertEquals(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1, recordStore.getFormatVersion());
             recordStore.saveRecord(rec1);
             final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L));
             FDBStoredRecord<Message> readRec1 = recordStore.loadRecord(Tuple.from(1415L));
@@ -2205,7 +2205,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             recordStore = recordStore.asBuilder()
                     .setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION)
                     .open();
-            assertEquals(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
+            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
             Message rec2 = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build();
             recordStore.saveRecord(rec2);
 
@@ -2264,8 +2264,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
                     metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
             );
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION).open();
-            assertEquals(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
+            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION).open();
+            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
 
             final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
             FDBStoredRecord<Message> writtenRec1 = recordStore.saveRecord(rec1);
@@ -2289,8 +2289,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
                     metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
             );
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1).open();
-            assertEquals(FDBRecordStoreBase.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
+            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1).open();
+            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
 
             final byte[] rawKey1 = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
             FDBStoredRecord<Message> writtenRec1 = recordStore.loadRecord(Tuple.from(1415L));

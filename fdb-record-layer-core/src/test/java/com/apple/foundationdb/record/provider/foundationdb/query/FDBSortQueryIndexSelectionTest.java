@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -58,7 +59,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
@@ -146,7 +146,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -178,7 +178,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertEquals(1008857205, plan.planHash());
 
         AtomicInteger lastNumValue3 = new AtomicInteger(Integer.MIN_VALUE);
-        int returned = querySimpleRecordStore(hook, plan, Function.identity(),
+        int returned = querySimpleRecordStore(hook, plan, EvaluationContext::empty,
                 builder -> {
                     assertThat(builder.getNumValue3Indexed(), greaterThanOrEqualTo(2));
                     assertThat(builder.getNumValue3Indexed(), greaterThanOrEqualTo(lastNumValue3.get()));
@@ -211,7 +211,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertEquals(-799849347, plan.planHash());
 
         AtomicInteger lastNumValue3 = new AtomicInteger(Integer.MIN_VALUE);
-        int returned = querySimpleRecordStore(hook, plan, Function.identity(),
+        int returned = querySimpleRecordStore(hook, plan, EvaluationContext::empty,
                 builder -> {
                     assertThat(builder.getNumValue3Indexed(), not(equalTo(1)));
                     assertThat(builder.getNumValue3Indexed(), greaterThanOrEqualTo(lastNumValue3.get()));
@@ -246,7 +246,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertEquals(735933204, plan.planHash());
 
         AtomicInteger lastNumValue3 = new AtomicInteger(Integer.MIN_VALUE);
-        int returned = querySimpleRecordStore(hook, plan, Function.identity(),
+        int returned = querySimpleRecordStore(hook, plan, EvaluationContext::empty,
                 builder -> {
                     assertThat(builder.getNumValue3Indexed(), not(equalTo(1)));
                     assertThat(builder.getNumValue2(), equalTo(0));
@@ -274,7 +274,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded()))));
 
         AtomicLong lastId = new AtomicLong(reverse.toBoolean() ? 99L : 0L);
-        int returned = querySimpleRecordStore(NO_HOOK, plan, Function.identity(),
+        int returned = querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 builder -> assertThat(builder.getRecNo(), equalTo(reverse.toBoolean() ? lastId.getAndDecrement() : lastId.getAndIncrement())),
                 TestHelpers::assertDiscardedNone);
         assertEquals(100, returned);
@@ -297,7 +297,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertEquals(planHash, plan.planHash(), "unexpected plan hash for filter: " + filter.toString());
 
         AtomicLong lastId = new AtomicLong(reverse ? Long.MAX_VALUE : Long.MIN_VALUE);
-        int returned = querySimpleRecordStore(NO_HOOK, plan, Function.identity(), builder -> {
+        int returned = querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty, builder -> {
             checkRecord.accept(builder);
             if (reverse) {
                 assertThat(builder.getRecNo(), lessThan(lastId.get()));
@@ -443,7 +443,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -476,7 +476,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -511,7 +511,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -544,7 +544,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build())) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build())) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -591,7 +591,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 assertEquals(-1173952475, plan.planHash());
 
                 int i = 0;
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> rec = cursor.next();
                         TestRecordsWithHeaderProto.MyRecord.Builder myrec = TestRecordsWithHeaderProto.MyRecord.newBuilder();
@@ -613,7 +613,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 assertEquals(2008179964, plan.planHash());
 
                 int i = 0;
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> rec = cursor.next();
                         TestRecordsWithHeaderProto.MyRecord.Builder myrec = TestRecordsWithHeaderProto.MyRecord.newBuilder();
@@ -635,7 +635,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 assertEquals(878861315, plan.planHash());
 
                 int i = 0;
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> rec = cursor.next();
                         TestRecordsWithHeaderProto.MyRecord.Builder myrec = TestRecordsWithHeaderProto.MyRecord.newBuilder();
@@ -670,7 +670,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                         indexScan(allOf(indexName("MyRecord$header_num"), bounds(unbounded())))));
                 assertEquals(1936972136, plan.planHash());
 
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> rec = cursor.next();
                         TestRecordsWithHeaderProto.MyRecord.Builder myrec = TestRecordsWithHeaderProto.MyRecord.newBuilder();
@@ -700,7 +700,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                         indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("([null],[50])"))))));
                 assertEquals(824137289, plan.planHash());
 
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> rec = cursor.next();
                         TestRecordsWithHeaderProto.MyRecord.Builder myrec = TestRecordsWithHeaderProto.MyRecord.newBuilder();

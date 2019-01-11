@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -37,7 +38,6 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -79,21 +80,21 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
-                                         Function<FDBEvaluationContext<Message>,FDBEvaluationContext<Message>> contextFunction,
+                                         Supplier<EvaluationContext> contextSupplier,
                                          TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord)
             throws Exception {
-        return querySimpleRecordStore(recordMetaDataHook, plan, contextFunction, checkRecord, context -> { });
+        return querySimpleRecordStore(recordMetaDataHook, plan, contextSupplier, checkRecord, context -> { });
     }
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
-                                         Function<FDBEvaluationContext<Message>,FDBEvaluationContext<Message>> contextFunction,
+                                         Supplier<EvaluationContext> contextSupplier,
                                          TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord,
                                          TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded)
             throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(contextFunction.apply(evaluationContext))) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, contextSupplier.get())) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -239,7 +240,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         List<T> result = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             opener.open(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     result.add(rowHandler.apply(rec.getRecord()));
@@ -276,7 +277,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                                         TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, recordMetaDataHook);
-            final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = plan.execute(evaluationContext, continuation, ExecuteProperties.newBuilder()
+            final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
                     .setReturnedRowLimit(limit)
                     .build())
                     .map(r -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(r.getRecord()));
@@ -296,7 +297,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                                         TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, recordMetaDataHook);
-            final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = plan.execute(evaluationContext)
+            final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = recordStore.executeQuery(plan)
                     .map(r -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(r.getRecord()));
             handleResults.accept(cursor);
             checkDiscarded.accept(context);

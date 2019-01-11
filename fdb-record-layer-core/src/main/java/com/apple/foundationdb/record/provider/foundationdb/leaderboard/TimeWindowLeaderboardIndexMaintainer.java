@@ -26,6 +26,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -41,10 +42,9 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
@@ -80,15 +80,12 @@ import java.util.stream.Collectors;
 /**
  * Maintainer for the <code>TIME_WINDOW_LEADERBOARD</code> index type.
  * @see com.apple.foundationdb.record.provider.foundationdb.leaderboard for details of how this works.
- *
- * @param <M> type used to represent stored records
- *
  */
 @API(API.Status.EXPERIMENTAL)
-public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
+public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeWindowLeaderboardIndexMaintainer.class);
 
-    public TimeWindowLeaderboardIndexMaintainer(IndexMaintainerState<M> state) {
+    public TimeWindowLeaderboardIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
 
@@ -100,7 +97,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
 
     @Nonnull
     protected CompletableFuture<TimeWindowLeaderboardDirectory> loadDirectory() {
-        final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+        final Subspace extraSubspace = getSecondarySubspace();
         return state.transaction.get(extraSubspace.pack()).thenApply(bytes -> {
             if (bytes == null) {
                 return null;
@@ -116,7 +113,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     }
 
     protected void saveDirectory(TimeWindowLeaderboardDirectory directory) {
-        final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+        final Subspace extraSubspace = getSecondarySubspace();
         state.transaction.set(extraSubspace.pack(), directory.toProto().toByteArray());
     }
 
@@ -162,7 +159,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                 if (leaderboard == null) {
                     return CompletableFuture.completedFuture(null);
                 }
-                final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+                final Subspace extraSubspace = getSecondarySubspace();
                 final Subspace leaderboardSubspace = extraSubspace.subspace(leaderboard.getSubspaceKey());
                 return RankedSetIndexHelper.rankRangeToScoreRange(state, groupPrefixSize,
                         leaderboardSubspace, leaderboard.getNLevels(), leaderboardRange);
@@ -249,10 +246,10 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     }
 
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBStoredRecord<M> savedRecord,
-                                                      final boolean remove,
-                                                      @Nonnull final List<IndexEntry> indexEntries) {
-        final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                          final boolean remove,
+                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+        final Subspace extraSubspace = getSecondarySubspace();
         // The value for the index key cannot vary from entry-to-entry, so get the value only from the first entry.
         final Tuple entryValue = indexEntries.isEmpty()
                 ? TupleHelpers.EMPTY
@@ -312,25 +309,23 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     @Nonnull
     @SuppressWarnings("unchecked")
     @SpotBugsSuppressWarnings("BC_UNCONFIRMED_CAST")
-    public <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                           @Nonnull IndexRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
+                                                                              @Nonnull IndexRecordFunction<T> function,
+                                                                              @Nonnull FDBRecord<M> record) {
         if (function.getName().equals(FunctionNames.RANK)) {
-            final CompletableFuture<Long> rank = timeWindowRankAndEntry(context, record, TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0)
+            final CompletableFuture<Long> rank = timeWindowRankAndEntry(record, TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0)
                     .thenApply(re -> re == null ? null : re.getLeft());
             return (CompletableFuture<T>)rank;
         } else if (function.getName().equals(FunctionNames.TIME_WINDOW_RANK)) {
             final TimeWindowRecordFunction<Long> timeWindowRank = (TimeWindowRecordFunction<Long>) function;
             final TimeWindowForFunction timeWindow = timeWindowRank.getTimeWindow();
-            final CompletableFuture<Long> rank = timeWindowRankAndEntry(context, record,
-                                                                        timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context))
+            final CompletableFuture<Long> rank = timeWindowRankAndEntry(context, timeWindow, record)
                     .thenApply(re -> re == null ? null : re.getLeft());
             return (CompletableFuture<T>)rank;
         } else if (function.getName().equals(FunctionNames.TIME_WINDOW_RANK_AND_ENTRY)) {
             final TimeWindowRecordFunction<Tuple> timeWindowRankAndEntry = (TimeWindowRecordFunction<Tuple>) function;
             final TimeWindowForFunction timeWindow = timeWindowRankAndEntry.getTimeWindow();
-            final CompletableFuture<Tuple> rankAndEntry = timeWindowRankAndEntry(context, record,
-                                                                                 timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context))
+            final CompletableFuture<Tuple> rankAndEntry = timeWindowRankAndEntry(context, timeWindow, record)
                     .thenApply(re -> re == null ? null : Tuple.from(re.getLeft()).addAll(re.getRight()));
             return (CompletableFuture<T>)rankAndEntry;
         } else {
@@ -363,7 +358,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
                     return CompletableFuture.completedFuture(null);
                 }
                 final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
-                final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+                final Subspace extraSubspace = getSecondarySubspace();
                 final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
                 final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
                 return rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from);
@@ -372,10 +367,17 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
         return unsupportedAggregateFunction(function);
     }
 
-    public CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull FDBEvaluationContext<M> context,
-                                                                      @Nonnull FDBRecord<M> record,
-                                                                      int type, long timestamp) {
-        final List<IndexEntry> indexEntries = evaluateIndex(context, record);
+    @Nonnull
+    public <M extends Message> CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull EvaluationContext context,
+                                                                                          @Nonnull TimeWindowForFunction timeWindow,
+                                                                                          @Nonnull FDBRecord<M> record) {
+        return timeWindowRankAndEntry(record, timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context));
+    }
+
+    @Nonnull
+    public <M extends Message> CompletableFuture<Pair<Long,Tuple>> timeWindowRankAndEntry(@Nonnull FDBRecord<M> record,
+                                                                                          int type, long timestamp) {
+        final List<IndexEntry> indexEntries = evaluateIndex(record);
 
         final CompletableFuture<TimeWindowLeaderboard> leaderboardFuture = oldestLeaderboardMatching(type, timestamp);
         return leaderboardFuture.thenCompose(leaderboard -> {
@@ -404,7 +406,7 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
             final Tuple groupKey = groupEntry.getKey();
             final OrderedScoreIndexKey indexKey = bestContainedScore.get();
             final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
-            final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+            final Subspace extraSubspace = getSecondarySubspace();
             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
             final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
             // Undo any negation needed to find entry.
@@ -417,8 +419,8 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
         return loadDirectory().thenApply(directory -> {
             if (directory != null) {
-                final Subspace indexSubspace = state.store.indexSubspace(state.index);
-                final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+                final Subspace indexSubspace = getIndexSubspace();
+                final Subspace extraSubspace = getSecondarySubspace();
                 for (Iterable<TimeWindowLeaderboard> directoryEntry : directory.getLeaderboards().values()) {
                     for (TimeWindowLeaderboard leaderboard : directoryEntry) {
                         // Range deletes are used for the more common operation of deleting a time window, so we need
@@ -518,8 +520,8 @@ public class TimeWindowLeaderboardIndexMaintainer<M extends Message> extends Sta
         public void update() {
             directory.setUpdateTimestamp(update.getUpdateTimestamp());
 
-            final Subspace indexSubspace = state.store.indexSubspace(state.index);
-            final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+            final Subspace indexSubspace = getIndexSubspace();
+            final Subspace extraSubspace = getSecondarySubspace();
 
             for (Iterable<TimeWindowLeaderboard> leaderboards : directory.getLeaderboards().values()) {
                 Iterator<TimeWindowLeaderboard> iter = leaderboards.iterator();

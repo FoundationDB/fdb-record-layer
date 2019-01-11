@@ -70,4 +70,10 @@ public class MessageBuilderRecordSerializer extends MessageBuilderRecordSerializ
                 .addLogInfo("recordType", storedRecord.getDescriptorForType().getName());
     }
 
+    @Nonnull
+    @Override
+    public RecordSerializer<Message> widen() {
+        return this;
+    }
+
 }

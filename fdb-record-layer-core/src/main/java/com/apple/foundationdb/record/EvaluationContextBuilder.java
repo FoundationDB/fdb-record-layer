@@ -34,22 +34,23 @@ import javax.annotation.Nullable;
 @API(API.Status.MAINTAINED)
 public class EvaluationContextBuilder {
     @Nonnull
-    protected final EvaluationContext original;
-    @Nonnull
     protected final Bindings.Builder bindings;
+
+    /**
+     * Create an empty builder.
+     */
+    protected EvaluationContextBuilder() {
+        this.bindings = Bindings.newBuilder();
+    }
 
     /**
      * Create a builder based on an existing {@link EvaluationContext}.
      * This ensures that the resulting <code>EvaluationContext</code>
      * has all of the bindings contained in the original context (except
-     * for those which have had their value over-ridden) as
-     * well as any additional state (such as the {@link java.util.concurrent.Executor Executor}
-     * to use for asynchronous callbacks) associated with the original
-     * context.
+     * for those which have had their value over-ridden).
      * @param original the original {@link EvaluationContext} to build a new one around
      */
     protected EvaluationContextBuilder(@Nonnull EvaluationContext original) {
-        this.original = original;
         this.bindings = original.getBindings().childBuilder();
     }
 
@@ -95,6 +96,6 @@ public class EvaluationContextBuilder {
      */
     @Nonnull
     public EvaluationContext build() {
-        return original.withBindings(bindings.build());
+        return EvaluationContext.forBindings(bindings.build());
     }
 }

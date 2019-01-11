@@ -116,7 +116,6 @@ public class OnlineIndexerTest {
     private RecordMetaData metaData;
     private RecordQueryPlanner planner;
     private FDBRecordStore recordStore;
-    private FDBEvaluationContext<Message> evaluationContext;
     private FDBDatabase fdb;
     private Subspace subspace;
 
@@ -195,7 +194,6 @@ public class OnlineIndexerTest {
         }
         metaData = recordStore.getRecordMetaData();
         planner = new RecordQueryPlanner(metaData, recordStore.getRecordStoreState(), recordStore.getTimer());
-        evaluationContext = recordStore.emptyEvaluationContext();
         return context;
     }
 
@@ -206,7 +204,7 @@ public class OnlineIndexerTest {
     private <T> void executeQuery(@Nonnull RecordQuery query, @Nonnull String planString, @Nonnull List<T> expected, @Nonnull Function<FDBQueriedRecord<Message>,T> projection) {
         RecordQueryPlan plan = planner.plan(query);
         assertEquals(planString, plan.toString());
-        List<T> retrieved = plan.execute(evaluationContext).map(projection).asList().join();
+        List<T> retrieved = recordStore.executeQuery(plan).map(projection).asList().join();
         assertEquals(expected, retrieved);
     }
 
@@ -508,7 +506,7 @@ public class OnlineIndexerTest {
                 try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     for (TestRecords1Proto.MySimpleRecord record : records) {
                         try {
-                            evaluationContext.evaluateRecordFunction(recordFunction, OnlineIndexerTest.this.createStoredMessage(record)).join();
+                            recordStore.evaluateRecordFunction(recordFunction, OnlineIndexerTest.this.createStoredMessage(record)).join();
                             fail("Somehow evaluated rank");
                         } catch (RecordCoreException e) {
                             assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getMessage());
@@ -523,7 +521,7 @@ public class OnlineIndexerTest {
                                 .build();
                         RecordQueryPlan plan = planner.plan(query);
                         assertEquals("Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
-                        Optional<?> first = plan.execute(evaluationContext).first().join();
+                        Optional<?> first = recordStore.executeQuery(plan).first().join();
                         assertTrue(!first.isPresent(), "non-empty range with rank rebuild");
                     } catch (CompletionException e) {
                         assertNotNull(e.getCause());
@@ -548,7 +546,7 @@ public class OnlineIndexerTest {
                 try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     for (TestRecords1Proto.MySimpleRecord record : updatedRecords) {
                         try {
-                            evaluationContext.evaluateRecordFunction(recordFunction, OnlineIndexerTest.this.createStoredMessage(record)).join();
+                            recordStore.evaluateRecordFunction(recordFunction, OnlineIndexerTest.this.createStoredMessage(record)).join();
                             fail("Somehow evaluated rank");
                         } catch (RecordCoreException e) {
                             assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getMessage());
@@ -563,7 +561,7 @@ public class OnlineIndexerTest {
                                 .build();
                         RecordQueryPlan plan = planner.plan(query);
                         assertEquals("Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
-                        Optional<?> first = plan.execute(evaluationContext).first().join();
+                        Optional<?> first = recordStore.executeQuery(plan).first().join();
                         assertTrue(!first.isPresent(), "non-empty range with rank rebuild");
                     } catch (CompletionException e) {
                         assertNotNull(e.getCause());
@@ -600,7 +598,7 @@ public class OnlineIndexerTest {
             public void run() {
                 try (FDBRecordContext context = OnlineIndexerTest.this.openContext()) {
                     for (TestRecords1Proto.MySimpleRecord record : updatedRecords) {
-                        Long rank = evaluationContext.evaluateRecordFunction(recordFunction, OnlineIndexerTest.this.createStoredMessage(record)).join();
+                        Long rank = recordStore.evaluateRecordFunction(recordFunction, OnlineIndexerTest.this.createStoredMessage(record)).join();
                         if (!record.hasNumValue2()) {
                             assertEquals(0L, rank.longValue());
                         } else {
@@ -613,7 +611,7 @@ public class OnlineIndexerTest {
                                 .build();
                         RecordQueryPlan plan = planner.plan(query);
                         assertEquals("Index(newRankIndex [[" + rank + "],[" + rank + "]] BY_RANK)", plan.toString());
-                        Optional<TestRecords1Proto.MySimpleRecord> retrieved = plan.execute(evaluationContext).map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                        Optional<TestRecords1Proto.MySimpleRecord> retrieved = recordStore.executeQuery(plan).map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                                 .filter(rec -> rec.getRecNo() == record.getRecNo()).first().join();
                         assertTrue(retrieved.isPresent(), "empty range after rank index build");
                         assertEquals(record, retrieved.get());

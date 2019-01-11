@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +80,7 @@ public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
 
     @Nonnull
     @Override
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(@Nonnull IndexMaintainerState<M> state) {
+    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         final IndexMaintainerFactory factory = registry.get(state.index.getType());
         if (factory == null) {
             throw new MetaDataException("Unknown index type for " + state.index);

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
@@ -41,7 +42,6 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -135,7 +135,6 @@ public class LeaderboardIndexTest {
         RecordMetaData metaData;
         RecordQueryPlanner planner;
         FDBRecordStore recordStore;
-        FDBEvaluationContext<Message> evaluationContext;
 
         public void buildMetaData() {
             buildMetaData(this::addIndex);
@@ -157,7 +156,6 @@ public class LeaderboardIndexTest {
 
             recordStore = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context).setKeySpacePath(path).build();
             planner = new RecordQueryPlanner(metaData, recordStore.getRecordStoreState());
-            evaluationContext = recordStore.emptyEvaluationContext();
         }
 
         public void addScores(String name, String gameId, long... scores) {
@@ -225,15 +223,11 @@ public class LeaderboardIndexTest {
         }
 
         public RecordCursor<Message> executeQuery(RecordQueryPlan plan) {
-            return executeQuery(plan, evaluationContext);
+            return executeQuery(plan, EvaluationContext.EMPTY);
         }
 
-        public RecordCursor<Message> executeQuery(RecordQueryPlan plan, FDBEvaluationContext<Message> context) {
-            return plan.execute(context).map(FDBQueriedRecord::getRecord);
-        }
-
-        public FDBEvaluationContext.Builder<Message> evaluationContextBuilder() {
-            return evaluationContext.childBuilder();
+        public RecordCursor<Message> executeQuery(RecordQueryPlan plan, EvaluationContext context) {
+            return plan.execute(recordStore, context).map(FDBQueriedRecord::getRecord);
         }
 
         public QueryRecordFunction<Long> queryRank() {
@@ -257,7 +251,7 @@ public class LeaderboardIndexTest {
         }
 
         public <T> T evaluateQueryFunction(QueryRecordFunction<T> function, FDBStoredRecord<Message> record) {
-            return evaluationContext.evaluateRecordFunction(function.getFunction(), record).join();
+            return recordStore.evaluateRecordFunction(function.getFunction(), record).join();
         }
 
         public IndexAggregateFunction timeWindowCount(int type, long timestamp) {
@@ -266,12 +260,11 @@ public class LeaderboardIndexTest {
         }
 
         public Tuple evaluateAggregateFunction(IndexAggregateFunction function, Tuple group) {
-            return evaluationContext.evaluateAggregateFunction(Collections.singletonList(getRecordType()), function, TupleRange.allOf(group)).join();
+            return recordStore.evaluateAggregateFunction(EvaluationContext.EMPTY, Collections.singletonList(getRecordType()), function, TupleRange.allOf(group), IsolationLevel.SERIALIZABLE).join();
         }
 
         public List<Key.Evaluated> getScores(FDBRecord<Message> record) {
-            return metaData.getIndex("LeaderboardIndex").getRootExpression()
-                    .evaluate(evaluationContext, record);
+            return metaData.getIndex("LeaderboardIndex").getRootExpression().evaluate(record);
         }
 
         public Collection<Tuple> trim(Collection<Key.Evaluated> untrimmed) {
@@ -633,14 +626,14 @@ public class LeaderboardIndexTest {
             RecordQueryPlan plan2 = leaderboards.planQuery(query2);
             assertEquals("Index(LeaderboardIndex [EQUALS $l1, EQUALS $l2, EQUALS game-1, [LESS_THAN_OR_EQUALS 2]] BY_TIME_WINDOW)", plan2.toString());
 
-            final FDBEvaluationContext<Message> evaluationContext1 = leaderboards.evaluationContextBuilder()
+            final EvaluationContext evaluationContext1 = EvaluationContext.newBuilder()
                     .setBinding("l1", FIVE_UNITS)
                     .setBinding("l2", 10103)
                     .build();
             assertEquals(Arrays.asList("hector", "achilles"),
                     leaderboards.executeQuery(plan2, evaluationContext1).map(leaderboards::getName).asList().join());
 
-            final FDBEvaluationContext<Message> evaluationContext2 = leaderboards.evaluationContextBuilder()
+            final EvaluationContext evaluationContext2 = EvaluationContext.newBuilder()
                     .setBinding("l1", FIVE_UNITS)
                     .setBinding("l2", 10105)
                     .build();

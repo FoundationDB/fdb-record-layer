@@ -40,7 +40,6 @@ import com.apple.test.Tags;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.converters.CommaParameterSplitter;
-import com.google.protobuf.Message;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 import org.junit.jupiter.api.BeforeEach;
@@ -117,7 +116,7 @@ public class FDBRecordStorePerformanceTest {
         public int incrementValue = 1;
 
         @Parameter(names = "--pipeline", description = "Size of async read pipeline")
-        public int pipelineSize = FDBRecordStoreBase.DEFAULT_PIPELINE_SIZE;
+        public int pipelineSize = FDBRecordStore.DEFAULT_PIPELINE_SIZE;
 
         @Parameter(names = "--parallel-counts", splitter = CommaParameterSplitter.class)
         public List<Integer> parallelCounts = Arrays.asList(1, 2, 3, 4, 5, 10, 15, 20);
@@ -351,9 +350,8 @@ public class FDBRecordStorePerformanceTest {
                 Key.Expressions.field("num_value_unique").ungrouped(),
                 "num_value_unique_rank");
         return store -> {
-            final FDBEvaluationContext<Message> context = store.emptyEvaluationContext();
             return store.scanIndexRecordsEqual("MySimpleRecord$num_value_3_indexed", num3)
-                    .mapPipelined(r -> context.evaluateRecordFunction(rank, r.getStoredRecord()), store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
+                    .mapPipelined(r -> store.evaluateRecordFunction(rank, r.getStoredRecord()), store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
                     .getCount();
         };
     }

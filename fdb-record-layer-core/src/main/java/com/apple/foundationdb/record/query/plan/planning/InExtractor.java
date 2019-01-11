@@ -82,7 +82,7 @@ public class InExtractor {
                     final String parameterName = ((Comparisons.ParameterComparison)withComparison.getComparison()).getParameter();
                     inClauses.add(new InParameterClause(bindingName, parameterName, orderingKey));
                 } else {
-                    final List<Object> comparand = (List<Object>) withComparison.getComparison().getComparand(null);
+                    final List<Object> comparand = (List<Object>) withComparison.getComparison().getComparand();
                     // ListComparison does not allow empty/null
                     if (comparand != null && comparand.size() == 1) {
                         return withComparison.withOtherComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, comparand.get(0)));

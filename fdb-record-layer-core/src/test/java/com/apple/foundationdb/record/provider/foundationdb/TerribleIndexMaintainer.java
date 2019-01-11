@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -41,10 +42,9 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An {@link IndexMaintainer} that fails when trying to update.
- * @param <M> type used to represent stored records
  */
-public class TerribleIndexMaintainer<M extends Message> extends IndexMaintainer<M> {
-    protected TerribleIndexMaintainer(IndexMaintainerState<M> state) {
+public class TerribleIndexMaintainer extends IndexMaintainer {
+    protected TerribleIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
 
@@ -58,14 +58,14 @@ public class TerribleIndexMaintainer<M extends Message> extends IndexMaintainer<
 
     @Nonnull
     @Override
-    public CompletableFuture<Void> update(@Nullable FDBStoredRecord<M> oldRecord, @Nullable FDBStoredRecord<M> newRecord) {
+    public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
         try {
             if (newRecord != null && oldRecord != null) {
                 CompletableFuture<Void> future = new CompletableFuture<>();
                 future.completeExceptionally(new UnsupportedOperationException("TerribleIndexMaintainer cannot update"));
                 return future;
             } else if (newRecord != null) {
-                Key.Evaluated res = state.index.getRootExpression().evaluate(state.store.emptyEvaluationContext(), newRecord).get(0);
+                Key.Evaluated res = state.index.getRootExpression().evaluate(newRecord).get(0);
                 if (((Number) res.toList().get(0)).intValue() % 2 == 0) {
                     CompletableFuture<Void> future = new CompletableFuture<>();
                     future.completeExceptionally(new UnsupportedOperationException("TerribleIndexMaintainer does not implement update for evens on insert"));
@@ -74,7 +74,7 @@ public class TerribleIndexMaintainer<M extends Message> extends IndexMaintainer<
                     return CompletableFuture.completedFuture(null);
                 }
             } else if (oldRecord != null) {
-                Key.Evaluated res = state.index.getRootExpression().evaluate(state.store.emptyEvaluationContext(), oldRecord).get(0);
+                Key.Evaluated res = state.index.getRootExpression().evaluate(oldRecord).get(0);
                 if (((Number) res.toList().get(0)).intValue() % 2 != 0) {
                     CompletableFuture<Void> future = new CompletableFuture<>();
                     future.completeExceptionally(new UnsupportedOperationException("TerribleIndexMaintainer does not implement update for odds on remove"));
@@ -109,9 +109,9 @@ public class TerribleIndexMaintainer<M extends Message> extends IndexMaintainer<
 
     @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                           @Nonnull IndexRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
+                                                                              @Nonnull IndexRecordFunction<T> function,
+                                                                              @Nonnull FDBRecord<M> record) {
         CompletableFuture<T> future = new CompletableFuture<>();
         future.completeExceptionally(new UnsupportedOperationException("TerribleIndexMaintainer does not implement evaluateRecordFunction"));
         return future;

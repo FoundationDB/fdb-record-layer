@@ -145,9 +145,9 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     protected final boolean encryptWhenSerializing;
 
     protected TransformedRecordSerializer(@Nonnull RecordSerializer<M> inner,
-                                        boolean compressWhenSerializing,
-                                        int compressionLevel,
-                                        boolean encryptWhenSerializing) {
+                                          boolean compressWhenSerializing,
+                                          int compressionLevel,
+                                          boolean encryptWhenSerializing) {
         this.inner = inner;
         this.compressWhenSerializing = compressWhenSerializing;
         this.compressionLevel = compressionLevel;
@@ -318,6 +318,12 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
             }
             return inner.deserialize(metaData, primaryKey, state.getDataArray(), timer);
         }
+    }
+
+    @Nonnull
+    @Override
+    public RecordSerializer<Message> widen() {
+        return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing);
     }
 
     /**

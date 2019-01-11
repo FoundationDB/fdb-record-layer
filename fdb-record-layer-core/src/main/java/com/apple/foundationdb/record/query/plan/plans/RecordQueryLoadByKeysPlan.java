@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordScanLimiter;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -55,8 +55,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     /**
      * A source for the primary keys for records.
      */
-    public static interface KeysSource extends PlanHashable, PlannerExpression {
-        public <M extends Message> List<Tuple> getPrimaryKeys(@Nonnull FDBEvaluationContext<M> context);
+    public interface KeysSource extends PlanHashable, PlannerExpression {
+        List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context);
     }
 
     @Nonnull
@@ -76,13 +76,13 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
                                                                                 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                         @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
-        final FDBRecordStoreBase<M> store = context.getStore();
         // Cannot pass down limit(s) because we skip keys that don't load.
         RecordScanLimiter recordScanLimiter = executeProperties.getState().getRecordScanLimiter();
-        return RecordCursor.fromList(context.getExecutor(), getKeysSource().getPrimaryKeys(context), continuation)
+        return RecordCursor.fromList(store.getExecutor(), getKeysSource().getPrimaryKeys(context), continuation)
                 .mapPipelined(key -> {
                     // TODO: Implement continuation handling and record scan limit for RecordQueryLoadByKeysPlan (https://github.com/FoundationDB/fdb-record-layer/issues/6)
                     if (recordScanLimiter != null) {
@@ -179,7 +179,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
-        public <M extends Message> List<Tuple> getPrimaryKeys(@Nonnull FDBEvaluationContext<M> context) {
+        public List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context) {
             return primaryKeys;
         }
 
@@ -227,7 +227,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
 
         @Override
         @SuppressWarnings("unchecked")
-        public <M extends Message> List<Tuple> getPrimaryKeys(@Nonnull FDBEvaluationContext<M> context) {
+        public List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context) {
             return (List<Tuple>)context.getBinding(parameter);
         }
 

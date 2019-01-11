@@ -75,6 +75,11 @@ public abstract class FDBStoreBase {
     }
 
     @Nonnull
+    public SubspaceProvider getSubspaceProvider() {
+        return subspaceProvider;
+    }
+
+    @Nonnull
     public Subspace getSubspace() {
         return subspaceProvider.getSubspace();
     }

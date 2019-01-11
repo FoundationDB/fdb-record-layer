@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.tuple.Tuple;
@@ -208,14 +209,19 @@ public class ScanComparisons implements PlanHashable {
     }
 
     @Nonnull
-    public TupleRange toTupleRange(EvaluationContext context) {
+    public TupleRange toTupleRange() {
+        return toTupleRange(null, null);
+    }
+
+    @Nonnull
+    public TupleRange toTupleRange(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
         if (isEmpty()) {
             return TupleRange.ALL;
         }
 
         final List<Object> items = new ArrayList<>(equalityComparisons.size());
         for (Comparisons.Comparison comparison : equalityComparisons) {
-            items.add(toTupleItem(comparison.getComparand(context)));
+            items.add(toTupleItem(comparison.getComparand(store, context)));
         }
         final Tuple baseTuple = Tuple.fromList(items);
         if (inequalityComparisons.isEmpty()) {
@@ -224,11 +230,11 @@ public class ScanComparisons implements PlanHashable {
 
         if (inequalityComparisons.size() == 1 &&
                 inequalityComparisons.get(0).getType() == Comparisons.Type.STARTS_WITH) {
-            final Tuple startTuple = baseTuple.addObject(toTupleItem(inequalityComparisons.get(0).getComparand(context)));
+            final Tuple startTuple = baseTuple.addObject(toTupleItem(inequalityComparisons.get(0).getComparand(store, context)));
             return new TupleRange(startTuple, startTuple, EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING);
         }
 
-        InequalityRangeCombiner rangeCombiner = new InequalityRangeCombiner(context, baseTuple, inequalityComparisons);
+        InequalityRangeCombiner rangeCombiner = new InequalityRangeCombiner(store, context, baseTuple, inequalityComparisons);
         return rangeCombiner.toTupleRange();
     }
 
@@ -285,6 +291,8 @@ public class ScanComparisons implements PlanHashable {
 
     private static class InequalityRangeCombiner {
         @Nullable
+        FDBRecordStoreBase<?> store;
+        @Nullable
         private final EvaluationContext context;
         @Nonnull
         private final Tuple baseTuple;
@@ -295,8 +303,9 @@ public class ScanComparisons implements PlanHashable {
         private boolean hasLow = false;
         private boolean hasHigh = false;
 
-        public InequalityRangeCombiner(@Nullable EvaluationContext context, @Nonnull Tuple baseTuple,
+        public InequalityRangeCombiner(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context, @Nonnull Tuple baseTuple,
                                        @Nonnull List<Comparisons.Comparison> inequalityComparisons) {
+            this.store = store;
             this.context = context;
             this.baseTuple = baseTuple;
 
@@ -312,7 +321,7 @@ public class ScanComparisons implements PlanHashable {
         }
 
         public void addComparison(Comparisons.Comparison comparison) {
-            final Object comparand = comparison.getComparand(context);
+            final Object comparand = comparison.getComparand(store, context);
             if (comparand == Comparisons.COMPARISON_SKIPPED_BINDING) {
                 return;
             }

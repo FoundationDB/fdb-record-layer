@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
@@ -55,7 +55,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             if (value == null) {
                 return null;
             }
@@ -75,11 +75,11 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable EvaluationContext context) {
-            if (!(context instanceof FDBEvaluationContext)) {
-                throw new Comparisons.EvaluationContextRequiredException("Cannot get parameter without FDB context");
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+            if (store == null) {
+                throw new Comparisons.EvaluationContextRequiredException("Cannot get record type key without store");
             }
-            return ((FDBEvaluationContext<?>)context).getStore().getRecordMetaData().getRecordType(recordTypeName).getRecordTypeKey();
+            return store.getRecordMetaData().getRecordType(recordTypeName).getRecordTypeKey();
         }
 
         @Nonnull
@@ -145,8 +145,9 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return getComparison().eval(context, message);
+    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+        return getComparison().eval(store, context, message);
     }
 
     @Override

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
@@ -70,13 +69,13 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Nonnull
     @Override
-    public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
-        final List<Key.Evaluated> parentKeys = parent.evaluateMessage(context, record, message);
+    public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
+        final List<Key.Evaluated> parentKeys = parent.evaluateMessage(record, message);
         List<Key.Evaluated> result = new ArrayList<>();
         // TODO make this more type safe. But those components should always be single messages
         for (Key.Evaluated value : parentKeys) {
             final Message submessage = (Message) value.toList().get(0);
-            result.addAll(getChild().evaluateMessage(context, record, submessage));
+            result.addAll(getChild().evaluateMessage(record, submessage));
         }
         validateColumnCounts(result);
         return result;

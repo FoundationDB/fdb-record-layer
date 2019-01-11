@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
@@ -28,7 +29,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -75,16 +75,16 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     @SuppressWarnings("unchecked")
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                         @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
-        final FDBRecordStoreBase<M> store = context.getStore();
         final RecordMetaData metaData = store.getRecordMetaData();
         final RecordType recordType = metaData.getRecordType(recordTypeName);
         final Index index = metaData.getIndex(getIndexName());
         final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
         boolean hasPrimaryKey = getScanType() != IndexScanType.BY_GROUP;
-        return indexPlan.get().executeEntries(context, continuation, executeProperties)
+        return indexPlan.get().executeEntries(store, context, continuation, executeProperties)
                 .map(indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey));
     }
 

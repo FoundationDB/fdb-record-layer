@@ -186,7 +186,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected List<String> executeQuery(@Nonnull RecordQuery query) {
-        return planner.plan(query).execute(evaluationContext)
+        return recordStore.executeQuery(planner.plan(query))
                 .map(r -> r.getPrimaryKey().getString(0))
                 .asList().join();
     }
@@ -588,7 +588,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
 
     protected Set<UUID> fieldsRecordQuery(@Nonnull FDBRecordContext context, @Nonnull QueryComponent filter) {
         final RecordQueryPlan plan = planner.plan(RecordQuery.newBuilder().setRecordType("MyFieldsRecord").setFilter(filter).build());
-        return new HashSet<>(plan.execute(evaluationContext).map(this::fieldsRecordId).asList().join());
+        return new HashSet<>(recordStore.executeQuery(plan).map(this::fieldsRecordId).asList().join());
     }
 
     protected UUID fieldsRecordId(@Nullable FDBRecord<Message> record) {

@@ -67,7 +67,6 @@ public abstract class FDBRecordStoreTestBase {
     protected FDBStoreTimer timer = new FDBStoreTimer();
     protected boolean useRewritePlanner = false;
     protected QueryPlanner planner;
-    protected FDBEvaluationContext<Message> evaluationContext;
     protected final KeySpacePath path = TestKeySpace.getKeyspacePath(PATH_OBJECTS);
 
     /**
@@ -113,7 +112,6 @@ public abstract class FDBRecordStoreTestBase {
                 .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
                 .createOrOpen();
         setupPlanner(null);
-        evaluationContext = recordStore.emptyEvaluationContext();
     }
 
     protected void uncheckedOpenRecordStore(FDBRecordContext context, RecordMetaData metaData) {
@@ -121,7 +119,6 @@ public abstract class FDBRecordStoreTestBase {
                 .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
                 .uncheckedOpen();
         setupPlanner(null);
-        evaluationContext = recordStore.emptyEvaluationContext();
     }
 
     public void setUseRewritePlanner(boolean useRewritePlanner) {

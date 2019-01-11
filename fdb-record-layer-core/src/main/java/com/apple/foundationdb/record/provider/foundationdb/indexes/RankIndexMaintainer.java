@@ -24,6 +24,7 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -37,9 +38,8 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -64,14 +64,12 @@ import java.util.concurrent.CompletableFuture;
  *
  * Any number of fields in the index can optionally separate records into non-overlapping <i>groups</i>.
  * Each group, determined by the values of those fields, has separate ranking.
- *
- * @param <M> type used to represent stored records
  */
 @API(API.Status.MAINTAINED)
-public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
+public class RankIndexMaintainer extends StandardIndexMaintainer {
     private final int nlevels;
 
-    public RankIndexMaintainer(IndexMaintainerState<M> state) {
+    public RankIndexMaintainer(IndexMaintainerState state) {
         super(state);
         String nlevelsOption = state.index.getOption(IndexOptions.RANK_NLEVELS);
         this.nlevels = nlevelsOption == null ? RankedSet.DEFAULT_LEVELS : Integer.parseInt(nlevelsOption);
@@ -88,7 +86,7 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
         } else if (scanType != IndexScanType.BY_RANK) {
             throw new RecordCoreException("Can only scan rank index by rank or by value.");
         }
-        final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+        final Subspace extraSubspace = getSecondarySubspace();
         final CompletableFuture<TupleRange> scoreRangeFuture = RankedSetIndexHelper.rankRangeToScoreRange(state,
                 getGroupingCount(), extraSubspace, nlevels, rankRange);
         return RecordCursor.mapFuture(getExecutor(), scoreRangeFuture, continuation,
@@ -102,11 +100,11 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
     }
 
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBStoredRecord<M> savedRecord,
-                                                      final boolean remove,
-                                                      @Nonnull final List<IndexEntry> indexEntries) {
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                          final boolean remove,
+                                                                          @Nonnull final List<IndexEntry> indexEntries) {
         final int groupPrefixSize = getGroupingCount();
-        final Subspace extraSubspace = state.store.indexSecondarySubspace(state.index);
+        final Subspace extraSubspace = getSecondarySubspace();
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (IndexEntry indexEntry : indexEntries) {
             // First maintain an ordinary B-tree index by score.
@@ -136,23 +134,22 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
     @Override
     @Nonnull
     @SuppressWarnings("unchecked")
-    public <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                           @Nonnull IndexRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
+                                                                              @Nonnull IndexRecordFunction<T> function,
+                                                                              @Nonnull FDBRecord<M> record) {
         if (function.getName().equals(FunctionNames.RANK)) {
-            return (CompletableFuture<T>)rank(context, record);
+            return (CompletableFuture<T>)rank(record);
         } else {
             return unsupportedRecordFunction(function);
         }
     }
 
-    public CompletableFuture<Long> rank(@Nonnull FDBEvaluationContext<M> context,
-                                        @Nonnull FDBRecord<M> record) {
+    public <M extends Message> CompletableFuture<Long> rank(@Nonnull FDBRecord<M> record) {
         final int groupPrefixSize = getGroupingCount();
         KeyExpression indexExpr = state.index.getRootExpression();
-        Key.Evaluated indexKey = indexExpr.evaluateSingleton(context, record);
+        Key.Evaluated indexKey = indexExpr.evaluateSingleton(record);
         Tuple scoreValue = indexKey.toTuple();
-        Subspace rankSubspace = state.store.indexSecondarySubspace(state.index);
+        Subspace rankSubspace = getSecondarySubspace();
         if (groupPrefixSize > 0) {
             Tuple prefix = Tuple.fromList(scoreValue.getItems().subList(0, groupPrefixSize));
             rankSubspace = rankSubspace.subspace(prefix);
@@ -167,7 +164,7 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
         return super.deleteWhere(tr, prefix).thenApply(v -> {
             // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we sometimes
             // store data at the prefix key itself.
-            final Subspace rankSubspace = state.store.indexSecondarySubspace(state.index);
+            final Subspace rankSubspace = getSecondarySubspace();
             final byte[] key = rankSubspace.pack(prefix);
             tr.clear(key, ByteArrayUtil.strinc(key));
             return v;
@@ -205,7 +202,7 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
         if ((FunctionNames.COUNT.equals(function.getName()) ||
                 FunctionNames.COUNT_DISTINCT.equals(function.getName())) &&
                 range.isEquals()) {
-            Subspace rankSubspace = state.store.indexSecondarySubspace(state.index);
+            Subspace rankSubspace = getSecondarySubspace();
             if (groupingCount > 0) {
                 rankSubspace = rankSubspace.subspace(range.getLow());
             }
@@ -216,7 +213,7 @@ public class RankIndexMaintainer<M extends Message> extends StandardIndexMaintai
                 FunctionNames.SCORE_FOR_RANK_ELSE_SKIP.equals(function.getName())) &&
                 range.isEquals()) {
             final Tuple values = range.getLow();
-            Subspace rankSubspace = state.store.indexSecondarySubspace(state.index);
+            Subspace rankSubspace = getSecondarySubspace();
             if (groupingCount > 0) {
                 rankSubspace = rankSubspace.subspace(TupleHelpers.subTuple(values, 0, groupingCount));
             }

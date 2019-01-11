@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 /**
  * Exception thrown when a record store has a format version in the database that is not supported by this codebase.
  *
- * @see FDBRecordStoreBase#getFormatVersion
+ * @see FDBRecordStore#getFormatVersion
  */
 @SuppressWarnings("serial")
 @API(API.Status.STABLE)

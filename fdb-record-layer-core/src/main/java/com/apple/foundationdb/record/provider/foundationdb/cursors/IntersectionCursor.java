@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -63,7 +63,7 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      * as the overload of this function that takes a function to extract a comparison
      * key.
      *
-     * @param context the context to use when evaluating the comparison key against records
+     * @param store record store from which records will be fetched
      * @param comparisonKey the key expression used to compare records from different cursors
      * @param reverse whether records are returned in descending or ascending order by the comparison key
      * @param left a function to produce the first {@link RecordCursor} from a continuation
@@ -72,18 +72,18 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      * @param <M> the type of the Protobuf record elements of the cursor
      * @param <S> the type of record wrapping a record of type <code>M</code>
      * @return a cursor containing all records in both child cursors
-     * @see #create(FDBEvaluationContext, KeyExpression, boolean, Function, Function, byte[])
+     * @see #create(Function, boolean, Function, Function, byte[], FDBStoreTimer)
      */
     @Nonnull
     public static <M extends Message, S extends FDBRecord<M>> IntersectionCursor<S> create(
-            @Nonnull FDBEvaluationContext<M> context,
+            @Nonnull FDBRecordStoreBase<M> store,
             @Nonnull KeyExpression comparisonKey, boolean reverse,
             @Nonnull Function<byte[], RecordCursor<S>> left,
             @Nonnull Function<byte[], RecordCursor<S>> right,
             @Nullable byte[] continuation) {
         return create(
-                (S record) -> comparisonKey.evaluateSingleton(context, record).toTupleAppropriateList(),
-                reverse, left, right, continuation, context.getTimer());
+                (S record) -> comparisonKey.evaluateSingleton(record).toTupleAppropriateList(),
+                reverse, left, right, continuation, store.getTimer());
     }
 
     /**
@@ -100,7 +100,7 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      * @param timer the timer used to instrument events
      * @param <T> the type of elements returned by the cursor
      * @return a cursor containing all elements in both child cursors
-     * @see #create(Function, boolean, Function, Function, byte[], FDBStoreTimer)
+     * @see #create(Function, boolean, List, byte[], FDBStoreTimer)
      */
     @Nonnull
     public static <T> IntersectionCursor<T> create(
@@ -120,7 +120,7 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      * as the overload of this function that takes a function to extract a comparison
      * key.
      *
-     * @param context the context to use when evaluating the comparison key against records
+     * @param store record store from which records will be fetched
      * @param comparisonKey the key expression used to compare records from different cursors
      * @param reverse whether records are returned in descending or ascending order by the comparison key
      * @param cursorFunctions a list of functions to produce {@link RecordCursor}s from a continuation
@@ -132,13 +132,13 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      */
     @Nonnull
     public static <M extends Message, S extends FDBRecord<M>> IntersectionCursor<S> create(
-            @Nonnull FDBEvaluationContext<M> context,
+            @Nonnull FDBRecordStoreBase<M> store,
             @Nonnull KeyExpression comparisonKey, boolean reverse,
             @Nonnull List<Function<byte[], RecordCursor<S>>> cursorFunctions,
             @Nullable byte[] continuation) {
         return create(
-                (S record) -> comparisonKey.evaluateSingleton(context, record).toTupleAppropriateList(),
-                reverse, cursorFunctions, continuation, context.getTimer());
+                (S record) -> comparisonKey.evaluateSingleton(record).toTupleAppropriateList(),
+                reverse, cursorFunctions, continuation, store.getTimer());
     }
 
     /**

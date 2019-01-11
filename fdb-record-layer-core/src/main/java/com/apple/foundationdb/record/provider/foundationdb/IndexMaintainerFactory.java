@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 
@@ -65,9 +64,8 @@ public interface IndexMaintainerFactory {
     /**
      * Get an index maintainer for the given record store and index meta-data.
      * @param state the state of the new index maintainer
-     * @param <M> type used to represent stored records
      * @return a new index maintainer for the type of index given
      */
     @Nonnull
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(IndexMaintainerState<M> state);
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state);
 }

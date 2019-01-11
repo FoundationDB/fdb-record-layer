@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -62,8 +61,8 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
     }
 
     @Nonnull
-    public <M extends Message> IndexMaintainer<M> getIndexMaintainer(IndexMaintainerState<M> state) {
-        return new RankIndexMaintainer<>(state);
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+        return new RankIndexMaintainer(state);
     }
 
 }

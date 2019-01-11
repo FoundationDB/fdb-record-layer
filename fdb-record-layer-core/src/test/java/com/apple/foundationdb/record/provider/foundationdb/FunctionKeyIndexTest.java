@@ -279,7 +279,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, funcIndex, normalIndex);
             int count = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(evaluationContext)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> queriedRecord = cursor.next();
                     TypesRecord record = fromMessage(queriedRecord.getRecord());
@@ -323,19 +323,19 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
     public void testFanOutFunctionEvaluation() {
         final KeyExpression expression = function("indexStrFields");
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate("a", "b", "c")),
-                expression.evaluate(evaluationContext, new UnstoredRecord<>(TypesRecord.newBuilder().setStrValue("a,b,c").build())));
+                expression.evaluate(new UnstoredRecord<>(TypesRecord.newBuilder().setStrValue("a,b,c").build())));
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate("a", "b", "c")),
-                expression.evaluate(evaluationContext, new UnstoredRecord<>(TypesRecord.newBuilder().setStrValue("a,b,c,d").build())));
+                expression.evaluate(new UnstoredRecord<>(TypesRecord.newBuilder().setStrValue("a,b,c,d").build())));
         assertEquals(Arrays.asList(Key.Evaluated.concatenate("a", "b", "c"), Key.Evaluated.concatenate("d", "e", "f")),
-                expression.evaluate(evaluationContext, new UnstoredRecord<>(TypesRecord.newBuilder().addStrListValue("a,b,c").addStrListValue("d,e,f").build())));
+                expression.evaluate(new UnstoredRecord<>(TypesRecord.newBuilder().addStrListValue("a,b,c").addStrListValue("d,e,f").build())));
         assertEquals(Arrays.asList(Key.Evaluated.concatenate("a", "b", "c"), Key.Evaluated.concatenate("d", "e", "f")),
-                expression.evaluate(evaluationContext, new UnstoredRecord<>(TypesRecord.newBuilder().setStrValue("a,b,c").addStrListValue("d,e,f").build())));
+                expression.evaluate(new UnstoredRecord<>(TypesRecord.newBuilder().setStrValue("a,b,c").addStrListValue("d,e,f").build())));
         assertThrows(KeyExpression.InvalidResultException.class,
-                () -> expression.evaluate(evaluationContext, new UnstoredRecord<>(TypesRecord.newBuilder().setStrValue("a,b").build())));
+                () -> expression.evaluate(new UnstoredRecord<>(TypesRecord.newBuilder().setStrValue("a,b").build())));
         assertEquals(Collections.emptyList(),
-                expression.evaluate(evaluationContext, new UnstoredRecord<>(TypesRecord.getDefaultInstance())));
+                expression.evaluate(new UnstoredRecord<>(TypesRecord.getDefaultInstance())));
         assertEquals(Collections.emptyList(),
-                expression.evaluate(evaluationContext, null));
+                expression.evaluate(null));
     }
 
     /**
@@ -371,8 +371,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nonnull FDBEvaluationContext<M> context,
-                                                                        @Nullable FDBRecord<M> record,
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
                                                                         @Nonnull Key.Evaluated arguments) {
             if (message == null) {

@@ -21,12 +21,13 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -63,8 +64,9 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex {
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBEvaluationContext<M> context, @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
-        return textScan.scan(context, continuation, executeProperties.asScanProperties(reverse));
+    public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                                       @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
+        return textScan.scan(store, context, continuation, executeProperties.asScanProperties(reverse));
     }
 
     @Nonnull

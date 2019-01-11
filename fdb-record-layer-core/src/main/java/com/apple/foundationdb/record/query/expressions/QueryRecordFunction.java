@@ -21,9 +21,10 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordFunction;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.google.protobuf.Message;
 
@@ -137,11 +138,11 @@ public class QueryRecordFunction<T> implements PlanHashable {
         return new QueryRecordFunctionWithComparison(function, new Comparisons.SimpleComparison(type, comparand));
     }
 
-    public <M extends Message> CompletableFuture<T> eval(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBStoredRecord<M> record) {
+    public <M extends Message> CompletableFuture<T> eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBStoredRecord<M> record) {
         if (record == null) {
             return CompletableFuture.completedFuture(null);
         }
-        return context.evaluateRecordFunction(function, record);
+        return store.evaluateRecordFunction(context, function, record);
     }
 
     @Override

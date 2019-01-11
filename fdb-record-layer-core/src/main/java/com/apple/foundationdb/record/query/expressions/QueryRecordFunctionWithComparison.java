@@ -21,9 +21,10 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordFunction;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
@@ -75,8 +76,9 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return evalMessageAsync(context, record, message).join();
+    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                   @Nullable FDBRecord<M> record, @Nullable Message message) {
+        return evalMessageAsync(store, context, record, message).join();
     }
 
     @Override
@@ -86,11 +88,12 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                                           @Nullable FDBRecord<M> record, @Nullable Message message) {
         if (record == null) {
-            return CompletableFuture.completedFuture(getComparison().eval(context, null));
+            return CompletableFuture.completedFuture(getComparison().eval(store, context, null));
         }
-        return context.evaluateRecordFunction(function, record).thenApply(value -> getComparison().eval(context, value));
+        return store.evaluateRecordFunction(context, function, record).thenApply(value -> getComparison().eval(store, context, value));
     }
 
     @Override

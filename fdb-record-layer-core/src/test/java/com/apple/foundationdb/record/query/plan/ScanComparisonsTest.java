@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.record.Bindings;
-import com.apple.foundationdb.record.StorelessEvaluationContext;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import org.junit.jupiter.api.Test;
@@ -38,11 +37,11 @@ public class ScanComparisonsTest {
         for (int i = 0; i < values.length; i += 2) {
             bindings.set(values[i], values[i + 1]);
         }
-        return new StorelessEvaluationContext(bindings.build());
+        return EvaluationContext.forBindings(bindings.build());
     }
 
     private void checkRange(String expected, ScanComparisons.Builder comparisons, EvaluationContext context) {
-        assertEquals(expected, comparisons.build().toTupleRange(context).toString());
+        assertEquals(expected, comparisons.build().toTupleRange(null, context).toString());
     }
 
     @Test

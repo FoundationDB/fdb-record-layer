@@ -1,5 +1,5 @@
 /*
- * RecordStoreDoesNotExistException.java
+ * FDBIndexableRecord.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,19 +21,13 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.RecordCoreStorageException;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import com.google.protobuf.Message;
 
 /**
- * Exception thrown when {@link FDBRecordStore.Builder#open} is called, but the record store does not exist yet.
- * @see FDBRecordStoreBase.StoreExistenceCheck#ERROR_IF_NOT_EXISTS
+ * A record that can be passed to an index maintainer.
+ *
+ * @param <M> type used to represent stored records
  */
-@SuppressWarnings("serial")
 @API(API.Status.STABLE)
-public class RecordStoreDoesNotExistException extends RecordCoreStorageException {
-    public RecordStoreDoesNotExistException(@Nonnull String msg, @Nullable Object ... keyValues) {
-        super(msg, keyValues);
-    }
+public interface FDBIndexableRecord<M extends Message> extends FDBRecord<M>, FDBStoredSizes {
 }

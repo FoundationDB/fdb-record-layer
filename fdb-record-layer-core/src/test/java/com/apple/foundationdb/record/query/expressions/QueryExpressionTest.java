@@ -21,16 +21,16 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.StorelessEvaluationContext;
 import com.apple.foundationdb.record.UnstoredRecord;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.TestScalarFieldAccess;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.test.Tags;
@@ -73,7 +73,7 @@ public class QueryExpressionTest {
     }
 
     private Boolean evaluate(@Nonnull QueryComponent component, @Nonnull Bindings bindings, @Nullable Message record) {
-        return component.eval(new StorelessEvaluationContext(bindings), new UnstoredRecord<>(record));
+        return component.eval(null, EvaluationContext.forBindings(bindings), new UnstoredRecord<>(record));
     }
 
     private static final byte[] DEADC0DE = new byte[]{(byte)0xde, (byte)0xad, (byte)0xc0, (byte)0xde};
@@ -100,21 +100,24 @@ public class QueryExpressionTest {
     private static final QueryComponent TRUE = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+        public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                       @Nullable FDBRecord<M> record, @Nullable Message message) {
             return true;
         }
     };
     private static final QueryComponent FALSE = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+        public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                       @Nullable FDBRecord<M> record, @Nullable Message message) {
             return false;
         }
     };
     private static final QueryComponent NULL = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+        public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                       @Nullable FDBRecord<M> record, @Nullable Message message) {
             return null;
         }
     };

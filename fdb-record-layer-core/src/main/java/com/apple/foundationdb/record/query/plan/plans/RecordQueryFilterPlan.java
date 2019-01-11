@@ -21,12 +21,13 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -81,20 +82,21 @@ public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                         @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
-        final RecordCursor<FDBQueriedRecord<M>> results = getInner().execute(context, continuation, executeProperties.clearSkipAndLimit());
+        final RecordCursor<FDBQueriedRecord<M>> results = getInner().execute(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         if (getFilter().isAsync()) {
             return results
-                    .filterAsyncInstrumented(record -> getFilter().evalAsync(context, record),
-                            context.getStore().getPipelineSize(PipelineOperation.RECORD_ASYNC_FILTER),
-                            context.getTimer(), inCounts, duringEvents, successCounts, failureCounts)
+                    .filterAsyncInstrumented(record -> getFilter().evalAsync(store, context, record),
+                            store.getPipelineSize(PipelineOperation.RECORD_ASYNC_FILTER),
+                            store.getTimer(), inCounts, duringEvents, successCounts, failureCounts)
                     .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         } else {
             return results
-                    .filterInstrumented(record -> getFilter().eval(context, record), context.getTimer(),
+                    .filterInstrumented(record -> getFilter().eval(store, context, record), store.getTimer(),
                             inCounts, duringEvents, successCounts, failureCounts)
                     .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         }

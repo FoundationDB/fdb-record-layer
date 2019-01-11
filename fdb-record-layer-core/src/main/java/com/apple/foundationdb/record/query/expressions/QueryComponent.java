@@ -21,9 +21,10 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -37,7 +38,7 @@ import java.util.concurrent.CompletableFuture;
  * Although you can provide your own implementations, let it be said that the planner does a lot of instanceof
  * checks to determine which indexes to use, and thus will end up falling back to getting all records and then
  * evaluating the component on the returned records.
- * {@link #validate(Descriptors.Descriptor)} must be called before calling {@link #eval(FDBEvaluationContext, FDBRecord)}, or bad
+ * {@link #validate(Descriptors.Descriptor)} must be called before calling {@link #eval(FDBRecordStoreBase, EvaluationContext, FDBRecord)}, or bad
  * things may happen.
  */
 @API(API.Status.STABLE)
@@ -56,14 +57,16 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * Implementations should override {@link #evalMessage} instead of this one, even if they do not deal with
      * Protobuf messages, so that they interact properly with expressions that do.
      * @param <M> the type of records
+     * @param store the record store from which the record came
      * @param context context against which evaluation takes place
      * @param record a record of the appropriate record type for this component
      * @return true/false/null, true if the given record should be included in results, false if it should not, and
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
-    default <M extends Message> Boolean eval(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record) {
-        return evalMessage(context, record, record == null ? null : record.getRecord());
+    default <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                             @Nullable FDBRecord<M> record) {
+        return evalMessage(store, context, record, record == null ? null : record.getRecord());
     }
 
     /**
@@ -79,6 +82,7 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * the corresponding field is missing.
      * @see #eval
      * @param <M> the type of record
+     * @param store the record store from which the record came
      * @param context context for bound expressions
      * @param record the record
      * @param message the Protobuf message to evaluate against
@@ -86,33 +90,38 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
-    <M extends Message> Boolean evalMessage(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message);
+    <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                            @Nullable FDBRecord<M> record, @Nullable Message message);
 
     /**
      * Asynchronous version of {@code eval}.
      * @param <M> the type of records
+     * @param store the record store from which the record came
      * @param context context against which evaluation takes place
      * @param record a record of the appropriate record type for this component
      * @return a future that completes with whether the record should be included in the query result
      * @see #eval
      */
     @Nonnull
-    default <M extends Message> CompletableFuture<Boolean> evalAsync(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record) {
-        return evalMessageAsync(context, record, record == null ? null : record.getRecord());
+    default <M extends Message> CompletableFuture<Boolean> evalAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                                     @Nullable FDBRecord<M> record) {
+        return evalMessageAsync(store, context, record, record == null ? null : record.getRecord());
     }
 
     /**
      * Asynchronous version of {@code evalMessage}.
      * @see #eval
      * @param <M> the type of record
+     * @param store the record store from which the record came
      * @param context context for bound expressions
      * @param record the record
      * @param message the Protobuf message to evaluate against
      * @return a future that completes with whether the record should be included in the query result
      */
     @Nonnull
-    default <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBEvaluationContext<M> context, @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return CompletableFuture.completedFuture(evalMessage(context, record, message));
+    default <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+                                                                            @Nullable FDBRecord<M> record, @Nullable Message message) {
+        return CompletableFuture.completedFuture(evalMessage(store, context, record, message));
     }
 
     /**

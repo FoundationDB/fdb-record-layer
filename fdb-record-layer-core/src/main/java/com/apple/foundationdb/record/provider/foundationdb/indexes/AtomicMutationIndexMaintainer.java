@@ -36,8 +36,8 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
@@ -56,18 +56,17 @@ import java.util.function.BiFunction;
  * Normally, when two transactions read, modify, and write the same location, they conflict. This makes a straightforward
  * implementation of most aggregate indexes inefficient. Ones that use the atomic mutation feature of FDB avoid this problem.
  * </p>
- * @param <M> the class used to represent indexed records
  */
 @API(API.Status.MAINTAINED)
-public class AtomicMutationIndexMaintainer<M extends Message> extends StandardIndexMaintainer<M> {
+public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
     protected final AtomicMutation mutation;
 
-    public AtomicMutationIndexMaintainer(IndexMaintainerState<M> state) {
+    public AtomicMutationIndexMaintainer(IndexMaintainerState state) {
         super(state);
         mutation = getAtomicMutation(state.index);
     }
 
-    protected AtomicMutationIndexMaintainer(IndexMaintainerState<M> state, AtomicMutation mutation) {
+    protected AtomicMutationIndexMaintainer(IndexMaintainerState state, AtomicMutation mutation) {
         super(state);
         this.mutation = mutation;
     }
@@ -114,9 +113,9 @@ public class AtomicMutationIndexMaintainer<M extends Message> extends StandardIn
     }
 
     @Override
-    protected CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBStoredRecord<M> savedRecord,
-                                                      final boolean remove,
-                                                      @Nonnull final List<IndexEntry> indexEntries) {
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                          final boolean remove,
+                                                                          @Nonnull final List<IndexEntry> indexEntries) {
         final MutationType mutationType = mutation.getMutationType();
         final int groupPrefixSize = getGroupingCount();
         for (IndexEntry indexEntry : indexEntries) {

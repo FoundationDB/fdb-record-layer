@@ -24,8 +24,6 @@ import com.apple.foundationdb.API;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * A context for query evaluation.
@@ -36,20 +34,46 @@ import java.util.concurrent.ForkJoinPool;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan#execute
  */
 @API(API.Status.MAINTAINED)
-public abstract class EvaluationContext {
+public class EvaluationContext {
     @Nonnull
     private final Bindings bindings;
 
+    public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS);
+
     /**
-     * Construct a new {@link EvaluationContext} around a given set of {@link Bindings}
-     * from parameter names to values. This constructor exists for implementations
-     * of this abstract class to pass state about their parameter bindings to the
-     * super-class interface. Users of this class should use a builder of one of
-     * this class's children.
-     * @param bindings a mapping from parameter name to values
+     * Get an empty evaluation context.
+     * @return an evaluation context with no bindings
      */
-    protected EvaluationContext(@Nonnull Bindings bindings) {
+    @SuppressWarnings("squid:S1845") // The field and the function mean the same thing.
+    public static EvaluationContext empty() {
+        return EMPTY;
+    }
+
+    private EvaluationContext(@Nonnull Bindings bindings) {
         this.bindings = bindings;
+    }
+
+    /**
+     * Create a new {@link EvaluationContext} around a given set of {@link Bindings}
+     * from parameter names to values.
+     * @param bindings a mapping from parameter name to values
+     * @return a new evaluation context with the bindings
+     */
+    @Nonnull
+    public static EvaluationContext forBindings(@Nonnull Bindings bindings) {
+        return new EvaluationContext(bindings);
+    }
+
+    /**
+     * Create a new <code>EvaluationContext</code> with a single binding.
+     *
+     * @param bindingName the binding name to add
+     * @param value the value to bind the name to
+     * @return a new <code>EvaluationContext</code> with the new binding
+     */
+    @Nonnull
+    public static EvaluationContext forBinding(@Nonnull String bindingName, @Nullable Object value) {
+        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build());
     }
 
     /**
@@ -76,28 +100,6 @@ public abstract class EvaluationContext {
     }
 
     /**
-     * Get the {@link Executor} to use when executing asynchronous calls.
-     *
-     * @return the {@link Executor} associated with this context
-     */
-    @Nonnull
-    public Executor getExecutor() {
-        return ForkJoinPool.commonPool();
-    }
-
-    /**
-     * Create a new <code>EvaluationContext</code> with a new set of parameter bindings.
-     * Implementations should provide an implementation of this method
-     * that ensures that all data contained within the context other than the
-     * bindings is transferred over to the new context.
-     *
-     * @param newBindings the complete mapping of new {@link Bindings} to associate with the new context
-     * @return a new context with the given bindings
-     */
-    @Nonnull
-    protected abstract EvaluationContext withBindings(@Nonnull Bindings newBindings);
-
-    /**
      * Construct a builder from this context. This allows the user to create
      * a new <code>EvaluationContext</code> that has all of the same data
      * as the current context except for a few modifications expressed as
@@ -111,6 +113,16 @@ public abstract class EvaluationContext {
     }
 
     /**
+     * Construct a new builder from this context.
+     *
+     * @return a builder for this class based on this instance
+     */
+    @Nonnull
+    public static EvaluationContextBuilder newBuilder() {
+        return new EvaluationContextBuilder();
+    }
+
+    /**
      * Create a new <code>EvaluationContext</code> with an additional binding.
      * The returned context will have all of the same state as the current
      * context included all bindings except that it will bind an additional
@@ -120,6 +132,7 @@ public abstract class EvaluationContext {
      * @param value the value to bind the name to
      * @return a new <code>EvaluationContext</code> with the new binding
      */
+    @Nonnull
     public EvaluationContext withBinding(@Nonnull String bindingName, @Nullable Object value) {
         return childBuilder().setBinding(bindingName, value).build();
     }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -32,7 +33,6 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBEvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
@@ -102,8 +102,8 @@ public class TextScan implements PlanHashable {
 
     // Get the comparand as a list of strings. This might involve tokenizing the
     // query string if the comparison didn't do that already.
-    private <M extends Message> List<String> getTokenList(@Nonnull FDBEvaluationContext<M> context, boolean removeStopWords) {
-        final Object comparand = textComparison.getComparand(context);
+    private List<String> getTokenList(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, boolean removeStopWords) {
+        final Object comparand = textComparison.getComparand(store, context);
         List<String> tokenList;
         if (comparand instanceof List<?>) {
             tokenList = ((List<?>)comparand).stream().map(Object::toString).collect(Collectors.toList());
@@ -121,8 +121,8 @@ public class TextScan implements PlanHashable {
         return tokenList;
     }
 
-    private <M extends Message> List<String> getTokenList(@Nonnull FDBEvaluationContext<M> context) {
-        return getTokenList(context, true);
+    private List<String> getTokenList(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context) {
+        return getTokenList(store, context, true);
     }
 
     // As we get index entries back, we will compare their values and consider two entries
@@ -144,6 +144,7 @@ public class TextScan implements PlanHashable {
     /**
      * Scan the store to produce a cursor of index entries that all satisfy the comparison.
      *
+     * @param store the record store for the query
      * @param context the query evaluation context
      * @param continuation a continuation from a previous scan to resume query execution
      * @param scanProperties execution properties of this scan
@@ -151,18 +152,20 @@ public class TextScan implements PlanHashable {
      * @return a cursor of index entries from the given scan
      */
     @Nonnull
-    public <M extends Message> RecordCursor<IndexEntry> scan(@Nonnull FDBEvaluationContext<M> context,
+    public <M extends Message> RecordCursor<IndexEntry> scan(@Nonnull FDBRecordStoreBase<M> store,
+                                                             @Nonnull EvaluationContext context,
                                                              @Nullable byte[] continuation,
                                                              @Nonnull ScanProperties scanProperties) {
-        final Tuple prefix = groupingComparisons != null ? groupingComparisons.toTupleRange(context).getHigh() : null;
-        final TupleRange suffix = suffixComparisons != null ? suffixComparisons.toTupleRange(context) : null;
-        final List<String> tokenList = getTokenList(context);
-        return scan(context, prefix, suffix, index, tokenList, continuation, scanProperties);
+        final Tuple prefix = groupingComparisons != null ? groupingComparisons.toTupleRange(store, context).getHigh() : null;
+        final TupleRange suffix = suffixComparisons != null ? suffixComparisons.toTupleRange(store, context) : null;
+        final List<String> tokenList = getTokenList(store, context);
+        return scan(store, context, prefix, suffix, index, tokenList, continuation, scanProperties);
     }
 
     @Nonnull
     @SuppressWarnings("squid:S2095") // try-with-resources - the two cursors returned cannot be closed because they are wrapped and returned
-    private <M extends Message> RecordCursor<IndexEntry> scan(@Nonnull FDBEvaluationContext<M> context,
+    private <M extends Message> RecordCursor<IndexEntry> scan(@Nonnull FDBRecordStoreBase<M> store,
+                                                              @Nonnull EvaluationContext context,
                                                               @Nullable Tuple prefix, @Nullable TupleRange suffix,
                                                               @Nonnull Index index, @Nonnull List<String> tokenList,
                                                               @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
@@ -171,7 +174,6 @@ public class TextScan implements PlanHashable {
         }
         final int prefixEntries = 1 + (prefix != null ? prefix.size() : 0);
 
-        final FDBRecordStoreBase<M> store = context.getStore();
         final Comparisons.Type comparisonType = textComparison.getType();
         if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_PREFIX)) {
             if (suffix != null) {
@@ -222,7 +224,7 @@ public class TextScan implements PlanHashable {
                 int maxDistance = ((Comparisons.TextWithMaxDistanceComparison)textComparison).getMaxDistance();
                 predicate = entries -> entriesContainAllWithin(entries, maxDistance);
             } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_PHRASE)) {
-                List<String> tokensWithStopWords = getTokenList(context, false);
+                List<String> tokensWithStopWords = getTokenList(store, context, false);
                 predicate = entries -> entriesContainPhrase(entries, tokensWithStopWords);
             } else {
                 throw new RecordCoreException("unsupported comparison type for text query: " + comparisonType);
