@@ -12,7 +12,7 @@ This is intended as a quick guide to getting started developing applications wit
 To keep the guide simple, we will not cover:
 
 * Modifying a schema
-* Using advanced [index](Overview.md#secondary-indexes) and [query](Overview.md#secondary-indexes) functionality
+* Using advanced [index](Overview.md#secondary-indexes) and [query](Overview.md#querying-for-records) functionality
 
 ### Setup
 
@@ -72,7 +72,7 @@ plugins {
 }
 ```
 
-Additionally we need to add the following:
+Additionally, we need to add the following:
 
 ```gradle
 protobuf {
@@ -85,7 +85,7 @@ protobuf {
 
 This will tell the protobuf Gradle plugin to use the `3.6.1` version of protoc to compile the protos in our project.
 You may have noticed above that the Record Layer artifact we are using is `fdb-record-layer-core-pb3` instead of
-`fdb-record-layer-core`, which is the version to use with version 2 of protoc. We also configure `generatedFileBaseDir`
+`fdb-record-layer-core`, which is the version to use with version 2 of protoc. This also configures `generatedFileBaseDir`
 to be a separate directory at the same level as our Java code and proto definitions. The structure of our project source looks like:
 
 ```
@@ -100,9 +100,9 @@ src
 ```
 
 
-Now we are ready to define our record types and indexes we will use through the *record meta-data*.
+Now we are ready to define the record types and indexes we will use through the *record meta-data*.
 We can think of this as a type of schema definition for our application. We’ll define our meta-data
-as a set of protobuf messages. For this example we will create a very simple meta-data definition
+as a set of protobuf messages. For this example, we will create a very simple meta-data definition
 for our application that will keep track of customer orders for flowers. Let's create a directory
 (if it doesn't already exist) in our project `src/main/proto` and add the file `record_layer_demo.proto`
 in that directory:
@@ -156,7 +156,7 @@ Run `./gradlew generateProto` to see that the above configuration is correct.
 You should see the generated code put into `src/main/generated/main/java/RecordLayerDemoProto.java`.
 
 Now we're ready to start developing our application. Create a demo app class `src/main/java/Demo.java` and add
-a main method (if you used `gradle init` there may already be a main `App` class you can use that or delete it and create your own):
+a main method (if you used `gradle init` there may already be a main `App` class; you can use that or delete it and create your own):
 
 ```java
 public class Demo {
@@ -165,7 +165,7 @@ public class Demo {
 }
 ```
 
-We will do all of the development for this example within this class. Code snippets can be assumed to be in the main method.
+We will do all of the development for this example within this class. Code snippets can be assumed to be in the `main` method.
 It will be useful to define a couple of helper methods as well. In those cases, the full helper method will be reproduced here.
 
 Start by opening a connection to the FDB database (go ahead and start the FDB server if you haven't already):
@@ -275,13 +275,13 @@ db.run(context -> {
 });
 ```
 
-What is happening here? The `run` method runs the provided function transactionally against FDB, i.e. it
-opens a new transaction and provides it wrapped in an `FDBRecordContext` as an argument to the function,
-we can then perform some work and return a result (in this case we are just returning `null`). The `run`
-method will then handle opening the transaction for us and attempting to commit the result. If we get a
+What is happening here? The `run` method runs the provided function transactionally against FDB, i.e., it
+opens a new transaction and provides it wrapped in an `FDBRecordContext` as an argument to the function.
+We can then perform some work and return a result (in this case we are just returning `null`). The `run`
+method handles opening the transaction for us and attempting to commit the result. If we get a
 retriable error on commit it will automatically retry for us (up to a configurable number of maximum retry attempts).
 So in the above snippet, we are opening a transaction, creating an instance of the record store, and saving 4 records.
-Assuming the method returns normally, the result will be committed to FDB.
+Assuming the method returns normally, the records will be persisted to FDB.
 
 Now open another transaction and see that we can load the records there (and that we get `null` for records we didn't create):
 
@@ -357,7 +357,7 @@ Note that we transformed the cursor of `FDBQueriedRecord`s to a cursor over `Ord
 The [`RecordCursor` class](../fdb-record-layer-core/src/main/java/com/apple/foundationdb/record/RecordCursor.java)
 supports several such methods.
 
-Finally print the list of orders that the query returned:
+Finally, print the list of orders that the query returned:
 
 ```java
 orders.forEach(System.out::println);
@@ -380,5 +380,5 @@ We've covered creating a very simple demo app from scratch using the FDB Record 
 We downloaded and started up an FDB server, created a new Java project, brought in the Record Layer dependency,
 created a schema and wrote a simple application that uses the Record Layer. This was only a surface level demonstration
 of the schema management, querying and indexing capabilities of the Record Layer. For a more complete guide to what you
-can refer to the [FDB Record Layer Overview](Overview.md).
+can do, refer to the [FDB Record Layer Overview](Overview.md).
 
