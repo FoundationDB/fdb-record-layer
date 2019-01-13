@@ -91,7 +91,7 @@ Each key in the index is a list of individual elements. An expression is a funct
 
 * *field*: Get that field from the Record required.
 * *nest*: Requires the calling field to be a message, not a primitive type. This will grab that message's nested field. Also takes any other expression.
-* *concat*: Append different values to each other, as seperate elements. fanout will be preserved. Note: concat within a nest appears side by side with everything else, but FanType.Concatenate creates a nested list. This is to ensure that the index in the list always corresponds to a single expression.
+* *concat*: Append different values to each other, as separate elements. fanout will be preserved. Note: concat within a nest appears side by side with everything else, but FanType.Concatenate creates a nested list. This is to ensure that the index in the list always corresponds to a single expression.
 
 * *FanType.FanOut*: _requires repeated_ Causes multiple keys to be created, one for each value of the field
 * *FanType.Concatenate*: _requires repeated_ Causes multiple values to be concatenated into a nested tuple within a single element

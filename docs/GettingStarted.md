@@ -354,7 +354,7 @@ List<RecordLayerDemoProto.Order> orders = db.run(context -> {
 ```
 
 Note that we transformed the cursor of `FDBQueriedRecord`s to a cursor over `Order`s by calling map on the cursor.
-The [`RecordCursor` class](../fdb-record-layer-core/src/main/java/com/apple/foundationdb/record/RecordCursor.java)
+The [`RecordCursor` class](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/RecordCursor.html)
 supports several such methods.
 
 Finally, print the list of orders that the query returned:
