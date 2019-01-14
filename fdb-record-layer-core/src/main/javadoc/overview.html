@@ -1,0 +1,54 @@
+<!--
+  ~ overview.html
+  ~
+  ~ This source file is part of the FoundationDB open source project
+  ~
+  ~ Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<HTML>
+<BODY>
+
+A record-oriented layer built for the FoundationDB key-value store.
+
+<p>
+This layer is designed to extend the FoundationDB key-value store by adding a record-oriented data model. Though
+this layer does not attempt to implement SQL, it does provide relational semantics (broadly defined). In particular,
+it attempts to provide solutions to:
+</p>
+
+<ul>
+    <li>Schema management</li>
+    <li>Index maintenance</li>
+    <li>Query planning and optimization</li>
+</ul>
+
+<p>
+The basic unit of data is the "record". This corresponds to a "row" in a traditional relational system or
+to a "document" in a document database. Records are grouped together into "record stores", which are
+somewhat analogous to a "database" in a traditional relational database, and each record also has a "type"
+which is somewhat (but not quite) analogous to a "table". (See, however,
+<a href="https://foundationdb.github.io/fdb-record-layer/FAQ.html#are-record-types-tables">"Are record types tables?"</a>
+in the <a href="https://foundationdb.github.io/fdb-record-layer/FAQ.html">FAQ</a> for an explanation of
+the differences between the two concepts.)
+</p>
+
+<p>
+For a more complete overview of the features and goals of the Record Layer, consult the
+<a href="https://foundationdb.github.io/fdb-record-layer/Overview.html">Record Layer overview</a>.
+</p>
+
+</BODY>
+</HTML>
