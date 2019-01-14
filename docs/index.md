@@ -37,6 +37,6 @@ The API documentation can be found here for the most recent releases of each of 
 project's published libraries:
 
 * [FDB extensions utility library](https://javadoc.io/doc/org.foundationdb/fdb-extensions/)
-* [FDB Record Layer core library (proto2)](https://javadoc.io/doc/org.foundationdb/fdb-record-layer/)
-* [FDB Record Layer core library (proto3)](https://javadoc.io/doc/org.foundationdb/fdb-record-layer-pb3/)
+* [FDB Record Layer core library (proto2)](https://javadoc.io/doc/org.foundationdb/fdb-record-layer-core/)
+* [FDB Record Layer core library (proto3)](https://javadoc.io/doc/org.foundationdb/fdb-record-layer-core-pb3/)
 
