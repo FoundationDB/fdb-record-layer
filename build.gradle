@@ -211,6 +211,7 @@ subprojects {
                 exclude "**/*Proto.java"
                 // warnings are errors
                 options.addBooleanOption('Xwerror', true)
+                options.overview = "src/main/javadoc/overview.html"
             }
             compileJava {
                 //enable compilation in a separate daemon process
