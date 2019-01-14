@@ -99,7 +99,9 @@ def get_version(release=False):
         print_with_date('Could not determine version number!')
         return None
 
-    if 'RECORD_LAYER_BUILD_NUMBER' in os.environ:
+    if 'ARTIFACT_VERSION' in os.environ:
+        version = str(os.environ['ARTIFACT_VERSION'])
+    elif 'RECORD_LAYER_BUILD_NUMBER' in os.environ:
         version = version_base + '.' + str(os.environ['RECORD_LAYER_BUILD_NUMBER'])
     else:
         version = version_base
