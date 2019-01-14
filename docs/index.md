@@ -25,6 +25,8 @@ reliability, and performance in a distributed setting.
 * [Overview and Examples](Overview.md)
 * [Getting Started](GettingStarted.md)
 * [Building](Building.md)
+* [Schema Evolution and Meta-data Maintenance](SchemaEvolution.md)
+* [Extending the Record Layer](Extending.md)
 * [Release Notes](ReleaseNotes.md)
 * [Frequently Asked Questions](FAQ.md)
 * [Contributing](https://github.com/FoundationDB/fdb-record-layer/blob/master/CONTRIBUTING.md)
