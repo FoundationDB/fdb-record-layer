@@ -31,12 +31,16 @@ services:
 
   build-release:
     <<: *build-setup
-    command: /bin/bash -cl "python build.py release --publish"
+    command: /bin/bash -cl "bash build/update_release_notes.bash && python build.py release --publish"
     environment:
       - SKIP_FDB_TESTS=true
       - RELEASE_BUILD=true
-      - BUILD_NUMBER
-      - RECORD_LAYER_BUILD_NUMBER=${BUILD_NUMBER}.0
+      - GIT_AUTHOR_NAME='FDB Build User'
+      - GIT_COMMITTER_NAME='FDB Build User'
+      - GIT_AUTHOR_EMAIL='fdbbuild@foundationdb.org'
+      - GIT_COMMITTER_EMAIL='fdbbuild@foundationdb.org'
+      - GIT_BRANCH
+      - ARTIFACT_VERSION
       - BINTRAY_USER
       - BINTRAY_KEY
 

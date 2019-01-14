@@ -25,6 +25,7 @@ reliability, and performance in a distributed setting.
 * [Overview and Examples](Overview.md)
 * [Getting Started](GettingStarted.md)
 * [Building](Building.md)
+* [Release Notes](ReleaseNotes.md)
 * [Frequently Asked Questions](FAQ.md)
 * [Contributing](https://github.com/FoundationDB/fdb-record-layer/blob/master/CONTRIBUTING.md)
 * [Code of Conduct](https://github.com/FoundationDB/fdb-record-layer/blob/master/CODE_OF_CONDUCT.md)
