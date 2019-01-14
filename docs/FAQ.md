@@ -7,8 +7,10 @@ Welcome to FoundationDB Record Layer Frequently Asked Questions (FAQ)!
 ### What is the Record Layer?
 
 The Record Layer is a Java API that provides a structured, record-oriented store 
-on top of the core FoundationDB store. For feature highlights see the 
-[README](../README.md).
+on top of the core FoundationDB store. For feature highlights, see the
+[Record Layer overview](Overview.md). See the [getting started guide](GettingStarted.md)
+for a worked-out example of how to begin developing an application that uses the
+Record Layer.
 
 ### Is it relational? 
 
@@ -87,7 +89,7 @@ The overhead of this is usually two bytes in every key (record or index entry).
 Is it possible to define a primary key such that the value of the key is 
 automatically assigned by the Record Layer as an auto-incrementing value?
 
-The short answer is: No. It is the responsiblity of the client to assign 
+The short answer is: No. It is the responsibility of the client to assign 
 a suitably unique value (or values, in the case of a composite key) for the record. 
 
 Long answer: The Record Layer does not currently offer any kind of auto-generated primary key.
@@ -116,7 +118,7 @@ generated.
 
 There's a second approach that is more theoretical which is to use 
 [versionstamp operations](https://apple.github.io/foundationdb/api-python.html#fdb.Transaction.set_versionstamped_key) 
-to get a sequence of montonically increasing keys from the database. We already do that for certain 
+to get a sequence of monotonically increasing keys from the database. We already do that for certain 
 index types to enable things like an index for changes to a record store, but we don't allow such 
 expressions in the primary key.
 
@@ -181,4 +183,4 @@ operation to continue where it left off.
 
 FoundationDB restricts transactions to modifying a [limited amount of data](https://apple.github.io/foundationdb/known-limitations.html#large-transactions).
 This means that your transaction has exceeded that limit and may indicate that you need
-to decmpose your work into a number of smaller transactions.
+to decompose your work into a number of smaller transactions.
