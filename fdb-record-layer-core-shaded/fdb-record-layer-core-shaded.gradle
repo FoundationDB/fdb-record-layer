@@ -45,7 +45,9 @@ publishing {
     publications {
         shadow(MavenPublication) { publication ->
             from project.shadow.component(publication)
+            addPublishingInfo(publication) // function imported from publishing.gradle
             publication.pom { pom ->
+                description = 'A record-oriented layer built for FoundationDB (shaded artifacts; proto' + project.protoMajorVersion + ').'
                 pom.withXml { xml ->
                     // Remove any existing dependencies sections
                     def childNodes = xml.asNode().children()

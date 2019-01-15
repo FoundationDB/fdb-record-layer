@@ -41,3 +41,13 @@ test {
         }
     }
 }
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Extensions to the FoundationDB Java API.'
+            }
+        }
+    }
+}
