@@ -59,63 +59,6 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
-    /**
-     * A single conversion of a rank to a score to be bound to some name.
-     */
-    public static class ScoreForRank implements PlanHashable {
-        @Nonnull
-        private final String bindingName;
-        @Nonnull
-        private final Function<Tuple, Object> bindingFunction;
-        @Nonnull
-        private final IndexAggregateFunction function;
-        @Nonnull
-        private final List<Comparisons.Comparison> comparisons;
-
-        public ScoreForRank(@Nonnull String bindingName, @Nonnull Function<Tuple, Object> bindingFunction,
-                            @Nonnull IndexAggregateFunction function, @Nonnull List<Comparisons.Comparison> comparisons) {
-            this.bindingName = bindingName;
-            this.bindingFunction = bindingFunction;
-            this.function = function;
-            this.comparisons = comparisons;
-        }
-
-        @Nonnull
-        public String getBindingName() {
-            return bindingName;
-        }
-
-        @Override
-        public String toString() {
-            return bindingName + " = " + function.getIndex() + "." + function.getName() + comparisons.stream().map(Comparisons.Comparison::typelessString).collect(Collectors.joining(", ", "(", ")"));
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ScoreForRank that = (ScoreForRank) o;
-            return Objects.equals(bindingName, that.bindingName) &&
-                    Objects.equals(bindingFunction, that.bindingFunction) &&
-                    Objects.equals(function, that.function) &&
-                    Objects.equals(comparisons, that.comparisons);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(bindingName, bindingFunction, function, comparisons);
-        }
-
-        @Override
-        public int planHash() {
-            return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(comparisons);
-        }
-    }
-
     @Nonnull
     private final ExpressionRef<RecordQueryPlan> plan;
     @Nonnull
@@ -243,5 +186,62 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Override
     public int getComplexity() {
         return 1 + getChild().getComplexity();
+    }
+
+    /**
+     * A single conversion of a rank to a score to be bound to some name.
+     */
+    public static class ScoreForRank implements PlanHashable {
+        @Nonnull
+        private final String bindingName;
+        @Nonnull
+        private final Function<Tuple, Object> bindingFunction;
+        @Nonnull
+        private final IndexAggregateFunction function;
+        @Nonnull
+        private final List<Comparisons.Comparison> comparisons;
+
+        public ScoreForRank(@Nonnull String bindingName, @Nonnull Function<Tuple, Object> bindingFunction,
+                            @Nonnull IndexAggregateFunction function, @Nonnull List<Comparisons.Comparison> comparisons) {
+            this.bindingName = bindingName;
+            this.bindingFunction = bindingFunction;
+            this.function = function;
+            this.comparisons = comparisons;
+        }
+
+        @Nonnull
+        public String getBindingName() {
+            return bindingName;
+        }
+
+        @Override
+        public String toString() {
+            return bindingName + " = " + function.getIndex() + "." + function.getName() + comparisons.stream().map(Comparisons.Comparison::typelessString).collect(Collectors.joining(", ", "(", ")"));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ScoreForRank that = (ScoreForRank) o;
+            return Objects.equals(bindingName, that.bindingName) &&
+                   Objects.equals(bindingFunction, that.bindingFunction) &&
+                   Objects.equals(function, that.function) &&
+                   Objects.equals(comparisons, that.comparisons);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(bindingName, bindingFunction, function, comparisons);
+        }
+
+        @Override
+        public int planHash() {
+            return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(comparisons);
+        }
     }
 }

@@ -9,25 +9,61 @@
         Record Layer PMD ruleset
     </description>
 
-    <rule ref="rulesets/java/basic.xml">
-        <exclude name="CollapsibleIfStatements"/>
-    </rule>    
-
-    <rule ref="rulesets/java/braces.xml"/>
-
-    <rule ref="rulesets/java/empty.xml"/>
-
-    <rule ref="rulesets/java/imports.xml"/>
-
-    <rule ref="rulesets/java/unnecessary.xml">
-        <exclude name="UselessParentheses"/>
+    <rule ref="category/java/bestpractices.xml">
+        <exclude name="ArrayIsStoredDirectly" />
+        <exclude name="AvoidReassigningParameters" />
+        <!-- This rule is perfectly fine but SpotBugs handles it for us. -->
+        <exclude name="MethodReturnsInternalArray" />
+        <exclude name="UseVarargs" />
     </rule>
 
-    <rule ref="rulesets/java/strings.xml">
-        <exclude name="AppendCharacterWithChar"/>
-        <exclude name="AvoidDuplicateLiterals"/>
-        <exclude name="ConsecutiveLiteralAppends"/>
+    <rule ref="category/java/codestyle.xml">
+        <exclude name="AtLeastOneConstructor" />
+        <exclude name="AvoidFinalLocalVariable" />
+        <exclude name="CallSuperInConstructor" />
+        <exclude name="ClassNamingConventions" />
+        <exclude name="CommentDefaultAccessModifier" />
+        <exclude name="ConfusingTernary" />
+        <exclude name="DefaultPackage" />
+        <exclude name="FieldNamingConventions" />
+        <exclude name="LocalVariableCouldBeFinal" />
+        <exclude name="LinguisticNaming" />
+        <exclude name="LongVariable" />
+        <exclude name="MethodArgumentCouldBeFinal" />
+        <exclude name="OnlyOneReturn" />
+        <exclude name="PrematureDeclaration" />
+        <exclude name="ShortClassName" />
+        <exclude name="ShortMethodName" />
+        <exclude name="ShortVariable" />
+        <exclude name="UnnecessaryConstructor" />
+        <exclude name="UselessParentheses" />
+    </rule>
+    <rule ref="category/java/codestyle.xml/ClassNamingConventions">
+        <properties>
+            <property name="utilityClassPattern" value="[A-Z][a-zA-Z0-9]+" />
+        </properties>
+    </rule>
+    <rule ref="category/java/codestyle.xml/FieldNamingConventions">
+        <properties>
+            <!--
+                We appear to follow both the "lower-case, camel case" and "all caps convention", so
+                this essentially asserts to do one or the other. Note that *public* constants are
+                still required to be all caps.
+            -->
+            <property name="constantPattern" value="[A-Z][A-Z_0-9]+|[a-z][a-zA-Z0-9]+" />
+        </properties>
     </rule>
 
-    <rule ref="rulesets/java/logging-java.xml"/>
+    <rule ref="category/java/errorprone.xml"> 
+        <exclude name="AvoidDuplicateLiterals" />
+        <exclude name="AvoidFieldNameMatchingMethodName" />
+        <exclude name="AvoidLiteralsInIfCondition" />
+        <exclude name="BeanMembersShouldSerialize" />
+        <exclude name="ConstructorCallsOverridableMethod" />
+        <!-- The rule below appears to have bugs when run: https://github.com/pmd/pmd/issues/873 -->
+        <exclude name="DataflowAnomalyAnalysis" />
+        <exclude name="NullAssignment" />
+        <exclude name="ReturnEmptyArrayRatherThanNull" />
+    </rule>
+
 </ruleset>

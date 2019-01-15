@@ -34,8 +34,6 @@ import java.util.Map;
  */
 @API(API.Status.MAINTAINED)
 public class IndexOptions {
-    private IndexOptions() {
-    }
 
     /**
      * No options.
@@ -90,4 +88,7 @@ public class IndexOptions {
      * The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS} = {@value com.apple.foundationdb.async.RankedSet#DEFAULT_LEVELS}.
      */
     public static final String RANK_NLEVELS = "rankNLevels";
+
+    private IndexOptions() {
+    }
 }

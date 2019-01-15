@@ -55,12 +55,13 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
         this.expressionChildren = ImmutableList.of(this.inner);
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
     }
 
+    @Override
     @Nonnull
     public Collection<String> getRecordTypes() {
         return recordTypes;

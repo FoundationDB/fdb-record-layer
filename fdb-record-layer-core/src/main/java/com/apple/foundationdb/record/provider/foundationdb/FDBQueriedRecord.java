@@ -73,6 +73,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         return new Covered<>(index, indexEntry, primaryKey, recordType, record);
     }
 
+    @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
     static class Indexed<M extends Message> extends FDBQueriedRecord<M> {
         private final FDBIndexedRecord<M> indexed;
 
@@ -128,6 +129,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         }
     }
 
+    @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
     static class Stored<M extends Message> extends FDBQueriedRecord<M> {
         private final FDBStoredRecord<M> stored;
 

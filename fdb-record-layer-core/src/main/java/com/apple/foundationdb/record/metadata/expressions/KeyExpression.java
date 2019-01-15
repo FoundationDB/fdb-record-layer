@@ -131,7 +131,7 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      * These names don't technically meet our naming convention but changing them is a lot of work because of all of
      * the string constants.
      */
-    @SuppressWarnings("squid:S00115")
+    @SuppressWarnings({"squid:S00115", "PMD.FieldNamingConventions"})
     enum FanType {
         /**
          * Convert a repeated field into a single list.
@@ -284,8 +284,12 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      */
     @SuppressWarnings("serial")
     class SerializationException extends RecordCoreException {
-        public SerializationException(String message) {
+        public SerializationException(@Nonnull String message) {
             super(message);
+        }
+
+        public SerializationException(@Nonnull String message, @Nullable Exception cause) {
+            super(message, cause);
         }
     }
 
@@ -294,8 +298,12 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      */
     @SuppressWarnings("serial")
     class DeserializationException extends RecordCoreException {
-        public DeserializationException(String message) {
+        public DeserializationException(@Nonnull String message) {
             super(message);
+        }
+
+        public DeserializationException(@Nonnull String message, @Nullable Exception cause) {
+            super(message, cause);
         }
     }
 

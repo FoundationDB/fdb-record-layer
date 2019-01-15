@@ -111,7 +111,7 @@ public class ScanComparisons implements PlanHashable {
     /**
      * The type of a comparison.
      */
-    public static enum ComparisonType {
+    public enum ComparisonType {
         EQUALITY, INEQUALITY, NONE
     }
 

@@ -276,6 +276,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordTypes.values().stream().allMatch(RecordType::primaryKeyHasRecordTypePrefix);
     }
 
+    /**
+     * Get this <code>RecordMetaData</code> instance.
+     *
+     * @return this <code>RecordMetaData</code> instance
+     */
     @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {

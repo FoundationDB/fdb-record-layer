@@ -32,7 +32,7 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
     /**
      * When to completely rebuild an index.
      */
-    public static enum Rebuild {
+    public enum Rebuild {
         ALWAYS, NEVER, IF_OVERLAPPING_CHANGED
     }
 

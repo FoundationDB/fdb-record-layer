@@ -37,6 +37,9 @@ import javax.annotation.Nullable;
 public class RecordCursorStartContinuation implements RecordCursorContinuation {
     public static final RecordCursorContinuation START = new RecordCursorStartContinuation();
 
+    private RecordCursorStartContinuation() {
+    }
+
     @Override
     public boolean isEnd() {
         return false;

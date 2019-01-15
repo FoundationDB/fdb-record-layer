@@ -44,7 +44,7 @@ public interface AtomicMutation {
      * @return the underlying mutation type
      */
     @Nonnull
-    public MutationType getMutationType();
+    MutationType getMutationType();
 
     /**
      * Get the underlying argument to the FDB API.
@@ -53,7 +53,7 @@ public interface AtomicMutation {
      * @return a byte array to pass to the FDB API or {@code null} to do nothing for this mutation
      */
     @Nullable
-    public byte[] getMutationParam(IndexEntry value, boolean remove);
+    byte[] getMutationParam(IndexEntry value, boolean remove);
 
     /**
      * Get a function to aggregate multiple index entries.
@@ -62,7 +62,7 @@ public interface AtomicMutation {
      * @see com.apple.foundationdb.record.RecordCursor#reduce
      */
     @Nonnull
-    public BiFunction<Tuple,Tuple,Tuple> getAggregator();
+    BiFunction<Tuple,Tuple,Tuple> getAggregator();
 
     /**
      * Get the initial value for aggregating multiple index entries.
@@ -70,7 +70,7 @@ public interface AtomicMutation {
      * @see com.apple.foundationdb.record.RecordCursor#reduce
      */
     @Nullable
-    public Tuple getIdentity();
+    Tuple getIdentity();
 
     /**
      * Determine whether this type aggregates values (as opposed to something like counting records).
@@ -78,19 +78,19 @@ public interface AtomicMutation {
      * The values are specified in the grouped part of the {@link com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression}.
      * @return {@code true} if values are allowed
      */
-    public boolean hasValues();
+    boolean hasValues();
 
     /**
      * Determine whether this type aggregates exactly one value.
      * @return {@code true} if only a single value is allowed
      */
-    public boolean hasSingleValue();
+    boolean hasSingleValue();
 
     /**
      * Determine whether this type aggregates long (integer) values.
      * @return {@code true} if only a long value is allowed
      */
-    public boolean hasLongValue();
+    boolean hasLongValue();
 
     /**
      * Determine whether this type allows negative values.
@@ -99,20 +99,20 @@ public interface AtomicMutation {
      * value in the indexed field.
      * @return {@code true} if negative values are allowed
      */
-    public boolean allowsNegative();
+    boolean allowsNegative();
 
     /**
      * Determine whether this type is idempotent.
      * Max and min type operations are idempotent; sum and count type operations are not.
      * @return {@code true} if updating the index multiple times with the same value yields the same result
      */
-    public boolean isIdempotent();
+    boolean isIdempotent();
 
     /**
      * The atomic mutations implemented straightforwardly by the FDB API.
      */
     @API(API.Status.MAINTAINED)
-    public enum Standard implements AtomicMutation {
+    enum Standard implements AtomicMutation {
         COUNT(MutationType.ADD),
         COUNT_UPDATES(MutationType.ADD),
         COUNT_NOT_NULL(MutationType.ADD),

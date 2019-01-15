@@ -52,13 +52,6 @@ import java.util.Set;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren {
-    /**
-     * A source for the primary keys for records.
-     */
-    public interface KeysSource extends PlanHashable, PlannerExpression {
-        List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context);
-    }
-
     @Nonnull
     private final ExpressionRef<KeysSource> keysSource;
 
@@ -216,6 +209,13 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         public int planHash() {
             return hashCode();
         }
+    }
+
+    /**
+     * A source for the primary keys for records.
+     */
+    public interface KeysSource extends PlanHashable, PlannerExpression {
+        List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context);
     }
 
     private static class ParameterKeySource implements KeysSource {

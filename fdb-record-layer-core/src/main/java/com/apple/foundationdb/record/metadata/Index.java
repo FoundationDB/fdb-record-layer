@@ -50,6 +50,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValu
 @API(API.Status.MAINTAINED)
 public class Index {
     @Nonnull
+    public static final KeyExpression EMPTY_VALUE = EmptyKeyExpression.EMPTY;
+
+    @Nonnull
     private final String name;
     @Nonnull
     private final String type;
@@ -71,8 +74,6 @@ public class Index {
         }
         return tuple.get(0);
     }
-
-    public static final KeyExpression EMPTY_VALUE = EmptyKeyExpression.EMPTY;
 
     /**
      * Construct new index meta-data.

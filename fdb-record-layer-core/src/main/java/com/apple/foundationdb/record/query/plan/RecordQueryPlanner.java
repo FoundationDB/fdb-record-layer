@@ -553,7 +553,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             comparisonKey = getKeyForMerge(sort, comparisonKey);
             ScoredPlan intersectionPlan = planIntersection(intersectionCandidates, comparisonKey);
             if (intersectionPlan != null) {
-                if (intersectionPlan.unsatisfiedFilters.size() == 0) {
+                if (intersectionPlan.unsatisfiedFilters.isEmpty()) {
                     return intersectionPlan;
                 } else if (bestPlan.unsatisfiedFilters.size() > intersectionPlan.unsatisfiedFilters.size()) {
                     bestPlan = intersectionPlan;
@@ -633,8 +633,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             if (plan != null) {
                 List<QueryComponent> unsatisfied;
-                if (plan.unsatisfiedFilters.size() > 0) {
-                    unsatisfied = Collections.<QueryComponent>singletonList(filter);
+                if (!plan.unsatisfiedFilters.isEmpty()) {
+                    unsatisfied = Collections.singletonList(filter);
                 } else {
                     unsatisfied = Collections.emptyList();
                 }
@@ -707,7 +707,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 }
             }
 
-            if (childPlan != null && childPlan.unsatisfiedFilters.size() > 0) {
+            if (childPlan != null && !childPlan.unsatisfiedFilters.isEmpty()) {
                 // Add the parent to the unsatisfied filters of this ScoredPlan if non-zero.
                 QueryComponent unsatisfiedFilter;
                 if (childPlan.unsatisfiedFilters.size() > 1) {
@@ -1174,7 +1174,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
         boolean reverse = subplans.get(0).plan.isReverse();
         boolean anyDuplicates = false;
-        boolean showComparisonKey = !comparisonKey.equals(planContext.commonPrimaryKey);
         Set<RankComparisons.RankComparison> includedRankComparisons = null;
         List<RecordQueryPlan> childPlans = new ArrayList<>(subplans.size());
         for (ScoredPlan subplan : subplans) {
@@ -1186,6 +1185,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             anyDuplicates |= subplan.createsDuplicates;
             includedRankComparisons = mergeRankComparisons(includedRankComparisons, subplan.includedRankComparisons);
         }
+        boolean showComparisonKey = !comparisonKey.equals(planContext.commonPrimaryKey);
         final RecordQueryPlan unionPlan = new RecordQueryUnionPlan(childPlans, comparisonKey, reverse, showComparisonKey);
         if (unionPlan.getComplexity() > complexityThreshold) {
             throw new RecordQueryPlanComplexityException(unionPlan);

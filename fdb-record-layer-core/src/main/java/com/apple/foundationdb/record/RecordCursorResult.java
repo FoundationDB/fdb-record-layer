@@ -62,6 +62,11 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordCursorResult<T> {
+
+    @Nonnull
+    private static final RecordCursorResult<Object> EXHAUSTED = new RecordCursorResult<>(RecordCursorEndContinuation.END,
+            RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
+
     private final boolean hasNext;
     @Nullable
     private final T nextValue;
@@ -249,10 +254,6 @@ public class RecordCursorResult<T> {
         }
         return (RecordCursorResult<T>) withoutNext;
     }
-
-    @Nonnull
-    private static final RecordCursorResult<Object> EXHAUSTED = new RecordCursorResult<>(RecordCursorEndContinuation.END,
-            RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
 
     /**
      * Obtain the static result that a cursor can return when it is completely exhausted.

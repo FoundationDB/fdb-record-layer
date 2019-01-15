@@ -63,6 +63,10 @@ public class RankedSet {
     public static final int MAX_LEVELS = Integer.SIZE / LEVEL_FAN_POW;
     public static final int DEFAULT_LEVELS = 6;
 
+    protected final Subspace subspace;
+    protected final Executor executor;
+    protected final int nlevels;
+
     static {
         LEVEL_FAN_VALUES = new int[MAX_LEVELS];
         for (int i = 0; i < MAX_LEVELS; ++i) {
@@ -80,10 +84,6 @@ public class RankedSet {
     private static long decodeLong(byte[] v) {
         return ByteBuffer.wrap(v).order(ByteOrder.LITTLE_ENDIAN).getLong();
     }
-
-    protected final Subspace subspace;
-    protected final Executor executor;
-    protected final int nlevels;
 
     /**
      * Initialize a new ranked set.
@@ -323,7 +323,7 @@ public class RankedSet {
     }
 
     protected interface Lookup {
-        public CompletableFuture<Boolean> next(ReadTransaction tr);
+        CompletableFuture<Boolean> next(ReadTransaction tr);
     }
 
     class RankLookup implements Lookup {

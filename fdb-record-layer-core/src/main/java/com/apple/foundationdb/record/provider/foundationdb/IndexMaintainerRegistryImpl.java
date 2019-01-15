@@ -38,20 +38,20 @@ import java.util.ServiceLoader;
  */
 @API(API.Status.INTERNAL)
 public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
+    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaintainerRegistryImpl.class);
-
+    @Nonnull
     protected static final IndexMaintainerRegistryImpl INSTANCE = new IndexMaintainerRegistryImpl();
 
+    @Nonnull
+    private final Map<String, IndexMaintainerFactory> registry;
+
+    @Nonnull
     public static IndexMaintainerRegistry instance() {
         return INSTANCE;
     }
 
-    private final Map<String, IndexMaintainerFactory> registry;
-    
-    protected IndexMaintainerRegistryImpl() {
-        registry = initRegistry();
-    }
-
+    @Nonnull
     protected static Map<String, IndexMaintainerFactory> initRegistry() {
         final Map<String, IndexMaintainerFactory> registry = new HashMap<>();
         for (IndexMaintainerFactory factory : ServiceLoader.load(IndexMaintainerFactory.class)) {
@@ -66,6 +66,10 @@ public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
             }
         }
         return registry;
+    }
+
+    protected IndexMaintainerRegistryImpl() {
+        registry = initRegistry();
     }
 
     @Nonnull

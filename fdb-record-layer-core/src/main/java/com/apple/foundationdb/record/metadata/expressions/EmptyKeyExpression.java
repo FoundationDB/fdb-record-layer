@@ -39,6 +39,7 @@ import java.util.List;
  * A single empty key.
  */
 @API(API.Status.MAINTAINED)
+@SuppressWarnings("PMD.MissingSerialVersionUID") // this appears to be a false positive
 public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpression, KeyExpressionWithoutChildren {
     public static final EmptyKeyExpression EMPTY = new EmptyKeyExpression();
     public static final RecordMetaDataProto.KeyExpression EMPTY_PROTO =

@@ -83,13 +83,14 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
         component.validate(field.getMessageType());
     }
 
+    @Override
     @Nonnull
     public QueryComponent getChild() {
         return child.get();
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.child);

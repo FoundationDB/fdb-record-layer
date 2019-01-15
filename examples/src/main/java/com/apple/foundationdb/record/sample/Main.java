@@ -254,7 +254,7 @@ public class Main {
         // NOTE: This operation is dangerous if you have existing data! Existing records are *not*
         // automatically migrated.
         rmdBuilder.getRecordType("Customer").setPrimaryKey(
-                Key.Expressions.concatenateFields("last_name", "first_name", "customer_id"));
+                concatenateFields("last_name", "first_name", "customer_id"));
 
         // Add a global count index. Most record stores should probably add this index as it allows
         // the database to make intelligent decisions based on the current size of the record store.

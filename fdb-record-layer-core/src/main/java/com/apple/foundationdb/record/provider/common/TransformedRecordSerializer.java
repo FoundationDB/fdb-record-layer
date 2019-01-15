@@ -90,6 +90,22 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     protected static final int MIN_COMPRESSION_VERSION = 1;
     protected static final int MAX_COMPRESSION_VERSION = 1;
 
+    @Nonnull
+    protected final RecordSerializer<M> inner;
+    protected final boolean compressWhenSerializing;
+    protected final int compressionLevel;
+    protected final boolean encryptWhenSerializing;
+
+    protected TransformedRecordSerializer(@Nonnull RecordSerializer<M> inner,
+                                          boolean compressWhenSerializing,
+                                          int compressionLevel,
+                                          boolean encryptWhenSerializing) {
+        this.inner = inner;
+        this.compressWhenSerializing = compressWhenSerializing;
+        this.compressionLevel = compressionLevel;
+        this.encryptWhenSerializing = encryptWhenSerializing;
+    }
+
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     protected static class TransformState {
         public boolean compressed;
@@ -136,22 +152,6 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
             this.offset = offset;
             this.length = length;
         }
-    }
-
-    @Nonnull
-    protected final RecordSerializer<M> inner;
-    protected final boolean compressWhenSerializing;
-    protected final int compressionLevel;
-    protected final boolean encryptWhenSerializing;
-
-    protected TransformedRecordSerializer(@Nonnull RecordSerializer<M> inner,
-                                          boolean compressWhenSerializing,
-                                          int compressionLevel,
-                                          boolean encryptWhenSerializing) {
-        this.inner = inner;
-        this.compressWhenSerializing = compressWhenSerializing;
-        this.compressionLevel = compressionLevel;
-        this.encryptWhenSerializing = encryptWhenSerializing;
     }
 
     protected void compress(@Nonnull TransformState state, @Nullable StoreTimer timer) {
@@ -268,6 +268,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.PreserveStackTrace")
     public M deserialize(@Nonnull RecordMetaData metaData,
                          @Nonnull Tuple primaryKey,
                          @Nonnull byte[] serialized,

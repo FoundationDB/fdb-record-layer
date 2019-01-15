@@ -67,74 +67,7 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.INTERNAL)
 public class RankComparisons {
-    /**
-     * A single rank function comparison.
-     */
-    public static class RankComparison {
-        @Nonnull
-        private final QueryRecordFunctionWithComparison comparison;
-
-        @Nonnull
-        private final Index index;
-        @Nonnull
-        private final List<QueryComponent> groupFilters;
-        @Nullable
-        private final List<Comparisons.Comparison> groupComparisons;
-        @Nullable
-        private final QueryComponent substitute;
-        @Nullable
-        private final String bindingName;
-
-        protected RankComparison(@Nonnull QueryRecordFunctionWithComparison comparison,
-                                 @Nonnull Index index,
-                                 @Nonnull List<QueryComponent> groupFilters,
-                                 @Nonnull List<Comparisons.Comparison> groupComparisons,
-                                 @Nullable QueryComponent substitute,
-                                 @Nullable String bindingName) {
-            this.comparison = comparison;
-            this.index = index;
-            this.groupFilters = groupFilters;
-            this.groupComparisons = groupComparisons;
-            this.substitute = substitute;
-            this.bindingName = bindingName;
-        }
-
-        @Nonnull
-        public Index getIndex() {
-            return index;
-        }
-
-        @Nonnull
-        public List<QueryComponent> getGroupFilters() {
-            return groupFilters;
-        }
-
-        public ScanComparisons getScanComparisons() {
-            final ScanComparisons rankComparison = ScanComparisons.from(comparison.getComparison());
-            if (groupComparisons.isEmpty()) {
-                return rankComparison;
-            } else {
-                return new ScanComparisons(groupComparisons, Collections.emptyList()).append(rankComparison);
-            }
-        }
-
-        @Nullable
-        public QueryComponent getSubstitute() {
-            return substitute;
-        }
-
-        @Nonnull
-        public RecordQueryScoreForRankPlan.ScoreForRank getScoreForRank(@Nonnull RecordMetaData metaData) {
-            final String functionName = scoreForRankFunction(comparison);
-            final IndexAggregateFunction function = new IndexAggregateFunction(functionName,
-                    ((IndexRecordFunction<?>)comparison.getFunction()).getOperand(), index.getName());
-            final List<Comparisons.Comparison> comparisons = new ArrayList<>(groupComparisons);
-            comparisons.add(comparison.getComparison());
-            final Function<Tuple, Object> bindingFunction = BindingFunctions.comparisonBindingFunction(substitute, index, metaData);
-            return new RecordQueryScoreForRankPlan.ScoreForRank(bindingName, bindingFunction, function, comparisons);
-        }
-    }
-
+    @Nonnull
     private final Map<QueryRecordFunctionWithComparison, RankComparison> comparisons = new HashMap<>();
 
     public RankComparisons(@Nullable QueryComponent filter, @Nonnull List<Index> indexes) {
@@ -282,6 +215,74 @@ public class RankComparisons {
                 comparisons.put(comparison, new RankComparison(comparison, matchingIndex.get(),
                         groupFilters, groupComparisons, substitute, bindingName));
             }
+        }
+    }
+
+    /**
+     * A single rank function comparison.
+     */
+    public static class RankComparison {
+        @Nonnull
+        private final QueryRecordFunctionWithComparison comparison;
+
+        @Nonnull
+        private final Index index;
+        @Nonnull
+        private final List<QueryComponent> groupFilters;
+        @Nullable
+        private final List<Comparisons.Comparison> groupComparisons;
+        @Nullable
+        private final QueryComponent substitute;
+        @Nullable
+        private final String bindingName;
+
+        protected RankComparison(@Nonnull QueryRecordFunctionWithComparison comparison,
+                                 @Nonnull Index index,
+                                 @Nonnull List<QueryComponent> groupFilters,
+                                 @Nonnull List<Comparisons.Comparison> groupComparisons,
+                                 @Nullable QueryComponent substitute,
+                                 @Nullable String bindingName) {
+            this.comparison = comparison;
+            this.index = index;
+            this.groupFilters = groupFilters;
+            this.groupComparisons = groupComparisons;
+            this.substitute = substitute;
+            this.bindingName = bindingName;
+        }
+
+        @Nonnull
+        public Index getIndex() {
+            return index;
+        }
+
+        @Nonnull
+        public List<QueryComponent> getGroupFilters() {
+            return groupFilters;
+        }
+
+        public ScanComparisons getScanComparisons() {
+            final ScanComparisons rankComparison = ScanComparisons.from(comparison.getComparison());
+            if (groupComparisons.isEmpty()) {
+                return rankComparison;
+            } else {
+                return new ScanComparisons(groupComparisons, Collections.emptyList()).append(rankComparison);
+            }
+        }
+
+        @Nullable
+        public QueryComponent getSubstitute() {
+            return substitute;
+        }
+
+        @Nonnull
+        public RecordQueryScoreForRankPlan.ScoreForRank getScoreForRank(@Nonnull RecordMetaData metaData) {
+            final String functionName = scoreForRankFunction(comparison);
+            final IndexAggregateFunction function = new IndexAggregateFunction(functionName,
+                    ((IndexRecordFunction<?>)comparison.getFunction()).getOperand(), index.getName());
+            final List<Comparisons.Comparison> comparisons = new ArrayList<>(groupComparisons);
+            comparisons.add(comparison.getComparison());
+            final Function<Tuple, Object> bindingFunction = BindingFunctions.comparisonBindingFunction(substitute, index, metaData);
+            return new RecordQueryScoreForRankPlan.ScoreForRank(bindingName, bindingFunction, function, comparisons);
         }
     }
 }

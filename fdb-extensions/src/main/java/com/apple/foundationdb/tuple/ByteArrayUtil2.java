@@ -65,8 +65,7 @@ public class ByteArrayUtil2 {
         } else {
             StringBuilder sb = new StringBuilder();
 
-            for (int i = 0; i < bytes.length; ++i) {
-                byte b = bytes[i];
+            for (byte b : bytes) {
                 // remove '=' and '"' because they confuse parsing of key=value log messages
                 if (b >= MINIMUM_PRINTABLE_CHARACTER && b < MAXIMUM_PRINTABLE_CHARACTER &&
                         b != BACKSLASH_CHARACTER && b != EQUALS_CHARACTER && b != DOUBLE_QUOTE_CHARACTER) {

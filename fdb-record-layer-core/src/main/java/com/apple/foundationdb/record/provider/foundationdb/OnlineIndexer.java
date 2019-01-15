@@ -1256,10 +1256,10 @@ public class OnlineIndexer implements AutoCloseable {
         // Check pointer equality to make sure other objects really came from given metaData.
         // Also resolve record types to use if not specified.
         private void validateIndex() {
-            final RecordMetaData metaData = getRecordMetaData();
             if (index == null) {
                 throw new MetaDataException("index must be set");
             }
+            final RecordMetaData metaData = getRecordMetaData();
             if (!metaData.hasIndex(index.getName()) || index != metaData.getIndex(index.getName())) {
                 throw new MetaDataException("Index " + index.getName() + " not contained within specified metadata");
             }

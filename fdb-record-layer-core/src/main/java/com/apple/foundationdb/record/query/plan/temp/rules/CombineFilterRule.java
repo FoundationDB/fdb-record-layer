@@ -41,10 +41,10 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
-    public static final ExpressionMatcher<ExpressionRef<QueryComponent>> firstMatcher = ReferenceMatcher.anyRef();
-    public static final ExpressionMatcher<ExpressionRef<QueryComponent>> secondMatcher = ReferenceMatcher.anyRef();
-    public static final ExpressionMatcher<ExpressionRef<RelationalPlannerExpression>> childMatcher = ReferenceMatcher.anyRef();
-    public static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
+    private static final ExpressionMatcher<ExpressionRef<QueryComponent>> firstMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<ExpressionRef<QueryComponent>> secondMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<ExpressionRef<RelationalPlannerExpression>> childMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
             firstMatcher,
             TypeMatcher.of(LogicalFilterExpression.class,
                     secondMatcher, childMatcher));

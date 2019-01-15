@@ -42,6 +42,7 @@ public class SingleExpressionRef<T extends PlannerExpression> implements Mutable
         this.expression = expression;
     }
 
+    @Override
     @Nonnull
     public T get() {
         return expression;
@@ -78,8 +79,8 @@ public class SingleExpressionRef<T extends PlannerExpression> implements Mutable
      * @param existing an existing map of bindings
      * @return a map of bindings if the match succeeded, or an empty <code>Optional</code> if it failed
      */
-    @Nonnull
     @Override
+    @Nonnull
     public Optional<PlannerBindings> bindWithExisting(@Nonnull ExpressionMatcher<? extends Bindable> binding, @Nonnull PlannerBindings existing) {
         switch (binding.matches(this)) {
             case UNKNOWN:

@@ -458,7 +458,7 @@ public abstract class LocatableResolver {
             try {
                 return ResolverStateProto.State.parseFrom(bytes);
             } catch (InvalidProtocolBufferException exception) {
-                throw new RecordCoreException("invalid state value")
+                throw new RecordCoreException("invalid state value", exception)
                         .addLogInfo("valueBytes", ByteArrayUtil2.loggable(bytes));
             }
         }

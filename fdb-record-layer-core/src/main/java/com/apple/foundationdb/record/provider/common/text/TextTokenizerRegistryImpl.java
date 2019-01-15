@@ -47,8 +47,13 @@ import java.util.ServiceLoader;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TextTokenizerRegistryImpl implements TextTokenizerRegistry {
+    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(TextTokenizerRegistryImpl.class);
+    @Nonnull
     private static final TextTokenizerRegistryImpl INSTANCE = new TextTokenizerRegistryImpl();
+
+    @Nonnull
+    private Map<String, TextTokenizerFactory> registry;
 
     @Nonnull
     private static Map<String, TextTokenizerFactory> initRegistry() {
@@ -73,9 +78,6 @@ public class TextTokenizerRegistryImpl implements TextTokenizerRegistry {
     public static TextTokenizerRegistry instance() {
         return INSTANCE;
     }
-
-    @Nonnull
-    private Map<String, TextTokenizerFactory> registry;
 
     private TextTokenizerRegistryImpl() {
         registry = initRegistry();
@@ -104,6 +106,7 @@ public class TextTokenizerRegistryImpl implements TextTokenizerRegistry {
     // Synchronize this method so that we don't need a ConcurrentHashMap but so that
     // it is still thread safe.
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public synchronized void register(@Nonnull TextTokenizerFactory tokenizerFactory) {
         final String name = tokenizerFactory.getName();
         TextTokenizerFactory oldFactory = registry.putIfAbsent(name, tokenizerFactory);

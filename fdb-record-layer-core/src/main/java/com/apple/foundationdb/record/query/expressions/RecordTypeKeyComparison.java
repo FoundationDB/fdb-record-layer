@@ -46,83 +46,6 @@ import java.util.Set;
  */
 @API(API.Status.MAINTAINED)
 public class RecordTypeKeyComparison implements ComponentWithComparison {
-    static class RecordTypeComparison implements Comparisons.Comparison {
-        private final String recordTypeName;
-
-        RecordTypeComparison(String recordTypeName) {
-            this.recordTypeName = recordTypeName;
-        }
-
-        @Nullable
-        @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            if (value == null) {
-                return null;
-            }
-            return ((Message)value).getDescriptorForType().getName().equals(recordTypeName);
-        }
-
-        @Override
-        public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
-            // Do not actually apply to any particular field.
-        }
-
-        @Nonnull
-        @Override
-        public Comparisons.Type getType() {
-            return Comparisons.Type.EQUALS;
-        }
-
-        @Nullable
-        @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
-            if (store == null) {
-                throw new Comparisons.EvaluationContextRequiredException("Cannot get record type key without store");
-            }
-            return store.getRecordMetaData().getRecordType(recordTypeName).getRecordTypeKey();
-        }
-
-        @Nonnull
-        @Override
-        public String typelessString() {
-            return recordTypeName;
-        }
-
-        @Override
-        public int planHash() {
-            return PlanHashable.objectPlanHash(recordTypeName);
-        }
-
-        @Nonnull
-        @Override
-        @API(API.Status.EXPERIMENTAL)
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
-        }
-
-        @Override
-        public String toString() {
-            return "IS " + recordTypeName;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            RecordTypeComparison that = (RecordTypeComparison)o;
-            return Objects.equals(recordTypeName, that.recordTypeName);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(recordTypeName);
-        }
-    }
-
     @Nonnull
     private final ExpressionRef<RecordTypeComparison> comparison;
 
@@ -201,5 +124,82 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     @Override
     public QueryComponent withOtherComparison(Comparisons.Comparison comparison) {
         throw new UnsupportedOperationException("Cannot change comparison");
+    }
+
+    static class RecordTypeComparison implements Comparisons.Comparison {
+        private final String recordTypeName;
+
+        RecordTypeComparison(String recordTypeName) {
+            this.recordTypeName = recordTypeName;
+        }
+
+        @Nullable
+        @Override
+        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+            if (value == null) {
+                return null;
+            }
+            return ((Message)value).getDescriptorForType().getName().equals(recordTypeName);
+        }
+
+        @Override
+        public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
+            // Do not actually apply to any particular field.
+        }
+
+        @Nonnull
+        @Override
+        public Comparisons.Type getType() {
+            return Comparisons.Type.EQUALS;
+        }
+
+        @Nullable
+        @Override
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+            if (store == null) {
+                throw new Comparisons.EvaluationContextRequiredException("Cannot get record type key without store");
+            }
+            return store.getRecordMetaData().getRecordType(recordTypeName).getRecordTypeKey();
+        }
+
+        @Nonnull
+        @Override
+        public String typelessString() {
+            return recordTypeName;
+        }
+
+        @Override
+        public int planHash() {
+            return PlanHashable.objectPlanHash(recordTypeName);
+        }
+
+        @Nonnull
+        @Override
+        @API(API.Status.EXPERIMENTAL)
+        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+            return Collections.emptyIterator();
+        }
+
+        @Override
+        public String toString() {
+            return "IS " + recordTypeName;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RecordTypeComparison that = (RecordTypeComparison)o;
+            return Objects.equals(recordTypeName, that.recordTypeName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(recordTypeName);
+        }
     }
 }

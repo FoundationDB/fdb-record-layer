@@ -167,6 +167,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      * @param index the index to get the tokenizer version of
      * @return the tokenizer version associated with the given index
      */
+    @SuppressWarnings("PMD.PreserveStackTrace")
     public static int getIndexTokenizerVersion(@Nonnull Index index) {
         String versionStr = index.getOption(IndexOptions.TEXT_TOKENIZER_VERSION_OPTION);
         if (versionStr != null) {

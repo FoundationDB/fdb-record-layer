@@ -412,10 +412,8 @@ public class MoreAsyncUtil {
                             return nextFuture;
                         }
                         nextFuture = whileTrue(() -> {
-                            CompletableFuture<Boolean> outer = null;
-                            CompletableFuture<Boolean> inner = null;
                             List<CompletableFuture<Boolean>> waitOn = new ArrayList<>(2);
-                            outer = iterator.onHasNext();
+                            CompletableFuture<Boolean> outer = iterator.onHasNext();
                             if (outer.isDone()) {
                                 if (outer.getNow(false) && (pipeline.size() < pipelineSize)) {
                                     AsyncIterator<T2> next = func.apply(iterator.next()).iterator();
@@ -427,6 +425,7 @@ public class MoreAsyncUtil {
                                 waitOn.add(outer);
                             }
 
+                            CompletableFuture<Boolean> inner;
                             AsyncIterator<T2> current = pipeline.peek();
                             if (current != null) {
                                 inner = current.onHasNext();

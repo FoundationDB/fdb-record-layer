@@ -748,7 +748,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      */
     public void addMultiTypeIndex(@Nullable List<RecordTypeBuilder> recordTypes, @Nonnull Index index) {
         addIndexCommon(index);
-        if (recordTypes == null || recordTypes.size() == 0) {
+        if (recordTypes == null || recordTypes.isEmpty()) {
             universalIndexes.put(index.getName(), index);
         } else if (recordTypes.size() == 1) {
             recordTypes.get(0).getIndexes().add(index);

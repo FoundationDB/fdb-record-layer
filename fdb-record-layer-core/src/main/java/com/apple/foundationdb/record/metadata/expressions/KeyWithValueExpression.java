@@ -79,14 +79,13 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     @Override
     public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
         KeyExpression key = getInnerKey();
-        List<Descriptors.FieldDescriptor> results = key.validate(descriptor);
         if (key.getColumnSize() < splitPoint) {
             throw new InvalidExpressionException("Child expression of covering expression returns too few columns")
                     .addLogInfo(
                             "split_point", splitPoint,
                             "child_columns", key.getColumnSize());
         }
-        return results;
+        return key.validate(descriptor);
     }
 
     @Override

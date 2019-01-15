@@ -57,6 +57,12 @@ public class Key {
      * Holder class for the static methods for creating Key Expressions.
      */
     public static class Expressions {
+        /** The name of the key field in Protobuf {@code map} messages. */
+        @Nonnull
+        public static final String MAP_KEY_FIELD = "key";
+        /** The name of the value field in Protobuf {@code map} messages. */
+        @Nonnull
+        public static final String MAP_VALUE_FIELD = "value";
 
         private Expressions() {}
 
@@ -159,13 +165,6 @@ public class Key {
             }
             return new ThenKeyExpression(exprs);
         }
-
-        /** The name of the key field in Protobuf {@code map} messages. */
-        @Nonnull
-        public static final String MAP_KEY_FIELD = "key";
-        /** The name of the value field in Protobuf {@code map} messages. */
-        @Nonnull
-        public static final String MAP_VALUE_FIELD = "value";
 
         /**
          * Index key and value from a {@code map}.
@@ -346,7 +345,7 @@ public class Key {
         /**
          * Values used in index keys in place of missing fields.
          */
-        public static enum NullStandin {
+        public enum NullStandin {
             NULL(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE), // Missing field here skips uniqueness checks.
             NULL_UNIQUE(RecordMetaDataProto.Field.NullInterpretation.UNIQUE), // Missing field here like ordinary value, but null, for uniqueness.
             NOT_NULL(RecordMetaDataProto.Field.NullInterpretation.NOT_NULL); // Missing field has type's ordinary default value.
@@ -504,6 +503,7 @@ public class Key {
         }
 
         @Nullable
+        @SuppressWarnings("PMD.PreserveStackTrace")
         public <T> T getObject(int idx, Class<T> clazz) {
             final Object result = toTupleAppropriateValue(values.get(idx));
             try {

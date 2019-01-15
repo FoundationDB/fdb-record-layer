@@ -37,6 +37,7 @@ import java.util.concurrent.Executor;
  * some {@link Subspace} in the database.
  */
 @API(API.Status.STABLE)
+@SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class FDBStoreBase {
     @Nonnull
     protected final FDBRecordContext context;

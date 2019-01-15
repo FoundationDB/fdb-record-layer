@@ -92,6 +92,7 @@ public class NotComponent implements ComponentWithSingleChild {
     /**
      * Child for this component.
      */
+    @Override
     @Nonnull
     public QueryComponent getChild() {
         return child.get();
@@ -124,8 +125,8 @@ public class NotComponent implements ComponentWithSingleChild {
         return getChild().planHash() + 1;
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.child);

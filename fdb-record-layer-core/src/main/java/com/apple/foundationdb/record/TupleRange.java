@@ -27,6 +27,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -135,8 +136,9 @@ public class TupleRange {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedNullCheckInEquals") // uses TupleHelpers::equals for efficiency reasons
     public boolean isEquals() {
-        return low == high && low != null &&
+        return low != null && TupleHelpers.equals(low, high) &&
                 lowEndpoint == EndpointType.RANGE_INCLUSIVE && highEndpoint == EndpointType.RANGE_INCLUSIVE;
     }
 
@@ -152,6 +154,7 @@ public class TupleRange {
      * @return a new <code>TupleRange</code> over all keys in this range but prepended with <code>beginning</code>
      */
     @Nonnull
+    @SuppressWarnings("PMD.UnusedNullCheckInEquals") // uses TupleHelpers::equals for efficiency reasons
     public TupleRange prepend(@Nonnull Tuple beginning) {
         Tuple newLow;
         EndpointType newLowEndpoint;
@@ -170,7 +173,7 @@ public class TupleRange {
             newHigh = beginning;
             newHighEndpoint = EndpointType.RANGE_INCLUSIVE;
         } else {
-            if (low == high) {
+            if (TupleHelpers.equals(low, high)) {
                 newHigh = newLow;
             } else {
                 newHigh = beginning.addAll(high);
