@@ -20,12 +20,45 @@
 
 apply plugin: 'com.jfrog.bintray'
 
+// Add various details to the pom file to allow for publishing
+def addPublishingInfo(publication) {
+    publication.pom {
+        name = project.name
+        url = 'https://foundationdb.github.io/fdb-record-layer/'
+
+        licenses {
+            license {
+                name = 'The Apache License, Version 2.0'
+                url = 'https://www.apache.org/licenses/LICENSE-2.0'
+            }
+        }
+
+        developers {
+            developer {
+                name = 'FoundationDB'
+            }
+        }
+
+        scm {
+            url = 'https://github.com/FoundationDB/fdb-record-layer/'
+            connection = 'scm:git:git@github.com:FoundationDB/fdb-record-layer.git'
+            developerConnection = 'scm:git:git@github.com:FoundationDB/fdb-record-layer.git'
+        }
+    }
+}
+
+ext {
+    // Make the "addPublishingInfo" method visible from outside this plugin
+    addPublishingInfo = this.&addPublishingInfo
+}
+
 publishing {
     publications {
-        library(MavenPublication) {
+        library(MavenPublication) { publication ->
             from components.java
             artifact tasks.sourcesJar
             artifact tasks.javadocJar
+            addPublishingInfo(publication)
         }
     }
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
