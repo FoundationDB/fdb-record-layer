@@ -420,7 +420,10 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of times that a leaderboard update deleted a time window. */
         TIME_WINDOW_LEADERBOARD_DELETE_WINDOW("number of leaderboard windows deleted", false),
         /** The number of times that a leaderboard needs to be rebuilt because a window was added after a score it should contain. */
-        TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED("number of leaderboard conditional rebuilds", false);
+        TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED("number of leaderboard conditional rebuilds", false),
+        /** The number of times that an index entry does not point to a valid record. */
+        BAD_INDEX_ENTRY("number of occurrences of bad index entries", false),
+        ;
 
         private final String title;
         private final boolean isSize;

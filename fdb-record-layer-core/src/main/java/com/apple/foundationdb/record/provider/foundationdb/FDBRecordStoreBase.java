@@ -827,6 +827,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                     case RETURN:
                         break;
                     case ERROR:
+                        if (getTimer() != null) {
+                            getTimer().increment(FDBStoreTimer.Counts.BAD_INDEX_ENTRY);
+                        }
                         throw new RecordCoreStorageException("record not found from index entry").addLogInfo(
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.PRIMARY_KEY, primaryKey,
