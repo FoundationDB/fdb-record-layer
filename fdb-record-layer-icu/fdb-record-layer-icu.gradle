@@ -47,3 +47,14 @@ test {
         }
     }
 }
+
+apply from: rootProject.file('gradle/publishing.gradle')
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Collation support for fdb-record-layer using ICU'
+            }
+        }
+    }
+}
