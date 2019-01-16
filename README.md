@@ -8,7 +8,7 @@ The Record Layer is a Java API providing a record-oriented store on top of Found
 * **Indexes** - The Record Layer supports a variety of different index
   types including value indexes (the kind provided by most databases),
   rank indexes, and aggregate indexes. Indexes and primary keys can
-  be defined either via protobuf options or programatically.
+  be defined either via protobuf options or programmatically.
 * **Complex types** - Support for complex types, such as lists and
   nested records, including the ability to define indexes against
   such nested structures.
