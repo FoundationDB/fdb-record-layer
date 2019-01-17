@@ -40,6 +40,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TextCollatorRegistryICU implements TextCollatorRegistry {
     public static final TextCollatorRegistryICU INSTANCE = new TextCollatorRegistryICU();
 
+    private static final String DEFAULT_LOCALE = "";
+
+    private Map<Pair<String, Integer>, TextCollatorICU> collators = new ConcurrentHashMap<>();
+
     /**
      * Get the singleton instance of this registry.
      * @return the text collator registry that used ICU classes.
@@ -49,12 +53,8 @@ public class TextCollatorRegistryICU implements TextCollatorRegistry {
         return INSTANCE;
     }
 
-    private Map<Pair<String, Integer>, TextCollatorICU> collators = new ConcurrentHashMap<>();
-
     private TextCollatorRegistryICU() {
     }
-
-    private static final String DEFAULT_LOCALE = "";
 
     @Override
     @Nonnull

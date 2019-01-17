@@ -38,6 +38,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TextCollatorRegistryJRE implements TextCollatorRegistry {
     public static final TextCollatorRegistryJRE INSTANCE = new TextCollatorRegistryJRE();
 
+    private static final String DEFAULT_LOCALE = "";
+
+    private Map<Pair<String, Integer>, TextCollatorJRE> collators = new ConcurrentHashMap<>();
+
     /**
      * Get the singleton instance of this registry.
      * @return the text collator registry that used JRE classes.
@@ -47,12 +51,8 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
         return INSTANCE;
     }
 
-    private Map<Pair<String, Integer>, TextCollatorJRE> collators = new ConcurrentHashMap<>();
-
     private TextCollatorRegistryJRE() {
     }
-
-    private static final String DEFAULT_LOCALE = "";
 
     @Override
     @Nonnull

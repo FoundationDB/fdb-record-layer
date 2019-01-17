@@ -42,7 +42,7 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public interface QueryableKeyExpression extends KeyExpression {
     @Nonnull
-    public String getName();
+    String getName();
 
     @Nullable
     default <M extends Message> Object evalForQuery(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {

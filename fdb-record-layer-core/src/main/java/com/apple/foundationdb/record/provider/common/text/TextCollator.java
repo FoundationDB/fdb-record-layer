@@ -40,7 +40,7 @@ public interface TextCollator extends Comparator<String> {
      *
      * These match values in {@code java.text.Collator} and other APIs.
      */
-    public static final class Strength {
+    final class Strength {
         /**
          * Respect <em>primary</em> differences, which normally means base form.
          */
