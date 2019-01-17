@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -271,6 +272,53 @@ class KeySpacePathImpl implements KeySpacePath {
             context.ensureActive().clear(rangeStart, rangeEnd);
             return null;
         });
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) {
+            return true;
+        }
+
+        if (!(obj instanceof KeySpacePath)) {
+            return false;
+        }
+        KeySpacePath that = (KeySpacePath) obj;
+
+        // Check that the KeySpaceDirectories of the two paths are "equal enough".
+        // Even this is probably overkill since the isCompatible check in KeySpaceDirectory
+        // will keep us from doing anything too bad. We could move this check into KeySpaceDirectory
+        // but comparing two directories by value would necessitate traversing the entire directory
+        // tree, so instead we will use a narrower definition of equality here.
+        boolean directoriesEqual = Objects.equals(this.getDirectory().getKeyType(), that.getDirectory().getKeyType()) &&
+                                   Objects.equals(this.getDirectory().getName(), that.getDirectory().getName()) &&
+                                   Objects.equals(this.getDirectory().getValue(), that.getDirectory().getValue());
+
+        return directoriesEqual &&
+               Objects.equals(this.getValue(), that.getValue()) &&
+               Objects.equals(this.getParent(), that.getParent());
+    }
+
+    @Override
+    public int hashCode() {
+        ImmutableList.Builder<Object> listBuilder = ImmutableList.builder();
+
+        listBuilder.add(getDirectory().getKeyType());
+        listBuilder.add(getDirectory().getName());
+
+        if (getDirectory().getValue() != null) {
+            listBuilder.add(getDirectory().getValue());
+        }
+
+        if (getValue() != null) {
+            listBuilder.add(getValue());
+        }
+
+        if (parent != null) {
+            listBuilder.add(parent);
+        }
+
+        return Objects.hash(listBuilder.build().toArray());
     }
 
     @Override
