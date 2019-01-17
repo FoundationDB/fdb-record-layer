@@ -309,8 +309,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Join a future following the same logic that <code>asyncToSync(FDBStoreTimer.Wait, CompletableFuture)</code> uses
-     * to validate that the operation isn't blocking in an asynchronous context.
+     * Join a future following the same logic that <code>asyncToSync()</code> uses to validate that the operation
+     * isn't blocking in an asynchronous context.
      *
      * @param future the future to be completed
      * @param <T> the type of the value produced by the future
@@ -321,8 +321,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Get a future following the same logic that <code>asyncToSync(FDBStoreTimer.Wait, CompletableFuture)</code> uses
-     * to validate that the operation isn't blocking in an asynchronous context.
+     * Get a future following the same logic that <code>asyncToSync()</code> uses to validate that the operation
+     * isn't blocking in an asynchronous context.
      *
      * @param future the future to be completed
      * @param <T> the type of the value produced by the future

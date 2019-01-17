@@ -88,14 +88,14 @@ public class FDBDatabase {
 
     /**
      * Text of message that is logged or exception that is thrown when a blocking API call
-     * (<code>asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, CompletableFuture)</code>, {@link #join(CompletableFuture)},
-     * or {@link #get(CompletableFuture)}) is called from within a <code>CompletableFuture</code> completion state.
+     * (<code>asyncToSync()</code>, {@link #join(CompletableFuture)}, or {@link #get(CompletableFuture)}) is
+     * called from within a <code>CompletableFuture</code> completion state.
      */
     protected static final String BLOCKING_IN_ASYNC_CONTEXT_MESSAGE = "Blocking in an asynchronous context";
 
     /**
      * Message that logged when it is detected that a blocking call is being made in a method that may be producing
-     * a future (specifically a method that ends in "<code>Async</code>".
+     * a future (specifically a method that ends in "<code>Async</code>").
      */
     protected static final String BLOCKING_RETURNING_ASYNC_MESSAGE = "Blocking in future producing call";
 
@@ -748,8 +748,8 @@ public class FDBDatabase {
     }
 
     /**
-     * Join a future, following the same logic that <code>asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, CompletableFuture)</code>
-     * uses to validate that the operation isn't blocking in an asynchronous context.
+     * Join a future, following the same logic that <code>asyncToSync()</code> uses to validate that the operation
+     * isn't blocking in an asynchronous context.
      *
      * @param future the future to be completed
      * @param <T> the type of the value produced by the future
@@ -761,8 +761,8 @@ public class FDBDatabase {
     }
 
     /**
-     * Get a future, following the same logic that <code>asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, CompletableFuture)</code>
-     * uses to validate that the operation isn't blocking in an asynchronous context.
+     * Get a future, following the same logic that <code>asyncToSync()</code> uses to validate that the operation
+     * isn't blocking in an asynchronous context.
      *
      * @param future the future to be completed
      * @param <T> the type of the value produced by the future
@@ -807,7 +807,7 @@ public class FDBDatabase {
         // }
         //
         // There are possibly legitimate situations in which this might occur, but those are probably rare, so
-        // just we will log the fact that this has taken place and where it has taken place here.
+        // we will simply log the fact that this has taken place and where it has taken place here.
         StackTraceElement possiblyAsyncReturningLocation = null;
 
         for (StackTraceElement stackElement : stack) {

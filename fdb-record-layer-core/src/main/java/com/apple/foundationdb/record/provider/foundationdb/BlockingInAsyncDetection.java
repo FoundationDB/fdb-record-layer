@@ -23,10 +23,9 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.API;
 
 /**
- * Indicates whether <code>FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, CompletableFuture)</code> or
- * <code>FDBRecordContext#asyncToSync(FDBStoreTimer.Wait, CompletableFuture)</code> should attempt to detect when
- * it is being called from an asynchronous context and, if so, how it should react to this fact.  When this
- * situation is detected, there are two scenarios that need to be dealt with:
+ * Indicates whether <code>FDBDatabase.asyncToSync()</code> or <code>FDBRecordContext.asyncToSync()</code> should
+ * attempt to detect when it is being called from an asynchronous context and, if so, how it should react to
+ * this fact.  When this situation is detected, there are two scenarios that need to be dealt with:
  * <ul>
  *     <li><b>Completed future</b> - the future that was to be waited on is completed. In some code, this is
  *       normal expected behavior; some prior logic ensured that the future was completed and subsequent calls
