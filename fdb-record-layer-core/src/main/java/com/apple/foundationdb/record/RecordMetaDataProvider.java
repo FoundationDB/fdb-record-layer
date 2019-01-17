@@ -32,7 +32,13 @@ import javax.annotation.Nonnull;
 @API(API.Status.STABLE)
 public interface RecordMetaDataProvider {
 
+    /**
+     * Provide an instance of {@link RecordMetaData}.
+     * Implementors should assume that this method will be called frequently, so it may
+     * be necessary to cache the result if generating the {@link RecordMetaData} is expensive.
+     *
+     * @return an instance of {@link RecordMetaData}
+     */
     @Nonnull
-    public RecordMetaData getRecordMetaData();
-
+    RecordMetaData getRecordMetaData();
 }

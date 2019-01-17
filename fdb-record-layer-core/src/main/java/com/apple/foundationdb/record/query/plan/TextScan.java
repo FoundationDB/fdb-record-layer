@@ -212,12 +212,6 @@ public class TextScan implements PlanHashable {
                     .skip(scanProperties.getExecuteProperties().getSkip())
                     .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
         } else {
-            // It's either TEXT_CONTAINS_ALL_WITHIN_DISTANCE or TEXT_CONTAINS_PHRASE. In any case, we need to scan
-            // all tokens, intersect, and then apply a filter on the returned list.
-            final ScanProperties childScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
-            List<Function<byte[], RecordCursor<IndexEntry>>> intersectionChildren = tokenList.stream().map(token -> scanToken(store, token, prefix, suffix, index, childScanProperties)).collect(Collectors.toList());
-            final RecordCursor<List<IndexEntry>> intersectionCursor = IntersectionMultiCursor.create(suffixComparisonKeyFunction(prefixEntries), scanProperties.isReverse(), intersectionChildren, continuation, store.getTimer());
-
             // Apply the filter based on the position lists
             final Function<List<IndexEntry>, Boolean> predicate;
             if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ALL_WITHIN) && textComparison instanceof Comparisons.TextWithMaxDistanceComparison) {
@@ -230,6 +224,11 @@ public class TextScan implements PlanHashable {
                 throw new RecordCoreException("unsupported comparison type for text query: " + comparisonType);
             }
 
+            // It's either TEXT_CONTAINS_ALL_WITHIN_DISTANCE or TEXT_CONTAINS_PHRASE. In any case, we need to scan
+            // all tokens, intersect, and then apply a filter on the returned list.
+            final ScanProperties childScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
+            List<Function<byte[], RecordCursor<IndexEntry>>> intersectionChildren = tokenList.stream().map(token -> scanToken(store, token, prefix, suffix, index, childScanProperties)).collect(Collectors.toList());
+            final RecordCursor<List<IndexEntry>> intersectionCursor = IntersectionMultiCursor.create(suffixComparisonKeyFunction(prefixEntries), scanProperties.isReverse(), intersectionChildren, continuation, store.getTimer());
             return intersectionCursor
                     .filterInstrumented(predicate, store.getTimer(), inCounts, duringEvents, successCounts, failureCounts)
                     .map(indexEntries -> indexEntries.get(0))
@@ -299,6 +298,7 @@ public class TextScan implements PlanHashable {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.ForLoopCanBeForeach") // avoids an extra iterator allocation
     private static List<List<Integer>> getPositionListsAndDeltas(@Nonnull List<IndexEntry> entries, @Nonnull List<String> tokensWithStopWords, @Nonnull List<Integer> deltas) {
         List<List<Integer>> positionLists = getPositionsLists(entries);
 

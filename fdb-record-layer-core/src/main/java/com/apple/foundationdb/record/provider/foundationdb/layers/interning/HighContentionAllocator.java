@@ -226,7 +226,7 @@ public class HighContentionAllocator {
             if (windowBegin < 255) {
                 return 1 << 6;
             }
-            if (windowBegin < 65535) {
+            if (windowBegin < 65_535) {
                 return 1 << 10;
             }
             return 1 << 12;

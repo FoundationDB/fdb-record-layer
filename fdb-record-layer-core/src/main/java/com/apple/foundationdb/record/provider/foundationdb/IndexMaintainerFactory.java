@@ -51,7 +51,7 @@ public interface IndexMaintainerFactory {
      * @return a collection of strings of index types supported by this factory
      */
     @Nonnull
-    public Iterable<String> getIndexTypes();
+    Iterable<String> getIndexTypes();
 
     /**
      * Get a validator for the given index meta-data.
@@ -59,7 +59,7 @@ public interface IndexMaintainerFactory {
      * @return a validator for this kind of index
      */
     @Nonnull
-    public IndexValidator getIndexValidator(Index index);
+    IndexValidator getIndexValidator(Index index);
 
     /**
      * Get an index maintainer for the given record store and index meta-data.
@@ -67,5 +67,5 @@ public interface IndexMaintainerFactory {
      * @return a new index maintainer for the type of index given
      */
     @Nonnull
-    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state);
+    IndexMaintainer getIndexMaintainer(IndexMaintainerState state);
 }

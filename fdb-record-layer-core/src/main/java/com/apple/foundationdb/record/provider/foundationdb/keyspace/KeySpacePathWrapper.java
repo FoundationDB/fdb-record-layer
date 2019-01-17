@@ -102,8 +102,8 @@ public class KeySpacePathWrapper implements KeySpacePath {
     }
 
     @Deprecated
-    @Nonnull
     @Override
+    @Nonnull
     public FDBRecordContext getContext() {
         return inner.getContext();
     }
@@ -149,8 +149,8 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.getValue();
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     public PathValue getStoredValue() {
         return inner.getStoredValue();
     }
@@ -166,6 +166,7 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.resolveAsync(context);
     }
 
+    @Override
     @Nonnull
     public CompletableFuture<Tuple> toTupleAsync(@Nonnull FDBRecordContext context) {
         return inner.toTupleAsync(context);
@@ -177,20 +178,20 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.flatten();
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     public CompletableFuture<Boolean> hasDataAsync(@Nonnull FDBRecordContext context) {
         return inner.hasDataAsync(context);
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     public CompletableFuture<Void> deleteAllDataAsync(@Nonnull FDBRecordContext context) {
         return inner.deleteAllDataAsync(context);
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     public RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context,
                                                 @Nonnull String subdirName,
                                                 @Nullable ValueRange<?> range,

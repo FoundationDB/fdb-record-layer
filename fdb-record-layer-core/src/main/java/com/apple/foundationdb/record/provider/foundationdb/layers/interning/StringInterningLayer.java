@@ -197,7 +197,7 @@ public class StringInterningLayer {
                     interned.getInternedValue(),
                     interned.hasMetadata() ? interned.getMetadata().toByteArray() : null);
         } catch (InvalidProtocolBufferException exception) {
-            throw new RecordCoreException("invalid interned value")
+            throw new RecordCoreException("invalid interned value", exception)
                     .addLogInfo("internedBytes", ByteArrayUtil2.loggable(bytes))
                     .addLogInfo("mappingSubspace", mappingSubspace);
         }

@@ -73,12 +73,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     private long committedVersion;
     private long transactionCreateTime;
-    @Nullable private byte[] versionStamp;
-    @Nonnull private AtomicInteger localVersion;
-    @Nonnull private ConcurrentNavigableMap<Tuple, Integer> localVersionCache;
-    @Nonnull private ConcurrentNavigableMap<byte[], Pair<MutationType, byte[]>> versionMutationCache;
+    @Nullable
+    private byte[] versionStamp;
+    @Nonnull
+    private AtomicInteger localVersion;
+    @Nonnull
+    private ConcurrentNavigableMap<Tuple, Integer> localVersionCache;
+    @Nonnull
+    private ConcurrentNavigableMap<byte[], Pair<MutationType, byte[]>> versionMutationCache;
     private FDBDatabase.WeakReadSemantics weakReadSemantics;
-    @Nullable private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
+    @Nullable
+    private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
+    @Nonnull
+    private final Queue<CommitCheck> commitChecks = new ArrayDeque<>();
+    @Nonnull
+    private final Queue<AfterCommit> afterCommits = new ArrayDeque<>();
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
                                boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
@@ -124,7 +133,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             }
         }
     }
-
 
     /**
      * Commit an open transaction.
@@ -215,12 +223,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * A consistency check, such as uniqueness, that can execute asynchronously and is finally checked at or before commit time.
      */
     public interface CommitCheck {
-        public boolean isReady();
+        boolean isReady();
 
-        public void check();
+        void check();
     }
-
-    private final Queue<CommitCheck> commitChecks = new ArrayDeque<>();
 
     public synchronized void addCommitCheck(@Nonnull CommitCheck check) {
         while (!commitChecks.isEmpty()) {
@@ -243,10 +249,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * A hook to run after commit has completed successfully.
      */
     public interface AfterCommit {
-        public void run();
+        void run();
     }
-
-    private final Queue<AfterCommit> afterCommits = new ArrayDeque<>();
 
     public synchronized void addAfterCommit(@Nonnull AfterCommit afterCommit) {
         afterCommits.add(afterCommit);

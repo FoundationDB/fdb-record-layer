@@ -88,25 +88,30 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
     }
 
     @Nonnull
+    @Override
     public Tuple getPrimaryKey() {
         return getStoredRecord().getPrimaryKey();
     }
 
     @Nonnull
+    @Override
     public RecordType getRecordType() {
         return getStoredRecord().getRecordType();
     }
 
     @Nonnull
+    @Override
     public M getRecord() {
         return getStoredRecord().getRecord();
     }
 
+    @Override
     public boolean hasVersion() {
         return getStoredRecord().hasVersion();
     }
 
     @Nullable
+    @Override
     public FDBRecordVersion getVersion() {
         return getStoredRecord().getVersion();
     }

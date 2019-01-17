@@ -78,6 +78,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
         getComparison().validate(field, true);
     }
 
+    @Override
     @Nonnull
     public Comparisons.Comparison getComparison() {
         return comparison.get();
@@ -88,8 +89,8 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
         return new OneOfThemWithComparison(getFieldName(), comparison);
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.comparison);

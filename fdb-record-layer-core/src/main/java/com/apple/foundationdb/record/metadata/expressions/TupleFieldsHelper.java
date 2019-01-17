@@ -37,9 +37,7 @@ import java.util.UUID;
  */
 @API(API.Status.INTERNAL)
 public class TupleFieldsHelper {
-    private TupleFieldsHelper() {
-    }
-
+    @Nonnull
     private static final Set<Descriptors.Descriptor> DESCRIPTORS = ImmutableSet.of(
             TupleFieldsProto.UUID.getDescriptor(),
             TupleFieldsProto.NullableDouble.getDescriptor(),
@@ -274,5 +272,8 @@ public class TupleFieldsHelper {
     @Nonnull
     public static TupleFieldsProto.NullableBytes toProto(@Nonnull ByteString value) {
         return TupleFieldsProto.NullableBytes.newBuilder().setValue(value) .build();
+    }
+
+    private TupleFieldsHelper() {
     }
 }

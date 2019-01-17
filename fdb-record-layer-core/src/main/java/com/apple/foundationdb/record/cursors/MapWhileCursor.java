@@ -74,6 +74,7 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
     private RecordCursorResult<V> nextResult = RecordCursorResult.withNextValue(null, RecordCursorStartContinuation.START);
 
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
+    @SuppressWarnings("PMD.UnusedFormalParameter") // for compatibility reasons
     public MapWhileCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, Optional<V>> func,
                           @Nonnull StopContinuation stopContinuation, @Nullable byte[] initialContinuation,
                           @Nonnull NoNextReason noNextReason) {

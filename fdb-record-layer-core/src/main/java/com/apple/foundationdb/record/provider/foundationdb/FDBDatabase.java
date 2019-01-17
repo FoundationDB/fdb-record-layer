@@ -82,22 +82,8 @@ import java.util.function.Supplier;
  */
 @API(API.Status.STABLE)
 public class FDBDatabase {
+    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabase.class);
-
-    /**
-     * Function for mapping an underlying exception to a synchronous failure.
-     *
-     * It is possible for this function to be called with the result of calling it previously.
-     * Therefore, if wrapping exceptions with some application-specific exception class, it is best
-     * to check for being passed an {@code ex} that is already of that class and in that case just return it.
-     * @see #setAsyncToSyncExceptionMapper
-     * @see #asyncToSync
-     * @see FDBExceptions#wrapException(Throwable)
-     */
-    @FunctionalInterface
-    public static interface ExceptionMapper {
-        public RuntimeException apply(@Nonnull Throwable ex, @Nullable FDBStoreTimer.Event event);
-    }
 
     @Nonnull
     private final FDBDatabaseFactory factory;
@@ -137,7 +123,9 @@ public class FDBDatabase {
 
     private String datacenterId;
 
+    @Nonnull
     private static ImmutablePair<Long, Long> initialVersionPair = new ImmutablePair<>(null, null);
+    @Nonnull
     private AtomicReference<ImmutablePair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
 
     @VisibleForTesting
@@ -157,6 +145,21 @@ public class FDBDatabase {
                 .recordStats()
                 .build();
         this.resolverStateCache = new AsyncLoadingCache<>(factory.getStateRefreshTimeMillis());
+    }
+
+    /**
+     * Function for mapping an underlying exception to a synchronous failure.
+     *
+     * It is possible for this function to be called with the result of calling it previously.
+     * Therefore, if wrapping exceptions with some application-specific exception class, it is best
+     * to check for being passed an {@code ex} that is already of that class and in that case just return it.
+     * @see #setAsyncToSyncExceptionMapper
+     * @see #asyncToSync
+     * @see FDBExceptions#wrapException(Throwable)
+     */
+    @FunctionalInterface
+    public interface ExceptionMapper {
+        RuntimeException apply(@Nonnull Throwable ex, @Nullable FDBStoreTimer.Event event);
     }
 
     protected synchronized void openFDB() {
@@ -264,6 +267,7 @@ public class FDBDatabase {
      * @see Database#createTransaction
      */
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
                                         @Nullable FDBStoreTimer timer,
                                         @Nullable WeakReadSemantics weakReadSemantics) {

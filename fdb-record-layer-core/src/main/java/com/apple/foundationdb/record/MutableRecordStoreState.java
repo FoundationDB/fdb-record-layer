@@ -40,6 +40,12 @@ public class MutableRecordStoreState extends RecordStoreState {
     private static final long READ_MASK = 0xFFFF0000;
     private static final long WRITE_MASK = 0x0000FFFF;
 
+    private final AtomicLong users = new AtomicLong();
+
+    public MutableRecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
+        super(indexStateMap);
+    }
+
     private static long readIncrement(long u) {
         return ((((u >> 32) + 1) << 32) & READ_MASK) | (u & WRITE_MASK);
     }
@@ -54,12 +60,6 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     private static long writeDecrement(long u) {
         return (u & READ_MASK) | (((u & WRITE_MASK) - 1) & WRITE_MASK);
-    }
-
-    private final AtomicLong users = new AtomicLong();
-
-    public MutableRecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
-        super(indexStateMap);
     }
 
     /**

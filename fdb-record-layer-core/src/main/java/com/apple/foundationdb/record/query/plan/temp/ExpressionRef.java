@@ -52,7 +52,7 @@ public interface ExpressionRef<T extends PlannerExpression> extends Bindable {
      * This exceeds the normal maximum inheritance depth because of the depth of the <code>RecordCoreException</code>
      * hierarchy.
      */
-    public static class UngettableReferenceException extends RecordCoreException {
+    class UngettableReferenceException extends RecordCoreException {
         private static final long serialVersionUID = 1;
 
         public UngettableReferenceException(String message) {

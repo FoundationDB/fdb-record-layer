@@ -167,6 +167,7 @@ public class FDBDatabaseFactory {
         return directoryCacheSize;
     }
 
+    @SuppressWarnings("PMD.BooleanGetMethodName")
     public synchronized boolean getTrackLastSeenVersion() {
         return trackLastSeenVersion;
     }

@@ -307,7 +307,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
     @Override
     @Nonnull
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "PMD.UnnecessaryLocalBeforeReturn"})
     @SpotBugsSuppressWarnings("BC_UNCONFIRMED_CAST")
     public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
                                                                               @Nonnull IndexRecordFunction<T> function,
@@ -721,6 +721,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             return indexEntry.hashCode();
         }
 
+        @Override
         public int compareTo(OrderedScoreIndexKey that) {
             return this.scoreKey.compareTo(that.scoreKey);
         }

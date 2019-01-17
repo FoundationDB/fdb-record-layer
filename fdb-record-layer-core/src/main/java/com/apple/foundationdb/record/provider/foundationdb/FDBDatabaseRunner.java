@@ -361,7 +361,7 @@ public class FDBDatabaseRunner implements AutoCloseable {
                     return retriable.apply(context).thenCompose(val ->
                         context.commitAsync().thenApply( vignore -> val)
                     ).handle(this::handle).thenCompose(Function.identity());
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     return handle(null, e);
                 }
             }, getExecutor()).handle((vignore, e) -> {
@@ -388,7 +388,7 @@ public class FDBDatabaseRunner implements AutoCloseable {
                     T ret = retriable.apply(context);
                     context.commit();
                     again = database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     again = database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(null, e));
                 } finally {
                     if (context != null) {

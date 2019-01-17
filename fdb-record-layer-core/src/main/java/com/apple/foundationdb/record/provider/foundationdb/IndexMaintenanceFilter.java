@@ -33,12 +33,34 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.MAINTAINED)
 public interface IndexMaintenanceFilter {
+
+    /**
+     * All records should be added to the index. This is the default behavior.
+     */
+    IndexMaintenanceFilter NORMAL = (i, r) -> IndexValues.ALL;
+
+    /**
+     * Do not put <code>null</code> values into the index.
+     */
+    IndexMaintenanceFilter NO_NULLS = new IndexMaintenanceFilter() {
+        @Override
+        public IndexValues maintainIndex(@Nonnull Index index, @Nonnull MessageOrBuilder record) {
+            return IndexValues.SOME;
+        }
+
+        @Override
+        public boolean maintainIndexValue(@Nonnull Index index, @Nonnull MessageOrBuilder record,
+                                          @Nonnull IndexEntry indexEntry) {
+            return !indexEntry.keyContainsNonUniqueNull();
+        }
+    };
+
     /**
      * Whether to maintain a subset of the indexable values for the given record.
      */
     enum IndexValues { ALL, NONE, SOME }
 
-    public IndexValues maintainIndex(@Nonnull Index index, @Nonnull MessageOrBuilder record);
+    IndexValues maintainIndex(@Nonnull Index index, @Nonnull MessageOrBuilder record);
 
     /**
      * Get whether a specific index entry should be maintained.
@@ -48,26 +70,9 @@ public interface IndexMaintenanceFilter {
      * @param indexEntry potential entry in the index
      * @return {@code true} if the given entry should be maintained in the given index
      */
-    public default boolean maintainIndexValue(@Nonnull Index index, @Nonnull MessageOrBuilder record,
-                                              @Nonnull IndexEntry indexEntry) {
+    default boolean maintainIndexValue(@Nonnull Index index, @Nonnull MessageOrBuilder record,
+                                       @Nonnull IndexEntry indexEntry) {
         return true;
     }
 
-    public static final IndexMaintenanceFilter NORMAL = (i, r) -> IndexValues.ALL;
-
-    /**
-     * Do not put <code>null</code> values into the index.
-     */
-    public static final IndexMaintenanceFilter NO_NULLS = new IndexMaintenanceFilter() {
-            @Override
-            public IndexValues maintainIndex(@Nonnull Index index, @Nonnull MessageOrBuilder record) {
-                return IndexValues.SOME;
-            }
-
-            @Override
-            public boolean maintainIndexValue(@Nonnull Index index, @Nonnull MessageOrBuilder record,
-                                              @Nonnull IndexEntry indexEntry) {
-                return !indexEntry.keyContainsNonUniqueNull();
-            }
-        };
 }

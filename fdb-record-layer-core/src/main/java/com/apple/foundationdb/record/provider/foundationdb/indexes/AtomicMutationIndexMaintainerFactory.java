@@ -69,8 +69,8 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
         return Arrays.asList(TYPES);
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index) {
             final AtomicMutation mutation = AtomicMutationIndexMaintainer.getAtomicMutation(index);
@@ -125,6 +125,7 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
         };
     }
 
+    @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new AtomicMutationIndexMaintainer(state);

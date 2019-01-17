@@ -44,6 +44,7 @@ public class IllegalContinuationAccessChecker {
         IllegalContinuationAccessChecker.shouldCheckContinuationAccess = shouldCheckContinuationAccess;
     }
 
+    @SuppressWarnings("PMD.BooleanGetMethodName")
     public static boolean getShouldCheckContinuationAccess() {
         return shouldCheckContinuationAccess;
     }

@@ -86,6 +86,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     @Nonnull
+    @Override
     public IndexScanType getScanType() {
         return scanType;
     }

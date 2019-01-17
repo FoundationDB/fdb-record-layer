@@ -393,6 +393,7 @@ abstract class UnionCursorBase<T> implements RecordCursor<T> {
             this.cachedProto = proto;
         }
 
+        @SuppressWarnings("PMD.PreserveStackTrace")
         public static UnionContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
             if (bytes == null) {
                 return new UnionContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));

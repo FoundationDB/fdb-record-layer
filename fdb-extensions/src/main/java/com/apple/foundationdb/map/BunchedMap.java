@@ -672,7 +672,6 @@ public class BunchedMap<K,V> {
             return AsyncUtil.forEach(iterable, kv -> {
                 final K boundaryKey = serializer.deserializeKey(kv.getKey(), subspaceKey.length);
                 final List<Map.Entry<K,V>> entriesFromKey = serializer.deserializeEntries(boundaryKey, kv.getValue());
-                final byte[] endKeyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(entriesFromKey.get(entriesFromKey.size() - 1).getKey()), ZERO_ARRAY);
                 readKeys.incrementAndGet();
                 if (entriesFromKey.size() >= bunchSize && currentEntryList.isEmpty()) {
                     // Nothing can be done. Just move on.
@@ -682,12 +681,12 @@ public class BunchedMap<K,V> {
                 if (lastReadKeyBytes.get() == null) {
                     lastReadKeyBytes.set(kv.getKey());
                 }
+                final byte[] endKeyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(entriesFromKey.get(entriesFromKey.size() - 1).getKey()), ZERO_ARRAY);
                 tr.addReadConflictRange(lastReadKeyBytes.get(), endKeyBytes);
                 tr.addWriteConflictRange(lastReadKeyBytes.get(), kv.getKey());
                 lastReadKeyBytes.set(endKeyBytes);
                 tr.clear(kv.getKey());
-                for (int i = 0; i < entriesFromKey.size(); i++) {
-                    Map.Entry<K,V> entry = entriesFromKey.get(i);
+                for (Map.Entry<K, V> entry : entriesFromKey) {
                     byte[] serializedEntry = serializer.serializeEntry(entry);
                     if (currentEntrySize.get() + serializedEntry.length > MAX_VALUE_SIZE && !currentEntryList.isEmpty()) {
                         flushEntryList(tr, subspaceKey, currentEntryList, lastKey);

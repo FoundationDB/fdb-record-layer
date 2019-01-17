@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.ExpressionTestsProto.NestedField;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.SubString;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.SubStrings;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.TestScalarFieldAccess;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -58,6 +60,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression.EMPTY;
 import static com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression.VERSION;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -196,6 +201,18 @@ public class KeyExpressionTest {
             .addSubstrings(SubString.newBuilder().setContent("jay").setStart(0).setEnd(1))
             .addSubstrings(SubString.newBuilder().setContent("christos").setStart(5).setEnd(8))
             .build();
+
+    /**
+     * One of the static analysis tools used flagged the EmptyKeyExpression class as not including
+     * the serialVersionUID field even though it implemented {@link Serializable}. However,
+     * that class doesn't implement it, as verified by this test. So the check was disabled for that
+     * class. If this test ever fails, then a serial version UID should probably be added and that
+     * check un-suppressed.
+     */
+    @Test
+    public void testEmptyNotSerializable() {
+        assertThat(EmptyKeyExpression.EMPTY, not(instanceOf(Serializable.class)));
+    }
 
     @Test
     public void testScalarFieldAccess() throws Exception {

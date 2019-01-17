@@ -31,5 +31,5 @@ import javax.annotation.Nonnull;
 @API(API.Status.STABLE)
 public interface IndexValidatorRegistry {
     @Nonnull
-    public IndexValidator getIndexValidator(@Nonnull Index index);
+    IndexValidator getIndexValidator(@Nonnull Index index);
 }

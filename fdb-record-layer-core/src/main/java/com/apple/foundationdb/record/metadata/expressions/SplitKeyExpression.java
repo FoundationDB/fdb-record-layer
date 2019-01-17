@@ -88,14 +88,13 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Override
     public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
-        List<Descriptors.FieldDescriptor> fields = getJoined().validate(descriptor);
         if (getJoined().getColumnSize() != 1) {
             throw new InvalidExpressionException("Must have a single key before splitting");
         }
         if (!getJoined().createsDuplicates()) {
             throw new InvalidExpressionException("Must produce multiple values for splitting");
         }
-        return fields;
+        return getJoined().validate(descriptor);
     }
 
     @Override

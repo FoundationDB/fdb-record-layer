@@ -44,8 +44,6 @@ public class OrElseCursor<T> implements RecordCursor<T> {
     private final Function<Executor, RecordCursor<T>> func;
     private boolean first;
     @Nullable
-    private CompletableFuture<Boolean> firstFuture;
-    @Nullable
     private RecordCursor<T> other;
 
     @Nullable
@@ -69,7 +67,6 @@ public class OrElseCursor<T> implements RecordCursor<T> {
         if (first) {
             return inner.onNext().thenCompose(result -> {
                 first = false;
-                firstFuture = null;
                 if (result.hasNext() || result.getNoNextReason().isOutOfBand()) {
                     // Either have result or do not know whether to select else yet or not.
                     return CompletableFuture.completedFuture(result);

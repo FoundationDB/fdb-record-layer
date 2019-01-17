@@ -81,6 +81,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.SplitHelper.un
 @API(API.Status.MAINTAINED)
 public abstract class StandardIndexMaintainer extends IndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(StandardIndexMaintainer.class);
+    protected static final int TOO_LARGE_VALUE_MESSAGE_LIMIT = 100;
 
     protected StandardIndexMaintainer(IndexMaintainerState state) {
         super(state);
@@ -154,7 +155,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     public boolean skipUpdateForUnchangedKeys() {
         return true;
     }
-
 
     @Override
     @Nonnull
@@ -381,8 +381,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                         LogMessageKeys.INDEX_NAME, state.index.getName());
         }
     }
-
-    protected static final int TOO_LARGE_VALUE_MESSAGE_LIMIT = 100;
 
     protected static String trimTooLargeTuple(@Nonnull Tuple tuple) {
         final String fullString = tuple.toString();

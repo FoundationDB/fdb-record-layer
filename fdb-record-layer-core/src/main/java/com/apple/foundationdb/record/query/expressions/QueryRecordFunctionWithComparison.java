@@ -59,6 +59,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
         return function;
     }
 
+    @Override
     @Nonnull
     public Comparisons.Comparison getComparison() {
         return comparison.get();

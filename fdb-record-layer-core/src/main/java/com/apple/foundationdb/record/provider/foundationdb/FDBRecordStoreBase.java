@@ -859,8 +859,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         } else {
             primaryKeys = new ArrayList<>(positions.length);
             int after = index.getColumnSize();
-            for (int i = 0; i < positions.length; i++) {
-                primaryKeys.add(entryKeys.get(positions[i] < 0 ? after++ : positions[i]));
+            for (int position : positions) {
+                primaryKeys.add(entryKeys.get(position < 0 ? after++ : position));
             }
         }
         return Tuple.fromList(primaryKeys);

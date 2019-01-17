@@ -65,6 +65,7 @@ public interface PlannerExpression extends Bindable {
      * @param existing an existing map of bindings
      * @return the existing bindings extended with some new ones if the match was successful or <code>Optional.empty()</code> otherwise
      */
+    @Override
     @Nonnull
     default Optional<PlannerBindings> bindWithExisting(@Nonnull ExpressionMatcher<? extends Bindable> binding, @Nonnull PlannerBindings existing) {
         if (existing.containsKey(binding)) {

@@ -47,8 +47,8 @@ public class TimeWindowLeaderboardIndexMaintainerFactory implements IndexMaintai
         return Arrays.asList(TYPES);
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index) {
             @Override
@@ -60,6 +60,7 @@ public class TimeWindowLeaderboardIndexMaintainerFactory implements IndexMaintai
         };
     }
 
+    @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new TimeWindowLeaderboardIndexMaintainer(state);

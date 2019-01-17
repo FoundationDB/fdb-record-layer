@@ -23,6 +23,7 @@ package com.apple.foundationdb.tuple;
 import com.apple.foundationdb.API;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -71,6 +72,25 @@ public class TupleHelpers {
             }
         }
         return t1Len - t2Len;
+    }
+
+    /**
+     * Determine if two {@link Tuple}s have the same contents. Unfortunately, the implementation of
+     * {@link Tuple#equals(Object) Tuple.equals()} serializes both {@code Tuple}s to byte arrays,
+     * so it is fairly expensive. This method avoids serializing either {@code Tuple}, and it also
+     * adds a short-circuit to return early if the two {@code Tuple}s are pointer-equal.
+     *
+     * @param t1 the first {@link Tuple} to compare
+     * @param t2 the second {@link Tuple} to compare
+     * @return {@code true} if the two {@link Tuple}s would serialize to the same array and {@code false} otherwise
+     */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static boolean equals(@Nullable Tuple t1, @Nullable Tuple t2) {
+        if (t1 == null) {
+            return t2 == null;
+        } else {
+            return t2 != null && (t1 == t2 || compare(t1, t2) == 0);
+        }
     }
 
     private TupleHelpers() {

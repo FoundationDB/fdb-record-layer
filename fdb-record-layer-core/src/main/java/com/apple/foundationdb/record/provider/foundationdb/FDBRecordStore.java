@@ -120,6 +120,17 @@ import java.util.stream.Collectors;
 public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<Message> {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordStore.class);
 
+    public static final int DEFAULT_PIPELINE_SIZE = 10;
+    public static final PipelineSizer DEFAULT_PIPELINE_SIZER = pipelineOperation -> DEFAULT_PIPELINE_SIZE;
+
+    // The maximum number of records to allow before triggering online index builds
+    // instead of a transactional rebuild.
+    public static final int MAX_RECORDS_FOR_REBUILD = 200;
+
+    // The maximum number of index rebuilds to run in parellel
+    // TODO: This should probably be configured through the PipelineSizer
+    public static final int MAX_PARALLEL_INDEX_REBUILD = 10;
+
     private static final int MIN_FORMAT_VERSION = 1;
     // 1 - initial implementation
     public static final int INFO_ADDED_FORMAT_VERSION = 1;
@@ -1282,7 +1293,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             for (IndexMaintainer index : indexMaintainers) {
                 final CompletableFuture<Void> future;
                 // Only need to check key expression in the case where a normal index has a different prefix.
-                if (prefix == indexPrefix || Key.Expressions.hasRecordTypePrefix(index.state.index.getRootExpression())) {
+                if (TupleHelpers.equals(prefix, indexPrefix) || Key.Expressions.hasRecordTypePrefix(index.state.index.getRootExpression())) {
                     future = index.deleteWhere(tr, prefix);
                 } else {
                     future = index.deleteWhere(tr, indexPrefix);
@@ -1309,9 +1320,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         return Query.and(components);
     }
-
-    public static final int DEFAULT_PIPELINE_SIZE = 10;
-    public static final PipelineSizer DEFAULT_PIPELINE_SIZER = pipelineOperation -> DEFAULT_PIPELINE_SIZE;
 
     @Override
     public PipelineSizer getPipelineSizer() {
@@ -1422,9 +1430,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return planner.plan(query);
     }
 
-    // The maximum number of records to allow before triggering online index builds
-    // instead of a transactional rebuild.
-    public static final int MAX_RECORDS_FOR_REBUILD = 200;
 
     @Nonnull
     public static IndexState writeOnlyIfTooManyRecordsForRebuild(long recordCount, boolean indexOnNewRecordTypes) {
@@ -2177,9 +2182,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return sanitizeIndexes(getRecordMetaData().getUniversalIndexes(), index -> !isIndexDisabled(index));
     }
 
-
-    public static final int MAX_PARALLEL_INDEX_REBUILD = 10;
-
     @Nonnull
     protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes, @Nonnull Map<Index, IndexState> newStates,
                                                      @Nonnull List<CompletableFuture<Void>> work, @Nonnull RebuildIndexReason reason,
@@ -2231,7 +2233,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                          @Nullable Integer oldMetaDataVersion) {
         // Skip index rebuild if the index is on new record types.
         if (indexState != IndexState.DISABLED && areAllRecordTypesSince(recordTypes, oldMetaDataVersion)) {
-            return rebuildIndexWithNoRecord(index, recordTypes, reason);
+            return rebuildIndexWithNoRecord(index, reason);
         }
 
         switch (indexState) {
@@ -2246,7 +2248,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private CompletableFuture<Void> rebuildIndexWithNoRecord(@Nonnull final Index index, @Nullable final Collection<RecordType> recordTypes, @Nonnull RebuildIndexReason reason) {
+    private CompletableFuture<Void> rebuildIndexWithNoRecord(@Nonnull final Index index, @Nonnull RebuildIndexReason reason) {
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index with no record",
@@ -2519,6 +2521,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     protected RecordType singleRecordTypeWithPrefixKey(@Nonnull Map<Index, List<RecordType>> indexes) {
         RecordType recordType = null;
         for (List<RecordType> entry : indexes.values()) {
@@ -3044,5 +3047,4 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
     }
-
 }

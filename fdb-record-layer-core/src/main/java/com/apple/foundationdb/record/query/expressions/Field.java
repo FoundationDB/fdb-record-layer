@@ -208,7 +208,7 @@ public class Field {
         if (comparand instanceof List) {
             @SuppressWarnings("rawtypes")
             List list = (List) comparand;
-            if (list.size() > 0) {
+            if (!list.isEmpty()) {
                 return new FieldWithComparison(fieldName,
                         new Comparisons.ListComparison(type, list));
             } else {

@@ -136,7 +136,6 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
                 Subspace nextSubspace = splitter.subspaceOf(nextKv.getKey());
                 byte[] nextSubspaceKey = nextSubspace.getKey();
                 byte[] nextSubspaceSuffix = Arrays.copyOfRange(nextSubspaceKey, subspaceKey.length, nextSubspaceKey.length);
-                T nextSubspaceTag = splitter.subspaceTag(nextSubspace);
                 K continuationKey = null;
                 if (!continuationSatisfied) {
                     if (ByteArrayUtil.startsWith(continuation, nextSubspaceSuffix)) {
@@ -171,6 +170,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
                         (limit == ReadTransaction.ROW_LIMIT_UNLIMITED) ? ReadTransaction.ROW_LIMIT_UNLIMITED : limit - returned,
                         reverse
                 );
+                final T nextSubspaceTag = splitter.subspaceTag(nextSubspace);
                 return nextMapIterator.onHasNext().thenCompose(mapHasNext -> {
                     if (mapHasNext) {
                         currentSubspace = nextSubspace;

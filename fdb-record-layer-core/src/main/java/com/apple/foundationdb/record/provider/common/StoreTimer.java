@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -53,7 +54,13 @@ import java.util.stream.Stream;
  */
 @API(API.Status.MAINTAINED)
 public class StoreTimer {
-    static final Counter EMPTY_COUNTER = new Counter();
+    @Nonnull
+    private static final Counter EMPTY_COUNTER = new Counter();
+
+    @Nonnull
+    protected final Map<Event, Counter> counters;
+    @Nonnull
+    protected final Map<Event, Counter> timeoutCounters;
 
     /**
      * Confirm that there is no naming conflict among the event names that will be used.
@@ -133,9 +140,6 @@ public class StoreTimer {
             count.addAndGet(amount);
         }
     }
-
-    protected final Map<Event, Counter> counters;
-    protected final Map<Event, Counter> timeoutCounters;
 
     public StoreTimer() {
         counters = new ConcurrentHashMap<>();
@@ -304,7 +308,7 @@ public class StoreTimer {
         for (Map.Entry<Event, Counter> entry : counters.entrySet()) {
             Event event = entry.getKey();
             Counter counter = entry.getValue();
-            String prefix = event.name().toLowerCase();
+            String prefix = event.name().toLowerCase(Locale.ROOT);
             result.put(prefix + "_count", counter.count.get());
             if (!(event instanceof Count)) {
                 result.put(prefix + "_micros", counter.timeNanos.get() / 1000);

@@ -50,6 +50,9 @@ import java.util.Set;
  */
 @API(API.Status.MAINTAINED)
 public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild {
+    @SuppressWarnings("unchecked")
+    protected static final Comparator<Object> VALUE_COMPARATOR = (o1, o2) -> ((Comparable)o1).compareTo((Comparable)o2);
+
     protected final ExpressionRef<RecordQueryPlan> plan;
     protected final List<ExpressionRef<? extends PlannerExpression>> children;
     protected final String bindingName;
@@ -173,9 +176,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
         copy.sort(sortReverse ? VALUE_COMPARATOR.reversed() : VALUE_COMPARATOR);
         return copy;
     }
-
-    @SuppressWarnings("unchecked")
-    protected static final Comparator<Object> VALUE_COMPARATOR = (o1, o2) -> ((Comparable)o1).compareTo((Comparable)o2);
 
     @Nullable
     protected abstract List<Object> getValues(EvaluationContext context);

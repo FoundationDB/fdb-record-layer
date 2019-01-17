@@ -825,6 +825,7 @@ public class Comparisons {
 
         @Nullable
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             final Object comparand = context.getBinding(parameter);
             if (comparand == null) {

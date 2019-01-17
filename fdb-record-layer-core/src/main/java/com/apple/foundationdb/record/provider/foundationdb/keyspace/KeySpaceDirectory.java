@@ -62,106 +62,12 @@ import java.util.function.Function;
  */
 @API(API.Status.MAINTAINED)
 public class KeySpaceDirectory {
-
-    /**
-     * The available data types for directories.
-     */
-    public enum KeyType {
-        // The values for typeLowBounds and typeHighBounds don't belong here, but rather belong
-        // either being exposed as part of TupleUtil's currently private constants, or via a
-        // method call that can take a subspace and produce a range that will scan all values of
-        // a given type in the subspace.
-        // TODO: API for string prefix queries within Tuples (https://github.com/apple/foundationdb/issues/282)
-        NULL(v -> v == null, null, (byte) 0x00, (byte) 0x01),
-        BYTES(v -> v instanceof byte[], (byte) 0x01, (byte) 0x02),
-        STRING(String.class, (byte) 0x02, (byte) 0x03),
-        LONG(v -> v instanceof Long || v instanceof Integer, (byte) 0x0b, (byte) 0x1e),
-        FLOAT(Float.class, (byte) 0x20, (byte) 0x21),
-        DOUBLE(Double.class, (byte) 0x21, (byte) 0x22),
-        BOOLEAN(v -> v instanceof Boolean, (byte) 0x26, (byte) 0x28),
-        UUID(UUID.class, (byte) 0x30, (byte) 0x31);
-
-        // Function that tests a value to see if it is of this type
-        @Nonnull
-        final Function<Object, Boolean> matcher;
-        // Value used by a directory to indicate that it can accept any value of this type
-        @Nullable
-        final Object anyValue;
-
-        @Nonnull
-        final byte typeLowBounds;
-        @Nonnull
-        final byte typeHighBounds;
-
-        KeyType(@Nonnull Class<?> expectedType, byte typeLowBounds, byte typeHighBounds) {
-            this(v -> v != null && expectedType.isAssignableFrom(v.getClass()), ANY_VALUE, typeLowBounds, typeHighBounds);
-        }
-
-        KeyType(@Nonnull Function<Object, Boolean> matcher, byte typeLowBounds, byte typeHighBounds) {
-            this(matcher, ANY_VALUE, typeLowBounds, typeHighBounds);
-        }
-
-        KeyType(@Nonnull Function<Object, Boolean> matcher, @Nullable Object anyValue,
-                byte typeLowBounds, byte typeHighBounds) {
-            this.matcher = matcher;
-            this.typeLowBounds = typeLowBounds;
-            this.typeHighBounds = typeHighBounds;
-            this.anyValue = anyValue;
-        }
-
-        /**
-         * Get whether the provided value can be represented by this type.
-         * @param value the value to check
-         * @return {@code true} if {@code value} can be represented by this type
-         */
-        public boolean isMatch(@Nullable Object value) {
-            return matcher.apply(value);
-        }
-
-        public Object getAnyValue() {
-            return anyValue;
-        }
-
-        @Nonnull
-        public byte getTypeLowBounds() {
-            return typeLowBounds;
-        }
-
-        @Nonnull
-        public byte getTypeHighBounds() {
-            return typeHighBounds;
-        }
-
-        public static KeyType typeOf(@Nullable Object value) {
-            for (KeyType type : values()) {
-                if (type.matcher.apply(value)) {
-                    return type;
-                }
-            }
-
-            throw new RecordCoreArgumentException("No directory type matches value",
-                    "value", value,
-                    "value_type", value.getClass().getName());
-        }
-    }
-
-    private static class AnyValue {
-        private AnyValue() {
-        }
-
-        @Override
-        public String toString() {
-            return "*any*";
-        }
-    }
-
     /**
      * Return value from <code>pathFromKey</code> to indicate that a given tuple value is not appropriate
      * for a given directory.
      */
     protected static final CompletableFuture<Optional<KeySpacePath>> DIRECTORY_NOT_FOR_KEY =
             CompletableFuture.completedFuture(Optional.empty());
-
 
     /**
      * The value of a directory that may contain any value of the type specified for the directory (as opposed
@@ -834,6 +740,98 @@ public class KeySpaceDirectory {
                 toTree(out, dirSubdirs.get(i), indent + 1, i < (dirSubdirs.size() - 1), downspouts);
             }
             downspouts.set(indent, false);
+        }
+    }
+
+    /**
+     * The available data types for directories.
+     */
+    public enum KeyType {
+        // The values for typeLowBounds and typeHighBounds don't belong here, but rather belong
+        // either being exposed as part of TupleUtil's currently private constants, or via a
+        // method call that can take a subspace and produce a range that will scan all values of
+        // a given type in the subspace.
+        // TODO: API for string prefix queries within Tuples (https://github.com/apple/foundationdb/issues/282)
+        NULL(v -> v == null, null, (byte) 0x00, (byte) 0x01),
+        BYTES(v -> v instanceof byte[], (byte) 0x01, (byte) 0x02),
+        STRING(String.class, (byte) 0x02, (byte) 0x03),
+        LONG(v -> v instanceof Long || v instanceof Integer, (byte) 0x0b, (byte) 0x1e),
+        FLOAT(Float.class, (byte) 0x20, (byte) 0x21),
+        DOUBLE(Double.class, (byte) 0x21, (byte) 0x22),
+        BOOLEAN(v -> v instanceof Boolean, (byte) 0x26, (byte) 0x28),
+        UUID(UUID.class, (byte) 0x30, (byte) 0x31);
+
+        // Function that tests a value to see if it is of this type
+        @Nonnull
+        final Function<Object, Boolean> matcher;
+        // Value used by a directory to indicate that it can accept any value of this type
+        @Nullable
+        final Object anyValue;
+
+        @Nonnull
+        final byte typeLowBounds;
+        @Nonnull
+        final byte typeHighBounds;
+
+        KeyType(@Nonnull Class<?> expectedType, byte typeLowBounds, byte typeHighBounds) {
+            this(v -> v != null && expectedType.isAssignableFrom(v.getClass()), ANY_VALUE, typeLowBounds, typeHighBounds);
+        }
+
+        KeyType(@Nonnull Function<Object, Boolean> matcher, byte typeLowBounds, byte typeHighBounds) {
+            this(matcher, ANY_VALUE, typeLowBounds, typeHighBounds);
+        }
+
+        KeyType(@Nonnull Function<Object, Boolean> matcher, @Nullable Object anyValue,
+                byte typeLowBounds, byte typeHighBounds) {
+            this.matcher = matcher;
+            this.typeLowBounds = typeLowBounds;
+            this.typeHighBounds = typeHighBounds;
+            this.anyValue = anyValue;
+        }
+
+        /**
+         * Get whether the provided value can be represented by this type.
+         * @param value the value to check
+         * @return {@code true} if {@code value} can be represented by this type
+         */
+        public boolean isMatch(@Nullable Object value) {
+            return matcher.apply(value);
+        }
+
+        public Object getAnyValue() {
+            return anyValue;
+        }
+
+        @Nonnull
+        public byte getTypeLowBounds() {
+            return typeLowBounds;
+        }
+
+        @Nonnull
+        public byte getTypeHighBounds() {
+            return typeHighBounds;
+        }
+
+        public static KeyType typeOf(@Nullable Object value) {
+            for (KeyType type : values()) {
+                if (type.matcher.apply(value)) {
+                    return type;
+                }
+            }
+
+            throw new RecordCoreArgumentException("No directory type matches value",
+                    "value", value,
+                    "value_type", value.getClass().getName());
+        }
+    }
+
+    private static class AnyValue {
+        private AnyValue() {
+        }
+
+        @Override
+        public String toString() {
+            return "*any*";
         }
     }
 }

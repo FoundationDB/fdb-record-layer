@@ -40,7 +40,7 @@ public class KeyValueLogMessage {
     private final long timestamp;
     private final String staticMessage;
 
-    private final TreeMap<String, String> keyValueMap;
+    private final Map<String, String> keyValueMap;
 
     public static String of(@Nonnull final String staticMessage, @Nullable final Object... keysAndValues) {
         return new KeyValueLogMessage(staticMessage, keysAndValues).toString();

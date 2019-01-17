@@ -47,8 +47,8 @@ public class ValueIndexMaintainerFactory implements IndexMaintainerFactory {
         return Arrays.asList(TYPES);
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     public IndexValidator getIndexValidator(Index forIndex) {
         return new IndexValidator(forIndex) {
             @Override
@@ -60,9 +60,9 @@ public class ValueIndexMaintainerFactory implements IndexMaintainerFactory {
         };
     }
 
+    @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new ValueIndexMaintainer(state);
     }
-
 }

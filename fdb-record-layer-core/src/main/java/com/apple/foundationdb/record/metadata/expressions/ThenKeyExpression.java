@@ -124,8 +124,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     public boolean createsDuplicatesAfter(int index) {
-        while (index < children.size()) {
-            if (children.get(index++).get().createsDuplicates()) {
+        for (int i = index; i < children.size(); i++) {
+            if (children.get(i).get().createsDuplicates()) {
                 return true;
             }
         }
@@ -226,6 +226,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Nonnull
+    @Override
     public List<KeyExpression> getChildren() {
         return children.stream().map(ExpressionRef::get).collect(Collectors.toList());
     }

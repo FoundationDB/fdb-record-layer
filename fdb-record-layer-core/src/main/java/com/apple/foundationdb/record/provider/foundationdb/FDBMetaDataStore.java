@@ -58,6 +58,15 @@ import java.util.concurrent.CompletableFuture;
 public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBMetaDataStore.class);
 
+    // All keys in subspace are taken by SplitHelper.
+    // Normally meta-data fits into UNSPLIT_RECORD (0).
+    public static final Tuple CURRENT_KEY = Tuple.from((Object)null);
+    public static final Tuple HISTORY_KEY_PREFIX = Tuple.from("H");
+
+    // TODO: Previously, meta-data was stored directly in the store's root.
+    //  This can be removed at some point after existing stores have been updated.
+    public static final Tuple OLD_FORMAT_KEY = TupleHelpers.EMPTY;
+
     @Nonnull
     private Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[0];
     @Nullable
@@ -81,15 +90,6 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     public FDBMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
         this(context, new Subspace(path.toTuple(context)), null);
     }
-
-    // All keys in subspace are taken by SplitHelper.
-    // Normally meta-data fits into UNSPLIT_RECORD (0).
-    public static final Tuple CURRENT_KEY = Tuple.from((Object)null);
-    public static final Tuple HISTORY_KEY_PREFIX = Tuple.from("H");
-
-    // TODO: Previously, meta-data was stored directly in the store's root.
-    //  This can be removed at some point after existing stores have been updated.
-    public static final Tuple OLD_FORMAT_KEY = TupleHelpers.EMPTY;
 
     /**
      * Set dependencies upon which record descriptors may depend.

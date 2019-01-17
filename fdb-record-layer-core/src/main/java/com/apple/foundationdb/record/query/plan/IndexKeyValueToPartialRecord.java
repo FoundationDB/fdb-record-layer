@@ -43,11 +43,6 @@ import java.util.TreeMap;
  */
 @API(API.Status.INTERNAL)
 public class IndexKeyValueToPartialRecord {
-    static interface Copier {
-        public void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
-                         @Nonnull IndexEntry kv);
-    }
-
     @Nonnull
     private final List<Copier> copiers;
 
@@ -88,8 +83,13 @@ public class IndexKeyValueToPartialRecord {
     /**
      * Which side of the {@link IndexEntry} to take a field from.
      */
-    public static enum TupleSource {
+    public enum TupleSource {
         KEY, VALUE
+    }
+
+    interface Copier {
+        void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
+                  @Nonnull IndexEntry kv);
     }
 
     static class FieldCopier implements Copier {

@@ -707,6 +707,7 @@ public class SplitHelper {
             return nextResult.get();
         }
 
+        @Override
         @Nullable
         @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
         public byte[] getContinuation() {

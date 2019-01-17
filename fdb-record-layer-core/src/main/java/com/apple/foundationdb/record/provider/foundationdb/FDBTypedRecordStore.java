@@ -433,6 +433,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         }
 
         @Nonnull
+        @Override
         public FDBTypedRecordStore<M> build() {
             if (typedSerializer == null) {
                 throw new RecordCoreException("typed serializer must be specified");

@@ -84,7 +84,8 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
 
     @Nonnull
     @Override
-    @SuppressWarnings({"unchecked", "squid:S1193"}) // exception type checking is less clumsy
+    @SuppressWarnings({"unchecked", "squid:S1193", "PMD.AvoidInstanceofChecksInCatchClause", // exception type checking is less clunky
+                       "PMD.PreserveStackTrace"})
     public M deserialize(@Nonnull RecordMetaData metaData,
                          @Nonnull Tuple primaryKey,
                          @Nonnull byte[] serialized,

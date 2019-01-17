@@ -22,6 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.API;
 
+import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -34,6 +35,17 @@ import java.util.Objects;
  */
 @API(API.Status.MAINTAINED)
 public class IndexScanType implements PlanHashable {
+    @Nonnull
+    public static final IndexScanType BY_VALUE = new IndexScanType("BY_VALUE");
+    @Nonnull
+    public static final IndexScanType BY_RANK = new IndexScanType("BY_RANK");
+    @Nonnull
+    public static final IndexScanType BY_GROUP = new IndexScanType("BY_GROUP");
+    @Nonnull
+    public static final IndexScanType BY_TIME_WINDOW = new IndexScanType("BY_TIME_WINDOW");
+    @Nonnull
+    public static final IndexScanType BY_TEXT_TOKEN = new IndexScanType("BY_TEXT_TOKEN");
+
     private final String name;
 
     public IndexScanType(String name) {
@@ -66,10 +78,4 @@ public class IndexScanType implements PlanHashable {
     public int planHash() {
         return hashCode();
     }
-
-    public static final IndexScanType BY_VALUE = new IndexScanType("BY_VALUE");
-    public static final IndexScanType BY_RANK = new IndexScanType("BY_RANK");
-    public static final IndexScanType BY_GROUP = new IndexScanType("BY_GROUP");
-    public static final IndexScanType BY_TIME_WINDOW = new IndexScanType("BY_TIME_WINDOW");
-    public static final IndexScanType BY_TEXT_TOKEN = new IndexScanType("BY_TEXT_TOKEN");
 }

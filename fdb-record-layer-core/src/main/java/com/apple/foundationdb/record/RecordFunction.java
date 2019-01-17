@@ -44,6 +44,7 @@ public abstract class RecordFunction<T> implements PlanHashable {
         return name;
     }
 
+    @SuppressWarnings("PMD.EmptyMethodInAbstractClassShouldBeAbstract")
     public void validate(@Nonnull Descriptors.Descriptor descriptor) {
     }
 

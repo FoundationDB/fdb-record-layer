@@ -47,10 +47,12 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class RankedSetIndexHelper {
+    public static final Tuple COMPARISON_SKIPPED_SCORE = Tuple.from(Comparisons.COMPARISON_SKIPPED_BINDING);
+
     /**
      * Instrumentation events specific to rank index maintenance.
      */
-    public static enum Events implements StoreTimer.DetailEvent {
+    public enum Events implements StoreTimer.DetailEvent {
         RANKED_SET_SCORE_FOR_RANK("ranked set score for rank"),
         RANKED_SET_RANK_FOR_SCORE("ranked set rank for score"),
         RANKED_SET_UPDATE("ranked set update");
@@ -79,7 +81,6 @@ public class RankedSetIndexHelper {
         if (prefix != null) {
             rankSubspace = rankSubspace.subspace(prefix);
         }
-        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, nlevels);
 
         // Map low and high ranks to scores and scan main index with those.
         Number lowRankNum = extractRank(groupPrefixSize, rankRange.getLow());
@@ -102,7 +103,8 @@ public class RankedSetIndexHelper {
             return CompletableFuture.completedFuture(TupleRange.allOf(prefix));
         }
 
-        CompletableFuture<TupleRange> result = init(state, rankedSet).thenCompose(v -> {
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, nlevels);
+        return init(state, rankedSet).thenCompose(v -> {
             CompletableFuture<Tuple> lowScoreFuture = scoreForRank(state, rankedSet, startFromBeginning ? 0L : lowRankNum, null);
             CompletableFuture<Tuple> highScoreFuture = scoreForRank(state, rankedSet, highRankNum, null);
             return lowScoreFuture.thenCombine(highScoreFuture, (lowScore, highScore) -> {
@@ -121,7 +123,6 @@ public class RankedSetIndexHelper {
                 return scoreRange;
             });
         });
-        return result;
     }
 
     @Nonnull
@@ -171,8 +172,6 @@ public class RankedSetIndexHelper {
                     "maybeRank", maybeRank);
         }
     }
-
-    public static final Tuple COMPARISON_SKIPPED_SCORE = Tuple.from(Comparisons.COMPARISON_SKIPPED_BINDING);
 
     public static CompletableFuture<Tuple> scoreForRank(@Nonnull IndexMaintainerState state,
                                                         @Nonnull RankedSet rankedSet,

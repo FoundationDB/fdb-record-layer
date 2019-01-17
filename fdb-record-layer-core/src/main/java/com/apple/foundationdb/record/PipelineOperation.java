@@ -22,6 +22,8 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.API;
 
+import javax.annotation.Nonnull;
+
 /**
  * Kind of asynchronous pipelined operation being performed.
  *
@@ -32,6 +34,21 @@ import com.apple.foundationdb.API;
  */
 @API(API.Status.MAINTAINED)
 public class PipelineOperation {
+    @Nonnull
+    public static final PipelineOperation INDEX_TO_RECORD = new PipelineOperation("INDEX_TO_RECORD");
+    @Nonnull
+    public static final PipelineOperation KEY_TO_RECORD = new PipelineOperation("KEY_TO_RECORD");
+    @Nonnull
+    public static final PipelineOperation RECORD_ASYNC_FILTER = new PipelineOperation("RECORD_ASYNC_FILTER");
+    @Nonnull
+    public static final PipelineOperation RECORD_FUNCTION = new PipelineOperation("RECORD_FUNCTION");
+    @Nonnull
+    public static final PipelineOperation RESOLVE_UNIQUENESS = new PipelineOperation("RESOLVE_UNIQUENESS");
+    @Nonnull
+    public static final PipelineOperation IN_JOIN = new PipelineOperation("IN_JOIN");
+    @Nonnull
+    public static final PipelineOperation TEXT_INDEX_UPDATE = new PipelineOperation("TEXT_INDEX_UPDATE");
+
     private final String name;
 
     public PipelineOperation(String name) {
@@ -46,13 +63,4 @@ public class PipelineOperation {
     public String toString() {
         return name;
     }
-
-    public static final PipelineOperation INDEX_TO_RECORD = new PipelineOperation("INDEX_TO_RECORD");
-    public static final PipelineOperation KEY_TO_RECORD = new PipelineOperation("KEY_TO_RECORD");
-    public static final PipelineOperation RECORD_ASYNC_FILTER = new PipelineOperation("RECORD_ASYNC_FILTER");
-    public static final PipelineOperation RECORD_FUNCTION = new PipelineOperation("RECORD_FUNCTION");
-    public static final PipelineOperation RESOLVE_UNIQUENESS = new PipelineOperation("RESOLVE_UNIQUENESS");
-    public static final PipelineOperation IN_JOIN = new PipelineOperation("IN_JOIN");
-    public static final PipelineOperation TEXT_INDEX_UPDATE = new PipelineOperation("TEXT_INDEX_UPDATE");
-
 }

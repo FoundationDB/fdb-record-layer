@@ -114,6 +114,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     @Nonnull
     CompletableFuture<Boolean> onHasNext();
 
+    @Override
     default boolean hasNext() {
         try {
             return onHasNext().get();
@@ -126,6 +127,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     }
 
     @Nullable
+    @Override
     T next();
 
     /**
