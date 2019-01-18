@@ -31,6 +31,7 @@ shadowJar {
     relocate 'com.google', 'com.apple.foundationdb.record.shaded.com.google'
     dependencies {
         include(dependency(coreProject))
+        include(dependency(':fdb-extensions'))
         include(dependency('com.google.guava:guava'))
         include(dependency('com.google.protobuf:protobuf-java'))
     }
@@ -46,6 +47,7 @@ task shadedSourcesJar(type: Jar) {
     appendix = null
     classifier = "sources"
     from project(coreProject).sourceSets.main.allSource
+    from project(':fdb-extensions').sourceSets.main.allSource
 }
 
 task shadedJavadocJar(type: Jar) {
@@ -54,6 +56,20 @@ task shadedJavadocJar(type: Jar) {
     appendix = null
     classifier = "javadoc"
     from project(coreProject).tasks.javadoc
+}
+
+ext.shadedDependencyNames = ['guava', 'protobuf-java', 'fdb-extensions']
+
+def addDependencies(projectObj, dependenciesNode) {
+    projectObj.configurations.compile.getDependencies().forEach {
+        if (!shadedDependencyNames.contains(it.name)) {
+            def dependencyNode = dependenciesNode.appendNode('dependency')
+            dependencyNode.appendNode('groupId', it.group)
+            dependencyNode.appendNode('artifactId', it.name)
+            dependencyNode.appendNode('version', it.version)
+            dependencyNode.appendNode('scope', 'compile')
+        }
+    }
 }
 
 apply from: rootProject.file('gradle/publishing.gradle')
@@ -78,15 +94,8 @@ publishing {
                     }
                     // Add a section containing all non-shaded dependencies
                     def dependenciesNode = xml.asNode().appendNode('dependencies')
-                    project(coreProject).configurations.compile.getDependencies().forEach {
-                        if (!it.name.equals('guava') && !it.name.equals('protobuf-java')) {
-                            def dependencyNode = dependenciesNode.appendNode('dependency')
-                            dependencyNode.appendNode('groupId', it.group)
-                            dependencyNode.appendNode('artifactId', it.name)
-                            dependencyNode.appendNode('version', it.version)
-                            dependencyNode.appendNode('scope', 'compile')
-                        }
-                    }
+                    addDependencies(project(coreProject), dependenciesNode)
+                    addDependencies(project(':fdb-extensions'), dependenciesNode)
                 }
             }
             artifact tasks.shadedSourcesJar
