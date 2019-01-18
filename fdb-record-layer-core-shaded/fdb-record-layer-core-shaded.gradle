@@ -40,6 +40,22 @@ build.dependsOn {
     shadowJar
 }
 
+task shadedSourcesJar(type: Jar) {
+    description = "Assembles a Jar archive containing the main sources."
+    group = JavaBasePlugin.DOCUMENTATION_GROUP
+    appendix = null
+    classifier = "sources"
+    from project(coreProject).sourceSets.main.allSource
+}
+
+task shadedJavadocJar(type: Jar) {
+    description = "Assembles a Jar archive containing the main Javadoc."
+    group = JavaBasePlugin.DOCUMENTATION_GROUP
+    appendix = null
+    classifier = "javadoc"
+    from project(coreProject).tasks.javadoc
+}
+
 apply from: rootProject.file('gradle/publishing.gradle')
 publishing {
     publications {
@@ -73,6 +89,8 @@ publishing {
                     }
                 }
             }
+            artifact tasks.shadedSourcesJar
+            artifact tasks.shadedJavadocJar
         }
     }
     bintray {
