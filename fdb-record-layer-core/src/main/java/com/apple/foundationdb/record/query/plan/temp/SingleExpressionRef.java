@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
 import java.util.Optional;
 
 /**
@@ -58,11 +59,14 @@ public class SingleExpressionRef<T extends PlannerExpression> implements Mutable
     }
 
     @Override
-    public boolean acceptPropertyVisitor(@Nonnull PlannerProperty visitor) {
-        if (visitor.visitEnter(this)) {
-            expression.acceptPropertyVisitor(visitor);
+    public <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> visitor) {
+        if (visitor.shouldVisit(this)) {
+            final U memberResult = expression.acceptPropertyVisitor(visitor);
+            if (memberResult != null) {
+                return visitor.evaluateAtRef(this, Collections.singletonList(memberResult));
+            }
         }
-        return visitor.visitLeave(this);
+        return null;
     }
 
     public static <T extends PlannerExpression> SingleExpressionRef<T> of(@Nonnull T expression) {
