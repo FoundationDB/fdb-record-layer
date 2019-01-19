@@ -38,7 +38,21 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
- * A cursor that implements a union of all the records from a set of cursors all of whom are ordered compatibly.
+ * A cursor that implements a union of all the records from a set of cursors, all of whom are ordered compatibly.
+ * In this instance, "compatibly ordered" means that all cursors should return results sorted by the "comparison key".
+ * For instance, a {@code UnionCursor} of type {@link com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord}
+ * might get the primary key of each record as the comparison key function. This is legal as long as all its children
+ * also return records ordered by primary key. This cursor removes any duplicates (relying solely on the comparison key
+ * to indicate that two elements are equal), and it returns results ordered by the comparison key.
+ *
+ * <p>
+ * If <i>any</i> child of this cursor stops because it hits a limit, then this cursor will also stop. This differs from the
+ * behavior of the {@link UnorderedUnionCursor}. This cursor requires <i>all</i> of its children have returned a value
+ * before it can determine which value to return next (as otherwise, it does not know what the minimum value is
+ * according to the comparison key). If it were to continue returning results, there may be anomalies in the order of
+ * returned results across continuation boundaries.
+ * </p>
+ *
  * @param <T> the type of elements returned by the cursor
  */
 @API(API.Status.MAINTAINED)

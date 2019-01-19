@@ -64,10 +64,16 @@ public class FirableCursor<T> implements RecordCursor<T> {
         return fireSignal.thenCompose(vignore -> underlying.onNext()).thenApply(result -> {
             mayGetContinuation = !result.hasNext();
             nextResult = result;
-            synchronized (this) {
-                if (!fireWhenReady) {
-                    fireSignal = new CompletableFuture<>();
+            if (result.hasNext()) {
+                synchronized (this) {
+                    if (!fireWhenReady) {
+                        fireSignal = new CompletableFuture<>();
+                    }
                 }
+            } else {
+                // If the underlying cursor is exhausted, don't reset the fire signal
+                // as this cursor won't be returning more elements any way.
+                fireSignal = AsyncUtil.DONE;
             }
             return result;
         });

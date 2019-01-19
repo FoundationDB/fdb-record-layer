@@ -143,6 +143,10 @@ The `OnlineIndexBuilder` has been renamed to the `OnlineIndexer`. This was to ac
 
 As the `Index` class now tracks the created and last modified version separately, the `getVersion` method has been deprecated. Users should switch to using `getAddedVersion` and `getLastModifiedVersion` as appropriate.
 
+### 2.3.32.13
+
+* **Bug fix** The `UnorderedUnionCursor` now continues returning results until all children have hit a limit or are exhausted [(Issue #332)](https://github.com/FoundationDB/fdb-record-layer/issues/332)
+
 ### 2.3.32.10
 
 * **Bug fix** The FlatMapPipelinedCursor could return a null continuation when the inner cursor was done but was not ready immediately [(Issue #255)](https://github.com/FoundationDB/fdb-record-layer/issues/255)
