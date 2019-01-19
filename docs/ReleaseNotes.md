@@ -62,10 +62,13 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* All changes from version [2.3.32.13](#233213)
 
 // end next release
 -->
+
+### 2.5.40.0
+
+* All changes from version [2.3.32.13](#233213)
 
 ### 2.5.38.0
 
