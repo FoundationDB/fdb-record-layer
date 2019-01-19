@@ -155,7 +155,9 @@ allprojects {
     }
 
     repositories {
-        if (System.getenv("RECORD_LAYER_BUILD_NUMBER") != null) {
+        if (System.getenv("ARTIFACT_VERSION") != null) {
+           version = "${System.getenv('ARTIFACT_VERSION')}"
+        } else if (System.getenv("RECORD_LAYER_BUILD_NUMBER") != null) {
            version = "${version}.${System.getenv('RECORD_LAYER_BUILD_NUMBER')}"
         }
         if (Boolean.parseBoolean(mavenLocalEnabled)) {
