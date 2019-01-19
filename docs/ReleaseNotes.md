@@ -62,6 +62,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* All changes from version [2.3.32.13](#233213)
 
 // end next release
 -->
@@ -75,7 +76,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 
 * **Feature** The `TextCursor` class now reports metrics on keys read [(Issue #242)](https://github.com/FoundationDB/fdb-record-layer/issues/242)
 * **Breaking change** Typed record stores are now wrappers around generic record stores, and several classes no longer take a type parameter [(Issue #165)](https://github.com/FoundationDB/fdb-record-layer/issues/165)
-* All changes from version 2.4.35.12
+* All changes from version [2.4.35.12](#243512)
 
 ## 2.4
 
@@ -98,7 +99,7 @@ Several constructors of the `RecordMetaDataBuilder` class have been deprecated. 
 ### 2.4.36.0
 
 * **Feature** A new RecordCursor API makes continuations less error-prone and safe use easier [(Issue #109)](https://github.com/FoundationDB/fdb-record-layer/issues/109)
-* All changes from version 2.4.35.11
+* All changes from version [2.4.35.11](#243511)
 
 ### 2.4.35.12
 
@@ -109,7 +110,7 @@ Several constructors of the `RecordMetaDataBuilder` class have been deprecated. 
 * **Bug fix** The FlatMapPipelinedCursor could return a null continuation when the inner cursor was done but was not ready immediately [(Issue #255)](https://github.com/FoundationDB/fdb-record-layer/issues/255)
 * **Feature** The `RecordMetaDataBuilder` now performs additional validation by default before returning a `RecordMetaData` [(Issue #201)](https://github.com/FoundationDB/fdb-record-layer/issues/201)
 * **Feature** Including a repeated field within a meta-data's union descriptor now results in an explicit error [(Issue #237)](https://github.com/FoundationDB/fdb-record-layer/issues/237)
-* All changes from version 2.3.32.10
+* All changes from version [2.3.32.10](#233210)
 
 ### 2.4.35.0
 
@@ -118,7 +119,7 @@ Several constructors of the `RecordMetaDataBuilder` class have been deprecated. 
 * **Feature** `MetaData` proto messages can now specify transitive dependencies and therefore support self-contained meta-data definitions [(Issue #114)](https://github.com/FoundationDB/fdb-record-layer/issues/114)
 * **Feature** Appropriate covering indexes will now be chosen when specified with concatenated fields [(Issue #212)](https://github.com/FoundationDB/fdb-record-layer/issues/212)
 * **Feature** The `KeySpacePath` class no longer includes a transaction object and old code paths are deprecated [(Issue #151)](https://github.com/FoundationDB/fdb-record-layer/issues/151)
-* All changes from versions 2.3.32.8 and 2.3.32.9
+* All changes from versions [2.3.32.8](#23328) and [2.3.32.9](#23329)
 
 ### 2.4.34.0
 
@@ -159,7 +160,7 @@ As the `Index` class now tracks the created and last modified version separately
 
 ### 2.3.32.8
 
-* All changes from version 2.2.29.7
+* All changes from version [2.2.29.7](#22297)
 
 ### 2.3.32.0
 
@@ -255,7 +256,7 @@ The capability and reliability of text queries on more sophisticated indexes has
 
 * **Bug fix** Multi-type text indexes now add type predicates if the query only requires a subset of the types on which the index is defined [(Issue #126)](https://github.com/FoundationDB/fdb-record-layer/issues/126)
 * **Bug fix** Combining a “not” predicate with a text query would previously throw an error during planning [(Issue #127)](https://github.com/FoundationDB/fdb-record-layer/issues/127)
-* All changes from version 2.1.14.6
+* All changes from version [2.1.14.6](#21146)
 
 ### 2.1.18.0
 
