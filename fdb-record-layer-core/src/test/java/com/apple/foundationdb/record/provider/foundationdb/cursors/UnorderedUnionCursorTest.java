@@ -142,7 +142,12 @@ public class UnorderedUnionCursorTest {
         );
         UnorderedUnionCursor<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null);
         cursors.get(0).fireAll();
-        assertEquals(Collections.singletonList(0), cursor.asList().get());
+        assertEquals(0, (int)cursor.next());
+        cursors.get(1).fire();
+        assertEquals(3, (int)cursor.next());
+        cursors.get(1).fire();
+        assertEquals(4, (int)cursor.next());
+        cursors.get(1).fire();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
 
@@ -156,6 +161,9 @@ public class UnorderedUnionCursorTest {
         assertEquals(3, (int)cursor.next());
         cursors.get(0).fireAll();
         assertEquals(0, (int)cursor.next());
+        cursors.get(1).fire();
+        assertEquals(4, (int)cursor.next());
+        cursors.get(1).fire();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
 
@@ -176,7 +184,7 @@ public class UnorderedUnionCursorTest {
         // One hits return limit ; one hits scan limit exhausted
         cursors = Arrays.asList(
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
-                new FirableCursor<>(new RecordCursorTest.FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)), 1))
+                new FirableCursor<>(new RecordCursorTest.FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)), 1, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED))
         );
         cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null);
         cursors.get(1).fire();
@@ -185,7 +193,33 @@ public class UnorderedUnionCursorTest {
         assertEquals(0, (int)cursor.next());
         cursors.get(1).fireAll();
         assertThat(cursor.hasNext(), is(false));
-        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
+        assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, cursor.getNoNextReason());
+    }
+
+    /**
+     * There was a race condition that could result in an unordered union cursor throwing a {@link java.util.NoSuchElementException}
+     * after also returning {@code true} from {@link RecordCursor#onHasNext()}, which is a contract violation.
+     * This is to check regressions of that bug: https://github.com/FoundationDB/fdb-record-layer/issues/332
+     */
+    @Test
+    public void childCompletesBetweenHasNextAndNext() {
+        final FirableCursor<Integer> cursor1 = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)));
+        final FirableCursor<Integer> cursor2 = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)).limitRowsTo(1));
+        List<FirableCursor<Integer>> cursors = Arrays.asList(cursor1, cursor2);
+        RecordCursor<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null);
+
+        cursor2.fire();
+        assertEquals(3, (int)cursor.next());
+        cursor1.fire();
+        assertThat(cursor.hasNext(), is(true));
+        cursor2.fire();
+        assertThat(cursor2.hasNext(), is(false));
+        assertEquals(0, (int)cursor.next());
+        cursor1.fire();
+        assertEquals(1, (int)cursor.next());
+        cursor1.fire();
+        assertThat(cursor.hasNext(), is(false));
+        assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
     }
 
     @ValueSource(ints = {1, 3, 5})

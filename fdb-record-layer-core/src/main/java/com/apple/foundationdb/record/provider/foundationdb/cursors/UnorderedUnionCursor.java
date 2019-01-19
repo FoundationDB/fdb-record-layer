@@ -34,15 +34,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
- * A cursor that returns the results of two or more cursors that may return
- * elements in any order. This cursor makes no guarantees as to the order of
- * elements it returns, and it may return the same element more than once
- * as it does not make any attempt to de-duplicate elements that appear in multiple
- * of its source cursors. It attempts to return elements from its children
- * "as they come", which means that it might be the case that identical cursors
- * of this type may return results in two different orders even if all of its
- * child cursors all return the same results if different children happen to
- * be faster in (due to, for example, non-determinism in the network).
+ * A cursor that returns the results of two or more cursors that may return elements in any order. This cursor makes
+ * no guarantees as to the order of elements it returns, and it may return the same element more than once as it does
+ * not make any attempt to de-duplicate elements that appear in multiple of its source cursors. It attempts to return
+ * elements from its children "as they come", which means that it might be the case that identical cursors of this type
+ * may return results in two different orders even if all of its child cursors all return the same results if different
+ * children happen to be faster in one run than the other (due to, for example, non-determinism in sending messages across
+ * the network).
+ *
+ * <p>
+ * If there are limits applied to the children of this cursor, this cursor will continue to emit elements as long as
+ * there remains at least one child cursor who has not yet returned its last result. (For example, if this cursor
+ * has two children and one of them completes faster than the other due to hitting some limit, then the union cursor
+ * will continue returning results from the other cursor.) This differs from the behavior of the ordered
+ * {@link UnionCursor}.
+ * </p>
  *
  * @param <T> the type of elements returned by the cursor
  */
@@ -60,28 +66,18 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T> {
         AtomicBoolean unionHasNext = new AtomicBoolean(false);
         return AsyncUtil.whileTrue(() -> whenAny(cursorStates).thenApply(vignore -> {
             boolean anyHasNext = false;
-            boolean anyLimitReached = false;
-            boolean allExhausted = true;
+            boolean allDone = true;
             for (CursorState<T> cursorState : cursorStates) {
                 if (!cursorState.getOnNextFuture().isDone()) {
-                    allExhausted = false;
+                    allDone = false;
                     continue;
                 }
                 final RecordCursorResult<T> result = cursorState.getResult();
-                if (!result.hasNext()) {
-                    if (result.getNoNextReason().isLimitReached()) {
-                        anyLimitReached = true;
-                        allExhausted = false;
-                    }
-                } else {
+                if (result.hasNext()) {
                     // Found a cursor with an element.
                     anyHasNext = true;
-                    allExhausted = false;
+                    allDone = false;
                 }
-            }
-            // If any cursor has reached a limit, stop the union cursor.
-            if (anyLimitReached) {
-                return false;
             }
             // If any cursor has another element, return that there is another element
             // for the union. If no element was found, it was because the child
@@ -90,7 +86,7 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T> {
             if (anyHasNext) {
                 unionHasNext.set(true);
             }
-            return !allExhausted && !anyHasNext;
+            return !allDone && !anyHasNext;
         }), getExecutor()).thenApply(vignore -> unionHasNext.get());
     }
 
@@ -98,11 +94,11 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T> {
     void chooseStates(@Nonnull List<CursorState<T>> allStates, @Nonnull List<CursorState<T>> chosenStates, @Nonnull List<CursorState<T>> otherStates) {
         boolean found = false;
         for (CursorState<T> cursorState : allStates) {
-            if (found || cursorState.isExhausted() || !cursorState.getOnNextFuture().isDone() || cursorState.getResult().get() == null) {
-                otherStates.add(cursorState);
-            } else if (cursorState.getOnNextFuture().isDone()) {
+            if (!found && cursorState.getOnNextFuture().isDone() && cursorState.getResult().hasNext()) {
                 chosenStates.add(cursorState);
                 found = true;
+            } else {
+                otherStates.add(cursorState);
             }
         }
     }
