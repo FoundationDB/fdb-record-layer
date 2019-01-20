@@ -42,14 +42,15 @@ import java.util.function.Function;
 public class IntersectionMultiCursor<T> extends IntersectionCursorBase<T, List<T>> {
 
     private IntersectionMultiCursor(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-                                    boolean reverse, @Nonnull List<CursorState<T>> cursorStates,
+                                    boolean reverse, @Nonnull List<KeyedMergeCursorState<T>> cursorStates,
                                     @Nullable FDBStoreTimer timer) {
         super(comparisonKeyFunction, reverse, cursorStates, timer);
+
     }
 
     @Override
     @Nonnull
-    List<T> getNextResult(@Nonnull List<CursorState<T>> cursorStates) {
+    List<T> getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
         List<T> result = new ArrayList<>(cursorStates.size());
         cursorStates.forEach(cursorState -> result.add(cursorState.getResult().get()));
         return result;
@@ -88,6 +89,7 @@ public class IntersectionMultiCursor<T> extends IntersectionCursorBase<T, List<T
             @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
-        return new IntersectionMultiCursor<>(comparisonKeyFunction, reverse, createCursorStates(cursorFunctions, continuation), timer);
+        return new IntersectionMultiCursor<>(comparisonKeyFunction, reverse,
+                createCursorStates(cursorFunctions, continuation, comparisonKeyFunction), timer);
     }
 }
