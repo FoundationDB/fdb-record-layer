@@ -92,6 +92,7 @@ public class Main {
     public static void main(String[] args) {
         // Get a database connection.
         FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        FDBRecordContext context = fdb.openContext();
 
         // Create a subspace using the key space API to create a subspace within
         // the cluster used by this record store. The key space API in general
@@ -127,6 +128,7 @@ public class Main {
         RecordMetaData rmd = RecordMetaData.build(SampleProto.getDescriptor());
 
         FDBRecordStore.Builder recordStoreBuilder = FDBRecordStore.newBuilder()
+                .setContext(context)
                 .setMetaDataProvider(rmd)
                 .setKeySpacePath(path);
 
@@ -279,7 +281,7 @@ public class Main {
         // records with each value.
         rmdBuilder.addIndex("Customer", new Index("preference_tag_count",
                 field("customer_id").groupBy(field("preference_tag", FanType.FanOut)),
-                IndexTypes.COUNT));
+                IndexTypes.COUNT_NOT_NULL));
 
         // Add a nested secondary index for order such that each value for
         // quantity in Order generates a single key in the index.
@@ -469,7 +471,7 @@ public class Main {
         // Get the number of customers who have "books" listed as one of their preference tags
         Long bookPreferenceCount = fdb.runAsync((FDBRecordContext cx) -> recordStoreBuilder.copyBuilder().setContext(cx).openAsync().thenCompose(store -> {
             Index index = store.getRecordMetaData().getIndex("preference_tag_count");
-            IndexAggregateFunction function = new IndexAggregateFunction(FunctionNames.COUNT, index.getRootExpression(), index.getName());
+            IndexAggregateFunction function = new IndexAggregateFunction(FunctionNames.COUNT_NOT_NULL, index.getRootExpression(), index.getName());
             return store.evaluateAggregateFunction(Collections.singletonList("Customer"), function, Key.Evaluated.scalar("books"), IsolationLevel.SERIALIZABLE)
                     .thenApply(tuple -> tuple.getLong(0));
         })).join();
