@@ -65,7 +65,7 @@ import java.util.function.Function;
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Performance)
-public class FDBRecordStorePerformanceTest {
+public class FDBRecordStorePerformanceTest extends FDBTestBase {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStorePerformanceTest.class);
 
     static class DatabaseParameters {

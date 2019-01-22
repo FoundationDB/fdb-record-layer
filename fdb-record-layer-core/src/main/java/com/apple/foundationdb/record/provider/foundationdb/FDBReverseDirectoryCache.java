@@ -227,7 +227,7 @@ public class FDBReverseDirectoryCache {
 
                     LOGGER.warn(KeyValueLogMessage.of("Value not found in reverse directory cache, need to scan",
                             "provided_key", scopedReverseDirectoryKey,
-                            "subspace", reverseCacheSubspaceFuture.join()));
+                            "subspace", context.join(reverseCacheSubspaceFuture)));
                     final Subspace subdirs = scopedReverseDirectoryKey.getScope().getMappingSubspace();
 
                     return context.instrument(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN, findNameForKey(context, subdirs, null, scopedReverseDirectoryKey))

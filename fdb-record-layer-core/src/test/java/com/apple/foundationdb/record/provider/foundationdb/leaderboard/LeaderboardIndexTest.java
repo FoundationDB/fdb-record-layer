@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -88,7 +89,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@code TIME_WINDOW_LEADERBOARD} indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class LeaderboardIndexTest {
+public class LeaderboardIndexTest extends FDBTestBase {
     FDBDatabase fdb;
     FDBStoreTimer metrics;
     private static int oldMaxAttempts;

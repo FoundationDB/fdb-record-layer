@@ -52,7 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * Tests for {@link KeyValueCursor}.
  */
 @Tag(Tags.RequiresFDB)
-public class KeyValueCursorTest {
+public class KeyValueCursorTest extends FDBTestBase {
     private FDBDatabase fdb;
     private Subspace subspace;
 

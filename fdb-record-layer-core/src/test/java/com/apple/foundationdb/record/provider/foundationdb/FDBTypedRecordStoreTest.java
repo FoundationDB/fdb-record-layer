@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBTypedRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBTypedRecordStoreTest {
+public class FDBTypedRecordStoreTest extends FDBTestBase {
     private static final Logger logger = LoggerFactory.getLogger(FDBTypedRecordStoreTest.class);
 
     FDBDatabase fdb;

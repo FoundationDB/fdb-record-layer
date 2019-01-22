@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBMetaDataStore}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBMetaDataStoreTest {
+public class FDBMetaDataStoreTest extends FDBTestBase {
     FDBDatabase fdb;
     FDBMetaDataStore metaDataStore;
 

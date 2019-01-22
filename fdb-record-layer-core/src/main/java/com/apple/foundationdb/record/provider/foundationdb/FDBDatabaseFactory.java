@@ -24,8 +24,8 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,8 +78,10 @@ public class FDBDatabaseFactory {
      * (such as by request) using {@link #setTransactionIsTracedSupplier(Supplier)}.
      */
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
+    private Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = () -> BlockingInAsyncDetection.DISABLED;
 
     private final Map<String, FDBDatabase> databases = new HashMap<>();
+
 
     @Nonnull
     public static FDBDatabaseFactory instance() {
@@ -334,6 +336,40 @@ public class FDBDatabaseFactory {
         return transactionIsTracedSupplier;
     }
 
+    /**
+     * Controls if calls to <code>FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, CompletableFuture)</code>
+     * or <code>FDBRecordContext#asyncToSync(FDBStoreTimer.Wait, CompletableFuture)</code> will attempt to detect
+     * when they are being called from within an asynchronous context and how they should react to this fact
+     * when they are. Note that the process of performing this detection is quite expensive, so running with
+     * detection enabled in not recommended for environments other than testing.
+     *
+     * @param behavior the blocking desired blocking detection behavior
+     * (see {@link BlockingInAsyncDetection})
+     */
+    public void setBlockingInAsyncDetection(@Nonnull BlockingInAsyncDetection behavior) {
+        setBlockingInAsyncDetection(() -> behavior);
+    }
+
+    /**
+     * Provides a supplier that controls if calls to <code>FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, CompletableFuture)</code>
+     * or <code>FDBRecordContext#asyncToSync(FDBStoreTimer.Wait, CompletableFuture)</code> will attempt to detect
+     * when they are being called from within an asynchronous context and how they should react to this fact
+     * when they are.  Because such detection is quite expensive, it is suggested that it is either
+     * {@link BlockingInAsyncDetection#DISABLED} for anything other than testing environments or that the
+     * supplier randomly chooses a small sample rate in which detection should be enabled.
+     *
+     * @param supplier a supplier that produces the blocking desired blocking detection behavior
+     * (see {@link BlockingInAsyncDetection})
+     */
+    public void setBlockingInAsyncDetection(@Nonnull Supplier<BlockingInAsyncDetection> supplier) {
+        this.blockingInAsyncDetectionSupplier = supplier;
+    }
+
+    @Nonnull
+    protected Supplier<BlockingInAsyncDetection> getBlockingInAsyncDetectionSupplier() {
+        return this.blockingInAsyncDetectionSupplier;
+    }
+
     public long getStateRefreshTimeMillis() {
         return stateRefreshTimeMillis;
     }
@@ -366,5 +402,4 @@ public class FDBDatabaseFactory {
     public synchronized FDBDatabase getDatabase() {
         return getDatabase(null);
     }
-
 }

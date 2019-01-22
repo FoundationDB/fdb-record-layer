@@ -78,7 +78,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link FDBReverseDirectoryCache}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBReverseDirectoryCacheTest {
+public class FDBReverseDirectoryCacheTest extends FDBTestBase {
 
     private static final Logger logger = LoggerFactory.getLogger(FDBReverseDirectoryCacheTest.class);
 
