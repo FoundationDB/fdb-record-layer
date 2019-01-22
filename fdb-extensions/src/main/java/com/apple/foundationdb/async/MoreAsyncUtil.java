@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.util.LoggableException;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import javax.annotation.Nonnull;
@@ -807,6 +808,30 @@ public class MoreAsyncUtil {
     }
 
     /**
+     * Get a completable future that will either complete within the specified deadline time or complete exceptionally
+     * with {@link DeadlineExceededException}.
+     * @param deadlineTimeMillis the maximum time to wait for the asynchronous operation to complete, specified in milliseconds
+     * @param supplier the {@link Supplier} of the asynchronous result
+     * @param <T> the return type for the get operation
+     * @return a future that will either complete with the result of the asynchronous get operation or
+     * complete exceptionally if the deadline is exceeded
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public static <T> CompletableFuture<T> getWithDeadline(long deadlineTimeMillis,
+                                                           @Nonnull Supplier<CompletableFuture<T>> supplier) {
+        final CompletableFuture<T> valueFuture = supplier.get();
+
+        return CompletableFuture.anyOf(MoreAsyncUtil.delayedFuture(deadlineTimeMillis, TimeUnit.MILLISECONDS), valueFuture)
+                .thenCompose(ignore -> {
+                    if (!valueFuture.isDone()) {
+                        // if the future is not ready then we exceeded the timeout
+                        valueFuture.completeExceptionally(new DeadlineExceededException(deadlineTimeMillis));
+                    }
+                    return valueFuture;
+                });
+    }
+
+    /**
      * Close the given iterator, or at least cancel it.
      * @param iterator iterator to close
      */
@@ -836,4 +861,16 @@ public class MoreAsyncUtil {
      * This is a static class, and should not be instantiated.
      **/
     private MoreAsyncUtil() {}
+
+    /**
+     * Exception that will be thrown when the <code>supplier</code> in {@link #getWithDeadline(long, Supplier)} fails to
+     * complete within the specified deadline time.
+     */
+    @SuppressWarnings("serial")
+    public static class DeadlineExceededException extends LoggableException {
+        private DeadlineExceededException(long deadlineTimeMillis) {
+            super("deadline exceeded");
+            addLogInfo("deadlineTimeMillis", deadlineTimeMillis);
+        }
+    }
 }

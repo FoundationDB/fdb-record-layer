@@ -1302,23 +1302,23 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("a", KeyType.STRING)
                         .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING)
-                                .addSubdirectory(new KeySpaceDirectory("d", KeyType.STRING)))
+                                .addSubdirectory(new KeySpaceDirectory("d", KeyType.STRING, TestWrapper1::new)))
                         .addSubdirectory(new KeySpaceDirectory("c", KeyType.LONG)
-                                .addSubdirectory(new KeySpaceDirectory("d", KeyType.STRING))));
+                                .addSubdirectory(new KeySpaceDirectory("d", KeyType.STRING, TestWrapper1::new))));
 
-        KeySpacePath p1 = keySpace.path("a", "alpha")
+        final KeySpacePath p1 = keySpace.path("a", "alpha")
                 .add("b", "bravo")
                 .add("d", "delta");
 
-        KeySpacePath p2 = keySpace.path("a", "alpha")
+        final KeySpacePath p2 = keySpace.path("a", "alpha")
                 .add("b", "bravo")
                 .add("d", "duck");
 
-        KeySpacePath p3 = keySpace.path("a", "alpha")
+        final KeySpacePath p3 = keySpace.path("a", "alpha")
                 .add("c", 23)
                 .add("d", "delta");
 
-        KeySpacePath sameAsP1 = keySpace.path("a", "alpha")
+        final KeySpacePath sameAsP1 = keySpace.path("a", "alpha")
                 .add("b", "bravo")
                 .add("d", "delta");
 

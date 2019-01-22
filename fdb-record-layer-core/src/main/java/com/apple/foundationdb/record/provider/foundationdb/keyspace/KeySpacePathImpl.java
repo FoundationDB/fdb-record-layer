@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -301,24 +300,12 @@ class KeySpacePathImpl implements KeySpacePath {
 
     @Override
     public int hashCode() {
-        ImmutableList.Builder<Object> listBuilder = ImmutableList.builder();
-
-        listBuilder.add(getDirectory().getKeyType());
-        listBuilder.add(getDirectory().getName());
-
-        if (getDirectory().getValue() != null) {
-            listBuilder.add(getDirectory().getValue());
-        }
-
-        if (getValue() != null) {
-            listBuilder.add(getValue());
-        }
-
-        if (parent != null) {
-            listBuilder.add(parent);
-        }
-
-        return Objects.hash(listBuilder.build().toArray());
+        return Objects.hash(
+                getDirectory().getKeyType(),
+                getDirectory().getName(),
+                getDirectory().getValue(),
+                getValue(),
+                parent);
     }
 
     @Override

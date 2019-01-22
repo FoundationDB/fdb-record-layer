@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -49,8 +48,6 @@ import java.util.concurrent.CompletableFuture;
 public class ResolverMappingDigest implements AutoCloseable {
     private static final String ALGORITHM = "SHA-256";
     @Nonnull
-    private final Subspace mappingSubspace;
-    @Nonnull
     private final LocatableResolver resolver;
     @Nonnull
     private final FDBDatabaseRunner runner;
@@ -64,7 +61,6 @@ public class ResolverMappingDigest implements AutoCloseable {
                                  int transactionRowLimit) {
         this.runner = directoryScope.getDatabase().newRunner();
         this.resolver = directoryScope;
-        this.mappingSubspace = directoryScope.getMappingSubspace();
         this.transactionRowLimit = transactionRowLimit;
     }
 
@@ -95,23 +91,26 @@ public class ResolverMappingDigest implements AutoCloseable {
     private CompletableFuture<byte[]> computeInternal(@Nonnull FDBRecordContext context,
                                                       @Nullable byte[] continuation,
                                                       @Nonnull MessageDigest messageDigest) {
-        final RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(mappingSubspace)
-                .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(transactionRowLimit).setIsolationLevel(IsolationLevel.SNAPSHOT).build()))
-                .setContext(context)
-                .setContinuation(continuation)
-                .build();
 
-        return AsyncUtil.whileTrue(() ->
-            cursor.onHasNext().thenApply(hasNext -> {
-                if (hasNext) {
-                    KeyValue kv = cursor.next();
-                    String key = mappingSubspace.unpack(kv.getKey()).getString(0);
-                    ResolverResult value = resolver.deserializeValue(kv.getValue());
+        return resolver.getMappingSubspaceAsync().thenCompose(mappingSubspace -> {
+            final RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(mappingSubspace)
+                    .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(transactionRowLimit).setIsolationLevel(IsolationLevel.SNAPSHOT).build()))
+                    .setContext(context)
+                    .setContinuation(continuation)
+                    .build();
 
-                    messageDigest.update(Tuple.from(key, value.getValue(), value.getMetadata()).pack());
-                }
-                return hasNext;
-            }), context.getExecutor()
-        ).thenApply(ignore -> cursor.getContinuation());
+            return AsyncUtil.whileTrue(() ->
+                    cursor.onHasNext().thenApply(hasNext -> {
+                        if (hasNext) {
+                            KeyValue kv = cursor.next();
+                            String key = mappingSubspace.unpack(kv.getKey()).getString(0);
+                            ResolverResult value = resolver.deserializeValue(kv.getValue());
+
+                            messageDigest.update(Tuple.from(key, value.getValue(), value.getMetadata()).pack());
+                        }
+                        return hasNext;
+                    }), context.getExecutor()
+            ).thenApply(ignore -> cursor.getContinuation());
+        });
     }
 }

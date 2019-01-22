@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil.DeadlineExceededException;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
@@ -184,7 +185,8 @@ class AsyncLoadingCacheTest {
             cachedResult.orElseGet("a-key", tooLateSupplier).join();
             fail("should throw CompletionException");
         } catch (CompletionException ex) {
-            assertThat("it is caused by a deadline exception", ex.getCause(), is(instanceOf(RecordCoreException.class)));
+            assertThat("it is caused by a deadline exception", ex.getCause(),
+                    is(instanceOf(DeadlineExceededException.class)));
             assertThat(ex.getCause(), hasMessageContaining("deadline exceeded"));
         }
 

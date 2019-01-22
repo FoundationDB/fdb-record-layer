@@ -201,6 +201,16 @@ public class KeySpacePathWrapper implements KeySpacePath {
     }
 
     @Override
+    public boolean equals(Object obj) {
+        return inner.equals(obj);
+    }
+
+    @Override
+    public int hashCode() {
+        return inner.hashCode();
+    }
+
+    @Override
     public String toString() {
         return inner.toString();
     }
