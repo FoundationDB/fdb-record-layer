@@ -846,8 +846,14 @@ public abstract class LocatableResolverTest extends FDBTestBase {
                     globalScope.mustResolve(context, "an-existing-mapping").join(), is(value));
             assertThat("will still only see the original reverse mapping",
                     globalScope.reverseLookup(null, value).join(), is("an-existing-mapping"));
-            assertThrows(CompletionException.class, () -> globalScope.reverseLookup(null, value + 1).join(),
-                    "nothing was added for the wrong value");
+            try {
+                String key = globalScope.reverseLookup(null, value + 1).join();
+                // there is a small chance that the mapping does exist, but it should be for some other key
+                assertThat(key, is(not("an-existing-mapping")));
+            } catch (CompletionException ex) {
+                // we will get an exception if the reverse mapping does not exist, most of the time this will be the case
+                assertThat("no such element on reverse lookup", ex.getCause(), is(instanceOf(NoSuchElementException.class)));
+            }
         }
 
 
