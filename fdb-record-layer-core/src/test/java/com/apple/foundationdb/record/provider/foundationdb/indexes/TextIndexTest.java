@@ -75,6 +75,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndOrComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
+import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -157,6 +158,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
@@ -1421,6 +1423,26 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Collections.singletonList(5L),
                     querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("한구"), 1377518291)); // note that the second character is only 2 of the 3 Jamo components
 
+            // Contains any prefix
+            assertEquals(ImmutableSet.of(0L, 1L, 2L, 3L),
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix("civ א un"), 1227233680)));
+            assertEquals(ImmutableSet.of(0L, 1L, 2L, 3L),
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix("cIv ַא Un"), -794472473)));
+            assertEquals(ImmutableSet.of(0L, 1L, 2L, 3L),
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix(Arrays.asList("civ", "א", "un")), 1486849487)));
+            assertEquals(ImmutableSet.of(2L),
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix(Arrays.asList("civ", "אַ", "Un")), 1905505336)));
+
+            // Contains all prefixes
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("civ un"), 1757831895));
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("civ un", false), -900079353));
+            assertEquals(ImmutableSet.of(0L, 1L),
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("wa th"), -1203466155)));
+            assertEquals(ImmutableSet.of(0L, 1L),
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("wa th", false), -433119192)));
+
             commit(context);
         }
     }
@@ -1635,10 +1657,19 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     querySimpleDocumentsWithIndex(Query.field("text").text(prefixTokenizerName).containsAll("못핵"), SIMPLE_TEXT_PREFIX.getName(), 1444383389));
 
             // Suffixes tokenizer
+            // Note that prefix scans using the suffixes tokenizer are equivalent to infix searches on the original tokens
             assertEquals(Collections.emptyList(),
                     querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsPrefix("meister"), SIMPLE_DEFAULT_NAME, -2049073113));
             assertEquals(Collections.singletonList(2L),
                     querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsPrefix("meister"), SIMPLE_TEXT_SUFFIXES.getName(), -628393471));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAnyPrefix("meister ivi"), SIMPLE_DEFAULT_NAME, 279029713));
+            assertEquals(ImmutableSet.of(0L, 2L),
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAnyPrefix("meister ivi"), SIMPLE_TEXT_SUFFIXES.getName(), 1699709355)));
+            assertEquals(Collections.emptyList(),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAllPrefixes("meister won", false), SIMPLE_DEFAULT_NAME, 993745490));
+            assertEquals(Collections.singletonList(2L),
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAllPrefixes("meister won", false), SIMPLE_TEXT_SUFFIXES.getName(), -1880542164));
             assertEquals(Arrays.asList(0L, 2L),
                     querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAny("y e"), SIMPLE_TEXT_SUFFIXES.getName(), -1665999070));
             assertEquals(Collections.emptyList(),
@@ -1953,6 +1984,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("ang"), 0L, -1013515738));
             assertEquals(Arrays.asList(Tuple.from(1L, 3L), Tuple.from(1L, 1L)),
                     queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("un"), 1L, -995158140));
+            assertEquals(Arrays.asList(Tuple.from(0L, 0L), Tuple.from(0L, 2L)),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsAnyPrefix("ang par nap kin"), 0L, -1089713854));
+            assertEquals(Collections.singletonList(Tuple.from(0L, 0L)),
+                    queryComplexDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("ang uni name", false), 0L, 646414402));
 
             commit(context);
         }
@@ -2038,6 +2073,24 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.field("text").text().containsAll("fearful passage love", 7),
                             Query.rank(field("score").groupBy(field("group"))).lessThan(2L),
                             true, 1, -2132208833));
+
+            assertEquals(Collections.singletonList(Tuple.from(1L, 5L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().containsAllPrefixes("fear pass love", true),
+                            Query.field("tag").oneOfThem().equalsValue("3:2"),
+                            true, 1, -419325379));
+
+            assertEquals(Collections.singletonList(Tuple.from(1L, 5L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().containsAllPrefixes("fear pass love", false),
+                            Query.field("tag").oneOfThem().equalsValue("3:2"),
+                            false, 1, 260746939));
+
+            assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
+                    queryComplexDocumentsWithIndex(
+                            Query.field("text").text().containsAllPrefixes("fear pass love"),
+                            Query.rank(field("score").groupBy(field("group"))).lessThan(2L),
+                            true, 1, 669157421));
 
             commit(context);
         }
@@ -2279,6 +2332,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     queryMapDocumentsWithIndex("b", Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"), 1085034991));
             assertEquals(Arrays.asList(1L, 2L),
                     queryMapDocumentsWithIndex("b", Query.field("value").text().containsPrefix("na"), 1125182095));
+            assertEquals(Arrays.asList(0L, 1L),
+                    queryMapDocumentsWithIndex("a", Query.field("value").text().containsAllPrefixes("civ mut ha"), 0));
+            assertEquals(Arrays.asList(1L, 2L),
+                    queryMapDocumentsWithIndex("b", Query.field("value").text().containsAnyPrefix("civ mut na"), 0));
 
             RecordQuery queryWithAdditionalFilter = RecordQuery.newBuilder()
                     .setRecordType(MAP_DOC)
@@ -2412,7 +2469,15 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             openRecordStore(context, hook);
             RecordQueryPlanner planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
             plan = planner.plan(query);
-            assertThat(plan, descendant(coveringIndexScan(textIndexScan(indexName(index.getName())))));
+            assertThat(filter, instanceOf(FieldWithComparison.class));
+            FieldWithComparison fieldFilter = (FieldWithComparison)filter;
+            if (fieldFilter.getComparison() instanceof Comparisons.TextContainsAllPrefixesComparison
+                    && ((Comparisons.TextContainsAllPrefixesComparison)fieldFilter.getComparison()).isStrict()) {
+                // Strict field field comparisons cannot be covering
+                assertThat(plan, descendant(textIndexScan(indexName(index.getName()))));
+            } else {
+                assertThat(plan, descendant(coveringIndexScan(textIndexScan(indexName(index.getName())))));
+            }
 
             try (RecordCursor<Long> cursor = recordStore.executeQuery(plan, null, executeProperties)
                     .map(record -> record.getPrimaryKey().getLong(0))) {
@@ -2510,6 +2575,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             } else if (filterChoice < 0.8) {
                 int maxDistance = r.nextInt(10) + tokens.size();
                 filter = Query.field("text").text(tokenizer.getName()).containsAll(tokenString, maxDistance);
+            } else if (filterChoice < 0.9) {
+                filter = Query.field("text").text(tokenizer.getName()).containsAnyPrefix(tokenString);
+            } else if (filterChoice < 0.95) {
+                filter = Query.field("text").text(tokenizer.getName()).containsAllPrefixes(tokenString);
             } else {
                 if (tokens.isEmpty()) {
                     continue;
@@ -2551,6 +2620,18 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             LOGGER.info(KeyValueLogMessage.of("query completed", "scan_millis", TimeUnit.MILLISECONDS.convert(endTime - startTime, TimeUnit.NANOSECONDS)));
             totalQueryingTime += endTime - startTime;
 
+            if (!manualRecordIds.equals(queryRecordIds)) {
+                Set<Long> onlyManual = new HashSet<>(manualRecordIds);
+                onlyManual.removeAll(queryRecordIds);
+                Set<Long> onlyQuery = new HashSet<>(queryRecordIds);
+                onlyManual.removeAll(manualRecordIds);
+                LOGGER.warn(KeyValueLogMessage.of("results did not match",
+                        "filter", filter,
+                        "manual_result_count", manualRecordIds.size(),
+                        "query_result_count", queryRecordIds.size(),
+                        "only_manual_count", onlyManual.size(),
+                        "only_query_count", onlyQuery.size()));
+            }
             assertEquals(manualRecordIds, queryRecordIds);
             LOGGER.info(KeyValueLogMessage.of("results matched", "filter", filter, "result_count", manualRecordIds.size()));
             totalResults += queryRecordIds.size();

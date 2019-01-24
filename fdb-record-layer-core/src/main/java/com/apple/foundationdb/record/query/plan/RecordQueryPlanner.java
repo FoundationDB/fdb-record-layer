@@ -1069,6 +1069,15 @@ public class RecordQueryPlanner implements QueryPlanner {
         // Add a type filter if the index is over more types than those the query specifies
         Set<String> possibleTypes = getPossibleTypes(index);
         plan = addTypeFilterIfNeeded(candidateScan, plan, possibleTypes);
+        // The scan produced by a "contains all prefixes" predicate might return false positives, so if the comparison
+        // is "strict", it must be surrounded be a filter plan.
+        if (scan.getTextComparison() instanceof Comparisons.TextContainsAllPrefixesComparison) {
+            Comparisons.TextContainsAllPrefixesComparison textComparison = (Comparisons.TextContainsAllPrefixesComparison) scan.getTextComparison();
+            if (textComparison.isStrict()) {
+                plan = new RecordQueryFilterPlan(plan, filter);
+                filterMask.setSatisfied(true);
+            }
+        }
         // This weight is fairly arbitrary, but it is supposed to be higher than for most indexes because
         // most of the time, the full text scan is believed to be more selective (and expensive to run as a post-filter)
         // than other indexes.

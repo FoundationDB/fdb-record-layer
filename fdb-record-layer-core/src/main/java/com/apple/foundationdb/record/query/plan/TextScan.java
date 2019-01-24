@@ -37,7 +37,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionMultiCursor;
+import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
+import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnionCursor;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.tuple.Tuple;
@@ -175,19 +177,12 @@ public class TextScan implements PlanHashable {
         final int prefixEntries = 1 + (prefix != null ? prefix.size() : 0);
 
         final Comparisons.Type comparisonType = textComparison.getType();
-        if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_PREFIX)) {
-            if (suffix != null) {
-                // This is equivalent to having two inequality comparisons, and it is therefore disallowed.
-                throw new RecordCoreException("text prefix comparison included inequality scan comparison");
-            }
+        if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_PREFIX) || (tokenList.size() == 1 && (
+                comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ALL_PREFIXES) || comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX)))) {
             if (tokenList.size() != 1) {
                 throw new RecordCoreException("text prefix comparison included " + tokenList.size() + " comparands instead of one");
             }
-            TupleRange scanRange = TupleRange.prefixedBy(tokenList.get(0));
-            if (prefix != null) {
-                scanRange = scanRange.prepend(prefix);
-            }
-            return store.scanIndex(index, IndexScanType.BY_TEXT_TOKEN, scanRange, continuation, scanProperties);
+            return scanTokenPrefix(store, tokenList.get(0), prefix, suffix, index, scanProperties).apply(continuation);
         } else if (tokenList.size() == 1) {
             // Other than prefix scanning, all of the other cases become this same range scan
             // over a single token when there is only one element. Note that intersection and union
@@ -198,8 +193,23 @@ public class TextScan implements PlanHashable {
             // Take the intersection of all children. Note that to handle skip and the returned row limit correctly,
             // the skip and limit are both removed and then applied later.
             final ScanProperties childScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
-            List<Function<byte[], RecordCursor<IndexEntry>>> intersectionChildren = tokenList.stream().map(token -> scanToken(store, token, prefix, suffix, index, childScanProperties)).collect(Collectors.toList());
+            List<Function<byte[], RecordCursor<IndexEntry>>> intersectionChildren = tokenList.stream()
+                    .map(token -> scanToken(store, token, prefix, suffix, index, childScanProperties))
+                    .collect(Collectors.toList());
             return IntersectionCursor.create(suffixComparisonKeyFunction(prefixEntries), scanProperties.isReverse(), intersectionChildren, continuation, store.getTimer())
+                    .skip(scanProperties.getExecuteProperties().getSkip())
+                    .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+        } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ALL_PREFIXES)) {
+            final Comparisons.TextContainsAllPrefixesComparison allPrefixesComparison = (Comparisons.TextContainsAllPrefixesComparison)textComparison;
+            final ScanProperties childScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
+            List<Function<byte[], RecordCursor<IndexEntry>>> intersectionChildren = tokenList.stream()
+                    .map(token -> scanTokenPrefix(store, token, prefix, suffix, index, childScanProperties))
+                    .collect(Collectors.toList());
+            return ProbableIntersectionCursor.create(suffixComparisonKeyFunction(prefixEntries), intersectionChildren,
+                        allPrefixesComparison.getExpectedRecords(),
+                        allPrefixesComparison.getFalsePositivePercentage(),
+                        continuation, store.getTimer()
+                    )
                     .skip(scanProperties.getExecuteProperties().getSkip())
                     .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
         } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ANY)) {
@@ -207,8 +217,18 @@ public class TextScan implements PlanHashable {
             // the skip is removed from the children and applied to the returned cursor. Also, the limit
             // is adjusted upwards and then must be applied again to returned union.
             final ScanProperties childScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndAdjustLimit);
-            List<Function<byte[], RecordCursor<IndexEntry>>> unionChildren = tokenList.stream().map(token -> scanToken(store, token, prefix, suffix, index, childScanProperties)).collect(Collectors.toList());
+            List<Function<byte[], RecordCursor<IndexEntry>>> unionChildren = tokenList.stream()
+                    .map(token -> scanToken(store, token, prefix, suffix, index, childScanProperties))
+                    .collect(Collectors.toList());
             return UnionCursor.create(suffixComparisonKeyFunction(prefixEntries), scanProperties.isReverse(), unionChildren, continuation, store.getTimer())
+                    .skip(scanProperties.getExecuteProperties().getSkip())
+                    .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+        } else if (comparisonType.equals(Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX)) {
+            final ScanProperties childScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndAdjustLimit);
+            List<Function<byte[], RecordCursor<IndexEntry>>> unionChildren = tokenList.stream()
+                    .map(token -> scanTokenPrefix(store, token, prefix, suffix, index, childScanProperties))
+                    .collect(Collectors.toList());
+            return UnorderedUnionCursor.create(unionChildren, continuation, store.getTimer())
                     .skip(scanProperties.getExecuteProperties().getSkip())
                     .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
         } else {
@@ -397,6 +417,22 @@ public class TextScan implements PlanHashable {
         }
 
         return Boolean.FALSE;
+    }
+
+    @Nonnull
+    private <M extends Message> Function<byte[], RecordCursor<IndexEntry>> scanTokenPrefix(@Nonnull FDBRecordStoreBase<M> store, @Nonnull String token, @Nullable Tuple prefix, @Nullable TupleRange suffix,
+                                                                                           @Nonnull Index index, @Nonnull ScanProperties scanProperties) {
+        if (suffix != null) {
+            // This is equivalent to having two inequality comparisons, and it is therefore disallowed.
+            throw new RecordCoreException("text prefix comparison included inequality scan comparison");
+        }
+        return (byte[] continuation) -> {
+            TupleRange scanRange = TupleRange.prefixedBy(token);
+            if (prefix != null) {
+                scanRange = scanRange.prepend(prefix);
+            }
+            return store.scanIndex(index, IndexScanType.BY_TEXT_TOKEN, scanRange, continuation, scanProperties);
+        };
     }
 
     @Nonnull

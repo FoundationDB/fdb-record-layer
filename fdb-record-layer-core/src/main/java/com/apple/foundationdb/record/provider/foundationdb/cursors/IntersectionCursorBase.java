@@ -92,7 +92,7 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
 
     /**
      * Compute the next result states for the cursor based on the status of the existing states.
-     * This should return a (not necessarily proper) sublist of this cursors cursor states.
+     * This should return a (not necessarily proper) sublist of this cursor's cursor states.
      * By default, this assumes the cursors return results in a compatible order based on their
      * comparison key and loops until they all have matching values. Extenders of this class may
      * choose an alternative approach depending on the semantics of that cursor.

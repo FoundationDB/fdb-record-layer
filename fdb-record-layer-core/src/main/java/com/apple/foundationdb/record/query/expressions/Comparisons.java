@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -405,6 +406,59 @@ public class Comparisons {
     }
 
     @Nullable
+    private static Boolean compareTextContainsAllPrefixes(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull List<String> comparand) {
+        final Set<String> comparandSet = getComparandSet(comparand);
+        if (comparandSet.isEmpty()) {
+            return null;
+        }
+        if (comparandSet.size() == 1) {
+            return compareTextContainsPrefix(valueIterator, comparandSet.iterator().next());
+        }
+
+        final Set<String> matchedSet = new HashSet<>((int)(comparandSet.size() * 1.5));
+        while (valueIterator.hasNext()) {
+            final String nextToken = valueIterator.next().toString();
+            if (!nextToken.isEmpty()) {
+                for (String comparandElement : comparandSet) {
+                    if (nextToken.startsWith(comparandElement)) {
+                        matchedSet.add(comparandElement);
+                    }
+                }
+
+                if (matchedSet.size() == comparandSet.size()) {
+                    // We've found as many as are in the comparand set, so we know the sets are the same.
+                    return Boolean.TRUE;
+                }
+            }
+        }
+        return Boolean.FALSE;
+    }
+
+    @Nullable
+    private static Boolean compareTextContainsAnyPrefix(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull List<String> comparand) {
+        final Set<String> comparandSet = getComparandSet(comparand);
+        if (comparandSet.isEmpty()) {
+            return null;
+        }
+        if (comparandSet.size() == 1) {
+            return compareTextContainsPrefix(valueIterator, comparandSet.iterator().next());
+        }
+
+        while (valueIterator.hasNext()) {
+            final String nextToken = valueIterator.next().toString();
+            if (!nextToken.isEmpty()) {
+                for (String comparandElement : comparandSet) {
+                    if (nextToken.startsWith(comparandElement)) {
+                        // Found a match. Return immediately.
+                        return Boolean.TRUE;
+                    }
+                }
+            }
+        }
+        return Boolean.FALSE;
+    }
+
+    @Nullable
     private static Boolean compareTextContainsPhrase(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull List<String> comparand) {
         // Remove any leading or trailing stop words from the phrase search.
         int firstNonStopWord = 0;
@@ -469,7 +523,6 @@ public class Comparisons {
         return Boolean.FALSE;
     }
 
-
     /**
      * The type for a {@link Comparison} predicate.
      */
@@ -488,7 +541,9 @@ public class Comparisons {
         TEXT_CONTAINS_ALL_WITHIN(true),
         TEXT_CONTAINS_ANY(true),
         TEXT_CONTAINS_PHRASE(true),
-        TEXT_CONTAINS_PREFIX;
+        TEXT_CONTAINS_PREFIX,
+        TEXT_CONTAINS_ALL_PREFIXES,
+        TEXT_CONTAINS_ANY_PREFIX;
 
         private final boolean isEquality;
         private final boolean isUnary;
@@ -1153,6 +1208,10 @@ public class Comparisons {
                         throw new RecordCoreArgumentException("Cannot evaluate prefix comparison with multiple tokens");
                     }
                     return compareTextContainsPrefix(textIterator, comparand.get(0));
+                case TEXT_CONTAINS_ANY_PREFIX:
+                    return compareTextContainsAnyPrefix(textIterator, comparand);
+                case TEXT_CONTAINS_ALL_PREFIXES:
+                    return compareTextContainsAllPrefixes(textIterator, comparand);
                 default:
                     throw new RecordCoreException("Cannot evaluate text comparison of type: " + type);
             }
@@ -1332,6 +1391,106 @@ public class Comparisons {
         @Override
         public String toString() {
             return String.format("%s(%d) %s", getType().name(), maxDistance, typelessString());
+        }
+    }
+
+    /**
+     * A {@link TextComparison} that checks for all prefixes. It carries additional meta-data about whether the
+     * comparison is "strict" or not, i.e., whether it is allowed to return false positives.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public static class TextContainsAllPrefixesComparison extends TextComparison {
+        private final boolean strict;
+        private final long expectedRecords;
+        private final double falsePositivePercentage;
+
+        public TextContainsAllPrefixesComparison(@Nonnull String tokenPrefixes, boolean strict, @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+            this(tokenPrefixes, strict, ProbableIntersectionCursor.DEFAULT_EXPECTED_RESULTS, ProbableIntersectionCursor.DEFAULT_FALSE_POSITIVE_PERCENTAGE, tokenizerName, fallbackTokenizerName);
+        }
+
+        public TextContainsAllPrefixesComparison(@Nonnull String tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage,
+                                                 @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+            super(Type.TEXT_CONTAINS_ALL_PREFIXES, tokenPrefixes, tokenizerName, fallbackTokenizerName);
+            this.strict = strict;
+            this.expectedRecords = expectedRecords;
+            this.falsePositivePercentage = falsePositivePercentage;
+        }
+
+        public TextContainsAllPrefixesComparison(@Nonnull List<String> tokenPrefixes, boolean strict, @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+            this(tokenPrefixes, strict, ProbableIntersectionCursor.DEFAULT_EXPECTED_RESULTS, ProbableIntersectionCursor.DEFAULT_FALSE_POSITIVE_PERCENTAGE,
+                    tokenizerName, fallbackTokenizerName);
+        }
+
+        public TextContainsAllPrefixesComparison(@Nonnull List<String> tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage,
+                                                 @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+            super(Type.TEXT_CONTAINS_ALL_PREFIXES, tokenPrefixes, tokenizerName, fallbackTokenizerName);
+            this.strict = strict;
+            this.expectedRecords = expectedRecords;
+            this.falsePositivePercentage = falsePositivePercentage;
+        }
+
+        /**
+         * Whether this comparison should be strictly evaluated. This is used during query planning
+         * to determine whether it is acceptable to return false positives.
+         *
+         * @return {@code false} if false positives are acceptable and {@code true} otherwise
+         */
+        public boolean isStrict() {
+            return strict;
+        }
+
+        /**
+         * Get the expected number of records for each token of this predicate. This tweaks the behavior of this
+         * predicate when run against an index scan. In particular, this informs how much memory to use for internal
+         * data structures as part of the scan. If the number provided is larger than the number that actually gets
+         * read, then the scan is less memory efficient. If the number provided is smaller than the number that
+         * actually gets read, then the scan may have more false positives than expected.
+         *
+         * @return the expected number of insertions per child of
+         */
+        public long getExpectedRecords() {
+            return expectedRecords;
+        }
+
+        /**
+         * Get the configured false positive percentage for each token scan of this predicate. This is used, along
+         * with {@link #getExpectedRecords()}, determines the size of internal data structures used as part of the
+         * scan. In general, the lower this number, the more memory is used. This number refers to the false positive
+         * percentage of determining if an <i>individual</i> prefix is in the indexed text field of a record while
+         * scanning.
+         *
+         * @return the rate of false positives used by probabilistic data structures
+         */
+        public double getFalsePositivePercentage() {
+            return falsePositivePercentage;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TextContainsAllPrefixesComparison that = (TextContainsAllPrefixesComparison) o;
+            return super.equals(that) && strict == that.strict;
+        }
+
+        @Override
+        public int planHash() {
+            return super.planHash() * (strict ? -1 : 1);
+        }
+
+        @Override
+        public int hashCode() {
+            return super.hashCode() * (strict ? -1 : 1);
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            return String.format("%s(%s) %s", getType().name(), strict ? "strictly" : "approximately", typelessString());
         }
     }
 }
