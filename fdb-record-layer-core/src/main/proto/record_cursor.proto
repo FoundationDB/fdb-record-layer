@@ -30,6 +30,9 @@ message FlatMapContinuation {
     optional bytes check_value = 3;
 }
 
+// For backwards compatibility reasons, the union and intersection continuations differentiate
+// between the first two children and all other children.
+
 message IntersectionContinuation {
     message CursorState {
         optional bytes continuation = 1;
@@ -52,4 +55,13 @@ message UnionContinuation {
     optional bool first_exhausted = 3;
     optional bool second_exhausted = 4;
     repeated CursorState other_child_state = 5;
+}
+
+message ProbableIntersectionContinuation {
+    message CursorState {
+        optional bytes continuation = 1;
+        optional bool exhausted = 2;
+        optional bytes bloom_filter = 3;
+    }
+    repeated CursorState child_state = 1;
 }
