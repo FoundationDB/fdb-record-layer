@@ -235,6 +235,16 @@ public class FDBDatabase {
     }
 
     /**
+     * Get the path to the cluster file that this database was created with. May return <code>null</code> if using the
+     * default cluster file.
+     * @return The path to the cluster file.
+     */
+    @Nullable
+    public String getClusterFile() {
+        return clusterFile;
+    }
+
+    /**
      * Get the factory that produced this database.
      * @return the database factory
      */
