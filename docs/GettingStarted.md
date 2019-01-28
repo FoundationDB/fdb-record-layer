@@ -45,19 +45,22 @@ $ cd record-layer-demo
 $ gradle init --type java-application
 ```
 
-Now we should add the Record Layer as a dependency of our project.
-Maven Central is in the default set of repositories Gradle uses to resolve dependencies,
-so there is no need to add anything there. Let's add the dependency on the Record Layer
-to our project's `build.gradle` file:
+Now we should add the Record Layer as a dependency of our project. The Record Layer dependencies
+are published to Maven Central, so we can declare the dependency by adding the following to our
+project's `build.gradle` file:
 
 ```gradle
-dependencies {
+repositories {
     // gradle init put some other stuff here...
+    mavenCentral()
+}
+dependencies {
+    // gradle init put some other stuff here, too...
     implementation 'org.foundationdb:fdb-record-layer-core-pb3:VERSION_NUMBER'
 }
 ```
 
-Replace VERSION_NUMBER with a recent version of the artifact from Maven Central.
+Replace `VERSION_NUMBER` with a recent version of the artifact from Maven Central.
 
 ### ProtoBuf Configuration
 
@@ -99,6 +102,19 @@ src
 │       └── # proto definitions
 ```
 
+One last step might be necessary to configure your IDE of choice to discover the generated Java source files and to
+offer auto-complete suggestions. The additional generated source directory can be added to the list of Java sources
+by adding the following to the project's `build.gradle` file:
+
+```gradle
+sourceSets {
+    main {
+        java {
+            srcDir 'src/main/generated/main/java'
+        }
+    }
+}
+```
 
 Now we are ready to define the record types and indexes we will use through the *record meta-data*.
 We can think of this as a type of schema definition for our application. We’ll define our meta-data
