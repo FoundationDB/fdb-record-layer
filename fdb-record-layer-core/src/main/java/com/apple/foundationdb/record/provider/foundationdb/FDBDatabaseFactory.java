@@ -45,6 +45,12 @@ import java.util.function.Supplier;
 public class FDBDatabaseFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
 
+    /**
+     * The default number of entries that is to be cached, per database, from
+     * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver} retrieval requests.
+     */
+    public static final int DEFAULT_DIRECTORY_CACHE_SIZE = 5000;
+
     @Nonnull
     private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactory();
 
@@ -63,7 +69,7 @@ public class FDBDatabaseFactory {
     private String traceDirectory = null;
     @Nullable
     private String traceLogGroup = null;
-    private int directoryCacheSize;
+    private int directoryCacheSize = DEFAULT_DIRECTORY_CACHE_SIZE;
     private boolean trackLastSeenVersion;
     private String datacenterId;
 
@@ -178,6 +184,19 @@ public class FDBDatabaseFactory {
         return datacenterId;
     }
 
+    /**
+     * Sets the number of directory layer entries that will be cached for each database that is produced by the factory.
+     * Changing this value after databases have been created will result in each database having its existing entries
+     * discarded and the cache size adjusted to the provided value.
+     *
+     * <p>Each {@link FDBDatabase} maintains a cache of entries that have been retrieved by any instance of a
+     * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver} using that database.
+     * Thus, this cache is shared <i>across</i> all resolvers (it should be noted entries in this cache are
+     * segregated by resolver and treated as distinct, ensuring that the value for a directory entry from one
+     * resolver will not be returned to another resolver even if they share the same key).
+     *
+     * @param directoryCacheSize the new directory cache size
+     */
     public synchronized void setDirectoryCacheSize(int directoryCacheSize) {
         this.directoryCacheSize = directoryCacheSize;
         for (FDBDatabase database : databases.values()) {

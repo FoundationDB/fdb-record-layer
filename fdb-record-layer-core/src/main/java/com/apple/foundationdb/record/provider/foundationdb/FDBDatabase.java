@@ -159,7 +159,7 @@ public class FDBDatabase {
                 .recordStats()
                 .build();
         this.directoryCache = CacheBuilder.newBuilder()
-                .maximumSize(0)
+                .maximumSize(factory.getDirectoryCacheSize())
                 .recordStats()
                 .build();
         this.resolverStateCache = new AsyncLoadingCache<>(factory.getStateRefreshTimeMillis());
