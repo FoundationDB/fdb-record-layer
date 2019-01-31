@@ -58,7 +58,7 @@ public class CursorLimitManagerTest {
     public void testRecordScanLimiter() {
         final int numberOfScans = 12;
         final RecordScanLimiter recordScanLimiter = new RecordScanLimiter(numberOfScans);
-        final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, false, null);
+        final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, false, null, null);
 
         for (int i = 0; i < numberOfScans; i++) {
             assertTrue(manager.tryRecordScan());
@@ -75,7 +75,7 @@ public class CursorLimitManagerTest {
     public void testTimeLimiter() {
         final int untilTimeout = 7;
         final FakeTimeLimiter fakeTimeLimiter = new FakeTimeLimiter();
-        final CursorLimitManager manager = new CursorLimitManager(null, false, fakeTimeLimiter);
+        final CursorLimitManager manager = new CursorLimitManager(null, false, null, fakeTimeLimiter);
 
         for (int i = 0; i < untilTimeout; i++) {
             assertTrue(manager.tryRecordScan());
@@ -95,7 +95,7 @@ public class CursorLimitManagerTest {
         final int numberOfScans = 12;
         final RecordScanLimiter recordScanLimiter = new RecordScanLimiter(numberOfScans);
         final FakeTimeLimiter fakeTimeLimiter = new FakeTimeLimiter();
-        final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, false, fakeTimeLimiter);
+        final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, false, null, fakeTimeLimiter);
 
         for (int i = 0; i < untilTimeout; i++) {
             assertTrue(manager.tryRecordScan());
@@ -114,7 +114,7 @@ public class CursorLimitManagerTest {
         final int numberOfScans = 12;
         final RecordScanLimiter recordScanLimiter = new RecordScanLimiter(numberOfScans);
         final FakeTimeLimiter fakeTimeLimiter = new FakeTimeLimiter();
-        final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, false, fakeTimeLimiter);
+        final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, false, null, fakeTimeLimiter);
 
         for (int i = 0; i < numberOfScans; i++) {
             assertTrue(manager.tryRecordScan());

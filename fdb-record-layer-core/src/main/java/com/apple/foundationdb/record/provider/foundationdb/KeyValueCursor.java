@@ -153,6 +153,7 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
                         context.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
                         context.increment(FDBStoreTimer.Counts.LOAD_KEY_VALUE);
                     }
+                    limitManager.reportScannedBytes(kv.getKey().length + kv.getValue().length);
                     // Note that this mutates the pointer and NOT the array.
                     // If the value of lastKey is mutated, the Continuation class will break.
                     lastKey = kv.getKey();

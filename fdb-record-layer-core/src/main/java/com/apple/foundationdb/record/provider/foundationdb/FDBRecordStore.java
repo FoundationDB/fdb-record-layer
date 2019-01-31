@@ -31,9 +31,11 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.ByteScanLimiter;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -48,7 +50,6 @@ import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
-import com.apple.foundationdb.record.RecordScanLimiter;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
@@ -698,13 +699,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
-    public CompletableFuture<FDBStoredRecord<Message>> loadRecordInternal(@Nonnull final Tuple primaryKey, final boolean snapshot) {
-        return loadTypedRecord(serializer, primaryKey, snapshot);
+    public CompletableFuture<FDBStoredRecord<Message>> loadRecordInternal(@Nonnull final Tuple primaryKey,
+                                                                          @Nonnull ExecuteState executeState,
+                                                                          final boolean snapshot) {
+        return loadTypedRecord(serializer, primaryKey, executeState, snapshot);
     }
 
     @Nonnull
     protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                                        @Nonnull final Tuple primaryKey, final boolean snapshot) {
+                                                                                        @Nonnull final Tuple primaryKey,
+                                                                                        final boolean snapshot) {
+        return loadTypedRecord(typedSerializer, primaryKey, ExecuteState.NO_LIMITS, snapshot);
+    }
+
+    @Nonnull
+    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                        @Nonnull final Tuple primaryKey,
+                                                                                        @Nonnull ExecuteState executeState,
+                                                                                        final boolean snapshot) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
 
         final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional;
@@ -718,6 +730,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final long startTime = System.nanoTime();
         CompletableFuture<FDBStoredRecord<M>> result = loadRawRecordAsync(primaryKey, sizeInfo, snapshot)
                 .thenCompose(rawRecord -> {
+                    final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
+                    if (byteScanLimiter != null) {
+                        byteScanLimiter.registerScannedBytes(sizeInfo.getKeySize() + sizeInfo.getValueSize());
+                    }
                     final long startTimeToDeserialize = System.nanoTime();
                     final long timeToLoad = startTimeToDeserialize - startTime;
                     return rawRecord == null ? CompletableFuture.completedFuture(null) :
@@ -1019,8 +1035,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanType scanType,
                                               @Nonnull TupleRange range,
                                               @Nullable byte[] continuation,
-                                              @Nonnull ScanProperties scanProperties,
-                                              @Nullable RecordScanLimiter recordScanLimiter) {
+                                              @Nonnull ScanProperties scanProperties) {
         if (!isIndexReadable(index)) {
             throw new RecordCoreException("Cannot scan non-readable index " + index.getName());
         }

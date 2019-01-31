@@ -355,6 +355,7 @@ public class ExecuteProperties {
         private int rowLimit = ReadTransaction.ROW_LIMIT_UNLIMITED;
         private long timeLimit = UNLIMITED_TIME;
         private int scannedRecordsLimit = Integer.MAX_VALUE;
+        private long scannedBytesLimit = Long.MAX_VALUE;
         private ExecuteState executeState = null;
         private boolean failOnScanLimitReached = false;
         private CursorStreamingMode defaultCursorStreamingMode = CursorStreamingMode.ITERATOR;
@@ -425,9 +426,30 @@ public class ExecuteProperties {
         }
 
         @Nonnull
+        public Builder setScannedBytesLimit(long limit) {
+            if (executeState != null) {
+                throw new RecordCoreException("Tried to set a byte scan limit on a builder with an ExecuteState");
+            }
+            this.scannedBytesLimit = validateAndNormalizeByteScanLimit(limit);
+            return this;
+        }
+
+        private static long validateAndNormalizeByteScanLimit(final long scanLimit) {
+            if (scanLimit < 0) {
+                throw new RecordCoreException("Invalid record scan limit specified: " + scanLimit);
+            }
+            return scanLimit;
+        }
+
+        @Nonnull
+        public Builder clearScannedBytesLimit() {
+            return setScannedBytesLimit(Long.MAX_VALUE);
+        }
+
+        @Nonnull
         public Builder setState(@Nullable ExecuteState state) {
-            if (scannedRecordsLimit != Integer.MAX_VALUE) {
-                throw new RecordCoreException("Tried to set a state on a builder with a record scan limit");
+            if (scannedRecordsLimit != Integer.MAX_VALUE || scannedBytesLimit != Long.MAX_VALUE) {
+                throw new RecordCoreException("Tried to set a state on a builder with a record scan limit or byte scan limit");
             }
             this.executeState = state;
             return this;
@@ -472,10 +494,14 @@ public class ExecuteProperties {
             final ExecuteState state;
             if (executeState != null) {
                 state = executeState;
+            } else if (scannedRecordsLimit == Integer.MAX_VALUE && scannedBytesLimit == Long.MAX_VALUE) {
+                state = ExecuteState.NO_LIMITS;
+            } else if (scannedBytesLimit == Long.MAX_VALUE) {
+                state = new ExecuteState(new RecordScanLimiter(scannedRecordsLimit), null);
             } else if (scannedRecordsLimit == Integer.MAX_VALUE) {
-                state = ExecuteState.NO_SCANNED_RECORDS_LIMIT;
+                state = new ExecuteState(null, new ByteScanLimiter(scannedBytesLimit));
             } else {
-                state = new ExecuteState(new RecordScanLimiter(scannedRecordsLimit));
+                state = new ExecuteState(new RecordScanLimiter(scannedRecordsLimit), new ByteScanLimiter(scannedBytesLimit));
             }
             return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode);
         }

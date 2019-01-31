@@ -37,18 +37,40 @@ import javax.annotation.Nullable;
 public class ExecuteState {
     /**
      * An empty execute state with no record scan limit.
+     * @deprecated in favor of NO_LIMITS when the byte scan limit was added
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     public static final ExecuteState NO_SCANNED_RECORDS_LIMIT = new ExecuteState();
+
+    /**
+     * An empty execute state with no record scan limit.
+     */
+    public static final ExecuteState NO_LIMITS = new ExecuteState();
 
     @Nullable
     private final RecordScanLimiter recordScanLimiter;
+    @Nullable
+    private final ByteScanLimiter byteScanLimiter;
 
-    public ExecuteState(@Nullable RecordScanLimiter recordScanLimiter) {
+    public ExecuteState(@Nullable RecordScanLimiter recordScanLimiter, @Nullable ByteScanLimiter byteScanLimiter) {
         this.recordScanLimiter = recordScanLimiter;
+        this.byteScanLimiter = byteScanLimiter;
+    }
+
+    /**
+     * A deprecated constructor that takes only a {@code RecordScanLimiter} and not a {@code ByteScanLimiter}.
+     * @param recordScanLimiter a {@code RecordScanLimiter} to use in this state
+     * @deprecated in favor of the constructor that takes multiple limiters
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
+    public ExecuteState(@Nullable RecordScanLimiter recordScanLimiter) {
+        this(recordScanLimiter, null);
     }
 
     public ExecuteState() {
-        this(null);
+        this(null, null);
     }
 
     /**
@@ -61,10 +83,12 @@ public class ExecuteState {
      */
     @Nonnull
     public ExecuteState reset() {
-        if (recordScanLimiter == null) {
-            return NO_SCANNED_RECORDS_LIMIT;
+        if (recordScanLimiter == null && byteScanLimiter == null) {
+            return NO_LIMITS;
         }
-        return new ExecuteState(recordScanLimiter.reset());
+        final RecordScanLimiter newRecordScanLimiter = recordScanLimiter == null ? null : recordScanLimiter.reset();
+        final ByteScanLimiter newByteScanLimiter = byteScanLimiter == null ? null : byteScanLimiter.reset();
+        return new ExecuteState(newRecordScanLimiter, newByteScanLimiter);
     }
     
     /**
@@ -83,11 +107,24 @@ public class ExecuteState {
         return recordScanLimiter;
     }
 
+    /**
+     * Get a limiter for the maximum number of bytes that can be retrieved from the database.
+     * Note that this limit is not strictly enforced, depending on the underlying
+     * {@link com.apple.foundationdb.record.cursors.BaseCursor} implementation.
+     * All base cursors are always permitted to load at least one entry before it is stopped by the byte scan
+     * limit to ensure that cursors with multiple child cursors (such as
+     * {@link com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor}) can always make progress.
+     * Thus, a query execution might overrun the byte scan limit by an effectively arbitrary amount.
+     * Particular base cursors may exceed the record scan limit in other ways which are documented in their Javadocs.
+     * @return the byte scan limiter or <code>null</code> if no limit is set
+     */
+    @Nullable
+    public ByteScanLimiter getByteScanLimiter() {
+        return byteScanLimiter;
+    }
+
     @Override
     public String toString() {
-        if (recordScanLimiter == null) {
-            return "State()";
-        }
-        return "State(" + recordScanLimiter + ")";
+        return "State(" + recordScanLimiter + ", " + byteScanLimiter + ")";
     }
 }

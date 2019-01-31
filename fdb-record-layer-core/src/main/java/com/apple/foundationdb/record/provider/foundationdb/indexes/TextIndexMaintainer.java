@@ -21,10 +21,12 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.map.BunchedMap;
 import com.apple.foundationdb.map.BunchedMapMultiIterator;
+import com.apple.foundationdb.record.ByteScanLimiter;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -69,6 +71,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -523,14 +526,26 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         TextSubspaceSplitter subspaceSplitter = new TextSubspaceSplitter(state.indexSubspace, textPosition + 1);
         Range byteRange = range.toRange();
         ScanProperties withAdjustedLimit = scanProperties.with(ExecuteProperties::clearSkipAndAdjustLimit);
+        ExecuteProperties adjustedExecuteProperties = withAdjustedLimit.getExecuteProperties();
+
+        // Callback for updating the byte scan limit
+        final Consumer<KeyValue> callback;
+        final ByteScanLimiter byteScanLimiter = adjustedExecuteProperties.getState().getByteScanLimiter();
+        if (byteScanLimiter == null) {
+            callback = null;
+        } else {
+            callback = keyValue -> byteScanLimiter.registerScannedBytes(keyValue.getKey().length + keyValue.getValue().length);
+        }
+
         BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> iterator = BUNCHED_MAP.scanMulti(
-                state.context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot()),
+                state.context.readTransaction(adjustedExecuteProperties.getIsolationLevel().isSnapshot()),
                 state.indexSubspace,
                 subspaceSplitter,
                 byteRange.begin,
                 byteRange.end,
                 continuation,
-                withAdjustedLimit.getExecuteProperties().getReturnedRowLimit(),
+                adjustedExecuteProperties.getReturnedRowLimit(),
+                callback,
                 scanProperties.isReverse()
         );
         RecordCursor<IndexEntry> cursor = new TextCursor(iterator, state.store.getExecutor(), state.context, withAdjustedLimit);

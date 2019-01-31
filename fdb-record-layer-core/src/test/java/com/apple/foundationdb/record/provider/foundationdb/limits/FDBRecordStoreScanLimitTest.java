@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb;
+package com.apple.foundationdb.record.provider.foundationdb.limits;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
@@ -30,19 +30,16 @@ import com.apple.foundationdb.record.ScanLimitReachedException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.cursors.BaseCursor;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
@@ -57,8 +54,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -69,51 +64,21 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Tests for scan limits in {@link FDBRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class FDBRecordStoreScanLimitTest extends FDBRecordStoreTestBase {
+public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     @BeforeAll
     public void init() {
         clearAndInitialize();
     }
 
-    @BeforeAll
     @BeforeEach
-    public void setupRecordStore() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
-
-            for (int i = 0; i < 100; i++) {
-                TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-                recBuilder.setRecNo(i);
-                recBuilder.setStrValueIndexed((i & 1) == 1 ? "odd" : "even");
-                recBuilder.setNumValueUnique(i + 1000);
-                recBuilder.setNumValue3Indexed(i % 3);
-                recordStore.saveRecord(recBuilder.build());
-            }
-            commit(context);
-        }
-    }
-
-    private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
-        return new RecordQueryIndexPlan(indexName, IndexScanType.BY_VALUE,
-                new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
-                        Collections.emptyList()),
-                false);
-    }
-
-    private KeyExpression primaryKey() {
-        assertNotNull(recordStore);
-        return recordStore
-                .getRecordMetaData()
-                .getRecordType("MySimpleRecord")
-                .getPrimaryKey();
+    private void setupRecordStore() throws Exception {
+        setupSimpleRecordStore();
     }
 
     private Optional<Integer> getRecordScanned(FDBRecordContext context) {
@@ -207,48 +172,8 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreTestBase {
         return plans(false);
     }
 
-    public Stream<Arguments> plansWithFails() {
+    public Stream<Arguments> plansWithFails() throws Exception {
         return Stream.of(Boolean.FALSE, Boolean.TRUE).flatMap(this::plans);
-    }
-
-    private Stream<Arguments> plans(boolean fail) {
-        RecordQueryPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
-        RecordQueryPlan indexPlan = new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed",
-                IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false);
-        QueryComponent filter = Query.field("str_value_indexed").equalsValue("odd");
-        QueryComponent middleFilter = Query.and(
-                Query.field("rec_no").greaterThan(24L),
-                Query.field("rec_no").lessThan(60L));
-        RecordQueryPlan firstChild = indexPlanEquals("MySimpleRecord$str_value_indexed", "even");
-        RecordQueryPlan secondChild = indexPlanEquals("MySimpleRecord$num_value_3_indexed", 0);
-        return Stream.of(
-                Arguments.of("simple index scan", fail, indexPlan),
-                Arguments.of("reverse index scan", fail, new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed",
-                        IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true)),
-                Arguments.of("filter on scan plan", fail, new RecordQueryFilterPlan(scanPlan, filter)),
-                Arguments.of("filter on index plan", fail, new RecordQueryFilterPlan(indexPlan, filter)),
-                Arguments.of("type filter on scan plan", fail, new RecordQueryTypeFilterPlan(scanPlan, Collections.singletonList("MySimpleRecord"))),
-                Arguments.of("type filter on index plan", fail, new RecordQueryTypeFilterPlan(indexPlan, Collections.singletonList("MySimpleRecord"))),
-                Arguments.of("disjoint union", fail, new RecordQueryUnionPlan(
-                        indexPlanEquals("MySimpleRecord$str_value_indexed", "odd"),
-                        indexPlanEquals("MySimpleRecord$str_value_indexed", "even"),
-                        primaryKey(), false, false)),
-                Arguments.of("overlapping union", fail, new RecordQueryUnionPlan(firstChild, secondChild, primaryKey(), false, false)),
-                Arguments.of("overlapping union (swapped args)", fail, new RecordQueryUnionPlan(secondChild, firstChild, primaryKey(), false, false)),
-                Arguments.of("overlapping intersection", fail, new RecordQueryIntersectionPlan(firstChild, secondChild, primaryKey(), false)),
-                Arguments.of("overlapping intersection", fail, new RecordQueryIntersectionPlan(secondChild, firstChild, primaryKey(), false)),
-                Arguments.of("union with inner filter", fail, new RecordQueryUnionPlan(
-                        new RecordQueryFilterPlan(firstChild, middleFilter), secondChild, primaryKey(), false, false)),
-                Arguments.of("union with two inner filters", fail, new RecordQueryUnionPlan(
-                        new RecordQueryFilterPlan(firstChild, middleFilter),
-                        new RecordQueryFilterPlan(secondChild, Query.field("rec_no").lessThan(55L)),
-                        primaryKey(), false, false)),
-                Arguments.of("intersection with inner filter", fail, new RecordQueryIntersectionPlan(
-                        new RecordQueryFilterPlan(firstChild, middleFilter), secondChild, primaryKey(), false)),
-                Arguments.of("intersection with two inner filters", fail, new RecordQueryIntersectionPlan(
-                        new RecordQueryFilterPlan(firstChild, middleFilter),
-                        new RecordQueryFilterPlan(secondChild, Query.field("rec_no").lessThan(55L)),
-                        primaryKey(), false)));
     }
 
     @ParameterizedTest(name = "testPlans() [{index}] {0} {1}")
