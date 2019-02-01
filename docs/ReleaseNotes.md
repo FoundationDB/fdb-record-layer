@@ -42,18 +42,18 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Directory layer cache size was accidentally defaulted to zero [(Issue #251)](https://github.com/FoundationDB/fdb-record-layer/issues/251)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Remove blocking calls from LocatableResolver constructors [(Issue #261)](https://github.com/FoundationDB/fdb-record-layer/issues/261)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Tracing diagnostics to detect blocking calls in an asynchronous context [(Issue #262)](https://github.com/FoundationDB/fdb-record-layer/issues/262)
-* **Feature** New limit on the number of bytes scanned while executing a cursor [(Issue #349)](https://github.com/FoundationDB/fdb-record-layer/issues/349)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -65,6 +65,13 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 
 // end next release
 -->
+
+### 2.5.41.0
+
+* **Bug fix** Directory layer cache size was accidentally defaulted to zero [(Issue #251)](https://github.com/FoundationDB/fdb-record-layer/issues/251)
+* **Performance** Remove blocking calls from LocatableResolver constructors [(Issue #261)](https://github.com/FoundationDB/fdb-record-layer/issues/261)
+* **Feature** Tracing diagnostics to detect blocking calls in an asynchronous context [(Issue #262)](https://github.com/FoundationDB/fdb-record-layer/issues/262)
+* **Feature** New limit on the number of bytes scanned while executing a cursor [(Issue #349)](https://github.com/FoundationDB/fdb-record-layer/issues/349)
 
 ### 2.5.40.0
 
