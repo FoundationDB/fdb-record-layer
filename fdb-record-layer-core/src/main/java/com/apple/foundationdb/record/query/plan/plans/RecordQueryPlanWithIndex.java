@@ -71,7 +71,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(getIndexName());
         final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
-        return store.fetchIndexRecords(index, entryRecordCursor, IndexOrphanBehavior.ERROR)
+        return store.fetchIndexRecords(index, entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
                 .map(store::queriedRecord);
     }
 }

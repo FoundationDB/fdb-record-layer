@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.ByteScanLimiter;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordScanLimiter;
@@ -46,8 +47,8 @@ import java.util.Optional;
  * This class also tracks whether or not the base cursor has produced any records. Except when reaching a limit throws
  * an exception, a base cursor is always permitted to load at least one record before it is stopped by an out-of-band
  * limit. This contract ensures that cursors with multiple child cursors (such as {@link UnionCursor}
- * and {@link IntersectionCursor}) can always make progress. This "free
- * initial pass" is provided per cursor, not per limit: all out-band-limits share the same initial pass.
+ * and {@link IntersectionCursor}) can always make progress. This "free initial pass" is provided per cursor, not per
+ * limit: all out-band-limits share the same initial pass.
  */
 @API(API.Status.UNSTABLE)
 public class CursorLimitManager {
@@ -56,16 +57,25 @@ public class CursorLimitManager {
     private final boolean failOnScanLimitReached;
     private boolean haltedDueToRecordScanLimit = false;
     @Nullable
+    private final ByteScanLimiter byteScanLimiter;
+    private boolean haltedDueToByteScanLimit = false;
+    @Nullable
     private final TimeScanLimiter timeScanLimiter;
     private boolean haltedDueToTimeLimit = false;
 
     private boolean usedInitialPass = false;
 
+    private static final Optional<RecordCursor.NoNextReason> SCAN_LIMIT_REACHED = Optional.of(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+    private static final Optional<RecordCursor.NoNextReason> BYTE_LIMIT_REACHED = Optional.of(RecordCursor.NoNextReason.BYTE_LIMIT_REACHED);
+    private static final Optional<RecordCursor.NoNextReason> TIME_LIMIT_REACHED = Optional.of(RecordCursor.NoNextReason.TIME_LIMIT_REACHED);
+
     @VisibleForTesting
     public CursorLimitManager(@Nullable RecordScanLimiter recordScanLimiter, boolean failOnScanLimitReached,
+                              @Nullable ByteScanLimiter byteScanLimiter,
                               @Nullable TimeScanLimiter timeScanLimiter) {
         this.recordScanLimiter = recordScanLimiter;
         this.failOnScanLimitReached = failOnScanLimitReached;
+        this.byteScanLimiter = byteScanLimiter;
         this.timeScanLimiter = timeScanLimiter;
     }
 
@@ -75,6 +85,7 @@ public class CursorLimitManager {
 
     public CursorLimitManager(@Nullable FDBRecordContext context, @Nonnull ScanProperties scanProperties) {
         this.recordScanLimiter = scanProperties.getExecuteProperties().getState().getRecordScanLimiter();
+        this.byteScanLimiter = scanProperties.getExecuteProperties().getState().getByteScanLimiter();
         this.failOnScanLimitReached = scanProperties.getExecuteProperties().isFailOnScanLimitReached();
         if (scanProperties.getExecuteProperties().getTimeLimit() != ExecuteProperties.UNLIMITED_TIME) {
             this.timeScanLimiter = new TimeScanLimiter(context != null ? context.getTransactionCreateTime() : System.currentTimeMillis(),
@@ -99,9 +110,11 @@ public class CursorLimitManager {
      */
     public Optional<RecordCursor.NoNextReason> getStoppedReason() {
         if (haltedDueToRecordScanLimit) {
-            return Optional.of(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+            return SCAN_LIMIT_REACHED;
+        } else if (haltedDueToByteScanLimit) {
+            return BYTE_LIMIT_REACHED;
         } else if (haltedDueToTimeLimit) {
-            return Optional.of(RecordCursor.NoNextReason.TIME_LIMIT_REACHED);
+            return TIME_LIMIT_REACHED;
         }
         return Optional.empty();
     }
@@ -116,8 +129,9 @@ public class CursorLimitManager {
     public boolean tryRecordScan() {
         haltedDueToRecordScanLimit = recordScanLimiter != null && !recordScanLimiter.tryRecordScan()
                                      && (usedInitialPass || failOnScanLimitReached);
+        haltedDueToByteScanLimit = byteScanLimiter != null && !byteScanLimiter.hasBytesRemaining() && usedInitialPass;
         haltedDueToTimeLimit = timeScanLimiter != null && !timeScanLimiter.tryRecordScan() && usedInitialPass;
-        final boolean halted = haltedDueToRecordScanLimit || haltedDueToTimeLimit;
+        final boolean halted = haltedDueToRecordScanLimit || haltedDueToByteScanLimit || haltedDueToTimeLimit;
 
         if (!halted) {
             usedInitialPass = true;
@@ -126,5 +140,16 @@ public class CursorLimitManager {
         }
 
         return !halted;
+    }
+
+    /**
+     * Record that the specified number of bytes have been scanned and update the relevant limiters with this information.
+     * @param byteSize the number of bytes scanned
+     */
+    public void reportScannedBytes(long byteSize) {
+        if (byteScanLimiter != null) {
+            byteScanLimiter.registerScannedBytes(byteSize);
+            haltedDueToByteScanLimit = !byteScanLimiter.hasBytesRemaining() && usedInitialPass;
+        }
     }
 }

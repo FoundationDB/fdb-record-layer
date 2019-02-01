@@ -213,10 +213,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     protected void openRecordStore(FDBRecordContext context) throws Exception {
-        openRecordStore(context, NO_HOOK);
+        openRecordStore(context, store -> { });
     }
 
-    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook) throws Exception {
+    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);

@@ -29,6 +29,7 @@ import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.async.AsyncIterable;
+import com.apple.foundationdb.async.AsyncPeekCallbackIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.AsyncPeekIterator;
 import com.apple.foundationdb.subspace.Subspace;
@@ -47,6 +48,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -885,6 +887,13 @@ public class BunchedMap<K,V> {
     public <T> BunchedMapMultiIterator<K,V,T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
                                                         @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
                                                         @Nullable byte[] continuation, int limit, boolean reverse) {
+        return scanMulti(tr, subspace, splitter, subspaceStart, subspaceEnd, continuation, limit, null, reverse);
+    }
+
+
+    public <T> BunchedMapMultiIterator<K,V,T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+                                                        @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
+                                                        @Nullable byte[] continuation, int limit, @Nullable Consumer<KeyValue> postReadCallback, boolean reverse) {
         byte[] subspaceKey = subspace.getKey();
         byte[] startBytes = (subspaceStart == null ? subspaceKey : ByteArrayUtil.join(subspaceKey, subspaceStart));
         byte[] endBytes = (subspaceEnd == null ? ByteArrayUtil.strinc(subspaceKey) : ByteArrayUtil.join(subspaceKey, subspaceEnd));
@@ -907,8 +916,14 @@ public class BunchedMap<K,V> {
                 }
             }
         }
+        final AsyncPeekIterator<KeyValue> wrappedIterator;
+        if (postReadCallback == null) {
+            wrappedIterator = AsyncPeekIterator.wrap(rangeReadIterable.iterator());
+        } else {
+            wrappedIterator = AsyncPeekCallbackIterator.wrap(rangeReadIterable.iterator(), postReadCallback);
+        }
         return new BunchedMapMultiIterator<>(
-                AsyncPeekIterator.wrap(rangeReadIterable.iterator()),
+                wrappedIterator,
                 tr,
                 subspace,
                 subspaceKey,

@@ -285,7 +285,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     }
 
     private ScanProperties forwardScanWithLimiter(RecordScanLimiter limiter) {
-        return new ScanProperties(ExecuteProperties.SERIAL_EXECUTE.setState(new ExecuteState(limiter)));
+        return new ScanProperties(ExecuteProperties.SERIAL_EXECUTE.setState(new ExecuteState(limiter, null)));
     }
 
     @Test

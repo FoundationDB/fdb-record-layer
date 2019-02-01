@@ -22,6 +22,7 @@ package com.apple.foundationdb.async;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -34,15 +35,25 @@ import javax.annotation.Nullable;
  *
  * @param <T> type of elements returned by this iterator
  */
-class WrappingAsyncPeekIterator<T> implements AsyncPeekIterator<T> {
-    @Nonnull private AsyncIterator<T> underlying;
-    @Nullable private CompletableFuture<Boolean> hasNextFuture;
+class WrappingAsyncPeekIterator<T> implements AsyncPeekCallbackIterator<T> {
+    @Nonnull
+    private AsyncIterator<T> underlying;
+    @Nullable
+    private CompletableFuture<Boolean> hasNextFuture;
     private boolean done;
     private boolean hasCurrent;
-    @Nullable private T nextItem;
+    @Nullable
+    private T nextItem;
+    @Nonnull
+    private Consumer<T> callback;
 
     WrappingAsyncPeekIterator(@Nonnull AsyncIterator<T> underlying) {
+        this(underlying, t -> { });
+    }
+
+    WrappingAsyncPeekIterator(@Nonnull AsyncIterator<T> underlying, @Nonnull Consumer<T> callback) {
         this.underlying = underlying;
+        this.callback = callback;
         this.done = false;
         this.hasCurrent = false;
     }
@@ -59,6 +70,7 @@ class WrappingAsyncPeekIterator<T> implements AsyncPeekIterator<T> {
                 if (doesHaveNext) {
                     hasCurrent = true;
                     nextItem = underlying.next();
+                    callback.accept(nextItem);
                 } else {
                     done = true;
                 }
@@ -95,5 +107,16 @@ class WrappingAsyncPeekIterator<T> implements AsyncPeekIterator<T> {
     @Override
     public void cancel() {
         underlying.cancel();
+    }
+
+    @Override
+    public void setCallback(@Nonnull Consumer<T> callback) {
+        this.callback = callback;
+    }
+
+    @Override
+    @Nonnull
+    public Consumer<T> getCallback() {
+        return callback;
     }
 }

@@ -190,7 +190,17 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
          * @see ExecuteProperties.Builder#setScannedRecordsLimit(int)
          * @see RecordScanLimiter
          */
-        SCAN_LIMIT_REACHED(true);
+        SCAN_LIMIT_REACHED(true),
+
+        /**
+         * The limit on the number of bytes to scan was reached.
+         * {@link #getContinuation()} may return a continuation for resuming the scan.
+         * Note that it is possible for <code>BYTE_LIMIT_REACHED</code> to be returned before any actual records if
+         * a scan retrieves many bytes for records that are discarded, such as by a filter or type filter.
+         * @see ExecuteProperties.Builder#setScannedBytesLimit(long)
+         * @see ByteScanLimiter
+         */
+        BYTE_LIMIT_REACHED(true);
 
         final boolean outOfBand;
 

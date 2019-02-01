@@ -165,6 +165,16 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         createOrOpenRecordStore(context, simpleMetaData(hook));
     }
 
+    public void openSimpleRecordStoreWithSingletonPipeline(FDBRecordContext context) {
+        recordStore = FDBRecordStore.newBuilder()
+                .setContext(context)
+                .setKeySpacePath(path)
+                .setMetaDataProvider(simpleMetaData(NO_HOOK))
+                .setPipelineSizer(operation -> 1)
+                .createOrOpen();
+        setupPlanner(null);
+    }
+
     public void uncheckedOpenSimpleRecordStore(FDBRecordContext context) throws Exception {
         uncheckedOpenSimpleRecordStore(context, NO_HOOK);
     }
@@ -173,7 +183,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         uncheckedOpenRecordStore(context, simpleMetaData(hook));
     }
 
-    private RecordMetaData simpleMetaData(@Nullable RecordMetaDataHook hook) {
+    protected RecordMetaData simpleMetaData(@Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.addUniversalIndex(COUNT_INDEX);
         metaData.addUniversalIndex(COUNT_UPDATES_INDEX);

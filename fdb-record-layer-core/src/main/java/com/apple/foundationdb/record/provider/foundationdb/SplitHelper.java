@@ -786,7 +786,8 @@ public class SplitHelper {
 
         // Process the next key-value pair from the inner cursor; return whether unsplit complete.
         protected boolean append(@Nonnull RecordCursorResult<KeyValue> resultWithKv) {
-            KeyValue kv = resultWithKv.get();
+            @Nonnull KeyValue kv = resultWithKv.get(); // KeyValue is non-null since we only pass in a result that has one
+            limitManager.reportScannedBytes(kv.getKey().length + kv.getValue().length);
             if (nextPrefix == null) {
                 continuation = resultWithKv.getContinuation();
                 return appendFirst(kv);
