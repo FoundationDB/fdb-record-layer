@@ -274,6 +274,41 @@ class KeySpacePathImpl implements KeySpacePath {
     }
 
     @Override
+    public boolean equals(Object obj) {
+        if (obj == this) {
+            return true;
+        }
+
+        if (!(obj instanceof KeySpacePath)) {
+            return false;
+        }
+        KeySpacePath that = (KeySpacePath) obj;
+
+        // Check that the KeySpaceDirectories of the two paths are "equal enough".
+        // Even this is probably overkill since the isCompatible check in KeySpaceDirectory
+        // will keep us from doing anything too bad. We could move this check into KeySpaceDirectory
+        // but comparing two directories by value would necessitate traversing the entire directory
+        // tree, so instead we will use a narrower definition of equality here.
+        boolean directoriesEqual = Objects.equals(this.getDirectory().getKeyType(), that.getDirectory().getKeyType()) &&
+                                   Objects.equals(this.getDirectory().getName(), that.getDirectory().getName()) &&
+                                   Objects.equals(this.getDirectory().getValue(), that.getDirectory().getValue());
+
+        return directoriesEqual &&
+               Objects.equals(this.getValue(), that.getValue()) &&
+               Objects.equals(this.getParent(), that.getParent());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                getDirectory().getKeyType(),
+                getDirectory().getName(),
+                getDirectory().getValue(),
+                getValue(),
+                parent);
+    }
+
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
 

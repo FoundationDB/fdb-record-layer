@@ -519,7 +519,7 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
         // Create a new directory layer entry, put it in the cache in the same transaction
         try (FDBRecordContext context = openContext()) {
             Transaction transaction = context.ensureActive();
-            DirectoryLayer directoryLayerToUse = new DirectoryLayer(scope.getNodeSubspace(), scope.getContentSubspace());
+            DirectoryLayer directoryLayerToUse = new DirectoryLayer(context.join(scope.getNodeSubspace(context)), scope.getContentSubspace());
             final byte[] rawDirectoryEntry = directoryLayerToUse.createOrOpen(transaction, Collections.singletonList(name)).get().getKey();
             final Long id = Tuple.fromBytes(rawDirectoryEntry).getLong(0);
             rdc.putIfNotExists(context, scopedName, id).get();

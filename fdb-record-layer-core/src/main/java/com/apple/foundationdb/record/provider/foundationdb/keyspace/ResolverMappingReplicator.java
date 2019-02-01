@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +59,7 @@ public class ResolverMappingReplicator implements AutoCloseable {
     @Nonnull
     private final FDBDatabaseRunner runner;
     @Nonnull
-    private final Subspace primaryMappingSubspace;
+    private final LocatableResolver primary;
     @Nonnull
     private final Function<byte[], ResolverResult> valueDeserializer;
     private final int transactionRowLimit;
@@ -79,7 +78,7 @@ public class ResolverMappingReplicator implements AutoCloseable {
                                      final int transactionRowLimit,
                                      final long transactionTimeLimitMillis) {
         this.runner = primary.getDatabase().newRunner();
-        this.primaryMappingSubspace = primary.getMappingSubspace();
+        this.primary = primary;
         this.valueDeserializer = primary::deserializeValue;
         this.transactionRowLimit = transactionRowLimit;
         this.transactionTimeLimitMillis = transactionTimeLimitMillis;
@@ -128,13 +127,15 @@ public class ResolverMappingReplicator implements AutoCloseable {
 
         return AsyncUtil.whileTrue(() -> {
             final FDBRecordContext context = runner.openContext();
-            final RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(primaryMappingSubspace)
-                    .setScanProperties(new ScanProperties(executeProperties))
-                    .setContext(context)
-                    .setContinuation(continuation.get())
-                    .build();
 
-            return AsyncUtil.whileTrue(() ->
+            return primary.getMappingSubspaceAsync().thenCompose(primaryMappingSubspace -> {
+                RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(primaryMappingSubspace)
+                        .setScanProperties(new ScanProperties(executeProperties))
+                        .setContext(context)
+                        .setContinuation(continuation.get())
+                        .build();
+
+                return AsyncUtil.whileTrue(() ->
                     cursor.onHasNext().thenCompose(hasNext -> {
                         CompletableFuture<Void> currentStep;
                         if (hasNext) {
@@ -157,14 +158,14 @@ public class ResolverMappingReplicator implements AutoCloseable {
                                 "nextContinuation", ByteArrayUtil2.loggable(nextContinuation)
                         ));
                         continuation.set(nextContinuation);
-                    }))
-                    .thenApply(vignore -> Objects.nonNull(continuation.get()));
+                    })).thenApply(vignore -> Objects.nonNull(continuation.get()));
+            });
         });
     }
 
     @Override
     public String toString() {
-        return "Replicator from: " + primaryMappingSubspace;
+        return "Replicator from: " + primary;
     }
 
 }

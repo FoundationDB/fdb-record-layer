@@ -228,14 +228,16 @@ public class FDBReverseDirectoryCache {
                     LOGGER.warn(KeyValueLogMessage.of("Value not found in reverse directory cache, need to scan",
                             "provided_key", scopedReverseDirectoryKey,
                             "subspace", context.join(reverseCacheSubspaceFuture)));
-                    final Subspace subdirs = scopedReverseDirectoryKey.getScope().getMappingSubspace();
+                    final CompletableFuture<Subspace> subdirsFuture = scopedReverseDirectoryKey.getScope().getMappingSubspaceAsync();
 
-                    return context.instrument(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN, findNameForKey(context, subdirs, null, scopedReverseDirectoryKey))
-                            .thenApply(maybeNameOrContinuation -> {
-                                // findNameForKey loops until the key is found or the search space is exhausted, so
-                                // if it is present, then we definitely found the key.
-                                return maybeNameOrContinuation.map(NameOrContinuation::getName);
-                            });
+                    return context.instrument(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN,
+                            subdirsFuture.thenCompose(subdirs ->
+                                    findNameForKey(context, subdirs, null, scopedReverseDirectoryKey))
+                                        .thenApply(maybeNameOrContinuation -> {
+                                            // findNameForKey loops until the key is found or the search space is exhausted, so
+                                            // if it is present, then we definitely found the key.
+                                            return maybeNameOrContinuation.map(NameOrContinuation::getName);
+                                        }));
                 })
                 .whenComplete((result, exception) -> context.close());
     }
@@ -482,8 +484,8 @@ public class FDBReverseDirectoryCache {
     }
 
     private CompletableFuture<Subspace> getReverseCacheSubspace(LocatableResolver scope) {
-        return reverseDirectoryCacheEntry.thenApply(entry ->
-                scope.getBaseSubspace().subspace(Tuple.from(entry)));
+        return reverseDirectoryCacheEntry.thenCombine(scope.getBaseSubspaceAsync(), (entry, subspace) ->
+                subspace.subspace(Tuple.from(entry)));
     }
 
     private void populate(final FDBRecordContext initialContext, Subspace directory) {

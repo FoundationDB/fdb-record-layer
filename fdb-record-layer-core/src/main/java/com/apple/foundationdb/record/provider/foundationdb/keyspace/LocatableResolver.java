@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -63,12 +64,14 @@ public abstract class LocatableResolver {
     @Nonnull
     protected final FDBDatabase database;
     @Nullable
-    private final KeySpacePath path;
+    protected final KeySpacePath path;
+    protected final int hashCode;
 
     protected LocatableResolver(@Nonnull FDBDatabase database,
                                 @Nullable KeySpacePath path) {
         this.database = database;
         this.path = path;
+        this.hashCode = Objects.hash(getClass(), path, database);
     }
 
     public <T> ScopedValue<T> wrap(T value) {
@@ -260,8 +263,9 @@ public abstract class LocatableResolver {
         // don't use a snapshot read, the lock state shouldn't change frequently but if it does we should
         // fail the transaction and should retry getting the value.
         return context.instrument(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ,
-                context.ensureActive().get(getStateSubspace().pack())
-                        .thenApply(LocatableResolver::deserializeResolverState));
+                getStateSubspaceAsync().thenCompose(stateSubspace ->
+                        context.ensureActive().get(stateSubspace.pack())
+                        .thenApply(LocatableResolver::deserializeResolverState)));
     }
 
     @Nonnull
@@ -388,14 +392,17 @@ public abstract class LocatableResolver {
     }
 
     private CompletableFuture<Void> updateResolverState(@Nonnull final FDBRecordContext context, @Nonnull final StateMutation mutation) {
-        byte[] stateKey = getStateSubspace().getKey();
-        return context.ensureActive().get(stateKey)
-                .thenApply(LocatableResolver::deserializeResolverState)
-                .thenApply(state -> mutation.apply(state).toByteArray())
-                .thenApply(bytes -> {
-                    context.ensureActive().set(stateKey, bytes);
-                    return null;
-                });
+        return getStateSubspaceAsync()
+                .thenApply(Subspace::getKey)
+                .thenCompose(stateKey ->
+                        context.ensureActive().get(stateKey)
+                                .thenApply(LocatableResolver::deserializeResolverState)
+                                .thenApply(state -> mutation.apply(state).toByteArray())
+                                .thenApply(bytes -> {
+                                    context.ensureActive().set(stateKey, bytes);
+                                    return null;
+                                })
+                );
     }
 
     protected abstract CompletableFuture<Optional<ResolverResult>> read(@Nonnull FDBRecordContext context, String key);
@@ -423,26 +430,57 @@ public abstract class LocatableResolver {
     @VisibleForTesting
     public abstract CompletableFuture<Void> setWindow(long count);
 
-    protected abstract Subspace getStateSubspace();
+    protected abstract CompletableFuture<Subspace> getStateSubspaceAsync();
 
     /**
      * The {@link Subspace} where this resolver stores the mappings from <code>key</code> {@link String}s to
      * <code>value</code> {@link Long}. Direct access to this subspace is not needed by general users and extreme care
      * should be taken when interacting with it.
-     * @return The mapping subspace.
+     * @deprecated blocks until the mapping subspace is fetched from the database, instead use
+     * {@link #getMappingSubspaceAsync()}
+     * @return the mapping subspace
      */
     @Nonnull
-    public abstract Subspace getMappingSubspace();
+    @API(API.Status.DEPRECATED)
+    @Deprecated
+    public Subspace getMappingSubspace() {
+        return database.join(getMappingSubspaceAsync());
+    }
 
     /**
-     * Get the {@link Subspace} that this resolver is rooted at (e.g. the global resolvers
-     * {@link ScopedDirectoryLayer#global(FDBDatabase)} is has a base subspace at the root of the FDB keyspace.
-     * Note that this is not the subspace where the resolver maintains it's allocation keys
-     * (see {@link #getMappingSubspace()}).
-     * @return The base subspace.
+     * Get a {@link CompletableFuture} that will contain the {@link Subspace} where this resolver stores
+     * the mappings from <code>key</code> {@link String}s to <code>value</code> {@link Long}. Direct access
+     * to this subspace is not needed by general users and extreme care should be taken when interacting with it.
+     * @return a future that, when ready, will hold the mapping subspace
      */
     @Nonnull
-    public abstract Subspace getBaseSubspace();
+    public abstract CompletableFuture<Subspace> getMappingSubspaceAsync();
+
+    /**
+     * Get the {@link Subspace} that this resolver is rooted at (e.g. the global resolver
+     * {@link ExtendedDirectoryLayer#global(FDBDatabase)} has a base subspace at the root of the FDB keyspace.
+     * Note that this is not the subspace where the resolver maintains its allocation keys
+     * (see {@link #getMappingSubspaceAsync()}).
+     * @deprecated blocks until the mapping subspace is fetched from the database, instead use
+     * {@link #getBaseSubspaceAsync()}
+     * @return the base subspace
+     */
+    @Nonnull
+    @API(API.Status.DEPRECATED)
+    @Deprecated
+    public Subspace getBaseSubspace() {
+        return database.join(getBaseSubspaceAsync());
+    }
+
+    /**
+     * Get a {@link CompletableFuture} that will contain the {@link Subspace} this resolver is rooted
+     * at (e.g. the global resolver {@link ExtendedDirectoryLayer#global(FDBDatabase)} has a base
+     * subspace at the root of the FDB keyspace. Note that this is not the subspace where the resolver
+     * maintains its allocation keys (see {@link #getMappingSubspaceAsync()}).
+     * @return a future that, when ready, will hold the base subspace
+     */
+    @Nonnull
+    public abstract CompletableFuture<Subspace> getBaseSubspaceAsync();
 
     /**
      * Deserialize the raw bytes value stored in the mapping subspace.
@@ -464,6 +502,32 @@ public abstract class LocatableResolver {
         }
         // if state key is not preset, use default values: unlocked, version=0
         return ResolverStateProto.State.newBuilder().build();
+    }
+
+    @Override
+    public String toString() {
+        return this.getClass().getName() +
+               (path == null ? "GLOBAL" : path.toString());
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null || this.getClass() != obj.getClass()) {
+            return false;
+        }
+        LocatableResolver that = this.getClass().cast(obj);
+
+        return Objects.equals(this.database, that.database) && Objects.equals(this.path, that.path);
+    }
+
+    @Override
+    public int hashCode() {
+        // pre-computed in constructor
+        return hashCode;
     }
 
     private enum StateMutation {

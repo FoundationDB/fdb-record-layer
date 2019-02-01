@@ -91,7 +91,7 @@ public class StringInterningLayer {
     protected CompletableFuture<Optional<ResolverResult>> read(@Nonnull FDBRecordContext context, @Nonnull final String toRead) {
         return context.ensureActive().get(mappingSubspace.pack(toRead))
                 .thenApply(Optional::ofNullable)
-                .thenApply(maybeValue -> maybeValue.map(this::deserializeValue));
+                .thenApply(maybeValue -> maybeValue.map(StringInterningLayer::deserializeValue));
     }
 
 
@@ -190,7 +190,7 @@ public class StringInterningLayer {
         return builder.build().toByteArray();
     }
 
-    protected ResolverResult deserializeValue(byte[] bytes) {
+    protected static ResolverResult deserializeValue(byte[] bytes) {
         try {
             StringInterningProto.Data interned = StringInterningProto.Data.parseFrom(bytes);
             return new ResolverResult(
@@ -198,8 +198,7 @@ public class StringInterningLayer {
                     interned.hasMetadata() ? interned.getMetadata().toByteArray() : null);
         } catch (InvalidProtocolBufferException exception) {
             throw new RecordCoreException("invalid interned value", exception)
-                    .addLogInfo("internedBytes", ByteArrayUtil2.loggable(bytes))
-                    .addLogInfo("mappingSubspace", mappingSubspace);
+                    .addLogInfo("internedBytes", ByteArrayUtil2.loggable(bytes));
         }
     }
 }

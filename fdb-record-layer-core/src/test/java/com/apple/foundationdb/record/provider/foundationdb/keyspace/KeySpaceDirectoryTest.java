@@ -46,8 +46,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -78,6 +76,8 @@ import static org.hamcrest.core.IsInstanceOf.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -86,8 +86,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class KeySpaceDirectoryTest extends FDBTestBase {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(KeySpaceDirectoryTest.class);
 
     private static class KeyTypeValue {
         KeyType keyType;
@@ -1297,6 +1295,41 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             return null;
         });
         assertThrows(IllegalStateException.class, () -> path.list("c"));
+    }
+
+    @Test
+    public void testPathCompareByValue() {
+        KeySpace keySpace = new KeySpace(
+                new KeySpaceDirectory("a", KeyType.STRING)
+                        .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING)
+                                .addSubdirectory(new KeySpaceDirectory("d", KeyType.STRING, TestWrapper1::new)))
+                        .addSubdirectory(new KeySpaceDirectory("c", KeyType.LONG)
+                                .addSubdirectory(new KeySpaceDirectory("d", KeyType.STRING, TestWrapper1::new))));
+
+        final KeySpacePath p1 = keySpace.path("a", "alpha")
+                .add("b", "bravo")
+                .add("d", "delta");
+
+        final KeySpacePath p2 = keySpace.path("a", "alpha")
+                .add("b", "bravo")
+                .add("d", "duck");
+
+        final KeySpacePath p3 = keySpace.path("a", "alpha")
+                .add("c", 23)
+                .add("d", "delta");
+
+        final KeySpacePath sameAsP1 = keySpace.path("a", "alpha")
+                .add("b", "bravo")
+                .add("d", "delta");
+
+        assertNotEquals(p1, p2, "paths have different values");
+        assertNotEquals(p1.hashCode(), p2.hashCode(), "they have distinct hash codes");
+        assertNotEquals(p1, p3, "paths have different parents");
+        assertNotEquals(p1.hashCode(), p3.hashCode(), "they have distinct hash codes");
+
+        assertNotSame(p1, sameAsP1, "the paths are not equal by reference");
+        assertEquals(p1, sameAsP1, "they are equal by value");
+        assertEquals(p1.hashCode(), sameAsP1.hashCode(), "they have the same hash code");
     }
 
     private List<Long> resolveBatch(FDBRecordContext context, String... names) {

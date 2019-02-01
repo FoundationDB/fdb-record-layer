@@ -28,14 +28,12 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 /**
  * An implementation of {@link LocatableResolver} that is backed by the {@link StringInterningLayer}.
@@ -46,16 +44,13 @@ public class ScopedInterningLayer extends LocatableResolver {
     private static final int STATE_SUBSPACE_KEY_SUFFIX = -10;
 
     @Nonnull
-    private final StringInterningLayer interningLayer;
+    private CompletableFuture<Subspace> baseSubspaceFuture;
     @Nonnull
-    private final Subspace baseSubspace;
+    private CompletableFuture<Subspace> nodeSubspaceFuture;
     @Nonnull
-    private final Subspace nodeSubspace;
+    private CompletableFuture<Subspace> stateSubspaceFuture;
     @Nonnull
-    private final Subspace stateSubspace;
-    @Nonnull
-    private final String infoString;
-    private final int hashCode;
+    private CompletableFuture<StringInterningLayer> interningLayerFuture;
 
     /**
      * Creates a resolver rooted at the provided <code>KeySpacePath</code>.
@@ -76,26 +71,26 @@ public class ScopedInterningLayer extends LocatableResolver {
      * @param path the {@link KeySpacePath} where this resolver is rooted
      */
     public ScopedInterningLayer(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
-        this(context.getDatabase(), path, () -> path.toTuple(context));
+        this(context.getDatabase(), context, path);
     }
 
     private ScopedInterningLayer(@Nonnull FDBDatabase database,
-                                 @Nullable KeySpacePath path,
-                                 @Nonnull Supplier<Tuple> pathTuple) {
+                                 @Nullable FDBRecordContext context,
+                                 @Nullable KeySpacePath path) {
         super(database, path);
+        boolean isRootLevel;
         if (path == null) {
-            this.baseSubspace = new Subspace();
-            this.nodeSubspace = new Subspace(GLOBAL_SCOPE_PREFIX_BYTES);
-            this.interningLayer = new StringInterningLayer(nodeSubspace, true);
-            this.infoString = "ScopedInterningLayer:GLOBAL";
+            isRootLevel = true;
+            this.baseSubspaceFuture = CompletableFuture.completedFuture(new Subspace());
+            this.nodeSubspaceFuture = CompletableFuture.completedFuture(new Subspace(GLOBAL_SCOPE_PREFIX_BYTES));
         } else {
-            this.baseSubspace = new Subspace(pathTuple.get());
-            this.nodeSubspace = baseSubspace;
-            this.interningLayer = new StringInterningLayer(nodeSubspace, false);
-            this.infoString = "ScopedInterningLayer:" + path.toString();
+            Objects.requireNonNull(context, "non null path requires non null context");
+            isRootLevel = false;
+            this.baseSubspaceFuture = path.toSubspaceAsync(context);
+            this.nodeSubspaceFuture = baseSubspaceFuture;
         }
-        this.stateSubspace = nodeSubspace.get(STATE_SUBSPACE_KEY_SUFFIX);
-        this.hashCode = Objects.hash(ScopedInterningLayer.class, baseSubspace, database);
+        this.stateSubspaceFuture = nodeSubspaceFuture.thenApply(node -> node.get(STATE_SUBSPACE_KEY_SUFFIX));
+        this.interningLayerFuture = nodeSubspaceFuture.thenApply(node -> new StringInterningLayer(node, isRootLevel));
     }
 
     /**
@@ -104,83 +99,70 @@ public class ScopedInterningLayer extends LocatableResolver {
      * @return the global <code>ScopedInterningLayer</code> for this database
      */
     public static ScopedInterningLayer global(@Nonnull FDBDatabase database) {
-        return new ScopedInterningLayer(database, null, () -> null);
+        return new ScopedInterningLayer(database, null, null);
     }
 
     @Override
     protected CompletableFuture<Optional<ResolverResult>> read(@Nonnull FDBRecordContext context, String key) {
-        return context.instrument(FDBStoreTimer.Events.INTERNING_LAYER_READ, interningLayer.read(context, key));
+        return context.instrument(FDBStoreTimer.Events.INTERNING_LAYER_READ,
+                interningLayerFuture.thenCompose(layer -> layer.read(context, key)));
     }
 
     @Override
     protected CompletableFuture<ResolverResult> create(@Nonnull FDBRecordContext context,
                                                        @Nonnull String key,
                                                        @Nullable byte[] metadata) {
-        return context.instrument(FDBStoreTimer.Events.INTERNING_LAYER_CREATE, interningLayer.create(context, key, metadata));
+        return context.instrument(FDBStoreTimer.Events.INTERNING_LAYER_CREATE,
+                interningLayerFuture.thenCompose(layer -> layer.create(context, key, metadata)));
     }
 
     @Override
     protected CompletableFuture<Optional<String>> readReverse(FDBStoreTimer timer, Long value) {
         FDBRecordContext context = database.openContext();
         context.setTimer(timer);
-        return interningLayer.readReverse(context, value)
+        return interningLayerFuture
+                .thenCompose(layer -> layer.readReverse(context, value))
                 .whenComplete((ignored, th) -> context.close());
     }
 
     @Override
     public CompletableFuture<Void> setMapping(FDBRecordContext context, String key, ResolverResult value) {
-        return interningLayer.setMapping(context, key, value);
+        return interningLayerFuture
+                .thenCompose(layer -> layer.setMapping(context, key, value));
     }
 
     @Override
     public CompletableFuture<Void> updateMetadata(@Nonnull FDBRecordContext context, @Nonnull String key, @Nullable byte[] metadata) {
-        return interningLayer.updateMetadata(context, key, metadata);
+        return interningLayerFuture
+                .thenCompose(layer -> layer.updateMetadata(context, key, metadata));
     }
 
     @Override
     public CompletableFuture<Void> setWindow(long count) {
-        return database.runAsync(context -> interningLayer.setWindow(context, count));
+        return database.runAsync(context -> interningLayerFuture.thenCompose(layer -> layer.setWindow(context, count)));
     }
 
     @Override
-    protected Subspace getStateSubspace() {
-        return stateSubspace;
+    protected CompletableFuture<Subspace> getStateSubspaceAsync() {
+        return stateSubspaceFuture;
     }
 
     @Override
     @Nonnull
-    public Subspace getMappingSubspace() {
-        return interningLayer.getMappingSubspace();
+    public CompletableFuture<Subspace> getMappingSubspaceAsync() {
+        return interningLayerFuture.thenApply(StringInterningLayer::getMappingSubspace);
     }
 
     @Override
-    public Subspace getBaseSubspace() {
-        return baseSubspace;
+    @Nonnull
+    public CompletableFuture<Subspace> getBaseSubspaceAsync() {
+        return baseSubspaceFuture;
     }
 
     @Override
+    @Nonnull
     public ResolverResult deserializeValue(byte[] value) {
-        return interningLayer.deserializeValue(value);
+        return StringInterningLayer.deserializeValue(value);
     }
 
-    @Override
-    public String toString() {
-        // pre-computed in constructor
-        return infoString;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj != null && obj instanceof ScopedInterningLayer) {
-            ScopedInterningLayer that = (ScopedInterningLayer) obj;
-            return baseSubspace.equals(that.baseSubspace) && this.database.equals(that.database);
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        // pre-computed in constructor
-        return hashCode;
-    }
 }

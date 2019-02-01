@@ -65,7 +65,7 @@ public class AsyncLoadingCache<K, V> {
      */
     public CompletableFuture<V> orElseGet(@Nonnull K key, @Nonnull Supplier<CompletableFuture<V>> supplier) {
         try {
-            return cache.get(key, () -> getWithDeadline(supplier)
+            return cache.get(key, () -> MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, supplier)
                     .whenComplete((ignored, e) -> {
                         if (e != null) {
                             cache.invalidate(key);
@@ -74,19 +74,6 @@ public class AsyncLoadingCache<K, V> {
         } catch (Exception e) {
             throw new RecordCoreException("failed getting value", e).addLogInfo("cacheKey", key);
         }
-    }
-
-    private CompletableFuture<V> getWithDeadline(@Nonnull Supplier<CompletableFuture<V>> supplier) {
-        final CompletableFuture<V> valueFuture = supplier.get();
-
-        return CompletableFuture.anyOf(MoreAsyncUtil.delayedFuture(deadlineTimeMillis, TimeUnit.MILLISECONDS), valueFuture)
-                .thenCompose(ignore -> {
-                    if (!valueFuture.isDone()) {
-                        // if the future is not ready then we exceeded the timeout
-                        valueFuture.completeExceptionally(new CacheGetTimeoutException("deadline exceeded"));
-                    }
-                    return valueFuture;
-                });
     }
 
     public long getRefreshTimeSeconds() {
@@ -102,10 +89,4 @@ public class AsyncLoadingCache<K, V> {
         return "CachedResult:" + cache.asMap().toString();
     }
 
-    @SuppressWarnings("serial")
-    private static class CacheGetTimeoutException extends RecordCoreException {
-        private CacheGetTimeoutException(String message) {
-            super(message);
-        }
-    }
 }

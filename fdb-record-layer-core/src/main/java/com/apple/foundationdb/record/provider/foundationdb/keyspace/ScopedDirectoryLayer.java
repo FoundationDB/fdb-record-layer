@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBReverseDirectoryCache;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Bytes;
 
@@ -37,7 +36,6 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 /**
  * An implementation of {@link LocatableResolver} that uses the FDB directory layer to keep track of the allocation of
@@ -48,13 +46,16 @@ import java.util.function.Supplier;
 public class ScopedDirectoryLayer extends LocatableResolver {
     private static final byte[] RESERVED_CONTENT_SUBSPACE_PREFIX = {(byte) 0xFD};
     private static final int STATE_SUBSPACE_KEY_SUFFIX = -10;
-    private final Subspace baseSubspace;
-    private final Subspace nodeSubspace;
+    @Nonnull
+    private CompletableFuture<Subspace> baseSubspaceFuture;
+    @Nonnull
+    private CompletableFuture<Subspace> nodeSubspaceFuture;
+    @Nonnull
+    private CompletableFuture<Subspace> stateSubspaceFuture;
+    @Nonnull
+    private CompletableFuture<DirectoryLayer> directoryLayerFuture;
+    @Nonnull
     private final Subspace contentSubspace;
-    private final Subspace stateSubspace;
-    private final DirectoryLayer directoryLayer;
-    private final String infoString;
-    private final int hashCode;
 
     /**
      * Creates a scoped directory layer. This constructor invokes blocking calls and must not
@@ -66,7 +67,7 @@ public class ScopedDirectoryLayer extends LocatableResolver {
     @API(API.Status.DEPRECATED)
     @Deprecated
     public ScopedDirectoryLayer(@Nonnull KeySpacePath path) {
-        this(path.getContext().getDatabase(), path);
+        this(path.getContext(), path);
     }
 
     /**
@@ -79,35 +80,25 @@ public class ScopedDirectoryLayer extends LocatableResolver {
      */
     public ScopedDirectoryLayer(@Nonnull FDBRecordContext context,
                                 @Nonnull KeySpacePath path) {
-        this(context.getDatabase(), path, () -> path.toTuple(context));
+        this(context.getDatabase(), context, path);
     }
 
     private ScopedDirectoryLayer(@Nonnull FDBDatabase database,
-                                 @Nonnull KeySpacePath path) {
-        this(database, path, () -> {
-            try (FDBRecordContext context = database.openContext()) {
-                return path.toTuple(context);
-            }
-        });
-    }
-
-    private ScopedDirectoryLayer(@Nonnull FDBDatabase database,
-                                 @Nullable KeySpacePath path,
-                                 @Nonnull Supplier<Tuple> pathTuple) {
+                                 @Nullable FDBRecordContext context,
+                                 @Nullable KeySpacePath path) {
         super(database, path);
         if (path == null) {
-            this.baseSubspace = new Subspace();
+            this.baseSubspaceFuture = CompletableFuture.completedFuture(new Subspace());
             this.contentSubspace = new Subspace();
-            this.infoString = "ScopedDirectoryLayer:GLOBAL";
         } else {
-            this.baseSubspace = new Subspace(pathTuple.get());
+            Objects.requireNonNull(context, "non null path requires non null context");
+            this.baseSubspaceFuture = path.toSubspaceAsync(context);
             this.contentSubspace = new Subspace(RESERVED_CONTENT_SUBSPACE_PREFIX);
-            this.infoString = "ScopedDirectoryLayer:" + path.toString();
         }
-        this.nodeSubspace = new Subspace(Bytes.concat(baseSubspace.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey()));
-        this.directoryLayer = new DirectoryLayer(nodeSubspace, contentSubspace);
-        this.stateSubspace = nodeSubspace.get(STATE_SUBSPACE_KEY_SUFFIX);
-        this.hashCode = Objects.hash(ScopedDirectoryLayer.class, baseSubspace, database);
+        this.nodeSubspaceFuture = baseSubspaceFuture.thenApply(base ->
+                new Subspace(Bytes.concat(base.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())));
+        this.stateSubspaceFuture = nodeSubspaceFuture.thenApply(node -> node.get(STATE_SUBSPACE_KEY_SUFFIX));
+        this.directoryLayerFuture = nodeSubspaceFuture.thenApply(node -> new DirectoryLayer(node, contentSubspace));
     }
 
     /**
@@ -117,11 +108,12 @@ public class ScopedDirectoryLayer extends LocatableResolver {
      * @return the global <code>ScopedDirectoryLayer</code> for this database
      */
     public static ScopedDirectoryLayer global(@Nonnull FDBDatabase database) {
-        return new ScopedDirectoryLayer(database, null, () -> null);
+        return new ScopedDirectoryLayer(database, null, null);
     }
 
     private CompletableFuture<Boolean> exists(@Nonnull FDBRecordContext context, String key) {
-        return directoryLayer.exists(context.ensureActive(), Collections.singletonList(key));
+        return directoryLayerFuture
+                .thenCompose(directoryLayer -> directoryLayer.exists(context.ensureActive(), Collections.singletonList(key)));
     }
 
     @Override
@@ -134,9 +126,12 @@ public class ScopedDirectoryLayer extends LocatableResolver {
 
     private CompletableFuture<ResolverResult> createInternal(@Nonnull FDBRecordContext context, String key) {
         FDBReverseDirectoryCache reverseCache = context.getDatabase().getReverseDirectoryCache();
-        return directoryLayer.create(context.ensureActive(), Collections.singletonList(key))
-                .thenApply(serializedValue -> deserializeValue(serializedValue.getKey()))
-                .thenCompose(result -> reverseCache.putIfNotExists(context, wrap(key), result.getValue()).thenApply(ignore -> result));
+        return directoryLayerFuture
+                .thenCompose(directoryLayer ->
+                        directoryLayer.create(context.ensureActive(), Collections.singletonList(key))
+                                .thenApply(serializedValue -> deserializeValue(serializedValue.getKey()))
+                                .thenCompose(result -> reverseCache.putIfNotExists(context, wrap(key), result.getValue())
+                                        .thenApply(ignore -> result)));
     }
 
     @Override
@@ -148,11 +143,13 @@ public class ScopedDirectoryLayer extends LocatableResolver {
         FDBReverseDirectoryCache reverseCache = context.getDatabase().getReverseDirectoryCache();
         return exists(context, key).thenCompose(keyExists ->
                 keyExists ?
-                        directoryLayer.open(context.ensureActive(), Collections.singletonList(key))
-                                .thenApply(serializedValue -> deserializeValue(serializedValue.getKey()))
-                                .thenCompose(result -> reverseCache.putIfNotExists(context, wrap(key), result.getValue()).thenApply(ignore -> result))
-                                .thenApply(Optional::of) :
-                        CompletableFuture.completedFuture(Optional.empty()));
+                directoryLayerFuture
+                        .thenCompose(directoryLayer ->
+                                directoryLayer.open(context.ensureActive(), Collections.singletonList(key))
+                                        .thenApply(serializedValue -> deserializeValue(serializedValue.getKey()))
+                                        .thenCompose(result -> reverseCache.putIfNotExists(context, wrap(key), result.getValue()).thenApply(ignore -> result))
+                                        .thenApply(Optional::of)) :
+                CompletableFuture.completedFuture(Optional.empty()));
     }
 
     @Override
@@ -178,29 +175,31 @@ public class ScopedDirectoryLayer extends LocatableResolver {
 
     @Override
     @Nonnull
-    public Subspace getMappingSubspace() {
-        return nodeSubspace.get(nodeSubspace.getKey()).get(0);
+    public CompletableFuture<Subspace> getMappingSubspaceAsync() {
+        return nodeSubspaceFuture.thenApply(nodeSubspace ->
+                nodeSubspace.get(nodeSubspace.getKey()).get(0));
     }
 
     @Override
-    protected Subspace getStateSubspace() {
-        return stateSubspace;
+    protected CompletableFuture<Subspace> getStateSubspaceAsync() {
+        return stateSubspaceFuture;
     }
 
     @Override
+    @Nonnull
     public ResolverResult deserializeValue(byte[] value) {
         return new ResolverResult(contentSubspace.unpack(value).getLong(0));
     }
 
     @Override
     @Nonnull
-    public Subspace getBaseSubspace() {
-        return baseSubspace;
+    public CompletableFuture<Subspace> getBaseSubspaceAsync() {
+        return baseSubspaceFuture;
     }
 
     @VisibleForTesting
-    public Subspace getNodeSubspace() {
-        return nodeSubspace;
+    public CompletableFuture<Subspace> getNodeSubspace(FDBRecordContext context) {
+        return nodeSubspaceFuture;
     }
 
     @VisibleForTesting
@@ -208,24 +207,4 @@ public class ScopedDirectoryLayer extends LocatableResolver {
         return contentSubspace;
     }
 
-    @Override
-    public String toString() {
-        // pre-computed in constructor
-        return infoString;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj != null && obj instanceof ScopedDirectoryLayer) {
-            ScopedDirectoryLayer that = (ScopedDirectoryLayer) obj;
-            return baseSubspace.equals(that.baseSubspace) && this.database.equals(that.database);
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        // pre-computed in constructor
-        return hashCode;
-    }
 }

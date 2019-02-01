@@ -40,12 +40,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * An implementation of {@link LocatableResolver} that uses a key format that is compatible with the {@link ScopedDirectoryLayer}
  * to keep track of the allocation of strings to integers. A <code>ExtendedDirectoryLayer</code> that shares a base subspace
- * ({@link LocatableResolver#getBaseSubspace()}) with a given {@link ScopedDirectoryLayer} will respect all mappings
+ * ({@link LocatableResolver#getBaseSubspaceAsync()}) with a given {@link ScopedDirectoryLayer} will respect all mappings
  * that were previously allocated and can even inter-operate with a {@link ScopedDirectoryLayer} allocating mappings in
  * parallel. The {@link KeySpacePath} that it is created with will be the root where the node subspace of the directory layer is located.
  */
@@ -58,12 +57,14 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
             Bytes.concat(DEFAULT_BASE_SUBSPACE.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey()));
     private static final Subspace DEFAULT_CONTENT_SUBSPACE = DEFAULT_BASE_SUBSPACE;
     private final boolean isRootLevel;
-    private final Subspace baseSubspace;
-    private final Subspace nodeSubspace;
+    @Nonnull
+    private CompletableFuture<Subspace> baseSubspaceFuture;
+    @Nonnull
+    private CompletableFuture<Subspace> nodeSubspaceFuture;
+    @Nonnull
+    private CompletableFuture<Subspace> stateSubspaceFuture;
+    @Nonnull
     private final Subspace contentSubspace;
-    private final Subspace stateSubspace;
-    private final String infoString;
-    private final int hashCode;
 
     /**
      * Create an extended directory layer. This constructor utilizes blocking calls and should not
@@ -88,28 +89,27 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
      * @param path the path at which the directory layer should store its mappings.
      */
     public ExtendedDirectoryLayer(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
-        this(context.getDatabase(), path, () -> path.toTuple(context));
+        this(context.getDatabase(), context, path);
     }
 
     private ExtendedDirectoryLayer(@Nonnull FDBDatabase database,
-                                   @Nullable KeySpacePath path,
-                                   @Nonnull Supplier<Tuple> pathTuple) {
+                                   @Nullable FDBRecordContext context,
+                                   @Nullable KeySpacePath path) {
         super(database, path);
         if (path == null) {
             this.isRootLevel = true;
-            this.baseSubspace = DEFAULT_BASE_SUBSPACE;
-            this.nodeSubspace = DEFAULT_NODE_SUBSPACE;
+            this.baseSubspaceFuture = CompletableFuture.completedFuture(DEFAULT_BASE_SUBSPACE);
+            this.nodeSubspaceFuture = CompletableFuture.completedFuture(DEFAULT_NODE_SUBSPACE);
             this.contentSubspace = DEFAULT_CONTENT_SUBSPACE;
-            this.infoString = "ExtendedDirectoryLayer:GLOBAL";
         } else {
+            Objects.requireNonNull(context, "non null path requires non null context");
             this.isRootLevel = false;
-            this.baseSubspace = new Subspace(pathTuple.get());
-            this.nodeSubspace = new Subspace(Bytes.concat(baseSubspace.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey()));
+            this.baseSubspaceFuture = path.toSubspaceAsync(context);
+            this.nodeSubspaceFuture = baseSubspaceFuture.thenApply(base ->
+                    new Subspace(Bytes.concat(base.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())));
             this.contentSubspace = new Subspace(RESERVED_CONTENT_SUBSPACE_PREFIX);
-            this.infoString = "ExtendedDirectoryLayer:" + path.toString();
         }
-        this.stateSubspace = nodeSubspace.get(STATE_SUBSPACE_KEY_SUFFIX);
-        this.hashCode = Objects.hash(ExtendedDirectoryLayer.class, baseSubspace, database);
+        this.stateSubspaceFuture = nodeSubspaceFuture.thenApply(node -> node.get(STATE_SUBSPACE_KEY_SUFFIX));
     }
 
     /**
@@ -120,7 +120,7 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
      * @return The global <code>ExtendedDirectoryLayer</code> for this database
      */
     public static ExtendedDirectoryLayer global(@Nonnull FDBDatabase database) {
-        return new ExtendedDirectoryLayer(database, null, () -> null);
+        return new ExtendedDirectoryLayer(database, null, null);
     }
 
     @Override
@@ -130,12 +130,14 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
     private CompletableFuture<ResolverResult> createInternal(@Nonnull FDBRecordContext context, String key, @Nullable byte[] metadata) {
         FDBReverseDirectoryCache reverseCache = context.getDatabase().getReverseDirectoryCache();
-        HighContentionAllocator hca = getHca(context);
-        return hca.allocate(key)
-                .thenApply(allocated -> {
+        return getHca(context)
+                .thenCompose(hca -> hca.allocate(key))
+                .thenCompose(allocated -> {
                     ResolverResult result = new ResolverResult(allocated, metadata);
-                    context.ensureActive().set(getMappingSubspace().pack(key), serializeValue(result));
-                    return result;
+                    return getMappingSubspaceAsync().thenApply(mappingSubspace -> {
+                        context.ensureActive().set(mappingSubspace.pack(key), serializeValue(result));
+                        return result;
+                    });
                 })
                 .thenCompose(result -> reverseCache.putIfNotExists(context, wrap(key), result.getValue()).thenApply(ignore -> result));
     }
@@ -147,7 +149,8 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
     private CompletableFuture<Optional<ResolverResult>> readInternal(@Nonnull FDBRecordContext context, String key) {
         FDBReverseDirectoryCache reverseCache = context.getDatabase().getReverseDirectoryCache();
-        return context.ensureActive().get(getMappingSubspace().pack(key))
+        return getMappingSubspaceAsync()
+                .thenCompose(mappingSubspace -> context.ensureActive().get(mappingSubspace.pack(key)))
                 .thenCompose(bytes -> {
                     if (bytes == null) {
                         return CompletableFuture.completedFuture(Optional.empty());
@@ -189,20 +192,24 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
             });
 
             if (!maybeRead.isPresent() && !maybeReverseRead.isPresent()) {
-                // write the forward mapping
-                context.ensureActive().set(getMappingSubspace().pack(key), serializeValue(value));
-                // write the reverse mappings, here we need to add it to the allocation subspace and the reverse directory cache
-                getHca(context).forceAllocate(key, value.getValue());
-                return context.getDatabase().getReverseDirectoryCache().putIfNotExists(context, wrap(key), value.getValue());
+                return getMappingSubspaceAsync().thenCombine(getHca(context), (mappingSubspace, hca) -> {
+                    // write the forward mapping
+                    context.ensureActive().set(mappingSubspace.pack(key), serializeValue(value));
+                    // write the reverse mappings, here we need to add it to the allocation subspace and the reverse directory cache
+                    hca.forceAllocate(key, value.getValue());
+                    return null;
+                }).thenCompose(vignore ->
+                        context.getDatabase().getReverseDirectoryCache().putIfNotExists(context, wrap(key), value.getValue()));
             }
             return AsyncUtil.DONE;
         }).thenCompose(Function.identity());
     }
 
-    private HighContentionAllocator getHca(@Nonnull FDBRecordContext context) {
-        return isRootLevel ?
-               HighContentionAllocator.forRoot(context, getCounterSubspace(), getAllocationSubspace()) :
-               new HighContentionAllocator(context, getCounterSubspace(), getAllocationSubspace());
+    private CompletableFuture<HighContentionAllocator> getHca(@Nonnull FDBRecordContext context) {
+        return getCounterSubspaceAsync().thenCombine(getAllocationSubspaceAsync(), (counter, allocation) ->
+                isRootLevel ?
+                HighContentionAllocator.forRoot(context, counter, allocation) :
+                new HighContentionAllocator(context, counter, allocation));
     }
 
     @Override
@@ -212,33 +219,34 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
     @Override
     public CompletableFuture<Void> setWindow(long count) {
-        return database.runAsync(context -> {
-            getHca(context).setWindow(count);
-            return AsyncUtil.DONE;
-        });
+        return database.runAsync(context -> getHca(context).thenAccept(hca -> hca.setWindow(count)));
     }
 
     @Override
     @Nonnull
-    public Subspace getMappingSubspace() {
-        return nodeSubspace.get(nodeSubspace.getKey()).get(0);
+    public CompletableFuture<Subspace> getMappingSubspaceAsync() {
+        return nodeSubspaceFuture
+                .thenApply(nodeSubspace -> nodeSubspace.get(nodeSubspace.getKey()).get(0));
     }
 
-    private Subspace getCounterSubspace() {
-        return nodeSubspace.get(nodeSubspace.getKey()).get("hca".getBytes(Charset.forName("UTF-8"))).get(0);
+    private CompletableFuture<Subspace> getCounterSubspaceAsync() {
+        return nodeSubspaceFuture.thenApply(nodeSubspace ->
+                nodeSubspace.get(nodeSubspace.getKey()).get("hca".getBytes(Charset.forName("UTF-8"))).get(0));
     }
 
-    private Subspace getAllocationSubspace() {
-        return nodeSubspace.get(nodeSubspace.getKey()).get("hca".getBytes(Charset.forName("UTF-8"))).get(1);
+    private CompletableFuture<Subspace> getAllocationSubspaceAsync() {
+        return nodeSubspaceFuture.thenApply(nodeSubspace ->
+                nodeSubspace.get(nodeSubspace.getKey()).get("hca".getBytes(Charset.forName("UTF-8"))).get(1));
     }
 
     @Override
-    protected Subspace getStateSubspace() {
-        return stateSubspace;
+    protected CompletableFuture<Subspace> getStateSubspaceAsync() {
+        return stateSubspaceFuture;
     }
 
 
     @Override
+    @Nonnull
     public ResolverResult deserializeValue(byte[] value) {
         Tuple unpacked = contentSubspace.unpack(value);
         return unpacked.size() == 1 ?
@@ -254,28 +262,9 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
-    public Subspace getBaseSubspace() {
-        return baseSubspace;
+    @Nonnull
+    public CompletableFuture<Subspace> getBaseSubspaceAsync() {
+        return baseSubspaceFuture;
     }
 
-    @Override
-    public String toString() {
-        // pre-computed in constructor
-        return infoString;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj != null && obj instanceof ExtendedDirectoryLayer) {
-            ExtendedDirectoryLayer that = (ExtendedDirectoryLayer)obj;
-            return baseSubspace.equals(that.baseSubspace) && this.database.equals(that.database);
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        // pre-computed in constructor
-        return hashCode;
-    }
 }
