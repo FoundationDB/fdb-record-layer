@@ -49,6 +49,7 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testCompile "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    testAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 }
 
 sourceSets {
