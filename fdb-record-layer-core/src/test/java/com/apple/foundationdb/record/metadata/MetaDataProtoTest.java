@@ -37,14 +37,15 @@ import com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto;
 import com.apple.foundationdb.record.TestRecordsRankProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
-import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,10 +64,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class MetaDataProtoTest {
     private static final Descriptors.FileDescriptor[] BASE_DEPENDENCIES = {
             RecordMetaDataOptionsProto.getDescriptor()
-    };
-    private static final Descriptors.FileDescriptor[] FULL_DEPENDENCIES = {
-            RecordMetaDataOptionsProto.getDescriptor(),
-            TupleFieldsProto.getDescriptor()
     };
 
     public static void verifyEquals(@Nonnull Index index1, @Nonnull Index index2) {
@@ -178,10 +175,8 @@ public class MetaDataProtoTest {
     @Test
     public void metadataProtoSimple() throws KeyExpression.DeserializationException, KeyExpression.SerializationException {
         List<Descriptors.FileDescriptor> files = Arrays.asList(
-                ExpressionTestsProto.getDescriptor(),
                 TestRecords1Proto.getDescriptor(),
                 TestRecords2Proto.getDescriptor(),
-                TestRecords3Proto.getDescriptor(),
                 TestRecords4Proto.getDescriptor(),
                 TestRecords5Proto.getDescriptor(),
                 TestRecords6Proto.getDescriptor(),
@@ -189,7 +184,6 @@ public class MetaDataProtoTest {
                 TestRecordsMultiProto.getDescriptor(),
                 TestRecordsParentChildRelationshipProto.getDescriptor(),
                 TestRecordsRankProto.getDescriptor(),
-                TestRecordsWithHeaderProto.getDescriptor(),
                 TestRecordsWithUnionProto.getDescriptor(),
                 TestRecordsIndexCompatProto.getDescriptor()
         );
@@ -198,11 +192,7 @@ public class MetaDataProtoTest {
             Descriptors.FileDescriptor file = files.get(i);
             RecordMetaData metaData = RecordMetaData.build(file);
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder();
-            if (i == 0) {
-                builder.addDependencies(FULL_DEPENDENCIES);
-            } else {
-                builder.addDependencies(BASE_DEPENDENCIES);
-            }
+            builder.addDependencies(BASE_DEPENDENCIES);
             RecordMetaData metaDataRedone = builder.setRecords(metaData.toProto()).getRecordMetaData();
             verifyEquals(metaData, metaDataRedone);
         }
@@ -281,13 +271,14 @@ public class MetaDataProtoTest {
 
     @Test
     public void versionstampIndexDeserialization() throws Exception {
-        RecordMetaDataProto.MetaData.Builder protoBuilder = RecordMetaDataProto.MetaData.newBuilder();
-        protoBuilder.setRecords(TestRecordsIndexCompatProto.getDescriptor().toProto());
-        protoBuilder.setStoreRecordVersions(true);
+        RecordMetaDataProto.MetaData.Builder protoBuilder = RecordMetaDataProto.MetaData.newBuilder()
+                .setRecords(TestRecordsWithHeaderProto.getDescriptor().toProto())
+                .setStoreRecordVersions(true);
 
         protoBuilder.addIndexesBuilder()
                 .setName("VersionstampIndex")
                 .setType(IndexTypes.VERSION)
+                .addRecordType("MyRecord")
                 .setRootExpression(
                         RecordMetaDataProto.KeyExpression.newBuilder()
                                 .setNesting(RecordMetaDataProto.Nesting.newBuilder()
@@ -295,14 +286,27 @@ public class MetaDataProtoTest {
                                         .setChild(RecordMetaDataProto.KeyExpression.newBuilder()
                                                 .setThen(RecordMetaDataProto.Then.newBuilder()
                                                         .addChild(RecordMetaDataProto.KeyExpression.newBuilder()
-                                                                .setField(scalarField("childA")))
+                                                                .setField(scalarField("num")))
                                                         .addChild(RecordMetaDataProto.KeyExpression.newBuilder()
-                                                                .setVersion(RecordMetaDataProto.Version.newBuilder()))))));
+                                                                .setVersion(RecordMetaDataProto.Version.getDefaultInstance()))))));
+
+        protoBuilder.addRecordTypes(RecordMetaDataProto.RecordType.newBuilder()
+                .setName("MyRecord")
+                .setPrimaryKey(
+                        RecordMetaDataProto.KeyExpression.newBuilder()
+                                .setNesting(RecordMetaDataProto.Nesting.newBuilder()
+                                        .setParent(scalarField("header"))
+                                        .setChild(RecordMetaDataProto.KeyExpression.newBuilder()
+                                                .setField(scalarField("rec_no"))))));
+
         RecordMetaData metaData = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES)
                 .setRecords(protoBuilder.build())
                 .getRecordMetaData();
         Index versionstampIndex = metaData.getIndex("VersionstampIndex");
         assertEquals(1, versionstampIndex.getRootExpression().versionColumns());
+        assertEquals(IndexTypes.VERSION, versionstampIndex.getType());
+        assertEquals(Key.Expressions.field("header").nest(Key.Expressions.concat(Key.Expressions.field("num"), VersionKeyExpression.VERSION)), versionstampIndex.getRootExpression());
+        assertEquals(Collections.singletonList(metaData.getRecordType("MyRecord")), metaData.recordTypesForIndex(versionstampIndex));
     }
 
     @Test

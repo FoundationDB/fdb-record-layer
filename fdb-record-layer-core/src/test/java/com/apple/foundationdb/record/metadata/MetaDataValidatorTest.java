@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.TestNoRecordTypesProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -36,9 +37,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class MetaDataValidatorTest {
     
-    private void validate(RecordMetaDataBuilder metaData) throws Exception {
+    private void validate(RecordMetaDataBuilder metaData) {
         final MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerRegistryImpl.instance());
         validator.validate();
+    }
+
+    @Test
+    public void noRecordTypes() {
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestNoRecordTypesProto.getDescriptor());
+        assertThrows(MetaDataException.class, () -> validate(metaData));
     }
 
     @Test
