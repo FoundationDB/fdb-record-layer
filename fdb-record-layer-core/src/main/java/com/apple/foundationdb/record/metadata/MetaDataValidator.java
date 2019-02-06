@@ -53,6 +53,9 @@ public class MetaDataValidator implements RecordMetaDataProvider {
 
     public void validate() {
         validateUnionDescriptor(metaData.getUnionDescriptor());
+        if (metaData.getRecordTypes().isEmpty()) {
+            throw new MetaDataException("No record types defined in meta-data");
+        }
         metaData.getRecordTypes().values().forEach(this::validateRecordType);
         metaData.getAllIndexes().forEach(this::validateIndex);
     }
