@@ -46,13 +46,13 @@ import java.util.function.Function;
 public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
 
     private IntersectionCursor(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-                               boolean reverse, @Nonnull List<CursorState<T>> cursorStates,
+                               boolean reverse, @Nonnull List<KeyedMergeCursorState<T>> cursorStates,
                                @Nullable FDBStoreTimer timer) {
         super(comparisonKeyFunction, reverse, cursorStates, timer);
     }
 
     @Override
-    T getNextResult(@Nonnull List<CursorState<T>> cursorStates) {
+    T getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
         return cursorStates.get(0).getResult().get();
     }
 
@@ -110,7 +110,7 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
             @Nonnull Function<byte[], RecordCursor<T>> right,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
-        return new IntersectionCursor<>(comparisonKeyFunction, reverse, createCursorStates(left, right, continuation), timer);
+        return new IntersectionCursor<>(comparisonKeyFunction, reverse, createCursorStates(left, right, continuation, comparisonKeyFunction), timer);
     }
 
     /**
@@ -179,6 +179,6 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
             @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
-        return new IntersectionCursor<>(comparisonKeyFunction, reverse, createCursorStates(cursorFunctions, continuation), timer);
+        return new IntersectionCursor<>(comparisonKeyFunction, reverse, createCursorStates(cursorFunctions, continuation, comparisonKeyFunction), timer);
     }
 }

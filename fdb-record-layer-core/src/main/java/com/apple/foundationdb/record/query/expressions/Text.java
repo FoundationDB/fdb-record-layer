@@ -55,15 +55,6 @@ import java.util.List;
  * to create a predicate on the <code>text</code> field's contents.
  * </p>
  *
- * <!-- TODO: When the planner can support this, we can remove this warning.-->
- * <p>
- * <b>Warning:</b> the query planner does not currently support evaluating text
- * predicates by scanning the appropriate indexes, so any text predicate will
- * almost certainly end up scanning the record store and searching every record.
- * Planner support is in development, but this predicate type should probably not
- * be used in production until that has been completed.
- * </p>
- *
  * @see com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer TextIndexMaintainer
  * @see com.apple.foundationdb.record.provider.common.text.TextTokenizer TextTokenizer
  * @see DefaultTextTokenizer
@@ -188,6 +179,122 @@ public abstract class Text {
     }
 
     /**
+     * Checks if the field contains tokens matching all of of the given prefixes.
+     * The given {@link String} will be tokenized into multiple tokens using an
+     * appropriate tokenizer. This variant of <code>containsAllPrefixes</code> is
+     * <i>strict</i>, i.e., the planner will ensure that it does not return any false
+     * positives when evaluated with an index scan. However, the scan can be made more
+     * efficient (if false positives are acceptable) if one uses one of the other
+     * variants of this function and supply <code>false</code> to the <code>strict</code>
+     * parameter.
+     *
+     * @param tokenPrefixes the token prefixes to search for
+     * @return a new component for doing the actual evaluation
+     * @see #containsAllPrefixes(String, boolean)
+     */
+    @Nonnull
+    public QueryComponent containsAllPrefixes(@Nonnull String tokenPrefixes) {
+        return containsAllPrefixes(tokenPrefixes, true);
+    }
+
+    /**
+     * Checks if the field contains tokens matching all of of the given prefixes.
+     * The given {@link String} will be tokenized into multiple tokens using an
+     * appropriate tokenizer. The <code>strict</code> parameter determines whether this
+     * comparison is <i>strictly</i> evaluated against an index. If the parameter
+     * is set to <code>true</code>, then this will return no false positives, but it
+     * may require that there are additional reads performed to filter out any false
+     * positives that occur internally during query execution.
+     *
+     * @param tokenPrefixes the token prefixes to search for
+     * @param strict <code>true</code> if this should not return false positives
+     * @return a new component for doing the actual evaluation
+     */
+    @Nonnull
+    public QueryComponent containsAllPrefixes(@Nonnull String tokenPrefixes, boolean strict) {
+        final Comparisons.Comparison comparison = new Comparisons.TextContainsAllPrefixesComparison(tokenPrefixes, strict, tokenizerName, defaultTokenizerName);
+        return getComponent(comparison);
+    }
+
+    /**
+     * Checks if the field contains tokens matching all of of the given prefixes.
+     * The given {@link String} will be tokenized into multiple tokens using an
+     * appropriate tokenizer. The <code>strict</code> parameter behaves the same way
+     * here as it does in the other overload of {@link #containsAllPrefixes(String, boolean) containsAllPrefixes()}.
+     * The <code>expectedRecords</code> and <code>falsePositivePercentage</code> flags
+     * can be used to tweak the behavior of underlying probabilistic data structures
+     * used during query execution. See the {@link Comparisons.TextContainsAllPrefixesComparison}
+     * class for more details.
+     *
+     * @param tokenPrefixes the token prefixes to search for
+     * @param strict <code>true</code> if this should not return any false positives
+     * @param expectedRecords the expected number of records read for each prefix
+     * @param falsePositivePercentage an acceptable percentage of false positives for each token prefix
+     * @return a new component for doing the actual evaluation
+     * @see Comparisons.TextContainsAllPrefixesComparison
+     * @see #containsAllPrefixes(String, boolean)
+     */
+    @Nonnull
+    public QueryComponent containsAllPrefixes(@Nonnull String tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage) {
+        final Comparisons.Comparison comparison = new Comparisons.TextContainsAllPrefixesComparison(tokenPrefixes, strict, expectedRecords, falsePositivePercentage , tokenizerName, defaultTokenizerName);
+        return getComponent(comparison);
+    }
+
+    /**
+     * Checks if the field contains tokens matching all of of the given prefixes.
+     * This will produce a component that behaves exactly like the component returned
+     * by the variant of {@link #containsAllPrefixes(String)} that takes a single
+     * {@link String}, but this method assumes the token prefixes given are already
+     * tokenized and normalized.
+     *
+     * @param tokenPrefixes the token prefixes to search for
+     * @return a new component for doing the actual evaluation
+     * @see #containsAllPrefixes(String)
+     */
+    @Nonnull
+    public QueryComponent containsAllPrefixes(@Nonnull List<String> tokenPrefixes) {
+        return containsAllPrefixes(tokenPrefixes, true);
+    }
+
+    /**
+     * Checks if the field contains tokens matching all of of the given prefixes.
+     * This will produce a component that behaves exactly like the component returned
+     * by the variant of {@link #containsAllPrefixes(String, boolean)} that takes a single
+     * {@link String}, but this method assumes the token prefixes given are already
+     * tokenized and normalized.
+     *
+     * @param tokenPrefixes the token prefixes to search for
+     * @param strict <code>true</code> if this should not return any false positives
+     * @return a new component for doing the actual evaluation
+     * @see #containsAllPrefixes(String, boolean)
+     */
+    @Nonnull
+    public QueryComponent containsAllPrefixes(@Nonnull List<String> tokenPrefixes, boolean strict) {
+        final Comparisons.Comparison comparison = new Comparisons.TextContainsAllPrefixesComparison(tokenPrefixes, strict, tokenizerName, defaultTokenizerName);
+        return getComponent(comparison);
+    }
+
+    /**
+     * Checks if the field contains tokens matching all of of the given prefixes.
+     * This will produce a component that behaves exactly like the component returned
+     * by the variant of {@link #containsAllPrefixes(String, boolean, long, double)} that takes a single
+     * {@link String}, but this method assumes the token prefixes given are already
+     * tokenized and normalized.
+     *
+     * @param tokenPrefixes the token prefixes to search for
+     * @param strict <code>true</code> if this should not return any false positives
+     * @param expectedRecords the expected number of records read for each prefix
+     * @param falsePositivePercentage an acceptable percentage of false positives for each token prefix
+     * @return a new component for doing the actual evaluation
+     * @see #containsAllPrefixes(String, boolean, long, double)
+     */
+    @Nonnull
+    public QueryComponent containsAllPrefixes(@Nonnull List<String> tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage) {
+        final Comparisons.Comparison comparison = new Comparisons.TextContainsAllPrefixesComparison(tokenPrefixes, strict, expectedRecords, falsePositivePercentage , tokenizerName, defaultTokenizerName);
+        return getComponent(comparison);
+    }
+
+    /**
      * Checks if the field contains the given phrase. This will match
      * the given field if the given phrased (when tokenized) forms a
      * sublist of the original text. If the tokenization process removes
@@ -255,6 +362,34 @@ public abstract class Text {
     @Nonnull
     public QueryComponent containsAny(@Nonnull List<String> tokens) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_ANY, tokens);
+    }
+
+    /**
+     * Checks if the field contains a token that matches any of the given
+     * prefixes. At query evaluation time, the string given is tokenized
+     * using an appropriate tokenizer.
+     *
+     * @param tokenPrefixes the token prefixes to search for
+     * @return a new component for doing the actual evaluation
+     */
+    @Nonnull
+    public QueryComponent containsAnyPrefix(@Nonnull String tokenPrefixes) {
+        return getComponent(Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX, tokenPrefixes);
+    }
+
+    /**
+     * Checks if the field contains a token that matches any of the given
+     * prefixes. This behaves like the variant of {@link #containsAnyPrefix(String)}
+     * that takes a single {@link String} except that it assumes the token
+     * prefix list has already been tokenized and normalized.
+     *
+     * @param tokenPrefixes the token prefixes to search for
+     * @return a new component for doing the actual evaluation
+     * @see #containsAnyPrefix(String)
+     */
+    @Nonnull
+    public QueryComponent containsAnyPrefix(@Nonnull List<String> tokenPrefixes) {
+        return getComponent(Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX, tokenPrefixes);
     }
 
     @Nonnull

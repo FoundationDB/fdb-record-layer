@@ -28,9 +28,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
@@ -53,21 +55,22 @@ import java.util.function.Function;
  * @param <T> the type of elements returned by the cursor
  */
 @API(API.Status.EXPERIMENTAL)
-public class UnorderedUnionCursor<T> extends UnionCursorBase<T> {
+public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState<T>> {
 
-    protected UnorderedUnionCursor(@Nonnull List<CursorState<T>> cursorStates,
+    protected UnorderedUnionCursor(@Nonnull List<MergeCursorState<T>> cursorStates,
                                    @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
     }
 
     @Nonnull
     @Override
-    CompletableFuture<Boolean> getIfAnyHaveNext(@Nonnull List<CursorState<T>> cursorStates) {
-        AtomicBoolean unionHasNext = new AtomicBoolean(false);
+    CompletableFuture<List<MergeCursorState<T>>> computeNextResultStates() {
+        final List<MergeCursorState<T>> cursorStates = getCursorStates();
+        AtomicReference<MergeCursorState<T>> nextStateRef = new AtomicReference<>();
         return AsyncUtil.whileTrue(() -> whenAny(cursorStates).thenApply(vignore -> {
-            boolean anyHasNext = false;
+            MergeCursorState<T> nextState = null;
             boolean allDone = true;
-            for (CursorState<T> cursorState : cursorStates) {
+            for (MergeCursorState<T> cursorState : cursorStates) {
                 if (!cursorState.getOnNextFuture().isDone()) {
                     allDone = false;
                     continue;
@@ -75,32 +78,39 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T> {
                 final RecordCursorResult<T> result = cursorState.getResult();
                 if (result.hasNext()) {
                     // Found a cursor with an element.
-                    anyHasNext = true;
                     allDone = false;
+                    nextState = cursorState;
+                    break;
                 }
             }
             // If any cursor has another element, return that there is another element
             // for the union. If no element was found, it was because the child
             // cursor that became ready was exhausted and the cursor needs to
             // keep looking for another (so this loops again).
-            if (anyHasNext) {
-                unionHasNext.set(true);
+            if (nextState != null) {
+                nextStateRef.set(nextState);
             }
-            return !allDone && !anyHasNext;
-        }), getExecutor()).thenApply(vignore -> unionHasNext.get());
+            return nextState == null && !allDone;
+        }), getExecutor()).thenApply(vignore -> {
+            if (nextStateRef.get() == null) {
+                return Collections.emptyList();
+            } else {
+                return Collections.singletonList(nextStateRef.get());
+            }
+        });
     }
 
-    @Override
-    void chooseStates(@Nonnull List<CursorState<T>> allStates, @Nonnull List<CursorState<T>> chosenStates, @Nonnull List<CursorState<T>> otherStates) {
-        boolean found = false;
-        for (CursorState<T> cursorState : allStates) {
-            if (!found && cursorState.getOnNextFuture().isDone() && cursorState.getResult().hasNext()) {
-                chosenStates.add(cursorState);
-                found = true;
-            } else {
-                otherStates.add(cursorState);
-            }
+    @Nonnull
+    static <T> List<MergeCursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+                                                            @Nullable byte[] byteContinuation) {
+        final List<MergeCursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
+        final UnionCursorContinuation continuation = UnionCursorContinuation.from(byteContinuation, cursorFunctions.size());
+        int i = 0;
+        for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
+            cursorStates.add(KeyedMergeCursorState.from(cursorFunction, continuation.getContinuations().get(i)));
+            i++;
         }
+        return cursorStates;
     }
 
     /**
