@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
@@ -34,17 +35,23 @@ import java.util.concurrent.CompletableFuture;
 public interface SubspaceProvider {
     /**
      * This might be blocking if the subspace is never fetched before.
+     * @param context The record context used to resolve the subspace.
      * @return Subspace
      */
     @Nonnull
-    Subspace getSubspace();
+    Subspace getSubspace(FDBRecordContext context);
 
+    /**
+     * @param context The record context used to resolve the subspace.
+     * @return CompletableFuture&lt;Subspace&gt;
+     */
     @Nonnull
-    CompletableFuture<Subspace> getSubspaceAsync();
+    CompletableFuture<Subspace> getSubspaceAsync(FDBRecordContext context);
 
     @Nonnull
     LogMessageKeys logKey();
 
+    @NonNull
     @Override
     String toString();
 }

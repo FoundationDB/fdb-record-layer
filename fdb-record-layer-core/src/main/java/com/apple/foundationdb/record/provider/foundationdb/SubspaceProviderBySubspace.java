@@ -42,13 +42,13 @@ public class SubspaceProviderBySubspace implements SubspaceProvider {
 
     @Nonnull
     @Override
-    public Subspace getSubspace() {
+    public Subspace getSubspace(FDBRecordContext context) {
         return subspace;
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Subspace> getSubspaceAsync() {
+    public CompletableFuture<Subspace> getSubspaceAsync(FDBRecordContext context) {
         return CompletableFuture.completedFuture(subspace);
     }
 

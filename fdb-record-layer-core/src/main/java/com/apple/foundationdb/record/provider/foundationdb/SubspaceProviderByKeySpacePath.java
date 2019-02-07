@@ -38,26 +38,22 @@ public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
     @Nonnull
     private final KeySpacePath keySpacePath;
 
-    @Nonnull
-    private final FDBRecordContext context;
-
     @Nullable
     private CompletableFuture<Subspace> subspaceFuture;
 
-    SubspaceProviderByKeySpacePath(@Nonnull KeySpacePath keySpacePath, @Nonnull FDBRecordContext context) {
+    SubspaceProviderByKeySpacePath(@Nonnull KeySpacePath keySpacePath) {
         this.keySpacePath = keySpacePath;
-        this.context = context;
     }
 
     @Nonnull
     @Override
-    public Subspace getSubspace() {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync());
+    public Subspace getSubspace(FDBRecordContext context) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync(context));
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Subspace> getSubspaceAsync() {
+    public CompletableFuture<Subspace> getSubspaceAsync(FDBRecordContext context) {
         if (subspaceFuture == null) {
             subspaceFuture = keySpacePath.toSubspaceAsync(context);
         }

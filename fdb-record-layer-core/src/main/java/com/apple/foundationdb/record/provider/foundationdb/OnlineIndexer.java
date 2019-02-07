@@ -134,6 +134,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final Index index;
     @Nonnull private final Collection<RecordType> recordTypes;
     @Nonnull private final TupleRange recordsRange;
+
     private int limit;  // Not final as may be adjusted when running.
     private final int maxRetries;
     private final int recordsPerSecond;
@@ -457,7 +458,9 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<Void> buildRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return recordStoreBuilder.getSubspaceProvider().getSubspaceAsync().thenCompose(subspace -> buildRange(subspace, start, end));
+        return runner.runAsync(context -> {
+            return recordStoreBuilder.copyBuilder().setContext(context).build().getSubspaceAsync();
+        }).thenCompose(subspace -> buildRange(subspace, start, end));
     }
 
     @Nonnull
@@ -1213,6 +1216,7 @@ public class OnlineIndexer implements AutoCloseable {
             return this;
         }
 
+
         /**
          * Set the subspace of the record store in which to build the index.
          * @param subspaceProvider subspace to use
@@ -1251,6 +1255,7 @@ public class OnlineIndexer implements AutoCloseable {
         protected void validate() {
             validateIndex();
             validateLimits();
+            validateSubspaceProvider();
         }
 
         // Check pointer equality to make sure other objects really came from given metaData.
@@ -1271,6 +1276,12 @@ public class OnlineIndexer implements AutoCloseable {
                         throw new MetaDataException("Record type " + recordType.getName() + " not contained within specified metadata");
                     }
                 }
+            }
+        }
+
+        private void validateSubspaceProvider() {
+            if (recordStoreBuilder.getSubspaceProvider() == null) {
+                throw new RecordCoreException("OnlineIndexer requires a SubspaceProvider.");
             }
         }
 

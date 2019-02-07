@@ -351,30 +351,4 @@ public class SizeStatisticsCollector {
     public static SizeStatisticsCollector ofSubspace(@Nonnull Subspace subspace) {
         return new SizeStatisticsCollector(subspace);
     }
-
-    /**
-     * Create a statistics collector of all keys used by index within a given {@link SubspaceProvider}'s subspace.
-     * If the implementation of {@link SubspaceProvider#getSubspace() getSubspace()} is blocking for the
-     * given <code>SubspaceProvide</code>, then this method will also be blocking.
-     *
-     * @param subspaceProvider the provider of the subspace to collect statistics on key and value sizes
-     * @return a statistics collector of the given subspace
-     */
-    @Nonnull
-    public static SizeStatisticsCollector ofSubspaceProvider(@Nonnull SubspaceProvider subspaceProvider) {
-        return new SizeStatisticsCollector(subspaceProvider.getSubspace());
-    }
-
-    /**
-     * Create a statistics collector of all keys used by index within a given {@link SubspaceProvider}'s subspace.
-     * This method is non-blocking, and it returns a future that will contain the statistics collector when
-     * ready.
-     *
-     * @param subspaceProvider the provider of the subspace to collect statistics on key and value sizes
-     * @return a future containing the statistics collector of the given subspace
-     */
-    @Nonnull
-    public static CompletableFuture<SizeStatisticsCollector> ofSubspaceProviderAsync(@Nonnull SubspaceProvider subspaceProvider) {
-        return subspaceProvider.getSubspaceAsync().thenApply(SizeStatisticsCollector::new);
-    }
 }

@@ -82,7 +82,12 @@ public abstract class FDBStoreBase {
 
     @Nonnull
     public Subspace getSubspace() {
-        return subspaceProvider.getSubspace();
+        return subspaceProvider.getSubspace(context);
+    }
+
+    @Nonnull
+    public CompletableFuture<Subspace> getSubspaceAsync() {
+        return subspaceProvider.getSubspaceAsync(context);
     }
 
     public void addConflictForSubspace(boolean write) {
