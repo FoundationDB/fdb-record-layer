@@ -1927,7 +1927,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @API(API.Status.INTERNAL)
     protected CompletableFuture<Void> preloadSubspaceAsync() {
-        return subspaceProvider.getSubspaceAsync().thenApply(subspace -> null);
+        return getSubspaceAsync().thenApply(subspace -> null);
     }
 
     /**
@@ -2938,7 +2938,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (context == null) {
                 throw new RecordCoreException("The context should be set before setting the key space path.");
             }
-            this.subspaceProvider = keySpacePath == null ? null : new SubspaceProviderByKeySpacePath(keySpacePath, context);
+            this.subspaceProvider = keySpacePath == null ? null : new SubspaceProviderByKeySpacePath(keySpacePath);
             return this;
         }
 

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
@@ -37,14 +38,15 @@ public interface SubspaceProvider {
      * @return Subspace
      */
     @Nonnull
-    Subspace getSubspace();
+    Subspace getSubspace(FDBRecordContext context);
 
     @Nonnull
-    CompletableFuture<Subspace> getSubspaceAsync();
+    CompletableFuture<Subspace> getSubspaceAsync(FDBRecordContext context);
 
     @Nonnull
     LogMessageKeys logKey();
 
+    @NonNull
     @Override
     String toString();
 }
