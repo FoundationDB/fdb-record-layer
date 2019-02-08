@@ -252,10 +252,10 @@ and output sort order, for example:
 ```java
     RecordQuery query = RecordQuery.newBuilder()
         .setRecordType("myRecord")
-        .setFiler(Query.and(
+        .setFilter(Query.and(
             Query.field("str_field").equalsValue("hello!"),
             Query.field("num_field").greaterThan(10)))
-        .setSort(Query.field("rec_no"))
+        .setSort(Key.Expressions.field("rec_no"))
         .build();
 ```
 
