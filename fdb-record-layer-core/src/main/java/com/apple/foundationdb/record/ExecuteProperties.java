@@ -334,10 +334,10 @@ public class ExecuteProperties {
             components.add(String.format("rowLimit %d", rowLimit));
         }
         if (timeLimit != UNLIMITED_TIME) {
-            components.add(String.format("timeLimit %d ms,", timeLimit));
+            components.add(String.format("timeLimit %d ms", timeLimit));
         }
         if (failOnScanLimitReached) {
-            components.add("fail on scan limit,");
+            components.add("fail on scan limit");
         }
         components.add(state.toString());
         return String.format("ExecuteProperties(%s)", String.join(", ", components));

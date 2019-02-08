@@ -20,19 +20,29 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link ChainedCursor}.
  */
-public class ChainedCursorTest {
+@Tag(Tags.RequiresFDB)
+public class ChainedCursorTest extends FDBTestBase {
 
     @Test
     public void testChainedCursor() {
@@ -62,6 +72,78 @@ public class ChainedCursorTest {
         assertEquals(25, i);
     }
 
+    @Test
+    public void testObeysReturnedRowLimit() {
+        limitBy(5, Integer.MAX_VALUE, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
+    }
+
+    @Test
+    public void testObeysScanLimit() {
+        limitBy(Integer.MAX_VALUE, 5, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+    }
+
+
+    private void limitBy(int returnedRowLimit, int recordScanLimit, RecordCursor.NoNextReason noNextReason) {
+        // Note that this test only requires a database and a context because the ChainedCursor API requires
+        // a context to be passed in when you are applying scan limits.
+        FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        try (FDBRecordContext context = database.openContext()) {
+            ScanProperties props = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setReturnedRowLimit(returnedRowLimit)
+                    .setScannedRecordsLimit(recordScanLimit)
+                    .setFailOnScanLimitReached(false)
+                    .build());
+
+            RecordCursor<Long> cursor = new ChainedCursor<>(
+                    context,
+                    (lastKey) -> nextKey(lastKey),
+                    (key) -> Tuple.from(key).pack(),
+                    (prevContinuation) -> Tuple.fromBytes(prevContinuation).getLong(0),
+                    null,
+                    props);
+
+            int count = 0;
+            while (cursor.hasNext()) {
+                assertEquals(Long.valueOf(count), cursor.next());
+                ++count;
+            }
+
+            assertEquals(Math.min(returnedRowLimit, recordScanLimit), count);
+            assertEquals(cursor.getNoNextReason(), noNextReason);
+        }
+    }
+
+    @Test
+    public void testObeysTimeLimit() {
+        FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        try (FDBRecordContext context = database.openContext()) {
+            ScanProperties props = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setTimeLimit(4L)
+                    .setFailOnScanLimitReached(false)
+                    .build());
+
+            RecordCursor<Long> cursor = new ChainedCursor<>(
+                    context,
+                    (lastKey) -> nextKey(lastKey).thenApply(value -> {
+                        sleep(1L);
+                        return value;
+                    }),
+                    (key) -> Tuple.from(key).pack(),
+                    (prevContinuation) -> Tuple.fromBytes(prevContinuation).getLong(0),
+                    null,
+                    props);
+
+            int count = 0;
+            while (cursor.hasNext()) {
+                assertEquals(Long.valueOf(count), cursor.next());
+                ++count;
+            }
+
+            assertEquals(cursor.getNoNextReason(), RecordCursor.NoNextReason.TIME_LIMIT_REACHED);
+            assertTrue(count < 5, "Too many values returned");
+        }
+    }
+
     private RecordCursor<Long> newCursor(byte[] continuation) {
         return new ChainedCursor<>(
                 (lastKey) -> nextKey(lastKey),
@@ -85,5 +167,13 @@ public class ChainedCursorTest {
         }
 
         return CompletableFuture.completedFuture(ret);
+    }
+
+    private static void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

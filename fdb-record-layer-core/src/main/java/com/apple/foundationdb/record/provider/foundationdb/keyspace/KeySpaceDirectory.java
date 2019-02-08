@@ -413,16 +413,23 @@ public class KeySpaceDirectory {
                 ? CompletableFuture.completedFuture(new Subspace())
                 : listFrom.toSubspaceAsync(context);
 
-        final ScanProperties singleRowScan = scanProperties.with(props -> props.setReturnedRowLimit(1));
         return new LazyCursor<>(
                 fromSubspaceFuture.thenCompose(subspace ->
                         subdir.getValueRange(context, valueRange, subspace).thenApply(range -> {
+                            // The ChainedCursor is going to do counting of our reads to apply any limits
+                            // that were specified on the ScanProperties.  We don't want the inner
+                            // KeyValueCursor in nextTuple() to ALSO count those same reads so we clear
+                            // out its limits.
+                            final ScanProperties singleRowScan = scanProperties.with(
+                                    props -> props.clearState().setReturnedRowLimit(1));
+
                             final RecordCursor<Tuple> cursor = new ChainedCursor<>(
+                                    context,
                                     lastKey -> nextTuple(context, subspace, range, lastKey, singleRowScan),
                                     Tuple::pack,
                                     Tuple::fromBytes,
                                     continuation,
-                                    context.getExecutor());
+                                    scanProperties);
 
                             return cursor.limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit())
                                     .mapPipelined(tuple -> {
