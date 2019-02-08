@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.subspace.Subspace;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -37,9 +36,6 @@ import java.util.concurrent.CompletableFuture;
 public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
     @Nonnull
     private final KeySpacePath keySpacePath;
-
-    @Nullable
-    private CompletableFuture<Subspace> subspaceFuture;
 
     SubspaceProviderByKeySpacePath(@Nonnull KeySpacePath keySpacePath) {
         this.keySpacePath = keySpacePath;
@@ -54,10 +50,7 @@ public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
     @Nonnull
     @Override
     public CompletableFuture<Subspace> getSubspaceAsync(FDBRecordContext context) {
-        if (subspaceFuture == null) {
-            subspaceFuture = keySpacePath.toSubspaceAsync(context);
-        }
-        return subspaceFuture;
+        return keySpacePath.toSubspaceAsync(context);
     }
 
     @Nonnull

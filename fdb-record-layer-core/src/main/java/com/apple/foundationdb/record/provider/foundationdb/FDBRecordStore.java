@@ -2935,9 +2935,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Override
         @Nonnull
         public Builder setKeySpacePath(@Nullable KeySpacePath keySpacePath) {
-            if (context == null) {
-                throw new RecordCoreException("The context should be set before setting the key space path.");
-            }
             this.subspaceProvider = keySpacePath == null ? null : new SubspaceProviderByKeySpacePath(keySpacePath);
             return this;
         }

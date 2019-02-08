@@ -41,8 +41,15 @@ import java.util.concurrent.Executor;
 public abstract class FDBStoreBase {
     @Nonnull
     protected final FDBRecordContext context;
+
     @Nonnull
     protected final SubspaceProvider subspaceProvider;
+
+    @Nullable
+    private Subspace subspace;
+
+    @Nullable
+    private CompletableFuture<Subspace> subspaceFuture;
 
     // It is recommended to use {@link #FDBStoreBase(FDBRecordContext, SubspaceProvider)} instead.
     @API(API.Status.UNSTABLE)
@@ -81,13 +88,19 @@ public abstract class FDBStoreBase {
     }
 
     @Nonnull
-    public Subspace getSubspace() {
-        return subspaceProvider.getSubspace(context);
+    public CompletableFuture<Subspace> getSubspaceAsync() {
+        if (subspaceFuture == null) {
+            subspaceFuture = subspaceProvider.getSubspaceAsync(context);
+        }
+        return subspaceFuture;
     }
 
     @Nonnull
-    public CompletableFuture<Subspace> getSubspaceAsync() {
-        return subspaceProvider.getSubspaceAsync(context);
+    public Subspace getSubspace() {
+        if (subspace == null) {
+            subspace = subspaceProvider.getSubspace(context);
+        }
+        return subspace;
     }
 
     public void addConflictForSubspace(boolean write) {

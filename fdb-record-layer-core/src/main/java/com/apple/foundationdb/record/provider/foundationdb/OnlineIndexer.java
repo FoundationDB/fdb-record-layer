@@ -459,7 +459,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     public CompletableFuture<Void> buildRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         return runner.runAsync(context -> {
-            return recordStoreBuilder.copyBuilder().setContext(context).build().getSubspaceAsync();
+            return recordStoreBuilder.getSubspaceProvider().getSubspaceAsync(context);
         }).thenCompose(subspace -> buildRange(subspace, start, end));
     }
 
