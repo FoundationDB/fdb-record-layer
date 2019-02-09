@@ -32,6 +32,7 @@ message SimpleDocument {
     optional int64 group = 3;
 }
 
+// The primary key is set in the test.
 message ComplexDocument {
     optional int64 group = 1;
     optional int64 doc_id = 2;

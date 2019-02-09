@@ -1,9 +1,9 @@
 /*
- * test_records_chained_1.proto
+ * test_records_import_flat.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,29 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.chained1;
+package com.apple.foundationdb.record.importflat;
 
 option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecordsChained1Proto";
+option java_outer_classname = "TestRecordsImportFlatProto";
 
 import "record_metadata_options.proto";
-import "test_records_1.proto";
-import "test_records_chained_2.proto";
+
+message MySimpleRecord {
+  optional int64 rec_no = 1 [(field).primary_key = true];
+  optional string str_value_indexed = 2 [(field).index = {}];
+  optional int32 num_value_unique = 3 [(field).index = { unique: true }];
+  optional int32 num_value_2 = 4;
+  optional int32 num_value_3_indexed = 5 [(field).index = {}];
+  repeated int32 repeater = 6;
+}
+
+message MyLongRecord {
+  required int64 rec_no = 1 [(field).primary_key = true];
+  optional bytes bytes_value = 2;
+}
 
 message RecordTypeUnion {
   option (com.apple.foundationdb.record.record).usage = UNION;
-  optional com.apple.foundationdb.record.test1.MySimpleRecord _MySimpleRecord = 1;
-  optional com.apple.foundationdb.record.chained2.MyChainedRecord2 _MyChainedRecord2 = 2;
+  optional MySimpleRecord _MySimpleRecord = 1;
+  optional MyLongRecord _MyLongRecord = 2;
 }

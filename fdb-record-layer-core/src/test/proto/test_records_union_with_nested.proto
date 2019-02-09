@@ -1,9 +1,9 @@
 /*
- * test_records_with_header.proto
+ * test_records_union_with_nested.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,27 +19,27 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.testheader;
+package com.apple.foundationdb.record.testunionwithnested;
 
 option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecordsWithHeaderProto";
+option java_outer_classname = "TestRecordsUnionWithNestedProto";
 
 import "record_metadata_options.proto";
 
-message HeaderRecord {
+option (schema).store_record_versions = true;
+
+message MyNestedRecord {
   option (com.apple.foundationdb.record.record).usage = NESTED;
-  required int64 rec_no = 1;
-  required string path = 2;
-  optional int32 num = 3;
+  optional int64 rec_no = 1 [(field).primary_key = true];
+  optional int32 num_value = 2;
 }
 
-// Primary key is set by tests (e.g., FDBCoveringIndexQueryTest).
-message MyRecord {
-  required HeaderRecord header = 1;
-  optional string str_value = 2;
-  repeated int64 repeated_int = 3;
+message MyUsedRecord {
+  required int64 rec_no = 1 [(field).primary_key = true];
+  optional int32 num_value = 2;
 }
 
 message RecordTypeUnion {
-  optional MyRecord _MyRecord = 1;
+  optional MyUsedRecord _MyUsedRecord = 1;
+  optional MyNestedRecord _MyNestedRecord = 2;
 }

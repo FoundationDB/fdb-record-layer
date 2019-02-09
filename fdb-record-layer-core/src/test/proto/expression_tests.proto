@@ -75,6 +75,8 @@ message Customer {
   }
 }
 
+// Note that none of the message types in this proto file have a primary key. Records are instantiated and expressions are evaluated
+// against those records but the meta-data is never built. RecordMetaDataBuilder will fail if we attempt to build them.
 message RecordTypeUnion {
   optional TestScalarFieldAccess _TestScalarFieldAccess = 1;
   optional NestedField _NestedField = 2;

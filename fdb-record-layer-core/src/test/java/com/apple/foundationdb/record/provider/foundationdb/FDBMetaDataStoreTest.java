@@ -174,6 +174,9 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             metaData.addRecordTypesBuilder()
                     .setName("MySimpleRecord")
                     .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
+            metaData.addRecordTypesBuilder()
+                    .setName("MyOtherRecord")
+                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
             metaData.setVersion(101);
             metaDataStore.saveRecordMetaData(metaData.build());
 
@@ -218,6 +221,9 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
                     .getRootExpressionBuilder().getFieldBuilder()
                     .setFieldName("num_value_2")
                     .setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
+            metaData.addRecordTypesBuilder()
+                    .setName("MyOtherRecord")
+                    .getPrimaryKeyBuilder().getFieldBuilder().setFieldName("rec_no").setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
             metaData.setVersion(102);
             metaDataStore.saveRecordMetaData(metaData.build());
             context.commit();
