@@ -66,7 +66,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
      * Verify that a returned record limit works properly against a query with a filter on one field and a sort on another,
      * when the filter field is un-indexed and the sort is in reverse order.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexLimits2() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -102,7 +102,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
     /**
      * Verify that a returned record limit works properly against a filter on an un-indexed field.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexLimits3() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -134,7 +134,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
     /**
      * Verify that a returned record limit works properly with type filters.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexLimits6() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -163,7 +163,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
      * Verify that a returned record limit works properly when no filter is needed.
      * Verify that a type filter that is trivially satisfied is elided from the final plan.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexLimits7() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);

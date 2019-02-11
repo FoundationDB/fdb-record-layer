@@ -104,20 +104,19 @@ public class RewritePlanner implements QueryPlanner {
         while (!toTry.isEmpty()) {
             SingleExpressionRef<PlannerExpression> current = toTry.remove();
             PlannerRule.ChangesMade changed = applyRulesTo(ruleSet, current);
-
-            PlannerExpression currentExpression = current.get();
-            Iterator<? extends ExpressionRef<? extends PlannerExpression>> childrenIterator = currentExpression.getPlannerExpressionChildren();
-            while (childrenIterator.hasNext()) {
-                ExpressionRef<? extends PlannerExpression> child = childrenIterator.next();
-                if (child instanceof SingleExpressionRef) {
-                    toTry.add((SingleExpressionRef<PlannerExpression>) child);
-                } else {
-                    throw new RecordCoreException("invalid reference given to rewrite planner");
-                }
-            }
-
             if (changed.equals(PlannerRule.ChangesMade.MADE_CHANGES)) { // TODO optimize here
                 toTry.add(currentRoot);
+            } else {
+                PlannerExpression currentExpression = current.get();
+                Iterator<? extends ExpressionRef<? extends PlannerExpression>> childrenIterator = currentExpression.getPlannerExpressionChildren();
+                while (childrenIterator.hasNext()) {
+                    ExpressionRef<? extends PlannerExpression> child = childrenIterator.next();
+                    if (child instanceof SingleExpressionRef) {
+                        toTry.add((SingleExpressionRef<PlannerExpression>)child);
+                    } else {
+                        throw new RecordCoreException("invalid reference given to rewrite planner");
+                    }
+                }
             }
         }
     }

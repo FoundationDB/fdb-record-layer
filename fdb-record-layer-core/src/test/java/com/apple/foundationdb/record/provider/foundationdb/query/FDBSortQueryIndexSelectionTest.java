@@ -121,7 +121,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     /**
      * Verify that simple sorts are implemented using index scans.
      */
-    @Test
+    @DualPlannerTest
     public void sort() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -162,6 +162,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     /**
      * Verify that if the sort matches an index that can satisfy a filter that the index is used.
      */
+    @DualPlannerTest
     @ParameterizedTest
     @MethodSource("hooks")
     public void sortWithScannableFilterOnIndex(RecordMetaDataHook hook, PlannableIndexTypes indexTypes) throws Exception {
@@ -194,6 +195,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
      * of a filter (because that comparison cannot be accomplished with a scan) that the index
      * is still used solely to accomplish sorting.
      */
+    @DualPlannerTest
     @ParameterizedTest
     @MethodSource("hooks")
     public void sortWithNonScannableFilterOnIndex(RecordMetaDataHook hook, PlannableIndexTypes indexTypes) throws Exception {
@@ -261,6 +263,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     /**
      * Verify that we can sort by the primary key if possible.
      */
+    @DualPlannerTest
     @ParameterizedTest(name = "sortByPrimaryKey() [{0}]")
     @EnumSource(TestHelpers.BooleanEnum.class)
     public void sortByPrimaryKey(TestHelpers.BooleanEnum reverse) throws Exception {
@@ -428,7 +431,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     /**
      * Verify that a sort is implemented using an appropriate index.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexQuery5() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -460,7 +463,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     /**
      * Verify that a sort can be implemented by traversing an index in the reverse order.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexQuery5r() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -494,7 +497,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
      * Verify that a query with a filter on one field and a sort on another uses the index of the sort preferentially,
      * and falls back to filtering to implement the filter if an appropriate multi-field index is not available.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexQuery8x() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -528,7 +531,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     /**
      * Verify that reverse sorts can be implemented by a reverse index scan.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexLimits1() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -743,7 +746,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
      * Verify that the planner does not accept sorts on multiple record types with uncommon primary keys, even when a
      * multi-field index exists.
      */
-    @Test
+    @DualPlannerTest
     public void testUncommonMultiIndex() throws Exception {
         assertThrows(RecordCoreException.class, () -> {
             try (FDBRecordContext context = openContext()) {

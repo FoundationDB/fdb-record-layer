@@ -53,6 +53,7 @@ public class FilterWithScanRule extends PlannerRule<LogicalFilterExpression> {
         super(root);
     }
 
+    @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         RecordQueryIndexPlan indexScan = call.get(indexScanMatcher);
@@ -66,14 +67,16 @@ public class FilterWithScanRule extends PlannerRule<LogicalFilterExpression> {
         KeyExpression indexExpression = call.getContext().getIndexByName(indexScan.getIndexName()).getRootExpression();
 
         if (indexScan.getComparisons().isEmpty() &&
-                comparison.getType().equals(Comparisons.Type.EQUALS) &&
                 Key.Expressions.field(filter.getFieldName()).isPrefixKey(indexExpression)) {
-            call.yield(call.ref(new RecordQueryIndexPlan(
-                    indexScan.getIndexName(),
-                    indexScan.getScanType(),
-                    ScanComparisons.from(new Comparisons.SimpleComparison(comparison.getType(), comparison.getComparand())),
-                    indexScan.isReverse())));
-            return ChangesMade.MADE_CHANGES;
+            final ScanComparisons scanComparisons = ScanComparisons.from(comparison);
+            if (scanComparisons != null) {
+                call.yield(call.ref(new RecordQueryIndexPlan(
+                        indexScan.getIndexName(),
+                        indexScan.getScanType(),
+                        scanComparisons,
+                        indexScan.isReverse())));
+                return ChangesMade.MADE_CHANGES;
+            }
         }
         return ChangesMade.NO_CHANGE;
     }

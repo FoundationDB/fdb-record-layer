@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -40,13 +39,16 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public interface RelationalPlannerExpression extends PlannerExpression {
     static PlannerExpression fromRecordQuery(@Nonnull RecordQuery query) {
-        if (query.getSort() != null) {
-            throw new RecordCoreException("sort not implemented by new planner");
-        }
         RelationalPlannerExpression expression = new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
+        if (query.getSort() != null) {
+            expression = new LogicalSortExpression(query.getSort(), query.isSortReverse(), expression);
+        }
         if (query.getFilter() != null) {
             expression = new LogicalFilterExpression(query.getFilter(), expression);
         }
-        return new LogicalTypeFilterExpression(query.getRecordTypes(), expression);
+        if (!query.getRecordTypes().isEmpty()) {
+            expression = new LogicalTypeFilterExpression(query.getRecordTypes(), expression);
+        }
+        return expression;
     }
 }

@@ -20,13 +20,18 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstancePostProcessor;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.platform.commons.util.AnnotationUtils;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
@@ -37,6 +42,7 @@ import java.util.stream.Stream;
  * {@link com.apple.foundationdb.record.query.plan.temp.RewritePlanner}.
  */
 public class DualPlannerExtension implements TestTemplateInvocationContextProvider {
+
     @Override
     public boolean supportsTestTemplate(ExtensionContext context) {
         return AnnotationUtils.isAnnotated(context.getTestMethod(), DualPlannerTest.class) &&
@@ -45,22 +51,42 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
 
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
-        return Stream.of(
-                new DualPlannerTestInvocationContext(false), // old planner
-                new DualPlannerTestInvocationContext(true)); // new planner
+        if (AnnotationUtils.isAnnotated(context.getTestMethod(), ParameterizedTest.class)) {
+            TestTemplateInvocationContextProvider nestedProvider;
+            try {
+                Constructor<?> nestedProviderConstructor =
+                        Class.forName("org.junit.jupiter.params.ParameterizedTestExtension").getDeclaredConstructor();
+                nestedProviderConstructor.setAccessible(true);
+                nestedProvider = (TestTemplateInvocationContextProvider) nestedProviderConstructor.newInstance();
+            } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new RecordCoreException(e.getClass() + " " + e.getMessage());
+            }
+            return nestedProvider.provideTestTemplateInvocationContexts(context).map(existingContext ->
+                            new DualPlannerTestInvocationContext(true, existingContext.getAdditionalExtensions())); // new planner
+        } else {
+            return Stream.of(
+                    new DualPlannerTestInvocationContext(false), // old planner
+                    new DualPlannerTestInvocationContext(true)); // new planner
+        }
+
     }
 
     private static class DualPlannerTestInvocationContext implements TestTemplateInvocationContext {
-        private final boolean useRewritePlanner;
+        private final List<Extension> extensions;
 
         public DualPlannerTestInvocationContext(boolean useRewritePlanner) {
-            this.useRewritePlanner = useRewritePlanner;
+            this(useRewritePlanner, Collections.emptyList());
+        }
+
+        public DualPlannerTestInvocationContext(boolean useRewritePlanner, List<Extension> extensions) {
+            this.extensions = new ArrayList<>(extensions);
+            this.extensions.add((TestInstancePostProcessor) (testInstance, context) ->
+                    ((FDBRecordStoreQueryTestBase) testInstance).setUseRewritePlanner(useRewritePlanner));
         }
 
         @Override
         public List<Extension> getAdditionalExtensions() {
-            return Collections.singletonList((TestInstancePostProcessor) (testInstance, context) ->
-                    ((FDBRecordStoreQueryTestBase) testInstance).setUseRewritePlanner(useRewritePlanner));
+            return extensions;
         }
     }
 }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -34,5 +35,7 @@ import java.lang.annotation.Target;
 @Target({ ElementType.ANNOTATION_TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
 @TestTemplate
+@ExtendWith(DualPlannerExtension.class)
 public @interface DualPlannerTest {
+
 }

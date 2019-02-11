@@ -53,6 +53,7 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
         super(root);
     }
 
+    @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         ExpressionRef<QueryComponent> first = call.get(firstMatcher);

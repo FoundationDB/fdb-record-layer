@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -58,6 +59,7 @@ public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilter
         super(root);
     }
 
+    @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         if (!call.get(scanMatcher).hasFullRecordScan()) {
@@ -72,25 +74,41 @@ public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilter
             return ChangesMade.NO_CHANGE;
         }
 
+        FieldKeyExpression field = firstField(call.getContext().getCommonPrimaryKey());
+        if (field != null && Objects.equals(singleField.getFieldName(), field.getFieldName())) {
+            call.yield(SingleExpressionRef.of(new RecordQueryScanPlan(scanComparisons, false)));
+            return ChangesMade.MADE_CHANGES;
+        }
+
         for (Index index : call.getContext().getIndexes()) {
-            KeyExpression indexExpression = index.getRootExpression();
-
-            if (indexExpression instanceof ThenKeyExpression) {
-                ThenKeyExpression then = (ThenKeyExpression) indexExpression;
-                // First column will do it all or not.
-                indexExpression = then.getChildren().get(0);
-            }
-
-            if (indexExpression instanceof FieldKeyExpression) {
-                FieldKeyExpression field = (FieldKeyExpression)indexExpression;
-                if (Objects.equals(singleField.getFieldName(), field.getFieldName())) {
-                    call.yield(SingleExpressionRef.of(
-                            new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_VALUE, scanComparisons, false)));
-                    return ChangesMade.MADE_CHANGES;
-                }
+            field = firstField(index.getRootExpression());
+            if (field != null && Objects.equals(singleField.getFieldName(), field.getFieldName())) {
+                call.yield(SingleExpressionRef.of(
+                        new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_VALUE, scanComparisons, false)));
+                return ChangesMade.MADE_CHANGES;
             }
         }
         // couldn't find an index
         return ChangesMade.NO_CHANGE;
     }
+
+    @Nullable
+    private FieldKeyExpression firstField(@Nullable KeyExpression indexExpression) {
+        if (indexExpression == null) {
+            return null;
+        }
+
+        if (indexExpression instanceof ThenKeyExpression) {
+            ThenKeyExpression then = (ThenKeyExpression) indexExpression;
+            // First column will do it all or not.
+            indexExpression = then.getChildren().get(0);
+        }
+
+        if (indexExpression instanceof FieldKeyExpression) {
+            return (FieldKeyExpression)indexExpression;
+        } else {
+            return null;
+        }
+    }
+
 }
