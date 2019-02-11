@@ -193,7 +193,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
 
     // Proto 2 or syntax = proto2 in Proto 3 generates hasXXX for scalar fields and so reliably distinguishes
     // missing values.
-    @Test
+    @DualPlannerTest
     public void testProto2() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, proto2MetaData());

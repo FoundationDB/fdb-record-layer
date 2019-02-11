@@ -219,7 +219,7 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
      * @param key the whole key to check
      * @return {@code true} if {@code prefix} is a left subset of {@code key}
      */
-    boolean isPrefixKey(KeyExpression key);
+    boolean isPrefixKey(@Nonnull KeyExpression key);
 
     default boolean hasProperInterfaces() {
         return this instanceof KeyExpressionWithChildren || this instanceof KeyExpressionWithoutChildren;

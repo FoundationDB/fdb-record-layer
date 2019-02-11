@@ -205,7 +205,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that simple queries execute properly with continuations.
      */
-    @Test
+    @DualPlannerTest
     public void queryWithContinuation() throws Exception {
         setupSimpleRecordStore(null, (i, builder) -> {
             builder.setRecNo(i);
@@ -417,7 +417,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a record scan can implement a filter on the primary key.
      */
-    @Test
+    @DualPlannerTest
     public void testPartialRecordScan() throws Exception {
         RecordMetaDataHook hook = complexPrimaryKeyHook();
         complexQuerySetup(hook);
@@ -435,7 +435,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that enum field indexes are used.
      */
-    @Test
+    @DualPlannerTest
     public void enumFields() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             final RecordTypeBuilder type = metaData.getRecordType("MyShapeRecord");
@@ -471,7 +471,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     public void nullQuery() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -548,7 +548,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that complex queries on multiple types with uncommon primary keys are implemented, but only with record
      * scans, type filters, and filters.
      */
-    @Test
+    @DualPlannerTest
     public void testUncommonPrimaryKey() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openMultiRecordStore(context);
@@ -627,7 +627,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that null is excluded from an index scan.
      */
-    @Test
+    @DualPlannerTest
     public void queryExcludeNull() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -690,7 +690,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         });
     }
 
-    @Test
+    @DualPlannerTest
     public void uuidPrimaryKey() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final List<UUID> uuids = setupTupleFields(context);
@@ -711,7 +711,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     public void nullableInt32() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final List<UUID> uuids = setupTupleFields(context);

@@ -71,9 +71,13 @@ public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull QueryComponent filter) {
-        this.inner = SingleExpressionRef.of(inner);
-        this.filter = SingleExpressionRef.of(filter);
-        this.children = ImmutableList.of(this.inner, this.filter);
+        this(SingleExpressionRef.of(inner), SingleExpressionRef.of(filter));
+    }
+
+    public RecordQueryFilterPlan(@Nonnull ExpressionRef<RecordQueryPlan> inner, @Nonnull ExpressionRef<QueryComponent> filter) {
+        this.inner = inner;
+        this.filter = filter;
+        this.children = ImmutableList.of(inner, filter);
     }
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull List<QueryComponent> filters) {

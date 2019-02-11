@@ -1,9 +1,9 @@
 /*
- * ImplementTypeFilterRule.java
+ * ImplementFilterRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,14 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
@@ -35,25 +36,26 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import javax.annotation.Nonnull;
 
 /**
- * A rule that implements a logical type filter on an (already implemented) {@link RecordQueryPlan} as a
- * {@link RecordQueryTypeFilterPlan}.
+ * A rule that implements a logical filter around a {@link RecordQueryPlan} as a {@link RecordQueryFilterPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static ExpressionMatcher<ExpressionRef<RecordQueryPlan>> childMatcher = ReferenceMatcher.anyRef();
-    private static ExpressionMatcher<LogicalTypeFilterExpression> root = TypeMatcher.of(LogicalTypeFilterExpression.class, childMatcher);
+public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
+    private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<ExpressionRef<QueryComponent>> filterMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
+            filterMatcher, innerMatcher);
 
-    public ImplementTypeFilterRule() {
+    public ImplementFilterRule() {
         super(root);
     }
 
     @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
-        final LogicalTypeFilterExpression typeFilter = call.get(root);
-        final ExpressionRef<RecordQueryPlan> child = call.get(childMatcher);
+        final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
+        final ExpressionRef<QueryComponent> filter = call.get(filterMatcher);
 
-        call.yield(SingleExpressionRef.of(new RecordQueryTypeFilterPlan(child, typeFilter.getRecordTypes())));
+        call.yield(SingleExpressionRef.of(new RecordQueryFilterPlan(inner, filter)));
         return ChangesMade.MADE_CHANGES;
     }
 }

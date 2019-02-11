@@ -64,7 +64,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that sorting by a common field on a universal index returns all types of records in an index scan.
      */
-    @Test
+    @DualPlannerTest
     public void testCrossRecordTypeQuery() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
@@ -114,7 +114,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that multi-type record queries can scan multi-type indexes.
      * Verify that single-type record queries can scan multi-type indexes with a type filter.
      */
-    @Test
+    @DualPlannerTest
     public void testMultiRecordTypeIndexScan() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
@@ -258,7 +258,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that filtering by a field on a universal index works.
      */
-    @Test
+    @DualPlannerTest
     public void testCrossRecordTypeQueryFiltered() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
