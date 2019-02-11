@@ -53,6 +53,7 @@ public class FilterWithScanRule extends PlannerRule<LogicalFilterExpression> {
         super(root);
     }
 
+    @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         RecordQueryIndexPlan indexScan = call.get(indexScanMatcher);

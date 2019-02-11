@@ -58,6 +58,7 @@ public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilter
         super(root);
     }
 
+    @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         if (!call.get(scanMatcher).hasFullRecordScan()) {

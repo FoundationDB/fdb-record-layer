@@ -49,6 +49,7 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
         super(root);
     }
 
+    @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         LogicalTypeFilterExpression typeFilter = call.get(root);

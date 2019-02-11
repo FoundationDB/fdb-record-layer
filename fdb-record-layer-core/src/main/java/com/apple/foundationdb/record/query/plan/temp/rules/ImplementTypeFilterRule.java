@@ -45,6 +45,7 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
         super(root);
     }
 
+    @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         LogicalTypeFilterExpression typeFilter = call.get(root);

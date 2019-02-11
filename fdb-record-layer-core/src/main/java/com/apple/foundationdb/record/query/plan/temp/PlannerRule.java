@@ -76,6 +76,7 @@ public abstract class PlannerRule<T extends PlannerExpression> {
         this.matcher = matcher;
     }
 
+    @Nonnull
     public abstract ChangesMade onMatch(@Nonnull PlannerRuleCall call);
 
     @Nonnull
