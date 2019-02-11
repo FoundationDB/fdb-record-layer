@@ -28,6 +28,7 @@ dependencies {
     compile "org.slf4j:slf4j-api:${slf4jVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
+    annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 
     testCompile project(path: coreProject, configuration: 'tests')
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
