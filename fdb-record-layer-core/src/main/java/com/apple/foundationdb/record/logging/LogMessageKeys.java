@@ -38,6 +38,7 @@ public enum LogMessageKeys {
     CALLING_METHOD("calling_method"),
     CALLING_LINE("calling_line"),
     FUTURE_COMPLETED("future_completed"),
+    SCAN_PROPERTIES("scan_properties"),
     // record splitting/unsplitting
     KEY("key"),
     KEY_TUPLE("key_tuple"),

@@ -636,9 +636,6 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
     private void doLimitedScan(FDBDatabase database, KeySpace root, int returnedRowLimit, int scannedRecordLimit,
                                RecordCursor.NoNextReason noNextReason) {
         try (FDBRecordContext context = database.openContext()) {
-            // Iteration will inject a 1ms pause in each "a" value we iterate over (there are 10 of them)
-            // so we want to make the time limit long enough to make *some* progress, but short enough to
-            // to make sure we cannot get them all.
             ScanProperties props = new ScanProperties(ExecuteProperties.newBuilder()
                     .setFailOnScanLimitReached(false)
                     .setReturnedRowLimit(returnedRowLimit)
@@ -662,6 +659,42 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             TimeUnit.MILLISECONDS.sleep(ms);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    public void testListReverse() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("root", KeyType.STRING, "root-" + random.nextInt(Integer.MAX_VALUE))
+                        .addSubdirectory(new KeySpaceDirectory("a", KeyType.LONG)
+                                .addSubdirectory(new KeySpaceDirectory("b", KeyType.LONG))));
+
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 2; j++) {
+                    tr.set(root.path("root")
+                            .add("a", i)
+                            .add("b", j)
+                            .toTuple(context).pack(), Tuple.from(i + j).pack());
+                }
+            }
+            tr.commit().join();
+        }
+
+        final List<Tuple> results;
+        try (FDBRecordContext context = database.openContext()) {
+            ScanProperties props = new ScanProperties(ExecuteProperties.newBuilder().build(), true);
+            results = root.path("root")
+                    .listAsync(context, "a", null, props).asList().join().stream()
+                    .map(path -> path.toTuple(context))
+                    .collect(Collectors.toList());
+        }
+
+        assertEquals(5, results.size());
+        for (int i = 0; i < 5; i++) {
+            assertEquals(i, ((Long) results.get(4 - i).getLong(1)).intValue());
         }
     }
 

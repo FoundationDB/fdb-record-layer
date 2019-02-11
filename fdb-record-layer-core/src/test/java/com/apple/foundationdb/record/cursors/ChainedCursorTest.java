@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
@@ -36,6 +37,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -142,6 +144,23 @@ public class ChainedCursorTest extends FDBTestBase {
             assertEquals(cursor.getNoNextReason(), RecordCursor.NoNextReason.TIME_LIMIT_REACHED);
             assertTrue(count < 5, "Too many values returned");
         }
+    }
+
+    @Test
+    public void testHatesReverse() {
+        // The chained cursor cannot implement a reverse scan
+        assertThrows(RecordCoreArgumentException.class, () -> {
+            FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+            try (FDBRecordContext context = database.openContext()) {
+                ScanProperties props = new ScanProperties(ExecuteProperties.newBuilder().build(), true);
+                new ChainedCursor<>(context,
+                        (lastKey) -> CompletableFuture.completedFuture(Optional.of(10L)),
+                        (key) -> new byte[0],
+                        (prevContinuation) -> 10L,
+                        null,
+                        props);
+            }
+        });
     }
 
     private RecordCursor<Long> newCursor(byte[] continuation) {

@@ -21,10 +21,12 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
 import javax.annotation.Nonnull;
@@ -87,8 +89,12 @@ import java.util.function.Function;
  * behavior if the same set of <code>ScanProperties</code> are also used by cursors that are present in the <code>nextGenerator</code>
  * that is provided and can lead to double-counting.  For example, if the <code>nextGenerator</code> is driven
  * by the read of a row key via the <code>KeyValueCursor</code>, the cursor could end up counting that read, and the
- * <code>ChainedCursor</code> would then, again, count that read. As such, the caller should take care on
- * specifying the <code>ScanProperties</code> to the cursor and within the <code>nextGenerator</code>
+ * <code>ChainedCursor</code> would then, again, count that read. As such, the caller should take care when
+ * specifying the <code>ScanProperties</code> to the cursor and within the <code>nextGenerator</code>.
+ *
+ * <p>In addition, while the <code>ChainedCursor</code> can track and limit on scanned records and scan time,
+ * it has no visibility into any bytes that may have been read by cursor managed by the <code>nextGenerator</code>
+ * and, thus, cannot enforce any byte scan limits.
  *
  * @param <T> the type of elements of the cursor
  */
@@ -183,6 +189,15 @@ public class ChainedCursor<T> implements BaseCursor<T> {
         if (context == null) {
             limitManager = new CursorLimitManager(ScanProperties.FORWARD_SCAN);
         } else {
+            // Due to our public constructors this scenario should never be able to happen, but this
+            // is here most to get the code analysis tools to shut up.
+            if (scanProperties == null) {
+                throw new IllegalStateException("scanProperties cannot be null if context is not null");
+            }
+            if (scanProperties.isReverse()) {
+                throw new RecordCoreArgumentException("ChainedCursor does not support reverse scans")
+                        .addLogInfo(LogMessageKeys.SCAN_PROPERTIES, scanProperties);
+            }
             limitManager = new CursorLimitManager(context, scanProperties);
         }
 
