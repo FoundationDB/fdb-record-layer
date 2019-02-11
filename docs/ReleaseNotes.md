@@ -18,7 +18,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Build record meta-data using user's local / evolved meta-data [(Issue #3)](https://github.com/FoundationDB/fdb-record-layer/issues/3)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -52,7 +52,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Build record meta-data using user's local / evolved meta-data [(Issue #3)](https://github.com/FoundationDB/fdb-record-layer/issues/3)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -68,6 +68,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 
 ### 2.5.42.0
 
+* **Feature** Build record meta-data using user's local / evolved meta-data [(Issue #3)](https://github.com/FoundationDB/fdb-record-layer/issues/3)
 * **Feature** Validation checks now reject a `RecordMetaData` object that defines no record types [(Issue #354)](https://github.com/FoundationDB/fdb-record-layer/issues/354)
 * **Feature** A new cursor type allows for intersecting cursors with incompatible orderings [(Issue #336)](https://github.com/FoundationDB/fdb-record-layer/issues/336)
 * **Feature** The text search query API now exposes `containsAllPrefixes` and `containsAnyPrefix` predicates [(Issue #343)](https://github.com/FoundationDB/fdb-record-layer/issues/343)
