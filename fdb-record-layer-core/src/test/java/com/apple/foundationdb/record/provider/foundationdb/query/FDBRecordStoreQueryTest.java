@@ -49,7 +49,6 @@ import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -88,7 +87,6 @@ import static org.junit.jupiter.api.Assertions.fail;
  * {@link com.apple.foundationdb.record.provider.foundationdb.query}.
  */
 @Tag(Tags.RequiresFDB)
-@ExtendWith(DualPlannerExtension.class)
 public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest
     public void query() throws Exception {
