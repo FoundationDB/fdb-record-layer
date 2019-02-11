@@ -74,7 +74,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class KeyExpressionTest {
 
-    private List<Key.Evaluated> evaluate(@Nonnull KeyExpression expression, @Nullable Message record) {
+    public static List<Key.Evaluated> evaluate(@Nonnull KeyExpression expression, @Nullable Message record) {
         return expression.evaluate(new UnstoredRecord<>(record));
     }
 

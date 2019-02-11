@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.Key;
@@ -52,6 +53,7 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithComparison;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
@@ -72,7 +74,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.google.common.annotations.VisibleForTesting;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -460,6 +461,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (((QueryRecordFunctionWithComparison) filter).getFunction().getName().equals(FunctionNames.VERSION)) {
                 return planVersion(candidateScan, index, (QueryRecordFunctionWithComparison) filter, sort);
             }
+        } else if (filter instanceof QueryKeyExpressionWithComparison) {
+            return planQueryKeyExpressionWithComparison(candidateScan, index, (QueryKeyExpressionWithComparison) filter, sort);
         }
         return null;
     }
@@ -818,6 +821,12 @@ public class RecordQueryPlanner implements QueryPlanner {
                        && ((QueryRecordFunctionWithComparison)filterComponent).getFunction().getName().equals(FunctionNames.VERSION)) {
                 QueryRecordFunctionWithComparison functionComparison = (QueryRecordFunctionWithComparison)filterComponent;
                 plan = planVersion(candidateScan, index, functionComparison, sort);
+            } else if (filterComponent instanceof QueryKeyExpressionWithComparison) {
+                plan = planQueryKeyExpressionWithComparison(candidateScan, index, (QueryKeyExpressionWithComparison)filterComponent, sort);
+                if (plan != null) {
+                    unsatisfiedFilters.remove(filterChild);
+                    return plan.withUnsatisfiedFilters(unsatisfiedFilters);
+                }
             }
 
             if (plan != null) {
@@ -919,6 +928,24 @@ public class RecordQueryPlanner implements QueryPlanner {
                 // May need second column to do sort, so handle like And, which does such cases.
                 return new AndWithThenPlanner(candidateScan, then, Collections.singletonList(singleField), sort).plan();
             }
+        }
+        return null;
+    }
+
+    @Nullable
+    private ScoredPlan planQueryKeyExpressionWithComparison(@Nonnull CandidateScan candidateScan,
+                                                            @Nonnull KeyExpression index,
+                                                            @Nonnull QueryKeyExpressionWithComparison queryKeyExpressionWithComparison,
+                                                            @Nullable KeyExpression sort) {
+        if (index.equals(queryKeyExpressionWithComparison.getKeyExpression()) && (sort == null || sort.equals(index))) {
+            final Comparisons.Comparison comparison = queryKeyExpressionWithComparison.getComparison();
+            final ScanComparisons scanComparisons = ScanComparisons.from(comparison);
+            if (scanComparisons == null) {
+                return null;
+            }
+            return new ScoredPlan(1, planScan(candidateScan, scanComparisons));
+        } else if (index instanceof ThenKeyExpression) {
+            return new AndWithThenPlanner(candidateScan, (ThenKeyExpression) index, Collections.singletonList(queryKeyExpressionWithComparison), sort).plan();
         }
         return null;
     }
@@ -1679,6 +1706,8 @@ public class RecordQueryPlanner implements QueryPlanner {
                 } else if (filterComponent instanceof QueryRecordFunctionWithComparison
                            && ((QueryRecordFunctionWithComparison) filterComponent).getFunction().getName().equals(FunctionNames.VERSION)) {
                     planWithVersionComparisonChild(child, (QueryRecordFunctionWithComparison) filterComponent, filterChild);
+                } else if (filterComponent instanceof QueryKeyExpressionWithComparison) {
+                    planWithComparisonChild(child, (QueryKeyExpressionWithComparison) filterComponent, filterChild);
                 }
                 if (foundComparison) {
                     break;
@@ -1741,6 +1770,17 @@ public class RecordQueryPlanner implements QueryPlanner {
                         if (foundComparison && currentSortMatches(child)) {
                             advanceCurrentSort();
                         }
+                    }
+                }
+            }
+        }
+
+        private void planWithComparisonChild(@Nonnull KeyExpression child, @Nonnull QueryKeyExpressionWithComparison queryKeyExpression, @Nonnull QueryComponent filterChild) {
+            if (child.equals(queryKeyExpression.getKeyExpression())) {
+                if (addToComparisons(queryKeyExpression.getComparison())) {
+                    unsatisfiedFilters.remove(filterChild);
+                    if (foundComparison && currentSortMatches(child)) {
+                        advanceCurrentSort();
                     }
                 }
             }
