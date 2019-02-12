@@ -248,6 +248,12 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_REVERSE_DIRECTORY_LOCATE("wait for finding reverse directory location"),
         /** Wait for an {@link IndexOperation} to complete. */
         WAIT_INDEX_OPERATION("wait for index operation"),
+        /** Wait for adding an index. */
+        WAIT_ADD_INDEX("wait for adding an index"),
+        /** Wait for dropping an index. */
+        WAIT_DROP_INDEX("wait for dropping an index"),
+        /** Wait for updating records descriptor. */
+        WAIT_UPDATE_RECORDS_DESCRIPTOR("wait for updating the records descriptor"),
         /**
          * Wait for the updated version stamp from a committed transaction.
          * This future should normally be completed already, so this is mainly for error checking.

@@ -39,6 +39,8 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.TestRecords1EvolvedAgainProto;
+import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords7Proto;
@@ -2609,4 +2611,75 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         });
     }
 
+    @Test
+    public void testUpdateRecords() {
+        KeySpacePath metaDataPath;
+        Subspace metaDataSubspace;
+        try (FDBRecordContext context = fdb.openContext()) {
+            metaDataPath = TestKeySpace.getKeyspacePath(new Object[]{"record-test", "unit", "metadataStore"});
+            metaDataSubspace = metaDataPath.toSubspace(context);
+            context.ensureActive().clear(Range.startsWith(metaDataSubspace.pack()));
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            RecordMetaData origMetaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            final int version = origMetaData.getVersion();
+
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
+                    .createOrOpen();
+            assertEquals(version, recordStore.getRecordMetaData().getVersion());
+
+            TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue2(42)
+                    .setStrValueIndexed("value")
+                    .setNumValue3Indexed(1729)
+                    .build();
+            recordStore.saveRecord(record);
+
+            // Update the records without a local descriptor. Storing an evolved record must fail.
+            final TestRecords1EvolvedProto.MySimpleRecord evolvedRecord = TestRecords1EvolvedProto.MySimpleRecord.newBuilder()
+                    .setRecNo(1067L)
+                    .setNumValue2(43)
+                    .setStrValueIndexed("evolved value")
+                    .setNumValue3Indexed(1730)
+                    .build();
+
+            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, null);
+            metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor()); // Bumps the version
+            final FDBRecordStore recordStoreWithNoLocalFileDescriptor = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
+                    .open();
+            assertEquals(version + 1, recordStoreWithNoLocalFileDescriptor.getRecordMetaData().getVersion());
+            MetaDataException e = assertThrows(MetaDataException.class, () -> recordStoreWithNoLocalFileDescriptor.saveRecord(evolvedRecord));
+            assertEquals(e.getMessage(), "descriptor did not match record type");
+
+            // Update the records with a local descriptor. Storing an evolved record must succeed this time.
+            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1EvolvedProto.getDescriptor());
+            metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor()); // Bumps the version
+            recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
+                    .open();
+            assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
+            recordStore.saveRecord(evolvedRecord);
+
+            // Evolve the meta-data one more time and use it for local file descriptor. SaveRecord will succeed.
+            final TestRecords1EvolvedAgainProto.MySimpleRecord evolvedAgainRecord = TestRecords1EvolvedAgainProto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue2(42)
+                    .setStrValueIndexed("value")
+                    .setNumValue3Indexed(1729)
+                    .build();
+            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1EvolvedAgainProto.getDescriptor());
+            metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor()); // Bumps the version
+            recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
+                    .open();
+            assertEquals(version + 3, recordStore.getRecordMetaData().getVersion());
+            recordStore.saveRecord(evolvedAgainRecord);
+        }
+    }
 }
