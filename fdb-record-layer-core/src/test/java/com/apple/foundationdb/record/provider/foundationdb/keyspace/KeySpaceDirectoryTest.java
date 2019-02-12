@@ -60,6 +60,7 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -545,6 +546,156 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
                 return ((DirWithMetadataWrapper) path1).metadata(context).join();
             }
         }, is(Tuple.from("new-metadata").pack()), 120, 10);
+    }
+
+    @Test
+    public void testListObeysTimeLimits() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("root", KeyType.STRING, "root-" + random.nextInt(Integer.MAX_VALUE))
+                        .addSubdirectory(new KeySpaceDirectory("a", KeyType.LONG)
+                                .addSubdirectory(new KeySpaceDirectory("b", KeyType.LONG)
+                                        .addSubdirectory(new KeySpaceDirectory("c", KeyType.LONG)))));
+
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            for (int i = 0; i < 10; i++) {
+                for (int j = 0; j < 3; j++) {
+                    for (int k = 0; k < 5; k++) {
+                        tr.set(root.path("root")
+                                .add("a", i)
+                                .add("b", j)
+                                .add("c", k)
+                                .toTuple(context).pack(), Tuple.from(i + j).pack());
+                    }
+                }
+            }
+            tr.commit().join();
+        }
+
+        try (FDBRecordContext context = database.openContext()) {
+            // Iteration will inject a 1ms pause in each "a" value we iterate over (there are 10 of them)
+            // so we want to make the time limit long enough to make *some* progress, but short enough to
+            // to make sure we cannot get them all.
+            ScanProperties props = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setFailOnScanLimitReached(false)
+                    .setTimeLimit(5L)
+                    .build());
+            RecordCursor<KeySpacePath> cursor = RecordCursor.flatMapPipelined(
+                    outerContinuation ->
+                            root.path("root").listAsync(context, "a", outerContinuation, props)
+                                    .map(value -> {
+                                        sleep(1L);
+                                        return value;
+                                    }),
+                    (aPath, innerContinuation) ->
+                            aPath.add("b", 0).listAsync(context, "c", innerContinuation, props),
+                    null,
+                    10
+            );
+
+            int count = 0;
+            while (cursor.hasNext()) {
+                cursor.next();
+                ++count;
+            }
+
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
+            // With a 1ms delay we should read no more than 5 "a" values (there are a total of 10)
+            // and each "c" value has 4 values. so we shouldn't have been able to read more than 40
+            // total values.
+            assertTrue(count <= 40, "Read too many values, query should have timed out");
+        }
+    }
+
+    @Test
+    public void testListObeysReturnedRowAndScanLimits() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("root", KeyType.STRING, "root-" + random.nextInt(Integer.MAX_VALUE))
+                        .addSubdirectory(new KeySpaceDirectory("a", KeyType.LONG)
+                                .addSubdirectory(new KeySpaceDirectory("b", KeyType.LONG))));
+
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 2; j++) {
+                    tr.set(root.path("root")
+                            .add("a", i)
+                            .add("b", j)
+                            .toTuple(context).pack(), Tuple.from(i + j).pack());
+                }
+            }
+            tr.commit().join();
+        }
+
+        doLimitedScan(database, root, 5, Integer.MAX_VALUE, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
+        doLimitedScan(database, root, Integer.MAX_VALUE, 5, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+    }
+
+    private void doLimitedScan(FDBDatabase database, KeySpace root, int returnedRowLimit, int scannedRecordLimit,
+                               RecordCursor.NoNextReason noNextReason) {
+        try (FDBRecordContext context = database.openContext()) {
+            ScanProperties props = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setFailOnScanLimitReached(false)
+                    .setReturnedRowLimit(returnedRowLimit)
+                    .setScannedRecordsLimit(scannedRecordLimit)
+                    .build());
+            RecordCursor<KeySpacePath> cursor = root.path("root").listAsync(context, "a", null, props);
+
+            int count = 0;
+            while (cursor.hasNext()) {
+                cursor.next();
+                ++count;
+            }
+
+            assertEquals(noNextReason, cursor.getNoNextReason());
+            assertEquals(Math.min(returnedRowLimit, scannedRecordLimit), count, "Wrong number of results");
+        }
+    }
+
+    private static void sleep(long ms) {
+        try {
+            TimeUnit.MILLISECONDS.sleep(ms);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    public void testListReverse() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("root", KeyType.STRING, "root-" + random.nextInt(Integer.MAX_VALUE))
+                        .addSubdirectory(new KeySpaceDirectory("a", KeyType.LONG)
+                                .addSubdirectory(new KeySpaceDirectory("b", KeyType.LONG))));
+
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 2; j++) {
+                    tr.set(root.path("root")
+                            .add("a", i)
+                            .add("b", j)
+                            .toTuple(context).pack(), Tuple.from(i + j).pack());
+                }
+            }
+            tr.commit().join();
+        }
+
+        final List<Tuple> results;
+        try (FDBRecordContext context = database.openContext()) {
+            ScanProperties props = new ScanProperties(ExecuteProperties.newBuilder().build(), true);
+            results = root.path("root")
+                    .listAsync(context, "a", null, props).asList().join().stream()
+                    .map(path -> path.toTuple(context))
+                    .collect(Collectors.toList());
+        }
+
+        assertEquals(5, results.size());
+        for (int i = 0; i < 5; i++) {
+            assertEquals(i, ((Long) results.get(4 - i).getLong(1)).intValue());
+        }
     }
 
     private Function<FDBRecordContext, CompletableFuture<LocatableResolver>> getGenerator() {

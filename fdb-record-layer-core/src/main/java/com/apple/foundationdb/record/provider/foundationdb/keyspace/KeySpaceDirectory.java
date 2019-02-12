@@ -413,22 +413,38 @@ public class KeySpaceDirectory {
                 ? CompletableFuture.completedFuture(new Subspace())
                 : listFrom.toSubspaceAsync(context);
 
-        final ScanProperties singleRowScan = scanProperties.with(props -> props.setReturnedRowLimit(1));
+        // The chained cursor cannot implement reverse scan, so we implement it by having the
+        // inner key value cursor do the reversing but telling the chained cursor we are moving
+        // forward.
+        final ScanProperties chainedCursorScanProperties;
+        if (scanProperties.isReverse()) {
+            chainedCursorScanProperties = scanProperties.setReverse(false);
+        } else {
+            chainedCursorScanProperties = scanProperties;
+        }
+
+        // For the read of the individual row keys, we only want to read a single key. In addition,
+        // the ChainedCursor is going to do counting of our reads to apply any limits that were specified
+        // on the ScanProperties.  We don't want the inner KeyValueCursor in nextTuple() to ALSO count those
+        // same reads so we clear out its limits.
+        final ScanProperties keyReadScanProperties = scanProperties.with(
+                props -> props.clearState().setReturnedRowLimit(1));
+
         return new LazyCursor<>(
                 fromSubspaceFuture.thenCompose(subspace ->
                         subdir.getValueRange(context, valueRange, subspace).thenApply(range -> {
                             final RecordCursor<Tuple> cursor = new ChainedCursor<>(
-                                    lastKey -> nextTuple(context, subspace, range, lastKey, singleRowScan),
+                                    context,
+                                    lastKey -> nextTuple(context, subspace, range, lastKey, keyReadScanProperties),
                                     Tuple::pack,
                                     Tuple::fromBytes,
                                     continuation,
-                                    context.getExecutor());
+                                    chainedCursorScanProperties);
 
-                            return cursor.limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit())
-                                    .mapPipelined(tuple -> {
-                                        final Tuple key = Tuple.fromList(tuple.getItems());
-                                        return findChildForKey(context, listFrom, key, 1, 0);
-                                    }, 1);
+                            return cursor.mapPipelined(tuple -> {
+                                final Tuple key = Tuple.fromList(tuple.getItems());
+                                return findChildForKey(context, listFrom, key, 1, 0);
+                            }, 1);
                         })),
                 context.getExecutor()
         );
@@ -519,13 +535,20 @@ public class KeySpaceDirectory {
                     .setScanProperties(scanProperties)
                     .build();
         } else {
-            cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            KeyValueCursor.Builder builder = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
-                    .setLow(subspace.pack(lastTuple.get().get(0)), EndpointType.RANGE_EXCLUSIVE)
-                    .setHigh(range.getHighKey(), range.getHighEndpoint())
                     .setContinuation(null)
-                    .setScanProperties(scanProperties)
-                    .build();
+                    .setScanProperties(scanProperties);
+
+            if (scanProperties.isReverse()) {
+                cursor = builder.setLow(range.getLowKey(), range.getLowEndpoint())
+                        .setHigh(subspace.pack(lastTuple.get().get(0)), EndpointType.RANGE_EXCLUSIVE)
+                        .build();
+            } else {
+                cursor = builder.setLow(subspace.pack(lastTuple.get().get(0)), EndpointType.RANGE_EXCLUSIVE)
+                        .setHigh(range.getHighKey(), range.getHighEndpoint())
+                        .build();
+            }
         }
 
         return cursor.onHasNext().thenApply( hasNext -> {
