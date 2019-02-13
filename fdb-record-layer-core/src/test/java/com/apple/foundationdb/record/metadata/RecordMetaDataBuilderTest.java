@@ -50,9 +50,15 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -73,20 +79,34 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class RecordMetaDataBuilderTest {
     @SuppressWarnings("deprecation")
     private RecordMetaDataBuilder createBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                                boolean deprecatedWay) {
+                                                boolean deprecatedWay, boolean useCounterBasedSubspaceKey) {
         RecordMetaDataBuilder builder;
         if (deprecatedWay) {
             builder = new RecordMetaDataBuilder(fileDescriptor);
         } else {
-            builder = RecordMetaData.newBuilder().setRecords(fileDescriptor);
+            builder = RecordMetaData.newBuilder();
+            if (useCounterBasedSubspaceKey) {
+                builder.enableCounterBasedSubspaceKeys();
+            }
+            builder.setRecords(fileDescriptor);
         }
         return builder;
     }
 
+    static Stream<Arguments> indexTestArguments() {
+        List<Arguments> args = new ArrayList<>();
+        for (TestHelpers.BooleanEnum deprecatedWay : TestHelpers.BooleanEnum.values()) {
+            for (TestHelpers.BooleanEnum indexCounterBasedSubspaceKey : TestHelpers.BooleanEnum.values()) {
+                args.add(Arguments.of(deprecatedWay, indexCounterBasedSubspaceKey));
+            }
+        }
+        return args.stream();
+    }
+
     @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "caching [deprecatedWay = {0}]")
-    public void caching(final TestHelpers.BooleanEnum deprecatedWay) throws Exception {
-        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), deprecatedWay.toBoolean());
+    public void caching(final TestHelpers.BooleanEnum deprecatedWay) {
+        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), deprecatedWay.toBoolean(), true);
         RecordMetaData metaData1 = builder.getRecordMetaData();
         assertSame(metaData1, builder.getRecordMetaData());
         builder.addIndex("MySimpleRecord", "MySimpleRecord$PRIMARY", "rec_no");
@@ -94,30 +114,49 @@ public class RecordMetaDataBuilderTest {
         assertNotSame(metaData1, metaData2);
     }
 
-    @Test
-    public void normalIndexDoesNotOverlapPrimaryKey() throws Exception {
-        RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest(name = "normalIndexDoesNotOverlapPrimaryKey [indexCounterBasedSubspaceKey = {0}]")
+    public void normalIndexDoesNotOverlapPrimaryKey(final TestHelpers.BooleanEnum indexCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder();
+        if (indexCounterBasedSubspaceKey.toBoolean()) {
+            builder.enableCounterBasedSubspaceKeys();
+        }
+        RecordMetaData metaData = builder.setRecords(TestRecords1Proto.getDescriptor()).getRecordMetaData();
         Index index = metaData.getIndex("MySimpleRecord$str_value_indexed");
         assertNotNull(index);
         assertNull(index.getPrimaryKeyComponentPositions());
+        if (!indexCounterBasedSubspaceKey.toBoolean()) {
+            assertEquals(index.getName(), index.getSubspaceKey());
+        } else {
+            assertEquals(1L, index.getSubspaceKey());
+        }
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
-    @ParameterizedTest(name = "primaryIndexDoesNotOverlapPrimaryKey [deprecatedWay = {0}]")
-    public void primaryIndexDoesOverlapPrimaryKey(final TestHelpers.BooleanEnum deprecatedWay) throws Exception {
-        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), deprecatedWay.toBoolean());
+    @MethodSource("indexTestArguments")
+    @ParameterizedTest(name = "primaryIndexDoesNotOverlapPrimaryKey [deprecatedWay = {0}, indexCounterBasedSubspaceKey = {1}]")
+    public void primaryIndexDoesOverlapPrimaryKey(final TestHelpers.BooleanEnum deprecatedWay, final TestHelpers.BooleanEnum indexCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(),
+                deprecatedWay.toBoolean(),
+                indexCounterBasedSubspaceKey.toBoolean());
         builder.addIndex("MySimpleRecord", "MySimpleRecord$PRIMARY", "rec_no");
         RecordMetaData metaData = builder.getRecordMetaData();
         Index index = metaData.getIndex("MySimpleRecord$PRIMARY");
         assertNotNull(index);
         assertNotNull(index.getPrimaryKeyComponentPositions());
         assertArrayEquals(new int[] {0}, index.getPrimaryKeyComponentPositions());
+        if (deprecatedWay.toBoolean() || !indexCounterBasedSubspaceKey.toBoolean()) {
+            assertEquals(index.getName(), index.getSubspaceKey());
+        } else {
+            assertEquals(4L, index.getSubspaceKey());
+        }
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
-    @ParameterizedTest(name = "indexOnNestedPrimaryKey [deprecatedWay = {0}]")
-    public void indexOnNestedPrimaryKey(final TestHelpers.BooleanEnum deprecatedWay) throws Exception {
-        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(), deprecatedWay.toBoolean());
+    @MethodSource("indexTestArguments")
+    @ParameterizedTest(name = "indexOnNestedPrimaryKey [deprecatedWay = {0}, indexCounterBasedSubspaceKey = {1}]")
+    public void indexOnNestedPrimaryKey(final TestHelpers.BooleanEnum deprecatedWay, final TestHelpers.BooleanEnum indexCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(),
+                deprecatedWay.toBoolean(),
+                indexCounterBasedSubspaceKey.toBoolean());
         builder.getRecordType("MyRecord")
                 .setPrimaryKey(field("header").nest("rec_no"));
         builder.addIndex("MyRecord", new Index("MyRecord$PRIMARY",
@@ -128,12 +167,18 @@ public class RecordMetaDataBuilderTest {
         assertNotNull(index);
         assertNotNull(index.getPrimaryKeyComponentPositions());
         assertArrayEquals(new int[] {0}, index.getPrimaryKeyComponentPositions());
+        if (deprecatedWay.toBoolean() || !indexCounterBasedSubspaceKey.toBoolean()) {
+            assertEquals(index.getName(), index.getSubspaceKey());
+        } else {
+            assertEquals(1L, index.getSubspaceKey());
+        }
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
-    @ParameterizedTest(name = "indexOnPartialNestedPrimaryKey [deprecatedWay = {0}]")
-    public void indexOnPartialNestedPrimaryKey(final TestHelpers.BooleanEnum deprecatedWay) throws Exception {
-        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(), deprecatedWay.toBoolean());
+    @MethodSource("indexTestArguments")
+    @ParameterizedTest(name = "indexOnPartialNestedPrimaryKey [deprecatedWay = {0}, indexCounterBasedSubspaceKey = {1}]")
+    public void indexOnPartialNestedPrimaryKey(final TestHelpers.BooleanEnum deprecatedWay, final TestHelpers.BooleanEnum indexCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(),
+                deprecatedWay.toBoolean(), indexCounterBasedSubspaceKey.toBoolean());
         builder.getRecordType("MyRecord")
                 .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
         builder.addIndex("MyRecord", new Index("MyRecord$path_str",
@@ -145,13 +190,18 @@ public class RecordMetaDataBuilderTest {
         assertNotNull(index);
         assertNotNull(index.getPrimaryKeyComponentPositions());
         assertArrayEquals(new int[] {0, -1}, index.getPrimaryKeyComponentPositions());
+        if (deprecatedWay.toBoolean() || !indexCounterBasedSubspaceKey.toBoolean()) {
+            assertEquals(index.getName(), index.getSubspaceKey());
+        } else {
+            assertEquals(1L, index.getSubspaceKey());
+        }
     }
 
     @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "setEvolutionValidatorAfterRecords [deprecatedWay = {0}]")
     public void setEvolutionValidatorAfterRecords(final TestHelpers.BooleanEnum deprecatedWay) {
         final MetaDataEvolutionValidator defaultValidator = MetaDataEvolutionValidator.getDefaultInstance();
-        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), deprecatedWay.toBoolean());
+        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), deprecatedWay.toBoolean(), true);
         assertSame(defaultValidator, builder.getEvolutionValidator());
         MetaDataEvolutionValidator secondValidator = MetaDataEvolutionValidator.newBuilder().setAllowIndexRebuilds(true).build();
         MetaDataException e = assertThrows(MetaDataException.class, () -> builder.setEvolutionValidator(secondValidator));
@@ -369,5 +419,220 @@ public class RecordMetaDataBuilderTest {
         e = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().updateRecords(TestRecords1EvolvedProto.getDescriptor()));
         assertEquals("Records descriptor is not set yet", e.getMessage());
 
+    }
+
+    @Test
+    public void testSetSubspaceKeyCounter() {
+        // Test setting the counter without enabling it
+        MetaDataException e = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor())
+                .setSubspaceKeyCounter(4L));
+        assertEquals("Counter-based subspace keys not enabled", e.getMessage());
+
+        // Test setting the counter to a value not greater than the current value
+        e = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder()
+                .enableCounterBasedSubspaceKeys()
+                .setRecords(TestRecords1Proto.getDescriptor())
+                .setSubspaceKeyCounter(3L));
+        assertEquals("Subspace key counter must be set to a value greater than its current value (3)", e.getMessage());
+
+        // Set to a random number
+        long randomCounter = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE - 10);
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().enableCounterBasedSubspaceKeys().setSubspaceKeyCounter(randomCounter).setRecords(TestRecords1Proto.getDescriptor());
+        RecordMetaData metaData = builder.build(true);
+        assertNotNull(metaData.getIndex("MySimpleRecord$str_value_indexed"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_unique"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertEquals(randomCounter + 1, metaData.getIndex("MySimpleRecord$str_value_indexed").getSubspaceKey());
+        assertEquals(randomCounter + 2, metaData.getIndex("MySimpleRecord$num_value_unique").getSubspaceKey());
+        assertEquals(randomCounter + 3, metaData.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey());
+
+        // enable and set counter in the proto.
+        RecordMetaDataProto.MetaData.Builder protoBuilder = RecordMetaDataProto.MetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor().toProto());
+        protoBuilder.setUsesSubspaceKeyCounter(true).setSubspaceKeyCounter(randomCounter);
+        builder = RecordMetaData.newBuilder().setRecords(protoBuilder.build(), true);
+        RecordMetaData metaDataFromProto = builder.build(true);
+        assertNotNull(metaDataFromProto.getIndex("MySimpleRecord$str_value_indexed"));
+        assertNotNull(metaDataFromProto.getIndex("MySimpleRecord$num_value_unique"));
+        assertNotNull(metaDataFromProto.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertEquals(randomCounter + 1, metaDataFromProto.getIndex("MySimpleRecord$str_value_indexed").getSubspaceKey());
+        assertEquals(randomCounter + 2, metaDataFromProto.getIndex("MySimpleRecord$num_value_unique").getSubspaceKey());
+        assertEquals(randomCounter + 3, metaDataFromProto.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey());
+    }
+
+    @Test
+    public void counterBasedSubspaceKeys() {
+        // Records descriptor already set.
+        MetaDataException e = assertThrows(MetaDataException.class, () ->
+                RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor()).enableCounterBasedSubspaceKeys());
+        assertEquals("Records descriptor has already been set.", e.getMessage());
+
+        // Valid use of counter-based subspace keys assignment.
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().enableCounterBasedSubspaceKeys().setRecords(TestRecords1Proto.getDescriptor());
+        builder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", "num_value_2");
+        RecordMetaData metaData = builder.build(true);
+        assertNotNull(metaData.getIndex("MySimpleRecord$str_value_indexed"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_unique"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_2"));
+        assertEquals(1L, metaData.getIndex("MySimpleRecord$str_value_indexed").getSubspaceKey());
+        assertEquals(2L, metaData.getIndex("MySimpleRecord$num_value_unique").getSubspaceKey());
+        assertEquals(3L, metaData.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey());
+        assertEquals(4L, metaData.getIndex("MySimpleRecord$num_value_2").getSubspaceKey());
+
+        // Valid use of counter-based subspace keys assignment with meta-data proto.
+        builder = RecordMetaData.newBuilder().enableCounterBasedSubspaceKeys().setRecords(metaData.toProto());
+        metaData = builder.build(true);
+        assertNotNull(metaData.getIndex("MySimpleRecord$str_value_indexed"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_unique"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_2"));
+        assertEquals(1L, metaData.getIndex("MySimpleRecord$str_value_indexed").getSubspaceKey());
+        assertEquals(2L, metaData.getIndex("MySimpleRecord$num_value_unique").getSubspaceKey());
+        assertEquals(3L, metaData.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey());
+        assertEquals(4L, metaData.getIndex("MySimpleRecord$num_value_2").getSubspaceKey());
+
+        // FormerIndex
+        RecordMetaDataBuilder formerIndexBuilder = RecordMetaData.newBuilder().enableCounterBasedSubspaceKeys().setRecords(TestRecords1Proto.getDescriptor());
+        Object formerSubspaceKey = formerIndexBuilder.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey();
+        formerIndexBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
+        final RecordMetaData metaDataWithFormerIndex = formerIndexBuilder.build(true);
+        FormerIndex formerIndex = metaDataWithFormerIndex.getFormerIndexes().stream().filter(index -> index.getFormerName().equals("MySimpleRecord$num_value_3_indexed")).findFirst().get();
+        assertEquals(formerSubspaceKey, formerIndex.getSubspaceKey());
+
+        // A common case that user had some existing meta-data in which all indexes had implicit subspace keys, and the user now decides to enable this feature.
+        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder();
+        protoBuilder.getIndexesBuilderList().forEach(RecordMetaDataProto.Index.Builder::clearSubspaceKey);
+        metaData = RecordMetaData.newBuilder().enableCounterBasedSubspaceKeys().setRecords(protoBuilder.build()).getRecordMetaData();
+        assertNotNull(metaData.getIndex("MySimpleRecord$str_value_indexed"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_unique"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertEquals(metaData.getIndex("MySimpleRecord$str_value_indexed").getName(),
+                metaData.getIndex("MySimpleRecord$str_value_indexed").getSubspaceKey());
+        assertEquals(metaData.getIndex("MySimpleRecord$num_value_unique").getName(),
+                metaData.getIndex("MySimpleRecord$num_value_unique").getSubspaceKey());
+        assertEquals(metaData.getIndex("MySimpleRecord$num_value_3_indexed").getName(),
+                metaData.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey());
+    }
+
+    @Test
+    public void explicitSubspaceKeys() {
+        // Add an explicit subspace key and make sure the explicit subspace key is not overridden.
+        Index indexWithExplicitSubspaceKey = new Index("indexWithExplicitSubspaceKey", concatenateFields("str_value_indexed", "num_value_3_indexed"));
+        indexWithExplicitSubspaceKey.setSubspaceKey("explicitSubspaceKey");
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().enableCounterBasedSubspaceKeys().setRecords(TestRecords1Proto.getDescriptor());
+        builder.addIndex("MySimpleRecord", indexWithExplicitSubspaceKey);
+        RecordMetaData metaData = builder.build(true);
+        assertNotNull(metaData.getIndex("MySimpleRecord$str_value_indexed"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_unique"));
+        assertNotNull(metaData.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertNotNull(metaData.getIndex("indexWithExplicitSubspaceKey"));
+        assertEquals(1L, metaData.getIndex("MySimpleRecord$str_value_indexed").getSubspaceKey());
+        assertEquals(2L, metaData.getIndex("MySimpleRecord$num_value_unique").getSubspaceKey());
+        assertEquals(3L, metaData.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey());
+        assertEquals("explicitSubspaceKey", metaData.getIndex("indexWithExplicitSubspaceKey").getSubspaceKey());
+
+        // Setting explicit subspace key to something that can clash.
+        Index clashingIndex = new Index("clashingIndex", concatenateFields("str_value_indexed", "num_value_3_indexed"));
+        clashingIndex.setSubspaceKey(1L);
+        final RecordMetaDataBuilder clashingBuilder = RecordMetaData.newBuilder().enableCounterBasedSubspaceKeys().setRecords(TestRecords1Proto.getDescriptor());
+        clashingBuilder.addIndex("MySimpleRecord", clashingIndex);
+        MetaDataException e = assertThrows(MetaDataException.class, () -> clashingBuilder.build(true));
+        assertEquals("Same subspace key 1 used by both MySimpleRecord$str_value_indexed and clashingIndex", e.getMessage());
+    }
+
+    @Test
+    public void counterBasedSubspaceKeysBackwardCompatibility() {
+        // User had some old meta-data in which some indexes had implicit subspace keys.
+        RecordMetaDataProto.MetaData.Builder protoBuilder = RecordMetaDataProto.MetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor().toProto());
+        protoBuilder.addIndexesBuilder()
+                .setName("preUpgradeIndex")
+                .setType(IndexTypes.VALUE)
+                .addRecordType("MySimpleRecord")
+                .setRootExpression(Key.Expressions.field("num_value_2").toKeyExpression())
+                .clearSubspaceKey();
+
+        RecordMetaDataBuilder preUpgradeBuilder = RecordMetaData.newBuilder().setRecords(protoBuilder.build(), true);
+        RecordMetaData preUpgradeMetaData = preUpgradeBuilder.build(true);
+        assertNotNull(preUpgradeMetaData.getIndex("MySimpleRecord$str_value_indexed"));
+        assertNotNull(preUpgradeMetaData.getIndex("MySimpleRecord$num_value_unique"));
+        assertNotNull(preUpgradeMetaData.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertNotNull(preUpgradeMetaData.getIndex("preUpgradeIndex"));
+        assertEquals(preUpgradeMetaData.getIndex("MySimpleRecord$str_value_indexed").getName(),
+                preUpgradeMetaData.getIndex("MySimpleRecord$str_value_indexed").getSubspaceKey());
+        assertEquals(preUpgradeMetaData.getIndex("MySimpleRecord$num_value_unique").getName(),
+                preUpgradeMetaData.getIndex("MySimpleRecord$num_value_unique").getSubspaceKey());
+        assertEquals(preUpgradeMetaData.getIndex("MySimpleRecord$num_value_3_indexed").getName(),
+                preUpgradeMetaData.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey());
+        assertEquals(preUpgradeMetaData.getIndex("preUpgradeIndex").getName(),
+                preUpgradeMetaData.getIndex("preUpgradeIndex").getSubspaceKey());
+
+        // User has chosen not to enable counter-based subspace keys after upgrade.
+        RecordMetaDataBuilder afterUpgradeBuilder = RecordMetaData.newBuilder().setRecords(preUpgradeMetaData.toProto());
+        afterUpgradeBuilder.addIndex("MySimpleRecord", "postUpgradeIndex", "num_value_2");
+        RecordMetaData afterUpgradeMetaData = afterUpgradeBuilder.build(true);
+        assertNotNull(afterUpgradeMetaData.getIndex("MySimpleRecord$str_value_indexed"));
+        assertNotNull(afterUpgradeMetaData.getIndex("MySimpleRecord$num_value_unique"));
+        assertNotNull(afterUpgradeMetaData.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertNotNull(afterUpgradeMetaData.getIndex("preUpgradeIndex"));
+        assertNotNull(afterUpgradeMetaData.getIndex("postUpgradeIndex"));
+        assertEquals(afterUpgradeMetaData.getIndex("MySimpleRecord$str_value_indexed").getName(),
+                afterUpgradeMetaData.getIndex("MySimpleRecord$str_value_indexed").getSubspaceKey());
+        assertEquals(afterUpgradeMetaData.getIndex("MySimpleRecord$num_value_unique").getName(),
+                afterUpgradeMetaData.getIndex("MySimpleRecord$num_value_unique").getSubspaceKey());
+        assertEquals(afterUpgradeMetaData.getIndex("MySimpleRecord$num_value_3_indexed").getName(),
+                afterUpgradeMetaData.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey());
+        assertEquals(afterUpgradeMetaData.getIndex("preUpgradeIndex").getName(),
+                afterUpgradeMetaData.getIndex("preUpgradeIndex").getSubspaceKey());
+        assertEquals(afterUpgradeMetaData.getIndex("postUpgradeIndex").getName(),
+                afterUpgradeMetaData.getIndex("postUpgradeIndex").getSubspaceKey());
+
+        // But later user decides to enable counter-based subspace keys assignment. Previous indexes will use name, newer indexes will use the counter.
+        RecordMetaDataBuilder builderWithCounter = RecordMetaData.newBuilder().enableCounterBasedSubspaceKeys().setRecords(afterUpgradeMetaData.toProto());
+        builderWithCounter.addIndex("MySimpleRecord", "postUpgradeWithCounterIndex", "num_value_2");
+        RecordMetaData metaDataWithCounter = builderWithCounter.build(true);
+        assertNotNull(metaDataWithCounter.getIndex("MySimpleRecord$str_value_indexed"));
+        assertNotNull(metaDataWithCounter.getIndex("MySimpleRecord$num_value_unique"));
+        assertNotNull(metaDataWithCounter.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertNotNull(metaDataWithCounter.getIndex("preUpgradeIndex"));
+        assertNotNull(metaDataWithCounter.getIndex("postUpgradeIndex"));
+        assertNotNull(metaDataWithCounter.getIndex("postUpgradeWithCounterIndex"));
+        assertEquals(metaDataWithCounter.getIndex("MySimpleRecord$str_value_indexed").getName(),
+                metaDataWithCounter.getIndex("MySimpleRecord$str_value_indexed").getSubspaceKey());
+        assertEquals(metaDataWithCounter.getIndex("MySimpleRecord$num_value_unique").getName(),
+                metaDataWithCounter.getIndex("MySimpleRecord$num_value_unique").getSubspaceKey());
+        assertEquals(metaDataWithCounter.getIndex("MySimpleRecord$num_value_3_indexed").getName(),
+                metaDataWithCounter.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey());
+        assertEquals(metaDataWithCounter.getIndex("preUpgradeIndex").getName(),
+                metaDataWithCounter.getIndex("preUpgradeIndex").getSubspaceKey());
+        assertEquals(metaDataWithCounter.getIndex("postUpgradeIndex").getName(),
+                metaDataWithCounter.getIndex("postUpgradeIndex").getSubspaceKey());
+        assertEquals(1L, metaDataWithCounter.getIndex("postUpgradeWithCounterIndex").getSubspaceKey());
+    }
+
+    @Test
+    public void counterBasedSubspaceKeysProtoSettings() {
+        MetaDataException e = assertThrows(MetaDataException.class, () -> RecordMetaData.build(
+                RecordMetaDataProto.MetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor().toProto())
+                        .clearSubspaceKeyCounter()
+                        .setUsesSubspaceKeyCounter(true)
+                        .build()));
+        assertEquals("Error converting from protobuf", e.getMessage());
+
+        e = assertThrows(MetaDataException.class, () -> RecordMetaData.build(
+                RecordMetaDataProto.MetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor().toProto())
+                        .setSubspaceKeyCounter(5)
+                        .setUsesSubspaceKeyCounter(false)
+                        .build()));
+        assertEquals("Error converting from protobuf", e.getMessage());
+
+        e = assertThrows(MetaDataException.class, () -> RecordMetaData.build(
+                RecordMetaDataProto.MetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor().toProto())
+                        .clearUsesSubspaceKeyCounter()
+                        .setSubspaceKeyCounter(5)
+                        .build()));
+        assertEquals("Error converting from protobuf", e.getMessage());
     }
 }

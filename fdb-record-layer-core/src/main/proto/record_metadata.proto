@@ -85,6 +85,8 @@ message MetaData {
   optional KeyExpression record_count_key = 7 [deprecated = true];
   optional bool store_record_versions = 8;
   repeated google.protobuf.FileDescriptorProto dependencies = 9;
+  optional int64 subspace_key_counter = 10;
+  optional bool uses_subspace_key_counter = 11;
   extensions 1000 to 2000;
 }
 

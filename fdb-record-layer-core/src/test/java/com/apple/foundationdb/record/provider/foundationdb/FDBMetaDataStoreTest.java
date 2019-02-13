@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1EvolvedAgainProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -47,6 +48,8 @@ import com.google.protobuf.ExtensionRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -321,12 +324,16 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         }
     }
 
-    @Test
-    public void indexes() {
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest(name = "indexes [indexCounterBasedSubspaceKey = {0}]")
+    public void indexes(final TestHelpers.BooleanEnum indexCounterBasedSubspaceKey) {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
-            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-            metaDataStore.saveRecordMetaData(metaData);
+            RecordMetaDataBuilder builder = RecordMetaData.newBuilder();
+            if (indexCounterBasedSubspaceKey.toBoolean()) {
+                builder.enableCounterBasedSubspaceKeys();
+            }
+            metaDataStore.saveRecordMetaData(builder.setRecords(TestRecords1Proto.getDescriptor()).getRecordMetaData());
             context.commit();
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
         }
