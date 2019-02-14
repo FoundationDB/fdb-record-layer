@@ -88,7 +88,11 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
                                     "cursorElapsedMillis", (now - startTime),
                                     "cursorTimeLimitMillis", timeLimitMillis));
                         }
-                        timedOutResult = RecordCursorResult.withoutNextValue(innerResult.getContinuation(), NoNextReason.TIME_LIMIT_REACHED);
+                        if (innerResult.getContinuation().isEnd()) {
+                            timedOutResult = RecordCursorResult.exhausted();
+                        } else {
+                            timedOutResult = RecordCursorResult.withoutNextValue(innerResult.getContinuation(), NoNextReason.TIME_LIMIT_REACHED);
+                        }
                     }
                 }
                 nextResult = innerResult;
