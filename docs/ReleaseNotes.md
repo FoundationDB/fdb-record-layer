@@ -46,6 +46,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** `FDBRecordStore.IndexUniquenessCheck.check` needs to be async [(Issue #357)](https://github.com/FoundationDB/fdb-record-layer/issues/357)
+* **Bug fix** The `TimeLimitedCursor` could throw an error when setting its result's `NoNextReason` if the inner cursor was exhausted exactly as the time limit was reached [(Issue #380)](https://github.com/FoundationDB/fdb-record-layer/issues/380)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

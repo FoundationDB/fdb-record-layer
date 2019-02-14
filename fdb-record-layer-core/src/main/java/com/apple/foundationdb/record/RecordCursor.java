@@ -485,7 +485,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * Get a new cursor that will only return records up to the specified time limit (in milliseconds).
      * @param timeLimit the maximum number of milliseconds to run
      * @return a new cursor that stops early if {@code timeLimit} is exceeded
-     * @deprecated in favour of a {@link TimeScanLimiter} as part of every {@link com.apple.foundationdb.record.cursors.BaseCursor}
+     * @deprecated in favor of a {@link TimeScanLimiter} as part of every {@link com.apple.foundationdb.record.cursors.BaseCursor}
      */
     @Deprecated
     @Nonnull
@@ -498,7 +498,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @param timeStartingFrom the starting time from which to measure the time limit
      * @param timeLimit the maximum number of milliseconds to run 
      * @return a new cursor that stops early when {@code timeLimit} after {@code timeStartingFrom} is reached
-     * @deprecated in favour of a {@link TimeScanLimiter} as part of every {@link com.apple.foundationdb.record.cursors.BaseCursor}
+     * @deprecated in favor of a {@link TimeScanLimiter} as part of every {@link com.apple.foundationdb.record.cursors.BaseCursor}
      */
     @Deprecated
     @Nonnull
