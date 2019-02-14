@@ -2110,19 +2110,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void testIndexOrphanValidationByJob() throws Exception {
         Set<IndexEntry> expectedInvalidEntries = setUpIndexOrphanValidation();
 
-        // Set a scanned records limit to mock when the transaction is out of band.
-        final ScanProperties scanProperties = new ScanProperties(
-                ExecuteProperties.newBuilder()
-                        .setScannedRecordsLimit(4)
-                        .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                        .build());
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context);
             final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
             final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
             try (FDBDatabaseRunner runner = fdb.newRunner()) {
+                // Set a scanned records limit to mock when the transaction is out of band.
                 final Set<IndexEntry> results = new HashSet<>(
-                        IndexOrphanValidation.validate(runner, indexMaintainer, scanProperties).get());
+                        IndexOrphanValidation.validate(runner, indexMaintainer, 4).get());
                 assertEquals(expectedInvalidEntries, results,
                         "Validation should and should only return the index entry that has no associated record.");
             }

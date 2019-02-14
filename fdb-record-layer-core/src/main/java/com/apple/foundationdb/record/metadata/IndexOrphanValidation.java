@@ -22,14 +22,17 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,30 +49,35 @@ public class IndexOrphanValidation {
     private IndexOrphanValidation() {}
 
     public static CompletableFuture<List<IndexEntry>> validate(@Nonnull FDBDatabaseRunner runner, @Nonnull IndexMaintainer indexMaintainer) {
-        return validate(runner, indexMaintainer, ScanProperties.FORWARD_SCAN);
-    }
-    public static CompletableFuture<List<IndexEntry>> validate(@Nonnull FDBDatabaseRunner runner,
-                                                               @Nonnull IndexMaintainer indexMaintainer,
-                                                               @Nonnull ScanProperties scanProperties) {
-        FDBRecordContext context = runner.openContext();
-        List<IndexEntry> results = new ArrayList<>();
-        return validateInternal(context, indexMaintainer, null, scanProperties, results)
-                .thenCompose(continuation -> {
-                    context.close();
-                    if (continuation != null) {
-                        return validateInternal(runner.openContext(), indexMaintainer, continuation, scanProperties, results);
-                    }
-                    return CompletableFuture.completedFuture(null);
-                }).thenApply(ignore -> results);
+        return validate(runner, indexMaintainer, null);
     }
 
-    private static CompletableFuture<byte[]> validateInternal(@Nonnull FDBRecordContext context,
+    @VisibleForTesting
+    public static CompletableFuture<List<IndexEntry>> validate(@Nonnull FDBDatabaseRunner runner,
+                                                               @Nonnull IndexMaintainer indexMaintainer,
+                                                               @Nullable Integer scannedRecordsLimit) {
+        List<IndexEntry> results = new ArrayList<>();
+        return validateInternal(runner, indexMaintainer, null, scannedRecordsLimit, results)
+                .thenApply(ignore -> results);
+    }
+
+    private static CompletableFuture<byte[]> validateInternal(@Nonnull FDBDatabaseRunner runner,
                                                               @Nonnull IndexMaintainer indexMaintainer,
-                                                              @Nullable byte[] continuation,
-                                                              @Nonnull ScanProperties scanProperties,
+                                                              @Nullable byte[] previousContinuation,
+                                                              @Nullable Integer scannedRecordsLimit,
                                                               @Nonnull List<IndexEntry> results) {
-        final RecordCursor<IndexEntry> cursor = indexMaintainer.validateOrphanEntries(IndexScanType.BY_VALUE, TupleRange.ALL, continuation, scanProperties);
-        return AsyncUtil.whileTrue(() ->
+        final FDBRecordContext context = runner.openContext();
+
+        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT);
+        if (scannedRecordsLimit != null) {
+            executeProperties.setScannedRecordsLimit(scannedRecordsLimit);
+        }
+        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+
+        final RecordCursor<IndexEntry> cursor = indexMaintainer.validateOrphanEntries(IndexScanType.BY_VALUE, TupleRange.ALL, previousContinuation, scanProperties);
+
+        CompletableFuture<byte[]> nextContinuation = AsyncUtil.whileTrue(() ->
                 cursor.onHasNext().thenApply(hasNext -> {
                     if (hasNext) {
                         results.add(cursor.next());
@@ -77,5 +85,13 @@ public class IndexOrphanValidation {
                     return hasNext;
                 }), context.getExecutor()
         ).thenApply(ignore -> cursor.getContinuation());
+
+        return nextContinuation.thenCompose(continuation -> {
+            context.close();
+            if (continuation != null) {
+                return validateInternal(runner, indexMaintainer, continuation, scannedRecordsLimit, results);
+            }
+            return CompletableFuture.completedFuture(null);
+        });
     }
 }
