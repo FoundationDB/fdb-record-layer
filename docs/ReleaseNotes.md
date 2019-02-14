@@ -68,6 +68,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 
 ### 2.5.44.0
 
+* **Feature** The `BooleanNormalizer` now gives up early if given an expression that is too complex [(Issue #356)](https://github.com/FoundationDB/fdb-record-layer/issues/356)
 
 ### 2.5.43.0
 
