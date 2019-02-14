@@ -204,6 +204,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     private final Cache<Tuple, FDBRawRecord> preloadCache;
 
+    @Nullable
+    private KeySpacePath keySpacePath;
+
     @SuppressWarnings("squid:S00107")
     protected FDBRecordStore(@Nonnull FDBRecordContext context,
                              @Nonnull SubspaceProvider subspaceProvider,
@@ -212,7 +215,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull RecordSerializer<Message> serializer,
                              @Nonnull IndexMaintainerRegistry indexMaintainerRegistry,
                              @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
-                             @Nonnull PipelineSizer pipelineSizer) {
+                             @Nonnull PipelineSizer pipelineSizer,
+                             @Nullable KeySpacePath keySpacePath) {
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
         this.metaDataProvider = metaDataProvider;
@@ -220,9 +224,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.indexMaintainerRegistry = indexMaintainerRegistry;
         this.indexMaintenanceFilter = indexMaintenanceFilter;
         this.pipelineSizer = pipelineSizer;
-
         this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
         this.preloadCache = CacheBuilder.<Tuple,FDBRawRecord>newBuilder().maximumSize(PRELOAD_CACHE_SIZE).build();
+        this.keySpacePath = keySpacePath;
     }
 
     @Override
@@ -2762,6 +2766,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull
         private FDBRecordStoreBase.PipelineSizer pipelineSizer = DEFAULT_PIPELINE_SIZER;
 
+        @Nullable
+        protected KeySpacePath keySpacePath = null;
+
         protected Builder() {
         }
 
@@ -2788,6 +2795,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.indexMaintainerRegistry = other.indexMaintainerRegistry;
             this.indexMaintenanceFilter = other.indexMaintenanceFilter;
             this.pipelineSizer = other.pipelineSizer;
+            this.keySpacePath = other.keySpacePath;
         }
 
         /**
@@ -2803,6 +2811,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.indexMaintainerRegistry = store.indexMaintainerRegistry;
             this.indexMaintenanceFilter = store.indexMaintenanceFilter;
             this.pipelineSizer = store.pipelineSizer;
+            this.keySpacePath = store.keySpacePath;
         }
 
         @Override
@@ -2881,7 +2890,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Override
         @Nonnull
         public Builder setSubspaceProvider(@Nullable SubspaceProvider subspaceProvider) {
-            this.subspaceProvider = subspaceProvider;
+            if (subspaceProvider != null) {
+                this.subspaceProvider = subspaceProvider;
+                this.keySpacePath = null;
+            }
             return this;
         }
 
@@ -2889,17 +2901,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull
         @API(API.Status.UNSTABLE)
         public Builder setSubspace(@Nullable Subspace subspace) {
-            this.subspaceProvider = subspace == null ? null : new SubspaceProviderBySubspace(subspace);
+            if (subspace != null) {
+                this.subspaceProvider = new SubspaceProviderBySubspace(subspace);
+                this.keySpacePath = null;
+            }
             return this;
         }
 
+        /**
+         *  Sets the {@link KeySpacePath} location of the {@link FDBRecordStore}.
+         *  Note that the {@link KeySpacePath} is not resolved into a {@link SubspaceProvider} until {@link FDBRecordStore.Builder#build} is performed.
+         */
         @Override
         @Nonnull
         public Builder setKeySpacePath(@Nullable KeySpacePath keySpacePath) {
-            if (context == null) {
-                throw new RecordCoreException("The context should be set before setting the key space path.");
+            if (keySpacePath != null) {
+                this.keySpacePath = keySpacePath; // will resolved to subspaceProvider at build time
+                this.subspaceProvider = null;
             }
-            this.subspaceProvider = keySpacePath == null ? null : new SubspaceProviderByKeySpacePath(keySpacePath, context);
             return this;
         }
 
@@ -2967,14 +2986,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (context == null) {
                 throw new RecordCoreException("record context must be supplied");
             }
+
+            if (keySpacePath != null) {
+                this.subspaceProvider = new SubspaceProviderByKeySpacePath(keySpacePath, context);
+            }
+
             if (subspaceProvider == null) {
                 throw new RecordCoreException("subspace provider must be supplied");
             }
+
             if (serializer == null) {
                 throw new RecordCoreException("serializer must be supplied");
             }
             return new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
-                    serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer);
+                    serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, keySpacePath);
         }
 
         @Override
