@@ -56,6 +56,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
@@ -726,4 +727,55 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(uuids.subList(3, 4), recordStore.executeQuery(plan).map(r -> r.getPrimaryKey().getUUID(0)).asList().join());
         }
     }
+
+    /**
+     * Check that a query with a CNF filter predicate that would be very large in disjunctive normal form does not get
+     * normalized. For now, the predicate should be left alone as a filter.
+     * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer
+     */
+    @Test
+    public void doesNotNormalizeLargeCnf() throws Exception {
+        RecordMetaDataHook hook = complexQuerySetupHook();
+        complexQuerySetup(hook);
+
+        final QueryComponent cnf = Query.and(IntStream.rangeClosed(1, 9).boxed()
+                .map(i -> Query.or(IntStream.rangeClosed(1, 9).boxed()
+                        .map(j -> Query.field("num_value_3_indexed").equalsValue(i * 9 + j))
+                        .collect(Collectors.toList())))
+                .collect(Collectors.toList()));
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(cnf)
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(equalTo(cnf), anything()));
+    }
+
+    /**
+     * Check that a query with a non-CNF filter predicate that would be very large in disjunctive normal form does not
+     * get normalized. For now, the predicate should be left alone as a filter.
+     * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer
+     */
+    @Test
+    public void doesNotNormalizeBigExpression() throws Exception {
+        RecordMetaDataHook hook = complexQuerySetupHook();
+        complexQuerySetup(hook);
+
+        final QueryComponent cnf = Query.and(
+                IntStream.rangeClosed(1, 9).boxed().map(i ->
+                        Query.or(IntStream.rangeClosed(1, 9).boxed()
+                                .map(j -> Query.and(
+                                        Query.field("num_value_3_indexed").equalsValue(i * 9 + j),
+                                        Query.field("str_value_indexed").equalsValue("foo")))
+                                .collect(Collectors.toList())))
+                .collect(Collectors.toList()));
+
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(cnf)
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(equalTo(cnf), anything()));
+    }
+
 }

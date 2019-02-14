@@ -70,6 +70,9 @@ public enum LogMessageKeys {
     PARENT_FILTER("parent_filter"),
     CHILD_FILTER("child_filter"),
     OTHER_FILTER("other_filter"),
+    // Boolean normalization
+    DNF_SIZE("dnf_size"),
+    DNF_SIZE_LIMIT("dnf_size_limit"),
     // index-related keys
     INDEX_NAME("index_name"),
     VALUE_KEY("value_key"),

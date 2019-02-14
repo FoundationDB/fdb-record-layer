@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.planning;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.ComponentWithChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
@@ -39,46 +41,148 @@ import java.util.stream.Collectors;
 /**
  * A normalizer of a tree of {@link QueryComponent} predicates into disjunctive normal form.
  * <p>
- * The full normal form has a single {@code Or} at the root, all of whose children at {@code And}, none of whose children have other Boolean operators.
- * This is abbreviated to exclude parent Boolean nodes with only one child.
+ * The full normal form has a single {@code Or} at the root, all of whose children are {@code And}, none of whose
+ * children have other Boolean operators. This is abbreviated to exclude parent Boolean nodes with only one child.
  * The intermediate form for the normalizer is a list of lists.
+ * </p>
+ *
+ * <p>
+ * The <em>size</em> of a Boolean expression in disjunctive normal form (DNF) is the number of terms in the outermost
+ * {@code Or} <a href="http://www.contrib.andrew.cmu.edu/~ryanod/?p=646">[O'Donnell 2014]</a>.
+ * The {@code BooleanNormalizer} will not normalize a {@link QueryComponent} if the normalized form would have a size
+ * that exceeds the size limit. This limit is useful to avoid wastefully normalizing expressions with a very large DNF.
+ * In some cases, such as a large expression in conjunctive normal form (CNF), attempting to normalize such an expression
+ * will cause out-of-memory errors.
  * </p>
  */
 @API(API.Status.INTERNAL)
 public class BooleanNormalizer {
-    private BooleanNormalizer() {
+    /**
+     * The default limit on the size of the DNF that will be produced by the normalizer.
+     */
+    public static final int DEFAULT_SIZE_LIMIT = 1_000_000;
+    private static final BooleanNormalizer DEFAULT = new BooleanNormalizer(DEFAULT_SIZE_LIMIT);
+
+    private final int sizeLimit;
+
+    private BooleanNormalizer(int sizeLimit) {
+        this.sizeLimit = sizeLimit;
     }
 
     /**
-     * Convert given predicate to disjunctive normal form, if necessary.
+     * Obtain a normalizer with the default size limit {@link BooleanNormalizer#DEFAULT_SIZE_LIMIT}.
+     * @return a normalizer with the default size limit
+     */
+    @Nonnull
+    public static BooleanNormalizer getDefaultInstance() {
+        return DEFAULT;
+    }
+
+    /**
+     * Obtain a normalizer with the given size limit.
+     * @param sizeLimit a limit on the size of DNF that this normalizer will produce
+     * @return a normalizer with the given size limit
+     */
+    @Nonnull
+    public static BooleanNormalizer withLimit(int sizeLimit) {
+        if (sizeLimit == DEFAULT_SIZE_LIMIT) {
+            return DEFAULT;
+        }
+        return new BooleanNormalizer(sizeLimit);
+    }
+
+    /**
+     * Convert the given predicate to disjunctive normal form, if necessary. If the size of the DNF would exceed the
+     * size limit, return the un-normalized predicate.
      * @param predicate the query predicate to be normalized
-     * @return the predicate in disjunctive normal form
+     * @return the predicate in disjunctive normal form if it does not exceed the size limit or the predicate otherwise
      */
     @Nullable
-    public static QueryComponent normalize(@Nullable final QueryComponent predicate) {
+    public QueryComponent normalizeIfPossible(@Nullable final QueryComponent predicate) {
+        return normalize(predicate, false);
+    }
+
+    /**
+     * Convert the given predicate to disjunctive normal form, if necessary. If the size of the DNF would exceed the
+     * size limit, throw a {@link DNFTooLargeException}.
+     * @param predicate the query predicate to be normalized
+     * @return the predicate in disjunctive normal form
+     * @throws DNFTooLargeException if the DNF would exceed the size limit
+     */
+    @Nullable
+    public QueryComponent normalize(@Nullable final QueryComponent predicate) {
+        return normalize(predicate, true);
+    }
+
+    @Nullable
+    private QueryComponent normalize(@Nullable final QueryComponent predicate, boolean failIfTooLarge) {
         if (!needsNormalize(predicate)) {
             return predicate;
+        } else if (!shouldNormalize(predicate)) {
+            if (failIfTooLarge) {
+                throw new DNFTooLargeException(predicate);
+            } else {
+                return predicate;
+            }
         } else {
             final List<List<QueryComponent>> orOfAnd = toDNF(predicate, false);
-            return normalOr(orOfAnd.stream().map(BooleanNormalizer::normalAnd).collect(Collectors.toList()));
+            return normalOr(orOfAnd.stream().map(this::normalAnd).collect(Collectors.toList()));
         }
     }
 
-    protected static boolean needsNormalize(@Nullable final QueryComponent predicate) {
+    private boolean needsNormalize(@Nullable final QueryComponent predicate) {
         return isBooleanPredicate(predicate) &&
-            (predicate instanceof ComponentWithChildren ?
-             ((ComponentWithChildren)predicate).getChildren().stream().anyMatch(BooleanNormalizer::isBooleanPredicate) :
-             isBooleanPredicate(((ComponentWithSingleChild)predicate).getChild()));
+               (predicate instanceof ComponentWithChildren ?
+                ((ComponentWithChildren)predicate).getChildren().stream().anyMatch(this::isBooleanPredicate) :
+                isBooleanPredicate(((ComponentWithSingleChild)predicate).getChild()));
     }
 
-    protected static boolean isBooleanPredicate(@Nullable final QueryComponent predicate) {
+    private boolean shouldNormalize(@Nullable final QueryComponent predicate) {
+        try {
+            return getNormalizedSize(predicate) <= sizeLimit;
+        } catch (ArithmeticException e) {
+            // Our computation caused an integer overflow so the DNF is _definitely_ too big.
+            return false;
+        }
+    }
+
+    private boolean isBooleanPredicate(@Nullable final QueryComponent predicate) {
         return predicate instanceof AndComponent ||
                predicate instanceof OrComponent ||
                predicate instanceof NotComponent;
     }
 
+    int getNormalizedSize(@Nullable final QueryComponent predicate) {
+        if (predicate == null) {
+            return 0;
+        }
+        return toDNFSize(predicate, false);
+    }
+
+    private int toDNFSize(@Nonnull final QueryComponent predicate, final boolean negate) {
+        if (predicate instanceof AndComponent) {
+            final List<QueryComponent> children = ((AndComponent)predicate).getChildren();
+            return negate ? orToDNFSize(children, true) : andToDNFSize(children, false);
+        } else if (predicate instanceof OrComponent) {
+            final List<QueryComponent> children = ((OrComponent)predicate).getChildren();
+            return negate ? andToDNFSize(children, true) : orToDNFSize(children, false);
+        } else if (predicate instanceof NotComponent) {
+            return toDNFSize(((NotComponent)predicate).getChild(), !negate);
+        } else {
+            return 1;
+        }
+    }
+
+    private int orToDNFSize(@Nonnull final List<QueryComponent> children, final boolean negate) {
+        return children.stream().mapToInt(p -> toDNFSize(p, negate)).reduce(0, Math::addExact);
+    }
+
+    private int andToDNFSize(@Nonnull final List<QueryComponent> children, final boolean negate) {
+        return children.stream().mapToInt(child -> toDNFSize(child, negate)).reduce(1, Math::multiplyExact);
+    }
+
     @Nonnull
-    protected static QueryComponent normalOr(@Nonnull final List<QueryComponent> children) {
+    private QueryComponent normalOr(@Nonnull final List<QueryComponent> children) {
         if (children.size() == 1) {
             return children.get(0);
         } else {
@@ -87,7 +191,7 @@ public class BooleanNormalizer {
     }
 
     @Nonnull
-    protected static QueryComponent normalAnd(@Nonnull final List<QueryComponent> children) {
+    private QueryComponent normalAnd(@Nonnull final List<QueryComponent> children) {
         if (children.size() == 1) {
             return children.get(0);
         } else {
@@ -102,7 +206,7 @@ public class BooleanNormalizer {
      * @return a list (to be Or'ed) of lists (to be And'ed)
      */
     @Nonnull
-    protected static List<List<QueryComponent>> toDNF(@Nonnull final QueryComponent predicate, final boolean negate) {
+    private List<List<QueryComponent>> toDNF(@Nonnull final QueryComponent predicate, final boolean negate) {
         if (predicate instanceof AndComponent) {
             final List<QueryComponent> children = ((AndComponent)predicate).getChildren();
             return negate ? orToDNF(children, true) : andToDNF(children, false);
@@ -123,7 +227,7 @@ public class BooleanNormalizer {
      * @return a list (to be Or'ed) of lists (to be And'ed)
      */
     @Nonnull
-    protected static List<List<QueryComponent>> orToDNF(@Nonnull final List<QueryComponent> children, final boolean negate) {
+    private List<List<QueryComponent>> orToDNF(@Nonnull final List<QueryComponent> children, final boolean negate) {
         final List<List<QueryComponent>> result = new ArrayList<>();
         children.stream().map(p -> toDNF(p, negate)).forEach(result::addAll);
         return result;
@@ -136,12 +240,12 @@ public class BooleanNormalizer {
      * @return a list (to be Or'ed) of lists (to be And'ed)
      */
     @Nonnull
-    protected static List<List<QueryComponent>> andToDNF(@Nonnull final List<QueryComponent> children, final boolean negate) {
+    private List<List<QueryComponent>> andToDNF(@Nonnull final List<QueryComponent> children, final boolean negate) {
         return andToDNF(children, 0, negate, Collections.singletonList(Collections.emptyList()));
     }
 
     @Nonnull
-    protected static List<List<QueryComponent>> andToDNF(@Nonnull final List<QueryComponent> children, int index,
+    private List<List<QueryComponent>> andToDNF(@Nonnull final List<QueryComponent> children, int index,
                                                          final boolean negate,
                                                          @Nonnull final List<List<QueryComponent>> crossProductSoFar) {
         if (index >= children.size()) {
@@ -156,4 +260,13 @@ public class BooleanNormalizer {
                 })).collect(Collectors.toList()));
     }
 
+    class DNFTooLargeException extends RecordCoreException {
+        private static final long serialVersionUID = 1L;
+
+        public DNFTooLargeException(@Nonnull final QueryComponent predicate) {
+            super("tried to normalize to a DNF but the size would have been too big");
+            addLogInfo(LogMessageKeys.FILTER, predicate);
+            addLogInfo(LogMessageKeys.DNF_SIZE_LIMIT, sizeLimit);
+        }
+    }
 }
