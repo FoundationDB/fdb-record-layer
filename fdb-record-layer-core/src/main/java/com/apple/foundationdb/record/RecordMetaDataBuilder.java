@@ -1298,5 +1298,4 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             super("Error converting from protobuf", cause);
         }
     }
-
 }

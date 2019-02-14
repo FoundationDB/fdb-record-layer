@@ -254,6 +254,12 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_DROP_INDEX("wait for dropping an index"),
         /** Wait for updating records descriptor. */
         WAIT_UPDATE_RECORDS_DESCRIPTOR("wait for updating the records descriptor"),
+        /** Wait for meta-data mutation. */
+        WAIT_MUTATE_METADATA("wait for meta-data mutation"),
+        /** Wait for updating if record versions should be stored. */
+        WAIT_UPDATE_STORE_RECORD_VERSIONS("wait for updating if record versions must be stored"),
+        /** Wait for enabling splitting long records. */
+        WAIT_ENABLE_SPLIT_LONG_RECORDS("wait for enabling splitting long records"),
         /**
          * Wait for the updated version stamp from a committed transaction.
          * This future should normally be completed already, so this is mainly for error checking.
