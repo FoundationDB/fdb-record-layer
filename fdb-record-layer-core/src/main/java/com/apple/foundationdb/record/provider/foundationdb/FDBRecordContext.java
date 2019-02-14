@@ -24,13 +24,14 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +40,7 @@ import org.slf4j.MDC;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -49,6 +51,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * An open transaction against FDB.
@@ -85,7 +88,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
     @Nonnull
-    private final Queue<CommitCheck> commitChecks = new ArrayDeque<>();
+    private final Queue<CommitCheckAsync> commitChecks = new ArrayDeque<>();
     @Nonnull
     private final Queue<AfterCommit> afterCommits = new ArrayDeque<>();
 
@@ -148,12 +151,15 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     public CompletableFuture<Void> commitAsync() {
         long startTimeNanos = System.nanoTime();
         ensureActive();
+        CompletableFuture<Void> checks = runCommitChecks();
         versionMutationCache.forEach((key, valuePair) ->
                 transaction.mutate(valuePair.getLeft(), key, valuePair.getRight()));
-        runCommitChecks();
         CompletableFuture<byte[]> versionFuture = transaction.getVersionstamp();
         long beforeCommitTimeMillis = System.currentTimeMillis();
-        return transaction.commit().whenComplete((v, ex) -> {
+        CompletableFuture<Void> commit = checks.isDone() && !checks.isCompletedExceptionally() ?
+                                         transaction.commit() :
+                                         checks.thenCompose(vignore -> transaction.commit());
+        return commit.whenComplete((v, ex) -> {
             StoreTimer.Event event = FDBStoreTimer.Events.COMMIT;
             try {
                 if (ex != null) {
@@ -221,17 +227,69 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * A consistency check, such as uniqueness, that can execute asynchronously and is finally checked at or before commit time.
+     * @see #addCommitCheck(CommitCheckAsync)
      */
-    public interface CommitCheck {
-        boolean isReady();
+    public interface CommitCheckAsync {
+        /**
+         * Get whether the check is ready to be tested.
+         * @return {@code true} if the check is complete
+         */
+        default boolean isReady() {
+            return false;
+        }
 
+        /**
+         * Complete the check.
+         *
+         * This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
+         * it can be called while processing the transaction.
+         * @return a future that will be complete (exceptionally if the check fails) when the check has been performed
+         */
+        @Nonnull
+        CompletableFuture<Void> checkAsync();
+    }
+
+    /**
+     * A synchronous {@link CommitCheckAsync}.
+     *
+     * At some point, this class will be deprecated.
+     * Please implement {@link CommitCheckAsync} directly or call {@link #addCommitCheck(CompletableFuture)} instead.
+     */
+    public interface CommitCheck extends CommitCheckAsync {
+        @Override
+        @Nonnull
+        default CompletableFuture<Void> checkAsync() {
+            check();
+            return AsyncUtil.DONE;
+        }
+
+        /**
+         * Complete the check.
+         *
+         * This is always called once before {@link #commit} finishes. If {@link #isReady} returns {@code true} earlier,
+         * it can be called while processing the transaction.
+         *
+         * <p>
+         * This method should not block or {@link #commitAsync} will block. It is therefore much
+         * better to always implement {@link CommitCheckAsync} or call {@link #addCommitCheck(CompletableFuture)} instead.
+         */
         void check();
     }
 
-    public synchronized void addCommitCheck(@Nonnull CommitCheck check) {
+    /**
+     * Add a {@link CommitCheckAsync} to be performed before {@link #commit} finishes.
+     *
+     * This method is suitable for checks that cannot be started until just before commit.
+     * For checks that can be started before {@code addCommitCheck} time, {@link #addCommitCheck(CompletableFuture)}
+     * may be more convenient.
+     * <p>
+     * It is possible for this method to throw an exception caused by an earlier unsuccessful check that has become ready in the meantime.
+     * @param check the check to be performed
+     */
+    public synchronized void addCommitCheck(@Nonnull CommitCheckAsync check) {
         while (!commitChecks.isEmpty()) {
             if (commitChecks.peek().isReady()) {
-                commitChecks.remove().check();
+                asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, commitChecks.remove().checkAsync());
             } else {
                 break;
             }
@@ -239,10 +297,45 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         commitChecks.add(check);
     }
 
-    public synchronized void runCommitChecks() {
-        while (!commitChecks.isEmpty()) {
-            commitChecks.remove().check();
+    /**
+     * Add a check to be completed before {@link #commit} finishes.
+     *
+     * {@link #commit} will wait for the future to be completed (exceptionally if the check fails)
+     * before committing the underlying transaction.
+     * <p>
+     * It is possible for this method to throw an exception caused by an earlier unsuccessful check that has become ready in the meantime.
+     * @param check the check to be performed
+     */
+    public synchronized void addCommitCheck(@Nonnull CompletableFuture<Void> check) {
+        addCommitCheck(new CommitCheckAsync() {
+            @Override
+            public boolean isReady() {
+                return check.isDone();
+            }
+
+            @Nonnull
+            @Override
+            public CompletableFuture<Void> checkAsync() {
+                return check;
+            }
+        });
+    }
+
+    /**
+     * Run any {@link CommitCheckAsync}s that are still outstanding.
+     * @return a future that is complete when all checks have been performed
+     */
+    @Nonnull
+    public CompletableFuture<Void> runCommitChecks() {
+        List<CompletableFuture<Void>> futures;
+        synchronized (this) {
+            if (commitChecks.isEmpty()) {
+                return AsyncUtil.DONE;
+            } else {
+                futures = commitChecks.stream().map(CommitCheckAsync::checkAsync).collect(Collectors.toList());
+            }
         }
+        return AsyncUtil.whenAll(futures);
     }
 
     /**
@@ -338,26 +431,15 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     public void timeReadSampleKey(byte[] key) {
         if (timer != null) {
-            CompletableFuture<byte[]> future = instrument(FDBStoreTimer.Events.READ_SAMPLE_KEY,
-                    ensureActive().get(key));
-            addCommitCheck(new CommitCheck() {
-                @Override
-                public boolean isReady() {
-                    return future.isDone();
-                }
-
-                @Override
-                public void check() {
-                    try {
-                        future.get();
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                    } catch (ExecutionException ex) {
-                        LOGGER.warn(KeyValueLogMessage.of("error reading sample key", "key", ByteArrayUtil2.loggable(key)),
+            CompletableFuture<Void> future = instrument(FDBStoreTimer.Events.READ_SAMPLE_KEY, ensureActive().get(key))
+                    .handle((bytes, ex) -> {
+                        if (ex != null) {
+                            LOGGER.warn(KeyValueLogMessage.of("error reading sample key", "key", ByteArrayUtil2.loggable(key)),
                                     ex);
-                    }
-                }
-            });
+                        }
+                        return null;
+                    });
+            addCommitCheck(future);
         }
     }
 
