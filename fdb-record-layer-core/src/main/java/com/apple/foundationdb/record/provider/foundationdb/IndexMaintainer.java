@@ -134,6 +134,20 @@ public abstract class IndexMaintainer {
     public abstract RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
 
     /**
+     * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
+     * @param scanType the {@link IndexScanType type} of scan to perform
+     * @param range the range to validate
+     * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation
+     * @return a cursor over index entries that have no associated records.
+     */
+    @Nonnull
+    public abstract RecordCursor<IndexEntry> validateOrphanEntries(@Nonnull IndexScanType scanType,
+                                                                   @Nonnull TupleRange range,
+                                                                   @Nullable byte[] continuation,
+                                                                   @Nonnull ScanProperties scanProperties);
+
+    /**
      * Return <code>true</code> if this index be used to evaluate the given record function.
      * @param function requested function
      * @return {@code true} if this index can be used to evaluate the given function

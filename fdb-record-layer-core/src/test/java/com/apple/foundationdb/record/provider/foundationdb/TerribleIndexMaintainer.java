@@ -102,6 +102,12 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
         throw new UnsupportedOperationException("Terrible index cannot scan uniqueness violations");
     }
 
+    @Nonnull
+    @Override
+    public RecordCursor<IndexEntry> validateOrphanEntries(@Nonnull IndexScanType scanType, @Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        return RecordCursor.empty();
+    }
+
     @Override
     public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
         return false;

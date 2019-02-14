@@ -62,7 +62,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -988,25 +987,15 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the primary key portion of an index entry.
+     * This API is deprecated. Should use {@link Index#getEntryPrimaryKey(Tuple)} instead.
      * @param index the index associated with this entry
      * @param entry the index entry
      * @return the primary key extracted from the entry
      */
+    @API(API.Status.DEPRECATED)
     @Nonnull
     static Tuple indexEntryPrimaryKey(@Nonnull Index index, @Nonnull Tuple entry) {
-        List<Object> entryKeys = entry.getItems();
-        List<Object> primaryKeys;
-        int[] positions = index.getPrimaryKeyComponentPositions();
-        if (positions == null) {
-            primaryKeys = entryKeys.subList(index.getColumnSize(), entryKeys.size());
-        } else {
-            primaryKeys = new ArrayList<>(positions.length);
-            int after = index.getColumnSize();
-            for (int position : positions) {
-                primaryKeys.add(entryKeys.get(position < 0 ? after++ : position));
-            }
-        }
-        return Tuple.fromList(primaryKeys);
+        return index.getEntryPrimaryKey(entry);
     }
 
     /**
@@ -1512,7 +1501,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default FDBQueriedRecord<M> coveredIndexQueriedRecord(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull RecordType recordType,
                                                           @Nonnull M partialRecord, boolean hasPrimaryKey) {
         return FDBQueriedRecord.covered(index, indexEntry,
-                hasPrimaryKey ? indexEntryPrimaryKey(index, indexEntry.getKey()) : TupleHelpers.EMPTY,
+                hasPrimaryKey ? index.getEntryPrimaryKey(indexEntry.getKey()) : TupleHelpers.EMPTY,
                 recordType, partialRecord);
     }
 

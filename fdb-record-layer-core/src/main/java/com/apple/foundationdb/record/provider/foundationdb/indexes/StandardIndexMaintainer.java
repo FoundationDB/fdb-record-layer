@@ -29,6 +29,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -45,6 +46,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
@@ -363,6 +365,26 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 .setScanProperties(scanProperties)
                 .build();
         return keyValues.map(kv -> unpackKeyValue(uniquenessViolationsSubspace, kv));
+    }
+
+    /**
+     * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
+     * @param scanType the {@link IndexScanType type} of scan to perform
+     * @param range the range to validate
+     * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation
+     * @return a cursor over index entries that have no associated records.
+     */
+    @Nonnull
+    public RecordCursor<IndexEntry> validateOrphanEntries(@Nonnull IndexScanType scanType,
+                                                          @Nonnull TupleRange range,
+                                                          @Nullable byte[] continuation,
+                                                          @Nonnull ScanProperties scanProperties) {
+        return scan(scanType, range, continuation, scanProperties).filterAsync(
+                indexEntry -> state.store
+                        .hasIndexEntryRecord(state.index, indexEntry, scanProperties.getExecuteProperties().getIsolationLevel())
+                        .thenApply(has -> !has),
+                FDBRecordStore.DEFAULT_PIPELINE_SIZE);
     }
 
     protected <M extends Message> void checkKeyValueSizes(@Nonnull FDBIndexableRecord<M> savedRecord,

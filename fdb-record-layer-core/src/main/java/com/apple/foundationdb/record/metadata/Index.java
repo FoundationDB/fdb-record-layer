@@ -35,6 +35,7 @@ import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -456,6 +457,27 @@ public class Index {
             }
         }
         return total;
+    }
+
+    /**
+     * Get the primary key portion of an index entry.
+     * @param entry the index entry
+     * @return the primary key extracted from the entry
+     */
+    @Nonnull
+    public Tuple getEntryPrimaryKey(@Nonnull Tuple entry) {
+        List<Object> entryKeys = entry.getItems();
+        List<Object> primaryKeys;
+        if (primaryKeyComponentPositions == null) {
+            primaryKeys = entryKeys.subList(getColumnSize(), entryKeys.size());
+        } else {
+            primaryKeys = new ArrayList<>(primaryKeyComponentPositions.length);
+            int after = getColumnSize();
+            for (int position : primaryKeyComponentPositions) {
+                primaryKeys.add(entryKeys.get(position < 0 ? after++ : position));
+            }
+        }
+        return Tuple.fromList(primaryKeys);
     }
 
     /**

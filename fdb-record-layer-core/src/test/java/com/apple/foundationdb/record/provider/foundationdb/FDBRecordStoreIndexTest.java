@@ -24,6 +24,7 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
@@ -46,6 +47,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexOrphanValidation;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -75,8 +77,11 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -2016,6 +2021,110 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 assertNotEquals("bar", record.getIndexEntry().getKey().getString(0));
                 assertTrue(record.hasStoredRecord(),
                         "Entry for '" + record.getIndexEntry().getKey() + "' should have an associated record");
+            }
+            commit(context);
+        }
+
+        // Validate the index. Should and should only return the index entry that has no associated record.
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context);
+            final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+            final List<IndexEntry> invalidIndexEntries = recordStore.getIndexMaintainer(index)
+                    .validateOrphanEntries(IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .asList().get();
+            assertEquals(Collections.singletonList(new IndexEntry(Tuple.from("bar", 2), TupleHelpers.EMPTY)),
+                    invalidIndexEntries,
+                    "Validation should and should only return the index entry that has no associated record.");
+            commit(context);
+        }
+    }
+
+    private Set<IndexEntry> setUpIndexOrphanValidation() throws Exception {
+        final int nRecords = 20;
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context);
+
+            for (int i = 0; i < nRecords; i++) {
+                TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                recBuilder.setRecNo(i);
+                recBuilder.setStrValueIndexed(Integer.toString(i));
+                recordStore.saveRecord(recBuilder.build());
+            }
+            commit(context);
+        }
+
+        // Delete add even number records with the index removed.
+        Set<IndexEntry> expectedInvalidEntries = new HashSet<>();
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, builder ->
+                    builder.removeIndex("MySimpleRecord$str_value_indexed"));
+            for (int i = 0; i < nRecords; i += 2) {
+                recordStore.deleteRecord(Tuple.from(i));
+                expectedInvalidEntries.add(new IndexEntry(Tuple.from(Integer.toString(i), i), TupleHelpers.EMPTY));
+            }
+            commit(context);
+        }
+
+        return expectedInvalidEntries;
+    }
+
+    @Test
+    public void testIndexOrphanValidationByIterations() throws Exception {
+        Set<IndexEntry> expectedInvalidEntries = setUpIndexOrphanValidation();
+
+        // Validate the index. Should and should only return the index entry that has no associated record.
+        final Random random = new Random();
+        byte[] continuation = null;
+        Set<IndexEntry> results = new HashSet<>();
+        do {
+            int limit = random.nextInt(4) + 1; // 1, 2, 3, or 4.
+            int currentIterationResultsCount = 0;
+            try (FDBRecordContext context = openContext()) {
+                uncheckedOpenSimpleRecordStore(context);
+                ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                        .setScannedRecordsLimit(limit)
+                        .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                        .build());
+                final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+                final RecordCursor<IndexEntry> cursor = recordStore.getIndexMaintainer(index)
+                        .validateOrphanEntries(IndexScanType.BY_VALUE, TupleRange.ALL, continuation, scanProperties);
+                while (cursor.hasNext()) {
+                    IndexEntry entry = cursor.next();
+                    assertFalse(results.contains(entry), "Entry " + entry + " is duplicated");
+                    results.add(entry);
+                    currentIterationResultsCount++;
+                }
+                continuation = cursor.getContinuation();
+                commit(context);
+            }
+            assertTrue(currentIterationResultsCount <= (limit + 1) / 2,
+                    "The number of returned records should be half of limit of scanned records");
+        } while (continuation != null);
+        assertEquals(expectedInvalidEntries, results,
+                "Validation should and should only return the index entry that has no associated record.");
+
+    }
+
+    @Test
+    // Validate the index by IndexOrphanValidation helper function.
+    public void testIndexOrphanValidationByJob() throws Exception {
+        Set<IndexEntry> expectedInvalidEntries = setUpIndexOrphanValidation();
+
+        // Set a scanned records limit to mock when the transaction is out of band.
+        final ScanProperties scanProperties = new ScanProperties(
+                ExecuteProperties.newBuilder()
+                        .setScannedRecordsLimit(4)
+                        .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                        .build());
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context);
+            final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+            final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
+            try (FDBDatabaseRunner runner = fdb.newRunner()) {
+                final Set<IndexEntry> results = new HashSet<>(
+                        IndexOrphanValidation.validate(runner, indexMaintainer, scanProperties).get());
+                assertEquals(expectedInvalidEntries, results,
+                        "Validation should and should only return the index entry that has no associated record.");
             }
             commit(context);
         }
