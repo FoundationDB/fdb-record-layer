@@ -2878,6 +2878,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull
         public Builder setContext(@Nullable FDBRecordContext context) {
             this.context = context;
+            // resetting the context requires rebasing any subspace provider on the new context
+            if (context != null && this.subspaceProvider != null) {
+                this.subspaceProvider = this.subspaceProvider.getRebasedCopy(context);
+            }
             return this;
         }
 

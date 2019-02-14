@@ -70,6 +70,12 @@ public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
         return LogMessageKeys.KEY_SPACE_PATH;
     }
 
+    @Nonnull
+    @Override
+    public SubspaceProvider getRebasedCopy(FDBRecordContext context) {
+        return new SubspaceProviderByKeySpacePath(this.keySpacePath, context);
+    }
+
     @Override
     public String toString() {
         return keySpacePath.toString();

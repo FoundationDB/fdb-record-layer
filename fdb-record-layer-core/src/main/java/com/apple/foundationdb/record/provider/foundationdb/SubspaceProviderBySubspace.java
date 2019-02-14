@@ -54,6 +54,12 @@ public class SubspaceProviderBySubspace implements SubspaceProvider {
 
     @Nonnull
     @Override
+    public SubspaceProvider getRebasedCopy(FDBRecordContext context) {
+        return new SubspaceProviderBySubspace(this.subspace);
+    }
+
+    @Nonnull
+    @Override
     public LogMessageKeys logKey() {
         return LogMessageKeys.SUBSPACE;
     }

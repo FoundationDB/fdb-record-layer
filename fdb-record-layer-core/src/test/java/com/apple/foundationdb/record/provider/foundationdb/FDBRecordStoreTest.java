@@ -55,6 +55,9 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -181,6 +184,54 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertThat(recordStore.recordExists(Tuple.from(2L)), is(false));
             commit(context);
         }
+    }
+
+    @Test
+    public void testRecordStoreBuilder() throws Exception {
+
+        FDBDatabase db = FDBDatabaseFactory.instance().getDatabase();
+
+        final KeySpace keySpace = new KeySpace(
+                new DirectoryLayerDirectory("application")
+                        .addSubdirectory(new KeySpaceDirectory("environment", KeySpaceDirectory.KeyType.STRING))
+        );
+
+        final KeySpacePath path1 = keySpace.path("application", "record-layer-sample")
+                .add("environment", "demo");
+
+        final KeySpacePath path2 = keySpace.path("application", "foo")
+                .add("environment", "bar");
+
+        //RecordMetaData rmd = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor()).build();
+        final RecordMetaDataBuilder rmd = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
+
+        //set keypath before context ok, subspace provider resolved at build time
+        FDBRecordContext context1 = db.openContext();
+        FDBRecordStore.Builder rsb = FDBRecordStore.newBuilder();
+        FDBRecordStore.Builder builder = rsb.setMetaDataProvider(rmd);
+        rsb = rsb.setMetaDataProvider(rmd).setKeySpacePath(path1).setContext(context1);
+        assert ((rsb.getSubspaceProvider() == null));
+        FDBRecordStore rs = rsb.build();
+        assert ((rsb.getSubspaceProvider() != null));
+
+        //turn the record store back into a builder, reset context, ensure that any subspace provider gets re-resolved
+        FDBRecordContext context2 = db.openContext();
+        rsb = rs.asBuilder().setContext(null);
+        SubspaceProvider sp1 = rsb.getSubspaceProvider();
+        assert (rsb.setContext(context2).build().getSubspaceProvider() != sp1);
+
+        //back to builder, change path, rebuild and re-resolve
+        rsb = rs.asBuilder().setKeySpacePath(path2);
+        assert ((rsb.getSubspaceProvider() == null));
+        assert (rsb.build().getSubspaceProvider() != null);
+
+
+        //TODO plug inconsistent behavior that is a manifestation of the current FDBRecordStore API
+        // subspace resolved using context1 outside of a context2 record store ...
+        Subspace sub = new Subspace(path.toTuple(context1));
+        rs = rs.asBuilder().setContext(context2).setSubspace(sub).build();
+        SubspaceProvider subp = new SubspaceProviderBySubspace(sub);
+        rs = rs.asBuilder().setContext(context2).setSubspaceProvider(subp).build();
     }
 
     @Test

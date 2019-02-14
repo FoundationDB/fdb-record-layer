@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 public interface SubspaceProvider {
     /**
      * This might be blocking if the subspace is never fetched before.
+     *
      * @return Subspace
      */
     @Nonnull
@@ -41,6 +42,9 @@ public interface SubspaceProvider {
 
     @Nonnull
     CompletableFuture<Subspace> getSubspaceAsync();
+
+    @Nonnull
+    SubspaceProvider getRebasedCopy(FDBRecordContext context);
 
     @Nonnull
     LogMessageKeys logKey();
