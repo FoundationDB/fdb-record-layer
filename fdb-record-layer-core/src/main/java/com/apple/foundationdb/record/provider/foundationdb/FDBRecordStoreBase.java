@@ -993,6 +993,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return the primary key extracted from the entry
      */
     @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     static Tuple indexEntryPrimaryKey(@Nonnull Index index, @Nonnull Tuple entry) {
         return index.getEntryPrimaryKey(entry);
