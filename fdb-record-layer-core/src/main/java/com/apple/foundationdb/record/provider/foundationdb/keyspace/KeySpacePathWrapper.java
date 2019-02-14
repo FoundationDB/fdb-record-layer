@@ -214,4 +214,9 @@ public class KeySpacePathWrapper implements KeySpacePath {
     public String toString() {
         return inner.toString();
     }
+
+    @Override
+    public String toString(Tuple t) {
+        return inner.toString(t);
+    }
 }

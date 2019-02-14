@@ -34,6 +34,7 @@ import com.google.common.collect.Lists;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -328,6 +329,31 @@ class KeySpacePathImpl implements KeySpacePath {
             } else {
                 appendValue(sb, entry.getValue());
             }
+        }
+
+        if (getRemainder() != null) {
+            sb.append('+').append(getRemainder());
+        }
+
+        return sb.toString();
+    }
+
+    @Override
+    public String toString(Tuple t) {
+        Iterator<Object> it = t.getItems().iterator();
+        StringBuilder sb = new StringBuilder();
+
+        for (KeySpacePath entry : flatten()) {
+            sb.append('/').append(entry.getDirectoryName()).append(':');
+            Object dirValue = entry.getValue();
+            if (it.hasNext()) {
+                Object tupValue = it.next();
+                if (!Objects.equals(dirValue, tupValue)) {
+                    appendValue(sb, tupValue);
+                    sb.append("->");
+                }
+            }
+            appendValue(sb, dirValue);
         }
 
         if (getRemainder() != null) {

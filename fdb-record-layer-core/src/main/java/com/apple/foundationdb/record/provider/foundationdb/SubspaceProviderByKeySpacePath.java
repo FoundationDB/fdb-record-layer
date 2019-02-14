@@ -24,6 +24,7 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -72,6 +73,11 @@ public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
 
     @Override
     public String toString() {
-        return keySpacePath.toString();
+        //If subspace future complete and value available print keyspace path with resolved dir values
+        if (subspaceFuture != null && subspaceFuture.isDone() && !subspaceFuture.isCompletedExceptionally()) {
+            return keySpacePath.toString(Tuple.fromBytes(subspaceFuture.join().pack()));
+        } else {
+            return keySpacePath.toString();
+        }
     }
 }

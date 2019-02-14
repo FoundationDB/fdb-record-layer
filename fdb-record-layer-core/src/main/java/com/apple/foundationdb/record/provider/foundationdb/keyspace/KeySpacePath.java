@@ -615,4 +615,13 @@ public interface KeySpacePath {
     default List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String subdirName) {
         return list(context, subdirName, ScanProperties.FORWARD_SCAN);
     }
+
+    /**
+     *  String representation of this {@link KeySpacePath} showing correspondences between original and resolved directory values.
+     *
+     * @param tuple representing the directory values of this path in resolved form
+     * @return a string representation of the path that shows both original and resolved directory values
+     */
+    @Nonnull
+    String toString(Tuple tuple);
 }
