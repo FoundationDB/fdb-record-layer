@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
@@ -279,25 +280,107 @@ public class Index {
         return getBooleanOption(IndexOptions.UNIQUE_OPTION, false);
     }
 
+    /**
+     * Get the key used to determine this index's subspace prefix. All of the index's
+     * data will live within a subspace constructed by adding this key to a record store's
+     * subspace for secondary indexes. Each index within a given meta-data definition must have a
+     * unique subspace key. By default, this is equal to the index's name, but alternative keys
+     * can be set by calling {@link #setSubspaceKey(Object)}.
+     *
+     * @return the key used to determine this index's subspace prefix
+     * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#indexSubspace(Index)
+     */
+    @Nonnull
     public Object getSubspaceKey() {
         return subspaceKey;
     }
 
-    public void setSubspaceKey(Object subspaceKey) {
+    /**
+     * Set the key used to determine this index's subspace prefix. This value must be
+     * unique for each index within a given meta-data definition and must be serializable
+     * using a FoundationDB {@link Tuple}. As this value will prefix all keys used by the
+     * index, it is generally advisable that this key have a compact serialized form. For
+     * example, integers are encoded by the {@code Tuple} layer using a variable length
+     * encoding scheme that makes them a natural choice for this key.
+     *
+     * <p>
+     * It is important that once an index has data that its subspace key not change. If
+     * one wishes to change the key, the guidance would be to create a new index with the
+     * same definition but at the new key. Then that index can be built using the
+     * {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer OnlineIndexer}.
+     * When that index has been fully built, the original index can be safely dropped.
+     * </p>
+     *
+     * @param subspaceKey the key used to determine this index's subspace prefix
+     * @see #getSubspaceKey()
+     */
+    public void setSubspaceKey(@Nonnull Object subspaceKey) {
         this.subspaceKey = subspaceKey;
     }
 
+    /**
+     * Get the positions of the primary key components within the index key.
+     * This is used if the index key and the primary key expressions share fields to avoid
+     * duplicating the shared fields when writing serializing the index entry. This
+     * might return {@code null} if there are no common fields used by both the
+     * index key and the primary key. Otherwise, it will return an array that is the
+     * same length as the {@linkplain KeyExpression#getColumnSize() column size} of the
+     * primary key. Each position in the array should either contain the index in the
+     * index key where one can find the value of the primary key component in that
+     * position or a negative value to indicate that that column is not found in the
+     * index key.
+     *
+     * <p>
+     * For example, suppose one had an index defined on a record type with a primary
+     * key of {@code Key.Expressions.concatenateFields("a", "b")} and suppose the index
+     * was defined on {@code Key.Expressions.concatenateFields("a", "c")}. A na&iuml;ve
+     * approach might serialize index key tuples of the form {@code (a, c, a, b)}
+     * by concatenating the index key (i.e., {@code (a, c)}) with the primary key
+     * (i.e., {@code (a, b)}). However, as the first component of the primary key tuple
+     * can be found within the index's tuple, indexes will instead serialize index
+     * key tuples of the form {@code (a, c, b)}. This function will then return the array
+     * {@code {0, -1}} to indicate that the first component of the primary key can be
+     * found at position 0 in the index entry key but the second component is found after
+     * the index key data (which is the default location).
+     * </p>
+     *
+     * <p>
+     * This method should generally not be called by users outside of the Record Layer.
+     * For the most part, it should be sufficient for index maintainers to call
+     * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase#indexEntryPrimaryKey(Index, Tuple) FDBRecordStoreBase.indexEntryPrimaryKey()}
+     * to determine the primary key of a record from an index entry and
+     * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase#indexEntryKey(Index, Tuple, Tuple) FDBRecordStoreBase.indexEntryKey()}
+     * to determine the index entry given a record's primary key.
+     * </p>
+     *
+     * <p>
+     * At the moment, this optimization is not used with multi-type or universal indexes.
+     * See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/93">Issue #93</a>
+     * for more details.
+     * </p>
+     *
+     * @return the positions of primary key components within the index key or {@code null}
+     */
     @Nullable
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public int[] getPrimaryKeyComponentPositions() {
         return primaryKeyComponentPositions;
     }
 
+    /**
+     * Set the positions of primary key components within the index key.
+     * This generally should not be called by users outside of the Record Layer
+     * as it can affect how data are serialized to disk in incompatible ways.
+     *
+     * @param primaryKeyComponentPositions the positions of primary key components within the index key
+     * @see #getPrimaryKeyComponentPositions()
+     */
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     public void setPrimaryKeyComponentPositions(int[] primaryKeyComponentPositions) {
         this.primaryKeyComponentPositions = primaryKeyComponentPositions;
     }
 
+    @API(API.Status.INTERNAL)
     public void trimPrimaryKey(List<?> primaryKeys) {
         if (primaryKeyComponentPositions != null) {
             for (int i = primaryKeyComponentPositions.length - 1; i >= 0; i--) {
@@ -306,6 +389,20 @@ public class Index {
                 }
             }
         }
+    }
+
+    /**
+     * Return whether this index has non-default primary key component positions.
+     * In particular, this will return {@code true} if it does something more advanced than appending
+     * all of the primary key fields to the end of the index key. If this method returns
+     * {@code true}, then {@link #getPrimaryKeyComponentPositions()} will return a non-null
+     * array and at least one entry will be non-negative.
+     *
+     * @return whether this index has non-default primary key component positions
+     * @see #getPrimaryKeyComponentPositions()
+     */
+    boolean hasPrimaryKeyComponentPositions() {
+        return this.primaryKeyComponentPositions != null && IntStream.of(this.primaryKeyComponentPositions).anyMatch(i -> i >= 0);
     }
 
     /**

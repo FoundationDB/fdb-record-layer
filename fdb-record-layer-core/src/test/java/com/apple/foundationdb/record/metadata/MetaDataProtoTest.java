@@ -51,13 +51,18 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -119,7 +124,8 @@ public class MetaDataProtoTest {
             for (FormerIndex otherFormerIndex : metaData2.getFormerIndexes()) {
                 if (formerIndex.getRemovedVersion() == otherFormerIndex.getRemovedVersion()
                         && formerIndex.getAddedVersion() == otherFormerIndex.getAddedVersion()
-                        && formerIndex.getSubspaceKey().equals(otherFormerIndex.getSubspaceKey())) {
+                        && formerIndex.getSubspaceKey().equals(otherFormerIndex.getSubspaceKey())
+                        && Objects.equals(formerIndex.getFormerName(), otherFormerIndex.getFormerName())) {
                     found = true;
                     break;
                 }
@@ -173,6 +179,34 @@ public class MetaDataProtoTest {
         index.setLastModifiedVersion(4);
         reindex = new Index(index.toProto());
         verifyEquals(index, reindex);
+    }
+
+    @Test
+    public void formerIndexProto() {
+        FormerIndex formerIndex = new FormerIndex("air_quality", 0, 0, null);
+        RecordMetaDataProto.FormerIndex formerIndexProto = formerIndex.toProto();
+        assertThat(formerIndexProto.hasAddedVersion(), is(false));
+        assertThat(formerIndexProto.hasRemovedVersion(), is(false));
+        assertThat(formerIndexProto.hasFormerName(), is(false));
+        FormerIndex reformerIndex = new FormerIndex(formerIndexProto);
+        assertEquals(formerIndex, reformerIndex);
+        assertEquals("air_quality", reformerIndex.getSubspaceKey());
+        assertEquals(0, reformerIndex.getAddedVersion());
+        assertEquals(0, reformerIndex.getRemovedVersion());
+        assertNull(reformerIndex.getFormerName());
+
+        UUID subspaceKey = UUID.randomUUID();
+        formerIndex = new FormerIndex(subspaceKey, 1, 3, "gini");
+        formerIndexProto = formerIndex.toProto();
+        assertEquals(1, formerIndexProto.getAddedVersion());
+        assertEquals(3, formerIndexProto.getRemovedVersion());
+        assertEquals("gini", formerIndexProto.getFormerName());
+        reformerIndex = new FormerIndex(formerIndexProto);
+        assertEquals(formerIndex, reformerIndex);
+        assertEquals(subspaceKey, reformerIndex.getSubspaceKey());
+        assertEquals(1, reformerIndex.getAddedVersion());
+        assertEquals(3, reformerIndex.getRemovedVersion());
+        assertEquals("gini", reformerIndex.getFormerName());
     }
 
     @Test
@@ -371,5 +405,4 @@ public class MetaDataProtoTest {
         assertTrue(maxRecNoGrouped.getRootExpression() instanceof GroupingKeyExpression, "should have Grouping");
         assertEquals(1, ((GroupingKeyExpression)maxRecNoGrouped.getRootExpression()).getGroupedCount());
     }
-
 }

@@ -21,9 +21,12 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
@@ -32,6 +35,7 @@ import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Set;
 
 /**
  * A factory for {@link RankIndexMaintainer} indexes.
@@ -56,6 +60,20 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
                 super.validate(metaDataValidator);
                 validateGrouping(1);
                 validateNotVersion();
+            }
+
+            @Override
+            public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
+                if (changedOptions.contains(IndexOptions.RANK_NLEVELS)) {
+                    int oldLevels = RankIndexMaintainer.getNLevels(oldIndex);
+                    int newLevels = RankIndexMaintainer.getNLevels(index);
+                    if (oldLevels != newLevels) {
+                        throw new MetaDataException("rank levels changed",
+                                LogMessageKeys.INDEX_NAME, index.getName());
+                    }
+                    changedOptions.remove(IndexOptions.RANK_NLEVELS);
+                }
+                super.validateChangedOptions(oldIndex, changedOptions);
             }
         };
     }

@@ -53,6 +53,9 @@ dependencies {
 }
 
 sourceSets {
+    main {
+        java.srcDir "src/main/java-proto${protoMajorVersion}"
+    }
     test {
         java.srcDir "src/test/java-proto${protoMajorVersion}"
     }

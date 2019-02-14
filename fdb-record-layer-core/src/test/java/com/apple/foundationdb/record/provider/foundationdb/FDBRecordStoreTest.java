@@ -1602,7 +1602,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void addCountIndex() throws Exception {
         RecordMetaDataHook removeCountHook = metaData -> {
             metaData.removeIndex(COUNT_INDEX.getName());
-            metaData.setVersion(metaData.getVersion() - 1);
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -1780,18 +1779,20 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
             recordStore.saveRecord(record);
 
-            final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
+            final FDBMetaDataStore staleMetaDataStore = metaDataStore;
 
+            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
             metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
-            metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
+            metaDataStore.saveRecordMetaData(metaDataBuilder.getRecordMetaData());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace).setMetaDataStore(metaDataStore).open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertEquals(new RecordStoreState(Collections.singletonMap(newIndex2.getName(), IndexState.WRITE_ONLY)), recordStore.getRecordStoreState());
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
 
-            metaDataStore.saveAndSetCurrent(staleMetaData.toProto()).join();
-            FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder().setSubspace(expectedSubspace).setMetaDataStore(metaDataStore);
+            // The stale meta-data store uses the cached meta-data, hence the stale version exception
+            FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
+                    .setMetaDataStore(staleMetaDataStore);
             TestHelpers.assertThrows(RecordStoreStaleMetaDataVersionException.class, storeBuilder::createOrOpen,
                     "localVersion", version + 1,
                     "storedVersion", version + 2);
@@ -1871,8 +1872,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
             recordStore.saveRecord(record); // This would stop the build if this used checkVersion
 
-            final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
+            final FDBMetaDataStore staleMetaDataStore = metaDataStore;
 
+            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
             metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path).setMetaDataStore(metaDataStore).uncheckedOpen();
@@ -1880,8 +1882,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
 
-            metaDataStore.saveAndSetCurrent(staleMetaData.toProto()).join();
-            recordStore = FDBRecordStore.newBuilder().setSubspace(expectedSubspace).setMetaDataStore(metaDataStore).uncheckedOpen();
+            // The stale meta-data store uses the cached meta-data, hence the old version in the final assert
+            recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
+                    .setMetaDataStore(staleMetaDataStore).uncheckedOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());

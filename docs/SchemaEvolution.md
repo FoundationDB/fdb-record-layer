@@ -21,7 +21,32 @@ So one of the following techniques should be used:
 * If storing a serialized form of the meta-data in an external store like `FDBMetaDataStore`, read the existing meta-data from the store into a builder, make changes, and persist back from the builder.
 * If building the meta-data from external source, such as a higher-level schema management system, store versions there or compare when merging with the previous version and increment when changed.
 
+## Validating Changes
+
+If it is possible to know both the previous and new values for the meta-data, one can validate that the new meta-data has been responsibly evolved from the old meta-data by using the [`MetaDataEvolutionValidator`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/metadata/MetaDataEvolutionValidator.html) class. Basic usage is something like:
+
+```java
+MetaDataEvolutionValidator validator = MetaDataEvolutionValidator.getDefaultInstance();
+validator.validate(oldMetaData, newMetaData);
+``` 
+
+The `validate` function will throw a `MetaDataException` if the new meta-data has not been evolved from the old one in a way that does not require migrating data already stored by the record store. It is generally strict about the kinds of meta-data modifications it allows, and it attempts to be conservative. For example, by default, it will not allow modifications to existing indexes that require they be rebuilt as the assumption is that such a modification is likely to be accidental. The validator can be made more lenient by setting various options when it is initialized.
+
+The [`FDBMetaDataStore`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/FDBMetaDataStore.html) will automatically use this class to validate the meta-data when saving a newer version of the meta-data by reading the existing meta-data from the database and comparing it with the meta-data provided. It is encouraged that users with an alternate scheme for storing and managing meta-data do the same to avoid accidentally introducing an incompatible change.
+
 ## Specific Operations
+
+### Update to using proto3 syntax from proto2
+
+If your records descriptor is initially written using `proto2` syntax (regardless of whether your Protobuf version is 2 or 3), there is no clear upgrade path to begin using `proto3` syntax without losing data. In particular, because records written using `proto3` syntax cannot distinguish between unset values (which the Record Layer uses to indicate that a field is `null`) and fields set to the default value for that type, if there are any indexes defined on any field, the index entries for anything set to the default value for that field will no longer be accurate. It is therefore advised that any existing record types continue to use `proto2` syntax, though new record types can be added using `proto3`. For more information on how using `proto2` and `proto3` syntax affects nullability semantics, see [Indexing and Querying of missing / null values](Overview.md#indexing-and-querying-of-missing--null-values).
+
+### Changing whether long records are split
+
+By default, the record meta-data assumes that all records can fit in a single FoundationDB key-value pair. If records are expected to exceed the [FoundationDB value size limit](https://apple.github.io/foundationdb/known-limitations.html#large-keys-and-values), one should enable the `split_long_records` option on the meta-data. It is safe to enable the splitting of larger records after data has been written as long as the record store was created with a format version of at least [`FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/FDBRecordStore.html#SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION). This should include all record stores created using Record Layer version 2.1 or newer unless the format version was explicitly set to some lower value.
+
+### Changing whether record commit versions are stored
+
+It is safe to enable or disable the `store_record_versions` schema option on the meta-data. If there are any ["version" indexes](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/indexes/VersionIndexMaintainer.html) defined on the record store when the option is disabled, those indexes must also be removed from the meta-data.
 
 ### Add a field to an existing record type
 
@@ -44,7 +69,7 @@ For fields that are not part of any index or a record type's primary key, any ty
 ### Add a new record type
 
 This is always safe. No instances of the new record type can exist in the record store.
-The new record type should be given a new field in the union message type.
+The new record type should be given a new field in the union message type. It is also good practice to set the `since_version` field associated with that record type to the meta-data version in which it is added. This allows index builds on any indexes defined on the new type to be skipped when record stores using the meta-data are upgraded.
 
 ### Remove a record type
 

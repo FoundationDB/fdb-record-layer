@@ -2517,6 +2517,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     public static Stream<Arguments> indexArguments() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         Index simpleIndex = metaDataBuilder.getIndex(SIMPLE_DEFAULT_NAME);
+        simpleIndex.setSubspaceKey(SIMPLE_DEFAULT_NAME + "-2");
         return Stream.of(simpleIndex, SIMPLE_TEXT_FILTERING, SIMPLE_TEXT_PREFIX, SIMPLE_TEXT_SUFFIXES)
                 .map(Arguments::of);
     }

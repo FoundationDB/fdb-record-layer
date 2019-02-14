@@ -1151,7 +1151,7 @@ public class VersionIndexTest extends FDBTestBase {
         RecordMetaDataHook thirdHook = metaDataBuilder -> {
             secondHook.apply(metaDataBuilder);
             metaDataBuilder.setStoreRecordVersions(true);
-            metaDataBuilder.addUniversalIndex(new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
+            metaDataBuilder.addUniversalIndex(new Index("globalVersion2", VersionKeyExpression.VERSION, IndexTypes.VERSION));
         };
 
         MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).build();
@@ -1176,7 +1176,7 @@ public class VersionIndexTest extends FDBTestBase {
             assertEquals(version1, loadedRecord.getVersion());
 
             RecordQueryPlan plan = planner.plan(query);
-            assertEquals("Index(globalVersion <,>)", plan.toString());
+            assertThat(plan, indexScan(indexName("globalVersion")));
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(1, records.size());
             FDBQueriedRecord<Message> queriedRecord = records.get(0);
@@ -1222,7 +1222,7 @@ public class VersionIndexTest extends FDBTestBase {
             assertEquals(version3, loadedRecord3.getVersion());
 
             RecordQueryPlan plan = planner.plan(query);
-            assertEquals("Index(globalVersion <,>)", plan.toString());
+            assertThat(plan, indexScan(indexName("globalVersion2")));
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(3, records.size());
 

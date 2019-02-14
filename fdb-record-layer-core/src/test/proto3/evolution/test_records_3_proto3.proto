@@ -1,0 +1,39 @@
+/*
+ * test_records_3_proto3.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto3";
+
+package com.apple.foundationdb.record.evolution.test3proto3;
+
+option java_package = "com.apple.foundationdb.record.evolution";
+option java_outer_classname = "TestRecords3ProtoV3";
+
+import "record_metadata_options.proto";
+
+// This is test_records_3.proto translated into proto3 syntax
+message MyHierarchicalRecord {
+    string parent_path = 1;
+    string child_name = 2;
+    int32 num_value_indexed = 3 [(field).index = {}];
+}
+
+message UnionDescriptor {
+    option (com.apple.foundationdb.record.record).usage = UNION;
+    MyHierarchicalRecord _MyHierarchicalRecord = 1;
+}

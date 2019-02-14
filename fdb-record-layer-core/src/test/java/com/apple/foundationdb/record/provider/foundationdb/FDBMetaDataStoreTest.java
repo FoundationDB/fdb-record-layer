@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataProtoTest;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
@@ -46,9 +48,13 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -80,7 +86,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
     }
 
     @Test
-    public void simple() throws Exception {
+    public void simple() {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
 
@@ -105,7 +111,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
     }
 
     @Test
-    public void manyTypes() throws Exception {
+    public void manyTypes() {
         final int ntypes = 500;
         final int nfields = 10;
 
@@ -165,7 +171,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
     }
 
     @Test
-    public void historyCompat() throws Exception {
+    public void historyCompat() {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
 
@@ -218,6 +224,8 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             metaData.addIndexesBuilder()
                     .setName("MyIndex")
                     .addRecordType("MySimpleRecord")
+                    .setAddedVersion(102)
+                    .setLastModifiedVersion(102)
                     .getRootExpressionBuilder().getFieldBuilder()
                     .setFieldName("num_value_2")
                     .setFanType(RecordMetaDataProto.Field.FanType.SCALAR);
@@ -251,7 +259,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
     }
 
     @Test
-    public void withToProto() throws Exception {
+    public void withToProto() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsParentChildRelationshipProto.getDescriptor());
         metaDataBuilder.addIndex("MyChildRecord", "MyChildRecord$str_value", Key.Expressions.field("str_value"));
         metaDataBuilder.removeIndex("MyChildRecord$parent_rec_no");
@@ -276,4 +284,97 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         }
     }
 
+    @Test
+    public void withIncompatibleChange() {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.saveRecordMetaData(metaData1);
+            context.commit();
+        }
+
+        RecordMetaData metaData2 = RecordMetaData.build(metaData1.toProto().toBuilder().setVersion(metaData1.getVersion() + 1).clearIndexes().build());
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.saveRecordMetaData(metaData2));
+            assertThat(e.getMessage(), containsString("index missing in new meta-data"));
+            context.commit();
+        }
+
+        // Using the builder, this change should be fine.
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaData1.getAllIndexes().forEach(index -> metaDataBuilder.removeIndex(index.getName()));
+        RecordMetaData metaData3 = metaDataBuilder.getRecordMetaData();
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.saveRecordMetaData(metaData3);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData retrievedMetaData = metaDataStore.getRecordMetaData();
+            MetaDataProtoTest.verifyEquals(metaData3, retrievedMetaData);
+        }
+    }
+
+    @Test
+    public void withIndexesRequiringRebuild() {
+        RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+
+        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder().setVersion(metaData.getVersion() + 1);
+        protoBuilder.getIndexesBuilderList().forEach(index -> {
+            if (index.getName().equals("MySimpleRecord$str_value_indexed")) {
+                index.addOptions(RecordMetaDataProto.Index.Option.newBuilder().setKey(IndexOptions.UNIQUE_OPTION).setValue("true"));
+                index.setLastModifiedVersion(metaData.getVersion() + 1);
+            }
+        });
+        RecordMetaData metaData2 = RecordMetaData.build(protoBuilder.build());
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.saveRecordMetaData(metaData2));
+            assertThat(e.getMessage(), containsString("last modified version of index changed"));
+            MetaDataProtoTest.verifyEquals(metaData, metaDataStore.getRecordMetaData());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData retrievedMetaData = metaDataStore.getRecordMetaData();
+            assertThat(retrievedMetaData.getIndex("MySimpleRecord$str_value_indexed").isUnique(), is(false));
+            MetaDataProtoTest.verifyEquals(metaData, retrievedMetaData);
+        }
+
+        MetaDataEvolutionValidator laxerValidator = MetaDataEvolutionValidator.newBuilder()
+                .setAllowIndexRebuilds(true)
+                .build();
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.setEvolutionValidator(laxerValidator);
+            metaDataStore.saveRecordMetaData(metaData2);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData retrievedMetaData = metaDataStore.getRecordMetaData();
+            assertThat(retrievedMetaData.getIndex("MySimpleRecord$str_value_indexed").isUnique(), is(true));
+            MetaDataProtoTest.verifyEquals(metaData2, metaDataStore.getRecordMetaData());
+        }
+    }
+
+    @Test
+    public void withoutBumpingVersion() {
+        RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.saveRecordMetaData(metaData);
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.saveRecordMetaData(metaData));
+            assertThat(e.getMessage(), containsString("meta-data version must increase"));
+            context.commit();
+        }
+    }
 }

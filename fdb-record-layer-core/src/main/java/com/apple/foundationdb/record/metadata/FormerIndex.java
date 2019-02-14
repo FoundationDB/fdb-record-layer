@@ -28,6 +28,8 @@ import com.google.protobuf.ByteString;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.util.Objects;
+
 import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
 
 /**
@@ -112,6 +114,9 @@ public class FormerIndex {
         if (removedVersion > 0) {
             builder.setRemovedVersion(removedVersion);
         }
+        if (formerName != null) {
+            builder.setFormerName(formerName);
+        }
         return builder.build();
     }
 
@@ -126,4 +131,23 @@ public class FormerIndex {
         return str.toString();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null) {
+            return false;
+        } else if (this == o) {
+            return true;
+        } else if (!o.getClass().equals(getClass())) {
+            return false;
+        }
+        FormerIndex that = (FormerIndex) o;
+        return this.subspaceKey.equals(that.subspaceKey)
+               && Objects.equals(formerName, that.formerName)
+               && this.addedVersion == that.addedVersion && this.removedVersion == that.removedVersion;
+    }
+
+    @Override
+    public int hashCode() {
+        return (Objects.hash(subspaceKey, formerName) * 37 + addedVersion) * 37 + removedVersion;
+    }
 }
