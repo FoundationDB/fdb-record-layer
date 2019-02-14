@@ -188,7 +188,8 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         final PlanContext planContext = getPlanContext(query);
 
-        final QueryComponent filter = BooleanNormalizer.normalize(query.getFilter());
+        final BooleanNormalizer normalizer = BooleanNormalizer.withLimit(complexityThreshold);
+        final QueryComponent filter = normalizer.normalizeIfPossible(query.getFilter());
         final KeyExpression sort = query.getSort();
         final boolean sortReverse = query.isSortReverse();
 
@@ -1444,7 +1445,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             indexExpr = EmptyKeyExpression.EMPTY;
         }
         final ScoredPlan scoredPlan = planCandidateScan(candidateScan, indexExpr,
-                BooleanNormalizer.normalize(query.getFilter()), query.getSort());
+                BooleanNormalizer.withLimit(complexityThreshold).normalizeIfPossible(query.getFilter()), query.getSort());
         // It would be possible to handle unsatisfiedFilters if they, too, only involved group key (covering) fields.
         if (scoredPlan == null || !scoredPlan.unsatisfiedFilters.isEmpty() || !(scoredPlan.plan instanceof RecordQueryIndexPlan)) {
             return null;
