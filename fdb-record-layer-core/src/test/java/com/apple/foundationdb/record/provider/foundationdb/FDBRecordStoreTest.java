@@ -2554,4 +2554,56 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertThrows(KeyExpression.InvalidExpressionException.class, () -> openSimpleRecordStore(context, invalid));
         }
     }
+
+    @Test
+    public void commitChecks() throws Exception {
+        // Start check now; fails even if added.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            context.addCommitCheck(checkRec1Exists());
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1L)
+                    .build();
+            recordStore.saveRecord(rec);
+            assertThrows(RecordDoesNotExistException.class, () -> commit(context));
+        }
+        // Deferred check; fails if not added.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            context.addCommitCheck(this::checkRec1Exists);
+
+            assertThrows(RecordDoesNotExistException.class, () -> commit(context));
+        }
+        // Succeeds if added.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            context.addCommitCheck(this::checkRec1Exists);
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1L)
+                    .build();
+            recordStore.saveRecord(rec);
+            commit(context);
+        }
+        // Immediate succeeds too now.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            context.addCommitCheck(checkRec1Exists());
+            commit(context);
+        }
+    }
+
+    private CompletableFuture<Void> checkRec1Exists() {
+        return recordStore.recordExistsAsync(Tuple.from(1)).thenAccept(exists -> {
+            if (!exists) {
+                throw new RecordDoesNotExistException("required record does not exist");
+            }
+        });
+    }
+
 }

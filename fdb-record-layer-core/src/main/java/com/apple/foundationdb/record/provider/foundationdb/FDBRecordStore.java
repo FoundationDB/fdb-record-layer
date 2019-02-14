@@ -629,61 +629,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                    @Nonnull Index index,
                                    @Nonnull IndexEntry indexEntry,
                                    @Nonnull Tuple primaryKey) {
-        getRecordContext().addCommitCheck(new IndexUniquenessCheck(kvs, index, indexEntry, primaryKey));
-    }
-
-    class IndexUniquenessCheck implements FDBRecordContext.CommitCheck {
-        @Nonnull
-        private final AsyncIterator<KeyValue> iter;
-        @Nonnull
-        private final Index index;
-        @Nonnull
-        private final IndexEntry indexEntry;
-        @Nonnull
-        private final Tuple primaryKey;
-        @Nonnull
-        private CompletableFuture<Boolean> onHasNext;
-        @Nonnull
-        private IndexMaintainer indexMaintainer;
-
-        public IndexUniquenessCheck(@Nonnull AsyncIterable<KeyValue> iter,
-                                    @Nonnull Index index,
-                                    @Nonnull IndexEntry indexEntry,
-                                    @Nonnull Tuple primaryKey) {
-            this.iter = iter.iterator();
-            this.index = index;
-            this.indexEntry = indexEntry;
-            this.primaryKey = primaryKey;
-            this.indexMaintainer = getIndexMaintainer(index);
-
-            onHasNext = this.iter.onHasNext();
-            onHasNext = context.instrument(FDBStoreTimer.Events.CHECK_INDEX_UNIQUENESS, onHasNext);
-        }
-
-        @Override
-        public boolean isReady() {
-            return onHasNext.isDone();
-        }
-
-        @Override
-        public void check() {
-            Tuple valueKey = null;
-            while (iter.hasNext()) {
-                Tuple existingEntry = SplitHelper.unpackKey(indexMaintainer.getIndexSubspace(), iter.next());
-                Tuple existingKey = FDBRecordStoreBase.indexEntryPrimaryKey(index, existingEntry);
-                if (!primaryKey.equals(existingKey)) {
-                    if (isIndexWriteOnly(index)) {
-                        if (valueKey == null) {
-                            valueKey = indexEntry.getKey();
+        final IndexMaintainer indexMaintainer = getIndexMaintainer(index);
+        final CompletableFuture<Void> checker = context.instrument(FDBStoreTimer.Events.CHECK_INDEX_UNIQUENESS,
+                AsyncUtil.forEach(kvs, kv -> {
+                    Tuple existingEntry = SplitHelper.unpackKey(indexMaintainer.getIndexSubspace(), kv);
+                    Tuple existingKey = FDBRecordStoreBase.indexEntryPrimaryKey(index, existingEntry);
+                    if (!TupleHelpers.equals(primaryKey, existingKey)) {
+                        if (isIndexWriteOnly(index)) {
+                            Tuple valueKey = indexEntry.getKey();
+                            indexMaintainer.updateUniquenessViolations(valueKey, primaryKey, existingKey, false);
+                            indexMaintainer.updateUniquenessViolations(valueKey, existingKey, primaryKey, false);
+                        } else {
+                            throw new RecordIndexUniquenessViolation(index, indexEntry, primaryKey, existingKey);
                         }
-                        indexMaintainer.updateUniquenessViolations(valueKey, primaryKey, existingKey, false);
-                        indexMaintainer.updateUniquenessViolations(valueKey, existingKey, primaryKey, false);
-                    } else {
-                        throw new RecordIndexUniquenessViolation(index, indexEntry, primaryKey, existingKey);
                     }
-                }
-            }
-        }
+                }, getExecutor()));
+        getRecordContext().addCommitCheck(checker);
     }
 
     public CompletableFuture<IndexOperationResult> performIndexOperationAsync(@Nonnull String indexName,
