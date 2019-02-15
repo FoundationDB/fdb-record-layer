@@ -1080,7 +1080,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                     md.addUniversalIndex(FDBRecordStoreTestBase.COUNT_INDEX);
                     md.removeIndex("rank_by_gender");
                     md.addIndex("BasicRankedRecord",
-                            new Index("rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), EmptyKeyExpression.EMPTY,
+                            new Index("unique_rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), EmptyKeyExpression.EMPTY,
                                     IndexTypes.RANK, IndexOptions.UNIQUE_OPTIONS));
                 });
                 for (Object[] rec : RECORDS) {
@@ -1107,7 +1107,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 md.addUniversalIndex(FDBRecordStoreTestBase.COUNT_INDEX);
                 md.removeIndex("rank_by_gender");
                 md.addIndex("BasicRankedRecord",
-                        new Index("rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), EmptyKeyExpression.EMPTY,
+                        new Index("unique_rank_by_gender", Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), EmptyKeyExpression.EMPTY,
                                 IndexTypes.RANK, IndexOptions.UNIQUE_OPTIONS));
             });
             for (Object[] rec : RECORDS) {

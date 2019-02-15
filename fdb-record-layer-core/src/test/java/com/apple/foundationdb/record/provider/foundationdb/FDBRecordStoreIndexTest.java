@@ -2061,6 +2061,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
 
         metaData.addIndex("MySimpleRecord", "num_value_2");
+        metaData.getIndex("MySimpleRecord$num_value_2").setSubspaceKey("MySimpleRecord$num_value_2_prime");
         metaData.removeIndex("MySimpleRecord$num_value_2");
 
         try (FDBRecordContext context = openContext()) {

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -106,6 +107,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private final List<FormerIndex> formerIndexes;
     @Nonnull
     private IndexMaintainerRegistry indexMaintainerRegistry;
+    @Nonnull
+    private MetaDataEvolutionValidator evolutionValidator;
     @Nullable
     private KeyExpression recordCountKey;
     @Nullable
@@ -124,6 +127,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         unionFields = new HashMap<>();
         explicitDependencies = new TreeMap<>();
         indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
+        evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
     }
 
     /**
@@ -305,6 +309,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private Descriptors.Descriptor initRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor, boolean processExtensionOptions) {
         Descriptors.Descriptor unionDescriptor = fetchUnionDescriptor(fileDescriptor);
         validateRecords(fileDescriptor, unionDescriptor);
+        if (localUnionDescriptor != null) {
+            evolutionValidator.validateUnion(unionDescriptor, localUnionDescriptor);
+        }
         fillUnionFields(unionDescriptor, processExtensionOptions);
         return localUnionDescriptor == null ? unionDescriptor : localUnionDescriptor;
     }
@@ -434,22 +441,24 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * <p>
      * This method is handy when two versions of the record meta-data are compatible (i.e., they follow the
      * <a href="https://foundationdb.github.io/fdb-record-layer/SchemaEvolution.html">Record Layer guidelines on schema evolution</a>),
-     * but their descriptors are not equal, e.g., a statically-generated proto and its serialized version that's stored
+     * but their descriptors are not equal, e.g., a statically-generated proto and its serialized version stored
      * in a meta-data store (i.e., {@link com.apple.foundationdb.record.provider.foundationdb.FDBMetaDataStore}). A
-     * record store created off of the meta-data store may not be able to store a record created
+     * record store created using the meta-data store may not be able to store a record created
      * by the statically-generated proto file because the meta-data and record have mismatched descriptors. Using this method,
      * the meta-data can use the same version of the descriptor as the record.
      * </p>
      *
      * <p>
-     * WARNING: There is currently no validation done to make sure the local descriptor is compatible with the record's
-     * descriptor included in the meta-data proto. This work is being tracked with Issue #85.
+     * This should only be used when the records descriptor is set through a meta-data proto (i.e, it is followed by a call
+     * to {@link #setRecords(RecordMetaDataProto.MetaData)} or {@link #setRecords(RecordMetaDataProto.MetaData, boolean)}).
+     * This will not work if the records are set using a file descriptor.
      * </p>
      *
      * <p>
-     * This should only be used when the records descriptor is set through a meta-data proto (i.e, it is followed by
-     * {@link #setRecords(RecordMetaDataProto.MetaData)} or {@link #setRecords(RecordMetaDataProto.MetaData, boolean)} calls).
-     * This will not work if records are set using a file descriptor.
+     * To verify that the file descriptor supplied here and the file descriptor included in the meta-data proto are
+     * compatible, the two descriptors are compared using a {@link MetaDataEvolutionValidator}. The user may provide
+     * their own validator by calling {@link #setEvolutionValidator(MetaDataEvolutionValidator)}. By default, this
+     * will use that class's {@linkplain MetaDataEvolutionValidator#getDefaultInstance() default instance}.
      * </p>
      *
      * @param localFileDescriptor a file descriptor that contains updated record types
@@ -988,6 +997,42 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      */
     public void setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
         this.indexMaintainerRegistry = indexMaintainerRegistry;
+    }
+
+    /**
+     * Get the validator used to compare the local file descriptor to the descriptor included
+     * in the meta-data proto. By default, this instance is set to the {@link MetaDataEvolutionValidator}'s
+     * {@linkplain MetaDataEvolutionValidator#getDefaultInstance() default instance}, but the
+     * user may provide their own through {@link #setEvolutionValidator(MetaDataEvolutionValidator)}
+     * if they want to tweak certain validator options.
+     *
+     * @return the validator used to check the local file descriptor against the one in the meta-data proto
+     * @see #setLocalFileDescriptor(Descriptors.FileDescriptor)
+     * @see MetaDataEvolutionValidator
+     */
+    @Nonnull
+    public MetaDataEvolutionValidator getEvolutionValidator() {
+        return evolutionValidator;
+    }
+
+    /**
+     * Set the validator used to compare the local file descriptor to the descriptor included
+     * in the meta-data proto. As this validator is used only to check whether the local file descriptor
+     * is compatible with the records descriptor set in {@link #setRecords(RecordMetaDataProto.MetaData) setRecords()}
+     * through the meta-data proto, this method must be called before {@code setRecords()}.
+     *
+     * @param evolutionValidator the validator used to check the local file descriptor against the one in the meta-data proto
+     * @return this builder
+     * @see #setLocalFileDescriptor(Descriptors.FileDescriptor)
+     * @see MetaDataEvolutionValidator
+     */
+    @Nonnull
+    public RecordMetaDataBuilder setEvolutionValidator(@Nonnull MetaDataEvolutionValidator evolutionValidator) {
+        if (recordsDescriptor != null) {
+            throw new MetaDataException("Records already set.");
+        }
+        this.evolutionValidator = evolutionValidator;
+        return this;
     }
 
     @Nonnull

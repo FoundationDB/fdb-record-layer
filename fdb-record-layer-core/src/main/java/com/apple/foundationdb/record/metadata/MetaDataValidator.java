@@ -41,13 +41,18 @@ public class MetaDataValidator implements RecordMetaDataProvider {
     protected final RecordMetaData metaData;
     @Nonnull
     protected final IndexValidatorRegistry indexRegistry;
+    @Nonnull
     protected final Map<Object, Index> assignedPrefixes;
+    @Nonnull
+    protected final Map<Object, FormerIndex> assignedFormerPrefixes;
+    @Nonnull
     protected final Map<Object, RecordType> recordTypeKeys;
 
     public MetaDataValidator(@Nonnull RecordMetaDataProvider metaData, @Nonnull IndexValidatorRegistry indexRegistry) {
         this.metaData = metaData.getRecordMetaData();
         this.indexRegistry = indexRegistry;
         this.assignedPrefixes = new HashMap<>();
+        this.assignedFormerPrefixes = new HashMap<>();
         this.recordTypeKeys = new HashMap<>();
     }
 
@@ -57,7 +62,7 @@ public class MetaDataValidator implements RecordMetaDataProvider {
             throw new MetaDataException("No record types defined in meta-data");
         }
         metaData.getRecordTypes().values().forEach(this::validateRecordType);
-        metaData.getAllIndexes().forEach(this::validateIndex);
+        validateCurrentAndFormerIndexes();
     }
 
     protected void validateUnionDescriptor(Descriptors.Descriptor unionDescriptor) {
@@ -82,6 +87,11 @@ public class MetaDataValidator implements RecordMetaDataProvider {
                                             " used by both " + recordType.getName() + " and " + otherRecordType.getName());
             }
         }
+        if (recordType.getSinceVersion() != null && recordType.getSinceVersion() > metaData.getVersion()) {
+            throw new MetaDataException("Record type " + recordType.getName() + " has since version of " +
+                                        recordType.getSinceVersion() + " which is greater than the meta-data version " +
+                                        metaData.getVersion());
+        }
     }
 
     protected void validatePrimaryKeyForRecordType(@Nonnull KeyExpression primaryKey, @Nonnull RecordType recordType) {
@@ -92,12 +102,61 @@ public class MetaDataValidator implements RecordMetaDataProvider {
         }
     }
 
+    protected void validateCurrentAndFormerIndexes() {
+        metaData.getAllIndexes().forEach(this::validateIndex);
+        metaData.getFormerIndexes().forEach(this::validateFormerIndex);
+        for (Map.Entry<Object, Index> assignedPrefixEntry : assignedPrefixes.entrySet()) {
+            final Object indexSubspaceKey = assignedPrefixEntry.getKey();
+            final FormerIndex formerIndex = assignedFormerPrefixes.get(indexSubspaceKey);
+            if (formerIndex != null) {
+                throw new MetaDataException("Same subspace key " + indexSubspaceKey +
+                                            " used by index " + assignedPrefixEntry.getValue().getName() +
+                                            " and former index" + (formerIndex.getFormerName() == null ? "" : (" " + formerIndex.getFormerName())));
+            }
+        }
+    }
+
     protected void validateIndex(@Nonnull Index index) {
         indexRegistry.getIndexValidator(index).validate(this);
         final Index otherIndex = assignedPrefixes.put(index.getSubspaceKey(), index);
         if (otherIndex != null) {
             throw new MetaDataException("Same subspace key " + index.getSubspaceKey() +
                                         " used by both " + index.getName() + " and " + otherIndex.getName());
+        }
+        if (index.getAddedVersion() > metaData.getVersion()) {
+            throw new MetaDataException("Index " + index.getName() + " has added version " +
+                                        index.getAddedVersion() + " which is greater than the meta-data version " +
+                                        metaData.getVersion());
+        }
+        if (index.getLastModifiedVersion() > metaData.getVersion()) {
+            throw new MetaDataException("Index " + index.getName() + " has last modified version " +
+                                        index.getLastModifiedVersion() + " which is greater than the meta-data version " +
+                                        metaData.getVersion());
+        }
+    }
+
+    protected void validateFormerIndex(@Nonnull FormerIndex formerIndex) {
+        final FormerIndex otherFormerIndex = assignedFormerPrefixes.put(formerIndex.getSubspaceKey(), formerIndex);
+        if (otherFormerIndex != null) {
+            final String indexNameString = (formerIndex.getFormerName() == null ? "<unknown>" : formerIndex.getFormerName()) +
+                                           " and " + (otherFormerIndex.getFormerName() == null ? "<unknown>" : otherFormerIndex.getFormerName());
+            throw new MetaDataException("Same subspace key " + formerIndex.getSubspaceKey() +
+                                        " used by two former indexes " + indexNameString);
+        }
+        if (formerIndex.getAddedVersion() > formerIndex.getRemovedVersion()) {
+            throw new MetaDataException("Former index" + (formerIndex.getFormerName() == null ? "" : (" " + formerIndex.getFormerName())) +
+                                        " has added version " + formerIndex.getAddedVersion() +
+                                        " which is greater than the removed version " + formerIndex.getRemovedVersion());
+        }
+        if (formerIndex.getAddedVersion() > metaData.getVersion()) {
+            throw new MetaDataException("Former index" + (formerIndex.getFormerName() == null ? "" : (" " + formerIndex.getFormerName())) +
+                                        " has added version " + formerIndex.getAddedVersion() +
+                                        " which is greater than the meta-data version " + metaData.getVersion());
+        }
+        if (formerIndex.getRemovedVersion() > metaData.getVersion()) {
+            throw new MetaDataException("Former index" + (formerIndex.getFormerName() == null ? "" : (" " + formerIndex.getFormerName())) +
+                                        " has removed version " + formerIndex.getRemovedVersion() +
+                                        " which is greater than the meta-data version " + metaData.getVersion());
         }
     }
 
@@ -107,6 +166,7 @@ public class MetaDataValidator implements RecordMetaDataProvider {
         }
     }
 
+    @Nonnull
     public List<Descriptors.FieldDescriptor> validateIndexForRecordType(@Nonnull Index index, @Nonnull RecordType recordType) {
         return index.validate(recordType.getDescriptor());
     }

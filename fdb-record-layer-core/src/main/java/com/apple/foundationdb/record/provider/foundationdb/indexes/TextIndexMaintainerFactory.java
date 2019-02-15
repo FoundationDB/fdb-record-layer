@@ -21,9 +21,12 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -32,11 +35,13 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Supplier of {@link TextIndexMaintainer}s, that is, of index maintainers for the full text
@@ -45,7 +50,15 @@ import java.util.List;
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.EXPERIMENTAL)
 public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
+    @Nonnull
     private static final List<String> TYPES = Collections.singletonList(IndexTypes.TEXT);
+    @Nonnull
+    private static final Set<String> TEXT_OPTIONS = ImmutableSet.of(
+            IndexOptions.TEXT_TOKENIZER_NAME_OPTION,
+            IndexOptions.TEXT_TOKENIZER_VERSION_OPTION,
+            IndexOptions.TEXT_OMIT_POSITIONS_OPTION,
+            IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION
+    );
 
     /**
      * A list containing only the name of the "{@value IndexTypes#TEXT}" index type.
@@ -110,6 +123,69 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
                         throw new KeyExpression.InvalidExpressionException("text index does not allow a repeated field for text body");
                     }
                 }
+            }
+
+            /**
+             * Validate any options that have changed. There are several options unique to text indexes which
+             * may change without requiring the index be rebuilt. They are:
+             *
+             * <ul>
+             *     <li>{@link IndexOptions#TEXT_TOKENIZER_VERSION_OPTION} which can be increased (but not decreased)</li>
+             *     <li>{@link IndexOptions#TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION} which only affects what conflict ranges
+             *          are added at index update time and thus has no impact on the on-disk representation</li>
+             *     <li>{@link IndexOptions#TEXT_OMIT_POSITIONS_OPTION} which changes whether the position lists are included
+             *          in index entries</li>
+             * </ul>
+             *
+             * <p>
+             * Note that the {@link IndexOptions#TEXT_TOKENIZER_NAME_OPTION} is <em>not</em> allowed to change
+             * (without rebuilding the index).
+             * </p>
+             *
+             * @param oldIndex an older version of this index
+             * @param changedOptions the set of changed options
+             */
+            @Override
+            protected void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
+                for (String changedOption : changedOptions) {
+                    switch (changedOption) {
+                        case IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION:
+                        case IndexOptions.TEXT_OMIT_POSITIONS_OPTION:
+                            // These options either don't affect the on-disk format or can be changed
+                            // without breaking compatibility.
+                            break;
+                        case IndexOptions.TEXT_TOKENIZER_NAME_OPTION:
+                            String oldTokenizerName = TextIndexMaintainer.getTokenizer(oldIndex).getName();
+                            String newTokenizerName = TextIndexMaintainer.getTokenizer(index).getName();
+                            if (!oldTokenizerName.equals(newTokenizerName)) {
+                                throw new MetaDataException("text tokenizer changed",
+                                        LogMessageKeys.INDEX_NAME, index.getName());
+                            }
+                            break;
+                        case IndexOptions.TEXT_TOKENIZER_VERSION_OPTION:
+                            // The tokenizer version should always go up.
+                            int oldTokenizerVersion = TextIndexMaintainer.getIndexTokenizerVersion(oldIndex);
+                            int newTokenizerVersion = TextIndexMaintainer.getIndexTokenizerVersion(index);
+                            if (oldTokenizerVersion > newTokenizerVersion) {
+                                throw new MetaDataException("text tokenizer version downgraded",
+                                        LogMessageKeys.INDEX_NAME, index.getName(),
+                                        LogMessageKeys.OLD_VERSION, oldTokenizerVersion,
+                                        LogMessageKeys.NEW_VERSION, newTokenizerVersion);
+                            }
+                            break;
+                        default:
+                            // Changed options that are not text options will be handled by super class
+                            if (TEXT_OPTIONS.contains(changedOption)) {
+                                throw new MetaDataException("index option changed",
+                                        LogMessageKeys.INDEX_NAME, index.getName(),
+                                        LogMessageKeys.INDEX_OPTION, changedOption,
+                                        LogMessageKeys.OLD_OPTION, oldIndex.getOption(changedOption),
+                                        LogMessageKeys.NEW_OPTION, index.getOption(changedOption));
+                            }
+                    }
+                }
+                changedOptions.removeAll(TEXT_OPTIONS);
+                super.validateChangedOptions(oldIndex, changedOptions);
             }
         };
     }

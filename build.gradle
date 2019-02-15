@@ -209,6 +209,7 @@ subprojects {
             javadoc {
                 // exclude generated Protobuf classes
                 exclude "**/*Proto.java"
+                exclude "**/*ProtoV3.java"
                 // warnings are errors
                 options.addBooleanOption('Xwerror', true)
                 options.with {

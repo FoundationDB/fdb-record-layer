@@ -309,6 +309,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("stats$school");
             metaData.addIndex("RestaurantReviewer", "stats$school", field("stats").nest(concatenateFields("school_name", "start_date")));
+            metaData.getIndex("stats$school").setSubspaceKey("stats$school_2");
         };
         nestedWithAndSetup(hook);
 
@@ -352,6 +353,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("stats$school");
             metaData.addIndex("RestaurantReviewer", "stats$school", concat(field("name"), field("stats").nest(field("start_date"))));
+            metaData.getIndex("stats$school").setSubspaceKey("stats$school_2");
         };
         nestedWithAndSetup(hook);
 

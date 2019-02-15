@@ -100,6 +100,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                     KeyExpression root = metadata.getIndex(indexName).getRootExpression();
                     metadata.removeIndex(indexName);
                     metadata.addIndex("MySimpleRecord", new Index(indexName, root, "FAKE_TYPE"));
+                    metadata.getIndex(indexName).setSubspaceKey(indexName + "_2");
                 }, new PlannableIndexTypes(Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION, "FAKE_TYPE"),
                         PlannableIndexTypes.DEFAULT.getRankTypes(), PlannableIndexTypes.DEFAULT.getTextTypes())));
     }

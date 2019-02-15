@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
@@ -69,10 +70,14 @@ import java.util.concurrent.CompletableFuture;
 public class RankIndexMaintainer extends StandardIndexMaintainer {
     private final int nlevels;
 
+    static int getNLevels(@Nonnull Index index) {
+        String nlevelsOption = index.getOption(IndexOptions.RANK_NLEVELS);
+        return nlevelsOption == null ? RankedSet.DEFAULT_LEVELS : Integer.parseInt(nlevelsOption);
+    }
+
     public RankIndexMaintainer(IndexMaintainerState state) {
         super(state);
-        String nlevelsOption = state.index.getOption(IndexOptions.RANK_NLEVELS);
-        this.nlevels = nlevelsOption == null ? RankedSet.DEFAULT_LEVELS : Integer.parseInt(nlevelsOption);
+        this.nlevels = getNLevels(state.index);
     }
 
     @Nonnull

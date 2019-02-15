@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -73,6 +75,8 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     private Descriptors.FileDescriptor localFileDescriptor;
     @Nullable
     private ExtensionRegistry extensionRegistry;
+    @Nonnull
+    private MetaDataEvolutionValidator evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
     @Nullable
     private RecordMetaData recordMetaData;
     @Nullable
@@ -106,6 +110,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Get the local meta-data file descriptor.
      * See {@link RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)} for more information.
      * @return the local meta-data file descriptor
+     * @see RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)
      */
     @Nullable
     public Descriptors.FileDescriptor getLocalFileDescriptor() {
@@ -123,10 +128,50 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * </p>
      *
      * @param localFileDescriptor the local descriptor of the meta-data
+     * @see RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)
      */
-    @Nonnull
     public void setLocalFileDescriptor(@Nullable Descriptors.FileDescriptor localFileDescriptor) {
         this.localFileDescriptor = localFileDescriptor;
+    }
+
+    /**
+     * Get the validator used when saving a new version of the meta-data to ensure the new meta-data is a valid
+     * evolution of the old meta-data. By default, this is the the {@link MetaDataEvolutionValidator}'s
+     * {@linkplain MetaDataEvolutionValidator#getDefaultInstance() default instance}, but the user can tweak
+     * the validator's options by supplying a different validator through {@link #setEvolutionValidator(MetaDataEvolutionValidator)}.
+     * See {@link #setEvolutionValidator(MetaDataEvolutionValidator)} for more details.
+     *
+     * @return the validator used to ensure the new meta-data is a valid evolution of the existing meta-data
+     * @see #setEvolutionValidator(MetaDataEvolutionValidator)
+     * @see MetaDataEvolutionValidator
+     */
+    @Nonnull
+    public MetaDataEvolutionValidator getEvolutionValidator() {
+        return evolutionValidator;
+    }
+
+    /**
+     * Set the validator used when saving a new version of the meta-data to ensure the new meta-data is a valid
+     * evolution of the old meta-data. See {@link #getEvolutionValidator()} for more details.
+     *
+     * <p>
+     * Whenever the meta-data store, saves a new version of the meta-data (through, for example, {@link #saveRecordMetaData(RecordMetaDataProvider)}),
+     * the existing meta-data from the store is read. The new and existing meta-data are then compared, and an error
+     * is thrown if the new meta-data is not a valid evolution of the existing meta-data. See {@link MetaDataEvolutionValidator}
+     * for more details on how the meta-data should be evolved.
+     * </p>
+     *
+     * <p>
+     * If one sets a {@linkplain #setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor}, then this
+     * validator is also used to make sure that the local file descriptor is compatible with the file descriptor within
+     * the meta-data proto retrieved from the database.
+     * </p>
+     *
+     * @param evolutionValidator the validator used to ensure the new meta-data is a valid evolution of the existing meta-data
+     * @see MetaDataEvolutionValidator
+     */
+    public void setEvolutionValidator(@Nonnull MetaDataEvolutionValidator evolutionValidator) {
+        this.evolutionValidator = evolutionValidator;
     }
 
     @Nullable
@@ -242,13 +287,20 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     }
 
     @Nonnull
-    protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto, boolean validate) {
-        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().addDependencies(dependencies);
-        if (localFileDescriptor != null) {
+    private RecordMetaData buildMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto, boolean validate, boolean useLocalFileDescriptor) {
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder()
+                .addDependencies(dependencies)
+                .setEvolutionValidator(evolutionValidator);
+        if (useLocalFileDescriptor && localFileDescriptor != null) {
             builder.setLocalFileDescriptor(localFileDescriptor);
         }
         builder.setRecords(metaDataProto);
         return builder.build(validate);
+    }
+
+    @Nonnull
+    protected RecordMetaData buildMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto, boolean validate) {
+        return buildMetaData(metaDataProto, validate, true);
     }
 
     public CompletableFuture<RecordMetaData> loadVersion(int version) {
@@ -264,12 +316,13 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param metaDataProto the Protobuf form of the meta-data to save
      * @return a future that completes when the save is done
      */
+    @Nonnull
     public CompletableFuture<Void> saveAndSetCurrent(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
         RecordMetaData validatedMetaData = buildMetaData(metaDataProto, true);
 
         // Load even if not maintaining history so as to get compatibility upgrade before (over-)writing.
         CompletableFuture<Void> future = loadCurrentSerialized().thenApply(oldSerialized -> {
-            if (oldSerialized != null && maintainHistory) {
+            if (oldSerialized != null) {
                 RecordMetaDataProto.MetaData oldProto = parseMetaDataProto(oldSerialized);
                 int oldVersion = oldProto.getVersion();
                 if (metaDataProto.getVersion() <= oldVersion) {
@@ -277,9 +330,16 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                             subspaceProvider.logKey(), subspaceProvider,
                             "old", oldVersion,
                             "new", metaDataProto.getVersion()));
-                    throw new RecordCoreException("meta-data version must increase when history is maintained");
+                    throw new MetaDataException("meta-data version must increase");
                 }
-                SplitHelper.saveWithSplit(context, getSubspace(), HISTORY_KEY_PREFIX.add(oldVersion), oldSerialized, null);
+                // Build the meta-data, but don't use the local file descriptor as this should validate the original descriptors
+                // against each other.
+                RecordMetaData oldMetaData = buildMetaData(oldProto, true, false);
+                RecordMetaData newMetaData = buildMetaData(metaDataProto, true, false);
+                evolutionValidator.validate(oldMetaData, newMetaData);
+                if (maintainHistory) {
+                    SplitHelper.saveWithSplit(context, getSubspace(), HISTORY_KEY_PREFIX.add(oldVersion), oldSerialized, null);
+                }
             }
             return null;
         });
