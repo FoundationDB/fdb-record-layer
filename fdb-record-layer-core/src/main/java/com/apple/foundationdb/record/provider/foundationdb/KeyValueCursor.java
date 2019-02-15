@@ -269,7 +269,7 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
      *
      * <pre><code>
      * KeyValueCursor.Builder.withSubspace(subspace)
-     *                     .setContext(context)
+     *                     .setRecordContext(context)
      *                     .setRange(TupleRange.ALL)
      *                     .setContinuation(null)
      *                     .setScanProperties(ScanProperties.FORWARD_SCAN)

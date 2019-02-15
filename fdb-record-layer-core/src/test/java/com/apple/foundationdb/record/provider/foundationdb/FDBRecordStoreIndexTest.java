@@ -1639,7 +1639,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             }
 
             IndexMaintenanceFilter noneFilter = (i, r) -> IndexMaintenanceFilter.IndexValues.NONE;
-            FDBRecordStore fdbRecordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData).setKeySpacePath(path)
+            FDBRecordStore fdbRecordStore = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(metaData).setKeySpacePath(path)
                     .setIndexMaintenanceFilter(noneFilter)
                     .uncheckedOpen();
 
@@ -1719,7 +1719,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             if (withCount) {
                 builder.addUniversalIndex(COUNT_INDEX);
             }
-            recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
+            recordStore = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
                     .setUserVersionChecker(alwaysEnabled).createOrOpen();
             assertTrue(recordStore.getRecordStoreState().isReadable(COUNT_INDEX.getName()));
             TestNoIndexesProto.MySimpleRecord recordA = TestNoIndexesProto.MySimpleRecord.newBuilder()
@@ -1739,7 +1739,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             }
             builder.addIndex(recordType, originalIndex);
 
-            recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
+            recordStore = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
                     .setUserVersionChecker(alwaysDisabled).createOrOpen();
 
             assertEquals(ImmutableSet.of("index"), recordStore.getRecordStoreState().getDisabledIndexNames());
@@ -1755,7 +1755,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             builder.removeIndex(originalIndex.getName());
             builder.addIndex(recordType, newIndex);
 
-            recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
+            recordStore = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
                     .setUserVersionChecker(alwaysDisabled).createOrOpen();
             assertEquals(ImmutableSet.of("index"), recordStore.getRecordStoreState().getDisabledIndexNames());
 
@@ -1771,7 +1771,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void testChangeIndexDefinitionWriteOnly() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
-            recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
+            recordStore = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
             // Save 200 records without any indexes.
             for (int i = 0; i < 200; i++) {
                 TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
@@ -1785,7 +1785,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             final Index index = new Index("index", "rec_no");
             builder.addIndex("MySimpleRecord", index);
-            recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
+            recordStore = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
             // Since there were 200 records already, the new index is write-only.
             assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
             // Add 100 more records. Only these records will be stored in the new index.
@@ -1803,7 +1803,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             builder.setVersion(builder.getVersion() + 100);
             builder.addIndex("MySimpleRecord", index);
-            recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
+            recordStore = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
             recordMetaData = recordStore.getRecordMetaData();
             // The changed index is again write-only because there are 300 records.
             assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
@@ -1820,7 +1820,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
-            recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(recordMetaData).setKeySpacePath(path).createOrOpen();
+            recordStore = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(recordMetaData).setKeySpacePath(path).createOrOpen();
             // New index is fully readable.
             assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(index.getName()));
             List<Long> indexed = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
@@ -1861,7 +1861,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 .setUserVersionChecker(selectiveEnable).setMetaDataProvider(metaData);
 
         try (FDBRecordContext context = openContext()) {
-            recordStore = storeBuilder.setContext(context).setKeySpacePath(path).create(); // builds count index
+            recordStore = storeBuilder.setRecordContext(context).setKeySpacePath(path).create(); // builds count index
             assertTrue(recordStore.getRecordStoreState().isReadable(COUNT_INDEX.getName()));
             TestNoIndexesProto.MySimpleRecord recordA = TestNoIndexesProto.MySimpleRecord.newBuilder()
                     .setNumValue(3).setStrValue("boo").build();
@@ -1872,13 +1872,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             metaData.addIndex("MySimpleRecord", "index-1", "num_value");
             metaData.addIndex("MySimpleRecord", "index-2", "str_value");
 
-            recordStore = storeBuilder.setContext(context).setKeySpacePath(path).open(); // builds index-2, disables index-1
+            recordStore = storeBuilder.setRecordContext(context).setKeySpacePath(path).open(); // builds index-2, disables index-1
 
             assertEquals(ImmutableSet.of("index-1"), recordStore.getRecordStoreState().getDisabledIndexNames());
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
-            recordStore = storeBuilder.setContext(context).setKeySpacePath(path).open();
+            recordStore = storeBuilder.setRecordContext(context).setKeySpacePath(path).open();
             recordStore.clearAndMarkIndexWriteOnly("index-1").join();
             context.commit();
         }
@@ -1886,7 +1886,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
-            recordStore = storeBuilder.setContext(context).setKeySpacePath(path).open(); // does not disable anything
+            recordStore = storeBuilder.setRecordContext(context).setKeySpacePath(path).open(); // does not disable anything
             assertEquals(Collections.emptySet(), recordStore.getRecordStoreState().getDisabledIndexNames());
             context.commit();
         }

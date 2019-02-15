@@ -291,7 +291,7 @@ public class FDBDatabaseTest extends FDBTestBase {
                 .build();
 
         database.run(context -> {
-            FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
+            FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setRecordContext(context)
                     .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                     .build();
             store.deleteAllRecords();
@@ -304,7 +304,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     private static TestRecords1Proto.MySimpleRecord retrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData, long recordNumber) {
         // Tests to make sure the database operations are run and committed.
         TestRecords1Proto.MySimpleRecord retrieved = database.run(context -> {
-            FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
+            FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setRecordContext(context)
                     .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                     .build();
             TestRecords1Proto.MySimpleRecord.Builder builder = TestRecords1Proto.MySimpleRecord.newBuilder();

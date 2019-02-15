@@ -177,7 +177,7 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
         int n = 0;
         while (n < databaseParameters.recordCount) {
             try (FDBRecordContext context = fdb.openContext()) {
-                FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
+                FDBRecordStore recordStore = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(metaData)
                         .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
                         .uncheckedOpen();
                 if (n == 0) {
@@ -238,7 +238,7 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
                 if (databaseParameters.disableReadYourWrites) {
                     context.ensureActive().options().setReadYourWritesDisable();
                 }
-                FDBRecordStore store = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
+                FDBRecordStore store = FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(metaData)
                         .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
                         .setPipelineSizer(parameters)
                         .uncheckedOpen();
@@ -295,7 +295,7 @@ public class FDBRecordStorePerformanceTest extends FDBTestBase {
             if (databaseParameters.disableReadYourWrites) {
                 context.ensureActive().options().setReadYourWritesDisable();
             }
-            return FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(metaData)
+            return FDBRecordStore.newBuilder().setRecordContext(context).setMetaDataProvider(metaData)
                     .setKeySpacePath(TestKeySpace.getKeyspacePath(databaseParameters.path))
                     .setPipelineSizer(parameters)
                     .uncheckedOpenAsync().thenCompose(store -> {

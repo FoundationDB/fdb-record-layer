@@ -233,7 +233,7 @@ public class VersionIndexTest extends FDBTestBase {
         FDBRecordContext context = fdb.openContext();
         recordStore = FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaDataBuilder)
-                .setContext(context)
+                .setRecordContext(context)
                 .setSubspace(subspace)
                 .setFormatVersion(formatVersion)
                 .createOrOpen();

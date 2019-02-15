@@ -109,14 +109,14 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
 
     protected void createOrOpenRecordStore(FDBRecordContext context, RecordMetaData metaData) {
         recordStore = FDBRecordStore.newBuilder()
-                .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
+                .setRecordContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
                 .createOrOpen();
         setupPlanner(null);
     }
 
     protected void uncheckedOpenRecordStore(FDBRecordContext context, RecordMetaData metaData) {
         recordStore = FDBRecordStore.newBuilder()
-                .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
+                .setRecordContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
                 .uncheckedOpen();
         setupPlanner(null);
     }
@@ -167,7 +167,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
 
     public void openSimpleRecordStoreWithSingletonPipeline(FDBRecordContext context) {
         recordStore = FDBRecordStore.newBuilder()
-                .setContext(context)
+                .setRecordContext(context)
                 .setKeySpacePath(path)
                 .setMetaDataProvider(simpleMetaData(NO_HOOK))
                 .setPipelineSizer(operation -> 1)

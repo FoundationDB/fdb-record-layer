@@ -148,7 +148,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             testStoreAndRetrieveSimpleRecord(database, metaData);
 
             runner.run(context -> {
-                FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
+                FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setRecordContext(context)
                         .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                         .build();
                 store.deleteRecord(Tuple.from(1066L));
@@ -156,7 +156,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             });
 
             FDBStoredRecord<Message> retrieved2 = runner.run(context -> {
-                FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
+                FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setRecordContext(context)
                         .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                         .build();
                 return store.loadRecord(Tuple.from(1066L));
@@ -285,14 +285,14 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
 
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.runAsync(context -> {
-                FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
+                FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setRecordContext(context)
                         .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                         .build();
                 return store.deleteRecordAsync(Tuple.from(1066L));
             }).join();
 
             FDBStoredRecord<Message> retrieved2 = runner.runAsync(context -> {
-                FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
+                FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setRecordContext(context)
                         .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
                         .build();
                 return store.loadRecordAsync(Tuple.from(1066L));

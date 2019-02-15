@@ -76,7 +76,7 @@ public class FDBTypedRecordStoreTest extends FDBTestBase {
 
     public void openTypedRecordStore(FDBRecordContext context) throws Exception {
         recordStore = BUILDER.copyBuilder()
-                .setContext(context)
+                .setRecordContext(context)
                 .setKeySpacePath(TestKeySpace.getKeyspacePath("record-test", "unit", "typedtest"))
                 .createOrOpen();
     }

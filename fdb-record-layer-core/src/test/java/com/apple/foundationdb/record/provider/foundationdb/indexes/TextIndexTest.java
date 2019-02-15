@@ -2947,7 +2947,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             List<SimpleDocument> batchDocuments = workerDocs.subList(j, j + 10);
                             fdb.run(context -> {
                                 try {
-                                    FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+                                    FDBRecordStore store = storeBuilder.copyBuilder().setRecordContext(context).open();
                                     for (SimpleDocument document : batchDocuments) {
                                         store.saveRecord(document);
                                     }

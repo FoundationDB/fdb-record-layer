@@ -155,7 +155,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
                 path.deleteAllData(context);
             }
 
-            recordStore = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context).setKeySpacePath(path).build();
+            recordStore = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setRecordContext(context).setKeySpacePath(path).build();
             planner = new RecordQueryPlanner(metaData, recordStore.getRecordStoreState());
         }
 
@@ -1133,13 +1133,13 @@ public class LeaderboardIndexTest extends FDBTestBase {
             context1.ensureActive().options().setTransactionLoggingEnable("tr1");
         }
         Leaderboards leaderboards1 = new FlatLeaderboards();
-        leaderboards1.recordStore = leaderboards.recordStore.asBuilder().setContext(context1).build();
+        leaderboards1.recordStore = leaderboards.recordStore.asBuilder().setRecordContext(context1).build();
         FDBRecordContext context2 = openContext();
         if (TRACE) {
             context2.ensureActive().options().setTransactionLoggingEnable("tr2");
         }
         Leaderboards leaderboards2 = new FlatLeaderboards();
-        leaderboards2.recordStore = leaderboards.recordStore.asBuilder().setContext(context2).build();
+        leaderboards2.recordStore = leaderboards.recordStore.asBuilder().setRecordContext(context2).build();
 
         leaderboards1.addScores("player-1", "game-1", 101, 10100, 0);
         leaderboards2.addScores("player-2", "game-1", 102, 10100, 0);
@@ -1189,7 +1189,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
                 int pass = i;
                 fdb.run(metrics, null, context -> {
                     context.ensureActive().options().setTransactionLoggingEnable(String.format("t-%d-%d", n, pass));
-                    privateLeaderboards.recordStore = builder.setContext(context).build();
+                    privateLeaderboards.recordStore = builder.setRecordContext(context).build();
                     privateLeaderboards.addScores(player, "game-1", score, 10100, 0);
                     return null;
                 });

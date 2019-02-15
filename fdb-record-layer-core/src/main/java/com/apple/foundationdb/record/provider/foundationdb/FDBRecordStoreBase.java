@@ -1561,7 +1561,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return context the record context / transaction to use
          */
         @Nullable
-        FDBRecordContext getContext();
+        FDBRecordContext getRecordContext();
 
         /**
          * Set the record context (transaction) to use for the record store.
@@ -1569,7 +1569,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return this builder
          */
         @Nonnull
-        BaseBuilder<M, R> setContext(@Nullable FDBRecordContext context);
+        BaseBuilder<M, R> setRecordContext(@Nullable FDBRecordContext context);
 
         /**
          * Get the subspace provider.
@@ -1675,8 +1675,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * This can be used to share enough of the state to connect to the same record store several times in different transactions.
          * <pre>
          *     builder = FDBRecordStore.newBuilder().setMetaDataProvider(metadata).setSubspace(subspace)
-         *     store1 = builder.copyBuilder().setContext(context1).build()
-         *     store2 = builder.copyBuilder().setContext(context2).build()
+         *     store1 = builder.copyBuilder().setRecordContext(context1).build()
+         *     store2 = builder.copyBuilder().setRecordContext(context2).build()
          * </pre>
          * @return a new builder with the same state as this builder
          */
@@ -1696,7 +1696,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          */
         @Nonnull
         default R uncheckedOpen() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE, uncheckedOpenAsync());
+            return getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE, uncheckedOpenAsync());
         }
 
         /**
@@ -1705,7 +1705,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          */
         @Nonnull
         default R create() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createAsync());
+            return getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createAsync());
         }
 
         /**
@@ -1714,7 +1714,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          */
         @Nonnull
         default R open() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, openAsync());
+            return getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, openAsync());
         }
 
         /**
@@ -1723,7 +1723,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          */
         @Nonnull
         default R createOrOpen() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync());
+            return getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync());
         }
 
         /**
@@ -1733,7 +1733,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          */
         @Nonnull
         default R createOrOpen(@Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync(existenceCheck));
+            return getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync(existenceCheck));
         }
 
         /**

@@ -186,7 +186,7 @@ public class OnlineIndexerTest extends FDBTestBase {
     private FDBRecordContext openContext(boolean checked) {
         FDBRecordContext context = fdb.openContext();
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
-                .setMetaDataProvider(metaData).setContext(context).setSubspace(subspace);
+                .setMetaDataProvider(metaData).setRecordContext(context).setSubspace(subspace);
         if (checked) {
             recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
         } else {
@@ -343,7 +343,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                 while (i < recordsWhileBuilding.size()) {
                     List<TestRecords1Proto.MySimpleRecord> thisBatch = recordsWhileBuilding.subList(i, Math.min(i + 30, recordsWhileBuilding.size()));
                     fdb.run(context -> {
-                        FDBRecordStore store = recordStore.asBuilder().setContext(context).build();
+                        FDBRecordStore store = recordStore.asBuilder().setRecordContext(context).build();
                         thisBatch.forEach(store::saveRecord);
                         return null;
                     });
@@ -1679,7 +1679,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                 context.ensureActive().getReadVersion().join();
                 try (FDBRecordContext context2 = fdb.openContext()) {
                     context2.ensureActive().getReadVersion().join();
-                    FDBRecordStore recordStore2 = recordStore.asBuilder().setContext(context2).build();
+                    FDBRecordStore recordStore2 = recordStore.asBuilder().setRecordContext(context2).build();
 
                     indexBuilder.buildUnbuiltRange(recordStore, null, Key.Evaluated.scalar(5L)).join();
                     recordStore2.saveRecord(records.get(8));
@@ -1785,7 +1785,7 @@ public class OnlineIndexerTest extends FDBTestBase {
             Tuple ret;
             try (FDBRecordContext context = openContext()) {
                 assertTrue(recordStore.uncheckedMarkIndexReadable(index.getName()).join());
-                FDBRecordStore recordStore2 = recordStore.asBuilder().setContext(context).uncheckedOpen();
+                FDBRecordStore recordStore2 = recordStore.asBuilder().setRecordContext(context).uncheckedOpen();
                 ret = recordStore2.evaluateAggregateFunction(indexTypes, aggregateFunction, TupleRange.ALL, IsolationLevel.SERIALIZABLE).join();
                 // Do NOT commit the change.
             }
@@ -1917,7 +1917,7 @@ public class OnlineIndexerTest extends FDBTestBase {
             Tuple ret;
             try (FDBRecordContext context = openContext()) {
                 assertTrue(recordStore.uncheckedMarkIndexReadable(index.getName()).join());
-                FDBRecordStore recordStore2 = recordStore.asBuilder().setContext(context).uncheckedOpen();
+                FDBRecordStore recordStore2 = recordStore.asBuilder().setRecordContext(context).uncheckedOpen();
                 ret = recordStore2.evaluateAggregateFunction(indexTypes, aggregateFunction, TupleRange.ALL, IsolationLevel.SERIALIZABLE).join();
                 // Do NOT commit changes
             }
@@ -2007,7 +2007,7 @@ public class OnlineIndexerTest extends FDBTestBase {
             Tuple ret;
             try (FDBRecordContext context = openContext()) {
                 assertTrue(recordStore.uncheckedMarkIndexReadable(index.getName()).join());
-                FDBRecordStore recordStore2 = recordStore.asBuilder().setContext(context).uncheckedOpen();
+                FDBRecordStore recordStore2 = recordStore.asBuilder().setRecordContext(context).uncheckedOpen();
                 ret = recordStore2.evaluateAggregateFunction(indexTypes, aggregateFunction, TupleRange.ALL, IsolationLevel.SERIALIZABLE).join();
                 // Do NOT commit changes
             }

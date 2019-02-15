@@ -225,7 +225,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @SuppressWarnings("squid:S1452")
     private CompletableFuture<FDBRecordStore> openRecordStore(@Nonnull FDBRecordContext context) {
-        return recordStoreBuilder.copyBuilder().setContext(context).openAsync();
+        return recordStoreBuilder.copyBuilder().setRecordContext(context).openAsync();
     }
 
     @Override
@@ -879,11 +879,11 @@ public class OnlineIndexer implements AutoCloseable {
          * @see #setRecordStore
          */
         public Builder setRecordStoreBuilder(@Nonnull FDBRecordStore.Builder recordStoreBuilder) {
-            this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setContext(null);
-            if (runner == null && recordStoreBuilder.getContext() != null) {
-                runner = recordStoreBuilder.getContext().getDatabase().newRunner();
-                runner.setTimer(recordStoreBuilder.getContext().getTimer());
-                runner.setMdcContext(recordStoreBuilder.getContext().getMdcContext());
+            this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setRecordContext(null);
+            if (runner == null && recordStoreBuilder.getRecordContext() != null) {
+                runner = recordStoreBuilder.getRecordContext().getDatabase().newRunner();
+                runner.setTimer(recordStoreBuilder.getRecordContext().getTimer());
+                runner.setMdcContext(recordStoreBuilder.getRecordContext().getMdcContext());
             }
             return this;
         }
@@ -894,7 +894,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @return this builder
          */
         public Builder setRecordStore(@Nonnull FDBRecordStore recordStore) {
-            recordStoreBuilder = recordStore.asBuilder().setContext(null);
+            recordStoreBuilder = recordStore.asBuilder().setRecordContext(null);
             if (runner == null) {
                 runner = recordStore.getRecordContext().getDatabase().newRunner();
                 runner.setTimer(recordStore.getTimer());

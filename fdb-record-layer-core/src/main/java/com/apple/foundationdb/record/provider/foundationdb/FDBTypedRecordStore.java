@@ -328,14 +328,14 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         @Nullable
         @Override
-        public FDBRecordContext getContext() {
-            return untypedStoreBuilder.getContext();
+        public FDBRecordContext getRecordContext() {
+            return untypedStoreBuilder.getRecordContext();
         }
 
         @Nonnull
         @Override
-        public Builder<M> setContext(@Nullable FDBRecordContext context) {
-            untypedStoreBuilder.setContext(context);
+        public Builder<M> setRecordContext(@Nullable FDBRecordContext context) {
+            untypedStoreBuilder.setRecordContext(context);
             return this;
         }
 
@@ -513,7 +513,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
      *         MyProto.RecordTypeUnion.Builder::setMyRecord)
      *
      * final FDBTypedRecordStore&lt;MyProto.MyRecord, MyProto.RecordTypeUnion, MyProto.RecordTypeUnion.Builder&gt; store =
-     *     BUILDER.copyBuilder().setContext(ctx).setSubspace(s).createOrOpen();
+     *     BUILDER.copyBuilder().setRecordContext(ctx).setSubspace(s).createOrOpen();
      * final MyProto.MyRecord myrec1 = store.loadRecord(pkey).getRecord();
      * </code></pre>
      *

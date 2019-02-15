@@ -77,7 +77,7 @@ public class Main {
 
     public static List<String> readNames(FDBRecordStore.Builder recordStoreBuilder, FDBRecordContext cx, RecordQuery query) {
         List<String> names = new ArrayList<>();
-        FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
+        FDBRecordStore store = recordStoreBuilder.copyBuilder().setRecordContext(cx).open();
         RecordQueryPlan plan = store.planQuery(query);
         LOGGER.info("plan: {}", plan);  // The plan string works like a basic "explain" function
         try (RecordCursor<FDBQueriedRecord<Message>> cursor = store.executeQuery(plan)) {
@@ -133,7 +133,7 @@ public class Main {
         // Write records for Vendor and Item.
         LOGGER.info("Writing Vendor and Item record ...");
         fdb.run((FDBRecordContext cx) -> {
-            FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).create();
+            FDBRecordStore store = recordStoreBuilder.copyBuilder().setRecordContext(cx).create();
             store.saveRecord(SampleProto.Vendor.newBuilder()
                     .setVendorId(9375L)
                     .setVendorName("Acme")
@@ -164,7 +164,7 @@ public class Main {
         // record.
         LOGGER.info("Reading Vendor record with primary key 9375L ...");
         SampleProto.Vendor.Builder readBuilder = fdb.run((FDBRecordContext cx) -> {
-            FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
+            FDBRecordStore store = recordStoreBuilder.copyBuilder().setRecordContext(cx).open();
             return SampleProto.Vendor.newBuilder()
                     .mergeFrom(store.loadRecord(Key.Evaluated.scalar(9375L).toTuple()).getRecord());
         });
@@ -175,7 +175,7 @@ public class Main {
         LOGGER.info("Looking for item IDs with vendor ID 9375L ...");
         ArrayList<Long> ids = fdb.run((FDBRecordContext cx) -> {
             ArrayList<Long> itemIDs = new ArrayList<>();
-            FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
+            FDBRecordStore store = recordStoreBuilder.copyBuilder().setRecordContext(cx).open();
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("Item")
                     .setFilter(Query.field("vendor_id").equalsValue(9375L))
@@ -212,7 +212,7 @@ public class Main {
         // query to be satisfied with one scan of the vendor name index and another scan of the
         // item's vendor ID index (one scan per vendor).
         LOGGER.info("Grouping items by vendor ...");
-        Map<String, List<String>> namesToItems = fdb.runAsync((FDBRecordContext cx) -> recordStoreBuilder.copyBuilder().setContext(cx).openAsync().thenCompose(store -> {
+        Map<String, List<String>> namesToItems = fdb.runAsync((FDBRecordContext cx) -> recordStoreBuilder.copyBuilder().setRecordContext(cx).openAsync().thenCompose(store -> {
             // Outer plan gets all of the vendors
             RecordQueryPlan outerPlan = store.planQuery(RecordQuery.newBuilder()
                     .setRecordType("Vendor")
@@ -315,7 +315,7 @@ public class Main {
         // reading and writing, but there may be additional conflicts if the index
         // build job and normal operations happen to mutate the same records.
         RecordStoreState storeState = fdb.run(cx -> {
-            FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
+            FDBRecordStore store = recordStoreBuilder.copyBuilder().setRecordContext(cx).open();
             return store.getRecordStoreState();
         });
         LOGGER.info("Running index builds of new indexes:");
@@ -336,7 +336,7 @@ public class Main {
         // Write larger records for Customer (and Order).
         LOGGER.info("Adding records with new secondary indexes ...");
         fdb.run((FDBRecordContext cx) -> {
-            FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
+            FDBRecordStore store = recordStoreBuilder.copyBuilder().setRecordContext(cx).open();
 
             store.saveRecord(SampleProto.Customer.newBuilder()
                     .setCustomerId(9264L)
@@ -385,7 +385,7 @@ public class Main {
         // Get the record count. This uses the global count index to get the
         // full number of records in the store.
         Long recordCount = fdb.runAsync((FDBRecordContext cx) ->
-                recordStoreBuilder.copyBuilder().setContext(cx).openAsync()
+                recordStoreBuilder.copyBuilder().setRecordContext(cx).openAsync()
                         .thenCompose(FDBRecordStore::getSnapshotRecordCount)
         ).join();
         LOGGER.info("Store contains {} records.", recordCount);
@@ -433,7 +433,7 @@ public class Main {
         // Uses FanType.FanOut secondary index.
         LOGGER.info("Retrieving all customers with an email address beginning with \"john\"...");
         Map<String, List<String>> addresses = fdb.run((FDBRecordContext cx) -> {
-            FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
+            FDBRecordStore store = recordStoreBuilder.copyBuilder().setRecordContext(cx).open();
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("Customer")
                     .setFilter(Query.field("email_address").oneOfThem().startsWith("john"))
@@ -467,7 +467,7 @@ public class Main {
         names.forEach((String res) -> LOGGER.info("    Result -> {}", res));
 
         // Get the number of customers who have "books" listed as one of their preference tags
-        Long bookPreferenceCount = fdb.runAsync((FDBRecordContext cx) -> recordStoreBuilder.copyBuilder().setContext(cx).openAsync().thenCompose(store -> {
+        Long bookPreferenceCount = fdb.runAsync((FDBRecordContext cx) -> recordStoreBuilder.copyBuilder().setRecordContext(cx).openAsync().thenCompose(store -> {
             Index index = store.getRecordMetaData().getIndex("preference_tag_count");
             IndexAggregateFunction function = new IndexAggregateFunction(FunctionNames.COUNT, index.getRootExpression(), index.getName());
             return store.evaluateAggregateFunction(Collections.singletonList("Customer"), function, Key.Evaluated.scalar("books"), IsolationLevel.SERIALIZABLE)
@@ -490,7 +490,7 @@ public class Main {
         // Get the sum of the quantity of items ordered for item ID 2740.
         // Using the index, it can determine this by reading a single
         // key in the database.
-        Long itemQuantitySum = fdb.runAsync((FDBRecordContext cx) -> recordStoreBuilder.copyBuilder().setContext(cx).openAsync().thenCompose(store -> {
+        Long itemQuantitySum = fdb.runAsync((FDBRecordContext cx) -> recordStoreBuilder.copyBuilder().setRecordContext(cx).openAsync().thenCompose(store -> {
             Index index = store.getRecordMetaData().getIndex("item_quantity_sum");
             IndexAggregateFunction function = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
             return store.evaluateAggregateFunction(Collections.singletonList("Customer"), function, Key.Evaluated.scalar(2740L), IsolationLevel.SERIALIZABLE)
@@ -501,7 +501,7 @@ public class Main {
         // Get the sum of the quantity of all items ordered.
         // Using the index, it will do a scan that will hit one key
         // for each unique item id with a single range scan.
-        Long allItemsQuantitySum = fdb.runAsync((FDBRecordContext cx) -> recordStoreBuilder.copyBuilder().setContext(cx).openAsync().thenCompose(store -> {
+        Long allItemsQuantitySum = fdb.runAsync((FDBRecordContext cx) -> recordStoreBuilder.copyBuilder().setRecordContext(cx).openAsync().thenCompose(store -> {
             Index index = store.getRecordMetaData().getIndex("item_quantity_sum");
             IndexAggregateFunction function = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
             return store.evaluateAggregateFunction(Collections.singletonList("Customer"), function, TupleRange.ALL, IsolationLevel.SERIALIZABLE)

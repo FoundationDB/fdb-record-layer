@@ -2731,7 +2731,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * </ul>
      *
      * <pre><code>
-     * FDBRecordStore.newBuilder().setMetaDataProvider(md).setContext(ctx).setSubspace(s).createOrOpen()
+     * FDBRecordStore.newBuilder().setMetaDataProvider(md).setRecordContext(ctx).setSubspace(s).createOrOpen()
      * </code></pre>
      *
      */
@@ -2870,13 +2870,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         @Override
         @Nullable
-        public FDBRecordContext getContext() {
+        public FDBRecordContext getRecordContext() {
             return context;
         }
 
         @Override
         @Nonnull
-        public Builder setContext(@Nullable FDBRecordContext context) {
+        public Builder setRecordContext(@Nullable FDBRecordContext context) {
             this.context = context;
             return this;
         }
