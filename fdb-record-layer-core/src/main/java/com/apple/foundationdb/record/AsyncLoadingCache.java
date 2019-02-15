@@ -65,12 +65,11 @@ public class AsyncLoadingCache<K, V> {
      */
     public CompletableFuture<V> orElseGet(@Nonnull K key, @Nonnull Supplier<CompletableFuture<V>> supplier) {
         try {
-            return cache.get(key, () -> MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, supplier)
-                    .whenComplete((ignored, e) -> {
-                        if (e != null) {
-                            cache.invalidate(key);
-                        }
-                    }));
+            return cache.get(key, () -> MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, supplier)).whenComplete((ignored, e) -> {
+                if (e != null) {
+                    cache.invalidate(key);
+                }
+            });
         } catch (Exception e) {
             throw new RecordCoreException("failed getting value", e).addLogInfo("cacheKey", key);
         }
