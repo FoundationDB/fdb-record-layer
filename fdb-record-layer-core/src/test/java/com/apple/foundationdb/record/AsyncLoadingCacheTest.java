@@ -99,6 +99,34 @@ class AsyncLoadingCacheTest {
                     return true;
                 });
 
+        try {
+            cachedResult.orElseGet(1, supplier).join();
+            fail("should throw exception");
+        } catch (CompletionException ex) {
+            assertThat("we got the expected exception", ex.getCause(), is(instanceOf(RecordCoreException.class)));
+            assertThat("it's the test exception", ex.getCause().getMessage(), containsString("this is only a test"));
+        }
+        assertThat("before future is ready we return the in progress cached future", callCount.get(), is(1));
+
+        cachedResult.orElseGet(1, supplier).join();
+        assertThat("after cached future completes exceptionally we attempt to get the value again", callCount.get(), is(2));
+    }
+
+    @Test
+    public void testGettingImmediateFailure() {
+        AsyncLoadingCache<Integer, Boolean> cachedResult = new AsyncLoadingCache<>(30000);
+        final AtomicInteger callCount = new AtomicInteger();
+        final Supplier<CompletableFuture<Boolean>> supplier = () -> {
+            int count = callCount.getAndIncrement();
+            if (count == 0) {
+                // fail on first call
+                CompletableFuture<Boolean> future = new CompletableFuture<>();
+                RecordCoreException e = new RecordCoreException("this is only a test");
+                future.completeExceptionally(e);
+                return future;
+            }
+            return CompletableFuture.completedFuture(true);
+        };
 
         try {
             cachedResult.orElseGet(1, supplier).join();
