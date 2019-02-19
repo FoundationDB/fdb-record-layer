@@ -76,9 +76,9 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
     @Test
     public void testWriteCompatibilityScoped() {
         try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath path = keySpace.path("path").add("to").add("dirLayer");
-            LocatableResolver backwardsCompatible = scopedDirectoryGenerator.apply(context, path);
-            LocatableResolver scopedDirectoryLayer = new ScopedDirectoryLayer(context, path);
+            ResolvedKeySpacePath path = keySpace.path("path").add("to").add("dirLayer").toResolvedPath(context);
+            LocatableResolver backwardsCompatible = scopedDirectoryGenerator.apply(database, path);
+            LocatableResolver scopedDirectoryLayer = new ScopedDirectoryLayer(database, path);
 
             testReadCompatible(backwardsCompatible, scopedDirectoryLayer);
         }
@@ -87,9 +87,9 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
     @Test
     public void testReadCompatibilityScoped() {
         try (FDBRecordContext context = database.openContext()) {
-            KeySpacePath path = keySpace.path("path").add("to").add("dirLayer");
-            LocatableResolver backwardsCompatible = scopedDirectoryGenerator.apply(context, path);
-            LocatableResolver scopedDirectoryLayer = new ScopedDirectoryLayer(context, path);
+            ResolvedKeySpacePath path = keySpace.path("path").add("to").add("dirLayer").toResolvedPath(context);
+            LocatableResolver backwardsCompatible = scopedDirectoryGenerator.apply(database, path);
+            LocatableResolver scopedDirectoryLayer = new ScopedDirectoryLayer(database, path);
 
             testReadCompatible(scopedDirectoryLayer, backwardsCompatible);
         }
@@ -175,22 +175,22 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
 
     @Test
     public void testExtendedInParallelWithScopedDirectoryLayer() {
-        KeySpacePath path;
+        ResolvedKeySpacePath path;
         try (FDBRecordContext context = database.openContext()) {
-            path = keySpace.path("path").add("to").add("dirLayer");
-            ScopedDirectoryLayer scopedDirectoryLayer = new ScopedDirectoryLayer(context, path);
-            ExtendedDirectoryLayer extendedDirectoryLayer = new ExtendedDirectoryLayer(context, path);
+            path = keySpace.path("path").add("to").add("dirLayer").toResolvedPath(context);
+            ScopedDirectoryLayer scopedDirectoryLayer = new ScopedDirectoryLayer(database, path);
+            ExtendedDirectoryLayer extendedDirectoryLayer = new ExtendedDirectoryLayer(database, path);
             testParallelAllocation(false, database, extendedDirectoryLayer, scopedDirectoryLayer);
         }
     }
 
     @Test
     public void testScopedDirectoryLayerInParallelWithExtended() {
-        KeySpacePath path;
+        ResolvedKeySpacePath path;
         try (FDBRecordContext context = database.openContext()) {
-            path = keySpace.path("path").add("to").add("dirLayer");
-            ScopedDirectoryLayer scopedDirectoryLayer = new ScopedDirectoryLayer(context, path);
-            ExtendedDirectoryLayer extendedDirectoryLayer = new ExtendedDirectoryLayer(context, path);
+            path = keySpace.path("path").add("to").add("dirLayer").toResolvedPath(context);
+            ScopedDirectoryLayer scopedDirectoryLayer = new ScopedDirectoryLayer(database, path);
+            ExtendedDirectoryLayer extendedDirectoryLayer = new ExtendedDirectoryLayer(database, path);
             testParallelAllocation(false, database, extendedDirectoryLayer, scopedDirectoryLayer);
         }
     }

@@ -84,7 +84,12 @@ public interface KeySpacePath {
      * If this path was created via {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}, this returns
      * any remaining portion of the input tuple that was not used to construct the path.
      * @return the remaining portion of the original input tuple or <code>null</code>
+     *
+     * @deprecated use {@link KeySpace#resolveFromKey(FDBRecordContext, Tuple)} and
+     *     {@link ResolvedKeySpacePath#getRemainder()} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nullable
     Tuple getRemainder();
 
@@ -138,13 +143,22 @@ public interface KeySpacePath {
      *
      * @return the value that was stored for the path element
      * @throws IllegalStateException if this path element was not produced from one of the above method calls
+     *
+     * @deprecated use {@link KeySpace#resolveFromKey(FDBRecordContext, Tuple)} and
+     *     {@link ResolvedKeySpacePath#getResolvedPathValue()} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     PathValue getStoredValue();
 
     /**
      * @return true if it is legal to call {@link #getStoredValue()}.
+     *
+     * @deprecated use {@link KeySpace#resolveFromKey(FDBRecordContext, Tuple)} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     boolean hasStoredValue();
 
     /**
@@ -172,6 +186,28 @@ public interface KeySpacePath {
      */
     @Nonnull
     CompletableFuture<Tuple> toTupleAsync(@Nonnull FDBRecordContext context);
+
+    /**
+     * Resolves the path into a {@link ResolvedKeySpacePath}, a form the retains all of the information about
+     * the path itself along with the value to which each path entry is resolved.
+     *
+     * @param context the context in which the path is to be resolved
+     * @return the resolved path
+     */
+    @Nonnull
+    CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context);
+
+    /**
+     * Resolves the path into a {@link ResolvedKeySpacePath}, a form the retains all of the information about
+     * the path itself along with the value to which each path entry is resolved.
+     *
+     * @param context the context in which the path is to be resolved
+     * @return the resolved path
+     */
+    @Nonnull
+    default ResolvedKeySpacePath toResolvedPath(@Nonnull FDBRecordContext context) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, toResolvedPathAsync(context));
+    }
 
     /**
      * Converts the tuple produced for this path to a subspace.
@@ -264,7 +300,11 @@ public interface KeySpacePath {
      * @throws NoSuchDirectoryException if the subdirectory name provided does not exist
      * @throws com.apple.foundationdb.record.RecordCoreException if a key found during the listing process did not correspond to
      *    the directory tree
+     *
+     * @deprecated use {@link #listSubdirectoryAsync(FDBRecordContext, String, byte[], ScanProperties)} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     default RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context,
                                                  @Nonnull String subdirName, @Nullable byte[] continuation,
@@ -299,7 +339,11 @@ public interface KeySpacePath {
      * @throws NoSuchDirectoryException if the subdirectory name provided does not exist
      * @throws com.apple.foundationdb.record.RecordCoreException if a key found during the listing process did not correspond to
      *    the directory tree
+     *
+     * @deprecated use {@link #listSubdirectoryAsync(FDBRecordContext, String, ValueRange, byte[], ScanProperties)} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context, 
                                          @Nonnull String subdirName, 
@@ -314,7 +358,11 @@ public interface KeySpacePath {
      * @param subdirName the name of the subdirectory that is to be listed
      * @param scanProperties details for how the scan should be performed
      * @return a list of fully qualified paths for each value contained within this directory
+     *
+     * @deprecated use {@link #listSubdirectory(FDBRecordContext, String, ScanProperties)} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     default List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String subdirName,
                                     @Nonnull ScanProperties scanProperties) {
@@ -331,7 +379,11 @@ public interface KeySpacePath {
      * @param continuation an optional continuation from a previous list attempt
      * @param scanProperties details for how the scan should be performed
      * @return a list of fully qualified paths for each value contained within this directory
+     *
+     * @deprecated use {@link #listSubdirectory(FDBRecordContext, String, ValueRange, byte[], ScanProperties)} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     default List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String subdirName,
                                     @Nullable ValueRange<?> range,
@@ -346,9 +398,149 @@ public interface KeySpacePath {
      * @param context the transaction in which to perform the listing
      * @param subdirName the name of the subdirectory that is to be listed
      * @return a list of fully qualified paths for each value contained within this directory
+     *
+     * @deprecated use {@link #listSubdirectory(FDBRecordContext, String)} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     default List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String subdirName) {
         return list(context, subdirName, ScanProperties.FORWARD_SCAN);
+    }
+
+    /**
+     * For a given subdirectory from this path element, return a list of paths for all available keys in the FDB
+     * keyspace for that directory. For example, given the tree:
+     * <pre>
+     * root
+     *   +- node
+     *       +- leaf
+     * </pre>
+     * Performing a <code>listSubdirectoryAsync</code> from a given <code>node</code>, will result in a list of paths,
+     * one for each <code>leaf</code> that is available within the <code>node</code>'s scope.
+     *
+     * <p>The listing is performed by reading the first key of the data type (and possibly constant value) for the
+     * subdirectory and, if a key is found, skipping to the next available value after the first one that was found,
+     * and so one, each time resulting in an additional <code>ResolvedKeySpacePath</code> that is returned.  In each case,
+     * the returned <code>ResolvedKeySpacePath</code> may contain a remainder (see {@link ResolvedKeySpacePath#getRemainder()})
+     * of the portion of the key tuple that was read.
+     *
+     * @param context the transaction in which to perform the listing
+     * @param subdirName the name of the subdirectory that is to be listed
+     * @param range the range of the subdirectory values to be listed. All will be listed if it is <code>null</code>.
+     *     If the directory is restricted to a specific constant value, it has to be <code>null</code>
+     * @param continuation an optional continuation from a previous list attempt
+     * @param scanProperties details for how the scan should be performed
+     * @return a list of fully qualified paths for each value contained within this directory
+     * @throws NoSuchDirectoryException if the subdirectory name provided does not exist
+     * @throws com.apple.foundationdb.record.RecordCoreException if a key found during the listing process did not correspond to
+     *    the directory tree
+     */
+    @Nonnull
+    RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context,
+                                                             @Nonnull String subdirName,
+                                                             @Nullable ValueRange<?> range,
+                                                             @Nullable byte[] continuation,
+                                                             @Nonnull ScanProperties scanProperties);
+
+    /**
+     * For a given subdirectory from this path element, return a list of paths for all available keys in the FDB
+     * keyspace for that directory. For example, given the tree:
+     * <pre>
+     * root
+     *   +- node
+     *       +- leaf
+     * </pre>
+     * Performing a <code>listSubdirectoryAsync</code> from a given <code>node</code>, will result in a list of paths,
+     * one for each <code>leaf</code> that is available within the <code>node</code>'s scope.
+     *
+     * <p>The listing is performed by reading the first key of the data type (and possibly constant value) for the
+     * subdirectory and, if a key is found, skipping to the next available value after the first one that was found,
+     * and so one, each time resulting in an additional <code>ResolvedKeySpacePath</code> that is returned.  In each case,
+     * the returned <code>ResolvedKeySpacePath</code> may contain a remainder (see {@link ResolvedKeySpacePath#getRemainder()})
+     * of the portion of the key tuple that was read.
+     *
+     * @param context the transaction in which to perform the listing
+     * @param subdirName the name of the subdirectory that is to be listed
+     * @param continuation an optional continuation from a previous list attempt
+     * @param scanProperties details for how the scan should be performed
+     * @return a list of fully qualified paths for each value contained within this directory
+     * @throws NoSuchDirectoryException if the subdirectory name provided does not exist
+     * @throws com.apple.foundationdb.record.RecordCoreException if a key found during the listing process did not correspond to
+     *    the directory tree
+     */
+    @Nonnull
+    default RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context,
+                                                                     @Nonnull String subdirName,
+                                                                     @Nullable byte[] continuation,
+                                                                     @Nonnull ScanProperties scanProperties) {
+        return listSubdirectoryAsync(context, subdirName, null, continuation, scanProperties);
+    }
+
+    /**
+     * Synchronous/blocking version of <code>listSubdirectoryAsync</code>.
+     *
+     * @param context the transaction in which to perform the listing
+     * @param subdirName the name of the subdirectory that is to be listed
+     * @param range the range of the subdirectory values to be listed. All will be listed if it is <code>null</code>.
+     *     If the directory is restricted to a specific constant value, it has to be <code>null</code>
+     * @param continuation an optional continuation from a previous list attempt
+     * @param scanProperties details for how the scan should be performed
+     * @return a list of fully qualified paths for each value contained within this directory
+     */
+    @Nonnull
+    default List<ResolvedKeySpacePath> listSubdirectory(@Nonnull FDBRecordContext context,
+                                                        @Nonnull String subdirName,
+                                                        @Nullable ValueRange<?> range,
+                                                        @Nullable byte[] continuation,
+                                                        @Nonnull ScanProperties scanProperties) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
+                listSubdirectoryAsync(context, subdirName, range, continuation, scanProperties).asList());
+    }
+
+    /**
+     * Synchronous/blocking version of <code>listSubdirectoryAsync</code>.
+     *
+     * @param context the transaction in which to perform the listing
+     * @param subdirName the name of the subdirectory that is to be listed
+     * @param range the range of the subdirectory values to be listed. All will be listed if it is <code>null</code>.
+     *     If the directory is restricted to a specific constant value, it has to be <code>null</code>
+     * @param scanProperties details for how the scan should be performed
+     * @return a list of fully qualified paths for each value contained within this directory
+     */
+    @Nonnull
+    default List<ResolvedKeySpacePath> listSubdirectory(@Nonnull FDBRecordContext context,
+                                                        @Nonnull String subdirName,
+                                                        @Nullable ValueRange<?> range,
+                                                        @Nonnull ScanProperties scanProperties) {
+        return listSubdirectory(context, subdirName, range, null, scanProperties);
+    }
+
+    /**
+     * Synchronous/blocking version of <code>listSubdirectoryAsync</code>.
+     *
+     * @param context the transaction in which to perform the listing
+     * @param subdirName the name of the subdirectory that is to be listed
+     * @param scanProperties details for how the scan should be performed
+     * @return a list of fully qualified paths for each value contained within this directory
+     */
+    @Nonnull
+    default List<ResolvedKeySpacePath> listSubdirectory(@Nonnull FDBRecordContext context,
+                                                        @Nonnull String subdirName,
+                                                        @Nonnull ScanProperties scanProperties) {
+        return listSubdirectory(context, subdirName, null, null, scanProperties);
+    }
+
+    /**
+     * Synchronous/blocking version of <code>listSubdirectoryAsync</code>.
+     *
+     * @param context the transaction in which to perform the listing
+     * @param subdirName the name of the subdirectory that is to be listed
+     * @return a list of fully qualified paths for each value contained within this directory
+     */
+    @Nonnull
+    default List<ResolvedKeySpacePath> listSubdirectory(@Nonnull FDBRecordContext context,
+                                                        @Nonnull String subdirName) {
+        return listSubdirectory(context, subdirName, null, null, ScanProperties.FORWARD_SCAN);
     }
 }
