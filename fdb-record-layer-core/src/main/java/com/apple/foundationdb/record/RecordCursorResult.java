@@ -201,6 +201,14 @@ public class RecordCursorResult<T> {
     }
 
     /**
+     * Return whether or not this result does not include a next value but include a continuation (i.e. source is not exhausted).
+     * @return {@code true} if this result does not include a next value but include a continuation and {@code false} otherwise
+     */
+    public boolean noNextButHasContinuation() {
+        return !hasNext && !continuation.isEnd();
+    }
+
+    /**
      * Create a new {@code RecordCursorResult} that has a value, using the given value and continuation.
      * @param nextValue the value of the result
      * @param continuation the continuation of the result
