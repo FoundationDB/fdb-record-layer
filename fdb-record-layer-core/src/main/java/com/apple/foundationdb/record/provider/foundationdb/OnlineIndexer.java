@@ -175,7 +175,7 @@ public class OnlineIndexer implements AutoCloseable {
                 // If any of the types to build for does not have a prefix, give up.
                 return TupleRange.ALL;
             }
-            Tuple prefix = Tuple.from(recordType.getRecordTypeKey());
+            Tuple prefix = recordType.getRecordTypeKeyTuple();
             if (low == null) {
                 low = high = prefix;
             } else {

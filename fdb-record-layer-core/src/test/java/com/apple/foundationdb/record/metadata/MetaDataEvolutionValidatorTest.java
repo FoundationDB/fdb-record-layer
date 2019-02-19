@@ -621,10 +621,10 @@ public class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData4 = replaceRecordsDescriptor(metaData3, updatedFile);
         RecordType recordType3 = metaData3.getRecordType("MySimpleRecord");
         assertEquals(1066, metaData3.getUnionFieldForRecordType(recordType3).getNumber());
-        assertEquals(1066, recordType3.getRecordTypeKey());
+        assertEquals(1066L, recordType3.getRecordTypeKey());
         RecordType recordType4 = metaData4.getRecordType("MySimpleRecord");
         assertEquals(1066, metaData4.getUnionFieldForRecordType(recordType4).getNumber());
-        assertEquals(800, recordType4.getRecordTypeKey());
+        assertEquals(800L, recordType4.getRecordTypeKey());
         assertInvalid("first occurrence of record type in union descriptor changed", metaData3, metaData4);
     }
 

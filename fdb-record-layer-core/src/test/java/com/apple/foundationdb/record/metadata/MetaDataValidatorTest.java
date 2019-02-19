@@ -26,14 +26,20 @@ import com.apple.foundationdb.record.TestNoRecordTypesProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+
+import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -75,6 +81,37 @@ public class MetaDataValidatorTest {
     }
 
     @Test
+    public void duplicateIntegralRecordTypeKey() {
+        List<Object> alternateKeys = Arrays.asList((byte)42, (short)42, 42, BigInteger.valueOf(42L));
+        for (Object alternateKey : alternateKeys) {
+            RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+            metaData.getRecordType("MySimpleRecord").setRecordTypeKey(42L);
+            metaData.getRecordType("MyOtherRecord").setRecordTypeKey(alternateKey);
+            assertInvalid("Same record type key 42 used by both", metaData);
+        }
+    }
+
+    @Test
+    public void duplicateByteArrayRecordTypeKey() {
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        byte[] recordTypeKey = new byte[]{(byte)0x0f, (byte)0xdb};
+        metaData.getRecordType("MySimpleRecord").setRecordTypeKey(recordTypeKey);
+        metaData.getRecordType("MyOtherRecord").setRecordTypeKey(Arrays.copyOf(recordTypeKey, recordTypeKey.length));
+        assertInvalid("Same record type key", metaData);
+    }
+
+    @Test
+    public void duplicateImplicitAndExplicitRecordTypeKey() {
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        int simpleRecordKey = TestRecords1Proto.RecordTypeUnion.getDescriptor().findFieldByName("_MySimpleRecord").getNumber();
+        metaData.getRecordType("MyOtherRecord").setRecordTypeKey(simpleRecordKey);
+        assertInvalid("Same record type key " + simpleRecordKey + " used by both", metaData);
+
+        metaData.getRecordType("MyOtherRecord").setRecordTypeKey((long)simpleRecordKey);
+        assertInvalid("Same record type key " + simpleRecordKey + " used by both", metaData);
+    }
+
+    @Test
     public void primaryKeyRepeated() {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.getRecordType("MySimpleRecord").setPrimaryKey(Key.Expressions.field("repeater", KeyExpression.FanType.FanOut));
@@ -87,6 +124,36 @@ public class MetaDataValidatorTest {
         metaData.getIndex("MySimpleRecord$str_value_indexed").setSubspaceKey("same");
         metaData.getIndex("MySimpleRecord$num_value_3_indexed").setSubspaceKey("same");
         assertInvalid("Same subspace key same used by both", metaData);
+    }
+
+    @Test
+    public void duplicateIntegralSubspaceKey() {
+        List<Object> alternateKeys = Arrays.asList((byte)42, (short)42, 42, BigInteger.valueOf(42L));
+        for (Object alternateKey : alternateKeys) {
+            RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+            metaData.getIndex("MySimpleRecord$str_value_indexed").setSubspaceKey(42L);
+            metaData.getIndex("MySimpleRecord$num_value_3_indexed").setSubspaceKey(alternateKey);
+            assertInvalid("Same subspace key 42 used by both", metaData);
+        }
+    }
+
+    @Test
+    public void duplicateEnumSubspaceKey() {
+        // This exact use case is somewhat contrived, but one could imagine maintaining an enum with one entry per index
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final Descriptors.EnumValueDescriptor enumValueDescriptor = TestRecordsEnumProto.MyShapeRecord.Size.SMALL.getValueDescriptor();
+        metaData.getIndex("MySimpleRecord$str_value_indexed").setSubspaceKey((long)enumValueDescriptor.getNumber());
+        metaData.getIndex("MySimpleRecord$num_value_3_indexed").setSubspaceKey(enumValueDescriptor);
+        assertInvalid("Same subspace key " + enumValueDescriptor.getNumber() + " used by both", metaData);
+    }
+
+    @Test
+    public void duplicateByteArraySubspaceKey() {
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        byte[] subspaceKey = new byte[]{(byte)0x0f, (byte)0xdb};
+        metaData.getIndex("MySimpleRecord$str_value_indexed").setSubspaceKey(subspaceKey);
+        metaData.getIndex("MySimpleRecord$num_value_3_indexed").setSubspaceKey(Arrays.copyOf(subspaceKey, subspaceKey.length));
+        assertInvalid("Same subspace key", metaData);
     }
 
     @Test
@@ -106,6 +173,19 @@ public class MetaDataValidatorTest {
     }
 
     @Test
+    public void duplicateIntegralFormerSubspaceKey() {
+        List<Object> alternateKeys = Arrays.asList((byte)42, (short)42, 42);
+        for (Object alternateKey : alternateKeys) {
+            RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+            metaData.getIndex("MySimpleRecord$str_value_indexed").setSubspaceKey(42L);
+            metaData.removeIndex("MySimpleRecord$str_value_indexed");
+            metaData.getIndex("MySimpleRecord$num_value_3_indexed").setSubspaceKey(alternateKey);
+            metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+            assertInvalid("Same subspace key 42 used by two former indexes", metaData);
+        }
+    }
+
+    @Test
     public void duplicateFormerAndCurrentSubspaceKey() {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData.getIndex("MySimpleRecord$str_value_indexed").setSubspaceKey("same");
@@ -117,6 +197,15 @@ public class MetaDataValidatorTest {
         protoBuilder.getFormerIndexesBuilder(0).clearFormerName();
         metaData = RecordMetaData.newBuilder().setRecords(protoBuilder.build());
         assertInvalid("Same subspace key same used by index MySimpleRecord$num_value_3_indexed and former index", metaData);
+    }
+
+    @Test
+    public void duplicateIntegralFormerAndCurrentSubspaceKeys() {
+        RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaData.getIndex("MySimpleRecord$str_value_indexed").setSubspaceKey(42L);
+        metaData.removeIndex("MySimpleRecord$str_value_indexed");
+        metaData.getIndex("MySimpleRecord$num_value_3_indexed").setSubspaceKey(42);
+        assertInvalid("Same subspace key 42 used by index MySimpleRecord$num_value_3_indexed and former index MySimpleRecord$str_value_indexed", metaData);
     }
 
     @Test

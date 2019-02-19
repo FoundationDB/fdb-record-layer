@@ -566,7 +566,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     public Subspace indexSubspace(@Nonnull Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_KEY, index.getSubspaceKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_KEY, index.getSubspaceTupleKey()));
     }
 
     @Nonnull
@@ -581,7 +581,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     public Subspace indexSecondarySubspace(@Nonnull Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_SECONDARY_SPACE_KEY, index.getSubspaceKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_SECONDARY_SPACE_KEY, index.getSubspaceTupleKey()));
     }
 
     /**
@@ -593,7 +593,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public Subspace indexRangeSubspace(@Nonnull Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_RANGE_SPACE_KEY, index.getSubspaceKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_RANGE_SPACE_KEY, index.getSubspaceTupleKey()));
     }
 
     /**
@@ -605,7 +605,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public Subspace indexUniquenessViolationsSubspace(@Nonnull Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, index.getSubspaceKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, index.getSubspaceTupleKey()));
     }
 
     /**
@@ -1337,7 +1337,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.emptyList());
         if (indexMaintainer.isPresent()) {
             RecordType recordType = getRecordMetaData().getRecordType(recordTypeName);
-            return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.allOf(Tuple.from(recordType.getRecordTypeKey())), IsolationLevel.SNAPSHOT)
+            return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.allOf(recordType.getRecordTypeKeyTuple()), IsolationLevel.SNAPSHOT)
                     .thenApply(tuple -> tuple.getLong(0));
         }
         throw new RecordCoreException("Require a COUNT index on " + recordTypeName);
@@ -2471,7 +2471,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (singleRecordTypeWithPrefixKey == null) {
             records = scanRecords(null, scanProperties);
         } else {
-            records = scanRecords(TupleRange.allOf(Tuple.from(singleRecordTypeWithPrefixKey.getRecordTypeKey())), null, scanProperties);
+            records = scanRecords(TupleRange.allOf(singleRecordTypeWithPrefixKey.getRecordTypeKeyTuple()), null, scanProperties);
         }
         return records.onHasNext()
                 .thenApply(hasAny -> {
@@ -2618,11 +2618,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         final long startTime = System.nanoTime();
         Transaction tr = ensureContextActive();
-        tr.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceKey())));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceKey())));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceKey())));
-        tr.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceKey())));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceKey())));
+        tr.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
+        tr.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        tr.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        tr.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);
         }

@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -76,6 +78,17 @@ public class Index {
         return tuple.get(0);
     }
 
+    @Nonnull
+    private static Object normalizeSubspaceKey(@Nonnull String name, @Nonnull Object subspaceKey) {
+        Object normalizedKey = TupleTypeUtil.toTupleEquivalentValue(subspaceKey);
+        if (normalizedKey == null) {
+            throw new RecordCoreArgumentException("Index subspace key cannot be null",
+                    LogMessageKeys.INDEX_NAME, name,
+                    LogMessageKeys.SUBSPACE_KEY, subspaceKey);
+        }
+        return normalizedKey;
+    }
+
     /**
      * Construct new index meta-data.
      * @param name the name of the index, which is unique for the whole meta-data
@@ -92,7 +105,7 @@ public class Index {
         this.rootExpression = rootExpression;
         this.type = type;
         this.options = options;
-        this.subspaceKey = name;
+        this.subspaceKey = normalizeSubspaceKey(name, name);
         this.lastModifiedVersion = 0;
     }
 
@@ -136,7 +149,7 @@ public class Index {
         } else {
             this.primaryKeyComponentPositions = null;
         }
-        this.subspaceKey = Tuple.fromBytes(Tuple.from(orig.subspaceKey).pack()).get(0);
+        this.subspaceKey = normalizeSubspaceKey(name, Tuple.fromBytes(Tuple.from(orig.subspaceKey).pack()));
         this.addedVersion = orig.addedVersion;
         this.lastModifiedVersion = orig.lastModifiedVersion;
     }
@@ -171,9 +184,9 @@ public class Index {
         }
 
         if (proto.hasSubspaceKey()) {
-            subspaceKey = decodeSubspaceKey(proto.getSubspaceKey());
+            subspaceKey = normalizeSubspaceKey(name, decodeSubspaceKey(proto.getSubspaceKey()));
         } else {
-            subspaceKey = name;
+            subspaceKey = normalizeSubspaceKey(name, name);
         }
         if (proto.hasAddedVersion()) {
             addedVersion = proto.getAddedVersion();
@@ -296,6 +309,19 @@ public class Index {
     }
 
     /**
+     * Get a {@link Tuple}-encodable version of the {@linkplain #getSubspaceKey() subspace key} of this index.
+     * As the subspace key is not guaranteed to be of a {@code Tuple}-encodable type on its own, this
+     * method is preferred over {@link #getSubspaceKey()} if one is constructing a key to read or write data
+     * from the database.
+     *
+     * @return a {@link Tuple}-encodable version of index subspace key
+     */
+    @Nonnull
+    public Object getSubspaceTupleKey() {
+        return TupleTypeUtil.toTupleAppropriateValue(subspaceKey);
+    }
+
+    /**
      * Set the key used to determine this index's subspace prefix. This value must be
      * unique for each index within a given meta-data definition and must be serializable
      * using a FoundationDB {@link Tuple}. As this value will prefix all keys used by the
@@ -315,7 +341,7 @@ public class Index {
      * @see #getSubspaceKey()
      */
     public void setSubspaceKey(@Nonnull Object subspaceKey) {
-        this.subspaceKey = subspaceKey;
+        this.subspaceKey = normalizeSubspaceKey(name, subspaceKey);
     }
 
     /**

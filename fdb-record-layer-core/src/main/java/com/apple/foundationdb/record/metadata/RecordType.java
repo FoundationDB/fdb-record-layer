@@ -24,6 +24,7 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -57,6 +58,8 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     private final Object explicitRecordTypeKey;
     @Nullable
     private Object recordTypeKey;
+    @Nullable
+    private Tuple recordTypeKeyTuple = null;
 
     public RecordType(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.Descriptor descriptor, @Nonnull KeyExpression primaryKey,
                       @Nonnull List<Index> indexes, @Nonnull List<Index> multiTypeIndexes, @Nullable Integer sinceVersion, @Nullable Object recordTypeKey) {
@@ -67,7 +70,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
         this.indexes = indexes;
         this.multiTypeIndexes = multiTypeIndexes;
         this.sinceVersion = sinceVersion;
-        this.recordTypeKey = this.explicitRecordTypeKey = recordTypeKey;
+        this.recordTypeKey = this.explicitRecordTypeKey = TupleTypeUtil.toTupleEquivalentValue(recordTypeKey);
     }
 
     @Override
@@ -150,18 +153,57 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
         return explicitRecordTypeKey;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>
+     * This value is not guaranteed to be {@link Tuple}-encodable. It <em>is</em> guaranteed that the value returned
+     * has implemented {@link Object#equals(Object) equals()} and {@link Object#hashCode() hashCode()} so that the
+     * value can be used in hash-based data structures like {@link java.util.HashMap HashMap}s or
+     * {@link java.util.HashSet HashSet}s. If the value is needed to construct a {@code Tuple} or {@link com.apple.foundationdb.subspace.Subspace Subspace},
+     * one should call {@link #getRecordTypeKeyTuple()}.
+     * </p>
+     *
+     * @return stable and unique key for the record type
+     */
     @Nonnull
     @Override
     public Object getRecordTypeKey() {
         if (recordTypeKey == null) {
             // Taking the smallest matching field makes this stable if fields are deprecated and not removed.
-            recordTypeKey = metaData.getUnionDescriptor().getFields().stream()
-                    .filter(f -> f.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE && f.getMessageType() == descriptor)
-                    .min(Comparator.comparing(Descriptors.FieldDescriptor::getNumber))
-                    .orElseThrow(() -> new MetaDataException("no matching fields in union"))
-                    .getNumber();
+            recordTypeKey = TupleTypeUtil.toTupleEquivalentValue(
+                    metaData.getUnionDescriptor().getFields().stream()
+                        .filter(f -> f.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE && f.getMessageType() == descriptor)
+                        .min(Comparator.comparing(Descriptors.FieldDescriptor::getNumber))
+                        .orElseThrow(() -> new MetaDataException("no matching fields in union"))
+                        .getNumber());
         }
         return recordTypeKey;
+    }
+
+    /**
+     * Get a {@link Tuple} containing only the {@linkplain #getRecordTypeKey() record type key}. The record type
+     * key is not generally required to be {@link Tuple}-encodable, so for some record type keys, the following
+     * might throw an error:
+     *
+     * <pre>{@code
+     *    Tuple.from(recordType.getRecordTypeKey()).pack()
+     * }</pre>
+     *
+     * <p>
+     * This function will first convert the record type key into a type that the {@code Tuple} layer can encode
+     * before returning the {@code Tuple} to the user. This method should therefore be preferred over calling
+     * {@link #getRecordTypeKey()} when this key is about to be used to read or write data from the database.
+     * </p>
+     *
+     * @return a {@link Tuple} containing the {@linkplain #getRecordTypeKey() record type key}
+     */
+    @Nonnull
+    public Tuple getRecordTypeKeyTuple() {
+        if (recordTypeKeyTuple == null) {
+            recordTypeKeyTuple = Tuple.from(TupleTypeUtil.toTupleAppropriateValue(recordTypeKey));
+        }
+        return recordTypeKeyTuple;
     }
 
     /**

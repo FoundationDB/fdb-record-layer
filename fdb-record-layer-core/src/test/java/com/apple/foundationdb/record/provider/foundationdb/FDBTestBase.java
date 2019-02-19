@@ -33,6 +33,12 @@ public abstract class FDBTestBase {
     public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
 
     @BeforeAll
+    public static void initFDB() {
+        FDBDatabaseFactory.instance().setUnclosedWarning(true);
+        FDBDatabaseFactory.instance().initFDB();
+    }
+
+    @BeforeAll
     public static void setupBlockingInAsyncDetection() {
         final String str = System.getProperty(BLOCKING_IN_ASYNC_PROPERTY);
         if (str != null) {

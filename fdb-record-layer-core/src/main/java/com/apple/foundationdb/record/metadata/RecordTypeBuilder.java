@@ -127,7 +127,7 @@ public class RecordTypeBuilder implements RecordTypeOrBuilder {
                 recordTypeKey instanceof String || recordTypeKey instanceof byte[])) {
             throw new MetaDataException("Only primitive types are allowed as record type key");
         }
-        this.recordTypeKey = recordTypeKey;
+        this.recordTypeKey = TupleTypeUtil.toTupleEquivalentValue(recordTypeKey);
         return this;
     }
 

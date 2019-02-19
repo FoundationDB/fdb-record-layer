@@ -80,12 +80,10 @@ public class MetaDataValidator implements RecordMetaDataProvider {
     protected void validateRecordType(@Nonnull RecordType recordType) {
         metaData.getUnionFieldForRecordType(recordType);    // Throws if missing.
         validatePrimaryKeyForRecordType(recordType.getPrimaryKey(), recordType);
-        if (recordType.getPrimaryKey().hasRecordTypeKey()) {
-            RecordType otherRecordType = recordTypeKeys.put(recordType.getRecordTypeKey(), recordType);
-            if (otherRecordType != null) {
-                throw new MetaDataException("Same record type key " + recordType.getRecordTypeKey() +
-                                            " used by both " + recordType.getName() + " and " + otherRecordType.getName());
-            }
+        RecordType otherRecordType = recordTypeKeys.put(recordType.getRecordTypeKey(), recordType);
+        if (otherRecordType != null) {
+            throw new MetaDataException("Same record type key " + recordType.getRecordTypeKey() +
+                                        " used by both " + recordType.getName() + " and " + otherRecordType.getName());
         }
         if (recordType.getSinceVersion() != null && recordType.getSinceVersion() > metaData.getVersion()) {
             throw new MetaDataException("Record type " + recordType.getName() + " has since version of " +
