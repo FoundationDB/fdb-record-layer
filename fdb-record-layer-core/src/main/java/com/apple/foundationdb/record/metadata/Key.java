@@ -35,11 +35,8 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.ProtocolMessageEnum;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -499,13 +496,13 @@ public class Key {
 
         @Nullable
         public Object getObject(int idx) {
-            return toTupleAppropriateValue(values.get(idx));
+            return TupleTypeUtil.toTupleAppropriateValue(values.get(idx));
         }
 
         @Nullable
         @SuppressWarnings("PMD.PreserveStackTrace")
         public <T> T getObject(int idx, Class<T> clazz) {
-            final Object result = toTupleAppropriateValue(values.get(idx));
+            final Object result = TupleTypeUtil.toTupleAppropriateValue(values.get(idx));
             try {
                 return clazz.cast(result);
             } catch (ClassCastException e) {
@@ -581,35 +578,6 @@ public class Key {
             return toTupleAppropriateList();
         }
 
-        @Nullable
-        private static Object toTupleAppropriateValue(@Nullable Object o) {
-            if (o instanceof NullStandin) {
-                return null;
-            } else if (o instanceof ByteString) {
-                return ((ByteString) o).toByteArray();
-            } else if (o instanceof List) {
-                return toTupleAppropriateList((List<?>) o);
-            // Following two are both Internal.EnumLite, so could use that, too.
-            } else if (o instanceof ProtocolMessageEnum) {
-                return ((ProtocolMessageEnum) o).getNumber();
-            } else if (o instanceof Descriptors.EnumValueDescriptor) {
-                return ((Descriptors.EnumValueDescriptor) o).getNumber();
-            } else if (o instanceof FDBRecordVersion) {
-                return ((FDBRecordVersion) o).toVersionstamp(false);
-            } else {
-                return o;
-            }
-        }
-
-        @Nonnull
-        private static List<Object> toTupleAppropriateList(@Nonnull List<?> values) {
-            List<Object> tupleAppropriateList = new ArrayList<>(values.size());
-            for (Object o : values) {
-                tupleAppropriateList.add(toTupleAppropriateValue(o));
-            }
-            return tupleAppropriateList;
-        }
-
         /**
          * Converts to a list. Useful for creating tuples. If possible the underlying objects will be converted to
          * types that Tuple can handle.
@@ -618,7 +586,7 @@ public class Key {
         @Nonnull
         public List<Object> toTupleAppropriateList() {
             if (tupleAppropriateList == null) {
-                tupleAppropriateList = toTupleAppropriateList(values);
+                tupleAppropriateList = TupleTypeUtil.toTupleAppropriateList(values);
             }
             return tupleAppropriateList;
         }

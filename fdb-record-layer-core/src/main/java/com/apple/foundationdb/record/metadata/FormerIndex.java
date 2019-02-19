@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 
@@ -47,7 +49,13 @@ public class FormerIndex {
     private final String formerName;
 
     public FormerIndex(@Nonnull Object subspaceKey, int addedVersion, int removedVersion, @Nullable String formerName) {
-        this.subspaceKey = subspaceKey;
+        Object normalizedKey = TupleTypeUtil.toTupleEquivalentValue(subspaceKey);
+        if (normalizedKey == null) {
+            throw new RecordCoreArgumentException("FormerIndex initialized with null subspace key",
+                    LogMessageKeys.INDEX_NAME, formerName,
+                    LogMessageKeys.SUBSPACE_KEY, subspaceKey);
+        }
+        this.subspaceKey = normalizedKey;
         this.addedVersion = addedVersion;
         this.removedVersion = removedVersion;
         this.formerName = formerName;
@@ -65,8 +73,22 @@ public class FormerIndex {
      * This subspace will be cleared for record stores old enough to have seen the index.
      * @return the index subspace key
      */
+    @Nonnull
     public Object getSubspaceKey() {
         return subspaceKey;
+    }
+
+    /**
+     * Get a {@link Tuple}-encodable version of the {@linkplain #getSubspaceKey() subspace key} formerly occupied by
+     * the index. As the subspace key is not guaranteed to be of a {@code Tuple}-encodable type on its own, this
+     * method is preferred over {@link #getSubspaceKey()} if one is constructing a key to read or write data
+     * from the database.
+     *
+     * @return a {@link Tuple}-encodable version of index subspace key
+     */
+    @Nonnull
+    public Object getSubspaceTupleKey() {
+        return TupleTypeUtil.toTupleAppropriateValue(subspaceKey);
     }
 
     /**
