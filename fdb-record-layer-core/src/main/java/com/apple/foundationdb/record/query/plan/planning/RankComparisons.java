@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.planning;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.RecordCoreException;

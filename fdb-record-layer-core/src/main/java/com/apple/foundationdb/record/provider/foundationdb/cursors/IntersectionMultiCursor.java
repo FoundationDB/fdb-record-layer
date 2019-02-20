@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 

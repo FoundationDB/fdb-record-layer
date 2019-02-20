@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.async;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 

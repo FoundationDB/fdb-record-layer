@@ -36,7 +36,9 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ### Breaking changes
 
-The `IndexEntry` class now contains a reference to its source index. This meant breaking the constructor on that class. This class should probably only have been instantiated from within the Record Layer, so its old constructors have been removed and are now marked as [`INTERNAL`](https://javadoc.io/page/org.foundationdb/fdb-extensions/latest/com/apple/foundationdb/API.Status.html#INTERNAL).
+The `IndexEntry` class now contains a reference to its source index. This meant breaking the constructor on that class. This class should probably only have been instantiated from within the Record Layer, so its old constructors have been removed, and the new constructors are now marked as [`INTERNAL`](https://javadoc.io/page/org.foundationdb/fdb-extensions/latest/com/apple/foundationdb/annotation/API.Status.html#INTERNAL).
+
+The API stability annotations have been moved to their own package. This allows for references to the stability levels within Javadoc pages to link to the annotation documentation. Any external users who had also used these annotations will be required to modify their imports to match the new package. Because these annotations have `CLASS` retention level, this change also requires that any client who depends on the Record Layer update any transitive dependency on `fdb-extensions` to 2.6 to avoid compile-time warnings about missing annotation classes.
 
 ### Newly deprecated
 
@@ -65,7 +67,7 @@ Methods for retrieving a record from a record store based on an index entry gene
 * **Breaking change** Remove deprecated `KeySpacePath` APIs [(Issue #169)](https://github.com/FoundationDB/fdb-record-layer/issues/169)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The API stability annotations have been moved into `com.apple.foundationdb.annotation` [(Issue #406)](https://github.com/FoundationDB/fdb-record-layer/issues/406)
 
 // end next release
 -->

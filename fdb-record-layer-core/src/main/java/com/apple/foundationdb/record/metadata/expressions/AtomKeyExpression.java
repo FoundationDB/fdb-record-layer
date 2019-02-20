@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 
 /**
  * An "atom expression" is one that has semantic meaning; that is, it presence is significant to the meaning of

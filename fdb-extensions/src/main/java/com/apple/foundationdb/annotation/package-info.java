@@ -19,9 +19,7 @@
  */
 
 /**
- * Extensions to the FoundationDB Java API.
- * Directly within this package, there are only the {@link com.apple.foundationdb.API} stability
- * annotations which are used within the <a href="https://foundationdb.github.io/fdb-record-layer/">Record Layer</a>
- * project to annotate the stability of various functions and classes.
+ * Annotations defined for use with FoundationDB. Currently, this only includes the {@link com.apple.foundationdb.annotation.API API}
+ * stability annotations, but more could be added in the future.
  */
-package com.apple.foundationdb;
+package com.apple.foundationdb.annotation;

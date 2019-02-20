@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.icu;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.google.protobuf.ByteString;
