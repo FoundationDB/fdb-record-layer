@@ -39,6 +39,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.stream.IntStream;
 
@@ -550,4 +551,27 @@ public class Index {
         return str.toString();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        } else if (o == null || !getClass().equals(o.getClass())) {
+            return false;
+        }
+        Index that = (Index) o;
+        return this.name.equals(that.name)
+                && this.type.equals(that.type)
+                && this.rootExpression.equals(that.rootExpression)
+                && this.subspaceKey.equals(that.subspaceKey)
+                && this.addedVersion == that.addedVersion
+                && this.lastModifiedVersion == that.lastModifiedVersion
+                && Arrays.equals(this.primaryKeyComponentPositions, that.primaryKeyComponentPositions)
+                && this.options.equals(that.options);
+    }
+
+    @Override
+    public int hashCode() {
+        // Within the context of a single RecordMetaData, this should be sufficient
+        return Objects.hash(name, type);
+    }
 }

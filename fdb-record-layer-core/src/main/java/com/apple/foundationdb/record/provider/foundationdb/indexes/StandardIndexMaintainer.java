@@ -138,7 +138,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      */
     @Nonnull
     protected IndexEntry unpackKeyValue(@Nonnull final Subspace subspace, @Nonnull final KeyValue kv) {
-        return new IndexEntry(unpackKey(subspace, kv), decodeValue(kv.getValue()));
+        return new IndexEntry(state.index, unpackKey(subspace, kv), decodeValue(kv.getValue()));
     }
 
     /**
@@ -513,10 +513,10 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (rootExpression instanceof KeyWithValueExpression) {
             final KeyWithValueExpression keyWithValueExpression = (KeyWithValueExpression) rootExpression;
             return indexKeys.stream()
-                    .map(key -> new IndexEntry(keyWithValueExpression.getKey(key), keyWithValueExpression.getValue(key)) )
+                    .map(key -> new IndexEntry(state.index, keyWithValueExpression.getKey(key), keyWithValueExpression.getValue(key)) )
                     .collect(Collectors.toList());
         }
 
-        return indexKeys.stream().map(IndexEntry::new).collect(Collectors.toList());
+        return indexKeys.stream().map(key -> new IndexEntry(state.index, key)).collect(Collectors.toList());
     }
 }

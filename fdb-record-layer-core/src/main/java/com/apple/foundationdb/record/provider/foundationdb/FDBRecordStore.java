@@ -1016,7 +1016,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             Tuple valueKey = TupleHelpers.subTuple(entry.getKey(), 0, indexColumns);
             Tuple primaryKey = TupleHelpers.subTuple(entry.getKey(), indexColumns, entry.getKey().size());
             Tuple existingKey = entry.getValue();
-            return new RecordIndexUniquenessViolation(index, new IndexEntry(valueKey, entry.getValue()), primaryKey, existingKey);
+            return new RecordIndexUniquenessViolation(index, new IndexEntry(index, valueKey, entry.getValue()), primaryKey, existingKey);
         });
     }
 
