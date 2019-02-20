@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -48,22 +50,37 @@ public class AutoContinuingCursorTest extends FDBTestBase {
         database = FDBDatabaseFactory.instance().getDatabase();
     }
 
-    @Test
-    public void testAutoContinuingCursor() {
-        try (FDBDatabaseRunner runner = database.newRunner()) {
-            List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    private static final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
-            RecordCursor<Integer> cursor = new AutoContinuingCursor<>(
-                    runner,
-                    (context, continuation) -> new ListCursor<>(list, continuation).limitRowsTo(3)
-            );
+    private void testAutoContinuingCursorGivenCursorGenerator(
+            BiFunction<FDBRecordContext, byte[], RecordCursor<Integer>> nextCursorGenerator,
+            List<Integer> expectedList) {
+        try (FDBDatabaseRunner runner = database.newRunner()) {
+            RecordCursor<Integer> cursor = new AutoContinuingCursor<>(runner, nextCursorGenerator);
 
             List<Integer> returnedList = new ArrayList<>();
             while (cursor.hasNext()) {
                 returnedList.add(cursor.next());
             }
 
-            assertEquals(list, returnedList);
+            assertEquals(expectedList, returnedList);
         }
+    }
+
+    @Test
+    public void testAutoContinuingCursorSimple() {
+        testAutoContinuingCursorGivenCursorGenerator((context, continuation) ->
+                        new ListCursor<>(list, continuation).limitRowsTo(3),
+                list);
+    }
+
+    @Test
+    public void testAutoContinuingCursorWhenSomeGeneratedCursorsNeverHaveNext() {
+        // This underlying cursor may not produce any item in one transaction. AutoContinuingCursor is expected to make
+        // progress until it is truly exhausted.
+        testAutoContinuingCursorGivenCursorGenerator((context, continuation) ->
+                        new ListCursor<>(list, continuation).limitRowsTo(2).filter(item -> item % 3 == 0),
+                Arrays.asList(3, 6, 9)
+        );
     }
 }

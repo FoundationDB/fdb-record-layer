@@ -21,12 +21,14 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,7 +41,7 @@ import java.util.function.BiFunction;
  * A cursor that can iterate over a cursor across transactions.
  *
  * It is provided a generator that produces a cursor (referred to as <i>underlying cursor</i>). The <i>underlying
- * cursor</i> is iterated over until it is either exhausted or until scan limit properties are reached:
+ * cursor</i> is iterated over until it is either exhausted or until one of the scan limits is reached:
  * <ul>
  *     <li>
  *         If the <i>underlying cursor</i> is exhausted, the {@link AutoContinuingCursor} is also exhausted.
@@ -60,7 +62,7 @@ import java.util.function.BiFunction;
  * The {@link AutoContinuingCursor} has no visibility into the {@link com.apple.foundationdb.record.ScanProperties} of
  * the <i>underlying cursor</i> and, therefore, will not be involved in enforcing any limits that may be individually
  * applied to the <i>underlying cursor</i>. For example, if the generator returns an <i>underlying cursor</i> that
- * specified, say, a record scan limit of 10 record, the {@link AutoContinuingCursor} will scan all data until it is
+ * specified, say, a record scan limit of 10 records, the {@link AutoContinuingCursor} will scan all data until it is
  * exhausted, at most 10 records at a transaction.
  * </p>
  *
@@ -68,6 +70,7 @@ import java.util.function.BiFunction;
  */
 @API(API.Status.EXPERIMENTAL)
 public class AutoContinuingCursor<T> implements BaseCursor<T> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AutoContinuingCursor.class);
 
     @Nonnull
     private FDBDatabaseRunner runner;
@@ -105,24 +108,23 @@ public class AutoContinuingCursor<T> implements BaseCursor<T> {
         if (currentCursor == null) {
             openContextAndGenerateCursor(null);
         }
-        return currentCursor.onNext().thenCompose(recordCursorResult -> {
-            if (recordCursorResult.noNextButHasContinuation()) {
-                openContextAndGenerateCursor(lastResult.getContinuation().toBytes());
-                return currentCursor.onNext().thenApply(finalRecordCursorResult -> {
-                    if (finalRecordCursorResult.noNextButHasContinuation()) {
-                        throw new RecordCoreException("failed to continue the cursor in a new context");
-                    }
-                    lastResult = finalRecordCursorResult;
-                    return lastResult;
-                });
-            } else {
-                lastResult = recordCursorResult;
-                return CompletableFuture.completedFuture(lastResult);
-            }
-        });
+        return AsyncUtil.whileTrue(() ->
+                        currentCursor.onNext().thenApply(result -> {
+                            if (result.hasStoppedBeforeEnd()) {
+                                openContextAndGenerateCursor(result.getContinuation().toBytes());
+                                return true;
+                            } else {
+                                lastResult = result;
+                                return false;
+                            }
+                        }), getExecutor())
+                .thenApply(ignore -> lastResult);
     }
 
     private void openContextAndGenerateCursor(@Nullable byte[] continuation) {
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Open context and generate a cursor");
+        }
         if (currentContext != null) {
             currentContext.close();
         }

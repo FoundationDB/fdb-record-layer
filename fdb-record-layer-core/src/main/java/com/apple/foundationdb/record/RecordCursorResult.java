@@ -201,10 +201,10 @@ public class RecordCursorResult<T> {
     }
 
     /**
-     * Returns true if the cursor has reached its end but a continuation is still available (i.e. the source is not yet exhausted).
-     * @return {@code true} if this result does not include a next value but include a continuation and {@code false} otherwise
+     * Returns {@code true} if the cursor has reached its end but a continuation is not an end continuation. (i.e. the source is not yet exhausted).
+     * @return {@code true} if the cursor has reached its end but a continuation is not an end continuation and {@code false} otherwise
      */
-    public boolean noNextButHasContinuation() {
+    public boolean hasStoppedBeforeEnd() {
         return !hasNext && !continuation.isEnd();
     }
 
