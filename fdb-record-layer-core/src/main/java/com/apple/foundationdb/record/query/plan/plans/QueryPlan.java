@@ -48,11 +48,11 @@ public interface QueryPlan<T> extends PlanHashable, RelationalPlannerExpression 
 
     /**
      * Execute this query plan.
-     * @param store record store from which to fetch records
+     * @param store record store from which to fetch items
      * @param context evaluation context containing parameter bindings
      * @param continuation continuation from a previous execution of this same plan
      * @param executeProperties limits on execution
-     * @return a cursor of records that match the query criteria
+     * @return a cursor of items that match the query criteria
      */
     @Nonnull
     RecordCursor<T> execute(@Nonnull FDBRecordStore store, @Nonnull EvaluationContext context,
@@ -60,8 +60,8 @@ public interface QueryPlan<T> extends PlanHashable, RelationalPlannerExpression 
 
     /**
      * Execute this query plan.
-     * @param store record store from which to fetch records
-     * @return a cursor of records that match the query criteria
+     * @param store record store from which to fetch items
+     * @return a cursor of items that match the query criteria
      */
     @Nonnull
     default RecordCursor<T> execute(@Nonnull FDBRecordStore store) {
@@ -72,7 +72,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalPlannerExpression 
      * Execute this query plan.
      * @param store record store to access
      * @param context evaluation context containing parameter bindings
-     * @return a cursor of records that match the query criteria
+     * @return a cursor of items that match the query criteria
      */
     @Nonnull
     default RecordCursor<T> execute(@Nonnull FDBRecordStore store, @Nonnull EvaluationContext context) {
@@ -84,7 +84,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalPlannerExpression 
      * natural order of results of this plan. The return value is <code>true</code> if the plan
      * returns elements in descending order and <code>false</code> if the elements are
      * returned in ascending order.
-     * @return <code>true</code> if this plan returns elements in reverse order.
+     * @return <code>true</code> if this plan returns elements in reverse order
      */
     boolean isReverse();
 
@@ -95,7 +95,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalPlannerExpression 
      * they might make use of the primary key index. For example, if they had a compound primary key, and they issued
      * a query for all records that had some value for the first element of their primary key, the planner will produce
      * a plan which scans over a subset of all records.
-     * @return <code>true</code> if this plan (or one of its components) scans at least a subset of the records directly.
+     * @return <code>true</code> if this plan (or one of its components) scans at least a subset of the records directly
      */
     boolean hasRecordScan();
 
@@ -104,20 +104,20 @@ public interface QueryPlan<T> extends PlanHashable, RelationalPlannerExpression 
      * rather than going through a secondary index.
      * See {@link #hasRecordScan hasRecordScan} for the comparison between two methods.
      * @return <code>true</code> if this plan (or one of its components) must perform a scan over all records in the
-     * store directly.
+     * store directly
      */
     boolean hasFullRecordScan();
 
     /**
      * Indicates whether this plan scans the given index.
      * @param indexName the name of the index to check for
-     * @return <code>true</code> if this plan (or one of its children) scans the given index.
+     * @return <code>true</code> if this plan (or one of its children) scans the given index
      */
     boolean hasIndexScan(@Nonnull String indexName);
 
     /**
      * Returns a set of names of the indexes used by this plan (and its sub-plans).
-     * @return an set of indexes used by this plan.
+     * @return an set of indexes used by this plan
      */
     @Nonnull
     Set<String> getUsedIndexes();
@@ -140,6 +140,14 @@ public interface QueryPlan<T> extends PlanHashable, RelationalPlannerExpression 
     /**
      * Returns the (zero or more) child {@code QueryPlan}s of this plan. These children may or may not
      * return elements of the same type as their parent plan.
+     *
+     * <p>
+     * <b>Warning</b>: This part of the API is currently undergoing active development. At some point in
+     * the future, this will be renamed {@code getChildren()}. This cannot be done at current, however,
+     * as it would require an incompatible change to {@link RecordQueryPlan#getChildren()}. That method
+     * has been marked {@link API.Status#UNSTABLE} as of version 2.5.
+     * </p>
+     *
      * @return the child plans of this plan
      */
     @SuppressWarnings("squid:S1452") // wildcards in return type

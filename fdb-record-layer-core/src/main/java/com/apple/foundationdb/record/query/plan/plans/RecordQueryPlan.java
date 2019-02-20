@@ -95,9 +95,19 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>> {
     }
 
     /**
-     * Returns the (zero or more) children of this plan.
+     * Returns the (zero or more) {@code RecordQueryPlan} children of this plan.
+     *
+     * <p>
+     * <b>Warning</b>: This part of the API is undergoing active development. At some point in the future,
+     * the return type of this method will change to allow it to return a list of generic {@link QueryPlan}s.
+     * At current, every {@code RecordQueryPlan} can only have other {@code RecordQueryPlan}s as children.
+     * However, this is not guaranteed to be the case in the future. This method has been marked as
+     * {@link API.Status#UNSTABLE} as of version 2.5.
+     * </p>
+     *
      * @return the child plans
      */
+    @API(API.Status.UNSTABLE)
     @Nonnull
     List<RecordQueryPlan> getChildren();
 

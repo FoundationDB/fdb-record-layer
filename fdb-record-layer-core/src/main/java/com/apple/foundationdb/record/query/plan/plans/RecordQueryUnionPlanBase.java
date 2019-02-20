@@ -160,17 +160,17 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
         }
         RecordQueryUnionPlanBase that = (RecordQueryUnionPlanBase) o;
         return reverse == that.reverse &&
-               Objects.equals(Sets.newHashSet(getChildren()), Sets.newHashSet(that.getChildren()));  // isomorphic under re-ordering of children
+               Objects.equals(Sets.newHashSet(getQueryPlanChildren()), Sets.newHashSet(that.getQueryPlanChildren()));  // isomorphic under re-ordering of children
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(Sets.newHashSet(getChildren()), reverse); // isomorphic under re-ordering of children
+        return Objects.hash(Sets.newHashSet(getQueryPlanChildren()), reverse); // isomorphic under re-ordering of children
     }
 
     @Override
     public int planHash() {
-        return PlanHashable.planHash(getChildren()) + (reverse ? 1 : 0);
+        return PlanHashable.planHash(getQueryPlanChildren()) + (reverse ? 1 : 0);
     }
 
     @Nonnull

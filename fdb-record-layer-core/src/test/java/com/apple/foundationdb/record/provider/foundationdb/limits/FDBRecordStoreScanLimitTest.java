@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
@@ -146,11 +147,12 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
         }
     }
 
-    private int getMaximumToScan(RecordQueryPlan plan) throws Exception {
+    private int getMaximumToScan(QueryPlan<?> plan) throws Exception {
         if (plan instanceof RecordQueryPlanWithNoChildren) {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.SERIAL_EXECUTE)) {
+                RecordQueryPlanWithNoChildren planWithNoChildren = (RecordQueryPlanWithNoChildren) plan;
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(planWithNoChildren, null, ExecuteProperties.SERIAL_EXECUTE)) {
                     int maximumToScan = 0;
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> record = cursor.next();
@@ -162,7 +164,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
         }
 
         int maximumToScan = 0;
-        for (RecordQueryPlan child : plan.getChildren()) {
+        for (QueryPlan<?> child : plan.getQueryPlanChildren()) {
             maximumToScan += getMaximumToScan(child);
         }
         return maximumToScan;
