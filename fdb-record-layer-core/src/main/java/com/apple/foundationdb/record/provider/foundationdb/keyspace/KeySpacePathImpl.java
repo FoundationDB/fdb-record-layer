@@ -41,11 +41,6 @@ import java.util.stream.Collectors;
 
 class KeySpacePathImpl implements KeySpacePath {
 
-    // The internal context has been deprecated. Paths should no longer be created holding their own
-    // context, but instead the context should be provided only at the time that the path is actually
-    // resolved into a subspace or a tuple.
-    @Nullable
-    protected final FDBRecordContext context;
     @Nonnull
     protected final KeySpaceDirectory directory;
     @Nullable
@@ -65,8 +60,6 @@ class KeySpacePathImpl implements KeySpacePath {
      *
      * @param parent the parent path element
      * @param directory the directory in which this path element resides
-     * @param context if using the deprecated API's, this will be the context that will be used to resolve the
-     *    path into a tuple or subspace
      * @param value the value to be used for this directory. This may not be the actual value that will be used
      *    in the tuple produced from the path
      * @param wasFromTuple this will be true if this path was produced using {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
@@ -77,7 +70,6 @@ class KeySpacePathImpl implements KeySpacePath {
      */
     private KeySpacePathImpl(@Nullable KeySpacePath parent,
                              @Nonnull KeySpaceDirectory directory,
-                             @Nullable FDBRecordContext context,
                              @Nullable Object value,
                              boolean wasFromTuple,
                              @Nullable PathValue resolvedPathValue,
@@ -87,7 +79,6 @@ class KeySpacePathImpl implements KeySpacePath {
             throw new IllegalArgumentException("Paths that weren't resolved from a tuple cannot provide storage information!");
         }
 
-        this.context = context;
         this.directory = directory;
         this.value = value;
         this.parent = parent;
@@ -99,50 +90,19 @@ class KeySpacePathImpl implements KeySpacePath {
     @Nonnull
     static KeySpacePath newPath(@Nullable KeySpacePath parent,
                                 @Nonnull KeySpaceDirectory directory,
-                                @Nullable FDBRecordContext context,
                                 @Nullable Object value,
                                 boolean wasFromTuple,
                                 @Nullable PathValue resolvedPathValue,
                                 @Nullable Tuple remainder) {
-        return directory.wrap(new KeySpacePathImpl(parent, directory, context, value, wasFromTuple,
+        return directory.wrap(new KeySpacePathImpl(parent, directory, value, wasFromTuple,
                 resolvedPathValue, remainder));
     }
 
     @Nonnull
     static KeySpacePath newPath(@Nullable KeySpacePath parent,
-                                @Nullable FDBRecordContext context,
                                 @Nonnull KeySpaceDirectory directory) {
-        return directory.wrap(new KeySpacePathImpl(parent, directory, context, directory.getValue(),
+        return directory.wrap(new KeySpacePathImpl(parent, directory, directory.getValue(),
                 false, null, null));
-    }
-
-    @Deprecated
-    @Override
-    @Nonnull
-    public FDBRecordContext getContext() {
-        if (context == null) {
-            throw new IllegalStateException("Path was not created with a context");
-        }
-        return context;
-    }
-
-    @Deprecated
-    @Nonnull
-    @Override
-    public KeySpacePath copyWithNewContext(@Nonnull FDBRecordContext newContext) {
-        // This is here to prevent using a mix of the deprecated API and non-deprecated API. Once you
-        // have created a path without a context (the non-deprecated approach), you cannot later go create
-        // a copy with a context, then use the deprecated API.  It is all or nothing :-)
-        if (this.context == null) {
-            throw new IllegalStateException("Cannot copy path that was created without a context");
-        }
-        return newPath(this.parent == null ? null : this.parent.copyWithNewContext(newContext),
-                this.directory,
-                newContext,
-                this.value,
-                this.wasFromTuple,
-                this.resolvedPathValue,
-                this.remainder);
     }
 
     @Nonnull
@@ -161,7 +121,7 @@ class KeySpacePathImpl implements KeySpacePath {
     @Override
     public KeySpacePath add(@Nonnull String dirName, @Nullable Object value) {
         KeySpaceDirectory subdir = directory.getSubdirectory(dirName);
-        return subdir.wrap(new KeySpacePathImpl(self(), subdir, context, value,
+        return subdir.wrap(new KeySpacePathImpl(self(), subdir, value,
                 false, null, null));
     }
 

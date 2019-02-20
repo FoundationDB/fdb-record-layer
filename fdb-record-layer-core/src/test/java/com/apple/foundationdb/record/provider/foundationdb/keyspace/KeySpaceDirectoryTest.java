@@ -1403,51 +1403,6 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         assertThat("b should be pathB", path.get(1), instanceOf(PathB.class));
     }
 
-    @SuppressWarnings("deprecation")
-    @Test
-    public void deprecatedtestCopyPreservesWrapper() {
-        KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("a", KeyType.STRING, PathA::new)
-                        .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING, PathB::new))
-                        .addSubdirectory(new DirectoryLayerDirectory("c", PathC::new)));
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        try (FDBRecordContext context = database.openContext()) {
-            final PathA a = (PathA) keySpace.path(context, "a", "foo");
-            final PathB b = (PathB) a.add("b", "bar");
-            final PathC c = (PathC) a.add("c", "bax");
-
-            KeySpacePath copy = a.copyWithNewContext(context);
-            assertThat("copy of 'a' is not instanceof PathA", copy, instanceOf(PathA.class));
-            copy = b.copyWithNewContext(context);
-            assertThat("copy of 'b' is not instanceof PathB", copy, instanceOf(PathB.class));
-            assertThat("copy of 'b' parent is not instanceof PathA", copy.getParent(), instanceOf(PathA.class));
-            copy = c.copyWithNewContext(context);
-            assertThat("copy of 'c' is not instanceof PathC", copy, instanceOf(PathC.class));
-            assertThat("copy of 'c' parent is not instanceof PathA", copy.getParent(), instanceOf(PathA.class));
-        }
-    }
-
-    @SuppressWarnings("deprecation")
-    @Test
-    public void deprecatedMixDeprecatedAndNew() throws Exception {
-        KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("a", KeyType.LONG, random.nextInt(Integer.MAX_VALUE)).addSubdirectory(
-                        new KeySpaceDirectory("b", KeyType.LONG).addSubdirectory(
-                                new KeySpaceDirectory("c", KeyType.LONG))));
-
-        KeySpacePath path = keySpace.path("a").add("b", 15L);
-
-        // Cannot use a method that requires a context without creating the path with one
-        assertThrows(IllegalStateException.class, path::toTuple);
-        assertThrows(IllegalStateException.class, path::toSubspace);
-        assertThrows(IllegalStateException.class, path::hasData);
-        assertThrows(IllegalStateException.class, () -> {
-            path.deleteAllData();
-            return null;
-        });
-        assertThrows(IllegalStateException.class, () -> path.list("c"));
-    }
-
     @Test
     public void testPathCompareByValue() {
         KeySpace keySpace = new KeySpace(

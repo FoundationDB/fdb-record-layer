@@ -61,19 +61,6 @@ public class ScopedDirectoryLayer extends LocatableResolver {
      * Creates a scoped directory layer. This constructor invokes blocking calls and must not
      * not be called in the context of an asynchronous operation.
      *
-     * @param path the path at which the directory layer should live
-     * @deprecated use {@link #ScopedDirectoryLayer(FDBRecordContext, KeySpacePath)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public ScopedDirectoryLayer(@Nonnull KeySpacePath path) {
-        this(path.getContext(), path);
-    }
-
-    /**
-     * Creates a scoped directory layer. This constructor invokes blocking calls and must not
-     * not be called in the context of an asynchronous operation.
-     *
      * @param context a context that is used only during the construction of this scope in order to
      *   resolve the provided path into a subspace
      * @param path the path at which the directory layer should live

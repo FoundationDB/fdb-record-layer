@@ -157,54 +157,14 @@ public class KeySpace {
      * Begin a path traversal from a root directory. This method may only be used for root directories
      * defined with a constant value.
      *
-     * @param context the context that will be used when resolving the path via {@link KeySpacePath#toTuple()}
-     *    or {@link KeySpacePath#toSubspace()}
-     * @param name the name of the root directory with which to begin the path
-     * @return the path beginning at the specified root directory
-     * @throws NoSuchDirectoryException if the directory does not exist
-     *
-     * @deprecated use {@link #path(String)} instead.
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    public KeySpacePath path(@Nonnull FDBRecordContext context, @Nonnull String name) {
-        return startPath(context, name);
-    }
-
-    /**
-     * Begin a path traversal from a root directory. This method may only be used for root directories
-     * defined with a constant value.
-     *
      * @param name the name of the root directory with which to begin the path
      * @return the path beginning at the specified root directory
      * @throws NoSuchDirectoryException if the directory does not exist
      */
     @Nonnull
     public KeySpacePath path(@Nonnull String name) {
-        return startPath(null, name);
-    }
-
-    /**
-     * Begin a path traversal from a root directory. This method may only be used for root directories
-     * defined with a constant value.
-     *
-     * @param context the context that will be used when resolving the path via {@link KeySpacePath#toTuple()}
-     *    or {@link KeySpacePath#toSubspace()}
-     * @param name the name of the root directory with which to begin the path
-     * @param value the value to use for the directory
-     * @return the path beginning at the specified root directory
-     * @throws NoSuchDirectoryException if the directory does not exist
-     * @throws RecordCoreArgumentException if the value provided is incompatible with the data type declared
-     *    for the directory
-     *
-     * @deprecated use {@link #path(String, Object)} instead.
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    public KeySpacePath path(@Nonnull FDBRecordContext context, @Nonnull String name, @Nullable Object value) {
-        return startPath(context, name, value);
+        KeySpaceDirectory dir = root.getSubdirectory(name);
+        return KeySpacePathImpl.newPath(null, dir);
     }
 
     /**
@@ -219,19 +179,8 @@ public class KeySpace {
      */
     @Nonnull
     public KeySpacePath path(@Nonnull String name, @Nullable Object value) {
-        return startPath(null, name, value);
-    }
-
-    @Nonnull
-    private KeySpacePath startPath(@Nullable FDBRecordContext context, @Nonnull String name) {
         KeySpaceDirectory dir = root.getSubdirectory(name);
-        return KeySpacePathImpl.newPath(null, context, dir);
-    }
-
-    @Nonnull
-    public KeySpacePath startPath(@Nullable FDBRecordContext context, @Nonnull String name, @Nullable Object value) {
-        KeySpaceDirectory dir = root.getSubdirectory(name);
-        return KeySpacePathImpl.newPath(null, dir, context, value, false, null, null);
+        return KeySpacePathImpl.newPath(null, dir, value, false, null, null);
     }
 
     /**
