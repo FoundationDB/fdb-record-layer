@@ -36,7 +36,34 @@ import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 
 /**
- * A wrapper for a cursor to iterate across multiple transactions.
+ * A cursor that can iterate over a cursor across transactions.
+ *
+ * It is provided a generator that produces a cursor (referred to as <i>underlying cursor</i>). The <i>underlying
+ * cursor</i> is iterated over until it is either exhausted or until scan limit properties are reached:
+ * <ul>
+ *     <li>
+ *         If the <i>underlying cursor</i> is exhausted, the {@link AutoContinuingCursor} is also exhausted.
+ *     </li>
+ *     <li>
+ *         If scan limit properties of the <i>underlying cursor</i> are reached, the generator is asked for a new
+ *         <i>underlying cursor</i> which (1) is in the context of a new transaction and (2) takes the continuation from
+ *         the previous <i>underlying cursor</i>. Then the process is repeated.
+ *     </li>
+ * </ul>
+ *
+ * <p>
+ * {@link AutoContinuingCursor} is responsible for all {@link FDBRecordContext} management, so all reads it does are in
+ * the scope of transactions that it controls.
+ * </p>
+ *
+ * <p>
+ * The {@link AutoContinuingCursor} has no visibility into the {@link com.apple.foundationdb.record.ScanProperties} of
+ * the <i>underlying cursor</i> and, therefore, will not be involved in enforcing any limits that may be individually
+ * applied to the <i>underlying cursor</i>. For example, if the generator returns an <i>underlying cursor</i> that
+ * specified, say, a record scan limit of 10 record, the {@link AutoContinuingCursor} will scan all data until it is
+ * exhausted, at most 10 records at a transaction.
+ * </p>
+ *
  * @param <T> the type of elements returned by this cursor
  */
 @API(API.Status.EXPERIMENTAL)
@@ -48,9 +75,9 @@ public class AutoContinuingCursor<T> implements BaseCursor<T> {
     private BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator;
 
     @Nullable
-    RecordCursor<T> currentCursor;
+    private RecordCursor<T> currentCursor;
     @Nullable
-    FDBRecordContext currentContext;
+    private FDBRecordContext currentContext;
 
     @Nullable
     private CompletableFuture<Boolean> nextFuture;
@@ -60,6 +87,12 @@ public class AutoContinuingCursor<T> implements BaseCursor<T> {
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
 
+    /**
+     * Creates a new {@link AutoContinuingCursor}.
+     * @param runner the runner from which it can open new contexts
+     * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a
+     * continuation
+     */
     public AutoContinuingCursor(@Nonnull FDBDatabaseRunner runner,
                                 @Nonnull BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator) {
         this.runner = runner;
@@ -74,7 +107,6 @@ public class AutoContinuingCursor<T> implements BaseCursor<T> {
         }
         return currentCursor.onNext().thenCompose(recordCursorResult -> {
             if (recordCursorResult.noNextButHasContinuation()) {
-                currentContext.close();
                 openContextAndGenerateCursor(lastResult.getContinuation().toBytes());
                 return currentCursor.onNext().thenApply(finalRecordCursorResult -> {
                     if (finalRecordCursorResult.noNextButHasContinuation()) {
@@ -91,6 +123,9 @@ public class AutoContinuingCursor<T> implements BaseCursor<T> {
     }
 
     private void openContextAndGenerateCursor(@Nullable byte[] continuation) {
+        if (currentContext != null) {
+            currentContext.close();
+        }
         currentContext = runner.openContext();
         currentCursor = nextCursorGenerator.apply(currentContext, continuation);
     }
