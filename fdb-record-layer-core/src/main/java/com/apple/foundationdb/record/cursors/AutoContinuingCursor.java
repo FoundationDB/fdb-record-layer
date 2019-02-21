@@ -69,7 +69,7 @@ import java.util.function.BiFunction;
  * @param <T> the type of elements returned by this cursor
  */
 @API(API.Status.EXPERIMENTAL)
-public class AutoContinuingCursor<T> implements BaseCursor<T> {
+public class AutoContinuingCursor<T> implements RecordCursor<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoContinuingCursor.class);
 
     @Nonnull
@@ -184,7 +184,9 @@ public class AutoContinuingCursor<T> implements BaseCursor<T> {
 
     @Override
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
-        visitor.visitEnter(this);
+        if (visitor.visitEnter(this) && currentCursor != null) {
+            currentCursor.accept(visitor);
+        }
         return visitor.visitLeave(this);
     }
 }
