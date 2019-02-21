@@ -54,18 +54,6 @@ public class ScopedInterningLayer extends LocatableResolver {
 
     /**
      * Creates a resolver rooted at the provided <code>KeySpacePath</code>.
-     *
-     * @param path the {@link KeySpacePath} where this resolver is rooted
-     * @deprecated use {@link #ScopedInterningLayer(FDBRecordContext, KeySpacePath)} instead
-     */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public ScopedInterningLayer(@Nonnull KeySpacePath path) {
-        this(path.getContext(), path);
-    }
-
-    /**
-     * Creates a resolver rooted at the provided <code>KeySpacePath</code>.
      * @param context context used to resolve the provided <code>path</code>. This context
      *   is only used during the construction of this class and at no other point
      * @param path the {@link KeySpacePath} where this resolver is rooted

@@ -208,11 +208,11 @@ public class KeySpaceDirectory {
             // Have we hit the leaf of the tree or run out of tuple to process?
             if (subdirs.isEmpty() || keyIndex + 1 == keySize) {
                 return CompletableFuture.completedFuture(
-                        Optional.of(KeySpacePathImpl.newPath(parent, this, context, tupleValue, true, resolvedValue,
+                        Optional.of(KeySpacePathImpl.newPath(parent, this, tupleValue, true, resolvedValue,
                                 (keyIndex + 1 == key.size()) ? null : TupleHelpers.subTuple(key, keyIndex + 1, key.size()))));
             } else {
                 return findChildForKey(context,
-                        KeySpacePathImpl.newPath(parent, this, context, tupleValue, true, resolvedValue, null),
+                        KeySpacePathImpl.newPath(parent, this, tupleValue, true, resolvedValue, null),
                         key, keySize, keyIndex + 1).thenApply(Optional::of);
             }
 

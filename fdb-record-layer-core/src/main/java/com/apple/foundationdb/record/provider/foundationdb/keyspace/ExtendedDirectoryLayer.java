@@ -70,19 +70,6 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
      * Create an extended directory layer. This constructor utilizes blocking calls and should not
      * be used in an asynchronous context.
      *
-     * @param path the path at which the directory layer should store its mappings
-     * @deprecated Use {@link #ExtendedDirectoryLayer(FDBRecordContext, KeySpacePath)} instead
-     */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public ExtendedDirectoryLayer(@Nonnull KeySpacePath path) {
-        this(path.getContext(), path);
-    }
-
-    /**
-     * Create an extended directory layer. This constructor utilizes blocking calls and should not
-     * be used in an asynchronous context.
-     *
      * @param context the context that will be used to resolve the provided path into the subspace at which
      *   the directory layer will be created. This context is only used during the construction of the
      *   this class is not subsequently used

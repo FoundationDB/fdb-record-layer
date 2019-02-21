@@ -253,7 +253,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
                                                 : TupleHelpers.subTuple(key, childKeyIndex, key.size());
 
                         // Make sure that the path is constructed with the text-name from the directory layer.
-                        KeySpacePath myPath = KeySpacePathImpl.newPath(parent, this, context, directoryString, true,
+                        KeySpacePath myPath = KeySpacePathImpl.newPath(parent, this, directoryString, true,
                                 toPathValue(directoryResolverResult), remainder);
 
                         // We are finished if there are no more subdirectories or no more tuple to consume

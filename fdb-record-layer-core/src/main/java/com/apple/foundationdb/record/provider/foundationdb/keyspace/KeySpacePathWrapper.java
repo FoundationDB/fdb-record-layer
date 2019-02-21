@@ -94,20 +94,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
         this.inner = inner;
     }
 
-    @Deprecated
-    @Nonnull
-    @Override
-    public KeySpacePath copyWithNewContext(@Nonnull FDBRecordContext newContext) {
-        return inner.copyWithNewContext(newContext);
-    }
-
-    @Deprecated
-    @Override
-    @Nonnull
-    public FDBRecordContext getContext() {
-        return inner.getContext();
-    }
-
     @Override
     @Nonnull
     public KeySpacePath add(@Nonnull String dirName) {
