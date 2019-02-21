@@ -57,6 +57,8 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -338,5 +340,34 @@ public class RecordMetaDataBuilderTest {
         MetaDataException e = assertThrows(MetaDataException.class, () ->
                 RecordMetaData.newBuilder().setRecords(TestRecordsNoPrimaryKeyProto.getDescriptor()).getRecordMetaData());
         assertEquals("Record type MyNoPrimaryKeyRecord must have a primary key", e.getMessage());
+    }
+
+    @Test
+    public void updateRecords() {
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final int prevVersion = builder.getVersion();
+        assertNotNull(builder.getRecordType("MySimpleRecord"));
+        assertSame(builder.getRecordType("MySimpleRecord").getDescriptor().getFile(), TestRecords1Proto.getDescriptor());
+        assertNotNull(builder.getRecordType("MyOtherRecord"));
+        builder.updateRecords(TestRecords1EvolvedProto.getDescriptor(), true);
+        RecordMetaData recordMetaData = builder.build(true);
+        assertNotNull(recordMetaData.getRecordType("MySimpleRecord"));
+        assertSame(builder.getRecordType("MySimpleRecord").getDescriptor().getFile(), TestRecords1EvolvedProto.getDescriptor());
+        assertNotNull(recordMetaData.getRecordType("MyOtherRecord"));
+        assertSame(builder.getRecordType("MyOtherRecord").getDescriptor().getFile(), TestRecords1EvolvedProto.getDescriptor());
+        assertNotNull(recordMetaData.getRecordType("AnotherRecord"));
+        assertSame(builder.getRecordType("AnotherRecord").getDescriptor().getFile(), TestRecords1EvolvedProto.getDescriptor());
+        assertEquals(builder.getRecordType("AnotherRecord").getSinceVersion().intValue(), builder.getVersion());
+        assertThat(builder.getRecordType("AnotherRecord").getSinceVersion(), greaterThan(prevVersion));
+
+        MetaDataException e = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder()
+                .setLocalFileDescriptor(TestRecords1EvolvedProto.getDescriptor())
+                .setRecords(recordMetaData.toProto())
+                .updateRecords(TestRecords1EvolvedProto.getDescriptor()));
+        assertEquals("Updating the records descriptor is not allowed when the local file descriptor is set", e.getMessage());
+
+        e = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().updateRecords(TestRecords1EvolvedProto.getDescriptor()));
+        assertEquals("Records descriptor is not set yet", e.getMessage());
+
     }
 }

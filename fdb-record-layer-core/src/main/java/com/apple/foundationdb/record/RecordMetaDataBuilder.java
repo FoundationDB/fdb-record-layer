@@ -317,6 +317,16 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nonnull
+    private Descriptors.Descriptor updateRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor, boolean processExtensionOptions) {
+        Descriptors.Descriptor unionDescriptor = fetchUnionDescriptor(fileDescriptor);
+        validateRecords(fileDescriptor, unionDescriptor);
+        evolutionValidator.validateUnion(this.unionDescriptor, unionDescriptor);
+        version++; // Bump the meta-data version
+        updateUnionFields(unionDescriptor, processExtensionOptions);
+        return unionDescriptor;
+    }
+
+    @Nonnull
     private Descriptors.Descriptor fetchUnionDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
         @Nullable Descriptors.Descriptor union = null;
         for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
@@ -433,6 +443,57 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
         loadFromFileDescriptor(fileDescriptor, processExtensionOptions);
         return this;
+    }
+
+    /**
+     * Update the records descriptor of the record meta-data.
+     *
+     * <p>
+     * This involves adding new record types and updating descriptors for the existing record types and union fields.
+     * By contract, the extension options will be processed for all of the new record types and will not be processed
+     * for any of the old record types. Also, it is not allowed to call this method when the local file descriptor is set.
+     * </p>
+     *
+     * <p>
+     * See {@link #updateRecords(Descriptors.FileDescriptor, boolean)} for more information.
+     * </p>
+     *
+     * @param recordsDescriptor the new record descriptor
+     */
+    public void updateRecords(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
+        updateRecords(recordsDescriptor, true);
+    }
+
+    /**
+     * Update the records descriptor of the record meta-data.
+     *
+     * <p>
+     * This adds any new record types and updates the descriptors for existing record types.
+     * By contract, the extension options will not be processed for the old record types. If {@code processExtensionOptions}
+     * is set, extension options will be processed only for the new record types. Also, this method may not be called
+     * when {@code localFileDescriptor} is set. This method bumps the meta-data version and sets the {@linkplain RecordType#getSinceVersion() since version}
+     * for the new record types (and their indexes).
+     * </p>
+     *
+     * <p>
+     * To avoid accidental changes, this method only updates the record types (i.e., updates the message
+     * descriptors of the old record types and adds new record types with their primary keys and indexes). This method
+     * does not process schema options. To update the schema options, use {@link #setSplitLongRecords(boolean)} and
+     * {@link #setStoreRecordVersions(boolean)}.
+     * </p>
+     *
+     * @param recordsDescriptor the new record descriptor
+     * @param processExtensionOptions whether to add primary keys and indexes using the extensions in the protobuf (only for the new record types)
+     */
+    public void updateRecords(@Nonnull Descriptors.FileDescriptor recordsDescriptor, boolean processExtensionOptions) {
+        if (this.recordsDescriptor == null) {
+            throw new MetaDataException("Records descriptor is not set yet");
+        }
+        if (localUnionDescriptor != null) {
+            throw new MetaDataException("Updating the records descriptor is not allowed when the local file descriptor is set");
+        }
+        this.recordsDescriptor = recordsDescriptor;
+        unionDescriptor = updateRecordTypes(this.recordsDescriptor, processExtensionOptions);
     }
 
     /**
@@ -651,7 +712,38 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return unionDescriptor.getFields().stream().anyMatch(field -> descriptor == field.getMessageType());
     }
 
-    private void fillUnionFields(Descriptors.Descriptor union, boolean processExtensionOptions) {
+    private void updateUnionFields(@Nonnull Descriptors.Descriptor union, boolean processExtensionOptions) {
+        for (Descriptors.FieldDescriptor unionField : union.getFields()) {
+            Descriptors.Descriptor descriptor = unionField.getMessageType();
+            if (!unionFields.containsKey(descriptor) && !recordTypes.containsKey(descriptor.getName())) {
+                // New field and record type.
+                RecordTypeBuilder recordType = processRecordType(unionField, processExtensionOptions);
+                if (recordType.getSinceVersion() != null && recordType.getSinceVersion() != version) {
+                    throw new MetaDataException(String.format("Record type version (%d) does not match meta-data version (%d)",
+                            recordType.getSinceVersion(), version));
+                } else {
+                    recordType.setSinceVersion(version);
+                }
+                unionFields.put(descriptor, unionField);
+            } else if (unionFields.containsKey(descriptor)) {
+                if (!recordTypes.containsKey(descriptor.getName())) {
+                    // Union field was seen before but the record type is unknown? This must not happen.
+                    throw new MetaDataException("Unknown record type for union field " + unionField.getName());
+                }
+                // A new record type. The preferred field is the last one, except if there is one whose name matches.
+                remapUnionField(descriptor, unionField);
+            } else {
+                // Update the record type.
+                RecordTypeBuilder oldRecordType = recordTypes.get(descriptor.getName());
+                RecordTypeBuilder newRecordType = new RecordTypeBuilder(descriptor, oldRecordType);
+                recordTypes.put(newRecordType.getName(), newRecordType); // update the record type builder
+                unionFields.remove(oldRecordType.getDescriptor());
+                unionFields.put(descriptor, unionField);
+            }
+        }
+    }
+
+    private void fillUnionFields(@Nonnull Descriptors.Descriptor union, boolean processExtensionOptions) {
         for (Descriptors.FieldDescriptor unionField : union.getFields()) {
             Descriptors.FieldDescriptor adjustedUnionField = adjustUnionField(unionField);
             Descriptors.Descriptor descriptor = adjustedUnionField.getMessageType();
@@ -660,12 +752,17 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 unionFields.put(descriptor, adjustedUnionField);
             } else {
                 // The preferred field is the last one, except if there is one whose name matches.
-                unionFields.compute(descriptor, (d, f) -> f != null && f.getName().equals("_" + d.getName()) ? f : adjustedUnionField);
+                remapUnionField(descriptor, adjustedUnionField);
             }
         }
     }
 
-    private void processRecordType(@Nonnull Descriptors.FieldDescriptor unionField, boolean processExtensionOptions) {
+    private void remapUnionField(@Nonnull Descriptors.Descriptor descriptor, @Nonnull Descriptors.FieldDescriptor unionField) {
+        unionFields.compute(descriptor, (d, f) -> f != null && f.getName().equals("_" + d.getName()) ? f : unionField);
+    }
+
+    @Nonnull
+    private RecordTypeBuilder processRecordType(@Nonnull Descriptors.FieldDescriptor unionField, boolean processExtensionOptions) {
         Descriptors.Descriptor descriptor = unionField.getMessageType();
         RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
         if (recordTypes.putIfAbsent(recordType.getName(), recordType) != null) {
@@ -682,6 +779,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             }
             protoFieldOptions(recordType);
         }
+        return recordType;
     }
 
     @Nonnull

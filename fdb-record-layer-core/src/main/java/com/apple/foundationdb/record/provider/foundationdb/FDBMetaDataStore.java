@@ -32,6 +32,9 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -45,6 +48,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -287,15 +292,24 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     }
 
     @Nonnull
-    private RecordMetaData buildMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto, boolean validate, boolean useLocalFileDescriptor) {
+    protected RecordMetaDataBuilder createMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+        return createMetaDataBuilder(metaDataProto, true);
+    }
+
+    @Nonnull
+    protected RecordMetaDataBuilder createMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto, boolean useLocalFileDescriptor) {
         RecordMetaDataBuilder builder = RecordMetaData.newBuilder()
                 .addDependencies(dependencies)
                 .setEvolutionValidator(evolutionValidator);
         if (useLocalFileDescriptor && localFileDescriptor != null) {
             builder.setLocalFileDescriptor(localFileDescriptor);
         }
-        builder.setRecords(metaDataProto);
-        return builder.build(validate);
+        return builder.setRecords(metaDataProto);
+    }
+
+    @Nonnull
+    protected RecordMetaData buildMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto, boolean validate, boolean useLocalFileDescriptor) {
+        return createMetaDataBuilder(metaDataProto, useLocalFileDescriptor).build(validate);
     }
 
     @Nonnull
@@ -478,6 +492,202 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     public void saveRecordMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_META_DATA, saveAndSetCurrent(metaDataProto));
+    }
+
+    @Nonnull
+    private CompletableFuture<RecordMetaDataProto.MetaData> loadCurrentProto() {
+        return loadCurrentSerialized().thenApply(serialized -> {
+            if (serialized == null) {
+                return null;
+            }
+            return parseMetaDataProto(serialized);
+        });
+    }
+
+    /**
+     * Add a new index to the record meta-data.
+     * @param recordType the name of the record type
+     * @param indexName the name of the new index
+     * @param fieldName the field to be indexed
+     */
+    public void addIndex(@Nonnull String recordType, @Nonnull String indexName, @Nonnull String fieldName) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addIndexAsync(recordType, indexName, fieldName));
+    }
+
+    /**
+     * Add a new index to the record meta-data.
+     * @param recordType the name of the record type
+     * @param indexName the name of the new index
+     * @param indexExpression the root expression of the index
+     */
+    public void addIndex(@Nonnull String recordType, @Nonnull String indexName, @Nonnull KeyExpression indexExpression) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addIndexAsync(recordType, indexName, indexExpression));
+    }
+
+    /**
+     * Add a new index to the record meta-data.
+     * @param recordType the name of the record type
+     * @param index the new index to be added
+     */
+    public void addIndex(@Nonnull String recordType, @Nonnull Index index) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addIndexAsync(recordType, index));
+    }
+
+    /**
+     * Add a new index to the record meta-data asynchronously.
+     * @param recordType the name of the record type
+     * @param indexName the name of the new index
+     * @param fieldName the field to be indexed
+     * @return a future that completes when the index is added
+     */
+    @Nonnull
+    public CompletableFuture<Void> addIndexAsync(@Nonnull String recordType, @Nonnull String indexName, @Nonnull String fieldName) {
+        return addIndexAsync(recordType, new Index(indexName, fieldName));
+    }
+
+    /**
+     * Add a new index to the record meta-data asynchronously.
+     * @param recordType the name of the record type
+     * @param indexName the name of the new index
+     * @param indexExpression the root expression of the index
+     * @return a future that completes when the index is added
+     */
+    @Nonnull
+    public CompletableFuture<Void> addIndexAsync(@Nonnull String recordType, @Nonnull String indexName,
+                                                 @Nonnull KeyExpression indexExpression) {
+        return addIndexAsync(recordType, new Index(indexName, indexExpression));
+    }
+
+    /**
+     * Add a new index to the record meta-data asynchronously.
+     * @param recordType the name of the record type
+     * @param index the index to be added
+     * @return a future that completes when the index is added
+     */
+    @Nonnull
+    public CompletableFuture<Void> addIndexAsync(@Nonnull String recordType, @Nonnull Index index) {
+        return loadCurrentProto().thenCompose(metaDataProto -> {
+            RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);
+            recordMetaDataBuilder.addIndex(recordType, index);
+            return saveAndSetCurrent(recordMetaDataBuilder.getRecordMetaData().toProto());
+        });
+    }
+
+    /**
+     * Add a new index to the record meta-data that contains multiple record types.
+     * If the list is null or empty, the resulting index will include all record types.
+     * If the list has one element it will just be a normal single record type index.
+     * @param recordTypes a list of record types that the index will include
+     * @param index the index to be added
+     */
+    public void addMultiTypeIndex(@Nullable List<String> recordTypes, @Nonnull Index index) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addMultiTypeIndexAsync(recordTypes, index));
+    }
+
+    /**
+     * Add a new index to the record meta-data that contains multiple record types asynchronously.
+     * If the list is null or empty, the resulting index will include all record types.
+     * If the list has one element it will just be a normal single record type index.
+     * @param recordTypes a list of record types that the index will include
+     * @param index the index to be added
+     * @return a future that completes when the index is added
+     */
+    @Nonnull
+    public CompletableFuture<Void> addMultiTypeIndexAsync(@Nullable List<String> recordTypes, @Nonnull Index index) {
+        return loadCurrentProto().thenCompose(metaDataProto -> {
+            RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);
+            List<RecordTypeBuilder> recordTypeBuilders = new ArrayList<>();
+            if (recordTypes != null) {
+                for (String type : recordTypes) {
+                    recordTypeBuilders.add(recordMetaDataBuilder.getRecordType(type));
+                }
+            }
+            recordMetaDataBuilder.addMultiTypeIndex(recordTypeBuilders, index);
+            return saveAndSetCurrent(recordMetaDataBuilder.getRecordMetaData().toProto());
+        });
+    }
+
+    /**
+     * Add a new index on all record types.
+     * @param index the index to be added
+     */
+    public void addUniversalIndex(@Nonnull Index index) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addUniversalIndexAsync(index));
+    }
+
+    /**
+     * Add a new index on all record types.
+     * @param index the index to be added
+     * @return a future that completes when the index is added
+     */
+    @Nonnull
+    public CompletableFuture<Void> addUniversalIndexAsync(@Nonnull Index index) {
+        return loadCurrentProto().thenCompose(metaDataProto -> {
+            RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);
+            recordMetaDataBuilder.addUniversalIndex(index);
+            return saveAndSetCurrent(recordMetaDataBuilder.getRecordMetaData().toProto());
+        });
+    }
+
+    /**
+     * Remove the given index from the record meta-data.
+     * @param indexName the name of the index to be removed
+     */
+    public void dropIndex(@Nonnull String indexName) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_DROP_INDEX, dropIndexAsync(indexName));
+    }
+
+    /**
+     * Remove the given index from the record meta-data asynchronously.
+     * @param indexName the name of the index to be removed
+     * @return a future that is complete when the index is dropped
+     */
+    @Nonnull
+    public CompletableFuture<Void> dropIndexAsync(@Nonnull String indexName) {
+        return loadCurrentProto().thenCompose(metaDataProto -> {
+            RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);
+            recordMetaDataBuilder.removeIndex(indexName);
+            return saveAndSetCurrent(recordMetaDataBuilder.getRecordMetaData().toProto());
+        });
+    }
+
+    /**
+     * Update the meta-data records descriptor.
+     * This adds any new record types to the meta-data and replaces all of the current descriptors with the new descriptors.
+     *
+     * <p>
+     *  It is important to note that if a local file descriptor is set using {@link #setLocalFileDescriptor(Descriptors.FileDescriptor)},
+     *  the local file descriptor must be at least as evolved as the records descriptor passed to this method.
+     *  Otherwise, {@code updateRecords} will fail.
+     * </p>
+     *
+     * @param recordsDescriptor the new recordsDescriptor
+     */
+    public void updateRecords(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_UPDATE_RECORDS_DESCRIPTOR, updateRecordsAsync(recordsDescriptor));
+    }
+
+    /**
+     * Update the meta-data records descriptor asynchronously.
+     * This adds any new record types to the meta-data and replaces all of the current descriptors with the new descriptors.
+     *
+     * <p>
+     *  It is important to note that if a local file descriptor is set using {@link #setLocalFileDescriptor(Descriptors.FileDescriptor)},
+     *  the local file descriptor must be at least as evolved as the records descriptor passed to this method.
+     *  Otherwise, {@code updateRecordsAsync} will fail.
+     * </p>
+     *
+     * @param recordsDescriptor the new recordsDescriptor
+     * @return a future that completes when the records descriptor is updated
+     */
+    @Nonnull
+    public CompletableFuture<Void> updateRecordsAsync(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
+        return loadCurrentProto().thenCompose(metaDataProto -> {
+            // Update the records without using its local file descriptor. Let saveAndSetCurrent use the local file descriptor when saving the meta-data.
+            RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto, false);
+            recordMetaDataBuilder.updateRecords(recordsDescriptor);
+            return saveAndSetCurrent(recordMetaDataBuilder.getRecordMetaData().toProto());
+        });
     }
 
     @Nullable

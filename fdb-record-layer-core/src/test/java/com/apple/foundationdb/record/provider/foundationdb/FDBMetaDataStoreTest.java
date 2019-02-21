@@ -26,7 +26,10 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.TestRecords1EvolvedAgainProto;
+import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecordsMultiProto;
 import com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -319,6 +322,51 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
     }
 
     @Test
+    public void indexes() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            metaDataStore.addIndex("MySimpleRecord", "testIndex", "rec_no");
+            assertNotNull(metaDataStore.getRecordMetaData().getIndex("testIndex"));
+            context.commit();
+            assertNotNull(metaDataStore.getRecordMetaData().getIndex("testIndex"));
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertNotNull(metaDataStore.getRecordMetaData().getIndex("testIndex"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            MetaDataException e = assertThrows(MetaDataException.class, () ->
+                    metaDataStore.addIndex("MySimpleRecord", "testIndex", "rec_no"));
+            assertEquals("Index testIndex already defined", e.getMessage());
+            metaDataStore.dropIndex("testIndex");
+            context.commit();
+            e = assertThrows(MetaDataException.class, () ->
+                    metaDataStore.getRecordMetaData().getIndex("testIndex"));
+            assertEquals("Index testIndex not defined", e.getMessage());
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            MetaDataException e = assertThrows(MetaDataException.class, () ->
+                    metaDataStore.getRecordMetaData().getIndex("testIndex"));
+            assertEquals("Index testIndex not defined", e.getMessage());
+            e = assertThrows(MetaDataException.class, () -> metaDataStore.dropIndex("testIndex"));
+            assertEquals("No index named testIndex defined", e.getMessage());
+            context.commit();
+        }
+    }
+
+    @Test
     public void withIndexesRequiringRebuild() {
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         try (FDBRecordContext context = fdb.openContext()) {
@@ -326,7 +374,6 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             metaDataStore.saveRecordMetaData(metaData);
             context.commit();
         }
-
         RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder().setVersion(metaData.getVersion() + 1);
         protoBuilder.getIndexesBuilderList().forEach(index -> {
             if (index.getName().equals("MySimpleRecord$str_value_indexed")) {
@@ -367,6 +414,64 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
     }
 
     @Test
+    public void multiTypeIndex() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsMultiProto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.addUniversalIndex(FDBRecordStoreTestBase.COUNT_INDEX);
+            metaDataStore.addMultiTypeIndex(Arrays.asList("MultiRecordOne", "MultiRecordTwo", "MultiRecordThree"),
+                    new Index("all$elements", Key.Expressions.field("element", KeyExpression.FanType.Concatenate),
+                            Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+            metaDataStore.addMultiTypeIndex(null,
+                    new Index("all$elements2", Key.Expressions.field("element", KeyExpression.FanType.Concatenate),
+                            Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+            metaDataStore.addMultiTypeIndex(Arrays.asList("MultiRecordTwo", "MultiRecordThree"),
+                    new Index("two&three$ego", Key.Expressions.field("ego"), Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+            metaDataStore.addMultiTypeIndex(Arrays.asList("MultiRecordOne"), new Index("one$name", Key.Expressions.field("name"), IndexTypes.VALUE));
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(5, metaData.getAllIndexes().size());
+            assertEquals(0, metaData.getFormerIndexes().size());
+            assertNotNull(metaData.getIndex("all$elements"));
+            assertEquals(3, metaData.recordTypesForIndex(metaData.getIndex("all$elements")).size());
+            assertNotNull(metaData.getIndex("all$elements2"));
+            assertEquals(3, metaData.recordTypesForIndex(metaData.getIndex("all$elements2")).size());
+            assertNotNull(metaData.getIndex("two&three$ego"));
+            assertEquals(2, metaData.recordTypesForIndex(metaData.getIndex("two&three$ego")).size());
+            assertNotNull(metaData.getIndex("one$name"));
+            assertEquals(1, metaData.recordTypesForIndex(metaData.getIndex("one$name")).size());
+            metaDataStore.dropIndex("one$name");
+            MetaDataException e = assertThrows(MetaDataException.class, () ->
+                    metaDataStore.getRecordMetaData().getIndex("one$name"));
+            assertEquals("Index one$name not defined", e.getMessage());
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(4, metaData.getAllIndexes().size());
+            assertEquals(1, metaData.getFormerIndexes().size());
+            assertNotNull(metaDataStore.getRecordMetaData().getIndex("all$elements"));
+            assertNotNull(metaDataStore.getRecordMetaData().getIndex("all$elements2"));
+            assertNotNull(metaDataStore.getRecordMetaData().getIndex("two&three$ego"));
+            MetaDataException e = assertThrows(MetaDataException.class, () ->
+                    metaDataStore.getRecordMetaData().getIndex("one$name"));
+            assertEquals("Index one$name not defined", e.getMessage());
+        }
+    }
+
+    @Test
     public void withoutBumpingVersion() {
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         try (FDBRecordContext context = fdb.openContext()) {
@@ -374,6 +479,75 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             metaDataStore.saveRecordMetaData(metaData);
             MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.saveRecordMetaData(metaData));
             assertThat(e.getMessage(), containsString("meta-data version must increase"));
+            context.commit();
+        }
+    }
+
+    @Test
+    public void updateRecords() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor());
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyOtherRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("AnotherRecord"));
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyOtherRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("AnotherRecord"));
+            context.commit();
+        }
+    }
+
+    @Test
+    public void updateRecordsWithLocalFileDescriptor() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+
+            // Local file descriptor is not as evolved as the to-be updating records descriptor. It will fail.
+            metaDataStore.setLocalFileDescriptor(TestRecords1Proto.getDescriptor());
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor()));
+            assertEquals(e.getMessage(), "record type removed from union");
+
+            metaDataStore.setLocalFileDescriptor(TestRecords1EvolvedAgainProto.getDescriptor());
+            metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor());
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyOtherRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("AnotherRecord"));
+            e = assertThrows(MetaDataException.class, () -> metaDataStore.getRecordMetaData().getRecordType("OneMoreRecord"));
+            assertEquals(e.getMessage(), "Unknown record type OneMoreRecord");
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyOtherRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("AnotherRecord"));
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.getRecordMetaData().getRecordType("OneMoreRecord"));
+            assertEquals(e.getMessage(), "Unknown record type OneMoreRecord");
             context.commit();
         }
     }
