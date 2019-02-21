@@ -51,8 +51,8 @@ import java.util.function.Function;
  *             } else {
  *                 return Optional.empty();
  *             }
- *             return Optional.of(1);
  *         }
+ *         return Optional.of(1);
  *     }
  * </pre>
  * Given this function, the <code>ChainedCursor</code> would iteratively generate the value from 1 to 10.
@@ -70,7 +70,6 @@ import java.util.function.Function;
  *                 } else {
  *                     return Optional.empty();
  *                 }
- *                 return Optional.of(1);
  *             }
  *             return Optional.of(1);
  *         },
