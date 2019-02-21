@@ -548,7 +548,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                 callback,
                 scanProperties.isReverse()
         );
-        RecordCursor<IndexEntry> cursor = new TextCursor(iterator, state.store.getExecutor(), state.context, withAdjustedLimit);
+        RecordCursor<IndexEntry> cursor = new TextCursor(iterator, state.store.getExecutor(), state.context, withAdjustedLimit, state.index);
         if (scanProperties.getExecuteProperties().getSkip() != 0) {
             cursor = cursor.skip(scanProperties.getExecuteProperties().getSkip());
         }

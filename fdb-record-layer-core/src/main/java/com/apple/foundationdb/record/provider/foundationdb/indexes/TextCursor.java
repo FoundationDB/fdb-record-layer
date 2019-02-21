@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.Tuple;
@@ -57,8 +58,12 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.EXPERIMENTAL)
 class TextCursor implements BaseCursor<IndexEntry> {
+    @Nonnull
     private final BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying;
+    @Nonnull
     private final Executor executor;
+    @Nonnull
+    private final Index index;
     @Nonnull
     private final CursorLimitManager limitManager;
     @Nullable
@@ -72,10 +77,12 @@ class TextCursor implements BaseCursor<IndexEntry> {
     TextCursor(@Nonnull BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying,
                @Nonnull Executor executor,
                @Nonnull FDBRecordContext context,
-               @Nonnull ScanProperties scanProperties) {
+               @Nonnull ScanProperties scanProperties,
+               @Nonnull Index index) {
         this.underlying = underlying;
         this.executor = executor;
         this.limitManager = new CursorLimitManager(context, scanProperties);
+        this.index = index;
 
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
         this.timer = context.getTimer();
@@ -101,7 +108,7 @@ class TextCursor implements BaseCursor<IndexEntry> {
                         limitRemaining--;
                     }
                     nextResult = RecordCursorResult.withNextValue(
-                            new IndexEntry(k, Tuple.from(nextItem.getValue())), continuationHelper());
+                            new IndexEntry(index, k, Tuple.from(nextItem.getValue())), continuationHelper());
                 } else {
                     // Source iterator is exhausted
                     nextResult = RecordCursorResult.exhausted();
