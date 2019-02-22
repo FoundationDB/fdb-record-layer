@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.tuple.Pair;
 

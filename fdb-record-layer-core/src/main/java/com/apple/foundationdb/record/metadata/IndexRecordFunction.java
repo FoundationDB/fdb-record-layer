@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.google.protobuf.Descriptors;

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 
 /**
  * Indicates whether <code>FDBDatabase.asyncToSync()</code> or <code>FDBRecordContext.asyncToSync()</code> should

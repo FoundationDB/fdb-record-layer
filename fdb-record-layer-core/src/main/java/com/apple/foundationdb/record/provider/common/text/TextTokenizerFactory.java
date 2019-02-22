@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
 
 import javax.annotation.Nonnull;

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.planning;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.map.BunchedMapMultiIterator;
 import com.apple.foundationdb.map.BunchedMapScanEntry;
 import com.apple.foundationdb.record.ByteArrayContinuation;

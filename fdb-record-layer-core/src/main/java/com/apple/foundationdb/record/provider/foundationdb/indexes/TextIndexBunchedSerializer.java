@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.map.BunchedSerializationException;
 import com.apple.foundationdb.map.BunchedSerializer;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
