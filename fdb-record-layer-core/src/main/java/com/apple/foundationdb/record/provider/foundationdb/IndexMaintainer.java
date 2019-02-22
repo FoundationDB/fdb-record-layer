@@ -135,7 +135,8 @@ public abstract class IndexMaintainer {
     public abstract RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
 
     /**
-     * It scans the index and checks if the data (i.e. entries) is valid.
+     * Validates the integrity of the index entries. The definition of exactly what validations are performed is up to
+     * the implementation of the index.
      *
      * It is not responsible for metadata validation, which is defined at
      * {@link com.apple.foundationdb.record.metadata.IndexValidator}).

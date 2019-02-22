@@ -987,10 +987,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the primary key portion of an index entry.
-     * This API is deprecated. Should use {@link Index#getEntryPrimaryKey(Tuple)} instead.
      * @param index the index associated with this entry
      * @param entry the index entry
      * @return the primary key extracted from the entry
+     * @deprecated use {@link Index#getEntryPrimaryKey(Tuple)} instead
      */
     @API(API.Status.DEPRECATED)
     @Deprecated

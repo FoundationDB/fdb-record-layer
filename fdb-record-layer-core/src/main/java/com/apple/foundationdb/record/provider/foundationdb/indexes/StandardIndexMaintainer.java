@@ -85,7 +85,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.SplitHelper.un
 public abstract class StandardIndexMaintainer extends IndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(StandardIndexMaintainer.class);
     protected static final int TOO_LARGE_VALUE_MESSAGE_LIMIT = 100;
-    
+
     private static final ScanProperties SNAPSHOT_SCAN = new ScanProperties(ExecuteProperties.newBuilder()
             .setReturnedRowLimit(Integer.MAX_VALUE)
             .setIsolationLevel(IsolationLevel.SNAPSHOT)
@@ -374,9 +374,10 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     /**
-     * It validates nothing. An index maintainer extending this class should implement the validation depending on how
-     * it wants to be validated. One implementation {@link #validateOrphanEntries(byte[])} is provided, which should be useful
-     * in many cases.
+     * Validate the integrity of the index (such as identifying index entries that do not point to records or
+     * identifying records that do not point to valid index entries. The default implementation provided by the
+     * <code>StandardIndexMaintainer</code> class is a no-op (performs no validation) and should be overridden by
+     * implementing classes.
      * @param continuation any continuation from a previous validation invocation
      * @return an empty cursor.
      */

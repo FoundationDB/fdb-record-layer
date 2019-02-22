@@ -86,6 +86,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -2110,6 +2111,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         Set<IndexEntry> expectedInvalidEntries = setUpIndexOrphanValidation();
 
         try (FDBDatabaseRunner runner = fdb.newRunner()) {
+            AtomicInteger generatorCount = new AtomicInteger();
             // Set a scanned records limit to mock when the transaction is out of band.
             AutoContinuingCursor<InvalidIndexEntry> cursor = new AutoContinuingCursor<>(
                     runner,
@@ -2118,6 +2120,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                                     .setContext(context).setKeySpacePath(path).setMetaDataProvider(simpleMetaData(NO_HOOK))
                                     .uncheckedOpenAsync()
                                     .thenApply(currentRecordStore -> {
+                                        generatorCount.getAndIncrement();
                                         final Index index = currentRecordStore.getRecordMetaData()
                                                 .getIndex("MySimpleRecord$str_value_indexed");
                                         return currentRecordStore.getIndexMaintainer(index)
@@ -2135,6 +2138,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 assertFalse(results.contains(entry), "Entry " + entry + " is duplicated");
                 results.add(entry);
             }
+            assertEquals(10 / 4 + 1, generatorCount.get());
             assertEquals(expectedInvalidEntries, results,
                     "Validation should and should only return the index entry that has no associated record.");
         }

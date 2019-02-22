@@ -44,13 +44,31 @@ public class InvalidIndexEntry {
          * @return the name
          */
         String name();
+
+        /**
+         * Get the description of the reason for user displays.
+         * @return the user-visible description
+         */
+        String description();
     }
 
     /**
      * The reasons supported in the Record Layer.
      */
     public enum Reasons implements Reason {
-        ORPHAN
+        ORPHAN("index entry does not point to an existing record")
+        ;
+
+        private final String description;
+
+        Reasons(String description) {
+            this.description = description;
+        }
+
+        @Override
+        public String description() {
+            return description;
+        }
     }
 
     @Nonnull
