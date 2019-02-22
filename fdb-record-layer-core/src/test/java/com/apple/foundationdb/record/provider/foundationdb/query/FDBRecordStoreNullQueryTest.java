@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.ProtoVersionSupplier;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsNulls2Proto;
@@ -73,11 +74,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
 
-    @Nullable
-    static final String PROTO_VERSION = System.getenv("PROTO_VERSION");
-
     protected static boolean isProto3() {
-        return "3".equals(PROTO_VERSION);
+        return ProtoVersionSupplier.getProtoVersion() == 3;
     }
 
     protected static RecordMetaData proto2MetaData() {
