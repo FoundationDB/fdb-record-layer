@@ -28,6 +28,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -84,6 +85,11 @@ import static com.apple.foundationdb.record.provider.foundationdb.SplitHelper.un
 public abstract class StandardIndexMaintainer extends IndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(StandardIndexMaintainer.class);
     protected static final int TOO_LARGE_VALUE_MESSAGE_LIMIT = 100;
+    
+    private static final ScanProperties SNAPSHOT_SCAN = new ScanProperties(ExecuteProperties.newBuilder()
+            .setReturnedRowLimit(Integer.MAX_VALUE)
+            .setIsolationLevel(IsolationLevel.SNAPSHOT)
+            .build());
 
     protected StandardIndexMaintainer(IndexMaintainerState state) {
         super(state);
@@ -368,23 +374,33 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     /**
-     * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
-     * @param scanType the {@link IndexScanType type} of scan to perform
-     * @param range the range to validate
+     * It validates nothing. An index maintainer extending this class should implement the validation depending on how
+     * it wants to be validated. One implementation {@link #validateOrphanEntries(byte[])} is provided, which should be useful
+     * in many cases.
      * @param continuation any continuation from a previous validation invocation
-     * @param scanProperties skip, limit and other properties of the validation
-     * @return a cursor over index entries that have no associated records.
+     * @return an empty cursor.
      */
     @Nonnull
-    public RecordCursor<IndexEntry> validateOrphanEntries(@Nonnull IndexScanType scanType,
-                                                          @Nonnull TupleRange range,
-                                                          @Nullable byte[] continuation,
-                                                          @Nonnull ScanProperties scanProperties) {
-        return scan(scanType, range, continuation, scanProperties).filterAsync(
-                indexEntry -> state.store
-                        .hasIndexEntryRecord(state.index, indexEntry, scanProperties.getExecuteProperties().getIsolationLevel())
-                        .thenApply(has -> !has),
-                FDBRecordStore.DEFAULT_PIPELINE_SIZE);
+    @Override
+    public RecordCursor<InvalidIndexEntry> validateEntries(byte[] continuation) {
+        return RecordCursor.empty();
+    }
+
+    /**
+     * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
+     * @param continuation any continuation from a previous validation invocation
+     * @return a cursor over index entries that have no associated records.
+     */
+    RecordCursor<InvalidIndexEntry> validateOrphanEntries(byte[] continuation) {
+        // For orphan index entry validation, it does not hurt to have a weaker isolation.
+        return scan(IndexScanType.BY_VALUE, TupleRange.ALL, continuation, SNAPSHOT_SCAN)
+                .filterAsync(
+                        indexEntry -> state.store
+                                .hasIndexEntryRecord(indexEntry, IsolationLevel.SNAPSHOT)
+                                .thenApply(has -> !has),
+                        FDBRecordStore.DEFAULT_PIPELINE_SIZE)
+                .map(indexEntry ->
+                        new InvalidIndexEntry(indexEntry, InvalidIndexEntry.Reasons.ORPHAN));
     }
 
     protected <M extends Message> void checkKeyValueSizes(@Nonnull FDBIndexableRecord<M> savedRecord,

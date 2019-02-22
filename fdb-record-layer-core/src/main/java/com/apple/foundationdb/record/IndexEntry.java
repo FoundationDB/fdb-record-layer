@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
@@ -138,8 +137,7 @@ public class IndexEntry {
     @Nonnull
     public Tuple getPrimaryKey() {
         if (primaryKey == null) {
-            // TODO: Should be updated to use Index.getEntryPrimaryKey() once https://github.com/FoundationDB/fdb-record-layer/pull/384 is merged
-            primaryKey = FDBRecordStoreBase.indexEntryPrimaryKey(index, key);
+            primaryKey = index.getEntryPrimaryKey(key);
         }
         return primaryKey;
     }

@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -134,18 +135,16 @@ public abstract class IndexMaintainer {
     public abstract RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
 
     /**
-     * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
-     * @param scanType the {@link IndexScanType type} of scan to perform
-     * @param range the range to validate
+     * It scans the index and checks if the data (i.e. entries) is valid.
+     *
+     * It is not responsible for metadata validation, which is defined at
+     * {@link com.apple.foundationdb.record.metadata.IndexValidator}).
+     *
      * @param continuation any continuation from a previous validation invocation
-     * @param scanProperties skip, limit and other properties of the validation
-     * @return a cursor over index entries that have no associated records.
+     * @return a cursor over invalid index entries including reasons.
      */
     @Nonnull
-    public abstract RecordCursor<IndexEntry> validateOrphanEntries(@Nonnull IndexScanType scanType,
-                                                                   @Nonnull TupleRange range,
-                                                                   @Nullable byte[] continuation,
-                                                                   @Nonnull ScanProperties scanProperties);
+    public abstract RecordCursor<InvalidIndexEntry> validateEntries(byte[] continuation);
 
     /**
      * Return <code>true</code> if this index be used to evaluate the given record function.

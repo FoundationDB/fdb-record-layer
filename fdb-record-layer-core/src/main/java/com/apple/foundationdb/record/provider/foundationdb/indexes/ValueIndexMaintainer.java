@@ -65,6 +65,17 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
         return scan(range, continuation, scanProperties);
     }
 
+    /**
+     * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
+     * @param continuation any continuation from a previous validation invocation
+     * @return a cursor over index entries that have no associated records.
+     */
+    @Nonnull
+    @Override
+    public RecordCursor<InvalidIndexEntry> validateEntries(byte[] continuation) {
+        return validateOrphanEntries(continuation);
+    }
+
     @Override
     public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
         return (function.getName().equals(FunctionNames.MIN) ||

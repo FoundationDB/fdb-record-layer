@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -104,7 +105,7 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
-    public RecordCursor<IndexEntry> validateOrphanEntries(@Nonnull IndexScanType scanType, @Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<InvalidIndexEntry> validateEntries(byte[] continuation) {
         return RecordCursor.empty();
     }
 
