@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
@@ -64,6 +65,13 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.MAINTAINED)
 public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBMetaDataStore.class);
+    private static final ExtensionRegistry DEFAULT_EXTENSION_REGISTRY;
+
+    static {
+        ExtensionRegistry defaultExtensionRegistry = ExtensionRegistry.newInstance();
+        RecordMetaDataOptionsProto.registerAllExtensions(defaultExtensionRegistry);
+        DEFAULT_EXTENSION_REGISTRY = defaultExtensionRegistry.getUnmodifiable();
+    }
 
     // All keys in subspace are taken by SplitHelper.
     // Normally meta-data fits into UNSPLIT_RECORD (0).
@@ -79,7 +87,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     @Nullable
     private Descriptors.FileDescriptor localFileDescriptor;
     @Nullable
-    private ExtensionRegistry extensionRegistry;
+    private ExtensionRegistry extensionRegistry = DEFAULT_EXTENSION_REGISTRY;
     @Nonnull
     private MetaDataEvolutionValidator evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
     @Nullable
@@ -179,11 +187,36 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
         this.evolutionValidator = evolutionValidator;
     }
 
+    /**
+     * Get the extension registry used when deserializing meta-data proto messages. By default, the extension registry
+     * will have only the extensions specified in "{@code record_metadata_options.proto}". Note that this
+     * differs from the {@linkplain ExtensionRegistry#getEmptyRegistry() empty extension registry}.
+     *
+     * <p>
+     * When the meta-data proto is built into a {@link RecordMetaData} object, extension options on fields
+     * specifying primary key and index information are ignored. However, options specifying each record's
+     * type are still processed, including information specifying the meta-data's union descriptor. As a result,
+     * if the provided registry does not at least register the {@code (record).usage} extension option, the
+     * {@code RecordMetaData} may fail to build with an error message indicating that no union descriptor was specified.
+     * </p>
+     *
+     * @return the extension registry used when parsing meta-data
+     */
     @Nullable
     protected ExtensionRegistry getExtensionRegistry() {
         return extensionRegistry;
     }
 
+    /**
+     * Set the extension registry used when deserializing meta-data proto messages. Note that if using Protobuf
+     * version 2, a {@code null} extension registry serves as a synonym for the
+     * {@linkplain ExtensionRegistry#getEmptyRegistry() empty extension registry}, but in Protobuf version 3,
+     * a {@code null} extension registry can result in {@link NullPointerException}s when the meta-data proto is
+     * deserialized. Therefore, users who upgrade from proto2 to proto3 may need to adjust the registry they pass
+     * to the meta-data store through this function.
+     *
+     * @param extensionRegistry the extension registry used when parsing meta-data
+     */
     public void setExtensionRegistry(@Nullable ExtensionRegistry extensionRegistry) {
         this.extensionRegistry = extensionRegistry;
     }

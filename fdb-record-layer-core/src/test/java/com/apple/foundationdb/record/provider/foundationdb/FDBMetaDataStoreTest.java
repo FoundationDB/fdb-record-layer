@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.ProtoVersionSupplier;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedAgainProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
 import com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -57,6 +59,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,9 +76,6 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         metaDataStore.setDependencies(new Descriptors.FileDescriptor[] {
                 RecordMetaDataOptionsProto.getDescriptor()
         });
-        ExtensionRegistry extensionRegistry = ExtensionRegistry.newInstance();
-        RecordMetaDataOptionsProto.registerAllExtensions(extensionRegistry);
-        metaDataStore.setExtensionRegistry(extensionRegistry);
     }
 
     @BeforeEach
@@ -513,6 +513,59 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
     }
 
     @Test
+    public void updateRecordsWithExtensionOption() throws Descriptors.DescriptorValidationException {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+
+        // Add an extension option specifying that a field should have a new index
+        DescriptorProtos.FileDescriptorProto.Builder fileBuilder = TestRecords1Proto.getDescriptor().toProto().toBuilder();
+        fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
+            if (messageType.getName().equals("MySimpleRecord")) {
+                messageType.getFieldBuilderList().forEach(field -> {
+                    if (field.getName().equals("num_value_2")) {
+                        RecordMetaDataOptionsProto.FieldOptions isIndexedOption = RecordMetaDataOptionsProto.FieldOptions.newBuilder()
+                                .setIndex(RecordMetaDataOptionsProto.FieldOptions.IndexOption.newBuilder()
+                                        .setType(IndexTypes.VALUE)
+                                        .setUnique(true))
+                                .build();
+                        field.getOptionsBuilder().setExtension(RecordMetaDataOptionsProto.field, isIndexedOption);
+                    }
+                });
+            }
+        });
+        Descriptors.FileDescriptor newFileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), new Descriptors.FileDescriptor[]{RecordMetaDataOptionsProto.getDescriptor()});
+
+        // Validate that new extension option will result in new index when built from file.
+        RecordMetaData metaDataFromFile = RecordMetaData.build(newFileDescriptor);
+        Index newIndex = metaDataFromFile.getIndex("MySimpleRecord$num_value_2");
+        assertEquals(Key.Expressions.field("num_value_2"), newIndex.getRootExpression());
+        assertThat("newIndex not marked as unique", newIndex.isUnique());
+
+        // Update records. Validate that created meta-data does not add index.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.updateRecords(newFileDescriptor);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData(); // read from local cache
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaData.getIndex("MySimpleRecord$num_value_2"));
+            assertThat(e.getMessage(), containsString("Index MySimpleRecord$num_value_2 not defined"));
+            context.commit();
+        }
+
+        // Validate that reading the index back from database does not add the index.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.updateRecords(newFileDescriptor);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData(); // read from the database
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaData.getIndex("MySimpleRecord$num_value_2"));
+            assertThat(e.getMessage(), containsString("Index MySimpleRecord$num_value_2 not defined"));
+        }
+    }
+
+    @Test
     public void updateRecordsWithLocalFileDescriptor() {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
@@ -549,6 +602,89 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.getRecordMetaData().getRecordType("OneMoreRecord"));
             assertEquals(e.getMessage(), "Unknown record type OneMoreRecord");
             context.commit();
+        }
+    }
+
+    @Test
+    public void extensionRegistry() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            // Default registry parses options
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            Descriptors.Descriptor mySimpleRecordDescriptor = metaData.getRecordType("MySimpleRecord").getDescriptor();
+            assertNotSame(mySimpleRecordDescriptor.getFile(), TestRecords1Proto.getDescriptor());
+            RecordMetaDataOptionsProto.FieldOptions recNoFieldOptions = mySimpleRecordDescriptor.findFieldByName("rec_no")
+                    .getOptions().getExtension(RecordMetaDataOptionsProto.field);
+            assertNotNull(recNoFieldOptions);
+            assertThat(recNoFieldOptions.getPrimaryKey(), is(true));
+
+            // Empty registry does not
+            openMetaDataStore(context);
+            metaDataStore.setExtensionRegistry(ExtensionRegistry.getEmptyRegistry());
+            metaData = metaDataStore.getRecordMetaData();
+            mySimpleRecordDescriptor = metaData.getRecordType("MySimpleRecord").getDescriptor();
+            assertNotSame(mySimpleRecordDescriptor.getFile(), TestRecords1Proto.getDescriptor());
+            assertThat(mySimpleRecordDescriptor.findFieldByName("rec_no").getOptions().hasExtension(RecordMetaDataOptionsProto.field), is(false));
+
+            // Null registry behaves like the empty registry in proto2 and throws an exception in proto3
+            openMetaDataStore(context);
+            metaDataStore.setExtensionRegistry(null);
+            if (ProtoVersionSupplier.getProtoVersion() == 2) {
+                metaData = metaDataStore.getRecordMetaData();
+                mySimpleRecordDescriptor = metaData.getRecordType("MySimpleRecord").getDescriptor();
+                assertNotSame(mySimpleRecordDescriptor.getFile(), TestRecords1Proto.getDescriptor());
+                assertThat(mySimpleRecordDescriptor.findFieldByName("rec_no").getOptions().hasExtension(RecordMetaDataOptionsProto.field), is(false));
+            } else {
+                final FDBMetaDataStore finalMetaDataStore = metaDataStore;
+                assertThrows(NullPointerException.class, finalMetaDataStore::getRecordMetaData);
+            }
+        }
+    }
+
+    @Test
+    public void extensionRegistryWithUnionDescriptor() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            // test_records_3.proto relies on the union field annotation type
+            openMetaDataStore(context);
+            RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords3Proto.getDescriptor());
+            builder.getRecordType("MyHierarchicalRecord").setPrimaryKey(Key.Expressions.concatenateFields("parent_path", "child_name"));
+            RecordMetaData metaData = builder.build();
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            // Default registry parses options
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertNotSame(metaData.getUnionDescriptor(), TestRecords3Proto.UnionDescriptor.getDescriptor());
+            assertEquals(metaData.getUnionDescriptor().toProto(), TestRecords3Proto.UnionDescriptor.getDescriptor().toProto());
+
+            // Empty registry does not
+            openMetaDataStore(context);
+            metaDataStore.setExtensionRegistry(ExtensionRegistry.getEmptyRegistry());
+            final FDBMetaDataStore finalMetaDataStore = metaDataStore;
+            MetaDataException e = assertThrows(MetaDataException.class, finalMetaDataStore::getRecordMetaData);
+            assertThat(e.getMessage(), containsString("Union descriptor is required"));
+
+            // Null registry behaves like the empty registry in proto2 and throws an exception in proto3
+            openMetaDataStore(context);
+            metaDataStore.setExtensionRegistry(null);
+            if (ProtoVersionSupplier.getProtoVersion() == 2) {
+                final FDBMetaDataStore secondFinalMetaDataStore = metaDataStore;
+                e = assertThrows(MetaDataException.class, secondFinalMetaDataStore::getRecordMetaData);
+                assertThat(e.getMessage(), containsString("Union descriptor is required"));
+            } else {
+                final FDBMetaDataStore secondFinalMetaDataStore = metaDataStore;
+                assertThrows(NullPointerException.class, secondFinalMetaDataStore::getRecordMetaData);
+            }
         }
     }
 }

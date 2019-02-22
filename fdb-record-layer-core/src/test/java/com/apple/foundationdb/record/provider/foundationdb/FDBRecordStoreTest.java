@@ -67,7 +67,6 @@ import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -1899,9 +1898,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         metaDataStore.setMaintainHistory(false);
         assertEquals(metaDataSubspace, metaDataStore.getSubspace());
         metaDataStore.setDependencies(new Descriptors.FileDescriptor[]{RecordMetaDataOptionsProto.getDescriptor()});
-        ExtensionRegistry extensionRegistry = ExtensionRegistry.newInstance();
-        RecordMetaDataOptionsProto.registerAllExtensions(extensionRegistry);
-        metaDataStore.setExtensionRegistry(extensionRegistry);
         metaDataStore.setLocalFileDescriptor(localFileDescriptor);
         return metaDataStore;
     }
