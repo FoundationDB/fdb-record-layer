@@ -2028,7 +2028,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        // Validate the index. Should and should only return the index entry that has no associated record.
+        // Validate the index. Should only return the index entry that has no associated record.
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context);
             final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
@@ -2059,7 +2059,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        // Delete add even number records with the index removed.
+        // Delete the even numbered records with the index removed.
         Set<IndexEntry> expectedInvalidEntries = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
@@ -2079,7 +2079,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void testIndexOrphanValidationByIterations() throws Exception {
         Set<IndexEntry> expectedInvalidEntries = setUpIndexOrphanValidation();
 
-        // Validate the index. Should and should only return the index entry that has no associated record.
+        // Validate the index. Should only return the index entry that has no associated record.
         final Random random = new Random();
         byte[] continuation = null;
         Set<IndexEntry> results = new HashSet<>();

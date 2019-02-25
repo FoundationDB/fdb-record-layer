@@ -40,7 +40,8 @@ The `IndexEntry` class now contains a reference to its source index. This meant 
 
 The API stability annotations have been moved to their own package. This allows for references to the stability levels within Javadoc pages to link to the annotation documentation. Any external users who had also used these annotations will be required to modify their imports to match the new package. Because these annotations have `CLASS` retention level, this change also requires that any client who depends on the Record Layer update any transitive dependency on `fdb-extensions` to 2.6 to avoid compile-time warnings about missing annotation classes.
 
-The `IndexMaintainer` class now has a new public method `validateEntries`. Subclasses inheriting it should implement the new method. It does not break classes inheriting `StandardIndexMaintainer` which has a default implementation that does nothing.
+The `IndexMaintainer` class now has a new public method `validateEntries`. Subclasses inheriting it should implement the new method. It does not break classes extending `StandardIndexMaintainer` which has a default implementation that does nothing.
+
 ### Newly deprecated
 
 Methods for retrieving a record from a record store based on an index entry generally took both an index and an index entry. As index entries now store a reference to their associatedindex, these methods have been deprecated in favor of methods that only take an index entry. The earlier methods may be removed in a future release. The same is true for a constructor on `FDBIndexedRecord` which no longer needs to take both an index and an index entry.
@@ -66,7 +67,7 @@ Methods for retrieving a record from a record store based on an index entry gene
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** `IndexEntry` objects now contain a reference to their associated index [(Issue #403)](https://github.com/FoundationDB/fdb-record-layer/issues/403)
 * **Breaking change** Remove deprecated `KeySpacePath` APIs [(Issue #169)](https://github.com/FoundationDB/fdb-record-layer/issues/169)
-* **Breaking change** Validate orphan index entries (`IndexMaintainer` should implement `validateEntries`) [(Issue #383)](https://github.com/FoundationDB/fdb-record-layer/issues/383)
+* **Breaking change** `IndexMaintainer`s should implement `validateEntries` to validate orphan index entries [(Issue #383)](https://github.com/FoundationDB/fdb-record-layer/issues/383)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** The API stability annotations have been moved into `com.apple.foundationdb.annotation` [(Issue #406)](https://github.com/FoundationDB/fdb-record-layer/issues/406)
 

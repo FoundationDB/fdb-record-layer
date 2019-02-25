@@ -370,12 +370,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     /**
      * Validate the integrity of the index (such as identifying index entries that do not point to records or
-     * identifying records that do not point to valid index entries. The default implementation provided by the
+     * identifying records that do not point to valid index entries). The default implementation provided by the
      * <code>StandardIndexMaintainer</code> class is a no-op (performs no validation) and should be overridden by
      * implementing classes.
      * @param continuation any continuation from a previous validation invocation
-     * @param scanProperties skip, limit and other properties of the validation (Use default ones if <code>null</code>)
-     * @return an empty cursor.
+     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @return an empty cursor
      */
     @Nonnull
     @Override
@@ -387,10 +387,11 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     /**
      * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
      * @param continuation any continuation from a previous validation invocation
-     * @param scanProperties skip, limit and other properties of the validation (Use default ones if <code>null</code>)
-     * @return a cursor over index entries that have no associated records.
+     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @return a cursor over index entries that have no associated records
      */
-    RecordCursor<InvalidIndexEntry> validateOrphanEntries(@Nullable byte[] continuation,
+    @Nonnull
+    protected RecordCursor<InvalidIndexEntry> validateOrphanEntries(@Nullable byte[] continuation,
                                                           @Nullable ScanProperties scanProperties) {
         if (scanProperties == null) {
             scanProperties = new ScanProperties(ExecuteProperties.newBuilder()

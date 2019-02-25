@@ -138,12 +138,12 @@ public abstract class IndexMaintainer {
      * Validates the integrity of the index entries. The definition of exactly what validations are performed is up to
      * the implementation of the index.
      *
-     * It is not responsible for metadata validation, which is defined at
-     * {@link com.apple.foundationdb.record.metadata.IndexValidator}).
+     * It is not responsible for metadata validation, which is defined in
+     * {@link com.apple.foundationdb.record.metadata.IndexValidator}.
      *
      * @param continuation any continuation from a previous validation invocation
-     * @param scanProperties skip, limit and other properties of the validation (Use default ones if <code>null</code>)
-     * @return a cursor over invalid index entries including reasons.
+     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @return a cursor over invalid index entries including reasons
      */
     @Nonnull
     public abstract RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
