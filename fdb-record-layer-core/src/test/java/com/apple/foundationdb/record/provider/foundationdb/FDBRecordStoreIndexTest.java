@@ -24,6 +24,7 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
@@ -2032,7 +2033,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             uncheckedOpenSimpleRecordStore(context);
             final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
             final List<InvalidIndexEntry> invalidIndexEntries = recordStore.getIndexMaintainer(index)
-                    .validateEntries(null)
+                    .validateEntries(null, null)
                     .asList().get();
             assertEquals(
                     Collections.singletonList(new InvalidIndexEntry(
@@ -2088,7 +2089,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 uncheckedOpenSimpleRecordStore(context);
                 final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
                 final RecordCursor<InvalidIndexEntry> cursor = recordStore.getIndexMaintainer(index)
-                        .validateEntries(continuation)
+                        .validateEntries(continuation, null)
                         .limitRowsTo(limit);
                 while (cursor.hasNext()) {
                     InvalidIndexEntry invalidIndexEntry = cursor.next();
@@ -2123,9 +2124,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                                         generatorCount.getAndIncrement();
                                         final Index index = currentRecordStore.getRecordMetaData()
                                                 .getIndex("MySimpleRecord$str_value_indexed");
+                                        ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                                                .setReturnedRowLimit(Integer.MAX_VALUE)
+                                                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                                                .setScannedRecordsLimit(4)
+                                                .build());
                                         return currentRecordStore.getIndexMaintainer(index)
-                                                .validateEntries(continuation)
-                                                .limitRowsTo(4);
+                                                .validateEntries(continuation, scanProperties);
                                     })
                     )
             );
@@ -2138,7 +2143,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 assertFalse(results.contains(entry), "Entry " + entry + " is duplicated");
                 results.add(entry);
             }
-            assertEquals(10 / 4 + 1, generatorCount.get());
+            assertEquals(20 / 4 + 1, generatorCount.get());
             assertEquals(expectedInvalidEntries, results,
                     "Validation should and should only return the index entry that has no associated record.");
         }

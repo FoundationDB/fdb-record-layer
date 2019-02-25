@@ -142,10 +142,12 @@ public abstract class IndexMaintainer {
      * {@link com.apple.foundationdb.record.metadata.IndexValidator}).
      *
      * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation (Use default ones if <code>null</code>)
      * @return a cursor over invalid index entries including reasons.
      */
     @Nonnull
-    public abstract RecordCursor<InvalidIndexEntry> validateEntries(byte[] continuation);
+    public abstract RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
+                                                                    @Nullable ScanProperties scanProperties);
 
     /**
      * Return <code>true</code> if this index be used to evaluate the given record function.

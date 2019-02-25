@@ -68,12 +68,14 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
     /**
      * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
      * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation (Use default ones if <code>null</code>)
      * @return a cursor over index entries that have no associated records.
      */
     @Nonnull
     @Override
-    public RecordCursor<InvalidIndexEntry> validateEntries(byte[] continuation) {
-        return validateOrphanEntries(continuation);
+    public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
+                                                           @Nullable ScanProperties scanProperties) {
+        return validateOrphanEntries(continuation, scanProperties);
     }
 
     @Override

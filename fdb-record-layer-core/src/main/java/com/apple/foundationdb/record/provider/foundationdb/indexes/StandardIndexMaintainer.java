@@ -86,11 +86,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(StandardIndexMaintainer.class);
     protected static final int TOO_LARGE_VALUE_MESSAGE_LIMIT = 100;
 
-    private static final ScanProperties SNAPSHOT_SCAN = new ScanProperties(ExecuteProperties.newBuilder()
-            .setReturnedRowLimit(Integer.MAX_VALUE)
-            .setIsolationLevel(IsolationLevel.SNAPSHOT)
-            .build());
-
     protected StandardIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
@@ -379,22 +374,32 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * <code>StandardIndexMaintainer</code> class is a no-op (performs no validation) and should be overridden by
      * implementing classes.
      * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation (Use default ones if <code>null</code>)
      * @return an empty cursor.
      */
     @Nonnull
     @Override
-    public RecordCursor<InvalidIndexEntry> validateEntries(byte[] continuation) {
+    public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
+                                                           @Nullable ScanProperties scanProperties) {
         return RecordCursor.empty();
     }
 
     /**
      * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
      * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation (Use default ones if <code>null</code>)
      * @return a cursor over index entries that have no associated records.
      */
-    RecordCursor<InvalidIndexEntry> validateOrphanEntries(byte[] continuation) {
-        // For orphan index entry validation, it does not hurt to have a weaker isolation.
-        return scan(IndexScanType.BY_VALUE, TupleRange.ALL, continuation, SNAPSHOT_SCAN)
+    RecordCursor<InvalidIndexEntry> validateOrphanEntries(@Nullable byte[] continuation,
+                                                          @Nullable ScanProperties scanProperties) {
+        if (scanProperties == null) {
+            scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setReturnedRowLimit(Integer.MAX_VALUE)
+                    // For orphan index entry validation, it does not hurt to have a weaker isolation.
+                    .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                    .build());
+        }
+        return scan(IndexScanType.BY_VALUE, TupleRange.ALL, continuation, scanProperties)
                 .filterAsync(
                         indexEntry -> state.store
                                 .hasIndexEntryRecord(indexEntry, IsolationLevel.SNAPSHOT)
