@@ -67,6 +67,7 @@ public class Index {
     private int[] primaryKeyComponentPositions;
     @Nonnull
     private Object subspaceKey;
+    private boolean useExplicitSubspaceKey = false;
     private int addedVersion;
     private int lastModifiedVersion;
 
@@ -150,11 +151,13 @@ public class Index {
             this.primaryKeyComponentPositions = null;
         }
         this.subspaceKey = normalizeSubspaceKey(name, Tuple.fromBytes(Tuple.from(orig.subspaceKey).pack()));
+        this.useExplicitSubspaceKey = orig.useExplicitSubspaceKey;
         this.addedVersion = orig.addedVersion;
         this.lastModifiedVersion = orig.lastModifiedVersion;
     }
 
     @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"}) // Old (deprecated) index type needs grouping compatibility
+    @SpotBugsSuppressWarnings("NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR")
     public Index(@Nonnull RecordMetaDataProto.Index proto) throws KeyExpression.DeserializationException {
         name = proto.getName();
         // Compatibility with old serialized metadata.
@@ -184,9 +187,9 @@ public class Index {
         }
 
         if (proto.hasSubspaceKey()) {
-            subspaceKey = normalizeSubspaceKey(name, decodeSubspaceKey(proto.getSubspaceKey()));
+            setSubspaceKey(normalizeSubspaceKey(name, decodeSubspaceKey(proto.getSubspaceKey())));
         } else {
-            subspaceKey = normalizeSubspaceKey(name, name);
+            setSubspaceKey(normalizeSubspaceKey(name, name));
         }
         if (proto.hasAddedVersion()) {
             addedVersion = proto.getAddedVersion();
@@ -341,7 +344,16 @@ public class Index {
      * @see #getSubspaceKey()
      */
     public void setSubspaceKey(@Nonnull Object subspaceKey) {
+        useExplicitSubspaceKey = true;
         this.subspaceKey = normalizeSubspaceKey(name, subspaceKey);
+    }
+
+    /**
+     * Checks whether the subspace key was set using {@link #setSubspaceKey(Object)}.
+     * @return {@code true} if the subspace key was set using {@code #setSubspaceKey(Object)}
+     */
+    public boolean hasExplicitSubspaceKey() {
+        return useExplicitSubspaceKey;
     }
 
     /**
@@ -524,9 +536,7 @@ public class Index {
         for (Map.Entry<String, String> entry : options.entrySet()) {
             builder.addOptionsBuilder().setKey(entry.getKey()).setValue(entry.getValue());
         }
-        if (!name.equals(subspaceKey)) {
-            builder.setSubspaceKey(ByteString.copyFrom(Tuple.from(subspaceKey).pack()));
-        }
+        builder.setSubspaceKey(ByteString.copyFrom(Tuple.from(subspaceKey).pack()));
         if (addedVersion > 0) {
             builder.setAddedVersion(addedVersion);
         }

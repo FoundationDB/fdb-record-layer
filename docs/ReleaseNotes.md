@@ -58,6 +58,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** By default, `FDBMetaDataStore`s are now initialized with an extension registry with all extensions from `record_metadata_options.proto` [(Issue #352)](https://github.com/FoundationDB/fdb-record-layer/issues/352)
 * **Feature** `FDBMetaDataStore` class now has convenience methods for `addIndex`, `dropIndex` and `updateRecords` [(Issue #281)](https://github.com/FoundationDB/fdb-record-layer/issues/281)
+* **Feature** Index subspace keys can now be assigned based on a counter [(Issue #11)](https://github.com/FoundationDB/fdb-record-layer/issues/11)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
