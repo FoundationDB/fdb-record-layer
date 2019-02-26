@@ -83,6 +83,12 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
         return RecordCursor.empty();
     }
 
+    @Nonnull
+    @Override
+    public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation, @Nullable ScanProperties scanProperties) {
+        return RecordCursor.empty();
+    }
+
     @Override
     public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
         return false;

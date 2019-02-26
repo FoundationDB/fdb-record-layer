@@ -633,7 +633,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final CompletableFuture<Void> checker = context.instrument(FDBStoreTimer.Events.CHECK_INDEX_UNIQUENESS,
                 AsyncUtil.forEach(kvs, kv -> {
                     Tuple existingEntry = SplitHelper.unpackKey(indexMaintainer.getIndexSubspace(), kv);
-                    Tuple existingKey = FDBRecordStoreBase.indexEntryPrimaryKey(index, existingEntry);
+                    Tuple existingKey = index.getEntryPrimaryKey(existingEntry);
                     if (!TupleHelpers.equals(primaryKey, existingKey)) {
                         if (isIndexWriteOnly(index)) {
                             Tuple valueKey = indexEntry.getKey();
