@@ -2040,7 +2040,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                             new IndexEntry(index, Tuple.from("bar", 2), TupleHelpers.EMPTY),
                             InvalidIndexEntry.Reasons.ORPHAN)),
                     invalidIndexEntries,
-                    "Validation should and should only return the index entry that has no associated record.");
+                    "Validation should return the index entry that has no associated record.");
             commit(context);
         }
     }
@@ -2103,7 +2103,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             }
         } while (continuation != null);
         assertEquals(expectedInvalidEntries, results,
-                "Validation should and should only return the index entry that has no associated record.");
+                "Validation should return the index entry that has no associated record.");
 
     }
 
@@ -2145,7 +2145,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             }
             assertEquals(20 / 4 + 1, generatorCount.get());
             assertEquals(expectedInvalidEntries, results,
-                    "Validation should and should only return the index entry that has no associated record.");
+                    "Validation should return the index entry that has no associated record.");
         }
     }
 

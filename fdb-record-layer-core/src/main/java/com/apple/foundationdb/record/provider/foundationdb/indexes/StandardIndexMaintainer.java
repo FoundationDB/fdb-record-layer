@@ -375,7 +375,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * implementing classes.
      * @param continuation any continuation from a previous validation invocation
      * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
-     * @return an empty cursor
+     * @return a cursor over invalid index entries including reasons (the default is an empty cursor)
      */
     @Nonnull
     @Override
@@ -388,7 +388,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
      * @param continuation any continuation from a previous validation invocation
      * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
-     * @return a cursor over index entries that have no associated records
+     * @return a cursor over index entries that have no associated records including the reason
      */
     @Nonnull
     protected RecordCursor<InvalidIndexEntry> validateOrphanEntries(@Nullable byte[] continuation,
