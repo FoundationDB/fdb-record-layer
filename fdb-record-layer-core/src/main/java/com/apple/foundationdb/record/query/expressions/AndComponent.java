@@ -47,7 +47,7 @@ public class AndComponent extends AndOrComponent {
         super(operands);
     }
 
-    public static AndComponent from(@Nonnull List<QueryComponent> operands) {
+    public static AndComponent from(@Nonnull List<? extends QueryComponent> operands) {
         ImmutableList.Builder<ExpressionRef<QueryComponent>> operandRefs = ImmutableList.builder();
         for (QueryComponent operand : operands) {
             operandRefs.add(SingleExpressionRef.of(operand));
