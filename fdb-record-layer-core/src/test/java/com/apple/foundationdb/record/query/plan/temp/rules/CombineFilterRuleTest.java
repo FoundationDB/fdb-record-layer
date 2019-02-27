@@ -60,7 +60,7 @@ public class CombineFilterRuleTest {
             QueryComponent filter2 = Query.field("testField2").equalsValue(10);
             SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
                     new LogicalFilterExpression(filter1, new LogicalFilterExpression(filter2, basePlan)));
-            Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(blankContext, rule, root);
+            Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(blankContext, rule, root).findFirst();
             assertTrue(possibleMatch.isPresent());
             rule.onMatch(possibleMatch.get());
             assertEquals(root.get(), new LogicalFilterExpression(Query.and(filter1, filter2), basePlan));
@@ -73,7 +73,7 @@ public class CombineFilterRuleTest {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
                     new LogicalFilterExpression(filter1, new LogicalFilterExpression(filter1, basePlan)));
-            Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(blankContext, rule, root);
+            Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(blankContext, rule, root).findFirst();
             assertTrue(possibleMatch.isPresent());
             rule.onMatch(possibleMatch.get());
             // this rule should not try to coalesce the two filters
@@ -87,7 +87,7 @@ public class CombineFilterRuleTest {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
                     new LogicalFilterExpression(filter1, basePlan));
-            Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(blankContext, rule, root);
+            Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(blankContext, rule, root).findFirst();
             assertFalse(possibleMatch.isPresent());
         }
     }

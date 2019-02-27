@@ -22,18 +22,34 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 
 import javax.annotation.Nonnull;
-import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * A <code>ExpressionMatcher</code> is an expression that can be matched against a
  * {@link PlannerExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
  * The bindings can be retrieved from the rule call once the binding is matched.
+ *
+ * <p>
+ * An {@code ExpressionMatcher} interacts with a {@code PlannerExpression} tree using its {@link #matchWith(PlannerExpression)}
+ * and {@link #matchWith(ExpressionRef)} methods. At a high level, the {@code matchWith()} methods are responsible for
+ * determining whether this matcher matches the root expression or reference passed to {@code matchWith()}. Although
+ * {@code ExpressionMatcher}s are themselves hierarchical structures, an {@code ExpressionMatcher} must not try to
+ * match into the contents (in the case of matching a reference) or children (in the case of matching an expression) of
+ * the given root. Depending on the specific implementation of the root structure, matching against children/members
+ * can be quite complicated, so this behavior is implemented by the {@link Bindable#bindTo(ExpressionMatcher)} method
+ * instead. An {@code ExpressionMatcher} holds an {@link ExpressionChildrenMatcher} which describes how the children
+ * should be matched.
+ * </p>
+ *
+ * <p>
  * Extreme care should be taken when implementing <code>ExpressionMatcher</code>, since it can be very delicate.
  * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
  * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
+ * </p>
  * @param <T> the bindable type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
@@ -54,21 +70,28 @@ public interface ExpressionMatcher<T extends Bindable> {
      * @return a list of the child matchers of this matcher
      */
     @Nonnull
-    List<ExpressionMatcher<? extends Bindable>> getChildren();
+    ExpressionChildrenMatcher getChildrenMatcher();
 
     /**
-     * Determine whether this matcher matches the given expression.
-     * @param expression a planner expression to test against
-     * @return whether this matcher matches the expression, does not match the expression, or the match is impossible to determine
+     * Attempt to match this matcher against the given expression reference.
+     * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
+     * expression and should not call into the {@link ExpressionChildrenMatcher} returned by {@link #getChildrenMatcher()}
+     * or attempt to access the members of the given reference.
+     * @param ref a reference to match with
+     * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
-    Result matches(@Nonnull Bindable expression);
+    @Nonnull
+    Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends PlannerExpression> ref);
 
     /**
-     * Whether this matcher matches the expression, does not match the expression, or the match is impossible to determine.
+     * Attempt to match this matcher against the given expression reference.
+     * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
+     * expression and should not call into the {@link ExpressionChildrenMatcher} returned by {@link #getChildrenMatcher()}
+     * or attempt to access children of the given expression.
+     * @param expression a planner expression to match with
+     * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
-    enum Result {
-        MATCHES,
-        DOES_NOT_MATCH,
-        UNKNOWN
-    }
+    @Nonnull
+    Stream<PlannerBindings> matchWith(@Nonnull PlannerExpression expression);
+
 }
