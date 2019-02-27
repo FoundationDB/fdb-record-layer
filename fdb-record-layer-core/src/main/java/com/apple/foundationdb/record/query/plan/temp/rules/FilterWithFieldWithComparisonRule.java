@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -50,8 +49,7 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<Comparisons.Comparison> comparisonMatcher = TypeMatcher.of(Comparisons.Comparison.class);
-    private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class, comparisonMatcher);
+    private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class);
     private static final ExpressionMatcher<RecordQueryScanPlan> scanMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, filterMatcher, scanMatcher);
 
@@ -67,8 +65,7 @@ public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilter
         }
 
         final FieldWithComparison singleField = call.get(filterMatcher);
-        final Comparisons.Comparison comparison = call.get(comparisonMatcher);
-        final ScanComparisons scanComparisons = ScanComparisons.from(comparison);
+        final ScanComparisons scanComparisons = ScanComparisons.from(singleField.getComparison());
         if (scanComparisons == null) {
             // This comparison cannot be accomplished with a single scan.
             return ChangesMade.NO_CHANGE;
