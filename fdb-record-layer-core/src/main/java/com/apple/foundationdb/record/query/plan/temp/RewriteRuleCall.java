@@ -108,4 +108,14 @@ public class RewriteRuleCall implements PlannerRuleCall {
         return root.bindTo(rule.getMatcher()).map(bindings -> new RewriteRuleCall(context, rule, root, bindings));
     }
 
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("RewriteRuleCall{");
+        sb.append("rule=").append(rule);
+        sb.append(", root=").append(root);
+        sb.append(", bindings=").append(bindings);
+        sb.append(", context=").append(context);
+        sb.append('}');
+        return sb.toString();
+    }
 }
