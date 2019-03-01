@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.ScanLimitReachedException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsTextProto;
@@ -50,9 +51,11 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -60,6 +63,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -493,5 +497,39 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
             } while (continuation != null);
             assertEquals(noLimitRecordIds, limitRecordIds);
         }
+    }
+
+    @ParameterizedTest(name = "testWithFailOnByteScanLimitReached [{index}] {0} {1}")
+    @MethodSource("plans")
+    public void testWithFailOnByteScanLimitReached(String description, boolean notUsed, @Nonnull RecordQueryPlan plan) throws Exception {
+        setupSimpleRecordStore();
+
+        for (long byteLimit = 0; byteLimit < 1000; byteLimit += 100) {
+            try (FDBRecordContext context = openContext()) {
+                ExecuteProperties properties = ExecuteProperties.newBuilder()
+                        .setScannedBytesLimit(byteLimit)
+                        .setFailOnScanLimitReached(true)
+                        .build();
+                openSimpleRecordStore(context);
+                RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, properties);
+                assertThrowsWithWrapper(ScanLimitReachedException.class, () -> cursor.asList().join());
+            }
+        }
+    }
+
+    private <T extends Throwable> void assertThrowsWithWrapper(@Nonnull Class<T> expectedType, @Nonnull Executable executable) {
+        try {
+            executable.execute();
+        } catch (Throwable actualException) {
+            while (actualException instanceof CompletionException) {
+                actualException = actualException.getCause();
+            }
+            if (expectedType.isInstance(actualException)) {
+                return;
+            }  else {
+                throw new AssertionFailedError("Unexpected exception type thrown", actualException);
+            }
+        }
+        throw new AssertionFailedError(String.format("Expected %s to be thrown, but nothing was thrown.", expectedType.getCanonicalName()));
     }
 }

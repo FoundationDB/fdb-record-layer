@@ -149,7 +149,6 @@ public class CursorLimitManager {
     public void reportScannedBytes(long byteSize) {
         if (byteScanLimiter != null) {
             byteScanLimiter.registerScannedBytes(byteSize);
-            haltedDueToByteScanLimit = !byteScanLimiter.hasBytesRemaining() && usedInitialPass;
         }
     }
 }
