@@ -42,8 +42,8 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Record type and index subspace keys with identical serializations are now validated for collisions [(Issue #394)](https://github.com/FoundationDB/fdb-record-layer/issues/394)
-* **Bug fix** Byte scan limit now reliably throws exceptions when `ExecuteProperties.failOnScanLimitReached` is `true` [(Issue #422)](https://github.com/FoundationDB/fdb-record-layer/issues/422)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -56,9 +56,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** By default, `FDBMetaDataStore`s are now initialized with an extension registry with all extensions from `record_metadata_options.proto` [(Issue #352)](https://github.com/FoundationDB/fdb-record-layer/issues/352)
-* **Feature** `FDBMetaDataStore` class now has convenience methods for `addIndex`, `dropIndex` and `updateRecords` [(Issue #281)](https://github.com/FoundationDB/fdb-record-layer/issues/281)
-* **Feature** Index subspace keys can now be assigned based on a counter [(Issue #11)](https://github.com/FoundationDB/fdb-record-layer/issues/11)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -67,6 +65,14 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 
 // end next release
 -->
+
+### 2.5.46.0
+
+* **Bug fix** Record type and index subspace keys with identical serializations are now validated for collisions [(Issue #394)](https://github.com/FoundationDB/fdb-record-layer/issues/394)
+* **Bug fix** Byte scan limit now reliably throws exceptions when `ExecuteProperties.failOnScanLimitReached` is `true` [(Issue #422)](https://github.com/FoundationDB/fdb-record-layer/issues/422)
+* **Feature** By default, `FDBMetaDataStore`s are now initialized with an extension registry with all extensions from `record_metadata_options.proto` [(Issue #352)](https://github.com/FoundationDB/fdb-record-layer/issues/352)
+* **Feature** `FDBMetaDataStore` class now has convenience methods for `addIndex`, `dropIndex` and `updateRecords` [(Issue #281)](https://github.com/FoundationDB/fdb-record-layer/issues/281)
+* **Feature** Index subspace keys can now be assigned based on a counter [(Issue #11)](https://github.com/FoundationDB/fdb-record-layer/issues/11)
 
 ### 2.5.45.0
 
