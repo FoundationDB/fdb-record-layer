@@ -43,7 +43,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 ### NEXT_RELEASE
 
 * **Bug fix** Record type and index subspace keys with identical serializations are now validated for collisions [(Issue #394)](https://github.com/FoundationDB/fdb-record-layer/issues/394)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Byte scan limit now reliably throws exceptions when `ExecuteProperties.failOnScanLimitReached` is `true` [(Issue #422)](https://github.com/FoundationDB/fdb-record-layer/issues/422)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
