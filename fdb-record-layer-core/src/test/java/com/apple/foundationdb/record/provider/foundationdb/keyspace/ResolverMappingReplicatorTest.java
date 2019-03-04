@@ -243,7 +243,7 @@ public abstract class ResolverMappingReplicatorTest extends FDBTestBase {
 
         KeySpacePath path = keySpace.path("test-path").add("to").add("replica");
         try (FDBRecordContext context = differentDB.openContext()) {
-            LocatableResolver resolverInDifferentDB = new ScopedInterningLayer(context, path);
+            LocatableResolver resolverInDifferentDB = new ScopedInterningLayer(differentDB, path.toResolvedPath(context));
             replicator.copyTo(resolverInDifferentDB);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException ex) {

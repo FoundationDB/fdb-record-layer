@@ -195,15 +195,66 @@ public class KeySpace {
      * provided tuple
      * @throws RecordCoreArgumentException if the tuple provided does not correspond to any path through
      *   the directory structure at this point
+     *
+     * @deprecated use {@link #resolveFromKeyAsync(FDBRecordContext, Tuple)} instead
      */
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     @Nonnull
     public CompletableFuture<KeySpacePath> pathFromKeyAsync(@Nonnull FDBRecordContext context, @Nonnull Tuple key) {
-        return root.findChildForKey(context, null, key, key.size(), 0);
+        return root.findChildForKey(context, null, key, key.size(), 0).thenApply(ResolvedKeySpacePath::toPath);
     }
 
+    /**
+     * Synchronous/blocking version of <code>pathFromKeyAsync</code>.
+     *
+     * @param context context used, if needed, for any database operations
+     * @param key the tuple to be decoded
+     * @return a path entry representing the leaf directory entry that corresponds to a value in the
+     * provided tuple
+     * @throws RecordCoreArgumentException if the tuple provided does not correspond to any path through
+     *   the directory structure at this point
+     *
+     * @deprecated use {@link #resolveFromKey(FDBRecordContext, Tuple)} instead
+     */
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     @Nonnull
     public KeySpacePath pathFromKey(@Nonnull FDBRecordContext context, @Nonnull Tuple key) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, pathFromKeyAsync(context, key));
+    }
+
+    /**
+     * Given a tuple from an FDB key, attempts to determine what path through this directory the tuple
+     * represents, returning a <code>ResolvedKeySpacePath</code> representing the leaf-most directory in the path.
+     * If entries remained in the tuple beyond the leaf directory, then {@link KeySpacePath#getRemainder()}
+     * can be used to fetch the remaining portion.
+     *
+     * @param context context used, if needed, for any database operations
+     * @param key the tuple to be decoded
+     * @return a path entry representing the leaf directory entry that corresponds to a value in the
+     * provided tuple
+     * @throws RecordCoreArgumentException if the tuple provided does not correspond to any path through
+     *   the directory structure at this point
+     */
+    @Nonnull
+    public CompletableFuture<ResolvedKeySpacePath> resolveFromKeyAsync(@Nonnull FDBRecordContext context, @Nonnull Tuple key) {
+        return root.findChildForKey(context, null, key, key.size(), 0);
+    }
+
+    /**
+     * Synchronous/blocking version of <code>resolveFromKeyAsync</code>.
+     *
+     * @param context context used, if needed, for any database operations
+     * @param key the tuple to be decoded
+     * @return a path entry representing the leaf directory entry that corresponds to a value in the
+     * provided tuple
+     * @throws RecordCoreArgumentException if the tuple provided does not correspond to any path through
+     *   the directory structure at this point
+     */
+    @Nonnull
+    public ResolvedKeySpacePath resolveFromKey(@Nonnull FDBRecordContext context, @Nonnull Tuple key) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, resolveFromKeyAsync(context, key));
     }
 
     /**
@@ -214,20 +265,30 @@ public class KeySpace {
      * @param continuation if non-null, provides a continuation from a previous listing
      * @param scanProperties the properties to be used to control how the scan is performed
      * @return a cursor over the paths that were found
+     *
+     * @deprecated use {@link #listDirectoryAsync(FDBRecordContext, String, byte[], ScanProperties)} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     public RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context, @Nonnull String subdirName,
                                                 @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
-        return root.listAsync(null, context, subdirName, continuation, scanProperties);
+        return root.listSubdirectoryAsync(null, context, subdirName, continuation, scanProperties)
+                .map(ResolvedKeySpacePath::toPath);
     }
 
     /**
      * Synchronously list the available paths from a directory.
+     *
      * @param context the context in which to perform database access
      * @param directory the path under which to list
      * @param scanProperties the properties to be used to control how the scan is performed
      * @return a list of the paths that were found
+     *
+     * @deprecated use {@link #listDirectoryAsync(FDBRecordContext, String, byte[], ScanProperties)} instead
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     public List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String directory,
                                    @Nonnull ScanProperties scanProperties) {
@@ -235,6 +296,73 @@ public class KeySpace {
                 listAsync(context, directory, null, scanProperties).asList());
     }
 
+
+    /**
+     * Synchronously list the available paths from a directory.
+     *
+     * @param context the context in which to perform database access
+     * @param directory the path under which to list
+     * @return a list of the paths that were found
+     * @deprecated use {@link #listDirectory(FDBRecordContext, String)} instead
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
+    @Nonnull
+    public List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String directory) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
+                listAsync(context, directory, null, ScanProperties.FORWARD_SCAN).asList());
+    }
+
+    /**
+     * List the available paths from a directory.
+     *
+     * @param context the context in which to perform database access
+     * @param directory the name of the directory to list
+     * @param continuation if non-null, provides a continuation from a previous listing
+     * @param scanProperties the properties to be used to control how the scan is performed
+     * @return a cursor over the paths that were found
+     */
+    @Nonnull
+    public RecordCursor<ResolvedKeySpacePath> listDirectoryAsync(@Nonnull FDBRecordContext context,
+                                                                 @Nonnull String directory,
+                                                                 @Nullable byte[] continuation,
+                                                                 @Nonnull ScanProperties scanProperties) {
+        return root.listSubdirectoryAsync(null, context, directory, continuation, scanProperties);
+    }
+
+    /**
+     * Synchronously list the available paths from a directory.
+     *
+     * @param context the context in which to perform database access
+     * @param directory the path under which to list
+     * @param continuation if non-null, provides a continuation from a previous listing
+     * @param scanProperties the properties to be used to control how the scan is performed
+     * @return a list of the paths that were found
+     */
+    @Nonnull
+    public List<ResolvedKeySpacePath> listDirectory(@Nonnull FDBRecordContext context,
+                                                    @Nonnull String directory,
+                                                    @Nullable byte[] continuation,
+                                                    @Nonnull ScanProperties scanProperties) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
+                listDirectoryAsync(context, directory, continuation, scanProperties).asList());
+    }
+
+    /**
+     * Synchronously list the available paths from a directory.
+     *
+     * @param context the context in which to perform database access
+     * @param directory the path under which to list
+     * @param scanProperties the properties to be used to control how the scan is performed
+     * @return a list of the paths that were found
+     */
+    @Nonnull
+    public List<ResolvedKeySpacePath> listDirectory(@Nonnull FDBRecordContext context,
+                                                    @Nonnull String directory,
+                                                    @Nonnull ScanProperties scanProperties) {
+        return listDirectory(context, directory, null, scanProperties);
+    }
+
     /**
      * Synchronously list the available paths from a directory.
      * @param context the context in which to perform database access
@@ -242,10 +370,10 @@ public class KeySpace {
      * @return a list of the paths that were found
      */
     @Nonnull
-    public List<KeySpacePath> list(@Nonnull FDBRecordContext context, @Nonnull String directory) {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
-                listAsync(context, directory, null, ScanProperties.FORWARD_SCAN).asList());
+    public List<ResolvedKeySpacePath> listDirectory(@Nonnull FDBRecordContext context, @Nonnull String directory) {
+        return listDirectory(context, directory, null, ScanProperties.FORWARD_SCAN);
     }
+
 
     /**
      * Get the root of this key space.

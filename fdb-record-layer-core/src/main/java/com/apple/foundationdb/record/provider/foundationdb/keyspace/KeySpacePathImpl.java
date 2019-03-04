@@ -125,6 +125,7 @@ class KeySpacePathImpl implements KeySpacePath {
                 false, null, null));
     }
 
+    @Deprecated
     @Nonnull
     @Override
     public RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context, 
@@ -132,9 +133,17 @@ class KeySpacePathImpl implements KeySpacePath {
                                                 @Nullable ValueRange<?> range,
                                                 @Nullable byte[] continuation,
                                                 @Nonnull ScanProperties scanProperties) {
-        return directory.listAsync(self(), context, subdirName, range, continuation, scanProperties);
+        return directory.listSubdirectoryAsync(self(), context, subdirName, range, continuation, scanProperties)
+                .map(ResolvedKeySpacePath::toPath);
     }
 
+    @Nonnull
+    @Override
+    public RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context, @Nonnull String subdirName, @Nullable ValueRange<?> range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        return directory.listSubdirectoryAsync(self(), context, subdirName, range, continuation, scanProperties);
+    }
+
+    @Deprecated
     @Nullable
     @Override
     public Tuple getRemainder() {
@@ -165,6 +174,7 @@ class KeySpacePathImpl implements KeySpacePath {
         return value;
     }
 
+    @Deprecated
     @Nonnull
     @Override
     public PathValue getStoredValue() {
@@ -174,6 +184,7 @@ class KeySpacePathImpl implements KeySpacePath {
         return resolvedPathValue;
     }
 
+    @Deprecated
     @Override
     public boolean hasStoredValue() {
         return wasFromTuple;
@@ -210,6 +221,24 @@ class KeySpacePathImpl implements KeySpacePath {
                 .collect(Collectors.toList());
 
         return AsyncUtil.getAll(work).thenApply(Tuple::fromList);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context) {
+        final List<KeySpacePath> flatPath = flatten();
+        final List<CompletableFuture<PathValue>> work = flatPath.stream()
+                .map(entry -> entry.resolveAsync(context))
+                .collect(Collectors.toList());
+        return AsyncUtil.getAll(work).thenApply( pathValues -> {
+            ResolvedKeySpacePath current = null;
+            for (int i = 0; i < pathValues.size(); i++) {
+                final KeySpacePath path = flatPath.get(i);
+                current = new ResolvedKeySpacePath(current,
+                        path.getDirectory().wrap(path), pathValues.get(i), null);
+            }
+            return current;
+        });
     }
 
     @Nonnull
@@ -268,6 +297,7 @@ class KeySpacePathImpl implements KeySpacePath {
                 parent);
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -297,9 +327,11 @@ class KeySpacePathImpl implements KeySpacePath {
         return sb.toString();
     }
 
-    private void appendValue(StringBuilder sb, Object value) {
+    protected static void appendValue(StringBuilder sb, Object value) {
         if (value == null) {
             sb.append("null");
+        } else if (value instanceof String) {
+            sb.append('"').append(value).append('"');
         } else if (value instanceof byte[]) {
             sb.append("0x");
             sb.append(ByteArrayUtil2.toHexString((byte[]) value));

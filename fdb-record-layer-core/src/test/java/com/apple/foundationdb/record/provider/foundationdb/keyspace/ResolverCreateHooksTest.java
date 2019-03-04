@@ -73,7 +73,7 @@ class ResolverCreateHooksTest extends FDBTestBase {
                     .thenCompose(keyTuple -> context.ensureActive().get(keyTuple.pack()))
                     .thenApply(value -> {
                         boolean useA = Tuple.fromBytes(value).getBoolean(0);
-                        return new ScopedInterningLayer(context, resolverPath(useA ? "A" : "B"));
+                        return new ScopedInterningLayer(database, resolverPath(context, useA ? "A" : "B"));
                     });
             return expectedResolverFuture.thenApply(expectedResolver -> expectedResolver.equals(providedResolver));
         };
@@ -86,8 +86,8 @@ class ResolverCreateHooksTest extends FDBTestBase {
                         .thenAccept(tuple -> context.ensureActive().set(tuple.pack(), Tuple.from(true).pack())));
 
         try (FDBRecordContext context = database.openContext()) {
-            LocatableResolver resolverA = new ScopedInterningLayer(context, resolverPath("A"));
-            LocatableResolver resolverB = new ScopedInterningLayer(context, resolverPath("B"));
+            LocatableResolver resolverA = new ScopedInterningLayer(database, resolverPath(context, "A"));
+            LocatableResolver resolverB = new ScopedInterningLayer(database, resolverPath(context, "B"));
 
             assertChecks(context, resolverA, hooks, true);
             assertChecks(context, resolverB, hooks, false);
@@ -100,8 +100,8 @@ class ResolverCreateHooksTest extends FDBTestBase {
 
         // after migration
         try (FDBRecordContext context = database.openContext()) {
-            LocatableResolver resolverA = new ScopedInterningLayer(context, resolverPath("A"));
-            LocatableResolver resolverB = new ScopedInterningLayer(context, resolverPath("B"));
+            LocatableResolver resolverA = new ScopedInterningLayer(database, resolverPath(context, "A"));
+            LocatableResolver resolverB = new ScopedInterningLayer(database, resolverPath(context, "B"));
 
             assertChecks(context, resolverA, hooks, false);
             assertChecks(context, resolverB, hooks, true);
@@ -112,8 +112,8 @@ class ResolverCreateHooksTest extends FDBTestBase {
         return keySpace.path("test-root");
     }
 
-    private KeySpacePath resolverPath(String value) {
-        return root().add("resolvers").add("resolverNode", value);
+    private ResolvedKeySpacePath resolverPath(FDBRecordContext context, String value) {
+        return root().add("resolvers").add("resolverNode", value).toResolvedPath(context);
     }
 
     private static void assertChecks(FDBRecordContext context, LocatableResolver resolver, ResolverCreateHooks hooks, boolean shouldPass) {
