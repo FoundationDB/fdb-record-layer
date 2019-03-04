@@ -343,6 +343,15 @@ public class RankedSet {
             return rank;
         }
 
+        public boolean wasBeforeFirst() {
+            if (level >= 0) {
+                // There is no early exit if value isn't present, so should always reach finest in that case.
+                throw new IllegalStateException("Only valid if reached finest level");
+            }
+            // At level 0, the leftmost empty array key has count 0 and all the rest have count 1.
+            return lastCount == 0;
+        }
+
         @Override
         public CompletableFuture<Boolean> next(ReadTransaction tr) {
             final boolean newIterator = asyncIterator == null;
@@ -396,15 +405,30 @@ public class RankedSet {
      * @see #getNth
      */
     public CompletableFuture<Long> rank(ReadTransactionContext tc, byte[] key) {
+        return rank(tc, key, true);
+    }
+
+    /**
+     * Return the index of a key within the set.
+     * @param tc the transaction to use to access the database
+     * @param key the key to find
+     * @param nullIfMissing whether to return {@code null} when {@code key} is not present in the set
+     * @return a future that completes to the index of {@code key} in the ranked set, or {@code null} if it is not present and {@code nullIfMissing} is {@code true}, or the index {@code key} would have in the ranked set
+     * @see #getNth
+     */
+    public CompletableFuture<Long> rank(ReadTransactionContext tc, byte[] key, boolean nullIfMissing) {
         checkKey(key);
         return tc.readAsync(tr ->
-            containsCheckedKey(tr, key).thenCompose(exists -> {
-                if (!exists) {
-                    return CompletableFuture.completedFuture((Long)null);
-                }
-                RankLookup rank = new RankLookup(key);
-                return AsyncUtil.whileTrue(() -> nextLookup(rank, tr), executor).thenApply(vignore -> rank.getRank());
-            }));
+                containsCheckedKey(tr, key).thenCompose(exists -> {
+                    if (!exists && nullIfMissing) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    RankLookup rank = new RankLookup(key);
+                    return AsyncUtil.whileTrue(() -> nextLookup(rank, tr), executor)
+                            // If exists, rank is accurate. Else search ended at the next lower key, so are after it.
+                            // Except if key is before the leftmost key, in which case would take rank 0.
+                            .thenApply(vignore -> exists ? rank.getRank() : rank.wasBeforeFirst() ? 0 : rank.getRank() + 1);
+                }));
     }
 
     /**
