@@ -82,7 +82,6 @@ public class LazyCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (inner == null) {
             return futureCursor.thenAccept(cursor -> inner = cursor).thenCompose(vignore -> this.onNext());
@@ -97,6 +96,7 @@ public class LazyCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @SuppressWarnings("deprecation")
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             mayGetContinuation = false;
@@ -107,6 +107,7 @@ public class LazyCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @SuppressWarnings("deprecation")
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -118,12 +119,14 @@ public class LazyCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @SuppressWarnings("deprecation")
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

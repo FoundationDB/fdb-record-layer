@@ -2472,9 +2472,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else {
             records = scanRecords(TupleRange.allOf(singleRecordTypeWithPrefixKey.getRecordTypeKeyTuple()), null, scanProperties);
         }
-        return records.onHasNext()
-                .thenApply(hasAny -> {
-                    if (hasAny) {
+        return records.onNext()
+                .thenApply(result -> {
+                    if (result.hasNext()) {
                         if (LOGGER.isInfoEnabled()) {
                             LOGGER.info(KeyValueLogMessage.of("version check scan found non-empty store",
                                     subspaceProvider.logKey(), subspaceProvider.toString(context)));

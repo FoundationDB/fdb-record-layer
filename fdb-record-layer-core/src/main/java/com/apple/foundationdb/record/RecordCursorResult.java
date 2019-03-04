@@ -60,7 +60,7 @@ import java.util.function.Function;
  *
  * @param <T> the type of result produced when the result includes a value
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.STABLE)
 public class RecordCursorResult<T> {
 
     @Nonnull

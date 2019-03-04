@@ -679,6 +679,7 @@ public class SplitHelper {
 
         @Nonnull
         @Override
+        @SuppressWarnings("deprecation")
         public CompletableFuture<Boolean> onHasNext() {
             if (nextFuture == null) {
                 mayGetContinuation = false;
@@ -688,6 +689,7 @@ public class SplitHelper {
         }
 
         @Override
+        @SuppressWarnings("deprecation")
         public boolean hasNext() {
             try {
                 return onHasNext().join();
@@ -698,6 +700,7 @@ public class SplitHelper {
 
         @Nullable
         @Override
+        @SuppressWarnings("deprecation")
         public FDBRawRecord next() {
             if (!hasNext()) {
                 throw new NoSuchElementException();
@@ -710,12 +713,14 @@ public class SplitHelper {
         @Override
         @Nullable
         @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
+        @SuppressWarnings("deprecation")
         public byte[] getContinuation() {
             IllegalContinuationAccessChecker.check(mayGetContinuation);
             return nextResult.getContinuation().toBytes();
         }
 
         @Override
+        @SuppressWarnings("deprecation")
         public NoNextReason getNoNextReason() {
             return nextResult.getNoNextReason();
         }

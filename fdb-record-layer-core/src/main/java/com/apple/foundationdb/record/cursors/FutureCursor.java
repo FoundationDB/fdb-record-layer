@@ -63,7 +63,6 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (done) {
             nextResult = RecordCursorResult.exhausted();
@@ -79,6 +78,7 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @SuppressWarnings("deprecation")
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -88,6 +88,7 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @SuppressWarnings("deprecation")
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -97,19 +98,16 @@ public class FutureCursor<T> implements RecordCursor<T> {
         return nextResult.get();
     }
 
-    @Override
-    public void remove() {
-        throw new UnsupportedOperationException();
-    }
-
     @Nullable
     @Override
+    @SuppressWarnings("deprecation")
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

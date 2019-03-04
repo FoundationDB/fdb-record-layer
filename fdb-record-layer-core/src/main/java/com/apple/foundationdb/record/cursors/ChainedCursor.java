@@ -237,6 +237,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nonnull
     @Override
+    @SuppressWarnings("deprecation")
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             mayGetContinuation = false;
@@ -247,6 +248,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nullable
     @Override
+    @SuppressWarnings("deprecation")
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -259,12 +261,14 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nullable
     @Override
+    @SuppressWarnings("deprecation")
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return lastResult.getContinuation().toBytes();
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public NoNextReason getNoNextReason() {
         return lastResult.getNoNextReason();
     }

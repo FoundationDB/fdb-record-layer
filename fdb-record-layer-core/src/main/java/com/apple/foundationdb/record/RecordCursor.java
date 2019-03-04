@@ -110,10 +110,20 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * Asynchronously check whether there are more records available from the cursor.
      * @return a future that when complete will hold <code>true</code> if {@link #next()} would return a record.
      * @see com.apple.foundationdb.async.AsyncIterator#onHasNext()
+     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     CompletableFuture<Boolean> onHasNext();
 
+    /**
+     * Synchronously check whether there are more records available from the cursor.
+     * @return {@code} true if {@link #next()} would return a record and {@code false} otherwise
+     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Override
     default boolean hasNext() {
         try {
@@ -126,6 +136,13 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
         }
     }
 
+    /**
+     * Return the next value.
+     * @return the next value
+     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nullable
     @Override
     T next();
@@ -144,7 +161,10 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * Result is not always defined if called before <code>onHasNext</code> or before <code>next</code> after
      * <code>onHasNext</code> has returned <code>true</code>. That is, a continuation is only guaranteed when called
      * "between" records from a <code>while (hasNext) next</code> loop or after its end.
+     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nullable
     byte[] getContinuation();
 
@@ -243,7 +263,10 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * If <code>hasNext</code> was not called or returned <code>true</code> last time, the result is undefined and
      * may be an exception.
      * @return the reason that the cursor stopped
+     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     NoNextReason getNoNextReason();
 
     /**
@@ -279,6 +302,12 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
     CompletableFuture<RecordCursorResult<T>> onNext();
+
+    @Nonnull
+    @API(API.Status.STABLE)
+    default RecordCursorIterator<T> asIterator() {
+        return new RecordCursorIterator<>(this);
+    }
 
     @Override
     void close();
@@ -327,8 +356,21 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return <code>Optional.empty()</code> if the cursor had no results or if the first record was null,
      *   otherwise returns an <code>Optional</code> of the first item returned by the cursor.
      */
-    @Nonnull default CompletableFuture<Optional<T>> first() {
+    @Nonnull
+    default CompletableFuture<Optional<T>> first() {
         return onHasNext().thenApply( hasNext -> hasNext ? Optional.ofNullable(next()) : Optional.empty() );
+    }
+
+    /**
+     * Fetches the last {@link RecordCursorResult} produced by the cursor.
+     *
+     * @return the last result non-exhausted produced by the cursor, or an exhausted result if it produces no results
+     */
+    @Nonnull
+    default CompletableFuture<RecordCursorResult<T>> lastResult() {
+        final List<RecordCursorResult<T>> pointer = new ArrayList<>(1);
+        pointer.set(0, RecordCursorResult.exhausted());
+        return forEachResult(result -> pointer.set(0, result)).thenApply(ignore -> pointer.get(0));
     }
 
     /**
@@ -691,6 +733,21 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     }
 
     /**
+     * Call the given consumer as each record result becomes available.
+     * @param consumer function to be applied to each result
+     * @return a future that is complete when the consumer has been called on all remaining records
+     */
+    @Nonnull
+    default CompletableFuture<Void> forEachResult(Consumer<RecordCursorResult<T>> consumer) {
+        return AsyncUtil.whileTrue(() -> onNext().thenApply(result -> {
+            if (result.hasNext()) {
+                consumer.accept(result);
+            }
+            return result.hasNext();
+        }), getExecutor());
+    }
+
+    /**
      * Call the function as each record becomes available. This will be ready when
      * all of the elements of this cursor have been read and when all of the futures
      * associated with those elements have completed.
@@ -840,5 +897,4 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
             return hasNext;
         }), getExecutor()).thenApply(vignore -> holder.value);
     }
-
 }

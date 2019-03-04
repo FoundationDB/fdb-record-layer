@@ -26,6 +26,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorUtil;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
@@ -135,11 +136,11 @@ public class ResolverMappingReplicator implements AutoCloseable {
                         .setContinuation(continuation.get())
                         .build();
 
-                return AsyncUtil.whileTrue(() ->
-                    cursor.onHasNext().thenCompose(hasNext -> {
+                return RecordCursorUtil.whileHasNext(() ->
+                    cursor.onNext().thenCompose(result -> {
                         CompletableFuture<Void> currentStep;
-                        if (hasNext) {
-                            final KeyValue kv = cursor.next();
+                        if (result.hasNext()) {
+                            final KeyValue kv = result.get();
                             final String mappedString = primaryMappingSubspace.unpack(kv.getKey()).getString(0);
                             final ResolverResult mappedValue = valueDeserializer.apply(kv.getValue());
                             accumulator.accumulate(mappedValue.getValue());
@@ -149,15 +150,15 @@ public class ResolverMappingReplicator implements AutoCloseable {
                         } else {
                             currentStep = AsyncUtil.DONE;
                         }
-                        return currentStep.thenApply(ignore2 -> hasNext);
+                        return currentStep.thenApply(ignore2 -> result);
                     }), context.getExecutor())
-                    .thenCompose(ignore -> context.commitAsync().thenRun(() -> {
-                        byte[] nextContinuation = cursor.getContinuation();
+                    .thenCompose(nextContinuation -> context.commitAsync().thenRun(() -> {
+                        byte[] nextContinuationBytes = nextContinuation.toBytes();
                         LOGGER.info(KeyValueLogMessage.of("committing batch",
                                 "scannedSoFar", counter.get(),
-                                "nextContinuation", ByteArrayUtil2.loggable(nextContinuation)
+                                "nextContinuation", ByteArrayUtil2.loggable(nextContinuationBytes)
                         ));
-                        continuation.set(nextContinuation);
+                        continuation.set(nextContinuationBytes);
                     })).thenApply(vignore -> Objects.nonNull(continuation.get()));
             });
         });

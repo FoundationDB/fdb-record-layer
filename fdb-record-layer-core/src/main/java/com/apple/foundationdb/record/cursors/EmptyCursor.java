@@ -46,30 +46,33 @@ public class EmptyCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
     }
 
     @Nonnull
     @Override
+    @SuppressWarnings("deprecation")
     public CompletableFuture<Boolean> onHasNext() {
         return CompletableFuture.completedFuture(Boolean.FALSE);
     }
 
     @Nullable
     @Override
+    @SuppressWarnings("deprecation")
     public T next() {
         throw new NoSuchElementException();
     }
 
     @Nullable
     @Override
+    @SuppressWarnings("deprecation")
     public byte[] getContinuation() {
         return null;
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public NoNextReason getNoNextReason() {
         return NoNextReason.SOURCE_EXHAUSTED;
     }

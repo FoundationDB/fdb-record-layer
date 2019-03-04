@@ -99,6 +99,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
+    @SuppressWarnings("deprecation")
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -109,6 +110,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nullable
     @Override
     @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
+    @SuppressWarnings("deprecation")
     public V next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -121,12 +123,14 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nullable
     @Override
     @SpotBugsSuppressWarnings(value = "EI", justification = "copies are expensive")
+    @SuppressWarnings("deprecation")
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

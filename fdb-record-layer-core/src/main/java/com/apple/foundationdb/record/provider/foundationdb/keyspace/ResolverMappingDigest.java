@@ -22,10 +22,11 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorUtil;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -99,18 +100,18 @@ public class ResolverMappingDigest implements AutoCloseable {
                     .setContinuation(continuation)
                     .build();
 
-            return AsyncUtil.whileTrue(() ->
-                    cursor.onHasNext().thenApply(hasNext -> {
-                        if (hasNext) {
-                            KeyValue kv = cursor.next();
+            return RecordCursorUtil.whileHasNext(() ->
+                    cursor.onNext().thenApply(result -> {
+                        if (result.hasNext()) {
+                            KeyValue kv = result.get();
                             String key = mappingSubspace.unpack(kv.getKey()).getString(0);
                             ResolverResult value = resolver.deserializeValue(kv.getValue());
 
                             messageDigest.update(Tuple.from(key, value.getValue(), value.getMetadata()).pack());
                         }
-                        return hasNext;
+                        return result;
                     }), context.getExecutor()
-            ).thenApply(ignore -> cursor.getContinuation());
+            ).thenApply(RecordCursorContinuation::toBytes);
         });
     }
 }
