@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
@@ -113,7 +115,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -154,7 +156,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, indexScan(Matchers.allOf(indexName("ByteStringRecord$secondary"),
                     bounds(hasTupleString("[[[0, 1, 3]],[[0, 1, 3]]]")))));
             assertEquals(-1357153726, plan.planHash());
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
@@ -183,7 +185,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                             indexScan(Matchers.allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("([null],[[0, 1, 2]]]"))))),
                     indexScan(Matchers.allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("[[[0, 1, 3]],>"))))));
             assertEquals(1352435039, plan.planHash());
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
@@ -239,7 +241,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 if (retrieved.size() > 100) {
                     fail("added more records than were present");
                 }
-                continuation = cursor.getContinuation();
+                continuation = cursor.onNext().join().getContinuation().toBytes();
                 if (continuation == null) {
                     break;
                 }
@@ -270,7 +272,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 if (retrieved.size() > 50) {
                     fail("added more records than met filter");
                 }
-                continuation = cursor.getContinuation();
+                continuation = cursor.onNext().join().getContinuation().toBytes();
                 if (continuation == null) {
                     break;
                 }
@@ -345,11 +347,12 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 try (RecordCursor<Long> cursor = recordStore.executeQuery(plan, continuation, executeProperties)
                      .map(record -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(record.getRecord()).getRecNo())) {
                     cursor.forEach(list::add).join();
-                    continuation = cursor.getContinuation();
+                    RecordCursorResult<Long> result = cursor.onNext().join();
+                    continuation = result.getContinuation().toBytes();
                     if (continuation == null) {
-                        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
+                        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
                     } else {
-                        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
+                        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, result.getNoNextReason());
                     }
                 }
             }
@@ -458,7 +461,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openEnumRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecordsEnumProto.MyShapeRecord.Builder shapeRec = TestRecordsEnumProto.MyShapeRecord.newBuilder();
@@ -507,7 +510,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
                 int i = 0;
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> rec = cursor.next();
                         TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -530,7 +533,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 clearStoreCounter(context);
                 openSimpleRecordStore(context);
                 int i = 0;
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> rec = cursor.next();
                         TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -656,7 +659,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();

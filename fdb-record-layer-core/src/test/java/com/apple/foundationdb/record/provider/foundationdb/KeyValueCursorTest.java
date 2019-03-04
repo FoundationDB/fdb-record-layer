@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordScanLimiter;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -47,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link KeyValueCursor}.
@@ -223,13 +226,14 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void inclusiveNull() {
         fdb.run(context -> {
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursorIterator<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(4), EndpointType.RANGE_INCLUSIVE)
                     .setHigh((Tuple) null, EndpointType.RANGE_INCLUSIVE)
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
-                    .build();
+                    .build()
+                    .asIterator();
             for (int j = 0; j < 5; j++) {
                 KeyValue kv = cursor.next();
                 assertArrayEquals(subspace.pack(Tuple.from(4, j)), kv.getKey());
@@ -244,13 +248,14 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void exclusiveNull() {
         fdb.run(context -> {
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+            RecordCursorIterator<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(4, 0), EndpointType.RANGE_EXCLUSIVE)
                     .setHigh((Tuple) null, EndpointType.RANGE_EXCLUSIVE)
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
-                    .build();
+                    .build()
+                    .asIterator();
             assertThat(cursor.hasNext(), is(false));
 
             return null;
@@ -268,7 +273,8 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .build();
             assertEquals(Arrays.asList(Tuple.from(3L, 0L), Tuple.from(3L, 1L), Tuple.from(3L, 2L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
-            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
+            RecordCursorResult<KeyValue> result = cursor.onNext().join();
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, result.getNoNextReason());
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.allOf(Tuple.from(3)))
@@ -277,8 +283,9 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .build();
             assertEquals(Arrays.asList(Tuple.from(3L, 3L), Tuple.from(3L, 4L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
-            assertNull(cursor.getContinuation());
+            result = cursor.onNext().join();
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
+            assertNull(result.getContinuation());
 
             return null;
         });
@@ -298,7 +305,8 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .setScanProperties(forwardScanWithLimiter(limiter))
                     .build();
             assertEquals(2, (int) cursor.getCount().join());
-            assertThat("no next reason should be SCAN_LIMIT_REACHED", cursor.getNoNextReason(),
+            RecordCursorResult<KeyValue> result = cursor.onNext().join();
+            assertThat("no next reason should be SCAN_LIMIT_REACHED", result.getNoNextReason(),
                     equalTo(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED));
 
             return null;
@@ -316,7 +324,8 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .setScanProperties(forwardScanWithLimiter(limiter))
                     .build();
             assertEquals(3, (int) cursor.getCount().join());
-            assertThat("no next reason should be SOURCE_EXHAUSTED", cursor.getNoNextReason(),
+            RecordCursorResult<?> result = cursor.onNext().join();
+            assertThat("no next reason should be SOURCE_EXHAUSTED", result.getNoNextReason(),
                     equalTo(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
 
             return null;
@@ -367,8 +376,9 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .setScanProperties(forwardScanWithLimiter(limiter))
                     .build();
             RecordCursor<KeyValue> cursor = kvCursor.skip(2); // should exhaust limit first
-            assertThat("skipped items should exhaust limit", cursor.hasNext(), is(false));
-            assertThat("no next reason should be SCAN_LIMIT_REACHED", cursor.getNoNextReason(),
+            RecordCursorResult<KeyValue> result = cursor.onNext().join();
+            assertThat("skipped items should exhaust limit", result.hasNext(), is(false));
+            assertThat("no next reason should be SCAN_LIMIT_REACHED", result.getNoNextReason(),
                     equalTo(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED));
             return null;
         });
@@ -383,9 +393,10 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
                     .build();
-            assertFalse(cursor.hasNext());
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
-            assertNull(cursor.getContinuation());
+            RecordCursorResult<KeyValue> result = cursor.onNext().join();
+            assertFalse(result.hasNext());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
+            assertTrue(result.getContinuation().isEnd());
 
             return null;
         });
@@ -402,9 +413,10 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .build();
             RecordCursor<?> cursor = new SplitHelper.KeyValueUnsplitter(context, subspace, kvCursor, false, null, false,
                     new CursorLimitManager(context, ScanProperties.FORWARD_SCAN));
-            assertFalse(cursor.hasNext());
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
-            assertNull(cursor.getContinuation());
+            RecordCursorResult<?> result = cursor.onNext().join();
+            assertFalse(result.hasNext());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
+            assertTrue(result.getContinuation().isEnd());
 
             return null;
         });

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.TupleRange;
@@ -94,11 +95,11 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         List<Integer> etags = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
                     final Message record = cursor.next().getRecord();
-                    names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
-                    etags.add((int) record.getField(record.getDescriptorForType().findFieldByName("etag")));
+                    names.add((String)record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
+                    etags.add((int)record.getField(record.getDescriptorForType().findFieldByName("etag")));
                 }
             }
             assertDiscardedNone(context);
@@ -166,11 +167,11 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
             etags.clear();
             try (FDBRecordContext context = openContext()) {
                 openUnionRecordStore(context);
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
                         final Message record = cursor.next().getRecord();
-                        names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
-                        etags.add((int) record.getField(record.getDescriptorForType().findFieldByName("etag")));
+                        names.add((String)record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
+                        etags.add((int)record.getField(record.getDescriptorForType().findFieldByName("etag")));
                     }
                 }
                 assertDiscardedNone(context);
@@ -190,11 +191,11 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
             etags.clear();
             try (FDBRecordContext context = openContext()) {
                 openUnionRecordStore(context);
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
                         final Message record = cursor.next().getRecord();
-                        names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
-                        etags.add((int) record.getField(record.getDescriptorForType().findFieldByName("etag")));
+                        names.add((String)record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
+                        etags.add((int)record.getField(record.getDescriptorForType().findFieldByName("etag")));
                     }
                 }
                 assertDiscardedAtMost(1, context);
@@ -215,11 +216,11 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
             try (FDBRecordContext context = openContext()) {
                 clearStoreCounter(context);
                 openUnionRecordStore(context);
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
                         final Message record = cursor.next().getRecord();
-                        names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
-                        etags.add((int) record.getField(record.getDescriptorForType().findFieldByName("etag")));
+                        names.add((String)record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
+                        etags.add((int)record.getField(record.getDescriptorForType().findFieldByName("etag")));
                     }
                 }
                 assertDiscardedAtMost(3, context);
@@ -241,11 +242,11 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
             try (FDBRecordContext context = openContext()) {
                 clearStoreCounter(context);
                 openUnionRecordStore(context);
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
                         final Message record = cursor.next().getRecord();
-                        names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
-                        etags.add((int) record.getField(record.getDescriptorForType().findFieldByName("etag")));
+                        names.add((String)record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
+                        etags.add((int)record.getField(record.getDescriptorForType().findFieldByName("etag")));
                     }
                 }
                 assertDiscardedAtMost(1, context);
@@ -287,11 +288,11 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         List<Integer> etags = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
                     final Message record = cursor.next().getRecord();
-                    names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
-                    etags.add((int) record.getField(record.getDescriptorForType().findFieldByName("etag")));
+                    names.add((String)record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
+                    etags.add((int)record.getField(record.getDescriptorForType().findFieldByName("etag")));
                 }
             }
             assertDiscardedNone(context);
@@ -327,12 +328,12 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         List<Integer> etags = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
                     final Message record = cursor.next().getRecord();
-                    names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
+                    names.add((String)record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));
                     final Message nested = ((Message)record.getField(record.getDescriptorForType().findFieldByName("nested")));
-                    etags.add((int) nested.getField(nested.getDescriptorForType().findFieldByName("etag")));
+                    etags.add((int)nested.getField(nested.getDescriptorForType().findFieldByName("etag")));
                 }
             }
             assertDiscardedNone(context);
@@ -369,7 +370,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(-1448785488, plan.planHash());
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
                     final Message record = cursor.next().getRecord();
                     final Message nested = ((Message)record.getField(record.getDescriptorForType().findFieldByName("nested")));

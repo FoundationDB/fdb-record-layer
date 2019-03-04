@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -1343,7 +1343,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            RecordCursor<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index);
+            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index).asIterator();
 
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation first = cursor.next();
@@ -1362,7 +1362,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            RecordCursor<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(42));
+            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(42))
+                    .asIterator();
 
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation first = cursor.next();
@@ -1389,7 +1390,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            RecordCursor<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index);
+            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index).asIterator();
             assertFalse(cursor.hasNext());
 
             // reintroduce the error
@@ -1400,7 +1401,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            RecordCursor<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(42));
+            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(42))
+                    .asIterator();
 
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation first = cursor.next();
@@ -1420,7 +1422,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertNull(recordStore.loadRecord(Tuple.from(1066L)));
             assertNull(recordStore.loadRecord(Tuple.from(1793L)));
 
-            cursor = recordStore.scanUniquenessViolations(index);
+            cursor = recordStore.scanUniquenessViolations(index).asIterator();
             assertFalse(cursor.hasNext());
         }
     }
@@ -1466,7 +1468,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertEquals(2, (int)recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(2)).getCount().get());
             assertEquals(3, (int)recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(3)).getCount().get());
 
-            RecordCursor<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(3));
+            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore
+                    .scanUniquenessViolations(index, Key.Evaluated.scalar(3))
+                    .asIterator();
 
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation next = cursor.next();
@@ -1488,7 +1492,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             assertFalse(cursor.hasNext());
 
-            cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(2));
+            cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(2)).asIterator();
 
             assertTrue(cursor.hasNext());
             next = cursor.next();
@@ -1520,7 +1524,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context, hook);
             recordStore.resolveUniquenessViolation(index, Tuple.from(3), Tuple.from(1066L)).get();
 
-            RecordCursor<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index);
+            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index).asIterator();
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation next = cursor.next();
             assertEquals(Tuple.from(2L), next.getIndexEntry().getKey());
@@ -1540,7 +1544,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context, hook);
             recordStore.resolveUniquenessViolation(index, Tuple.from(3), Tuple.from(1793L)).get();
 
-            RecordCursor<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index);
+            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index).asIterator();
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation next = cursor.next();
             assertEquals(Tuple.from(2L), next.getIndexEntry().getKey());
