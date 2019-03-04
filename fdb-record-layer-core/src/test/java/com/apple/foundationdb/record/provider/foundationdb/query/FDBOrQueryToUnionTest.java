@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -77,6 +78,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an OR of compatibly-ordered (up to reversal) indexed fields can be implemented as a union.
      */
+    @SuppressWarnings("rawtypes") // Bug with raw types and method references: https://bugs.openjdk.java.net/browse/JDK-8063054
     @Test
     public void testComplexQuery6() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
@@ -93,7 +95,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, union(
                 indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))));
-        assertTrue(plan.getChildren().stream().allMatch(RecordQueryPlan::isReverse));
+        assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
         assertEquals(-2067012572, plan.planHash());
 
         Set<Long> seen = new HashSet<>();
