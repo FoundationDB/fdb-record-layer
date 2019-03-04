@@ -192,12 +192,13 @@ public class RankedSetIndexHelper {
 
     public static CompletableFuture<Long> rankForScore(@Nonnull IndexMaintainerState state,
                                                        @Nonnull RankedSet rankedSet,
-                                                       @Nullable Tuple score) {
+                                                       @Nullable Tuple score,
+                                                       boolean nullIfMissing) {
         if (score == null) {
             return CompletableFuture.completedFuture(null);
         } else {
             rankedSet.preloadForLookup(state.context.readTransaction(true));
-            CompletableFuture<Long> result = rankedSet.rank(state.transaction, score.pack());
+            CompletableFuture<Long> result = rankedSet.rank(state.transaction, score.pack(), nullIfMissing);
             return state.store.instrument(Events.RANKED_SET_RANK_FOR_SCORE, result);
         }
     }

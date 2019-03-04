@@ -161,7 +161,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
             scoreValue = Tuple.fromList(scoreValue.getItems().subList(groupPrefixSize, scoreValue.size()));
         }
         RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, nlevels);
-        return RankedSetIndexHelper.rankForScore(state, rankedSet, scoreValue);
+        return RankedSetIndexHelper.rankForScore(state, rankedSet, scoreValue, true);
     }
 
     @Override
@@ -191,7 +191,8 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
             return true;
         }
         if ((FunctionNames.SCORE_FOR_RANK.equals(function.getName()) ||
-                FunctionNames.SCORE_FOR_RANK_ELSE_SKIP.equals(function.getName())) &&
+                FunctionNames.SCORE_FOR_RANK_ELSE_SKIP.equals(function.getName()) ||
+                FunctionNames.RANK_FOR_SCORE.equals(function.getName())) &&
                 function.getOperand().equals(state.index.getRootExpression())) {
             return true;
         }
@@ -226,6 +227,16 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
             final Tuple outOfRange = FunctionNames.SCORE_FOR_RANK_ELSE_SKIP.equals(function.getName()) ?
                     RankedSetIndexHelper.COMPARISON_SKIPPED_SCORE : null;
             return RankedSetIndexHelper.scoreForRank(state, rankedSet, (Number)values.get(groupingCount), outOfRange);
+        }
+        if (FunctionNames.RANK_FOR_SCORE.equals(function.getName()) && range.isEquals()) {
+            Tuple values = range.getLow();
+            Subspace rankSubspace = getSecondarySubspace();
+            if (groupingCount > 0) {
+                rankSubspace = rankSubspace.subspace(TupleHelpers.subTuple(values, 0, groupingCount));
+                values = TupleHelpers.subTuple(values, groupingCount, values.size());
+            }
+            final RankedSet rankedSet = new RankedSet(rankSubspace, getExecutor());
+            return RankedSetIndexHelper.rankForScore(state, rankedSet, values, false).thenApply(Tuple::from);
         }
         return unsupportedAggregateFunction(function);
     }
