@@ -288,7 +288,7 @@ public interface KeySpacePath {
      *
      * <p>The listing is performed by reading the first key of the data type (and possibly constant value) for the
      * subdirectory and, if a key is found, skipping to the next available value after the first one that was found,
-     * and so one, each time resulting in an additional <code>KeySpacePath</code> that is returned.  In each case,
+     * and so on, each time resulting in an additional <code>KeySpacePath</code> that is returned.  In each case,
      * the returned <code>KeySpacePath</code> may contain a remainder (see {@link #getRemainder()}) of the portion
      * of the key tuple that was read.
      *
@@ -325,7 +325,7 @@ public interface KeySpacePath {
      *
      * <p>The listing is performed by reading the first key of the data type (and possibly constant value) for the
      * subdirectory and, if a key is found, skipping to the next available value after the first one that was found,
-     * and so one, each time resulting in an additional <code>KeySpacePath</code> that is returned.  In each case,
+     * and so on, each time resulting in an additional <code>KeySpacePath</code> that is returned.  In each case,
      * the returned <code>KeySpacePath</code> may contain a remainder (see {@link #getRemainder()}) of the portion
      * of the key tuple that was read.
      *
@@ -413,17 +413,19 @@ public interface KeySpacePath {
      * keyspace for that directory. For example, given the tree:
      * <pre>
      * root
-     *   +- node
-     *       +- leaf
+     *   +- dirA
+     *       +- dirB
+     *           +- dirC
      * </pre>
-     * Performing a <code>listSubdirectoryAsync</code> from a given <code>node</code>, will result in a list of paths,
-     * one for each <code>leaf</code> that is available within the <code>node</code>'s scope.
+     * Performing a <code>listSubdirectoryAsync</code> from <code>dirA</code> for subdirectory <code>dirB</code>
+     * will path to each distinct value of <code>dirB</code>.
      *
      * <p>The listing is performed by reading the first key of the data type (and possibly constant value) for the
      * subdirectory and, if a key is found, skipping to the next available value after the first one that was found,
-     * and so one, each time resulting in an additional <code>ResolvedKeySpacePath</code> that is returned.  In each case,
+     * and so on, each time resulting in an additional <code>ResolvedKeySpacePath</code> that is returned.  In each case,
      * the returned <code>ResolvedKeySpacePath</code> may contain a remainder (see {@link ResolvedKeySpacePath#getRemainder()})
-     * of the portion of the key tuple that was read.
+     * of the portion of the key tuple that was read. In the above example, each unique value of <code>dirB</code>
+     * would contain a remainder <code>Tuple</code> of the first value of <code>dirC</code>.
      *
      * @param context the transaction in which to perform the listing
      * @param subdirName the name of the subdirectory that is to be listed
@@ -448,17 +450,19 @@ public interface KeySpacePath {
      * keyspace for that directory. For example, given the tree:
      * <pre>
      * root
-     *   +- node
-     *       +- leaf
+     *   +- dirA
+     *       +- dirB
+     *           +- dirC
      * </pre>
-     * Performing a <code>listSubdirectoryAsync</code> from a given <code>node</code>, will result in a list of paths,
-     * one for each <code>leaf</code> that is available within the <code>node</code>'s scope.
+     * Performing a <code>listSubdirectoryAsync</code> from <code>dirA</code> for subdirectory <code>dirB</code>
+     * will path to each distinct value of <code>dirB</code>.
      *
      * <p>The listing is performed by reading the first key of the data type (and possibly constant value) for the
      * subdirectory and, if a key is found, skipping to the next available value after the first one that was found,
-     * and so one, each time resulting in an additional <code>ResolvedKeySpacePath</code> that is returned.  In each case,
+     * and so on, each time resulting in an additional <code>ResolvedKeySpacePath</code> that is returned.  In each case,
      * the returned <code>ResolvedKeySpacePath</code> may contain a remainder (see {@link ResolvedKeySpacePath#getRemainder()})
-     * of the portion of the key tuple that was read.
+     * of the portion of the key tuple that was read. In the above example, each unique value of <code>dirB</code>
+     * would contain a remainder <code>Tuple</code> of the first value of <code>dirC</code>.
      *
      * @param context the transaction in which to perform the listing
      * @param subdirName the name of the subdirectory that is to be listed
