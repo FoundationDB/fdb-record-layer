@@ -56,7 +56,7 @@ public class FilterWithScanRuleTest {
         RecordQueryIndexPlan inner = new RecordQueryIndexPlan(singleFieldIndex.getName(), IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false);
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
                 Query.field("aField").equalsValue(5), inner));
-        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root);
+        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root).findFirst();
         assertTrue(possibleMatch.isPresent());
         rule.onMatch(possibleMatch.get());
         assertEquals(new RecordQueryIndexPlan(singleFieldIndex.getName(), IndexScanType.BY_VALUE,
@@ -69,7 +69,7 @@ public class FilterWithScanRuleTest {
         RecordQueryIndexPlan inner = new RecordQueryIndexPlan(concatIndex.getName(), IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false);
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
                 Query.field("aField").equalsValue(5), inner));
-        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root);
+        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root).findFirst();
         assertTrue(possibleMatch.isPresent());
         rule.onMatch(possibleMatch.get());
         assertEquals(new RecordQueryIndexPlan(concatIndex.getName(), IndexScanType.BY_VALUE,
@@ -83,7 +83,7 @@ public class FilterWithScanRuleTest {
         RecordQueryIndexPlan inner = new RecordQueryIndexPlan(concatIndex.getName(), IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false);
         PlannerExpression original = new LogicalFilterExpression(Query.field("anotherField").equalsValue(5), inner);
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(original);
-        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root);
+        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root).findFirst();
         assertTrue(possibleMatch.isPresent()); // the matcher should match, since the structure is right
         rule.onMatch(possibleMatch.get());
         assertEquals(original, root.get());
@@ -96,7 +96,7 @@ public class FilterWithScanRuleTest {
                 ScanComparisons.from(inequalityComparison), false);
         PlannerExpression original = new LogicalFilterExpression(Query.field("aField").equalsValue(5), inner);
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(original);
-        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root);
+        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root).findFirst();
         assertTrue(possibleMatch.isPresent());
         rule.onMatch(possibleMatch.get());
         assertEquals(original, root.get());

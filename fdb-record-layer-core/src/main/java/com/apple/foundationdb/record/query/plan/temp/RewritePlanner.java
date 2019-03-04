@@ -36,7 +36,6 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * A simple planner that applies rewrite rules until it can't apply any more of them, then returns the resulting plan.
@@ -123,16 +122,16 @@ public class RewritePlanner implements QueryPlanner {
 
     private PlannerRule.ChangesMade applyRulesTo(@Nonnull PlannerRuleSet ruleSet, @Nonnull SingleExpressionRef<PlannerExpression> expression) {
         Iterator<PlannerRule<? extends PlannerExpression>> possibleRules = ruleSet.getRulesMatching(expression.get());
-        PlannerRule.ChangesMade madeChanges = PlannerRule.ChangesMade.NO_CHANGE;
         while (possibleRules.hasNext()) {
-            Optional<RewriteRuleCall> attemptedCall = RewriteRuleCall.tryMatchRule(context, possibleRules.next(), expression);
-            if (attemptedCall.isPresent()) {
-                if (attemptedCall.get().run().equals(PlannerRule.ChangesMade.MADE_CHANGES)) {
-                    possibleRules = ruleSet.getRulesMatching(expression.get());
-                    madeChanges = PlannerRule.ChangesMade.MADE_CHANGES;
+            Iterator<RewriteRuleCall> calls = RewriteRuleCall.tryMatchRule(context, possibleRules.next(), expression).iterator();
+
+            while (calls.hasNext()) {
+                RewriteRuleCall call = calls.next();
+                if (call.run().equals(PlannerRule.ChangesMade.MADE_CHANGES)) {
+                    return PlannerRule.ChangesMade.MADE_CHANGES;
                 }
             }
         }
-        return madeChanges;
+        return PlannerRule.ChangesMade.NO_CHANGE;
     }
 }

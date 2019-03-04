@@ -50,7 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Check that expression matchers are able to properly match planner expressions and references using the
- * {@link Bindable#bindWithExisting(ExpressionMatcher, PlannerBindings)} method.
+ * {@link Bindable#bindTo(ExpressionMatcher)} method.
  * These tests rely on dereferencing references in a number of places since we use equality checking to make sure that
  * the bindings are returning the correct values. Technically, this violates the contract (that planner expression
  * children might not be present, might be masked, etc.). This test might break in the future if that were to happen.
@@ -69,11 +69,11 @@ public class ExpressionMatcherTest {
 
     @Nonnull
     private PlannerBindings getExistingBindings() {
-        PlannerBindings bindings = new PlannerBindings();
+        PlannerBindings.Builder bindings = PlannerBindings.newBuilder();
         for (int i = 0; i < existingMatchers.size(); i++) {
             bindings.put(existingMatchers.get(i), existingBindables.get(i));
         }
-        return bindings;
+        return bindings.build();
     }
 
     private void assertExistingBindingsSurvived(@Nonnull PlannerBindings bindings) {
@@ -90,12 +90,14 @@ public class ExpressionMatcherTest {
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
                 Query.field("test").equalsValue(5), new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         // try to match to expression
-        Optional<PlannerBindings> newBindings = root.bindWithExisting(matcher, getExistingBindings());
+        Optional<PlannerBindings> newBindings = root.bindTo(matcher).findFirst();
         // check the the bindings are what we expect, and that none of the existing ones were clobbered
         assertTrue(newBindings.isPresent());
-        assertExistingBindingsSurvived(newBindings.get());
+        PlannerBindings allBindings = newBindings.get().mergedWith(getExistingBindings());
+        assertExistingBindingsSurvived(allBindings);
         assertTrue(newBindings.get().containsKey(matcher));
-        assertEquals(root, newBindings.get().get(matcher));
+        assertTrue(allBindings.containsKey(matcher));
+        assertEquals(root, allBindings.get(matcher));
     }
 
     @Test
@@ -103,12 +105,14 @@ public class ExpressionMatcherTest {
         // we already have a different RecordQueryIndexPlan matcher, but this should still work
         ExpressionMatcher<RecordQueryIndexPlan> matcher = TypeMatcher.of(RecordQueryIndexPlan.class);
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true));
-        Optional<PlannerBindings> newBindings = root.bindWithExisting(matcher, getExistingBindings());
+        Optional<PlannerBindings> newBindings = root.bindTo(matcher).findFirst();
         // check the the bindings are what we expect, and that none of the existing ones were clobbered
         assertTrue(newBindings.isPresent());
-        assertExistingBindingsSurvived(newBindings.get());
+        PlannerBindings allBindings = newBindings.get().mergedWith(getExistingBindings());
+        assertExistingBindingsSurvived(allBindings);
         assertTrue(newBindings.get().containsKey(matcher));
-        RecordQueryIndexPlan matched = newBindings.get().get(matcher);
+        assertTrue(allBindings.containsKey(matcher));
+        RecordQueryIndexPlan matched = allBindings.get(matcher);
         assertEquals(root.get(), matched);
     }
 
@@ -124,18 +128,18 @@ public class ExpressionMatcherTest {
         // check matches if the children are in the right order
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new RecordQueryUnionPlan( // union with arbitrary comparison key
                 child1, child2, EmptyKeyExpression.EMPTY, false, false));
-        Optional<PlannerBindings> possibleBindings = root.bindWithExisting(parentMatcher, getExistingBindings());
+        Optional<PlannerBindings> possibleBindings = root.bindTo(parentMatcher).findFirst();
         assertTrue(possibleBindings.isPresent());
-        PlannerBindings newBindings = possibleBindings.get();
-        assertExistingBindingsSurvived(newBindings);
-        assertEquals(root.get(), newBindings.get(parentMatcher));
-        assertEquals(child1, newBindings.get(childMatcher1));
-        assertEquals(child2, newBindings.get(childMatcher2));
+        PlannerBindings allBindings = possibleBindings.get().mergedWith(getExistingBindings());
+        assertExistingBindingsSurvived(allBindings);
+        assertEquals(root.get(), allBindings.get(parentMatcher));
+        assertEquals(child1, allBindings.get(childMatcher1));
+        assertEquals(child2, allBindings.get(childMatcher2));
 
-        // check that we fail ot match if the children are in the wrong order
+        // check that we fail to match if the children are in the wrong order
         root = SingleExpressionRef.of(new RecordQueryUnionPlan( // union with arbitrary comparison key
                 child2, child1, EmptyKeyExpression.EMPTY, false, false));
-        assertFalse(root.bindWithExisting(parentMatcher, getExistingBindings()).isPresent());
+        assertFalse(root.bindTo(parentMatcher).findFirst().isPresent());
     }
 
     @Test
@@ -147,7 +151,7 @@ public class ExpressionMatcherTest {
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new RecordQueryUnionPlan( // union with arbitrary comparison key
                 child1, child2, EmptyKeyExpression.EMPTY, false, false));
-        assertFalse(root.bindWithExisting(parentMatcher, getExistingBindings()).isPresent());
+        assertFalse(root.bindTo(parentMatcher).findFirst().isPresent());
     }
 
     @Test
@@ -162,9 +166,9 @@ public class ExpressionMatcherTest {
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new RecordQueryUnionPlan( // union with arbitrary comparison key
                 child1, child2, EmptyKeyExpression.EMPTY, false, false));
 
-        Optional<PlannerBindings> possibleBindings = root.bindWithExisting(matcher, getExistingBindings());
+        Optional<PlannerBindings> possibleBindings = root.bindTo(matcher).findFirst();
         assertTrue(possibleBindings.isPresent());
-        PlannerBindings newBindings = possibleBindings.get();
+        PlannerBindings newBindings = possibleBindings.get().mergedWith(getExistingBindings());
         assertExistingBindingsSurvived(newBindings);
         assertEquals(root.get(), newBindings.get(matcher)); // check that root matches
         // check that children are behind references
@@ -197,10 +201,10 @@ public class ExpressionMatcherTest {
                 new RecordQueryUnionPlan(filterPlan, scanPlan, EmptyKeyExpression.EMPTY, false, false));
 
         // try to bind
-        Optional<PlannerBindings> possibleBindings = root.bindWithExisting(matcher, getExistingBindings());
+        Optional<PlannerBindings> possibleBindings = root.bindTo(matcher).findFirst();
         // check that all the bindings match what we expect
         assertTrue(possibleBindings.isPresent());
-        PlannerBindings bindings = possibleBindings.get();
+        PlannerBindings bindings = possibleBindings.get().mergedWith(getExistingBindings());
         assertEquals(root.get(), bindings.get(matcher));
         assertEquals(filterPlan, bindings.get(filterPlanMatcher));
         assertEquals(scanPlan, bindings.get(scanMatcher));

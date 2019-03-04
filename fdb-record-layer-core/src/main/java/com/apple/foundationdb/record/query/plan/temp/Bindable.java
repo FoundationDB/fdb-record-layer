@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * A planner type that supports rule binding. Both {@link PlannerExpression} and {@link ExpressionRef} implement
@@ -39,22 +39,5 @@ public interface Bindable {
      * @return a map of bindings if the match succeeded, or an empty <code>Optional</code> if it failed
      */
     @Nonnull
-    default Optional<PlannerBindings> bindWith(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
-        return bindWithExisting(binding, new PlannerBindings());
-    }
-
-    /**
-     * Attempt to match the binding to this bindable object, returning a map consisting of the old keys along with new
-     * bindings from this <code>Bindable</code>.
-     * The returned map is guaranteed to contain all of the keys from <code>existing</code>.
-     * This method is meant to make it easier to implement recursive matching.
-     * When implementing a new <code>Bindable</code>, implementing this method is sufficient.
-     * When implementing this method, take care to ensure that the the existing bindings are not mutated and that new
-     * bindings are added only when a match is certain.
-     * @param binding the binding to match against
-     * @param existing an existing map of bindings
-     * @return a map of bindings if the match succeeded, or an empty <code>Optional</code> if it failed
-     */
-    @Nonnull
-    Optional<PlannerBindings> bindWithExisting(@Nonnull ExpressionMatcher<? extends Bindable> binding, @Nonnull PlannerBindings existing);
+    Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding);
 }

@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * A rule call implementation for the {@link com.apple.foundationdb.record.query.plan.temp.RewritePlanner}.
@@ -101,11 +101,11 @@ public class RewriteRuleCall implements PlannerRuleCall {
      * @param root a single expression reference containing a planner expression to apply the rule to
      * @return an {@code Optional} containing a rewrite rule call if the rule's matcher matched or {@code Optional.empty()} otherwise
      */
-    public static Optional<RewriteRuleCall> tryMatchRule(
+    public static Stream<RewriteRuleCall> tryMatchRule(
             @Nonnull PlanContext context,
             @Nonnull PlannerRule<? extends PlannerExpression> rule,
             @Nonnull SingleExpressionRef<PlannerExpression> root) {
-        return root.bindWith(rule.getMatcher()).map(bindings -> new RewriteRuleCall(context, rule, root, bindings));
+        return root.bindTo(rule.getMatcher()).map(bindings -> new RewriteRuleCall(context, rule, root, bindings));
     }
 
 }
