@@ -537,8 +537,9 @@ public class OnlineIndexer implements AutoCloseable {
 
     private void maybeLogBuildProgress(Subspace subspace, Tuple startTuple, Tuple endTuple, Tuple realEnd) {
         if (LOGGER.isInfoEnabled()
-                && (progressLogIntervalMillis >= 0
-                    && System.currentTimeMillis() - timeOfLastProgressLogMillis >= progressLogIntervalMillis)) {
+                && (progressLogIntervalMillis > 0
+                    && System.currentTimeMillis() - timeOfLastProgressLogMillis > progressLogIntervalMillis)
+                || progressLogIntervalMillis == 0) {
             LOGGER.info(KeyValueLogMessage.of("Built Range",
                     "indexName", index.getName(),
                     "indexVersion", index.getLastModifiedVersion(),
