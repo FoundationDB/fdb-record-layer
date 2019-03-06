@@ -466,22 +466,25 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<Void> buildRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return recordStoreBuilder.getSubspaceProvider().getSubspaceAsync().thenCompose(subspace -> buildRange(subspace, start, end));
+        final SubspaceProvider subspaceProvider = recordStoreBuilder.getSubspaceProvider();
+        return subspaceProvider.getSubspaceAsync().thenCompose(subspace -> buildRange(subspaceProvider, subspace, start, end));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildRange(@Nonnull Subspace subspace, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
+    private CompletableFuture<Void> buildRange(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                               @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
         byte[] startBytes = packOrNull(convertOrNull(start));
         byte[] endBytes = packOrNull(convertOrNull(end));
         Queue<Range> rangeDeque = new ArrayDeque<>();
         return rangeSet.missingRanges(runner.getDatabase().database(), startBytes, endBytes)
                 .thenAccept(rangeDeque::addAll)
-                .thenCompose(vignore -> buildRanges(subspace, rangeSet, rangeDeque));
+                .thenCompose(vignore -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildRanges(@Nonnull Subspace subspace, RangeSet rangeSet, Queue<Range> rangeDeque) {
+    private CompletableFuture<Void> buildRanges(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                RangeSet rangeSet, Queue<Range> rangeDeque) {
         return AsyncUtil.whileTrue(() -> {
             if (rangeDeque.isEmpty()) {
                 return CompletableFuture.completedFuture(false); // We're done.
@@ -492,13 +495,16 @@ public class OnlineIndexer implements AutoCloseable {
             Tuple startTuple = Tuple.fromBytes(toBuild.begin);
             Tuple endTuple = Arrays.equals(toBuild.end, END_BYTES) ? null : Tuple.fromBytes(toBuild.end);
             return buildUnbuiltRange(startTuple, endTuple)
-                    .handle((realEnd, ex) -> handleBuiltRange(subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
+                    .handle((realEnd, ex) -> handleBuiltRange(subspaceProvider, subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
                     .thenCompose(Function.identity());
         }, runner.getExecutor());
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> handleBuiltRange(@Nonnull Subspace subspace, RangeSet rangeSet, Queue<Range> rangeDeque, Tuple startTuple, Tuple endTuple, Tuple realEnd, Throwable ex) {
+    private CompletableFuture<Boolean> handleBuiltRange(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                        RangeSet rangeSet, Queue<Range> rangeDeque,
+                                                        Tuple startTuple, Tuple endTuple, Tuple realEnd,
+                                                        Throwable ex) {
         final RuntimeException unwrappedEx = ex == null ? null : runner.getDatabase().mapAsyncToSyncException(ex);
         long toWait = (recordsPerSecond == UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
         if (unwrappedEx == null) {
@@ -510,7 +516,7 @@ public class OnlineIndexer implements AutoCloseable {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
-            maybeLogBuildProgress(subspace, startTuple, endTuple, realEnd);
+            maybeLogBuildProgress(subspaceProvider, startTuple, endTuple, realEnd);
             return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
         } else {
             Throwable cause = unwrappedEx;
@@ -535,15 +541,15 @@ public class OnlineIndexer implements AutoCloseable {
         }
     }
 
-    private void maybeLogBuildProgress(Subspace subspace, Tuple startTuple, Tuple endTuple, Tuple realEnd) {
+    private void maybeLogBuildProgress(SubspaceProvider subspaceProvider, Tuple startTuple, Tuple endTuple, Tuple realEnd) {
         if (LOGGER.isInfoEnabled()
                 && (progressLogIntervalMillis > 0
                     && System.currentTimeMillis() - timeOfLastProgressLogMillis > progressLogIntervalMillis)
                 || progressLogIntervalMillis == 0) {
             LOGGER.info(KeyValueLogMessage.of("Built Range",
-                    "indexName", index.getName(),
+                    LogMessageKeys.INDEX_NAME, index.getName(),
                     "indexVersion", index.getLastModifiedVersion(),
-                    "subspace", subspace,
+                    subspaceProvider.logKey(), subspaceProvider,
                     "startTuple", startTuple,
                     "endTuple", endTuple,
                     "realEnd", realEnd));
