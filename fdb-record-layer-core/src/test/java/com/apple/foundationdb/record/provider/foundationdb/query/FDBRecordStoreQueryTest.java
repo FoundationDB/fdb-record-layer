@@ -302,7 +302,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 if (retrieved.size() > 50) {
                     fail("added more records than met filter");
                 }
-                continuation = cursor.getContinuation();
+                continuation = cursor.getNext().getContinuation().toBytes();
                 if (continuation == null) {
                     break;
                 }
@@ -402,7 +402,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 bindings.set("2", numValue2);
                 EvaluationContext evaluationContext = EvaluationContext.forBindings(bindings.build());
                 int i = 0;
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, evaluationContext)) {
+                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, evaluationContext).asIterator()) {
                     while (cursor.hasNext()) {
                         FDBQueriedRecord<Message> rec = cursor.next();
                         TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();

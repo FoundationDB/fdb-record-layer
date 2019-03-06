@@ -2092,9 +2092,10 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext()) {
                 uncheckedOpenSimpleRecordStore(context);
                 final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
-                final RecordCursor<InvalidIndexEntry> cursor = recordStore.getIndexMaintainer(index)
+                final RecordCursorIterator<InvalidIndexEntry> cursor = recordStore.getIndexMaintainer(index)
                         .validateEntries(continuation, null)
-                        .limitRowsTo(limit);
+                        .limitRowsTo(limit)
+                        .asIterator();
                 while (cursor.hasNext()) {
                     InvalidIndexEntry invalidIndexEntry = cursor.next();
                     assertEquals(InvalidIndexEntry.Reasons.ORPHAN, invalidIndexEntry.getReason());
@@ -2118,7 +2119,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBDatabaseRunner runner = fdb.newRunner()) {
             AtomicInteger generatorCount = new AtomicInteger();
             // Set a scanned records limit to mock when the transaction is out of band.
-            AutoContinuingCursor<InvalidIndexEntry> cursor = new AutoContinuingCursor<>(
+            RecordCursorIterator<InvalidIndexEntry> cursor = new AutoContinuingCursor<>(
                     runner,
                     (context, continuation) -> new LazyCursor<>(
                             FDBRecordStore.newBuilder()
@@ -2137,7 +2138,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                                                 .validateEntries(continuation, scanProperties);
                                     })
                     )
-            );
+            ).asIterator();
 
             Set<IndexEntry> results = new HashSet<>();
             while (cursor.hasNext()) {

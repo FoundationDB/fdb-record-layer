@@ -65,8 +65,13 @@ public class IteratorCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
+        return CompletableFuture.completedFuture(getNext());
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursorResult<T> getNext() {
         boolean hasNext = iterator.hasNext();
         mayGetContinuation = !hasNext;
         if (hasNext) {
@@ -75,12 +80,12 @@ public class IteratorCursor<T> implements RecordCursor<T> {
         } else {
             nextResult = RecordCursorResult.exhausted();
         }
-        return CompletableFuture.completedFuture(nextResult);
+        return nextResult;
     }
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             mayGetContinuation = false;
@@ -91,7 +96,7 @@ public class IteratorCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -103,14 +108,15 @@ public class IteratorCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

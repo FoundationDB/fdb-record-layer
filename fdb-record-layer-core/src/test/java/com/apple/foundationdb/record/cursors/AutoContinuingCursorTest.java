@@ -59,10 +59,7 @@ public class AutoContinuingCursorTest extends FDBTestBase {
             RecordCursor<Integer> cursor = new AutoContinuingCursor<>(runner, nextCursorGenerator);
 
             List<Integer> returnedList = new ArrayList<>();
-            while (cursor.hasNext()) {
-                returnedList.add(cursor.next());
-            }
-
+            cursor.forEach(returnedList::add).join();
             assertEquals(expectedList, returnedList);
         }
     }

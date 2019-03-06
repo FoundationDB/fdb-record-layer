@@ -59,6 +59,9 @@ public class MapCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        }
         mayGetContinuation = false;
         return inner.onNext().thenApply(result -> result.map(func))
                 .thenApply(result -> {
@@ -70,7 +73,7 @@ public class MapCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -80,7 +83,7 @@ public class MapCursor<T, V> implements RecordCursor<V> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public V next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -92,14 +95,15 @@ public class MapCursor<T, V> implements RecordCursor<V> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

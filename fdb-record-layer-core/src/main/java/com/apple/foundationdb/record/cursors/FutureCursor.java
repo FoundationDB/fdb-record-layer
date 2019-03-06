@@ -78,7 +78,7 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -88,7 +88,7 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -100,14 +100,15 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

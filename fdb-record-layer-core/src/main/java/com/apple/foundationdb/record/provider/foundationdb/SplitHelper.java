@@ -637,6 +637,9 @@ public class SplitHelper {
         @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<FDBRawRecord>> onNext() {
+            if (nextResult != null && !nextResult.hasNext()) {
+                return CompletableFuture.completedFuture(nextResult);
+            }
             if (limitManager.isStopped()) {
                 mayGetContinuation = true;
                 nextResult = RecordCursorResult.withoutNextValue(continuation, mergeNoNextReason());
@@ -679,7 +682,17 @@ public class SplitHelper {
 
         @Nonnull
         @Override
-        @SuppressWarnings("deprecation")
+        public RecordCursorResult<FDBRawRecord> getNext() {
+            if (nextResult != null && !nextResult.hasNext()) {
+                return nextResult;
+            } else {
+                return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
+            }
+        }
+
+        @Nonnull
+        @Override
+        @Deprecated
         public CompletableFuture<Boolean> onHasNext() {
             if (nextFuture == null) {
                 mayGetContinuation = false;
@@ -689,7 +702,7 @@ public class SplitHelper {
         }
 
         @Override
-        @SuppressWarnings("deprecation")
+        @Deprecated
         public boolean hasNext() {
             try {
                 return onHasNext().join();
@@ -700,7 +713,7 @@ public class SplitHelper {
 
         @Nullable
         @Override
-        @SuppressWarnings("deprecation")
+        @Deprecated
         public FDBRawRecord next() {
             if (!hasNext()) {
                 throw new NoSuchElementException();
@@ -713,14 +726,15 @@ public class SplitHelper {
         @Override
         @Nullable
         @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-        @SuppressWarnings("deprecation")
+        @Deprecated
         public byte[] getContinuation() {
             IllegalContinuationAccessChecker.check(mayGetContinuation);
             return nextResult.getContinuation().toBytes();
         }
 
+        @Nonnull
         @Override
-        @SuppressWarnings("deprecation")
+        @Deprecated
         public NoNextReason getNoNextReason() {
             return nextResult.getNoNextReason();
         }

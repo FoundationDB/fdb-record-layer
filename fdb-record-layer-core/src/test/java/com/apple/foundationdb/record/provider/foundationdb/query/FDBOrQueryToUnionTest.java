@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -579,8 +578,8 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1);
-                 RecordCursor<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1).asIterator();
+                 RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2).asIterator()) {
                 while (cursor1.hasNext()) {
                     assertThat(cursor2.hasNext(), is(true));
                     FDBQueriedRecord<Message> rec1 = cursor1.next();
@@ -627,8 +626,8 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1);
-                 RecordCursor<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1).asIterator();
+                 RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2).asIterator()) {
                 while (cursor1.hasNext()) {
                     assertThat(cursor2.hasNext(), is(true));
                     FDBQueriedRecord<Message> rec1 = cursor1.next();

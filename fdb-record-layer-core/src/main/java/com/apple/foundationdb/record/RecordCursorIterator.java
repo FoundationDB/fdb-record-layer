@@ -20,18 +20,23 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.cursors.IllegalContinuationAccessChecker;
+import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /**
  * An asynchronous iterator that wraps a {@link RecordCursor} and presents an iterator-style interface for advancing
- * the cursor.
+ * the cursor. This adds {@link #getContinuation()} and {@link #getNoNextReason()} methods to the {@link AsyncIterator}
+ * interface so that cursors can be resumed and so that their reason for stopping can be inspected.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.STABLE)
@@ -58,8 +63,10 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
     @Nonnull
     @Override
     public CompletableFuture<Boolean> onHasNext() {
-        mayGetContinuation = false;
-        if (onHasNextFuture == null) {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return AsyncUtil.READY_FALSE;
+        } else if (onHasNextFuture == null) {
+            mayGetContinuation = false;
             onHasNextFuture = cursor.onNext().thenApply(result -> {
                 nextResult = result;
                 mayGetContinuation = !nextResult.hasNext();
@@ -75,11 +82,18 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
      */
     @Override
     public boolean hasNext() {
-        return onHasNext().join();
+        try {
+            return onHasNext().get();
+        } catch (ExecutionException ex) {
+            throw new RecordCoreException(CompletionExceptionLogHelper.asCause(ex));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new RecordCoreInterruptedException(ex.getMessage(), ex);
+        }
     }
 
     /**
-     * Return the next value. May only be called after the the future from {@link #onHasNext()} has completed to
+     * Return the next value. May only be called after the future from {@link #onHasNext()} has completed to
      * {@code true} (or equivalently after {@link #hasNext()} has returned {@code true}).
      * @return the next value
      */

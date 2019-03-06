@@ -51,6 +51,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -182,15 +183,15 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
-                int count = 0;
-                while (cursor.hasNext()) {
-                    TestRecords8Proto.StringRecordId record = validateQueryData(cursor.next());
+                AtomicInteger count = new AtomicInteger();
+                cursor.forEach(queriedRecord -> {
+                    TestRecords8Proto.StringRecordId record = validateQueryData(queriedRecord);
                     Assertions.assertTrue(record.getIntValue() >= 0 && record.getIntValue() <= 2,
                             "Unexpected record returned");
-                    ++count;
-                }
+                    count.incrementAndGet();
+                }).get();
 
-                Assertions.assertEquals(3, count, "Too few records returned");
+                Assertions.assertEquals(3, count.get(), "Too few records returned");
             }
         }
     }
@@ -212,14 +213,14 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
-                int count = 0;
-                while (cursor.hasNext()) {
-                    TestRecords8Proto.StringRecordId record = validateQueryData(cursor.next());
+                AtomicInteger count = new AtomicInteger();
+                cursor.forEach(queriedRecord -> {
+                    TestRecords8Proto.StringRecordId record = validateQueryData(queriedRecord);
                     Assertions.assertTrue(record.getLongField() % 3 == 1 || record.getLongField() % 3 == 2);
-                    ++count;
-                }
+                    count.incrementAndGet();
+                }).get();
 
-                Assertions.assertEquals(6, count, "Too few records returned");
+                Assertions.assertEquals(6, count.get(), "Too few records returned");
             }
         }
     }
@@ -239,14 +240,14 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
-                int count = 0;
-                while (cursor.hasNext()) {
-                    TestRecords8Proto.StringRecordId record = validateQueryData(cursor.next());
+                AtomicInteger count = new AtomicInteger();
+                cursor.forEach(queriedRecord -> {
+                    TestRecords8Proto.StringRecordId record = validateQueryData(queriedRecord);
                     Assertions.assertEquals("/s:foo_3_blah", record.getRecId());
-                    ++count;
-                }
+                    count.incrementAndGet();
+                }).get();
 
-                Assertions.assertEquals(1, count, "Too few records returned");
+                Assertions.assertEquals(1, count.get(), "Too few records returned");
             }
         }
     }

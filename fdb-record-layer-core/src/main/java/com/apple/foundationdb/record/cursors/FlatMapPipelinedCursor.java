@@ -110,6 +110,9 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
+        if (lastResult != null && !lastResult.hasNext()) {
+            return CompletableFuture.completedFuture(lastResult);
+        }
         mayGetContinuation = false;
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
             lastResult = pipeline.peek().nextResult();
@@ -120,7 +123,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             mayGetContinuation = false;
@@ -131,7 +134,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public V next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -143,7 +146,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return lastResult.getContinuation().toBytes();
@@ -165,8 +168,9 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         outerCursor.close();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return lastResult.getNoNextReason();
     }

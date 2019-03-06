@@ -84,7 +84,7 @@ public class Main {
         try (RecordCursor<FDBQueriedRecord<Message>> cursor = store.executeQuery(plan)) {
             RecordCursorResult<FDBQueriedRecord<Message>> result;
             do {
-                result = cursor.onNext().join();
+                result = cursor.getNext();
                 if (result.hasNext()) {
                     SampleProto.Customer.Builder builder = SampleProto.Customer.newBuilder().mergeFrom(result.get().getRecord());
                     names.add(builder.getFirstName() + " " + builder.getLastName());
@@ -188,7 +188,7 @@ public class Main {
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = store.executeQuery(query)) {
                 RecordCursorResult<FDBQueriedRecord<Message>> result;
                 do {
-                    result = cursor.onNext().join();
+                    result = cursor.getNext();
                     if (result.hasNext()) {
                         itemIDs.add(SampleProto.Item.newBuilder()
                                 .mergeFrom(result.get().getRecord())

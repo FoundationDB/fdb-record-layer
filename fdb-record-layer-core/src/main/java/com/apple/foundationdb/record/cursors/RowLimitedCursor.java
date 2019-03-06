@@ -60,6 +60,9 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        }
         if (limitReached()) {
             mayGetContinuation = true;
             NoNextReason reason = (!nextResult.hasNext() && nextResult.getContinuation().isEnd())
@@ -79,7 +82,7 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -89,7 +92,7 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -101,14 +104,15 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

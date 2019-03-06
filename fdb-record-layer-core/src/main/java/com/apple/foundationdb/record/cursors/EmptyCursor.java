@@ -52,27 +52,34 @@ public class EmptyCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    public RecordCursorResult<T> getNext() {
+        return RecordCursorResult.exhausted();
+    }
+
+    @Nonnull
+    @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         return CompletableFuture.completedFuture(Boolean.FALSE);
     }
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public T next() {
         throw new NoSuchElementException();
     }
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         return null;
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return NoNextReason.SOURCE_EXHAUSTED;
     }

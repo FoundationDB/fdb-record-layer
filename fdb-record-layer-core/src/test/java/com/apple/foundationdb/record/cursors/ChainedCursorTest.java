@@ -97,13 +97,14 @@ public class ChainedCursorTest extends FDBTestBase {
                     .setFailOnScanLimitReached(false)
                     .build());
 
-            RecordCursor<Long> cursor = new ChainedCursor<>(
+            RecordCursorIterator<Long> cursor = new ChainedCursor<>(
                     context,
-                    (lastKey) -> nextKey(lastKey),
+                    ChainedCursorTest::nextKey,
                     (key) -> Tuple.from(key).pack(),
                     (prevContinuation) -> Tuple.fromBytes(prevContinuation).getLong(0),
                     null,
-                    props);
+                    props)
+                    .asIterator();
 
             int count = 0;
             while (cursor.hasNext()) {

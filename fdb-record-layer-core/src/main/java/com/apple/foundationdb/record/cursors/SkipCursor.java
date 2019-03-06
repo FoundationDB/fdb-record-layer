@@ -57,8 +57,10 @@ public class SkipCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        }
         if (skipRemaining <= 0) {
             return inner.onNext().thenApply(result -> {
                 mayGetContinuation = !result.hasNext();
@@ -81,7 +83,7 @@ public class SkipCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             mayGetContinuation = false;
@@ -93,7 +95,7 @@ public class SkipCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -105,14 +107,15 @@ public class SkipCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

@@ -269,7 +269,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
                 int count = cursor.getCount().get();
                 assertThat(count, lessThanOrEqualTo(amount));
                 unfilteredCount += count;
-                continuation = cursor.getContinuation();
+                continuation = cursor.getNext().getContinuation().toBytes();
             } while (continuation != null);
 
             recordStore.getTimer().reset();
@@ -286,7 +286,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
                 int count = cursor.getCount().get();
                 assertThat(count, lessThanOrEqualTo(amount));
                 filteredCount += count;
-                continuation = cursor.getContinuation();
+                continuation = cursor.getNext().getContinuation().toBytes();
             } while (continuation != null);
 
             int filteredGiven = recordStore.getTimer().getCount(FDBStoreTimer.Counts.QUERY_FILTER_PLAN_GIVEN);

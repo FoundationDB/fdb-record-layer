@@ -61,6 +61,9 @@ public class FilterCursor<T> implements RecordCursor<T> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        }
         mayGetContinuation = false;
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             nextResult = innerResult;
@@ -74,7 +77,7 @@ public class FilterCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -84,7 +87,7 @@ public class FilterCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -97,14 +100,15 @@ public class FilterCursor<T> implements RecordCursor<T> {
     @Nullable
     @Override
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

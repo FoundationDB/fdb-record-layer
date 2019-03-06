@@ -420,7 +420,7 @@ public class StoreTimer {
 
             @Override
             @Nonnull
-            @SuppressWarnings("deprecation")
+            @Deprecated
             public CompletableFuture<Boolean> onHasNext() {
                 if (nextFuture == null) {
                     nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -430,7 +430,7 @@ public class StoreTimer {
 
             @Override
             @Nullable
-            @SuppressWarnings("deprecation")
+            @Deprecated
             public T next() {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
@@ -441,13 +441,14 @@ public class StoreTimer {
 
             @Override
             @Nullable
-            @SuppressWarnings("deprecation")
+            @Deprecated
             public byte[] getContinuation() {
                 return nextResult.getContinuation().toBytes();
             }
 
+            @Nonnull
             @Override
-            @SuppressWarnings("deprecation")
+            @Deprecated
             public NoNextReason getNoNextReason() {
                 return nextResult.getNoNextReason();
             }

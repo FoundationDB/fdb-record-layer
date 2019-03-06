@@ -81,8 +81,10 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<V>> onNext() {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        }
         mayGetContinuation = false;
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor())
                 // pipeline will necessarily contain something if we stopped looping, so pipeline.remove() is nonnull
@@ -99,7 +101,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -110,7 +112,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nullable
     @Override
     @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public V next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -123,14 +125,15 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nullable
     @Override
     @SpotBugsSuppressWarnings(value = "EI", justification = "copies are expensive")
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

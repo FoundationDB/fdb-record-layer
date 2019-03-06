@@ -201,7 +201,7 @@ public class RecordCursorResult<T> {
     }
 
     /**
-     * Returns {@code true} if the cursor has reached its end but a continuation is not an end continuation. (i.e. the source is not yet exhausted).
+     * Returns {@code true} if the cursor has reached its end but a continuation is not an end continuation (i.e., the source is not yet exhausted).
      * @return {@code true} if the cursor has reached its end but a continuation is not an end continuation and {@code false} otherwise
      */
     public boolean hasStoppedBeforeEnd() {

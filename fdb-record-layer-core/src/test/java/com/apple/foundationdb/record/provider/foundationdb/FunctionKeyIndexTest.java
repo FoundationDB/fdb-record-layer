@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestHelpers;
@@ -533,10 +534,11 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
-                assertTrue(cursor.hasNext());
-                TestRecordsWithHeaderProto.MyRecord record = parseMyRecord(cursor.next().getRecord());
+                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
+                assertTrue(result.hasNext());
+                TestRecordsWithHeaderProto.MyRecord record = parseMyRecord(result.get().getRecord());
                 assertEquals("baker", record.getStrValue());
-                assertFalse(cursor.hasNext());
+                assertFalse(cursor.getNext().hasNext());
             }
             TestHelpers.assertDiscardedNone(context);
         }

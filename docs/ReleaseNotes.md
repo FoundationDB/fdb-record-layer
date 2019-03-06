@@ -72,7 +72,7 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** A new cursor type `AutoContinuingCursor` which can iterate over a cursor across transactions [(Issue #397)](https://github.com/FoundationDB/fdb-record-layer/issues/397)
 * **Feature** A new `AsyncIterator` that wraps `RecordCursor` provides an easy migration path away from the old methods on `RecordCursor` [(Issue #368)](https://github.com/FoundationDB/fdb-record-layer/issues/368)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** The `getNext` method on `RecordCusor`s now provides a blocking version of `onNext` [(Issue #408)](https://github.com/FoundationDB/fdb-record-layer/issues/408)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** `IndexEntry` objects now contain a reference to their associated index [(Issue #403)](https://github.com/FoundationDB/fdb-record-layer/issues/403)

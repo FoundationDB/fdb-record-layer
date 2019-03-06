@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
@@ -141,8 +140,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         List<Integer> etags = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
-            try (RecordCursor<FDBIndexedRecord<Message>> cursor = recordStore.scanIndexRecords("partial_versions",
-                    IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursorIterator<FDBIndexedRecord<Message>> cursor = recordStore.scanIndexRecords("partial_versions",
+                    IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asIterator()) {
                 while (cursor.hasNext()) {
                     final Message record = cursor.next().getRecord();
                     names.add((String) record.getField(record.getDescriptorForType().findFieldByName("str_value_indexed")));

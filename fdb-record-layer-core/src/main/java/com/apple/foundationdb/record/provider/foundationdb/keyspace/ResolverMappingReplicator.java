@@ -26,7 +26,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorUtil;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
@@ -136,30 +135,22 @@ public class ResolverMappingReplicator implements AutoCloseable {
                         .setContinuation(continuation.get())
                         .build();
 
-                return RecordCursorUtil.whileHasNext(() ->
-                    cursor.onNext().thenCompose(result -> {
-                        CompletableFuture<Void> currentStep;
-                        if (result.hasNext()) {
-                            final KeyValue kv = result.get();
-                            final String mappedString = primaryMappingSubspace.unpack(kv.getKey()).getString(0);
-                            final ResolverResult mappedValue = valueDeserializer.apply(kv.getValue());
-                            accumulator.accumulate(mappedValue.getValue());
-                            counter.incrementAndGet();
-
-                            currentStep = replica.setMapping(context, mappedString, mappedValue);
-                        } else {
-                            currentStep = AsyncUtil.DONE;
-                        }
-                        return currentStep.thenApply(ignore2 -> result);
-                    }), context.getExecutor())
-                    .thenCompose(nextContinuation -> context.commitAsync().thenRun(() -> {
-                        byte[] nextContinuationBytes = nextContinuation.toBytes();
+                return cursor.mapPipelined(kv -> {
+                    final String mappedString = primaryMappingSubspace.unpack(kv.getKey()).getString(0);
+                    final ResolverResult mappedValue = valueDeserializer.apply(kv.getValue());
+                    accumulator.accumulate(mappedValue.getValue());
+                    counter.incrementAndGet();
+                    return replica.setMapping(context, mappedString, mappedValue);
+                }, 1).forEachResult(ignore -> { }).thenCompose(lastResult -> context.commitAsync().thenRun(() -> {
+                    byte[] nextContinuationBytes = lastResult.getContinuation().toBytes();
+                    if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("committing batch",
                                 "scannedSoFar", counter.get(),
                                 "nextContinuation", ByteArrayUtil2.loggable(nextContinuationBytes)
                         ));
-                        continuation.set(nextContinuationBytes);
-                    })).thenApply(vignore -> Objects.nonNull(continuation.get()));
+                    }
+                    continuation.set(nextContinuationBytes);
+                })).thenApply(vignore -> Objects.nonNull(continuation.get()));
             });
         });
     }

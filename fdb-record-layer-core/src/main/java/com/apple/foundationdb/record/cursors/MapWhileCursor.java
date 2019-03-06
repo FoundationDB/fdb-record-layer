@@ -86,37 +86,41 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
-        return inner.onNext().thenApply(innerResult -> {
-            if (!innerResult.hasNext()) {
-                nextResult = RecordCursorResult.withoutNextValue(innerResult);
+        if (!nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        } else {
+            return inner.onNext().thenApply(innerResult -> {
+                if (!innerResult.hasNext()) {
+                    nextResult = RecordCursorResult.withoutNextValue(innerResult);
+                    return nextResult;
+                }
+                final Optional<V> maybeRecord = func.apply(innerResult.get());
+                if (maybeRecord.isPresent()) {
+                    nextResult = RecordCursorResult.withNextValue(maybeRecord.get(), innerResult.getContinuation());
+                    return nextResult;
+                }
+                // return no record, handle special cases for continuation
+                switch (stopContinuation) {
+                    case NONE:
+                        nextResult = RecordCursorResult.exhausted();
+                        break;
+                    case BEFORE:
+                        final RecordCursorContinuation continuation = nextResult.getContinuation(); // previous saved result
+                        nextResult = RecordCursorResult.withoutNextValue(continuation, NoNextReason.SCAN_LIMIT_REACHED);
+                        break;
+                    case AFTER:
+                    default:
+                        nextResult = RecordCursorResult.withoutNextValue(innerResult.getContinuation(), NoNextReason.SCAN_LIMIT_REACHED);
+                        break;
+                }
                 return nextResult;
-            }
-            final Optional<V> maybeRecord = func.apply(innerResult.get());
-            if (maybeRecord.isPresent()) {
-                nextResult = RecordCursorResult.withNextValue(maybeRecord.get(), innerResult.getContinuation());
-                return nextResult;
-            }
-            // return no record, handle special cases for continuation
-            switch (stopContinuation) {
-                case NONE:
-                    nextResult = RecordCursorResult.exhausted();
-                    break;
-                case BEFORE:
-                    final RecordCursorContinuation continuation = nextResult.getContinuation(); // previous saved result
-                    nextResult = RecordCursorResult.withoutNextValue(continuation, NoNextReason.SCAN_LIMIT_REACHED);
-                    break;
-                case AFTER:
-                default:
-                    nextResult = RecordCursorResult.withoutNextValue(innerResult.getContinuation(), NoNextReason.SCAN_LIMIT_REACHED);
-                    break;
-            }
-            return nextResult;
-        });
+            });
+        }
     }
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -126,7 +130,7 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public V next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -138,13 +142,14 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
     @Nullable
     @Override
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

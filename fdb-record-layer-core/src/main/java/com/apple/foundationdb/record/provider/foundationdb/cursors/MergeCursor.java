@@ -246,6 +246,9 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
     @Override
     @Nonnull
     public CompletableFuture<RecordCursorResult<U>> onNext() {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        }
         mayGetContinuation = false;
         return computeNextResultStates().thenApply(resultStates -> {
             boolean hasNext = !resultStates.isEmpty();
@@ -263,7 +266,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
 
     @Override
     @Nonnull
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             mayGetContinuation = false;
@@ -274,7 +277,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
 
     @Override
     @Nullable
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public U next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -286,7 +289,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
 
     @Override
     @Nullable
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
@@ -294,7 +297,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
 
     @Override
     @Nonnull
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TupleRange;
@@ -195,10 +197,11 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         assertEquals(version != null, sizeInfo.isVersionedInline());
 
         final Subspace keySubspace = subspace.subspace(key);
-        RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(keySubspace)
+        RecordCursorIterator<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(keySubspace)
                 .setContext(context)
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
-                .build();
+                .build()
+                .asIterator();
         List<Long> indexes = new ArrayList<>(keyCount);
         byte[] versionBytes = null;
         byte[] valueBytes = null;
@@ -656,15 +659,17 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                 .build();
         SplitHelper.KeyValueUnsplitter kvUnsplitter = new SplitHelper.KeyValueUnsplitter(context, subspace, kvCursor, false, null, scanProperties);
 
+        RecordCursorResult<FDBRawRecord> result = kvUnsplitter.getNext();
         if (expectedSizes == null || expectedContents == null) {
-            assertThat(kvUnsplitter.hasNext(), is(false));
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, kvUnsplitter.getNoNextReason());
+            assertThat(result.hasNext(), is(false));
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
             return null;
         } else {
-            assertThat(kvUnsplitter.hasNext(), is(true));
-            FDBRawRecord rawRecord = kvUnsplitter.next();
-            assertThat(kvUnsplitter.hasNext(), is(false));
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, kvUnsplitter.getNoNextReason());
+            assertThat(result.hasNext(), is(true));
+            final FDBRawRecord rawRecord = result.get();
+            result = kvUnsplitter.getNext();
+            assertThat(result.hasNext(), is(false));
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
 
             assertNotNull(rawRecord);
             assertEquals(key, rawRecord.getPrimaryKey());
@@ -766,8 +771,9 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                         .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearState))
                         .setContinuation(continuation)
                         .build();
-                RecordCursor<FDBRawRecord> recordCursor = new SplitHelper.KeyValueUnsplitter(context, subspace, kvCursor, false, null, scanProperties.with(ExecuteProperties::clearReturnedRowLimit))
-                        .limitRowsTo(returnLimit);
+                RecordCursorIterator<FDBRawRecord> recordCursor = new SplitHelper.KeyValueUnsplitter(context, subspace, kvCursor, false, null, scanProperties.with(ExecuteProperties::clearReturnedRowLimit))
+                        .limitRowsTo(returnLimit)
+                        .asIterator();
 
                 int retrieved = 0;
                 int rowsScanned = 0;

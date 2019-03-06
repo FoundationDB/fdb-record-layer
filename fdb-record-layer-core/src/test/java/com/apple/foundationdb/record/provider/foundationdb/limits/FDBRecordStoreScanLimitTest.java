@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.ScanLimitReachedException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.cursors.BaseCursor;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -54,7 +55,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -73,6 +77,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 @Tag(Tags.RequiresFDB)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
+    @Nonnull
+    private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordStoreScanLimitTest.class);
+
     @BeforeAll
     public void init() {
         clearAndInitialize();
@@ -128,7 +135,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
                 RecordCursorResult<FDBQueriedRecord<Message>> result = null;
                 try {
                     do {
-                        result = cursor.onNext().join();
+                        result = cursor.getNext();
                     } while (result.hasNext());
                 } catch (RecordCoreException ex) {
                     if (executeProperties.isFailOnScanLimitReached() && ex.getCause() instanceof ScanLimitReachedException) {
@@ -185,6 +192,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     @MethodSource("plansWithFails")
     public void testPlans(String description, boolean fail, RecordQueryPlan plan) throws Exception {
         // include a scanLimit of 0, in which case all progress happens via the first "free" key-value scan.
+        LOGGER.info(KeyValueLogMessage.of("testing plan", "plan", plan, "description", description, "fail", fail));
         int maximumToScan = getMaximumToScan(plan);
         for (int limit = 0; limit <= maximumToScan * 2; limit = limit * 2 + 1) {
             assertNumberOfRecordsScanned(limit, plan,
@@ -224,14 +232,14 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
                 byte[] continuation = null;
                 do {
                     try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, properties.build())) {
-                        RecordCursorIterator iterator = cursor.asIterator();
                         if (context.getTimer() != null) {
                             context.getTimer().reset();
                         }
-                        while (iterator.hasNext()) {
-                            byContinuation.add(getRecNo.apply(cursor.next()));
+                        RecordCursorResult<FDBQueriedRecord<Message>> result;
+                        while ((result = cursor.getNext()).hasNext()) {
+                            byContinuation.add(getRecNo.apply(result.get()));
                         }
-                        continuation = iterator.getContinuation();
+                        continuation = result.getContinuation().toBytes();
                         int overrun = BaseCursorCountVisitor.getCount(cursor);
                         Optional<Integer> recordScanned = getRecordScanned(context);
                         if (recordScanned.isPresent()) {

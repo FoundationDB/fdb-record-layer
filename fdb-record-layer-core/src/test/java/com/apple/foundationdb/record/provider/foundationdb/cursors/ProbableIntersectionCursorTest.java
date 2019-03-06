@@ -105,7 +105,7 @@ public class ProbableIntersectionCursorTest {
         RecordCursorResult<Integer> firstResult = firstFuture.join();
         assertEquals(0, (int)firstResult.get());
         assertThat(firstResult.hasNext(), is(true));
-        assertEquals(cursor1.getNoNextReason(), RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
+        assertEquals(cursor1.getNext().getNoNextReason(), RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
         cursor2.fireAll(); // Intersection consumes second cursor as they come
 
         AtomicInteger falsePositives = new AtomicInteger();

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
-import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;

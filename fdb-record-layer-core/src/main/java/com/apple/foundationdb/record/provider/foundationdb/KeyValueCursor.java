@@ -69,6 +69,7 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     private byte[] lastKey;
     @Nullable
     private CompletableFuture<Boolean> hasNextFuture = null;
+    @Nullable
     private RecordCursorResult<KeyValue> nextResult;
 
     private KeyValueCursor(@Nonnull final FDBRecordContext recordContext,
@@ -145,7 +146,9 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<KeyValue>> onNext() {
-        if (limitManager.tryRecordScan()) {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        } else if (limitManager.tryRecordScan()) {
             return iter.onHasNext().thenApply(hasNext -> {
                 if (hasNext) {
                     KeyValue kv = iter.next();
@@ -178,20 +181,30 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
         }
     }
 
+    @Override
+    @Nonnull
+    public RecordCursorResult<KeyValue> getNext() {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return nextResult;
+        } else {
+            return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
+        }
+    }
+
     @Nonnull
     private RecordCursorContinuation continuationHelper() {
         return new Continuation(lastKey, prefixLength);
     }
 
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public boolean hasNext() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onHasNext());
     }
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -201,7 +214,7 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
 
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public KeyValue next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -212,13 +225,14 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
 
     @Nullable
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public byte[] getContinuation() {
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

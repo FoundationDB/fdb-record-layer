@@ -560,9 +560,9 @@ public class KeySpaceDirectory {
             }
         }
 
-        return cursor.onHasNext().thenApply( hasNext -> {
-            if (hasNext) {
-                KeyValue kv = cursor.next();
+        return cursor.onNext().thenApply(next -> {
+            if (next.hasNext()) {
+                KeyValue kv = next.get();
                 return Optional.of(subspace.unpack(kv.getKey()));
             }
             return Optional.empty();
