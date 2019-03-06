@@ -186,6 +186,20 @@ public class RankedSetTest
         assertEquals("[]", uncaught.toString());
     }
 
+    @Test
+    public void rankAsThoughPresent() {
+        RankedSet rs = newRankedSet();
+        db.run(tr -> {
+            for (int i = 5; i < 100; i += 10) {
+                rs.add(tr, Tuple.from(i).pack()).join();
+            }
+            for (int i = 0; i < 100; i++) {
+                assertEquals((i + 4) / 10, rs.rank(tr, Tuple.from(i).pack(), false).join().intValue());
+            }
+            return null;
+        });
+    }
+
     //
     // Helpers
     //

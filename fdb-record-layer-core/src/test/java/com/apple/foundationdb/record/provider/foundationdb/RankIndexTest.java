@@ -1248,6 +1248,34 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void checkScoreForRank() throws Exception {
+        IndexAggregateFunction function = new IndexAggregateFunction(FunctionNames.SCORE_FOR_RANK, Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), null);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            assertEquals(100, recordStore.evaluateAggregateFunction(Collections.singletonList("BasicRankedRecord"),
+                    function, Key.Evaluated.concatenate("M", 1L), IsolationLevel.SERIALIZABLE)
+                    .join().getLong(0));
+            commit(context);
+        }
+    }
+
+    @Test
+    public void checkRankForScore() throws Exception {
+        IndexAggregateFunction function = new IndexAggregateFunction(FunctionNames.RANK_FOR_SCORE, Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")), null);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            assertEquals(1L, recordStore.evaluateAggregateFunction(Collections.singletonList("BasicRankedRecord"),
+                    function, Key.Evaluated.concatenate("M", 100), IsolationLevel.SERIALIZABLE)
+                    .join().getLong(0));
+            // Nobody has this score: this is the rank they would have with it.
+            assertEquals(2L, recordStore.evaluateAggregateFunction(Collections.singletonList("BasicRankedRecord"),
+                    function, Key.Evaluated.concatenate("M", 101), IsolationLevel.SERIALIZABLE)
+                    .join().getLong(0));
+            commit(context);
+        }
+    }
+
+    @Test
     @Tag(Tags.Slow)
     public void testForRankUpdateTimingError() throws Exception {
         fdb = FDBDatabaseFactory.instance().getDatabase();

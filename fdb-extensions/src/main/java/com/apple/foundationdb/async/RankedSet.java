@@ -327,7 +327,8 @@ public class RankedSet {
     }
 
     class RankLookup implements Lookup {
-        private byte[] key;
+        private final byte[] key;
+        private final boolean keyShouldBePresent;
         private byte[] rankKey = EMPTY_ARRAY;
         private long rank = 0;
         private Subspace levelSubspace;
@@ -335,8 +336,9 @@ public class RankedSet {
         private AsyncIterator<KeyValue> asyncIterator = null;
         private long lastCount;
 
-        public RankLookup(byte[] key) {
+        public RankLookup(byte[] key, boolean keyShouldBePresent) {
             this.key = key;
+            this.keyShouldBePresent = keyShouldBePresent;
         }
 
         public long getRank() {
@@ -376,6 +378,13 @@ public class RankedSet {
                         // Exact match on this level: no need for finer.
                         return false;
                     }
+                    if (!keyShouldBePresent && level == 0 && lastCount > 0) {
+                        // If the key need not be present and we are on the finest level, then if it wasn't an exact
+                        // match, key would have the next rank after the last one. Except in the case where key is less
+                        // than the lowest key in the set, in which case it takes rank 0. This is recognizable because
+                        // at level 0, only the leftmost empty array has a count of zero; every other key has a count of one.
+                        rank++;
+                    }
                     return true;
                 }
                 KeyValue kv = asyncIterator.next();
@@ -396,15 +405,36 @@ public class RankedSet {
      * @see #getNth
      */
     public CompletableFuture<Long> rank(ReadTransactionContext tc, byte[] key) {
+        return rank(tc, key, true);
+    }
+
+    /**
+     * Return the index of a key within the set.
+     * @param tc the transaction to use to access the database
+     * @param key the key to find
+     * @param nullIfMissing whether to return {@code null} when {@code key} is not present in the set
+     * @return a future that completes to the index of {@code key} in the ranked set, or {@code null} if it is not present and {@code nullIfMissing} is {@code true}, or the index {@code key} would have in the ranked set
+     * @see #getNth
+     */
+    public CompletableFuture<Long> rank(ReadTransactionContext tc, byte[] key, boolean nullIfMissing) {
         checkKey(key);
-        return tc.readAsync(tr ->
-            containsCheckedKey(tr, key).thenCompose(exists -> {
-                if (!exists) {
-                    return CompletableFuture.completedFuture((Long)null);
-                }
-                RankLookup rank = new RankLookup(key);
-                return AsyncUtil.whileTrue(() -> nextLookup(rank, tr), executor).thenApply(vignore -> rank.getRank());
-            }));
+        return tc.readAsync(tr -> {
+            if (nullIfMissing) {
+                return containsCheckedKey(tr, key).thenCompose(exists -> {
+                    if (!exists) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    return rankLookup(tr, key, true);
+                });
+            } else {
+                return rankLookup(tr, key, false);
+            }
+        });
+    }
+
+    private CompletableFuture<Long> rankLookup(ReadTransaction tr, byte[] key, boolean keyShouldBePresent) {
+        RankLookup rank = new RankLookup(key, keyShouldBePresent);
+        return AsyncUtil.whileTrue(() -> nextLookup(rank, tr), executor).thenApply(vignore -> rank.getRank());
     }
 
     /**

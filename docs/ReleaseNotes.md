@@ -52,7 +52,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** `RankedSet` and the `RANK` and `TIME_WINDOW_LEADERBOARD` index types that use it now support operations for getting the rank of a score regardless of whether the set contains that value [(Issue #425)](https://github.com/FoundationDB/fdb-record-layer/issues/425), [(Issue #426)](https://github.com/FoundationDB/fdb-record-layer/issues/426)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

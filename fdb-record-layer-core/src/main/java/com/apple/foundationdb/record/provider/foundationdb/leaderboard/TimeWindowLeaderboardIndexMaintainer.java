@@ -339,6 +339,12 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 function.getOperand().equals(state.index.getRootExpression())) {
             return true;
         }
+        if ((FunctionNames.SCORE_FOR_TIME_WINDOW_RANK.equals(function.getName()) ||
+                FunctionNames.SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP.equals(function.getName()) ||
+                FunctionNames.TIME_WINDOW_RANK_FOR_SCORE.equals(function.getName())) &&
+                function.getOperand().equals(state.index.getRootExpression())) {
+            return true;
+        }
         return super.canEvaluateAggregateFunction(function);
     }
 
@@ -348,23 +354,51 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                                                               @Nonnull TupleRange range,
                                                               @Nonnull IsolationLevel isolationLevel) {
         if (FunctionNames.TIME_WINDOW_COUNT.equals(function.getName()) && range.isEquals()) {
-            final Tuple tuple = range.getLow();
-            final int type = (int) tuple.getLong(0);
-            final long timestamp = tuple.getLong(1);
-            final Tuple groupKey = TupleHelpers.subTuple(tuple, 2, tuple.size());
-            final CompletableFuture<TimeWindowLeaderboard> leaderboardFuture = oldestLeaderboardMatching(type, timestamp);
-            return leaderboardFuture.thenCompose(leaderboard -> {
-                if (leaderboard == null) {
-                    return CompletableFuture.completedFuture(null);
-                }
-                final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
-                final Subspace extraSubspace = getSecondarySubspace();
-                final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-                final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
-                return rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from);
+            return evaluateEqualRange(range, (leaderboard, rankedSet, values) ->
+                rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from));
+        }
+        if ((FunctionNames.SCORE_FOR_TIME_WINDOW_RANK.equals(function.getName()) ||
+                FunctionNames.SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP.equals(function.getName())) &&
+                range.isEquals()) {
+            final Tuple outOfRange = FunctionNames.SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP.equals(function.getName()) ?
+                                     RankedSetIndexHelper.COMPARISON_SKIPPED_SCORE : null;
+            return evaluateEqualRange(range, (leaderboard, rankedSet, values) ->
+                RankedSetIndexHelper.scoreForRank(state, rankedSet, (Number)values.get(0), outOfRange)
+                        .thenApply(score -> score == null || !leaderboard.isHighScoreFirst() ? score : negateScoreForHighScoreFirst(score, 0)));
+        }
+        if (FunctionNames.TIME_WINDOW_RANK_FOR_SCORE.equals(function.getName()) && range.isEquals()) {
+            return evaluateEqualRange(range, (leaderboard, rankedSet, values) -> {
+                final Tuple scoreValues = leaderboard.isHighScoreFirst() ? negateScoreForHighScoreFirst(values, 0) : values;
+                return RankedSetIndexHelper.rankForScore(state, rankedSet, scoreValues, false).thenApply(Tuple::from);
             });
         }
         return unsupportedAggregateFunction(function);
+    }
+
+    private interface EvaluateEqualRange {
+        @Nonnull
+        CompletableFuture<Tuple> apply(@Nonnull TimeWindowLeaderboard leaderboard, @Nonnull RankedSet rankedSet, @Nonnull Tuple values);
+    }
+
+    private CompletableFuture<Tuple> evaluateEqualRange(@Nonnull TupleRange range,
+                                                        @Nonnull EvaluateEqualRange function) {
+        final Tuple tuple = range.getLow();
+        final int type = (int) tuple.getLong(0);
+        final long timestamp = tuple.getLong(1);
+        final int groupingCount = getGroupingCount();
+        final Tuple groupKey = TupleHelpers.subTuple(tuple, 2, 2 + groupingCount);
+        final Tuple values = TupleHelpers.subTuple(tuple, 2 + groupingCount, tuple.size());
+        final CompletableFuture<TimeWindowLeaderboard> leaderboardFuture = oldestLeaderboardMatching(type, timestamp);
+        return leaderboardFuture.thenCompose(leaderboard -> {
+            if (leaderboard == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+            final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
+            final Subspace extraSubspace = getSecondarySubspace();
+            final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
+            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
+            return function.apply(leaderboard, rankedSet, values);
+        });
     }
 
     @Nonnull
@@ -411,7 +445,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
             // Undo any negation needed to find entry.
             final Tuple entry = leaderboard.isHighScoreFirst() ? negateScoreForHighScoreFirst(indexKey.scoreKey, 0) : indexKey.scoreKey;
-            return RankedSetIndexHelper.rankForScore(state, rankedSet, indexKey.scoreKey).thenApply(rank -> Pair.of(rank, entry));
+            return RankedSetIndexHelper.rankForScore(state, rankedSet, indexKey.scoreKey, true).thenApply(rank -> Pair.of(rank, entry));
         });
     }
 
