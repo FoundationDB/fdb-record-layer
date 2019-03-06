@@ -24,16 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.google.common.collect.Iterators;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -44,12 +39,12 @@ import java.util.List;
 @API(API.Status.MAINTAINED)
 public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     @Nonnull
-    private final ExpressionRef<KeyExpression> wholeKey;
+    private final KeyExpression wholeKey;
     @Nullable
     private final int groupedCount;
 
     public GroupingKeyExpression(@Nonnull KeyExpression wholeKey, int groupedCount) {
-        this.wholeKey = SingleExpressionRef.of(wholeKey);
+        this.wholeKey = wholeKey;
         this.groupedCount = groupedCount;
     }
 
@@ -126,7 +121,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
 
     @Nonnull
     public KeyExpression getWholeKey() {
-        return wholeKey.get();
+        return wholeKey;
     }
 
     @Override
@@ -158,13 +153,6 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
     @Nonnull
     public KeyExpression getGroupingSubKey() {
         return getWholeKey().getSubKey(0, getGroupingCount());
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.wholeKey);
     }
 
     @Override

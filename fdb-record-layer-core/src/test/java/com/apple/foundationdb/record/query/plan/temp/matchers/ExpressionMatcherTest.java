@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -121,7 +120,7 @@ public class ExpressionMatcherTest {
         ExpressionMatcher<RecordQueryIndexPlan> childMatcher1 = TypeMatcher.of(RecordQueryIndexPlan.class);
         ExpressionMatcher<RecordQueryScanPlan> childMatcher2 = TypeMatcher.of(RecordQueryScanPlan.class);
         ExpressionMatcher<RecordQueryUnionPlan> parentMatcher = TypeMatcher.of(RecordQueryUnionPlan.class,
-                childMatcher1, childMatcher2, ReferenceMatcher.anyRef());
+                childMatcher1, childMatcher2);
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
 
@@ -146,7 +145,7 @@ public class ExpressionMatcherTest {
     public void wrongChildTypes() {
         ExpressionMatcher<RecordQueryUnionPlan> parentMatcher = TypeMatcher.of(RecordQueryUnionPlan.class,
                 // types are wrong based on ordering of children in getPlannerExpressionChildren()
-                TypeMatcher.of(KeyExpression.class), TypeMatcher.of(RecordQueryIndexPlan.class, TypeMatcher.of(RecordQueryScanPlan.class)));
+                TypeMatcher.of(RecordQueryIndexPlan.class, TypeMatcher.of(RecordQueryScanPlan.class)));
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
@@ -158,9 +157,8 @@ public class ExpressionMatcherTest {
     public void matchChildrenAsReferences() {
         ExpressionMatcher<ExpressionRef<PlannerExpression>> childMatcher1 = ReferenceMatcher.anyRef();
         ExpressionMatcher<ExpressionRef<PlannerExpression>> childMatcher2 = ReferenceMatcher.anyRef();
-        ExpressionMatcher<ExpressionRef<KeyExpression>> comparisonKeyMatcher = ReferenceMatcher.anyRef();
         ExpressionMatcher<RecordQueryUnionPlan> matcher = TypeMatcher.of(RecordQueryUnionPlan.class,
-                childMatcher1, childMatcher2, comparisonKeyMatcher);
+                childMatcher1, childMatcher2);
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
@@ -174,7 +172,6 @@ public class ExpressionMatcherTest {
         // check that children are behind references
         assertEquals(child1, newBindings.get(childMatcher1).get());
         assertEquals(child2, newBindings.get(childMatcher2).get());
-        assertEquals(EmptyKeyExpression.EMPTY, newBindings.get(comparisonKeyMatcher).get());
     }
 
     @Test
@@ -188,7 +185,7 @@ public class ExpressionMatcherTest {
                 filterLeafMatcher, andMatcher);
         ExpressionMatcher<RecordQueryScanPlan> scanMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
         ExpressionMatcher<RecordQueryUnionPlan> matcher = TypeMatcher.of(RecordQueryUnionPlan.class,
-                filterPlanMatcher, scanMatcher, ReferenceMatcher.anyRef());
+                filterPlanMatcher, scanMatcher);
 
         // build a relatively complicated expression
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);

@@ -25,9 +25,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -35,7 +32,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -67,10 +63,10 @@ import java.util.stream.Collectors;
 @API(API.Status.MAINTAINED)
 public class ListKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {
     @Nonnull
-    private final List<ExpressionRef<KeyExpression>> children;
+    private final List<KeyExpression> children;
 
     public ListKeyExpression(@Nonnull List<KeyExpression> exprs) {
-        children = exprs.stream().map(SingleExpressionRef::of).collect(Collectors.toList());
+        children = exprs;
     }
 
     private ListKeyExpression(@Nonnull ListKeyExpression orig, int start, int end) {
@@ -78,9 +74,7 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     public ListKeyExpression(@Nonnull RecordMetaDataProto.List list) throws DeserializationException {
-        children = list.getChildList().stream()
-                .map(proto -> SingleExpressionRef.of(KeyExpression.fromProto(proto)))
-                .collect(Collectors.toList());
+        children = list.getChildList().stream().map(KeyExpression::fromProto).collect(Collectors.toList());
     }
 
     @Nonnull
@@ -88,8 +82,8 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<List<Key.Evaluated>> childrenValues = new ArrayList<>(children.size());
         int totalCount = 1;
-        for (ExpressionRef<KeyExpression> child : children) {
-            List<Key.Evaluated> childValues = child.get().evaluateMessage(record, message);
+        for (KeyExpression child : children) {
+            List<Key.Evaluated> childValues = child.evaluateMessage(record, message);
             childrenValues.add(childValues);
             totalCount *= childValues.size();
         }
@@ -119,12 +113,12 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Override
     public boolean createsDuplicates() {
-        return children.stream().anyMatch(ref -> ref.get().createsDuplicates());
+        return children.stream().anyMatch(KeyExpression::createsDuplicates);
     }
 
     @Override
     public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
-        return children.stream().flatMap(child -> child.get().validate(descriptor).stream()).collect(Collectors.toList());
+        return children.stream().flatMap(child -> child.validate(descriptor).stream()).collect(Collectors.toList());
     }
 
     /**
@@ -142,8 +136,8 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Override
     public RecordMetaDataProto.List toProto() throws SerializationException {
         final RecordMetaDataProto.List.Builder builder = RecordMetaDataProto.List.newBuilder();
-        for (ExpressionRef<KeyExpression> child : children) {
-            builder.addChild(child.get().toKeyExpression());
+        for (KeyExpression child : children) {
+            builder.addChild(child.toKeyExpression());
         }
         return builder.build();
     }
@@ -157,19 +151,17 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
-        return children.stream()
-            .map(ExpressionRef::get)
-            .collect(Collectors.toList());
+        return children;
     }
 
     @Override
     public int versionColumns() {
-        return children.stream().mapToInt(ref -> ref.get().versionColumns()).sum();
+        return children.stream().mapToInt(child -> child.versionColumns()).sum();
     }
 
     @Override
     public boolean hasRecordTypeKey() {
-        return children.stream().anyMatch(ref -> ref.get().hasRecordTypeKey());
+        return children.stream().anyMatch(KeyExpression::hasRecordTypeKey);
     }
 
     @Override
@@ -180,14 +172,7 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     @Override
     public List<KeyExpression> getChildren() {
-        return children.stream().map(ExpressionRef::get).collect(Collectors.toList());
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return children.iterator();
+        return children;
     }
 
     @Override

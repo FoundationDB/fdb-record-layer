@@ -58,7 +58,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     private static final StoreTimer.Count PLAN_COUNT = FDBStoreTimer.Counts.PLAN_UNION;
 
     @Nonnull
-    private final ExpressionRef<KeyExpression> comparisonKey;
+    private final KeyExpression comparisonKey;
     @Nonnull
     private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
     private final boolean showComparisonKey;
@@ -95,18 +95,18 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Deprecated
     public RecordQueryUnionPlan(@Nonnull List<RecordQueryPlan> children,
                                 @Nonnull KeyExpression comparisonKey, boolean reverse, boolean showComparisonKey) {
-        this(children.stream().map(SingleExpressionRef::of).collect(Collectors.toList()), SingleExpressionRef.of(comparisonKey),
-                reverse, showComparisonKey);
+        this(children.stream().map(SingleExpressionRef::of).collect(Collectors.toList()), comparisonKey,
+                reverse, showComparisonKey, false);
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private RecordQueryUnionPlan(@Nonnull List<ExpressionRef<RecordQueryPlan>> children,
-                                 @Nonnull ExpressionRef<KeyExpression> comparisonKey,
-                                 boolean reverse, boolean showComparisonKey) {
+                                 @Nonnull KeyExpression comparisonKey,
+                                 boolean reverse, boolean showComparisonKey,
+                                 boolean ignoredTemporaryFlag) {
         super(children, reverse);
-        final ImmutableList.Builder<ExpressionRef<? extends PlannerExpression>> expressionChildrenBuilder = ImmutableList.builder();
-        expressionChildrenBuilder.addAll(super.getPlannerExpressionChildren());
         this.comparisonKey = comparisonKey;
-        this.expressionChildren = expressionChildrenBuilder.add(this.comparisonKey).build();
+        this.expressionChildren = ImmutableList.copyOf(super.getPlannerExpressionChildren());
         this.showComparisonKey = showComparisonKey;
     }
 
@@ -120,7 +120,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     public KeyExpression getComparisonKey() {
-        return comparisonKey.get();
+        return comparisonKey;
     }
 
     @Nonnull
@@ -184,7 +184,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
         final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right));
-        return new RecordQueryUnionPlan(childRefs, SingleExpressionRef.of(comparisonKey), left.isReverse(), showComparisonKey);
+        return new RecordQueryUnionPlan(childRefs, comparisonKey, left.isReverse(), showComparisonKey, false);
     }
 
     /**
@@ -213,6 +213,6 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         for (RecordQueryPlan child : children) {
             childRefsBuilder.add(SingleExpressionRef.of(child));
         }
-        return new RecordQueryUnionPlan(childRefsBuilder.build(), SingleExpressionRef.of(comparisonKey), firstReverse, showComparisonKey);
+        return new RecordQueryUnionPlan(childRefsBuilder.build(), comparisonKey, firstReverse, showComparisonKey, false);
     }
 }

@@ -26,16 +26,12 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -49,7 +45,7 @@ import java.util.stream.Collectors;
 @API(API.Status.MAINTAINED)
 public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {
     @Nonnull
-    private final List<ExpressionRef<KeyExpression>> children;
+    private final List<KeyExpression> children;
 
     public ThenKeyExpression(@Nonnull List<KeyExpression> exprs) {
         this(exprs, 0, exprs.size());
@@ -90,8 +86,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<List<Key.Evaluated>> childrenValues = new ArrayList<>(children.size());
         int totalCount = 1;
-        for (ExpressionRef<KeyExpression> child : children) {
-            List<Key.Evaluated> childValues = child.get().evaluateMessage(record, message);
+        for (KeyExpression child : children) {
+            List<Key.Evaluated> childValues = child.evaluateMessage(record, message);
             childrenValues.add(childValues);
             totalCount *= childValues.size();
         }
@@ -125,7 +121,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     public boolean createsDuplicatesAfter(int index) {
         for (int i = index; i < children.size(); i++) {
-            if (children.get(i).get().createsDuplicates()) {
+            if (children.get(i).createsDuplicates()) {
                 return true;
             }
         }
@@ -134,14 +130,14 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Override
     public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
-        return children.stream().flatMap(child -> child.get().validate(descriptor).stream()).collect(Collectors.toList());
+        return children.stream().flatMap(child -> child.validate(descriptor).stream()).collect(Collectors.toList());
     }
 
     @Override
     public int getColumnSize() {
         int columnSize = 0;
-        for (ExpressionRef<KeyExpression> child : children) {
-            columnSize += child.get().getColumnSize();
+        for (KeyExpression child : children) {
+            columnSize += child.getColumnSize();
         }
         return columnSize;
     }
@@ -172,8 +168,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Override
     public RecordMetaDataProto.Then toProto() throws SerializationException {
         final RecordMetaDataProto.Then.Builder builder = RecordMetaDataProto.Then.newBuilder();
-        for (ExpressionRef<KeyExpression> child : children) {
-            builder.addChild(child.get().toKeyExpression());
+        for (KeyExpression child : children) {
+            builder.addChild(child.toKeyExpression());
         }
         return builder.build();
     }
@@ -228,28 +224,21 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     @Override
     public List<KeyExpression> getChildren() {
-        return children.stream().map(ExpressionRef::get).collect(Collectors.toList());
-    }
-
-    @Nonnull
-    public List<ExpressionRef<KeyExpression>> getChildrenRefs() {
         return children;
     }
 
     @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return children.iterator();
+    public List<KeyExpression> getChildrenRefs() {
+        return children;
     }
 
     // should not be used outside of the Then constructors
-    private static void add(@Nonnull List<ExpressionRef<KeyExpression>> children, @Nonnull KeyExpression child) {
+    private static void add(@Nonnull List<KeyExpression> children, @Nonnull KeyExpression child) {
         if (child instanceof ThenKeyExpression) {
             ThenKeyExpression then = (ThenKeyExpression) child;
             children.addAll(then.getChildrenRefs());
         } else {
-            children.add(SingleExpressionRef.of(child));
+            children.add(child);
         }
     }
 

@@ -25,11 +25,10 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -39,28 +38,25 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalSortExpression implements RelationalExpressionWithChildren {
     @Nonnull
-    private final ExpressionRef<KeyExpression> sort;
+    private final KeyExpression sort;
     private final boolean reverse;
     @Nonnull
     private final ExpressionRef<RelationalPlannerExpression> inner;
-    @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
 
     public LogicalSortExpression(@Nonnull KeyExpression sort, boolean reverse, @Nonnull RelationalPlannerExpression inner) {
-        this(SingleExpressionRef.of(sort), reverse, SingleExpressionRef.of(inner));
+        this(sort, reverse, SingleExpressionRef.of(inner));
     }
 
-    public LogicalSortExpression(@Nonnull ExpressionRef<KeyExpression> sort, boolean reverse, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+    public LogicalSortExpression(@Nonnull KeyExpression sort, boolean reverse, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
         this.sort = sort;
         this.reverse = reverse;
         this.inner = inner;
-        this.expressionChildren = ImmutableList.of(this.sort, this.inner);
     }
 
     @Nonnull
     @Override
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return expressionChildren.iterator();
+        return Iterators.singletonIterator(inner);
     }
 
     @Override
@@ -70,7 +66,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
 
     @Nonnull
     public KeyExpression getSort() {
-        return sort.get();
+        return sort;
     }
 
     public boolean isReverse() {

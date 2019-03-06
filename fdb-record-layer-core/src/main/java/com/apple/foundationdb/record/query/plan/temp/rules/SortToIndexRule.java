@@ -57,9 +57,7 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
     private static final ExpressionMatcher<RecordQueryScanPlan> innerMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
-    private static final ExpressionMatcher<KeyExpression> sortMatcher = TypeMatcher.of(KeyExpression.class);
-    private static final ExpressionMatcher<LogicalSortExpression> root = TypeMatcher.of(LogicalSortExpression.class,
-            sortMatcher, innerMatcher);
+    private static final ExpressionMatcher<LogicalSortExpression> root = TypeMatcher.of(LogicalSortExpression.class, innerMatcher);
 
     public SortToIndexRule() {
         super(root);
@@ -69,7 +67,8 @@ public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         final RecordQueryScanPlan inner = call.get(innerMatcher);
-        final KeyExpression requestedSort = call.get(sortMatcher);
+        final LogicalSortExpression logicalSort = call.get(root);
+        final KeyExpression requestedSort = logicalSort.getSort();
         final boolean reverse = call.get(root).isReverse();
 
         if (!inner.hasFullRecordScan()) {
