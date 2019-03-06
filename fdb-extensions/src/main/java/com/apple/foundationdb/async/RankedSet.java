@@ -327,7 +327,8 @@ public class RankedSet {
     }
 
     class RankLookup implements Lookup {
-        private byte[] key;
+        private final byte[] key;
+        private final boolean keyShouldBePresent;
         private byte[] rankKey = EMPTY_ARRAY;
         private long rank = 0;
         private Subspace levelSubspace;
@@ -335,21 +336,13 @@ public class RankedSet {
         private AsyncIterator<KeyValue> asyncIterator = null;
         private long lastCount;
 
-        public RankLookup(byte[] key) {
+        public RankLookup(byte[] key, boolean keyShouldBePresent) {
             this.key = key;
+            this.keyShouldBePresent = keyShouldBePresent;
         }
 
         public long getRank() {
             return rank;
-        }
-
-        public boolean wasBeforeFirst() {
-            if (level >= 0) {
-                // There is no early exit if value isn't present, so should always reach finest in that case.
-                throw new IllegalStateException("Only valid if reached finest level");
-            }
-            // At level 0, the leftmost empty array key has count 0 and all the rest have count 1.
-            return lastCount == 0;
         }
 
         @Override
@@ -385,6 +378,13 @@ public class RankedSet {
                         // Exact match on this level: no need for finer.
                         return false;
                     }
+                    if (!keyShouldBePresent && level == 0 && lastCount > 0) {
+                        // If the key need not be present and we are on the finest level, then if it wasn't an exact
+                        // match, key would have the next rank after the last one. Except in the case where key is less
+                        // than the lowest key in the set, in which case it takes rank 0. This is recognizable because
+                        // at level 0, only the leftmost empty array has a count of zero; every other key has a count of one.
+                        rank++;
+                    }
                     return true;
                 }
                 KeyValue kv = asyncIterator.next();
@@ -418,17 +418,23 @@ public class RankedSet {
      */
     public CompletableFuture<Long> rank(ReadTransactionContext tc, byte[] key, boolean nullIfMissing) {
         checkKey(key);
-        return tc.readAsync(tr ->
-                containsCheckedKey(tr, key).thenCompose(exists -> {
-                    if (!exists && nullIfMissing) {
+        return tc.readAsync(tr -> {
+            if (nullIfMissing) {
+                return containsCheckedKey(tr, key).thenCompose(exists -> {
+                    if (!exists) {
                         return CompletableFuture.completedFuture(null);
                     }
-                    RankLookup rank = new RankLookup(key);
-                    return AsyncUtil.whileTrue(() -> nextLookup(rank, tr), executor)
-                            // If exists, rank is accurate. Else search ended at the next lower key, so are after it.
-                            // Except if key is before the leftmost key, in which case would take rank 0.
-                            .thenApply(vignore -> exists ? rank.getRank() : rank.wasBeforeFirst() ? 0 : rank.getRank() + 1);
-                }));
+                    return rankLookup(tr, key, true);
+                });
+            } else {
+                return rankLookup(tr, key, false);
+            }
+        });
+    }
+
+    private CompletableFuture<Long> rankLookup(ReadTransaction tr, byte[] key, boolean keyShouldBePresent) {
+        RankLookup rank = new RankLookup(key, keyShouldBePresent);
+        return AsyncUtil.whileTrue(() -> nextLookup(rank, tr), executor).thenApply(vignore -> rank.getRank());
     }
 
     /**
