@@ -1172,8 +1172,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get the minimum time between successful progress logs when building across transactions.
-         * @return the minimum time between successful progress logs.
          * Negative will not log at all, 0 will log after every commit.
+         * @return the minimum time between successful progress logs in milliseconds.
          */
         public long getProgressLogIntervalMillis() {
             return progressLogIntervalMillis;
@@ -1181,8 +1181,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the minimum time between successful progress logs when building across transactions.
-         * @param millis the number of millis to wait between successful logs.
          * Negative will not log at all, 0 will log after every commit.
+         * @param millis the number of milliseconds to wait between successful logs
          * @return this builder
          */
         public Builder setProgressLogIntervalMillis(long millis) {
