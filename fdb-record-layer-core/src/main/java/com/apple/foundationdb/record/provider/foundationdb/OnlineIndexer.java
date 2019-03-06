@@ -117,6 +117,11 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public static final int DEFAULT_MAX_RETRIES = 100;
     /**
+     * Default interval to be logging successful progress in millis when building across transactions.
+     * {@code -1} means it will not log.
+     */
+    public static final int DEFAULT_PROGRESS_LOG_INTERVAL = -1;
+    /**
      * Constant indicating that there should be no limit to some usually limited operation.
      */
     public static final int UNLIMITED = Integer.MAX_VALUE;
@@ -137,11 +142,13 @@ public class OnlineIndexer implements AutoCloseable {
     private int limit;  // Not final as may be adjusted when running.
     private final int maxRetries;
     private final int recordsPerSecond;
+    private final long progressLogIntervalMillis;
+    private long timeOfLastProgressLogMillis;
 
     protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                             @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                             @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
-                            int limit, int maxRetries, int recordsPerSecond) {
+                            int limit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
@@ -149,7 +156,9 @@ public class OnlineIndexer implements AutoCloseable {
         this.limit = limit;
         this.maxRetries = maxRetries;
         this.recordsPerSecond = recordsPerSecond;
+        this.progressLogIntervalMillis = progressLogIntervalMillis;
         this.recordsRange = computeRecordsRange();
+        timeOfLastProgressLogMillis = System.currentTimeMillis();
     }
 
     /**
@@ -501,6 +510,7 @@ public class OnlineIndexer implements AutoCloseable {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
+            maybeLogBuildProgress(subspace, startTuple, endTuple, realEnd);
             return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
         } else {
             Throwable cause = unwrappedEx;
@@ -522,6 +532,21 @@ public class OnlineIndexer implements AutoCloseable {
                         LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
             }
             throw unwrappedEx; // made it to the bottom, throw original exception
+        }
+    }
+
+    private void maybeLogBuildProgress(Subspace subspace, Tuple startTuple, Tuple endTuple, Tuple realEnd) {
+        if (LOGGER.isInfoEnabled()
+                && (progressLogIntervalMillis >= 0
+                    && System.currentTimeMillis() - timeOfLastProgressLogMillis >= progressLogIntervalMillis)) {
+            LOGGER.info(KeyValueLogMessage.of("Built Range",
+                    "indexName", index.getName(),
+                    "indexVersion", index.getLastModifiedVersion(),
+                    "subspace", subspace,
+                    "startTuple", startTuple,
+                    "endTuple", endTuple,
+                    "realEnd", realEnd));
+            timeOfLastProgressLogMillis = System.currentTimeMillis();
         }
     }
 
@@ -825,6 +850,7 @@ public class OnlineIndexer implements AutoCloseable {
         protected int limit = DEFAULT_LIMIT;
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
+        private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
 
         protected Builder() {
         }
@@ -1145,6 +1171,26 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Get the minimum time between successful progress logs when building across transactions.
+         * @return the minimum time between successful progress logs.
+         * Negative will not log at all, 0 will log after every commit.
+         */
+        public long getProgressLogIntervalMillis() {
+            return progressLogIntervalMillis;
+        }
+
+        /**
+         * Set the minimum time between successful progress logs when building across transactions.
+         * @param millis the number of millis to wait between successful logs.
+         * Negative will not log at all, 0 will log after every commit.
+         * @return this builder
+         */
+        public Builder setProgressLogIntervalMillis(long millis) {
+            progressLogIntervalMillis = millis;
+            return this;
+        }
+
+        /**
          * Set the {@link IndexMaintenanceFilter} to use while building the index.
          *
          * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
@@ -1245,7 +1291,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public OnlineIndexer build() {
             validate();
-            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond);
+            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis);
         }
 
         protected void validate() {
