@@ -204,40 +204,43 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
                                                               @Nonnull TupleRange range,
                                                               @Nonnull final IsolationLevel isolationLevel) {
-        final int groupingCount = getGroupingCount();
         if ((FunctionNames.COUNT.equals(function.getName()) ||
                 FunctionNames.COUNT_DISTINCT.equals(function.getName())) &&
                 range.isEquals()) {
-            Subspace rankSubspace = getSecondarySubspace();
-            if (groupingCount > 0) {
-                rankSubspace = rankSubspace.subspace(range.getLow());
-            }
-            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, nlevels);
-            return rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from);
+            return evaluateEqualRange(range, (rankedSet, values) ->
+                    rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from));
         }
         if ((FunctionNames.SCORE_FOR_RANK.equals(function.getName()) ||
-                FunctionNames.SCORE_FOR_RANK_ELSE_SKIP.equals(function.getName())) &&
-                range.isEquals()) {
-            final Tuple values = range.getLow();
-            Subspace rankSubspace = getSecondarySubspace();
-            if (groupingCount > 0) {
-                rankSubspace = rankSubspace.subspace(TupleHelpers.subTuple(values, 0, groupingCount));
-            }
-            final RankedSet rankedSet = new RankedSet(rankSubspace, getExecutor());
+                 FunctionNames.SCORE_FOR_RANK_ELSE_SKIP.equals(function.getName())) &&
+                 range.isEquals()) {
             final Tuple outOfRange = FunctionNames.SCORE_FOR_RANK_ELSE_SKIP.equals(function.getName()) ?
-                    RankedSetIndexHelper.COMPARISON_SKIPPED_SCORE : null;
-            return RankedSetIndexHelper.scoreForRank(state, rankedSet, (Number)values.get(groupingCount), outOfRange);
+                                     RankedSetIndexHelper.COMPARISON_SKIPPED_SCORE : null;
+            return evaluateEqualRange(range, (rankedSet, values) ->
+                    RankedSetIndexHelper.scoreForRank(state, rankedSet, (Number)values.get(0), outOfRange));
         }
         if (FunctionNames.RANK_FOR_SCORE.equals(function.getName()) && range.isEquals()) {
-            Tuple values = range.getLow();
-            Subspace rankSubspace = getSecondarySubspace();
-            if (groupingCount > 0) {
-                rankSubspace = rankSubspace.subspace(TupleHelpers.subTuple(values, 0, groupingCount));
-                values = TupleHelpers.subTuple(values, groupingCount, values.size());
-            }
-            final RankedSet rankedSet = new RankedSet(rankSubspace, getExecutor());
-            return RankedSetIndexHelper.rankForScore(state, rankedSet, values, false).thenApply(Tuple::from);
+            return evaluateEqualRange(range, (rankedSet, values) ->
+                    RankedSetIndexHelper.rankForScore(state, rankedSet, values, false).thenApply(Tuple::from));
         }
         return unsupportedAggregateFunction(function);
     }
+
+    private interface EvaluateEqualRange {
+        @Nonnull
+        CompletableFuture<Tuple> apply(@Nonnull RankedSet rankedSet, @Nonnull Tuple values);
+    }
+
+    private CompletableFuture<Tuple> evaluateEqualRange(@Nonnull TupleRange range,
+                                                        @Nonnull EvaluateEqualRange function) {
+        Subspace rankSubspace = getSecondarySubspace();
+        Tuple values = range.getLow();
+        final int groupingCount = getGroupingCount();
+        if (groupingCount > 0) {
+            rankSubspace = rankSubspace.subspace(TupleHelpers.subTuple(values, 0, groupingCount));
+            values = TupleHelpers.subTuple(values, groupingCount, values.size());
+        }
+        final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, nlevels);
+        return function.apply(rankedSet, values);
+    }
+
 }
