@@ -117,6 +117,11 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public static final int DEFAULT_MAX_RETRIES = 100;
     /**
+     * Default interval to be logging successful progress in millis when building across transactions.
+     * {@code -1} means it will not log.
+     */
+    public static final int DEFAULT_PROGRESS_LOG_INTERVAL = -1;
+    /**
      * Constant indicating that there should be no limit to some usually limited operation.
      */
     public static final int UNLIMITED = Integer.MAX_VALUE;
@@ -137,11 +142,13 @@ public class OnlineIndexer implements AutoCloseable {
     private int limit;  // Not final as may be adjusted when running.
     private final int maxRetries;
     private final int recordsPerSecond;
+    private final long progressLogIntervalMillis;
+    private long timeOfLastProgressLogMillis;
 
     protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                             @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                             @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
-                            int limit, int maxRetries, int recordsPerSecond) {
+                            int limit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
@@ -149,7 +156,9 @@ public class OnlineIndexer implements AutoCloseable {
         this.limit = limit;
         this.maxRetries = maxRetries;
         this.recordsPerSecond = recordsPerSecond;
+        this.progressLogIntervalMillis = progressLogIntervalMillis;
         this.recordsRange = computeRecordsRange();
+        timeOfLastProgressLogMillis = System.currentTimeMillis();
     }
 
     /**
@@ -457,22 +466,25 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<Void> buildRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return recordStoreBuilder.getSubspaceProvider().getSubspaceAsync().thenCompose(subspace -> buildRange(subspace, start, end));
+        final SubspaceProvider subspaceProvider = recordStoreBuilder.getSubspaceProvider();
+        return subspaceProvider.getSubspaceAsync().thenCompose(subspace -> buildRange(subspaceProvider, subspace, start, end));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildRange(@Nonnull Subspace subspace, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
+    private CompletableFuture<Void> buildRange(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                               @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
         byte[] startBytes = packOrNull(convertOrNull(start));
         byte[] endBytes = packOrNull(convertOrNull(end));
         Queue<Range> rangeDeque = new ArrayDeque<>();
         return rangeSet.missingRanges(runner.getDatabase().database(), startBytes, endBytes)
                 .thenAccept(rangeDeque::addAll)
-                .thenCompose(vignore -> buildRanges(subspace, rangeSet, rangeDeque));
+                .thenCompose(vignore -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildRanges(@Nonnull Subspace subspace, RangeSet rangeSet, Queue<Range> rangeDeque) {
+    private CompletableFuture<Void> buildRanges(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                RangeSet rangeSet, Queue<Range> rangeDeque) {
         return AsyncUtil.whileTrue(() -> {
             if (rangeDeque.isEmpty()) {
                 return CompletableFuture.completedFuture(false); // We're done.
@@ -483,13 +495,16 @@ public class OnlineIndexer implements AutoCloseable {
             Tuple startTuple = Tuple.fromBytes(toBuild.begin);
             Tuple endTuple = Arrays.equals(toBuild.end, END_BYTES) ? null : Tuple.fromBytes(toBuild.end);
             return buildUnbuiltRange(startTuple, endTuple)
-                    .handle((realEnd, ex) -> handleBuiltRange(subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
+                    .handle((realEnd, ex) -> handleBuiltRange(subspaceProvider, subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
                     .thenCompose(Function.identity());
         }, runner.getExecutor());
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> handleBuiltRange(@Nonnull Subspace subspace, RangeSet rangeSet, Queue<Range> rangeDeque, Tuple startTuple, Tuple endTuple, Tuple realEnd, Throwable ex) {
+    private CompletableFuture<Boolean> handleBuiltRange(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                        RangeSet rangeSet, Queue<Range> rangeDeque,
+                                                        Tuple startTuple, Tuple endTuple, Tuple realEnd,
+                                                        Throwable ex) {
         final RuntimeException unwrappedEx = ex == null ? null : runner.getDatabase().mapAsyncToSyncException(ex);
         long toWait = (recordsPerSecond == UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
         if (unwrappedEx == null) {
@@ -501,6 +516,7 @@ public class OnlineIndexer implements AutoCloseable {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
+            maybeLogBuildProgress(subspaceProvider, startTuple, endTuple, realEnd);
             return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
         } else {
             Throwable cause = unwrappedEx;
@@ -522,6 +538,22 @@ public class OnlineIndexer implements AutoCloseable {
                         LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
             }
             throw unwrappedEx; // made it to the bottom, throw original exception
+        }
+    }
+
+    private void maybeLogBuildProgress(SubspaceProvider subspaceProvider, Tuple startTuple, Tuple endTuple, Tuple realEnd) {
+        if (LOGGER.isInfoEnabled()
+                && (progressLogIntervalMillis > 0
+                    && System.currentTimeMillis() - timeOfLastProgressLogMillis > progressLogIntervalMillis)
+                || progressLogIntervalMillis == 0) {
+            LOGGER.info(KeyValueLogMessage.of("Built Range",
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    "indexVersion", index.getLastModifiedVersion(),
+                    subspaceProvider.logKey(), subspaceProvider,
+                    "startTuple", startTuple,
+                    "endTuple", endTuple,
+                    "realEnd", realEnd));
+            timeOfLastProgressLogMillis = System.currentTimeMillis();
         }
     }
 
@@ -825,6 +857,7 @@ public class OnlineIndexer implements AutoCloseable {
         protected int limit = DEFAULT_LIMIT;
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
+        private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
 
         protected Builder() {
         }
@@ -1145,6 +1178,26 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Get the minimum time between successful progress logs when building across transactions.
+         * Negative will not log at all, 0 will log after every commit.
+         * @return the minimum time between successful progress logs in milliseconds.
+         */
+        public long getProgressLogIntervalMillis() {
+            return progressLogIntervalMillis;
+        }
+
+        /**
+         * Set the minimum time between successful progress logs when building across transactions.
+         * Negative will not log at all, 0 will log after every commit.
+         * @param millis the number of milliseconds to wait between successful logs
+         * @return this builder
+         */
+        public Builder setProgressLogIntervalMillis(long millis) {
+            progressLogIntervalMillis = millis;
+            return this;
+        }
+
+        /**
          * Set the {@link IndexMaintenanceFilter} to use while building the index.
          *
          * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
@@ -1245,7 +1298,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public OnlineIndexer build() {
             validate();
-            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond);
+            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis);
         }
 
         protected void validate() {
