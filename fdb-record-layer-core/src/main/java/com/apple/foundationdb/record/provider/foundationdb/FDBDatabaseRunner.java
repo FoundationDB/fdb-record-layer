@@ -65,6 +65,8 @@ public class FDBDatabaseRunner implements AutoCloseable {
 
     @Nonnull
     private final FDBDatabase database;
+    @Nonnull
+    private Executor executor;
 
     @Nullable
     private FDBStoreTimer timer;
@@ -97,6 +99,8 @@ public class FDBDatabaseRunner implements AutoCloseable {
         this.maxDelayMillis = factory.getMaxDelayMillis();
         this.initialDelayMillis = factory.getInitialDelayMillis();
 
+        this.executor = FDBRecordContext.initExecutor(database, mdcContext);
+
         contextsToClose = new ArrayList<>();
         futuresToCompleteExceptionally = new ArrayList<>();
     }
@@ -124,7 +128,7 @@ public class FDBDatabaseRunner implements AutoCloseable {
      * @return the executor to use
      */
     public Executor getExecutor() {
-        return database.getExecutor();
+        return executor;
     }
 
     /**
@@ -156,11 +160,13 @@ public class FDBDatabaseRunner implements AutoCloseable {
 
     /**
      * Set the logging context used in record contexts opened by this runner.
+     * This will change the executor to be one that restores this new {@code mdcContext}.
      * @param mdcContext the logging context to use
      * @see FDBDatabase#openContext(Map,FDBStoreTimer)
      */
     public void setMdcContext(@Nullable Map<String, String> mdcContext) {
         this.mdcContext = mdcContext;
+        executor = FDBRecordContext.initExecutor(database, mdcContext);
     }
 
     /**

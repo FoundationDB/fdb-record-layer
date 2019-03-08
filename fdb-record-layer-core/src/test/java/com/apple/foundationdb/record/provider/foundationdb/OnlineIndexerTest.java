@@ -56,8 +56,10 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.apache.logging.log4j.ThreadContext;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -2069,6 +2071,7 @@ public class OnlineIndexerTest extends FDBTestBase {
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setLimit(100).setMaxRetries(3).setRecordsPerSecond(10000)
+                .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
                 .setMaxAttempts(2)
                 .build()) {
 
@@ -2085,6 +2088,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("illegal state", e.getMessage());
                 assertNull(e.getCause());
                 assertEquals(1, attempts.get());
+                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
             }).join();
 
@@ -2101,6 +2105,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("commit_unknown_result", e.getCause().getMessage());
                 assertEquals(1021, ((FDBException)e.getCause()).getCode());
                 assertEquals(2, attempts.get());
+                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
             }).join();
 
@@ -2118,6 +2123,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("transaction_too_large", e.getCause().getMessage());
                 assertEquals(2101, ((FDBException)e.getCause()).getCode());
                 assertEquals(4, attempts.get()); // lessenWorkCodes is maxRetries
+                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
             }).join();
 
@@ -2135,6 +2141,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("not_committed", e.getCause().getMessage());
                 assertEquals(1020, ((FDBException)e.getCause()).getCode());
                 assertEquals(8, attempts.get());
+                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
             }).join();
         }
