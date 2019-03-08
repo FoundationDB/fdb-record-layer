@@ -2060,6 +2060,12 @@ public class OnlineIndexerTest extends FDBTestBase {
     public void run() {
         Index index = new Index("newIndex", field("num_value_2"));
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+
+        try (FDBRecordContext context = openContext()) {
+            // OnlineIndexer.runAsync checks that the index is not readable
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            context.commit();
+        }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setLimit(100).setMaxRetries(3).setRecordsPerSecond(10000)
@@ -2080,7 +2086,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertNull(e.getCause());
                 assertEquals(1, attempts.get());
                 return null;
-            });
+            }).join();
 
             // Retriable error that is not in lessen work codes.
             attempts.set(0);
@@ -2092,11 +2098,11 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertThat(e, instanceOf(RecordCoreRetriableTransactionException.class));
                 assertEquals("Retriable", e.getMessage());
                 assertThat(e.getCause(), instanceOf(FDBException.class));
-                assertEquals("commit_unknown_result", e.getMessage());
+                assertEquals("commit_unknown_result", e.getCause().getMessage());
                 assertEquals(1021, ((FDBException)e.getCause()).getCode());
                 assertEquals(2, attempts.get());
                 return null;
-            });
+            }).join();
 
             // Non-retriable error that is in lessen work codes.
             attempts.set(0);
@@ -2109,11 +2115,11 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("Non-retriable", e.getMessage());
                 assertNotNull(e.getCause());
                 assertThat(e.getCause(), instanceOf(FDBException.class));
-                assertEquals("transaction_too_large", e.getMessage());
+                assertEquals("transaction_too_large", e.getCause().getMessage());
                 assertEquals(2101, ((FDBException)e.getCause()).getCode());
-                assertEquals(3, attempts.get());
+                assertEquals(4, attempts.get()); // lessenWorkCodes is maxRetries
                 return null;
-            });
+            }).join();
 
             // Retriable error that is in lessen work codes.
             attempts.set(0);
@@ -2126,11 +2132,11 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("Retriable and lessener", e.getMessage());
                 assertNotNull(e.getCause());
                 assertThat(e.getCause(), instanceOf(FDBException.class));
-                assertEquals("not_committed", e.getMessage());
+                assertEquals("not_committed", e.getCause().getMessage());
                 assertEquals(1020, ((FDBException)e.getCause()).getCode());
-                assertEquals(6, attempts.get());
+                assertEquals(8, attempts.get());
                 return null;
-            });
+            }).join();
         }
     }
 
