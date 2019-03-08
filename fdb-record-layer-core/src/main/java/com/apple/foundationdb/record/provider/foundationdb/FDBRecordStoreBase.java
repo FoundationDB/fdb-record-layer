@@ -976,7 +976,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                 LogMessageKeys.INDEX_NAME, entry.getIndex().getName(),
                                 LogMessageKeys.PRIMARY_KEY, primaryKey,
                                 LogMessageKeys.INDEX_KEY, entry.getKey(),
-                                getSubspaceProvider().logKey(), getSubspaceProvider());
+                                getSubspaceProvider().logKey(), getSubspaceProvider().toString(getContext()));
                     default:
                         throw new RecordCoreException("Unexpected index orphan behavior: " + orphanBehavior);
                 }

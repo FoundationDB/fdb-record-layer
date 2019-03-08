@@ -30,10 +30,10 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -299,25 +299,27 @@ class KeySpacePathImpl implements KeySpacePath {
 
     @SuppressWarnings("deprecation")
     @Override
-    public String toString() {
+    public String toString(@Nullable Tuple t) {
+        Iterator<Object> it = null;
+        if (t != null) {
+            it = t.getItems().iterator();
+        }
         StringBuilder sb = new StringBuilder();
 
         for (KeySpacePath entry : flatten()) {
             sb.append('/').append(entry.getDirectoryName()).append(':');
-            if (entry.hasStoredValue()) {
-                Object dirValue = entry.getValue();
-                Object storedValue = entry.getStoredValue().getResolvedValue();
-
-                if (!Objects.equals(dirValue, storedValue)) {
-                    appendValue(sb, storedValue);
-                    sb.append("->");
-                    appendValue(sb, dirValue);
-                } else {
-                    appendValue(sb, dirValue);
-                }
-            } else {
-                appendValue(sb, entry.getValue());
+            Object dirValue = entry.getValue();
+            Object storedValue = null;
+            if (it != null && it.hasNext()) {
+                storedValue = it.next();
+            } else if (entry.hasStoredValue()) {
+                storedValue = entry.getStoredValue().getResolvedValue();
             }
+            if (storedValue != null && !Objects.equals(dirValue, storedValue)) {
+                appendValue(sb, storedValue);
+                sb.append("->");
+            }
+            appendValue(sb, dirValue);
         }
 
         if (getRemainder() != null) {
@@ -327,6 +329,11 @@ class KeySpacePathImpl implements KeySpacePath {
         return sb.toString();
     }
 
+    @Override
+    public String toString() {
+        return toString(null);
+    }
+
     protected static void appendValue(StringBuilder sb, Object value) {
         if (value == null) {
             sb.append("null");
@@ -334,7 +341,7 @@ class KeySpacePathImpl implements KeySpacePath {
             sb.append('"').append(value).append('"');
         } else if (value instanceof byte[]) {
             sb.append("0x");
-            sb.append(ByteArrayUtil2.toHexString((byte[]) value));
+            sb.append(ByteArrayUtil2.toHexString((byte[])value));
         } else {
             sb.append(value);
         }

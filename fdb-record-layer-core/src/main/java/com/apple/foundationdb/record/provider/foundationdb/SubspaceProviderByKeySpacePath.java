@@ -24,42 +24,51 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A SubspaceProvider wrapping a key space path. Getting the subspace from this provider might be blocking if it is
  * never retrieved before.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
     @Nonnull
     private final KeySpacePath keySpacePath;
 
     @Nonnull
-    private final FDBRecordContext context;
+    private final ConcurrentHashMap<Optional<String>, Subspace> databases;
 
-    @Nullable
-    private CompletableFuture<Subspace> subspaceFuture;
-
-    SubspaceProviderByKeySpacePath(@Nonnull KeySpacePath keySpacePath, @Nonnull FDBRecordContext context) {
+    SubspaceProviderByKeySpacePath(@Nonnull KeySpacePath keySpacePath) {
         this.keySpacePath = keySpacePath;
-        this.context = context;
+        databases = new ConcurrentHashMap<>();
     }
 
     @Nonnull
     @Override
-    public Subspace getSubspace() {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync());
+    public Subspace getSubspace(@Nonnull FDBRecordContext context) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync(context));
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Subspace> getSubspaceAsync() {
-        if (subspaceFuture == null) {
-            subspaceFuture = keySpacePath.toSubspaceAsync(context);
+    public CompletableFuture<Subspace> getSubspaceAsync(@Nonnull FDBRecordContext context) {
+        CompletableFuture<Subspace> subspaceFuture;
+        String clusterFile = context.getDatabase().getClusterFile();
+        Optional<String> key = Optional.ofNullable(clusterFile);
+        Subspace subspace = databases.get(key);
+        if (subspace == null) {
+            subspaceFuture = keySpacePath.toSubspaceAsync(context).whenComplete((s, e) -> {
+                if (e == null) {
+                    this.databases.put(key, s);
+                }
+            });
+        } else {
+            subspaceFuture = CompletableFuture.completedFuture(subspace);
         }
         return subspaceFuture;
     }
@@ -71,7 +80,19 @@ public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
     }
 
     @Override
+    public String toString(@Nonnull FDBRecordContext context) {
+        Optional<String> key = Optional.ofNullable(context.getDatabase().getClusterFile());
+        Subspace subspace = databases.get(key);
+        if (subspace != null) {
+            return keySpacePath.toString(Tuple.fromBytes(subspace.pack()));
+        } else {
+            return toString();
+        }
+    }
+
+    @Override
     public String toString() {
         return keySpacePath.toString();
     }
+
 }
