@@ -2091,24 +2091,29 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             saveAndSplitSimpleRecord(i * 39, bigOlString, i);
         }
 
-        Index index = recordStore.getRecordMetaData().getIndex(indexName);
-        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setRecordStore(recordStore).setIndex(index)
-                .build()) {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+            Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setDatabase(fdb).setRecordStore(recordStore).setIndex(index)
+                    .build()) {
 
-            List<Tuple> boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY, indexer.buildEndpoints()
-                    .thenCompose(indexer::getBoundaryPrimaryKeysAsync
-                    ));
+                List<Tuple> boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
+                        indexer.buildEndpoints().thenCompose(range ->
+                                recordStore.getPrimaryKeyBoundariesAsync(range.getLow(), range.getHigh())));
 
-            assertTrue(boundaryPrimaryKeys.size() > 2, "the test is meaning less if the records are not across boundaries");
-            assertEquals(-25L * 39, boundaryPrimaryKeys.get(0).get(0));
-            assertEquals(24L * 39, boundaryPrimaryKeys.get(boundaryPrimaryKeys.size() - 1).get(0));
-            assertEquals(boundaryPrimaryKeys.stream().sorted().distinct().collect(Collectors.toList()), boundaryPrimaryKeys,
-                    "the list should be sorted without duplication.");
-            for (Tuple boundaryPrimaryKey : boundaryPrimaryKeys) {
-                assertEquals(1, boundaryPrimaryKey.size(), "primary keys should be a single value");
+                assertTrue(boundaryPrimaryKeys.size() > 2,
+                        "the test is meaning less if the records are not across boundaries");
+                assertEquals(Tuple.from(-25L * 39), boundaryPrimaryKeys.get(0));
+                assertEquals(Tuple.from(24L * 39), boundaryPrimaryKeys.get(boundaryPrimaryKeys.size() - 1));
+                assertEquals(boundaryPrimaryKeys.stream().sorted().distinct().collect(Collectors.toList()), boundaryPrimaryKeys,
+                        "the list should be sorted without duplication.");
+                for (Tuple boundaryPrimaryKey : boundaryPrimaryKeys) {
+                    assertEquals(1, boundaryPrimaryKey.size(), "primary keys should be a single value");
+                }
+                logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
             }
-            logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
+            commit(context);
         }
     }
 }

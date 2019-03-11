@@ -22,13 +22,10 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.FDBException;
-import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EndpointType;
@@ -59,11 +56,9 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -74,7 +69,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Builds an index online, i.e., concurrently with other database operations. In order to minimize
@@ -835,64 +829,6 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public void asyncToSync(@Nonnull CompletableFuture<Void> buildIndexFuture) {
         runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);
-    }
-
-    /**
-     * Boundaries are a list of key ranges maintained by each FDB server. This information can be useful for splitting a
-     * large task (e.g. rebuild index for a large record store) into small tasks (e.g.  rebuild index for records in
-     * certain primary key ranges) more evenly so that they can be executed in a parallel fashion efficiently. The
-     * returned boundaries are an estimate from FDB's locality API and may not represent the exact boundary locations
-     * at any database version.
-     * @param range the range of primary keys
-     * @return the list of boundaries of primary keys. This list is sorted and does not have duplication. The first
-     *     element is the low endpoint of <code>range</code> and the last element is the high endpoint.
-     */
-    @Nonnull
-    public CompletableFuture<List<Tuple>> getBoundaryPrimaryKeysAsync(@Nonnull TupleRange range) {
-        return runner.runAsync(context -> {
-            final Transaction transaction = context.transaction;
-            byte[] rangeStart = range.getLow().pack();
-            byte[] rangeEnd = range.getHigh().pack();
-            CloseableAsyncIterator<byte[]> cursor = LocalityUtil.getBoundaryKeys(transaction, rangeStart, rangeEnd);
-            final List<CompletableFuture<List<KeyValue>>> fdbBoundaryEntriesFutures = new ArrayList<>();
-            return AsyncUtil.whileTrue(() ->
-                    cursor.onHasNext().thenCompose(hasNext -> {
-                        if (hasNext) {
-                            byte[] result = cursor.next();
-                            fdbBoundaryEntriesFutures.add(transaction.snapshot().getRange(result, rangeEnd, 1).asList());
-                        }
-                        return CompletableFuture.completedFuture(hasNext);
-                    }), context.getExecutor())
-                    .thenCompose(vignore -> AsyncUtil.getAll(fdbBoundaryEntriesFutures))
-                    .thenCompose(fdbBoundaryEntries -> openRecordStore(context).thenApply(recordStore -> {
-                        final boolean hasSplitSuffix = recordStore.hasSplitSuffix();
-                        final List<Tuple> boundaryPrimaryKeys = fdbBoundaryEntries.stream()
-                                .filter(list -> !list.isEmpty())
-                                .map(keyValues -> {
-                                    Tuple fdbKey = Tuple.fromBytes(keyValues.get(0).getKey());
-                                    // Primary key must be a single value.
-                                    if (hasSplitSuffix) {
-                                        // The primary key is the second last element.
-                                        return Tuple.from(fdbKey.get(fdbKey.size() - 2));
-                                    } else {
-                                        // The primary key is the last element.
-                                        return Tuple.from(fdbKey.get(fdbKey.size() - 1));
-                                    }
-                                })
-                                .collect(Collectors.toList());
-
-                        boundaryPrimaryKeys.add(range.getLow());
-                        boundaryPrimaryKeys.add(range.getHigh());
-
-                        // Sort and de-duplicate the list.
-                        return boundaryPrimaryKeys.stream()
-                                .sorted().distinct().collect(Collectors.toList());
-                    }))
-                    .thenApply(result -> {
-                        cursor.close();
-                        return result;
-                    });
-        });
     }
 
     /**

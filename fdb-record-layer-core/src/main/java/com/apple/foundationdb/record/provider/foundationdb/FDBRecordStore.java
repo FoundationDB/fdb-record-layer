@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ByteScanLimiter;
@@ -1099,11 +1101,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * The keys have split suffixes because it splits long records or unsplit record suffix is used for ones unsplit
-     * records.
+     * Returns whether or not record keys contain a trailing suffix indicating whether or not the record has been (or
+     * could have been) split across multiple records.
      * @return <code>true</code> if the keys have split suffixes, otherwise <code>false</code>.
      */
-    boolean hasSplitSuffix() {
+    private boolean hasSplitRecordSuffix() {
         return getRecordMetaData().isSplitLongRecords() || !omitUnsplitRecordSuffix;
     }
 
@@ -2701,6 +2703,56 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
         future = context.instrument(FDBStoreTimer.Events.RECOUNT_RECORDS, future);
         work.add(future);
+    }
+
+    /**
+     * Boundaries are a list of key ranges maintained by each FDB server. This information can be useful for splitting a
+     * large task (e.g. rebuild index for a large record store) into small tasks (e.g.  rebuild index for records in
+     * certain primary key ranges) more evenly so that they can be executed in a parallel fashion efficiently. The
+     * returned boundaries are an estimate from FDB's locality API and may not represent the exact boundary locations
+     * at any database version.
+     *
+     * The boundaries are returned as a list, which is sorted and does not have duplication. The first element of the
+     * list is <code>low</code> and the last element is the <code>high</code>.
+     *
+     * @param low low endpoint of primary key range (inclusive)
+     * @param high high endpoint of primary key range (exclusive)
+     * @return the list of boundaries of primary keys
+     */
+    @Nonnull
+    public CompletableFuture<List<Tuple>> getPrimaryKeyBoundariesAsync(@Nonnull Tuple low, @Nonnull Tuple high) {
+        final Transaction transaction = ensureContextActive();
+        byte[] rangeStart = recordsSubspace().pack(low);
+        byte[] rangeEnd = recordsSubspace().pack(high);
+        CloseableAsyncIterator<byte[]> cursor = LocalityUtil.getBoundaryKeys(transaction, rangeStart, rangeEnd);
+        final List<CompletableFuture<List<KeyValue>>> fdbBoundaryEntriesFutures = new ArrayList<>();
+        return AsyncUtil.whileTrue(() ->
+                cursor.onHasNext().thenApply(hasNext -> {
+                    if (hasNext) {
+                        byte[] result = cursor.next();
+                        fdbBoundaryEntriesFutures.add(transaction.snapshot().getRange(result, rangeEnd, 1).asList());
+                    }
+                    return hasNext;
+                }), context.getExecutor())
+                .thenCompose(vignore -> AsyncUtil.getAll(fdbBoundaryEntriesFutures))
+                .thenApply(fdbBoundaryEntries -> {
+                    final boolean hasSplitRecordSuffix = hasSplitRecordSuffix();
+                    final List<Tuple> boundaryPrimaryKeys = fdbBoundaryEntries.stream()
+                            .filter(list -> !list.isEmpty())
+                            .map(keyValues -> {
+                                Tuple recordKey = recordsSubspace().unpack(keyValues.get(0).getKey());
+                                return hasSplitRecordSuffix ? recordKey.popBack() : recordKey;
+                            })
+                            .collect(Collectors.toList());
+
+                    boundaryPrimaryKeys.add(low);
+                    boundaryPrimaryKeys.add(high);
+
+                    // Sort and de-duplicate the list.
+                    return boundaryPrimaryKeys.stream()
+                            .sorted().distinct().collect(Collectors.toList());
+                })
+                .whenComplete((v, e) -> cursor.close());
     }
 
     /**
