@@ -1098,6 +1098,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return new RecordsWhereDeleter(component).run();
     }
 
+    /**
+     * The keys have split suffixes because it splits long records or unsplit record suffix is used for ones unsplit
+     * records.
+     * @return <code>true</code> if the keys have split suffixes, otherwise <code>false</code>.
+     */
+    boolean hasSplitSuffix() {
+        return getRecordMetaData().isSplitLongRecords() || !omitUnsplitRecordSuffix;
+    }
+
     class RecordsWhereDeleter {
         @Nonnull final RecordMetaData recordMetaData;
         @Nullable final RecordType recordType;
