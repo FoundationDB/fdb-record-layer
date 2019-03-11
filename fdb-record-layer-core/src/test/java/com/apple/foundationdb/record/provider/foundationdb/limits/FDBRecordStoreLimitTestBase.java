@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -128,5 +129,11 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
                         new RecordQueryFilterPlan(firstChild, middleFilter),
                         new RecordQueryFilterPlan(secondChild, Query.field("rec_no").lessThan(55L)),
                         primaryKey(), false)));
+    }
+
+    public Stream<Arguments> unorderedPlans(boolean fail) {
+        return Stream.of(
+                Arguments.of("unordered union", fail, new RecordQueryUnorderedUnionPlan(indexPlanEquals("MySimpleRecord$str_value_indexed", "even"), indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2), false))
+        );
     }
 }
