@@ -31,7 +31,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A SubspaceProvider wrapping a subspace. Getting the subspace from this provider is not blocking.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class SubspaceProviderBySubspace implements SubspaceProvider {
     @Nonnull
     private Subspace subspace;
@@ -42,13 +42,13 @@ public class SubspaceProviderBySubspace implements SubspaceProvider {
 
     @Nonnull
     @Override
-    public Subspace getSubspace() {
+    public Subspace getSubspace(@Nonnull FDBRecordContext context) {
         return subspace;
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<Subspace> getSubspaceAsync() {
+    public CompletableFuture<Subspace> getSubspaceAsync(@Nonnull FDBRecordContext context) {
         return CompletableFuture.completedFuture(subspace);
     }
 
@@ -56,6 +56,11 @@ public class SubspaceProviderBySubspace implements SubspaceProvider {
     @Override
     public LogMessageKeys logKey() {
         return LogMessageKeys.SUBSPACE;
+    }
+
+    @Override
+    public String toString(@Nonnull FDBRecordContext context) {
+        return toString();
     }
 
     @Override

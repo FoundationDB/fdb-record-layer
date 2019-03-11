@@ -220,7 +220,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.indexMaintainerRegistry = indexMaintainerRegistry;
         this.indexMaintenanceFilter = indexMaintenanceFilter;
         this.pipelineSizer = pipelineSizer;
-
         this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
         this.preloadCache = CacheBuilder.<Tuple,FDBRawRecord>newBuilder().maximumSize(PRELOAD_CACHE_SIZE).build();
     }
@@ -814,7 +813,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } catch (Exception ex) {
             final LoggableException ex2 = new RecordCoreException("Failed to deserialize record", ex);
             ex2.addLogInfo(
-                    subspaceProvider.logKey(), subspaceProvider,
+                    subspaceProvider.logKey(), subspaceProvider.toString(context),
                     LogMessageKeys.PRIMARY_KEY, primaryKey);
             if (LOGGER.isDebugEnabled()) {
                 ex2.addLogInfo("serialized", ByteArrayUtil2.loggable(serialized),
@@ -1469,7 +1468,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (keyValue == null) {
                 if (existenceCheck == StoreExistenceCheck.ERROR_IF_NOT_EXISTS) {
                     throw new RecordStoreDoesNotExistException("Record store does not exist",
-                            subspaceProvider.logKey(), subspaceProvider);
+                            subspaceProvider.logKey(), subspaceProvider.toString(context));
                 }
                 oldMetaDataVersion = oldUserVersion = -1;
                 if (getTimer() != null) {
@@ -1477,15 +1476,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
             } else if (existenceCheck == StoreExistenceCheck.ERROR_IF_EXISTS) {
                 throw new RecordStoreAlreadyExistsException("Record store already exists",
-                        subspaceProvider.logKey(), subspaceProvider);
+                        subspaceProvider.logKey(), subspaceProvider.toString(context));
             } else if (!getSubspace().unpack(keyValue.getKey()).equals(Tuple.from(STORE_INFO_KEY))) {
                 if (existenceCheck != StoreExistenceCheck.NONE) {
                     throw new RecordStoreNoInfoAndNotEmptyException("Record store has no info but is not empty",
-                            subspaceProvider.logKey(), subspaceProvider,
+                            subspaceProvider.logKey(), subspaceProvider.toString(context),
                             LogMessageKeys.KEY, getSubspace().unpack(keyValue.getKey()));
                 } else {
                     LOGGER.warn(KeyValueLogMessage.of("Record store has no info but is not empty",
-                            subspaceProvider.logKey(), subspaceProvider,
+                            subspaceProvider.logKey(), subspaceProvider.toString(context),
                             LogMessageKeys.KEY, getSubspace().unpack(keyValue.getKey())));
                     // Treat as brand new, although there is no way to be sure that what was written is compatible
                     // with the current default versions.
@@ -1499,7 +1498,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
                 if (info.getFormatVersion() < MIN_FORMAT_VERSION || info.getFormatVersion() > MAX_SUPPORTED_FORMAT_VERSION) {
                     throw new UnsupportedFormatVersionException("Unsupported format version " + info.getFormatVersion(),
-                            subspaceProvider.logKey(), subspaceProvider);
+                            subspaceProvider.logKey(), subspaceProvider.toString(context));
                 }
                 oldMetaDataVersion = info.getMetaDataversion();
                 oldUserVersion = info.getUserVersion();
@@ -1538,7 +1537,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             LOGGER.error(KeyValueLogMessage.of("stale user version",
                                     "storedVersion", oldUserVersion,
                                     "localVersion", newUserVersion,
-                                    subspaceProvider.logKey(), subspaceProvider));
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context)));
                             throw new RecordStoreStaleUserVersionException("Stale user version with local version " + newUserVersion + " and stored version " + oldUserVersion);
                         }
                         info.setUserVersion(newUserVersion);
@@ -1547,13 +1546,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             if (LOGGER.isDebugEnabled()) {
                                 LOGGER.debug(KeyValueLogMessage.of("setting initial user version",
                                         LogMessageKeys.NEW_VERSION, newUserVersion,
-                                        subspaceProvider.logKey(), subspaceProvider));
+                                        subspaceProvider.logKey(), subspaceProvider.toString(context)));
                             }
                         } else {
                             LOGGER.info(KeyValueLogMessage.of("changing user version",
                                     LogMessageKeys.OLD_VERSION, oldUserVersion,
                                     LogMessageKeys.NEW_VERSION, newUserVersion,
-                                    subspaceProvider.logKey(), subspaceProvider));
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context)));
                         }
                     }
                     return null;
@@ -1793,13 +1792,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                     LogMessageKeys.INDEX_NAME, index.getName(),
                                     "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
                                     "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
-                                    subspaceProvider.logKey(), subspaceProvider);
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
                         } else if (uniquenessViolation.isPresent()) {
                             RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
                                                                                                         uniquenessViolation.get());
                             wrapped.addLogInfo(
                                     LogMessageKeys.INDEX_NAME, index.getName(),
-                                    subspaceProvider.logKey(), subspaceProvider);
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
                             throw wrapped;
                         } else {
                             tr.clear(indexKey);
@@ -1888,7 +1887,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @API(API.Status.INTERNAL)
     protected CompletableFuture<Void> preloadSubspaceAsync() {
-        return subspaceProvider.getSubspaceAsync().thenApply(subspace -> null);
+        return getSubspaceAsync().thenApply(subspace -> null);
     }
 
     /**
@@ -2231,7 +2230,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     "indexVersion", index.getLastModifiedVersion(),
                     "reason", reason.name(),
-                    subspaceProvider.logKey(), subspaceProvider,
+                    subspaceProvider.logKey(), subspaceProvider.toString(context),
                     LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
             if (newStore) {
                 LOGGER.debug(msg.toString());
@@ -2256,7 +2255,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     "indexVersion", index.getLastModifiedVersion(),
                     "reason", reason.name(),
-                    subspaceProvider.logKey(), subspaceProvider,
+                    subspaceProvider.logKey(), subspaceProvider.toString(context),
                     LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
             if (newStore) {
                 LOGGER.debug(msg.toString());
@@ -2296,7 +2295,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             ret.completeExceptionally(new RecordStoreStaleMetaDataVersionException("Local meta-data has stale version",
                     "localVersion", newMetaDataVersion,
                     "storedVersion", oldMetaDataVersion,
-                    subspaceProvider.logKey(), subspaceProvider));
+                    subspaceProvider.logKey(), subspaceProvider.toString(context)));
             return ret;
         }
         final boolean metaDataVersionChanged = oldMetaDataVersion != newMetaDataVersion;
@@ -2311,19 +2310,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 LOGGER.info(KeyValueLogMessage.of("new record store",
                         LogMessageKeys.FORMAT_VERSION, newFormatVersion,
                         LogMessageKeys.META_DATA_VERSION, newMetaDataVersion,
-                        subspaceProvider.logKey(), subspaceProvider));
+                        subspaceProvider.logKey(), subspaceProvider.toString(context)));
             } else {
                 if (formatVersionChanged) {
                     LOGGER.info(KeyValueLogMessage.of("format version changed",
                             LogMessageKeys.OLD_VERSION, oldFormatVersion,
                             LogMessageKeys.NEW_VERSION, newFormatVersion,
-                            subspaceProvider.logKey(), subspaceProvider));
+                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
                 }
                 if (metaDataVersionChanged) {
                     LOGGER.info(KeyValueLogMessage.of("meta-data version changed",
                             LogMessageKeys.OLD_VERSION, oldMetaDataVersion,
                             LogMessageKeys.NEW_VERSION, newMetaDataVersion,
-                            subspaceProvider.logKey(), subspaceProvider));
+                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
                 }
             }
         }
@@ -2348,7 +2347,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     LOGGER.info(KeyValueLogMessage.of("unsplit records stored at old format",
                             LogMessageKeys.OLD_VERSION, oldFormatVersion,
                             LogMessageKeys.NEW_VERSION, formatVersion,
-                            subspaceProvider.logKey(), subspaceProvider));
+                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
                 }
                 info.setOmitUnsplitRecordSuffix(true);
                 omitUnsplitRecordSuffix = true;
@@ -2359,7 +2358,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     LOGGER.info(KeyValueLogMessage.of("migrating record versions to new format"),
                             LogMessageKeys.OLD_VERSION, oldFormatVersion,
                             LogMessageKeys.NEW_VERSION, formatVersion,
-                            subspaceProvider.logKey(), subspaceProvider);
+                            subspaceProvider.logKey(), subspaceProvider.toString(context));
                 }
                 addConvertRecordVersions(work);
             }
@@ -2407,7 +2406,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
                                 "recordCount", recordCount,
                                 "newFormatVersion", formatVersion,
-                                subspaceProvider.logKey(), subspaceProvider);
+                                subspaceProvider.logKey(), subspaceProvider.toString(context));
                         if (newStore) {
                             LOGGER.debug(msg.toString());
                         } else {
@@ -2478,13 +2477,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     if (hasAny) {
                         if (LOGGER.isInfoEnabled()) {
                             LOGGER.info(KeyValueLogMessage.of("version check scan found non-empty store",
-                                    subspaceProvider.logKey(), subspaceProvider));
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context)));
                         }
                         return Long.MAX_VALUE;
                     } else {
                         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
                             KeyValueLogMessage msg = KeyValueLogMessage.build("version check scan found empty store",
-                                    subspaceProvider.logKey(), subspaceProvider);
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
                             if (newStore) {
                                 LOGGER.debug(msg.toString());
                             } else {
@@ -2570,7 +2569,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             KeyValueLogMessage msg = KeyValueLogMessage.build("indexes need rebuilding",
                     "recordCount", recordCount == Long.MAX_VALUE ? "unknown" : Long.toString(recordCount),
-                    subspaceProvider.logKey(), subspaceProvider);
+                    subspaceProvider.logKey(), subspaceProvider.toString(context));
             if (rebuildRecordCounts) {
                 msg.addKeyAndValue("rebuildRecordCounts", "true");
             }
@@ -2609,7 +2608,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public void removeFormerIndex(FormerIndex formerIndex) {
         if (LOGGER.isDebugEnabled()) {
             KeyValueLogMessage msg = KeyValueLogMessage.build("removing index",
-                    subspaceProvider.logKey(), subspaceProvider,
+                    subspaceProvider.logKey(), subspaceProvider.toString(context),
                     LogMessageKeys.SUBSPACE_KEY, formerIndex.getSubspaceKey());
             if (formerIndex.getFormerName() != null) {
                 msg.addKeyAndValue(LogMessageKeys.INDEX_NAME, formerIndex.getFormerName());
@@ -2671,7 +2670,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.of("recounting all records",
-                                           subspaceProvider.logKey(), subspaceProvider));
+                                           subspaceProvider.logKey(), subspaceProvider.toString(context)));
         }
         final Map<Key.Evaluated, Long> counts = new HashMap<>();
         final RecordCursor<FDBStoredRecord<Message>> records = scanRecords(null, ScanProperties.FORWARD_SCAN);
@@ -2748,9 +2747,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         private FDBRecordContext context;
 
         @Nullable
-        private SubspaceProvider subspaceProvider;
-
-        @Nullable
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
 
         @Nonnull
@@ -2761,6 +2757,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         @Nonnull
         private FDBRecordStoreBase.PipelineSizer pipelineSizer = DEFAULT_PIPELINE_SIZER;
+
+        @Nullable
+        protected SubspaceProvider subspaceProvider = null;
 
         protected Builder() {
         }
@@ -2893,13 +2892,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return this;
         }
 
+        /**
+         * Sets the {@link KeySpacePath} location of the {@link FDBRecordStore}.
+         */
         @Override
         @Nonnull
         public Builder setKeySpacePath(@Nullable KeySpacePath keySpacePath) {
-            if (context == null) {
-                throw new RecordCoreException("The context should be set before setting the key space path.");
-            }
-            this.subspaceProvider = keySpacePath == null ? null : new SubspaceProviderByKeySpacePath(keySpacePath, context);
+            this.subspaceProvider = keySpacePath == null ? null : new SubspaceProviderByKeySpacePath(keySpacePath);
             return this;
         }
 
@@ -2967,9 +2966,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (context == null) {
                 throw new RecordCoreException("record context must be supplied");
             }
+
             if (subspaceProvider == null) {
                 throw new RecordCoreException("subspace provider must be supplied");
             }
+
             if (serializer == null) {
                 throw new RecordCoreException("serializer must be supplied");
             }

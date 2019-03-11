@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -134,6 +135,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final Index index;
     @Nonnull private final Collection<RecordType> recordTypes;
     @Nonnull private final TupleRange recordsRange;
+
     private int limit;  // Not final as may be adjusted when running.
     private final int maxRetries;
     private final int recordsPerSecond;
@@ -255,7 +257,7 @@ public class OnlineIndexer implements AutoCloseable {
                         if (!store.isIndexWriteOnly(index)) {
                             throw new RecordCoreStorageException("Attempted to build readable index",
                                     LogMessageKeys.INDEX_NAME, index.getName(),
-                                    recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider());
+                                    recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
                         }
                         return function.apply(store);
                     });
@@ -457,18 +459,23 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<Void> buildRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return recordStoreBuilder.getSubspaceProvider().getSubspaceAsync().thenCompose(subspace -> buildRange(subspace, start, end));
+        return buildRange(recordStoreBuilder.getSubspaceProvider(), start, end);
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildRange(@Nonnull Subspace subspace, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
-        byte[] startBytes = packOrNull(convertOrNull(start));
-        byte[] endBytes = packOrNull(convertOrNull(end));
-        Queue<Range> rangeDeque = new ArrayDeque<>();
-        return rangeSet.missingRanges(runner.getDatabase().database(), startBytes, endBytes)
-                .thenAccept(rangeDeque::addAll)
-                .thenCompose(vignore -> buildRanges(subspace, rangeSet, rangeDeque));
+    private CompletableFuture<Void> buildRange(@Nonnull SubspaceProvider subspaceProvider, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
+        return runner.runAsync(context ->
+                subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
+                    RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
+                    byte[] startBytes = packOrNull(convertOrNull(start));
+                    byte[] endBytes = packOrNull(convertOrNull(end));
+                    Queue<Range> rangeDeque = new ArrayDeque<>();
+                    ReadTransactionContext rtc = context.ensureActive();
+                    return rangeSet.missingRanges(rtc, startBytes, endBytes)
+                            .thenAccept(rangeDeque::addAll)
+                            .thenCompose(vignore -> buildRanges(subspace, rangeSet, rangeDeque));
+                })
+        );
     }
 
     @Nonnull
