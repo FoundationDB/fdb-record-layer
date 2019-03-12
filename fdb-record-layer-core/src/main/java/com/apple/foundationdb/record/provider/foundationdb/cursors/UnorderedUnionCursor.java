@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -71,7 +72,7 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
             MergeCursorState<T> nextState = null;
             boolean allDone = true;
             for (MergeCursorState<T> cursorState : cursorStates) {
-                if (!cursorState.getOnNextFuture().isDone()) {
+                if (!MoreAsyncUtil.isCompletedNormally(cursorState.getOnNextFuture())) {
                     allDone = false;
                     continue;
                 }

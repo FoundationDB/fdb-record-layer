@@ -62,8 +62,8 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-
 * All changes from version [2.5.44.14](#254414)
+* All changes from version [2.5.44.15](#254415)
 
 // end next release
 -->
@@ -84,6 +84,10 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 
 * **Bug fix** The `AsyncLoadingCache` could cache exceptional futures in rare scenarios [(Issue #395)](https://github.com/FoundationDB/fdb-record-layer/issues/395)
 * **Feature** A `MetaDataEvolutionValidator` now can be used to ensure that meta-data changes are compatible with the [schema evolution guidelines](SchemaEvolution.md) [(Issue #85)](https://github.com/FoundationDB/fdb-record-layer/issues/85)
+
+### 2.5.44.15
+
+* **Bug fix** The `UnorderedUnionCursor` should now propagate errors from its children instead of sometimes swallowing the exception [(Issue #437)](https://github.com/FoundationDB/fdb-record-layer/issues/437)
 
 ### 2.5.44.14
 

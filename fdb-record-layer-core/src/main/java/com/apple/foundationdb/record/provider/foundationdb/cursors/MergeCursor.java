@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -103,7 +104,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
         List<S> nonExhausted = new ArrayList<>(cursorStates.size());
         for (S cursorState : cursorStates) {
             if (!cursorState.isExhausted()) {
-                if (cursorState.getOnNextFuture().isDone()) {
+                if (MoreAsyncUtil.isCompletedNormally(cursorState.getOnNextFuture())) {
                     // Short-circuit and return immediately if we find a state that is already done.
                     return AsyncUtil.DONE;
                 } else {
