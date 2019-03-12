@@ -56,8 +56,10 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.apache.logging.log4j.ThreadContext;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -2060,9 +2062,16 @@ public class OnlineIndexerTest extends FDBTestBase {
     public void run() {
         Index index = new Index("newIndex", field("num_value_2"));
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+
+        try (FDBRecordContext context = openContext()) {
+            // OnlineIndexer.runAsync checks that the index is not readable
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            context.commit();
+        }
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setLimit(100).setMaxRetries(3).setRecordsPerSecond(10000)
+                .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
                 .setMaxAttempts(2)
                 .build()) {
 
@@ -2079,8 +2088,9 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("illegal state", e.getMessage());
                 assertNull(e.getCause());
                 assertEquals(1, attempts.get());
+                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
-            });
+            }).join();
 
             // Retriable error that is not in lessen work codes.
             attempts.set(0);
@@ -2092,11 +2102,12 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertThat(e, instanceOf(RecordCoreRetriableTransactionException.class));
                 assertEquals("Retriable", e.getMessage());
                 assertThat(e.getCause(), instanceOf(FDBException.class));
-                assertEquals("commit_unknown_result", e.getMessage());
+                assertEquals("commit_unknown_result", e.getCause().getMessage());
                 assertEquals(1021, ((FDBException)e.getCause()).getCode());
                 assertEquals(2, attempts.get());
+                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
-            });
+            }).join();
 
             // Non-retriable error that is in lessen work codes.
             attempts.set(0);
@@ -2109,11 +2120,12 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("Non-retriable", e.getMessage());
                 assertNotNull(e.getCause());
                 assertThat(e.getCause(), instanceOf(FDBException.class));
-                assertEquals("transaction_too_large", e.getMessage());
+                assertEquals("transaction_too_large", e.getCause().getMessage());
                 assertEquals(2101, ((FDBException)e.getCause()).getCode());
-                assertEquals(3, attempts.get());
+                assertEquals(4, attempts.get()); // lessenWorkCodes is maxRetries
+                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
-            });
+            }).join();
 
             // Retriable error that is in lessen work codes.
             attempts.set(0);
@@ -2126,11 +2138,12 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("Retriable and lessener", e.getMessage());
                 assertNotNull(e.getCause());
                 assertThat(e.getCause(), instanceOf(FDBException.class));
-                assertEquals("not_committed", e.getMessage());
+                assertEquals("not_committed", e.getCause().getMessage());
                 assertEquals(1020, ((FDBException)e.getCause()).getCode());
-                assertEquals(6, attempts.get());
+                assertEquals(8, attempts.get());
+                assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
-            });
+            }).join();
         }
     }
 
