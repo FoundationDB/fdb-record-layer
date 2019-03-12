@@ -86,9 +86,11 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isOneOf;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -2100,18 +2102,19 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
                 List<Tuple> boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
                         indexer.buildEndpoints().thenCompose(range ->
-                                recordStore.getPrimaryKeyBoundariesAsync(range.getLow(), range.getHigh())));
+                                recordStore.getPrimaryKeyBoundariesAsync(range.getLow(), range.getHigh()).asList()));
+
+                logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
 
                 assertTrue(boundaryPrimaryKeys.size() > 2,
                         "the test is meaningless if the records are not across boundaries");
-                assertEquals(Tuple.from(-25L * 39), boundaryPrimaryKeys.get(0));
-                assertEquals(Tuple.from(24L * 39), boundaryPrimaryKeys.get(boundaryPrimaryKeys.size() - 1));
+                assertThat( boundaryPrimaryKeys.get(0), greaterThanOrEqualTo(Tuple.from(-25L * 39)));
+                assertThat( boundaryPrimaryKeys.get(boundaryPrimaryKeys.size() - 1), lessThanOrEqualTo(Tuple.from(24L * 39)));
                 assertEquals(boundaryPrimaryKeys.stream().sorted().distinct().collect(Collectors.toList()), boundaryPrimaryKeys,
                         "the list should be sorted without duplication.");
                 for (Tuple boundaryPrimaryKey : boundaryPrimaryKeys) {
                     assertEquals(1, boundaryPrimaryKey.size(), "primary keys should be a single value");
                 }
-                logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
             }
             commit(context);
         }

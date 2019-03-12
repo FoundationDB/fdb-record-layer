@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.IteratorCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
@@ -2713,7 +2714,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * represent the exact boundary locations at any database version.
      * <p>
      * The boundaries are returned as a list which is sorted and does not contain any duplicates. The first element of
-     * the list is <code>low</code>, and the last element is the <code>high</code>.
+     * the list is greater than or equal to <code>low</code>, and the last element is less than or equal to
+     * <code>high</code>.
      * <p>
      * This implementation may not work when there are too many shard boundaries to complete in a single transaction.
      *
@@ -2723,41 +2725,37 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    public CompletableFuture<List<Tuple>> getPrimaryKeyBoundariesAsync(@Nonnull Tuple low, @Nonnull Tuple high) {
+    public RecordCursor<Tuple> getPrimaryKeyBoundariesAsync(@Nonnull Tuple low, @Nonnull Tuple high) {
         final Transaction transaction = ensureContextActive();
         byte[] rangeStart = recordsSubspace().pack(low);
         byte[] rangeEnd = recordsSubspace().pack(high);
         CloseableAsyncIterator<byte[]> cursor = LocalityUtil.getBoundaryKeys(transaction, rangeStart, rangeEnd);
-        final List<CompletableFuture<List<KeyValue>>> fdbBoundaryEntriesFutures = new ArrayList<>();
-        return AsyncUtil.whileTrue(() ->
-                cursor.onHasNext().thenApply(hasNext -> {
-                    if (hasNext) {
-                        byte[] result = cursor.next();
-                        fdbBoundaryEntriesFutures.add(transaction.snapshot().getRange(result, rangeEnd, 1).asList());
-                    }
-                    return hasNext;
-                }), context.getExecutor())
-                .thenCompose(vignore -> AsyncUtil.getAll(fdbBoundaryEntriesFutures))
-                .thenApply(fdbBoundaryEntries -> {
-                    final boolean hasSplitRecordSuffix = hasSplitRecordSuffix();
-                    final List<Tuple> boundaryPrimaryKeys = fdbBoundaryEntries.stream()
-                            .filter(list -> !list.isEmpty())
-                            .map(keyValues -> {
-                                // As the range was limited to only one key, it only needs to grab the first item from
-                                // the list.
-                                Tuple recordKey = recordsSubspace().unpack(keyValues.get(0).getKey());
-                                return hasSplitRecordSuffix ? recordKey.popBack() : recordKey;
-                            })
-                            .collect(Collectors.toList());
-
-                    boundaryPrimaryKeys.add(low);
-                    boundaryPrimaryKeys.add(high);
-
-                    // Sort and de-duplicate the list.
-                    return boundaryPrimaryKeys.stream()
-                            .sorted().distinct().collect(Collectors.toList());
+        final boolean hasSplitRecordSuffix = hasSplitRecordSuffix();
+        DistinctFilterCursorClosure closure = new DistinctFilterCursorClosure();
+        return new IteratorCursor<>(getExecutor(), cursor)
+                .flatMapPipelined(
+                        result -> new IteratorCursor<>(getExecutor(),
+                                transaction.snapshot().getRange(result, rangeEnd, 1).iterator()),
+                        DEFAULT_PIPELINE_SIZE)
+                .map(keyValue -> {
+                    Tuple recordKey = recordsSubspace().unpack(keyValue.getKey());
+                    return hasSplitRecordSuffix ? recordKey.popBack() : recordKey;
                 })
-                .whenComplete((v, e) -> cursor.close());
+                // The input stream is expected to be sorted so this filter can work to de-duplicate the data.
+                .filter(closure::pred);
+    }
+
+    private static class DistinctFilterCursorClosure {
+        private Tuple previousKey = null;
+
+        private boolean pred(Tuple key) {
+            if (key.equals(previousKey)) {
+                return false;
+            } else {
+                previousKey = key;
+                return true;
+            }
+        }
     }
 
     /**
