@@ -2706,19 +2706,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Boundaries are a list of key ranges maintained by each FDB server. This information can be useful for splitting a
-     * large task (e.g. rebuild index for a large record store) into small tasks (e.g.  rebuild index for records in
-     * certain primary key ranges) more evenly so that they can be executed in a parallel fashion efficiently. The
-     * returned boundaries are an estimate from FDB's locality API and may not represent the exact boundary locations
-     * at any database version.
-     *
-     * The boundaries are returned as a list, which is sorted and does not have duplication. The first element of the
-     * list is <code>low</code> and the last element is the <code>high</code>.
+     * Return a list of boundaries separating the key ranges maintained by each FDB server. This information can be
+     * useful for splitting a large task (e.g., rebuilding an index for a large record store) into smaller tasks (e.g.,
+     * rebuilding the index for records in certain primary key ranges) more evenly so that they can be executed in a
+     * parallel fashion efficiently. The returned boundaries are an estimate from FDB's locality API and may not
+     * represent the exact boundary locations at any database version.
+     * <p>
+     * The boundaries are returned as a list which is sorted and does not contain any duplicates. The first element of
+     * the list is <code>low</code>, and the last element is the <code>high</code>.
+     * <p>
+     * This implementation may not work when there are too many shard boundaries to complete in a single transaction.
      *
      * @param low low endpoint of primary key range (inclusive)
      * @param high high endpoint of primary key range (exclusive)
-     * @return the list of boundaries of primary keys
+     * @return the list of boundary primary keys
      */
+    @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<List<Tuple>> getPrimaryKeyBoundariesAsync(@Nonnull Tuple low, @Nonnull Tuple high) {
         final Transaction transaction = ensureContextActive();
@@ -2740,6 +2743,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     final List<Tuple> boundaryPrimaryKeys = fdbBoundaryEntries.stream()
                             .filter(list -> !list.isEmpty())
                             .map(keyValues -> {
+                                // As the range was limited to only one key, it only needs to grab the first item from
+                                // the list.
                                 Tuple recordKey = recordsSubspace().unpack(keyValues.get(0).getKey());
                                 return hasSplitRecordSuffix ? recordKey.popBack() : recordKey;
                             })

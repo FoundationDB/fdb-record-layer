@@ -2103,7 +2103,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                                 recordStore.getPrimaryKeyBoundariesAsync(range.getLow(), range.getHigh())));
 
                 assertTrue(boundaryPrimaryKeys.size() > 2,
-                        "the test is meaning less if the records are not across boundaries");
+                        "the test is meaningless if the records are not across boundaries");
                 assertEquals(Tuple.from(-25L * 39), boundaryPrimaryKeys.get(0));
                 assertEquals(Tuple.from(24L * 39), boundaryPrimaryKeys.get(boundaryPrimaryKeys.size() - 1));
                 assertEquals(boundaryPrimaryKeys.stream().sorted().distinct().collect(Collectors.toList()), boundaryPrimaryKeys,
