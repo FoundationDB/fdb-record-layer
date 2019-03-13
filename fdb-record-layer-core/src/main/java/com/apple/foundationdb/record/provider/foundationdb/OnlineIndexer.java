@@ -50,6 +50,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +69,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -77,8 +79,8 @@ import java.util.function.Function;
  * done in a fashion that will decrease as the number of failures for a given build attempt increases.
  *
  * <p>
- * As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link com.apple.foundationdb.async.RangeSet}
- * associated with the index being built. This {@link com.apple.foundationdb.async.RangeSet} is used to (a) coordinate work between
+ * As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link RangeSet}
+ * associated with the index being built. This {@link RangeSet} is used to (a) coordinate work between
  * different builders that might be running on different machines to ensure that the same work isn't
  * duplicated and to (b) make sure that non-idempotent indexes (like <code>COUNT</code> or <code>SUM_LONG</code>)
  * don't update themselves (or fail to update themselves) incorrectly.
@@ -139,24 +141,37 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final Index index;
     @Nonnull private final Collection<RecordType> recordTypes;
     @Nonnull private final TupleRange recordsRange;
-    private int limit;  // Not final as may be adjusted when running.
+    private final int maxLimit;
     private final int maxRetries;
     private final int recordsPerSecond;
     private final long progressLogIntervalMillis;
+    private final int increaseLimitAfter;
+    /**
+     * The current number of records to process in a single transaction, this may go up or down when using
+     * {@link #runAsync(Function)}, but never above {@link #maxRetries}.
+     */
+    private int limit;
+    /**
+     * The number of successful transactions in a row as called by {@link #runAsync(Function)}.
+     */
+    private int successCount;
     private long timeOfLastProgressLogMillis;
 
     protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                             @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                             @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
-                            int limit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis) {
+                            int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis,
+                            int increaseLimitAfter) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
         this.recordTypes = recordTypes;
-        this.limit = limit;
+        this.limit = maxLimit;
+        this.maxLimit = maxLimit;
         this.maxRetries = maxRetries;
         this.recordsPerSecond = recordsPerSecond;
         this.progressLogIntervalMillis = progressLogIntervalMillis;
+        this.increaseLimitAfter = increaseLimitAfter;
         this.recordsRange = computeRecordsRange();
         timeOfLastProgressLogMillis = System.currentTimeMillis();
     }
@@ -174,6 +189,14 @@ public class OnlineIndexer implements AutoCloseable {
             addLogInfo(LogMessageKeys.RANGE_START, start);
             addLogInfo(LogMessageKeys.RANGE_END, end);
         }
+    }
+
+    /**
+     * Get the current number of records to process in one transaction.
+     * @return the current number of records to process in one transaction
+     */
+    public int getLimit() {
+        return limit;
     }
 
     private TupleRange computeRecordsRange() {
@@ -255,6 +278,9 @@ public class OnlineIndexer implements AutoCloseable {
         CompletableFuture<R> ret = new CompletableFuture<>();
         AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
 
+        BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction = increaseLimitAfter > 0
+                                                                          ? this::runAsyncPostTransaction
+                                                                          : Pair::of;
         AsyncUtil.whileTrue(() ->
                 runner.runAsync(context -> {
                     // One difference here from your standard retry loop is that within this method, we set the
@@ -268,7 +294,7 @@ public class OnlineIndexer implements AutoCloseable {
                         }
                         return function.apply(store);
                     });
-                }).handle((value, e) -> {
+                }, handlePostTransaction).handle((value, e) -> {
                     if (e == null) {
                         ret.complete(value);
                         return AsyncUtil.READY_FALSE;
@@ -285,16 +311,7 @@ public class OnlineIndexer implements AutoCloseable {
                             return AsyncUtil.READY_FALSE;
                         } else {
                             if (lessenWorkCodes.contains(fdbE.getCode())) {
-                                limit = Math.max(1, (3 * limit) / 4);
-                                if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(KeyValueLogMessage.of("Lessening limit of online index build",
-                                                    "indexName", index.getName(),
-                                                    "indexVersion", index.getLastModifiedVersion(),
-                                                    "error", fdbE.getMessage(),
-                                                    "errorCode", fdbE.getCode(),
-                                                    "limit", limit),
-                                            fdbE);
-                                }
+                                decreaseLimit(fdbE);
                                 long delay = (long)(Math.random() * toWait.get());
                                 toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
                                 return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
@@ -312,6 +329,38 @@ public class OnlineIndexer implements AutoCloseable {
                 });
 
         return ret;
+    }
+
+    /**
+     * Run after a single transactional call within runAsync.
+     */
+    private <R> Pair<R, Throwable> runAsyncPostTransaction(R result, Throwable exception) {
+        if (exception == null) {
+            successCount++;
+            if (successCount >= increaseLimitAfter && limit < maxLimit) {
+                increaseLimit();
+            }
+        } else {
+            successCount = 0;
+        }
+        return Pair.of(result, exception);
+    }
+
+    private void decreaseLimit(FDBException fdbException) {
+        limit = Math.max(1, (3 * limit) / 4);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("Lessening limit of online index build",
+                    "indexName", index.getName(),
+                    "indexVersion", index.getLastModifiedVersion(),
+                    "error", fdbException.getMessage(),
+                    "errorCode", fdbException.getCode(),
+                    "limit", limit),
+                    fdbException);
+        }
+    }
+
+    private void increaseLimit() {
+        limit = Math.min(maxLimit, Math.max(limit + 1, (4 * limit) / 3));
     }
 
     // Builds the index for all of the keys within a given range. This does not update the range set
@@ -858,6 +907,7 @@ public class OnlineIndexer implements AutoCloseable {
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
         private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
+        private int increaseLimitAfter = -1;
 
         protected Builder() {
         }
@@ -1010,6 +1060,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get the maximum number of times to retry a single range rebuild.
+         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and will also retry for other error
+         * codes, such as {@code transaction_too_lange}.
          * @return the maximum number of times to retry a single range rebuild
          */
         public int getMaxRetries() {
@@ -1018,6 +1070,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the maximum number of times to retry a single range rebuild.
+         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and will also retry for other error
+         * codes, such as {@code transaction_too_lange}.
          *
          * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
          * @param maxRetries the maximum number of times to retry a single range rebuild
@@ -1101,6 +1155,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get the maximum number of transaction retry attempts.
+         * This is the number of times that it will retry a given transaction that throws
+         * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
          * @return the maximum number of attempts
          * @see FDBDatabaseRunner#getMaxAttempts
          */
@@ -1113,6 +1169,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the maximum number of transaction retry attempts.
+         * This is the number of times that it will retry a given transaction that throws
+         * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
          * @param maxAttempts the maximum number of attempts
          * @return this builder
          * @see FDBDatabaseRunner#setMaxAttempts
@@ -1123,6 +1181,31 @@ public class OnlineIndexer implements AutoCloseable {
             }
             runner.setMaxAttempts(maxAttempts);
             return this;
+        }
+
+        /**
+         * Set the number of successful range builds before re-increasing the number of records to process in a single
+         * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
+         * If this is {@code -1}, it will not reincrease after successes.
+         * @param increaseLimitAfter the number of successful range builds before increasing the number of records
+         * processed in a single transaction
+         * @return this builder
+         */
+        public Builder setIncreaseLimitAfter(int increaseLimitAfter) {
+            this.increaseLimitAfter = increaseLimitAfter;
+            return this;
+        }
+
+        /**
+         * Get the number of successful range builds before re-increasing the number of records to process in a single
+         * transaction.
+         * If this is {@code -1}, it will not reincrease after successes.
+         * @return the number of successful range builds before increasing the number of records processed in a single
+         * transaction
+         * @see #limit
+         */
+        public int getIncreaseLimitAfter() {
+            return increaseLimitAfter;
         }
 
         /**
@@ -1298,7 +1381,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public OnlineIndexer build() {
             validate();
-            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis);
+            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
         }
 
         protected void validate() {
@@ -1338,7 +1421,6 @@ public class OnlineIndexer implements AutoCloseable {
                 throw new RecordCoreException("Non-positive value " + value + " given for " + desc);
             }
         }
-
     }
 
     /**

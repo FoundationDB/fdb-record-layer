@@ -27,6 +27,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -358,7 +360,8 @@ public class FDBDatabaseRunner implements AutoCloseable {
         }
 
         @SuppressWarnings("squid:S1181")
-        public CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
+        public CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             @Nonnull final BiFunction<T, Throwable, Pair<T, Throwable>> handlePostTransaction) {
             CompletableFuture<T> future = new CompletableFuture<>();
             addFutureToCompleteExceptionally(future);
             AsyncUtil.whileTrue(() -> {
@@ -366,7 +369,10 @@ public class FDBDatabaseRunner implements AutoCloseable {
                     context = openContext();
                     return retriable.apply(context).thenCompose(val ->
                         context.commitAsync().thenApply( vignore -> val)
-                    ).handle(this::handle).thenCompose(Function.identity());
+                    ).handle((result, ex) -> {
+                        Pair<T, Throwable> newResult = handlePostTransaction.apply(result, ex);
+                        return handle(newResult.getLeft(), newResult.getRight());
+                    }).thenCompose(Function.identity());
                 } catch (Exception e) {
                     return handle(null, e);
                 }
@@ -432,12 +438,30 @@ public class FDBDatabaseRunner implements AutoCloseable {
      *
      * @param retriable the database operation to run transactionally
      * @param <T> return type of function to run
-     * @return future that will contain the result of function after successful run and commit
+     * @return future that will contain the result of {@code retriable} after successful run and commit
      * @see #run(Function)
      */
     @Nonnull
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
-        return new RunRetriable<T>().runAsync(retriable);
+        return runAsync(retriable, Pair::of);
+    }
+
+    /**
+     * Runs a transactional function asynchronously with retry logic.
+     * This is also a non-blocking call.
+     *
+     * @param retriable the database operation to run transactionally
+     * @param handlePostTransaction after the transaction is committed, or fails to commit, this function is called with the
+     * result or exception respectively. This handler should return a new pair with either the result to return from
+     * {@code runAsync} or an exception to be checked whether {@code retriable} should be retried.
+     * @param <T> return type of function to run
+     * @return future that will contain the result of {@code retriable} after successful run and commit
+     * @see #run(Function)
+     */
+    @Nonnull
+    public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             @Nonnull final BiFunction<T, Throwable, Pair<T, Throwable>> handlePostTransaction) {
+        return new RunRetriable<T>().runAsync(retriable, handlePostTransaction);
     }
 
     @Nullable
