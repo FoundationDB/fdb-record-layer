@@ -70,9 +70,9 @@ public class PlannerRuleSet {
             new LogicalToPhysicalIndexScanRule()
     );
 
+    public static final PlannerRuleSet NORMALIZATION = new PlannerRuleSet(NORMALIZATION_RULES);
     public static final PlannerRuleSet REWRITE = new PlannerRuleSet(REWRITE_RULES);
     public static final PlannerRuleSet IMPLEMENTATION = new PlannerRuleSet(IMPLEMENTATION_RULES);
-    public static final PlannerRuleSet NORMALIZATION = new PlannerRuleSet(NORMALIZATION_RULES);
 
     @Nonnull
     private final Multimap<Class<? extends PlannerExpression>, PlannerRule<? extends PlannerExpression>> ruleIndex =

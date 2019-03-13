@@ -50,7 +50,7 @@ import java.util.Iterator;
  * <p>
  * Unlike a Cascades-style Memo data structure, the {@code RelationalGroupRefHolder} does not attempt to memoize shared
  * results across different parts of a planner expression tree. As a result, care should be taken to minimize the number
- * of members in a a collection reference. For an example of this, see the implementation of the
+ * of members in a collection reference. For an example of this, see the implementation of the
  * {@link com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndComponentRule}.
  * </p>
  *

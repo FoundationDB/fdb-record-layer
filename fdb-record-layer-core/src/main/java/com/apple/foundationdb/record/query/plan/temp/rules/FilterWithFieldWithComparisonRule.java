@@ -76,7 +76,7 @@ public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilter
             comparisons = new KeyExpressionComparisons(commonPrimaryKey);
             matchedComparisons = comparisons.matchWith(singleField);
             if (matchedComparisons.isPresent()) {
-                // TODO improve
+                // TODO need to properly support partial matching to the primary key.
                 call.yield(SingleExpressionRef.of(new RecordQueryScanPlan(matchedComparisons.get().toScanComparisons(), false)));
                 return ChangesMade.MADE_CHANGES;
             }

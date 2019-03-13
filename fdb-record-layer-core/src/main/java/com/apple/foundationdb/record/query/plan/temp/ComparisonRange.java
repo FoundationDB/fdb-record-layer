@@ -34,7 +34,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * A set of compatible comparisons on a single field of a{@link com.apple.foundationdb.record.metadata.expressions.KeyExpression}
+ * A set of compatible comparisons on a single field of a {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression}
  * representing a contiguous range of values for that field.
  *
  * <p>
@@ -52,12 +52,11 @@ import java.util.stream.Collectors;
  *         A set of inequality comparisons that define a single contiguous range of values. For example, the combination
  *         of the comparisons {@code > 8} and {@code < 30}. The comparison range may include redundant
  *         comparisons by contract, but it may or may not simplify the range into a more compact form. For example,
- *         the comparison range can include the comparisons {@code > 8}, {@code < 30}, and {@code EQUALS 10}, but it
- *         may optionally simplify this to {@code > 8} and {@code < 30}. Note that this behavior is not fully
- *         implemented right now; the current implementation might accept a set of comparisons that do not define a
- *         contiguous range such as {@code < 8} and {@code > 30}. However, this validation logic will be added here in
- *         the future.
- *         TODO Add range validation to ensure that a {@code ComparisonRange} is contiguous.
+ *         the comparison range can include the comparisons {@code > 8}, {@code < 30}, and {@code < 20}, but it
+ *         may optionally simplify this to {@code > 8} and {@code < 20}. Note that this behavior is not fully
+ *         implemented right now; similarly, this implementation does not currently convert a range such as {@code < 8}
+ *         and {@code > 30} to an empty range. However, this normalization logic will be added here in the future.
+ *         <!-- TODO Add range validation to ensure that a {@code ComparisonRange} is contiguous. -->
  *     </li>
  * </ul>
  *
@@ -121,8 +120,10 @@ public class ComparisonRange {
 
     @Nonnull
     public Optional<ComparisonRange> tryToAdd(@Nonnull Comparisons.Comparison comparison) {
-        // TODO This isn't actually right becuase of how ranges work...
-        // It appears to be compatible with the AndWithThenPlanner
+        // TODO This isn't actually right becuase of how ranges work. Specifically, we should check that an
+        // inequality comparison is compatible with the existing set of inequality comparisons (i.e., that they define
+        // a contiguous range) before adding it.
+        // However, this appears to be compatible with the AndWithThenPlanner.
         if (isEmpty()) {
             return from(comparison);
         } else if (isEquality() && getEqualityComparison().equals(comparison)) {
@@ -134,6 +135,7 @@ public class ComparisonRange {
                     .add(comparison)
                     .build()));
         }
+        // TODO there are some subtle cases to handle. For example, != 3 and >= 3 is the same as > 3.
         return Optional.empty();
     }
 

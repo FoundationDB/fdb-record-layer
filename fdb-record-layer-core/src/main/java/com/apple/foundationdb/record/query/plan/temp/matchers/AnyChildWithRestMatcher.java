@@ -68,6 +68,8 @@ public class AnyChildWithRestMatcher<T extends PlannerExpression> implements Exp
             otherChildren.addAll(children.subList(i + 1, children.size()));
 
             Stream<PlannerBindings> childBindings = child.bindTo(selectedChildMatcher);
+            // The otherChildrenMatcher is an AllChildrenMatcher wrapping a ReferenceMatcher, so it is guaranteed to
+            // produce a single set of PlannerBindings.
             Optional<PlannerBindings> otherBindings = otherChildrenMatcher.matches(otherChildren.iterator()).findFirst();
             if (!otherBindings.isPresent()) {
                 throw new RecordCoreException("invariant violated: couldn't match reference matcher to one of the other children");

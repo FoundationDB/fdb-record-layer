@@ -38,6 +38,8 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FieldWithComparisonCountProperty implements PlannerProperty<Integer> {
+    private static final FieldWithComparisonCountProperty INSTANCE = new FieldWithComparisonCountProperty();
+
     @Override
     public boolean shouldVisit(@Nonnull PlannerExpression expression) {
         return expression instanceof RelationalPlannerExpression ||
@@ -74,6 +76,6 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
     }
 
     public static int evaluate(ExpressionRef<? extends PlannerExpression> ref) {
-        return ref.acceptPropertyVisitor(new FieldWithComparisonCountProperty());
+        return ref.acceptPropertyVisitor(INSTANCE);
     }
 }

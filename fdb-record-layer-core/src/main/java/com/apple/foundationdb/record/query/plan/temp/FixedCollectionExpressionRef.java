@@ -87,7 +87,6 @@ public class FixedCollectionExpressionRef<T extends PlannerExpression> implement
 
     @Nonnull
     @Override
-    @SuppressWarnings("unchecked") // to avoid generic array creation
     public Stream<PlannerBindings> bindWithin(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
         Stream.Builder<Stream<PlannerBindings>> memberStreams = Stream.builder();
         for (SingleExpressionRef<T> expressionRef : expressionRefs) {

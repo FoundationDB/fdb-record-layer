@@ -52,22 +52,22 @@ import java.util.Optional;
  * parts of a {@link KeyExpression} correspond to each comparison. It maintains a (private) tree that mirrors the
  * underlying key expression and maps each part of the key expression to a {@link ComparisonRange} that represents
  * a contiguous range of values for that part of the key expression. The {@link #matchWith(ComponentWithComparison)}
- * method  can then take a {@link ComponentWithComparison} and try to add it to the existing comparisons.
+ * method can then take a {@link ComponentWithComparison} and try to add it to the existing comparisons.
  * </p>
  *
  * <p>
  * The {@code KeyExpressionComparisons} encapsulates the core logic of marking parts of a complex key expression as
- * satisfied by various types of {@code Comparisons.Comparison} and attempting to match more comparisons to the
+ * satisfied by various types of {@code Comparisons.Comparison}s and attempting to match more comparisons to the
  * remaining parts of the expression. It is also designed to support queries about compatible sort orders, given the
  * set of existing comparisons.
- * TODO Add ability to check sort orders (after accounting for equality comparisons) to a KeyExpressionComparisons.
+ * <!-- TODO Add ability to check sort orders (after accounting for equality comparisons) to a KeyExpressionComparisons. -->
  * </p>
  *
  * <p>
  * While this sounds a lot like a whole query planner, the scope of a {@code KeyExpressionComparisons} is intentionally
- * very limited. In particular, in order supports matching with a {@link ComponentWithComparison}, rather than a more
+ * very limited. In particular, it supports matching with a {@link ComponentWithComparison} rather than a more
  * general {@link com.apple.foundationdb.record.query.expressions.QueryComponent}. As a result, the logic for handling
- * Boolean operations, nested messages, and other complexities does not belong in the {@code KeyExpressionComparisons}.
+ * Boolean operations, nested messages, and other complexities does not belong in {@code KeyExpressionComparisons}.
  * This is especially important becuase it relies on {@code instanceof} checking to properly match query components with
  * compatible key expressions; this code is vastly simpler because it only needs to consider
  * {@link ComponentWithComparison}s.
@@ -134,6 +134,7 @@ public class KeyExpressionComparisons {
             this.comparison = comparison;
         }
 
+        @Nonnull
         public MatchedComparisonType getMatchedComparisonType() {
             if (keyExpression instanceof KeyExpressionWithoutChildren) {
                 return MatchedComparisonType.from(comparison);
@@ -157,7 +158,7 @@ public class KeyExpressionComparisons {
                     return MatchedComparisonType.MATCHED;
                 }
             }
-            // TODO
+            // TODO support other possible key expressions here
             return MatchedComparisonType.NOT_MATCHED;
         }
 
@@ -171,6 +172,7 @@ public class KeyExpressionComparisons {
             return new KeyExpressionWithComparison(root, keyExpression, children, comparison);
         }
 
+        @Nonnull
         private KeyExpressionWithComparison withChild(@Nonnull KeyExpressionWithComparison newChild) {
             return withChildren(Collections.singletonList(newChild));
         }
@@ -180,6 +182,7 @@ public class KeyExpressionComparisons {
             return new KeyExpressionWithComparison(root, keyExpression, newChildren, comparison);
         }
 
+        @Nonnull
         public Optional<KeyExpressionWithComparison> matchWith(@Nonnull ComponentWithComparison component) {
             if (keyExpression instanceof ThenKeyExpression) {
                 return matchWithThen(component);
@@ -219,7 +222,7 @@ public class KeyExpressionComparisons {
                     // One of the following cases applies:
                     // (1) There's no recorded match for this child. We have to match the current component to this
                     //     child, otherwise we can't match it at all (at least until other matches happen first).
-                    // (2) We already have an inequality match for this child We can try to match the current child, but
+                    // (2) We already have an inequality match for this child. We can try to match the current child, but
                     //     we can't add comparisons to a later child, so we have to stop if this match fails.
                     shouldContinue = false;
                 }
