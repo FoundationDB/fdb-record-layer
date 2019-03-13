@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.EmptyCursor;
 import com.apple.foundationdb.record.cursors.FilterCursor;
 import com.apple.foundationdb.record.cursors.FlatMapPipelinedCursor;
@@ -730,6 +732,9 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     static <T> RecordCursor<T> fromIterator(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
         if (iterator instanceof RecordCursor) {
             return (RecordCursor<T>)iterator;
+        }
+        if (iterator instanceof AsyncIterator) {
+            return new AsyncIteratorCursor<>(executor, (AsyncIterator<T>)iterator);
         }
         return new IteratorCursor<>(executor, iterator);
     }

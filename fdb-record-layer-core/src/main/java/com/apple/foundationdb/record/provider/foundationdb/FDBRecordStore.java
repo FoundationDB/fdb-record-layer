@@ -2734,7 +2734,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         CloseableAsyncIterator<byte[]> cursor = LocalityUtil.getBoundaryKeys(transaction, rangeStart, rangeEnd);
         final boolean hasSplitRecordSuffix = hasSplitRecordSuffix();
         DistinctFilterCursorClosure closure = new DistinctFilterCursorClosure();
-        return new IteratorCursor<>(getExecutor(), cursor)
+        return RecordCursor.fromIterator(getExecutor(), cursor)
                 .flatMapPipelined(
                         result -> new IteratorCursor<>(getExecutor(),
                                 transaction.snapshot().getRange(result, rangeEnd, 1).iterator()),

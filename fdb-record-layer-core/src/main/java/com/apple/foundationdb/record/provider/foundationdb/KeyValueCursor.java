@@ -27,17 +27,16 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.subspace.Subspace;
@@ -46,109 +45,47 @@ import com.apple.foundationdb.tuple.Tuple;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 /**
  * The basic cursor for scanning ranges of the FDB database.
  */
 @API(API.Status.MAINTAINED)
-public class KeyValueCursor implements BaseCursor<KeyValue> {
+public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements BaseCursor<KeyValue> {
     @Nullable
     private final FDBRecordContext context;
     private final int prefixLength;
     @Nonnull
-    private final AsyncIterator<KeyValue> iter;
-    @Nonnull
     private final CursorLimitManager limitManager;
-    private int limitRemaining;
+    private int valuesLimit;
     // the pointer may be mutated, but the actual array must never be mutated or continuations will break
     @Nullable
     private byte[] lastKey;
-    @Nullable
-    private CompletableFuture<Boolean> hasNextFuture = null;
-    private RecordCursorResult<KeyValue> nextResult;
 
-    private KeyValueCursor(@Nonnull final FDBRecordContext recordContext,
-                           @Nonnull Subspace subspace,
-                           @Nonnull byte[] lowBytes,
-                           @Nonnull byte[] highBytes,
-                           @Nonnull EndpointType lowEndpoint,
-                           @Nonnull EndpointType highEndpoint,
-                           @Nullable byte[] continuation,
-                           @Nonnull ScanProperties scanProperties) {
-        this.context = recordContext;
+    private KeyValueCursor(@Nonnull final FDBRecordContext context,
+                           @Nonnull final AsyncIterator<KeyValue> iterator,
+                           int prefixLength,
+                           @Nonnull final CursorLimitManager limitManager,
+                           int valuesLimit) {
+        super(context.getExecutor(), iterator);
 
-        // Handle the continuation and then turn the endpoints into one byte array on the
-        // left (inclusive) and another on the right (exclusive).
-        int length = subspace.pack().length;
-        while ((length < lowBytes.length) &&
-               (length < highBytes.length) &&
-               (lowBytes[length] == highBytes[length])) {
-            length++;
-        }
-        this.prefixLength = length;
+        this.context = context;
+        this.prefixLength = prefixLength;
+        this.limitManager = limitManager;
+        this.valuesLimit = valuesLimit;
 
-        final boolean reverse = scanProperties.isReverse();
-        if (continuation != null) {
-            final byte[] continuationBytes = new byte[length + continuation.length];
-            System.arraycopy(lowBytes, 0, continuationBytes, 0, length);
-            System.arraycopy(continuation, 0, continuationBytes, length, continuation.length);
-            if (reverse) {
-                highBytes = continuationBytes;
-                highEndpoint = EndpointType.CONTINUATION;
-            } else {
-                lowBytes = continuationBytes;
-                lowEndpoint = EndpointType.CONTINUATION;
-            }
-        }
-        Range byteRange = TupleRange.toRange(lowBytes, highBytes, lowEndpoint, highEndpoint);
-        lowBytes = byteRange.begin;
-        highBytes = byteRange.end;
-
-        // Begin the scan with the new arrays
-        KeySelector begin = KeySelector.firstGreaterOrEqual(lowBytes);
-        KeySelector end = KeySelector.firstGreaterOrEqual(highBytes);
-        if (scanProperties.getExecuteProperties().getSkip() > 0) {
-            if (reverse) {
-                end = end.add(- scanProperties.getExecuteProperties().getSkip());
-            } else {
-                begin = begin.add(scanProperties.getExecuteProperties().getSkip());
-            }
-        }
-
-        this.limitManager = new CursorLimitManager(recordContext, scanProperties);
-        final int limit = scanProperties.getExecuteProperties().getReturnedRowLimit();
-        this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
-
-        final StreamingMode streamingMode;
-        if (scanProperties.getCursorStreamingMode() == CursorStreamingMode.ITERATOR) {
-            streamingMode = StreamingMode.ITERATOR;
-        } else if (limit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
-            streamingMode = StreamingMode.WANT_ALL;
-        } else {
-            streamingMode = StreamingMode.EXACT;
-        }
-
-        final long startTime = System.nanoTime();
-        this.iter = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot())
-                .getRange(begin, end, limit, reverse, streamingMode)
-                .iterator();
-        if (context.getTimer() != null) {
-            context.getTimer().instrument(FDBStoreTimer.DetailEvents.GET_SCAN_RANGE_RAW_FIRST_CHUNK, iter.onHasNext(),
-                    context.getExecutor(), startTime);
-        }
+        context.instrument(FDBStoreTimer.DetailEvents.GET_SCAN_RANGE_RAW_FIRST_CHUNK, iterator.onHasNext());
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<KeyValue>> onNext() {
         if (limitManager.tryRecordScan()) {
-            return iter.onHasNext().thenApply(hasNext -> {
+            return iterator.onHasNext().thenApply(hasNext -> {
+                mayGetContinuation = !hasNext;
                 if (hasNext) {
-                    KeyValue kv = iter.next();
+                    KeyValue kv = iterator.next();
                     if (context != null) {
                         context.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
                         context.increment(FDBStoreTimer.Counts.LOAD_KEY_VALUE);
@@ -157,9 +94,9 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
                     // Note that this mutates the pointer and NOT the array.
                     // If the value of lastKey is mutated, the Continuation class will break.
                     lastKey = kv.getKey();
-                    limitRemaining--;
+                    valuesSeen++;
                     nextResult = RecordCursorResult.withNextValue(kv, continuationHelper());
-                } else if (limitRemaining <= 0) {
+                } else if (valuesSeen >= valuesLimit) {
                     // Source iterator hit limit that we passed down.
                     nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), NoNextReason.RETURN_LIMIT_REACHED);
                 } else {
@@ -181,58 +118,6 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     @Nonnull
     private RecordCursorContinuation continuationHelper() {
         return new Continuation(lastKey, prefixLength);
-    }
-
-    @Override
-    public boolean hasNext() {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onHasNext());
-    }
-
-    @Nonnull
-    @Override
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nonnull
-    @Override
-    public KeyValue next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    public byte[] getContinuation() {
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Override
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
-    }
-
-    @Override
-    public void close() {
-        MoreAsyncUtil.closeIterator(iter);
-    }
-
-    @Nonnull
-    @Override
-    public Executor getExecutor() {
-        return context.getExecutor();
-    }
-
-    @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
-        visitor.visitEnter(this);
-        return visitor.visitLeave(this);
     }
 
     private static class Continuation implements RecordCursorContinuation {
@@ -309,8 +194,61 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
                 highEndpoint = EndpointType.TREE_END;
             }
 
-            return new KeyValueCursor(context, subspace, lowBytes, highBytes, lowEndpoint, highEndpoint,
-                    continuation, scanProperties);
+            // Handle the continuation and then turn the endpoints into one byte array on the
+            // left (inclusive) and another on the right (exclusive).
+            int prefixLength = subspace.pack().length;
+            while ((prefixLength < lowBytes.length) &&
+                   (prefixLength < highBytes.length) &&
+                   (lowBytes[prefixLength] == highBytes[prefixLength])) {
+                prefixLength++;
+            }
+
+            final boolean reverse = scanProperties.isReverse();
+            if (continuation != null) {
+                final byte[] continuationBytes = new byte[prefixLength + continuation.length];
+                System.arraycopy(lowBytes, 0, continuationBytes, 0, prefixLength);
+                System.arraycopy(continuation, 0, continuationBytes, prefixLength, continuation.length);
+                if (reverse) {
+                    highBytes = continuationBytes;
+                    highEndpoint = EndpointType.CONTINUATION;
+                } else {
+                    lowBytes = continuationBytes;
+                    lowEndpoint = EndpointType.CONTINUATION;
+                }
+            }
+            final Range byteRange = TupleRange.toRange(lowBytes, highBytes, lowEndpoint, highEndpoint);
+            lowBytes = byteRange.begin;
+            highBytes = byteRange.end;
+
+            // Begin the scan with the new arrays
+            KeySelector begin = KeySelector.firstGreaterOrEqual(lowBytes);
+            KeySelector end = KeySelector.firstGreaterOrEqual(highBytes);
+            if (scanProperties.getExecuteProperties().getSkip() > 0) {
+                if (reverse) {
+                    end = end.add(- scanProperties.getExecuteProperties().getSkip());
+                } else {
+                    begin = begin.add(scanProperties.getExecuteProperties().getSkip());
+                }
+            }
+
+            final int limit = scanProperties.getExecuteProperties().getReturnedRowLimit();
+            final StreamingMode streamingMode;
+            if (scanProperties.getCursorStreamingMode() == CursorStreamingMode.ITERATOR) {
+                streamingMode = StreamingMode.ITERATOR;
+            } else if (limit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
+                streamingMode = StreamingMode.WANT_ALL;
+            } else {
+                streamingMode = StreamingMode.EXACT;
+            }
+
+            final AsyncIterator<KeyValue> iterator = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot())
+                    .getRange(begin, end, limit, reverse, streamingMode)
+                    .iterator();
+
+            final CursorLimitManager limitManager = new CursorLimitManager(context, scanProperties);
+            final int valuesLimit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
+
+            return new KeyValueCursor(context, iterator, prefixLength, limitManager, valuesLimit);
         }
 
         public Builder setContext(FDBRecordContext context) {
