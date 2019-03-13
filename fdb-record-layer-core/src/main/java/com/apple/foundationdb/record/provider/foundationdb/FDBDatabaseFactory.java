@@ -50,6 +50,7 @@ public class FDBDatabaseFactory {
      * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver} retrieval requests.
      */
     public static final int DEFAULT_DIRECTORY_CACHE_SIZE = 5000;
+    private static final int API_VERSION = 600;
 
     @Nonnull
     private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactory();
@@ -99,7 +100,7 @@ public class FDBDatabaseFactory {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.of("Starting FDB"));
             }
-            fdb = FDB.selectAPIVersion(520);
+            fdb = FDB.selectAPIVersion(API_VERSION);
             fdb.setUnclosedWarning(unclosedWarning);
             NetworkOptions options = fdb.options();
             if (traceDirectory != null) {

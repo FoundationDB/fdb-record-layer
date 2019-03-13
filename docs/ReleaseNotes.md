@@ -44,6 +44,8 @@ The `IndexMaintainer` class now has a new public method `validateEntries`. Subcl
 
 The `SubspaceProvider` interface is changed to no longer require an `FDBRecordContext` at construction. Instead, methods that resolve subspaces are directly provided with an `FDBRecordContext`. This provides implementations with the flexibility to resolve logical subspace representations against different FoundationDB backends.
 
+This version of the Record Layer requires a FoundationDB server version of at least version 6.0. Attempting to connect to older versions may result in the client hanging when attempting to connect to the database.
+
 ### Newly deprecated
 
 Methods for retrieving a record from a record store based on an index entry generally took both an index and an index entry. As index entries now store a reference to their associatedindex, these methods have been deprecated in favor of methods that only take an index entry. The earlier methods may be removed in a future release. The same is true for a constructor on `FDBIndexedRecord` which no longer needs to take both an index and an index entry.
@@ -76,6 +78,7 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 * **Breaking change** The API stability annotations have been moved into `com.apple.foundationdb.annotation` [(Issue #406)](https://github.com/FoundationDB/fdb-record-layer/issues/406)
 * **Breaking change** `SubspaceProvider` receives an `FDBRecordContext` when a subspace is resolved instead of when constructed.[(Issue #338)](https://github.com/FoundationDB/fdb-record-layer/issues/338)
 * **Breaking change** The `MetaDataCache` interface is now `EXPERIMENTAL` [(Issue #447)](https://github.com/FoundationDB/fdb-record-layer/issues/447)
+* **Breaking change** The Record Layer now requires a minimum FoundationDB version of 6.0 [(Issue #313)](https://github.com/FoundationDB/fdb-record-layer/issues/313)
 
 // end next release
 -->
