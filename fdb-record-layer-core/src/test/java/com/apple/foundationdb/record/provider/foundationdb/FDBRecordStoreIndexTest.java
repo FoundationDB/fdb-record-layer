@@ -2102,7 +2102,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
                 List<Tuple> boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
                         indexer.buildEndpoints().thenCompose(range ->
-                                recordStore.getPrimaryKeyBoundariesAsync(range.getLow(), range.getHigh()).asList()));
+                                recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList()));
 
                 logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
 

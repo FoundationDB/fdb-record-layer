@@ -2707,17 +2707,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Return a list of boundaries separating the key ranges maintained by each FDB server. This information can be
+     * Return a cursor of boundaries separating the key ranges maintained by each FDB server. This information can be
      * useful for splitting a large task (e.g., rebuilding an index for a large record store) into smaller tasks (e.g.,
      * rebuilding the index for records in certain primary key ranges) more evenly so that they can be executed in a
      * parallel fashion efficiently. The returned boundaries are an estimate from FDB's locality API and may not
      * represent the exact boundary locations at any database version.
      * <p>
-     * The boundaries are returned as a list which is sorted and does not contain any duplicates. The first element of
+     * The boundaries are returned as a cursor which is sorted and does not contain any duplicates. The first element of
      * the list is greater than or equal to <code>low</code>, and the last element is less than or equal to
      * <code>high</code>.
      * <p>
      * This implementation may not work when there are too many shard boundaries to complete in a single transaction.
+     * <p>
+     * Note: the returned cursor is blocking and must not be used in an asynchronous context
      *
      * @param low low endpoint of primary key range (inclusive)
      * @param high high endpoint of primary key range (exclusive)
@@ -2725,7 +2727,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    public RecordCursor<Tuple> getPrimaryKeyBoundariesAsync(@Nonnull Tuple low, @Nonnull Tuple high) {
+    public RecordCursor<Tuple> getPrimaryKeyBoundaries(@Nonnull Tuple low, @Nonnull Tuple high) {
         final Transaction transaction = ensureContextActive();
         byte[] rangeStart = recordsSubspace().pack(low);
         byte[] rangeEnd = recordsSubspace().pack(high);
