@@ -42,7 +42,6 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Use ContextRestoringExecutor for FDBDatabaseRunner [(Issue #436)](https://github.com/FoundationDB/fdb-record-layer/issues/436)
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -53,7 +52,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add a method to get primary key boundaries in `FDBRecordStore` [(Issue #439)](https://github.com/FoundationDB/fdb-record-layer/issues/439)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,11 +62,16 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* All changes from version [2.5.44.14](#254414)
-* All changes from version [2.5.44.15](#254415)
 
 // end next release
 -->
+
+### 2.5.48.0
+
+* **Bug fix** Use ContextRestoringExecutor for FDBDatabaseRunner [(Issue #436)](https://github.com/FoundationDB/fdb-record-layer/issues/436)
+* **Feature** Add a method to get primary key boundaries in `FDBRecordStore` [(Issue #439)](https://github.com/FoundationDB/fdb-record-layer/issues/439)
+* All changes from version [2.5.44.14](#254414)
+* All changes from version [2.5.44.15](#254415)
 
 ### 2.5.47.0
 
