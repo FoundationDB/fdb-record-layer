@@ -278,7 +278,7 @@ public class Main {
         // preference_tag field and keep track of the number of customer
         // records with each value.
         rmdBuilder.addIndex("Customer", new Index("preference_tag_count",
-                field("customer_id").groupBy(field("preference_tag", FanType.FanOut)),
+                new GroupingKeyExpression(field("preference_tag", FanType.FanOut), 0),
                 IndexTypes.COUNT));
 
         // Add a nested secondary index for order such that each value for
