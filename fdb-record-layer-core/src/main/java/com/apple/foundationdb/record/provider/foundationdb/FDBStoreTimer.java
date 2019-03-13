@@ -276,7 +276,10 @@ public class FDBStoreTimer extends StoreTimer {
         /** Wait for a backoff delay on retryable error in {@link FDBDatabase#run}. */
         WAIT_RETRY_DELAY("wait for retry delay"),
         /** Wait for statistics to be collected by a {@link SizeStatisticsCollector}. */
-        WAIT_COLLECT_STATISTICS("wait for statistics to be collected of a record store or index");
+        WAIT_COLLECT_STATISTICS("wait for statistics to be collected of a record store or index"),
+        /** Wait for getting boundaries. */
+        WAIT_GET_BOUNDARY("wait for boundary result from locality api"),
+        ;
 
         private final String title;
         Waits(String title) {

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ByteScanLimiter;
@@ -55,6 +57,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.IteratorCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
@@ -1096,6 +1099,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component) {
         preloadCache.invalidateAll();
         return new RecordsWhereDeleter(component).run();
+    }
+
+    /**
+     * Returns whether or not record keys contain a trailing suffix indicating whether or not the record has been (or
+     * could have been) split across multiple records.
+     * @return <code>true</code> if the keys have split suffixes, otherwise <code>false</code>.
+     */
+    private boolean hasSplitRecordSuffix() {
+        return getRecordMetaData().isSplitLongRecords() || !omitUnsplitRecordSuffix;
     }
 
     class RecordsWhereDeleter {
@@ -2692,6 +2704,60 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
         future = context.instrument(FDBStoreTimer.Events.RECOUNT_RECORDS, future);
         work.add(future);
+    }
+
+    /**
+     * Return a cursor of boundaries separating the key ranges maintained by each FDB server. This information can be
+     * useful for splitting a large task (e.g., rebuilding an index for a large record store) into smaller tasks (e.g.,
+     * rebuilding the index for records in certain primary key ranges) more evenly so that they can be executed in a
+     * parallel fashion efficiently. The returned boundaries are an estimate from FDB's locality API and may not
+     * represent the exact boundary locations at any database version.
+     * <p>
+     * The boundaries are returned as a cursor which is sorted and does not contain any duplicates. The first element of
+     * the list is greater than or equal to <code>low</code>, and the last element is less than or equal to
+     * <code>high</code>.
+     * <p>
+     * This implementation may not work when there are too many shard boundaries to complete in a single transaction.
+     * <p>
+     * Note: the returned cursor is blocking and must not be used in an asynchronous context
+     *
+     * @param low low endpoint of primary key range (inclusive)
+     * @param high high endpoint of primary key range (exclusive)
+     * @return the list of boundary primary keys
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public RecordCursor<Tuple> getPrimaryKeyBoundaries(@Nonnull Tuple low, @Nonnull Tuple high) {
+        final Transaction transaction = ensureContextActive();
+        byte[] rangeStart = recordsSubspace().pack(low);
+        byte[] rangeEnd = recordsSubspace().pack(high);
+        CloseableAsyncIterator<byte[]> cursor = LocalityUtil.getBoundaryKeys(transaction, rangeStart, rangeEnd);
+        final boolean hasSplitRecordSuffix = hasSplitRecordSuffix();
+        DistinctFilterCursorClosure closure = new DistinctFilterCursorClosure();
+        return new IteratorCursor<>(getExecutor(), cursor)
+                .flatMapPipelined(
+                        result -> new IteratorCursor<>(getExecutor(),
+                                transaction.snapshot().getRange(result, rangeEnd, 1).iterator()),
+                        DEFAULT_PIPELINE_SIZE)
+                .map(keyValue -> {
+                    Tuple recordKey = recordsSubspace().unpack(keyValue.getKey());
+                    return hasSplitRecordSuffix ? recordKey.popBack() : recordKey;
+                })
+                // The input stream is expected to be sorted so this filter can work to de-duplicate the data.
+                .filter(closure::pred);
+    }
+
+    private static class DistinctFilterCursorClosure {
+        private Tuple previousKey = null;
+
+        private boolean pred(Tuple key) {
+            if (key.equals(previousKey)) {
+                return false;
+            } else {
+                previousKey = key;
+                return true;
+            }
+        }
     }
 
     /**

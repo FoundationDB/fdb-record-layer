@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.hamcrest.Description;
@@ -78,15 +79,18 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isOneOf;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -2073,5 +2077,46 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             context.commit();
         }
     }
-    
+
+    @Test
+    public void boundaryPrimaryKeys() throws Exception {
+        final String indexName = "MySimpleRecord$num_value_unique";
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+            recordStore.markIndexWriteOnly(indexName).get();
+            commit(context);
+        }
+
+        String bigOlString = Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE + 2);
+        for (int i = -25; i < 25; i++) {
+            // Sparsify the primary keys so the records can be saved across boundaries.
+            saveAndSplitSimpleRecord(i * 39, bigOlString, i);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+            Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setDatabase(fdb).setRecordStore(recordStore).setIndex(index)
+                    .build()) {
+
+                List<Tuple> boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
+                        indexer.buildEndpoints().thenCompose(range ->
+                                recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList()));
+
+                logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
+
+                assertTrue(boundaryPrimaryKeys.size() > 2,
+                        "the test is meaningless if the records are not across boundaries");
+                assertThat( boundaryPrimaryKeys.get(0), greaterThanOrEqualTo(Tuple.from(-25L * 39)));
+                assertThat( boundaryPrimaryKeys.get(boundaryPrimaryKeys.size() - 1), lessThanOrEqualTo(Tuple.from(24L * 39)));
+                assertEquals(boundaryPrimaryKeys.stream().sorted().distinct().collect(Collectors.toList()), boundaryPrimaryKeys,
+                        "the list should be sorted without duplication.");
+                for (Tuple boundaryPrimaryKey : boundaryPrimaryKeys) {
+                    assertEquals(1, boundaryPrimaryKey.size(), "primary keys should be a single value");
+                }
+            }
+            commit(context);
+        }
+    }
 }
