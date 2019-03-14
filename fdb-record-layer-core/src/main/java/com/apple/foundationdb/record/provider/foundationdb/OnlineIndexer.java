@@ -50,15 +50,19 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -68,6 +72,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -821,6 +826,92 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     public void buildIndex() {
         asyncToSync(buildIndexAsync());
+    }
+
+
+    /**
+     * Build an index across multiple transactions in parallel (if needed).
+     * <p>
+     * This method assumes it need to mark the index as readable after building the index. But it will not mark if the
+     * index is built in parallel. It is the caller's responsibility to check all subtasks are completed and then mark
+     * the index as readable.
+     * <p>
+     * It is running in an synchronous context because the cursor returned from {@link FDBRecordStore#getPrimaryKeyBoundaries(Tuple, Tuple)} is blocking.
+     * <p>
+     * The caller is supposed to define how they want to build the range. For example, an upper layer may want to queue
+     * a job for each range to be built so the jobs can be executed and re-tried as needed.
+     *
+     * @param minParallelism the minimum number of substasks to enable Parallelism
+     * @param maxParallelism the maximum number of substasks generated
+     * @param buildRangeProcessor build index for entries between given the primary key endpoints (first inclusive,
+     *     second exclusive) and mark the index as readable when all subtasks are done
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public void buildIndexInMultipleJobs(int minParallelism, int maxParallelism,
+                                         Consumer<Pair<Tuple, Tuple>> buildRangeProcessor) {
+        TupleRange tupleRange = runner.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());
+
+        if (tupleRange != null) {
+            List<Tuple> boundaries = getPrimaryKeyBoundaries(tupleRange);
+            if (boundaries.size() - 1 < minParallelism) {
+                asyncToSync(
+                        buildRange(Key.Evaluated.fromTuple(tupleRange.getLow()), Key.Evaluated.fromTuple(tupleRange.getHigh())));
+            } else {
+                List<Pair<Tuple, Tuple>> tasks = new ArrayList<>();
+                int stepSize = (boundaries.size() + maxParallelism - 1) / maxParallelism; // step size >= 1
+                int start = 0;
+                while (true) {
+                    int next = start + stepSize;
+                    if (next < boundaries.size() - 1) {
+                        tasks.add(Pair.of(boundaries.get(start), boundaries.get(next)));
+                    } else {
+                        tasks.add(Pair.of(boundaries.get(start), boundaries.get(boundaries.size() - 1)));
+                        break;
+                    }
+                }
+                // Shuffle the tasks to avoid hot spots.
+                Collections.shuffle(tasks);
+                LOGGER.info(KeyValueLogMessage.of("build index in parallel",
+                        "indexName", index.getName(),
+                        "ranges", tasks));
+                tasks.forEach(buildRangeProcessor);
+                // The index should not be marked as readable. But remember to do it when all subtasks are done.
+                return;
+            }
+        }
+        runner.run(context -> recordStoreBuilder.copyBuilder().setContext(context).open().markIndexReadable(index));
+    }
+
+    private List<Tuple> getPrimaryKeyBoundaries(TupleRange tupleRange) {
+        List<Tuple> boundaries = runner.run(context -> {
+            RecordCursor<Tuple> cursor = recordStoreBuilder.copyBuilder().setContext(context).open()
+                    .getPrimaryKeyBoundaries(tupleRange.getLow(), tupleRange.getHigh());
+            List<Tuple> keys = new ArrayList<>();
+            cursor.forEachRemaining(keys::add);
+            return keys;
+        });
+
+        // Add the two endpoints if they are not in the result
+        if (!boundaries.get(0).equals(tupleRange.getLow())) {
+            boundaries.add(0, tupleRange.getLow());
+        }
+        if (!boundaries.get(boundaries.size() - 1).equals(tupleRange.getHigh())) {
+            boundaries.add(tupleRange.getHigh());
+        }
+
+        return boundaries;
+    }
+
+    public CompletableFuture<Void> markReadableIfIndexRangeIsAll() {
+        return runner.runAsync(context ->
+                openRecordStore(context).thenAccept(store -> {
+                    final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
+                    if (rangeSet.missingRanges(store.ensureContextActive()).iterator().hasNext()) {
+                        store.markIndexReadable(index);
+                    }
+                })
+        );
     }
 
     /**
