@@ -62,6 +62,7 @@ import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Tag;
@@ -2093,29 +2094,64 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             saveAndSplitSimpleRecord(i * 39, bigOlString, i);
         }
 
+        OnlineIndexer indexer;
+        List<Tuple> boundaryPrimaryKeys;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
-            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+
+            // The indexer only uses record store as a prototype so it a live without the original record store being
+            // active.
+            indexer = OnlineIndexer.newBuilder()
                     .setDatabase(fdb).setRecordStore(recordStore).setIndex(index)
-                    .build()) {
+                    .build();
 
-                List<Tuple> boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
-                        indexer.buildEndpoints().thenCompose(range ->
-                                recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList()));
+            boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
+                    indexer.buildEndpoints().thenCompose(range ->
+                            recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList()));
 
-                logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
+            logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
 
-                assertTrue(boundaryPrimaryKeys.size() > 2,
-                        "the test is meaningless if the records are not across boundaries");
-                assertThat( boundaryPrimaryKeys.get(0), greaterThanOrEqualTo(Tuple.from(-25L * 39)));
-                assertThat( boundaryPrimaryKeys.get(boundaryPrimaryKeys.size() - 1), lessThanOrEqualTo(Tuple.from(24L * 39)));
-                assertEquals(boundaryPrimaryKeys.stream().sorted().distinct().collect(Collectors.toList()), boundaryPrimaryKeys,
-                        "the list should be sorted without duplication.");
-                for (Tuple boundaryPrimaryKey : boundaryPrimaryKeys) {
-                    assertEquals(1, boundaryPrimaryKey.size(), "primary keys should be a single value");
-                }
-            }
+            commit(context);
+        }
+
+        int boundaryPrimaryKeysSize = boundaryPrimaryKeys.size();
+        assertTrue(boundaryPrimaryKeysSize > 2,
+                "the test is meaningless if the records are not across boundaries");
+        assertThat( boundaryPrimaryKeys.get(0), greaterThanOrEqualTo(Tuple.from(-25L * 39)));
+        assertThat( boundaryPrimaryKeys.get(boundaryPrimaryKeysSize - 1), lessThanOrEqualTo(Tuple.from(24L * 39)));
+        assertEquals(boundaryPrimaryKeys.stream().sorted().distinct().collect(Collectors.toList()), boundaryPrimaryKeys,
+                "the list should be sorted without duplication.");
+        for (Tuple boundaryPrimaryKey : boundaryPrimaryKeys) {
+            assertEquals(1, boundaryPrimaryKey.size(), "primary keys should be a single value");
+        }
+
+
+        // Test splitIndexBuildRange.
+        assertEquals(1, indexer.splitIndexBuildRange(Integer.MAX_VALUE, Integer.MAX_VALUE).size(),
+                "the range is not split when it cannot be split to at least minSplit ranges");
+        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize, indexer);
+        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 1, indexer); // Exactly one range for each split
+        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 2, indexer);
+
+        indexer.close();
+    }
+
+    private void checkSplitIndexBuildRange(int minSplit, int maxSplit, OnlineIndexer indexer) throws Exception {
+        List<Pair<Tuple, Tuple>> splitRanges = indexer.splitIndexBuildRange(minSplit, maxSplit);
+
+        assertThat(splitRanges.size(), greaterThanOrEqualTo(minSplit));
+        assertThat(splitRanges.size(), lessThanOrEqualTo(maxSplit));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+
+            // Make sure each enpoint is a valid primary key.
+            splitRanges.forEach(range -> {
+                recordStore.loadRecord(range.getLeft());
+                recordStore.loadRecord(range.getRight());
+            });
+
             commit(context);
         }
     }

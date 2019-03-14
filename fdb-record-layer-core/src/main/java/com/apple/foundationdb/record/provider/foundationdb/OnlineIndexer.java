@@ -867,6 +867,7 @@ public class OnlineIndexer implements AutoCloseable {
                 splitRanges.add(Pair.of(boundaries.get(start), boundaries.get(boundaries.size() - 1)));
                 break;
             }
+            start = next;
         }
 
         LOGGER.info(KeyValueLogMessage.of("split index build range",
@@ -935,7 +936,6 @@ public class OnlineIndexer implements AutoCloseable {
                 openRecordStore(context).thenCompose(store -> store.markIndexReadable(index))
         );
     }
-
 
     /**
      * Wait for asynchronous index build to complete.
