@@ -1,7 +1,7 @@
 FROM centos:7
-LABEL version=5.2.5
+LABEL version=6.0.15
 
-RUN yum install -y which initscripts rsync net-tools passwd https://www.foundationdb.org/downloads/5.2.5/rhel6/installers/foundationdb-clients-5.2.5-1.el6.x86_64.rpm https://www.foundationdb.org/downloads/5.2.5/rhel6/installers/foundationdb-server-5.2.5-1.el6.x86_64.rpm
+RUN yum install -y which initscripts rsync net-tools passwd https://www.foundationdb.org/downloads/6.0.15/rhel6/installers/foundationdb-clients-6.0.15-1.el6.x86_64.rpm https://www.foundationdb.org/downloads/6.0.15/rhel6/installers/foundationdb-server-6.0.15-1.el6.x86_64.rpm
 
 USER root
 
