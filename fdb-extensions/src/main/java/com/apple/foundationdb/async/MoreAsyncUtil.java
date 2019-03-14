@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Queue;
@@ -836,11 +837,19 @@ public class MoreAsyncUtil {
      * @param iterator iterator to close
      */
     @API(API.Status.MAINTAINED)
-    public static void closeIterator(@Nonnull AsyncIterator<?> iterator) {
+    public static void closeIterator(@Nonnull Iterator<?> iterator) {
         if (iterator instanceof CloseableAsyncIterator) {
             ((CloseableAsyncIterator<?>)iterator).close();
-        } else {
-            iterator.cancel();
+        } else if (iterator instanceof AsyncIterator) {
+            ((AsyncIterator<?>)iterator).cancel();
+        } else if (iterator instanceof AutoCloseable) {
+            try {
+                ((AutoCloseable)iterator).close();
+            } catch (RuntimeException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                throw new RuntimeException(ex.getMessage(), ex);
+            }
         }
     }
 

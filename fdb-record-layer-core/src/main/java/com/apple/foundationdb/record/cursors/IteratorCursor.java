@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.RecordCursorResult;
 
 import javax.annotation.Nonnull;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
@@ -38,4 +40,12 @@ public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
     public IteratorCursor(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
         super(executor, iterator);
     }
+
+    @Nonnull
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public CompletableFuture<RecordCursorResult<T>> onNext() {
+        return CompletableFuture.completedFuture(computeNextResult(iterator.hasNext()));
+    }
+
 }

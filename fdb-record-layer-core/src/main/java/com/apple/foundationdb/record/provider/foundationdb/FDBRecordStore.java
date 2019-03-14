@@ -57,7 +57,6 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
-import com.apple.foundationdb.record.cursors.IteratorCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
@@ -2736,7 +2735,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         DistinctFilterCursorClosure closure = new DistinctFilterCursorClosure();
         return RecordCursor.fromIterator(getExecutor(), cursor)
                 .flatMapPipelined(
-                        result -> new IteratorCursor<>(getExecutor(),
+                        result -> RecordCursor.fromIterator(getExecutor(),
                                 transaction.snapshot().getRange(result, rangeEnd, 1).iterator()),
                         DEFAULT_PIPELINE_SIZE)
                 .map(keyValue -> {

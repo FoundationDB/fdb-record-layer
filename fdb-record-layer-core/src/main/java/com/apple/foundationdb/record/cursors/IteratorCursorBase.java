@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -40,7 +40,7 @@ import java.util.concurrent.Executor;
  * @param <C> the type of {@link Iterator}
  */
 @API(API.Status.INTERNAL)
-public class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCursor<T> {
+public abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCursor<T> {
     @Nonnull
     protected final Executor executor;
     @Nonnull
@@ -59,13 +59,6 @@ public class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCurso
         this.executor = executor;
         this.iterator = iterator;
         this.valuesSeen = 0;
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public CompletableFuture<RecordCursorResult<T>> onNext() {
-        return CompletableFuture.completedFuture(computeNextResult(iterator.hasNext()));
     }
 
     protected RecordCursorResult<T> computeNextResult(boolean hasNext) {
@@ -114,15 +107,7 @@ public class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCurso
 
     @Override
     public void close() {
-        if (iterator instanceof AutoCloseable) {
-            try {
-                ((AutoCloseable) iterator).close();
-            } catch (RuntimeException ex) {
-                throw ex;
-            } catch (Exception ex) {
-                throw new RecordCoreException(ex.getMessage(), ex);
-            }
-        }
+        MoreAsyncUtil.closeIterator(iterator);
         if (hasNextFuture != null) {
             hasNextFuture.cancel(false);
         }

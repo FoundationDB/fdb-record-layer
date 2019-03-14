@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursorResult;
 
 import javax.annotation.Nonnull;
@@ -41,16 +40,9 @@ public class AsyncIteratorCursor<T> extends IteratorCursorBase<T, AsyncIterator<
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return iterator.onHasNext().thenApply(this::computeNextResult);
-    }
-
-    @Override
-    public void close() {
-        MoreAsyncUtil.closeIterator(iterator);
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
-        }
     }
 
 }
