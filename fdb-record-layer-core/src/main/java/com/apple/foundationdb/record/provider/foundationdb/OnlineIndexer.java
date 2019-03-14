@@ -1060,8 +1060,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get the maximum number of times to retry a single range rebuild.
-         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and will also retry for other error
-         * codes, such as {@code transaction_too_lange}.
+         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and it will also retry for other error
+         * codes, such as {@code transaction_too_large}.
          * @return the maximum number of times to retry a single range rebuild
          */
         public int getMaxRetries() {
@@ -1070,8 +1070,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the maximum number of times to retry a single range rebuild.
-         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and will also retry for other error
-         * codes, such as {@code transaction_too_lange}.
+         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, it and will also retry for other error
+         * codes, such as {@code transaction_too_large}.
          *
          * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
          * @param maxRetries the maximum number of times to retry a single range rebuild
@@ -1186,7 +1186,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Set the number of successful range builds before re-increasing the number of records to process in a single
          * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
-         * If this is {@code -1}, it will not reincrease after successes.
+         * If this is {@code -1}, it will not re-increase after successes.
          * @param increaseLimitAfter the number of successful range builds before increasing the number of records
          * processed in a single transaction
          * @return this builder
@@ -1199,7 +1199,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Get the number of successful range builds before re-increasing the number of records to process in a single
          * transaction.
-         * If this is {@code -1}, it will not reincrease after successes.
+         * If this is {@code -1}, it will not re-increase after successes.
          * @return the number of successful range builds before increasing the number of records processed in a single
          * transaction
          * @see #limit
