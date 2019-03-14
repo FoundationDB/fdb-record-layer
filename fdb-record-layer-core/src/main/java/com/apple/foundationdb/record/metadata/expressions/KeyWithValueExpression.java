@@ -178,7 +178,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     @Nonnull
     @Override
     public KeyExpression getChild() {
-        return getInnerKey();
+        return getKeyExpression();
     }
 
     /**
