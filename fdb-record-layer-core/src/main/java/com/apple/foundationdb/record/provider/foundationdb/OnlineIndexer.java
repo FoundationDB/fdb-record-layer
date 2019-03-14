@@ -72,7 +72,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -830,57 +829,52 @@ public class OnlineIndexer implements AutoCloseable {
 
 
     /**
-     * Build an index across multiple transactions in parallel (if needed).
+     * Split the index build range to support build an index across multiple transactions in parallel if needed.
      * <p>
-     * This method assumes it need to mark the index as readable after building the index. But it will not mark if the
-     * index is built in parallel. It is the caller's responsibility to check all subtasks are completed and then mark
-     * the index as readable.
-     * <p>
-     * It is running in an synchronous context because the cursor returned from {@link FDBRecordStore#getPrimaryKeyBoundaries(Tuple, Tuple)} is blocking.
-     * <p>
-     * The caller is supposed to define how they want to build the range. For example, an upper layer may want to queue
-     * a job for each range to be built so the jobs can be executed and re-tried as needed.
+     * It is running in an synchronous context because the cursor returned from
+     * {@link FDBRecordStore#getPrimaryKeyBoundaries(Tuple, Tuple)} is blocking.n
      *
-     * @param minParallelism the minimum number of substasks to enable Parallelism
-     * @param maxParallelism the maximum number of substasks generated
-     * @param buildRangeProcessor build index for entries between given the primary key endpoints (first inclusive,
-     *     second exclusive) and mark the index as readable when all subtasks are done
+     * @param minSplit not split if it cannot be split to at least <code>minSplit</code> ranges
+     * @param maxSplit the maximum number of splits generated
+     * @return a list of split primary key ranges (the low endpoint is inclusive and the high endpoint is exclusive)
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    public void buildIndexInMultipleJobs(int minParallelism, int maxParallelism,
-                                         Consumer<Pair<Tuple, Tuple>> buildRangeProcessor) {
-        TupleRange tupleRange = runner.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());
+    public List<Pair<Tuple, Tuple>> splitIndexBuildRange(int minSplit, int maxSplit) {
+        TupleRange originalRange = runner.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());
 
-        if (tupleRange != null) {
-            List<Tuple> boundaries = getPrimaryKeyBoundaries(tupleRange);
-            if (boundaries.size() - 1 < minParallelism) {
-                asyncToSync(
-                        buildRange(Key.Evaluated.fromTuple(tupleRange.getLow()), Key.Evaluated.fromTuple(tupleRange.getHigh())));
+        // There is no range need to be built.
+        if (originalRange == null) {
+            return new ArrayList<>();
+        }
+
+        List<Tuple> boundaries = getPrimaryKeyBoundaries(originalRange);
+
+        // The range only spans across very few FDB servers so parallelism is not necessary.
+        if (boundaries.size() - 1 < minSplit) {
+            return Collections.singletonList(Pair.of(originalRange.getLow(), originalRange.getHigh()));
+        }
+
+        List<Pair<Tuple, Tuple>> splitRanges = new ArrayList<>();
+
+        int stepSize = (boundaries.size() + maxSplit - 1) / maxSplit; // step size >= 1
+        int start = 0;
+        while (true) {
+            int next = start + stepSize;
+            if (next < boundaries.size() - 1) {
+                splitRanges.add(Pair.of(boundaries.get(start), boundaries.get(next)));
             } else {
-                List<Pair<Tuple, Tuple>> tasks = new ArrayList<>();
-                int stepSize = (boundaries.size() + maxParallelism - 1) / maxParallelism; // step size >= 1
-                int start = 0;
-                while (true) {
-                    int next = start + stepSize;
-                    if (next < boundaries.size() - 1) {
-                        tasks.add(Pair.of(boundaries.get(start), boundaries.get(next)));
-                    } else {
-                        tasks.add(Pair.of(boundaries.get(start), boundaries.get(boundaries.size() - 1)));
-                        break;
-                    }
-                }
-                // Shuffle the tasks to avoid hot spots.
-                Collections.shuffle(tasks);
-                LOGGER.info(KeyValueLogMessage.of("build index in parallel",
-                        "indexName", index.getName(),
-                        "ranges", tasks));
-                tasks.forEach(buildRangeProcessor);
-                // The index should not be marked as readable. But remember to do it when all subtasks are done.
-                return;
+                splitRanges.add(Pair.of(boundaries.get(start), boundaries.get(boundaries.size() - 1)));
+                break;
             }
         }
-        runner.run(context -> recordStoreBuilder.copyBuilder().setContext(context).open().markIndexReadable(index));
+
+        LOGGER.info(KeyValueLogMessage.of("split index build range",
+                "indexName", index.getName(),
+                "originalRange", originalRange,
+                "splitRanges", splitRanges));
+
+        return splitRanges;
     }
 
     private List<Tuple> getPrimaryKeyBoundaries(TupleRange tupleRange) {
@@ -893,26 +887,55 @@ public class OnlineIndexer implements AutoCloseable {
         });
 
         // Add the two endpoints if they are not in the result
-        if (!boundaries.get(0).equals(tupleRange.getLow())) {
+        if (boundaries.get(0).compareTo(tupleRange.getLow()) < 0) {
             boundaries.add(0, tupleRange.getLow());
         }
-        if (!boundaries.get(boundaries.size() - 1).equals(tupleRange.getHigh())) {
+        if (boundaries.get(boundaries.size() - 1).compareTo(tupleRange.getHigh()) > 0) {
             boundaries.add(tupleRange.getHigh());
         }
 
         return boundaries;
     }
 
-    public CompletableFuture<Void> markReadableIfIndexRangeIsAll() {
+    /**
+     * Mark the index as readable if it is built.
+     * @return a future that will complete to <code>true</code> if the index is readable and <code>false</code>
+     *     otherwise
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public CompletableFuture<Boolean> markReadableIfBuilt() {
         return runner.runAsync(context ->
-                openRecordStore(context).thenAccept(store -> {
+                openRecordStore(context).thenCompose(store -> {
                     final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-                    if (rangeSet.missingRanges(store.ensureContextActive()).iterator().hasNext()) {
-                        store.markIndexReadable(index);
-                    }
+                    return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
+                            .thenApply(hasNext -> {
+                                if (hasNext) {
+                                    return false;
+                                } else {
+                                    // Index is built because this is no missing ranges.
+                                    store.markIndexReadable(index);
+                                    return true;
+                                }
+                            });
                 })
         );
     }
+
+    /**
+     * Mark the index as readable.
+     * @return a future that will either complete exceptionally if the index can not
+     * be made readable or will contain <code>true</code> if the store was modified
+     * and <code>false</code> otherwise
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public CompletableFuture<Boolean> markReadable() {
+        return runner.runAsync(context ->
+                openRecordStore(context).thenCompose(store -> store.markIndexReadable(index))
+        );
+    }
+
 
     /**
      * Wait for asynchronous index build to complete.
