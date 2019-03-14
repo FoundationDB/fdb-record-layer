@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
@@ -39,8 +38,7 @@ import java.util.concurrent.Executor;
  * @param <T> the type of elements of the cursor
  * @param <C> the type of {@link Iterator}
  */
-@API(API.Status.INTERNAL)
-public abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCursor<T> {
+abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCursor<T> {
     @Nonnull
     protected final Executor executor;
     @Nonnull
