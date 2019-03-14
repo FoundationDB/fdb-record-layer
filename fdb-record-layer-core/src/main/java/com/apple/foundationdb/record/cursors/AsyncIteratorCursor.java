@@ -1,5 +1,5 @@
 /*
- * IteratorCursor.java
+ * AsyncIteratorCursor.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,23 +21,20 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * A cursor that returns the elements of an ordinary synchronous iterator.
- * While it supports continuation, resuming an iterator cursor with a continuation is very inefficient since it needs to
- * advance the underlying iterator up to the point that stopped. For that reason, the {@link ListCursor} should be used
- * instead where possible.
+ * A cursor that returns the elements of an {@link AsyncIterator}.
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.MAINTAINED)
-public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
-    public IteratorCursor(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
+public class AsyncIteratorCursor<T> extends IteratorCursorBase<T, AsyncIterator<T>> {
+    public AsyncIteratorCursor(@Nonnull Executor executor, @Nonnull AsyncIterator<T> iterator) {
         super(executor, iterator);
     }
 
@@ -45,7 +42,7 @@ public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
     @Override
     @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
-        return CompletableFuture.completedFuture(computeNextResult(iterator.hasNext()));
+        return iterator.onHasNext().thenApply(this::computeNextResult);
     }
 
 }
