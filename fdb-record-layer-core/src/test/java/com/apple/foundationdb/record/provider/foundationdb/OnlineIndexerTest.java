@@ -2192,7 +2192,6 @@ public class OnlineIndexerTest extends FDBTestBase {
         Supplier<RuntimeException> createException =
                 () -> new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
 
-
         Queue<Pair<Integer, Supplier<RuntimeException>>> queue = new LinkedList<>();
         // failures until it hits 42
         for (int i = 100; i > 42; i = (3 * i) / 4) {
@@ -2286,7 +2285,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                     indexBuilder.runAsync(store -> {
                         Pair<Integer, Supplier<RuntimeException>> behavior = queue.poll();
                         if (behavior == null) {
-                            return CompletableFuture.completedFuture(false);
+                            return AsyncUtil.READY_FALSE;
                         } else {
                             int currentAttempt = attempts.getAndIncrement();
                             assertEquals(behavior.getLeft().intValue(), indexBuilder.getLimit(),
@@ -2294,7 +2293,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                             if (behavior.getRight() != null) {
                                 throw behavior.getRight().get();
                             }
-                            return CompletableFuture.completedFuture(true);
+                            return AsyncUtil.READY_TRUE;
                         }
                     })).join();
             assertNull(queue.poll());

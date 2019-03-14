@@ -361,7 +361,7 @@ public class FDBDatabaseRunner implements AutoCloseable {
 
         @SuppressWarnings("squid:S1181")
         public CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull final BiFunction<T, Throwable, Pair<T, Throwable>> handlePostTransaction) {
+                                             @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
             CompletableFuture<T> future = new CompletableFuture<>();
             addFutureToCompleteExceptionally(future);
             AsyncUtil.whileTrue(() -> {
@@ -370,7 +370,7 @@ public class FDBDatabaseRunner implements AutoCloseable {
                     return retriable.apply(context).thenCompose(val ->
                         context.commitAsync().thenApply( vignore -> val)
                     ).handle((result, ex) -> {
-                        Pair<T, Throwable> newResult = handlePostTransaction.apply(result, ex);
+                        Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
                         return handle(newResult.getLeft(), newResult.getRight());
                     }).thenCompose(Function.identity());
                 } catch (Exception e) {
@@ -460,7 +460,7 @@ public class FDBDatabaseRunner implements AutoCloseable {
      */
     @Nonnull
     public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull final BiFunction<T, Throwable, Pair<T, Throwable>> handlePostTransaction) {
+                                             @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
         return new RunRetriable<T>().runAsync(retriable, handlePostTransaction);
     }
 

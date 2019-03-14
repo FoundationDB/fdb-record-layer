@@ -128,6 +128,13 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public static final int UNLIMITED = Integer.MAX_VALUE;
 
+    /**
+     * If {@link Builder#getIncreaseLimitAfter()} is this value, the limit will not go back up, no matter how many
+     * successes there are.
+     * This is the default value.
+     */
+    public static final int DO_NOT_RE_INCREASE_LIMIT = -1;
+
     @Nonnull private static final byte[] START_BYTES = new byte[]{0x00};
     @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexer.class);
@@ -193,6 +200,8 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Get the current number of records to process in one transaction.
+     * This may go up or down while {@link #runAsync(Function)} is running, if there are failures committing or
+     * repeated successes.
      * @return the current number of records to process in one transaction
      */
     public int getLimit() {
@@ -361,6 +370,12 @@ public class OnlineIndexer implements AutoCloseable {
 
     private void increaseLimit() {
         limit = Math.min(maxLimit, Math.max(limit + 1, (4 * limit) / 3));
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.of("Re-increasing limit of online index build",
+                    "indexName", index.getName(),
+                    "indexVersion", index.getLastModifiedVersion(),
+                    "limit", limit));
+        }
     }
 
     // Builds the index for all of the keys within a given range. This does not update the range set
@@ -907,7 +922,7 @@ public class OnlineIndexer implements AutoCloseable {
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
         private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
-        private int increaseLimitAfter = -1;
+        private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
 
         protected Builder() {
         }
@@ -1186,7 +1201,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Set the number of successful range builds before re-increasing the number of records to process in a single
          * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
-         * If this is {@code -1}, it will not re-increase after successes.
+         * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
          * @param increaseLimitAfter the number of successful range builds before increasing the number of records
          * processed in a single transaction
          * @return this builder
@@ -1199,7 +1214,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Get the number of successful range builds before re-increasing the number of records to process in a single
          * transaction.
-         * If this is {@code -1}, it will not re-increase after successes.
+         * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
          * @return the number of successful range builds before increasing the number of records processed in a single
          * transaction
          * @see #limit
