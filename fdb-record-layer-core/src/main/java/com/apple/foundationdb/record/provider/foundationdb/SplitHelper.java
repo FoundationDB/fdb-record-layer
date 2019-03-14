@@ -683,11 +683,7 @@ public class SplitHelper {
         @Nonnull
         @Override
         public RecordCursorResult<FDBRawRecord> getNext() {
-            if (nextResult != null && !nextResult.hasNext()) {
-                return nextResult;
-            } else {
-                return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
-            }
+            return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
         }
 
         @Nonnull

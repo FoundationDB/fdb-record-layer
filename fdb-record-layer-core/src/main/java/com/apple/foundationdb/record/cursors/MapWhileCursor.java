@@ -87,6 +87,8 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
         if (!nextResult.hasNext()) {
+            // It is necessary to check to see if a result has completed before as it is otherwise possible
+            // that the cursor return more results if values later on in the child cursor match the predicate.
             return CompletableFuture.completedFuture(nextResult);
         } else {
             return inner.onNext().thenApply(innerResult -> {

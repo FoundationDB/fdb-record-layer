@@ -106,7 +106,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
                 try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, justLimit)) {
                     RecordCursorResult<FDBQueriedRecord<Message>> result = null;
                     do {
-                        result = cursor.onNext().join();
+                        result = cursor.getNext();
                         if (result.hasNext()) {
                             byCursors.add(getRecNo.apply(result.get()));
                         }

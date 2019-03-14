@@ -167,7 +167,7 @@ public class ProbableIntersectionCursorTest {
             }
             lastBloomFilters = bloomFilters;
 
-            RecordCursorResult<Integer> result = intersectionCursor.onNext().join();
+            RecordCursorResult<Integer> result = intersectionCursor.getNext();
             if (resultIterator.hasNext()) {
                 assertThat(result.hasNext(), is(true));
                 assertEquals(resultIterator.next(), result.get());
@@ -223,7 +223,7 @@ public class ProbableIntersectionCursorTest {
                     }
                     return result.hasNext();
                 })).join();
-                RecordCursorResult<Integer> result = intersectionCursor.onNext().join();
+                RecordCursorResult<Integer> result = intersectionCursor.getNext();
                 assertThat(result.hasNext(), is(false));
                 if (result.getNoNextReason().isSourceExhausted()) {
                     done = true;
@@ -244,13 +244,13 @@ public class ProbableIntersectionCursorTest {
 
     private void verifyResults(@Nonnull RecordCursor<Integer> cursor, @Nonnull RecordCursor.NoNextReason expectedReason, int...expectedResults) {
         for (int expectedResult : expectedResults) {
-            RecordCursorResult<Integer> result = cursor.onNext().join();
+            RecordCursorResult<Integer> result = cursor.getNext();
             assertThat(result.hasNext(), is(true));
             assertEquals(expectedResult, (int)result.get());
             assertThat(result.getContinuation().isEnd(), is(false));
             assertNotNull(result.getContinuation().toBytes());
         }
-        RecordCursorResult<Integer> result = cursor.onNext().join();
+        RecordCursorResult<Integer> result = cursor.getNext();
         assertThat(result.hasNext(), is(false));
         assertEquals(expectedReason, result.getNoNextReason());
         assertThat(result.getContinuation().isEnd(), is(expectedReason.isSourceExhausted()));

@@ -305,7 +305,7 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .setScanProperties(forwardScanWithLimiter(limiter))
                     .build();
             assertEquals(2, (int) cursor.getCount().join());
-            RecordCursorResult<KeyValue> result = cursor.onNext().join();
+            RecordCursorResult<KeyValue> result = cursor.getNext();
             assertThat("no next reason should be SCAN_LIMIT_REACHED", result.getNoNextReason(),
                     equalTo(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED));
 

@@ -336,7 +336,8 @@ public class OnlineIndexer implements AutoCloseable {
         // Note: This runs all of the updates in serial in order to not invoke a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
-        return cursor.mapPipelined(rec -> {
+        return cursor.forEachResultAsync(result -> {
+            FDBStoredRecord<Message> rec = result.get();
             empty.set(false);
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
@@ -349,7 +350,7 @@ public class OnlineIndexer implements AutoCloseable {
             } else {
                 return AsyncUtil.DONE;
             }
-        }, 1).forEachResult(ignore -> { }).thenCompose(noNextResult -> {
+        }).thenCompose(noNextResult -> {
             byte[] nextCont = empty.get() ? null : noNextResult.getContinuation().toBytes();
             if (nextCont == null) {
                 return CompletableFuture.completedFuture(null);

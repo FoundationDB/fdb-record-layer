@@ -22,7 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.cursors.EmptyCursor;
 import com.apple.foundationdb.record.cursors.FilterCursor;
 import com.apple.foundationdb.record.cursors.FlatMapPipelinedCursor;
@@ -53,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -740,7 +740,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * Call the given consumer as each record result becomes available. Each of the results given to
      * the consumer is guaranteed to have a value, i.e., calling {@link RecordCursorResult#hasNext() hasNext()} on
      * the result will return {@code true}. The returned future will then contain the first result that
-     * does <em>not</em> have an associated record, i.e., {@code hasNext()} on the result will return
+     * does <em>not</em> have an associated value, i.e., {@code hasNext()} on the result will return
      * {@code false}. This allows the caller to get a continuation for this cursor and determine why this
      * cursor stopped producing values.
      *
@@ -748,24 +748,23 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @return a future that is complete when the consumer has been called on all remaining records
      */
     @Nonnull
-    @SuppressWarnings("unchecked")
     default CompletableFuture<RecordCursorResult<T>> forEachResult(@Nonnull Consumer<RecordCursorResult<T>> consumer) {
-        final RecordCursorResult<?>[] pointer = new RecordCursorResult<?>[1];
-        pointer[0] = RecordCursorResult.<T>exhausted();
+        final AtomicReference<RecordCursorResult<T>> holder = new AtomicReference<>(RecordCursorResult.exhausted());
         return AsyncUtil.whileTrue(() -> onNext().thenApply(result -> {
             if (result.hasNext()) {
                 consumer.accept(result);
             } else {
-                pointer[0] = result;
+                holder.set(result);
             }
             return result.hasNext();
-        }), getExecutor()).thenApply(ignore -> (RecordCursorResult<T>)pointer[0]);
+        }), getExecutor()).thenApply(vignore -> holder.get());
     }
 
     /**
      * Call the function as each record becomes available. This will be ready when
      * all of the elements of this cursor have been read and when all of the futures
      * associated with those elements have completed.
+     *
      * @param func function to be applied to each record
      * @param pipelineSize the number of futures from applications of the function to start ahead of time
      * @return a future that is complete when the function has been called and all remaining
@@ -774,6 +773,31 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     @Nonnull
     default CompletableFuture<Void> forEachAsync(@Nonnull Function<T, CompletableFuture<Void>> func, int pipelineSize) {
         return mapPipelined(func, pipelineSize).reduce(null, (v1, v2) -> null);
+    }
+
+    /**
+     * Call the function as each record result becomes available. This will be ready when all
+     * of the elements of this cursor have been read and all of the futures associated with those
+     * elements have been completed. Each of the results given to the function is guaranteed to
+     * have a value, i.e., calling {@link RecordCursorResult#hasNext() hasNext()} on the result will
+     * return {@code true}. The return future will then contain the first result that does <em>not</em>
+     * have an associated value, i.e., {@code hasNext()} on the result will return {@code false}. This
+     * allows the caller to get a continuation and determine why this cursor stopped producing values.
+     *
+     * @param func function to be applied to each result
+     * @return a future that is complete when the consumer has been called on all remaining records
+     */
+    @Nonnull
+    default CompletableFuture<RecordCursorResult<T>> forEachResultAsync(@Nonnull Function<RecordCursorResult<T>, CompletableFuture<Void>> func) {
+        final AtomicReference<RecordCursorResult<T>> holder = new AtomicReference<>(RecordCursorResult.exhausted());
+        return AsyncUtil.whileTrue(() -> onNext().thenCompose(result -> {
+            if (result.hasNext()) {
+                return func.apply(result).thenApply(vignore -> true);
+            } else {
+                holder.set(result);
+                return AsyncUtil.READY_FALSE;
+            }
+        }), getExecutor()).thenApply(ignore -> holder.get());
     }
 
     /**
@@ -904,7 +928,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      */
     @Nullable
     default <U> CompletableFuture<U> reduce(U identity, BiFunction<U, ? super T, U> accumulator) {
-        MoreAsyncUtil.Holder<U> holder = new MoreAsyncUtil.Holder<>(identity);
-        return forEachResult(result -> holder.value = accumulator.apply(holder.value, result.get())).thenApply(vignore -> holder.value);
+        final AtomicReference<U> holder = new AtomicReference<>(identity);
+        return forEachResult(result -> holder.set(accumulator.apply(holder.get(), result.get()))).thenApply(vignore -> holder.get());
     }
 }

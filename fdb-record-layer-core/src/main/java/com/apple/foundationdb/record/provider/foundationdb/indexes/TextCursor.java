@@ -92,6 +92,8 @@ class TextCursor implements BaseCursor<IndexEntry> {
     @Override
     public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
+            // Like the KeyValueCursor, it is necessary to memoize and return the first result where
+            // hasNext is false to avoid the NoNextReason changing.
             return CompletableFuture.completedFuture(nextResult);
         } else if (limitRemaining > 0 && limitManager.tryRecordScan()) {
             return underlying.onHasNext().thenApply(hasNext -> {

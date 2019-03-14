@@ -241,7 +241,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 if (retrieved.size() > 100) {
                     fail("added more records than were present");
                 }
-                continuation = cursor.onNext().join().getContinuation().toBytes();
+                continuation = cursor.getNext().getContinuation().toBytes();
                 if (continuation == null) {
                     break;
                 }
@@ -272,7 +272,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 if (retrieved.size() > 50) {
                     fail("added more records than met filter");
                 }
-                continuation = cursor.onNext().join().getContinuation().toBytes();
+                continuation = cursor.getNext().getContinuation().toBytes();
                 if (continuation == null) {
                     break;
                 }
@@ -347,7 +347,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 try (RecordCursor<Long> cursor = recordStore.executeQuery(plan, continuation, executeProperties)
                      .map(record -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(record.getRecord()).getRecNo())) {
                     cursor.forEach(list::add).join();
-                    RecordCursorResult<Long> result = cursor.onNext().join();
+                    RecordCursorResult<Long> result = cursor.getNext();
                     continuation = result.getContinuation().toBytes();
                     if (continuation == null) {
                         assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());

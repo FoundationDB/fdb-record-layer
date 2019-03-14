@@ -147,6 +147,10 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     @Override
     public CompletableFuture<RecordCursorResult<KeyValue>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
+            // This guard is needed to guarantee that if onNext is called multiple times after the cursor has
+            // returned a result without a value, then the same NoNextReason is returned each time. Without this guard,
+            // one might return SCAN_LIMIT_REACHED (for example) after returning a result with SOURCE_EXHAUSTED because
+            // of the tryRecordScan check.
             return CompletableFuture.completedFuture(nextResult);
         } else if (limitManager.tryRecordScan()) {
             return iter.onHasNext().thenApply(hasNext -> {
@@ -184,11 +188,7 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     @Override
     @Nonnull
     public RecordCursorResult<KeyValue> getNext() {
-        if (nextResult != null && !nextResult.hasNext()) {
-            return nextResult;
-        } else {
-            return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
-        }
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
     }
 
     @Nonnull

@@ -75,6 +75,11 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
+            // It is necessary to check to see if a result has already completed without a value as it would
+            // otherwise be possible for the NoNextReason to change. In particular, if this cursor completes
+            // because its child cursos hits some limit, one can return a RecordCursorResult where the NoNextReason
+            // is that limit. If the time limit then elapses and then one calls onNext again, if the result weren't
+            // memoized, one might return a NoNextReason of TIME_LIMIT_REACHED.
             return CompletableFuture.completedFuture(nextResult);
         } else if (timedOutResult != null) {
             nextResult = timedOutResult;

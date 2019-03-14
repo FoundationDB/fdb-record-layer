@@ -135,13 +135,14 @@ public class ResolverMappingReplicator implements AutoCloseable {
                         .setContinuation(continuation.get())
                         .build();
 
-                return cursor.mapPipelined(kv -> {
+                return cursor.forEachResultAsync(result -> {
+                    KeyValue kv = result.get();
                     final String mappedString = primaryMappingSubspace.unpack(kv.getKey()).getString(0);
                     final ResolverResult mappedValue = valueDeserializer.apply(kv.getValue());
                     accumulator.accumulate(mappedValue.getValue());
                     counter.incrementAndGet();
                     return replica.setMapping(context, mappedString, mappedValue);
-                }, 1).forEachResult(ignore -> { }).thenCompose(lastResult -> context.commitAsync().thenRun(() -> {
+                }).thenCompose(lastResult -> context.commitAsync().thenRun(() -> {
                     byte[] nextContinuationBytes = lastResult.getContinuation().toBytes();
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("committing batch",
@@ -150,7 +151,9 @@ public class ResolverMappingReplicator implements AutoCloseable {
                         ));
                     }
                     continuation.set(nextContinuationBytes);
-                })).thenApply(vignore -> Objects.nonNull(continuation.get()));
+                }))
+                .whenComplete((vignore, eignore) -> cursor.close())
+                .thenApply(vignore -> Objects.nonNull(continuation.get()));
             });
         });
     }
