@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.BaseKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
@@ -287,7 +288,11 @@ public class QueryToKeyMatcher {
             return matches(query, ((GroupingKeyExpression) key).getWholeKey(), matchingMode, filterMask);
         }
         if (key instanceof KeyWithValueExpression) {
-            return matches(query, ((KeyWithValueExpression) key).getKeyExpression(), matchingMode, filterMask);
+            try {
+                return matches(query, ((KeyWithValueExpression)key).getKeyExpression(), matchingMode, filterMask);
+            } catch (BaseKeyExpression.UnsplittableKeyExpressionException e) {
+                return Match.none();
+            }
         }
         // Both of these COULD be used for matching by the planner, but they aren't today, so...
         if (key instanceof FunctionKeyExpression

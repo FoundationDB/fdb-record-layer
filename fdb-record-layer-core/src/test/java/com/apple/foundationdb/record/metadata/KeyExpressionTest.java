@@ -731,6 +731,9 @@ public class KeyExpressionTest {
     }
 
     public static Stream<Arguments> getPrefixKeyComparisons() {
+        final KeyExpression nestedKeyWithValue = keyWithValue(field("a", FanType.FanOut).nest(
+                        concat(field("b"), field("c"), field("d"))), 2);
+
         return Stream.of(
                 Arguments.of(field("a"),
                         concat(field("a"), field("b"), field("c")),
@@ -825,11 +828,31 @@ public class KeyExpressionTest {
                 Arguments.of(keyWithValue(concat(field("a"), field("b")), 1),
                         field("a"),
                         true),
+                Arguments.of(keyWithValue(concat(field("a"), field("b"), field("c")), 2),
+                        concat(field("a"), field("c")), false),
                 Arguments.of(concat(field("a"), field("b")),
                         keyWithValue(concat(field("a"), field("b"), field("c")), 2),
                         true),
                 Arguments.of(concat(field("a"), field("b")),
                         keyWithValue(concat(field("a"), field("b")), 1),
+                        false),
+                Arguments.of(field("a", FanType.FanOut).nest(field("b")),
+                        nestedKeyWithValue,
+                        true),
+                Arguments.of(field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
+                        nestedKeyWithValue,
+                        true),
+                Arguments.of(field("a", FanType.FanOut).nest(
+                        concat(field("b"), field("c"), field("d"))),
+                        nestedKeyWithValue,
+                        false),
+                Arguments.of(concat(field("a", FanType.FanOut).nest(
+                        field("b")), field("a", FanType.FanOut).nest("b")),
+                        nestedKeyWithValue,
+                        false),
+                Arguments.of(concat(field("a", FanType.FanOut).nest(
+                        field("b")), field("a", FanType.FanOut).nest("c")),
+                        nestedKeyWithValue,
                         false));
     }
 
