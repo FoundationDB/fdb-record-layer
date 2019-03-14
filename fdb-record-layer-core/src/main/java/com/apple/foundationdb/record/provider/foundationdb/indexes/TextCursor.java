@@ -91,7 +91,11 @@ class TextCursor implements BaseCursor<IndexEntry> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
-        if (limitRemaining > 0 && limitManager.tryRecordScan()) {
+        if (nextResult != null && !nextResult.hasNext()) {
+            // Like the KeyValueCursor, it is necessary to memoize and return the first result where
+            // hasNext is false to avoid the NoNextReason changing.
+            return CompletableFuture.completedFuture(nextResult);
+        } else if (limitRemaining > 0 && limitManager.tryRecordScan()) {
             return underlying.onHasNext().thenApply(hasNext -> {
                 if (hasNext) {
                     BunchedMapScanEntry<Tuple, List<Integer>, Tuple> nextItem = underlying.next();
@@ -137,6 +141,7 @@ class TextCursor implements BaseCursor<IndexEntry> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -146,6 +151,7 @@ class TextCursor implements BaseCursor<IndexEntry> {
 
     @Nullable
     @Override
+    @Deprecated
     public IndexEntry next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -156,12 +162,14 @@ class TextCursor implements BaseCursor<IndexEntry> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         return nextResult.getContinuation().toBytes();
     }
 
     @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

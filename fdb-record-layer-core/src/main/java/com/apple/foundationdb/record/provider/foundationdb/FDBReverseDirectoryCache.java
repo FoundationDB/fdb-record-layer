@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -336,21 +337,18 @@ public class FDBReverseDirectoryCache {
                 .build();
 
         final String[] foundKey = new String[1];
-        return AsyncUtil.whileTrue(() -> cursor.onHasNext().thenApply(hasNext -> {
-            if (hasNext) {
-                KeyValue kv = cursor.next();
-                Long curDirValue = scopedReverseDirectoryKey.getScope().deserializeValue(kv.getValue()).getValue();
-                if (curDirValue.equals(reverseDirectoryKeyData)) {
-                    foundKey[0] = directorySubspace.unpack(kv.getKey()).getString(0);
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug("Memory and reverse cache miss for value '" + scopedReverseDirectoryKey
-                                     + "', found in directory scan as path '" + foundKey[0] + "'");
-                    }
-                    return false;
+        return cursor.forEachResult(result -> {
+            KeyValue kv = result.get();
+            Long curDirValue = scopedReverseDirectoryKey.getScope().deserializeValue(kv.getValue()).getValue();
+            if (curDirValue.equals(reverseDirectoryKeyData)) {
+                foundKey[0] = directorySubspace.unpack(kv.getKey()).getString(0);
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("Memory and reverse cache miss for value '" + scopedReverseDirectoryKey
+                                 + "', found in directory scan as path '" + foundKey[0] + "'");
                 }
             }
-            return hasNext;
-        }), fdb.getExecutor()).thenCompose(ignored -> {
+        }).thenCompose(noNextResult -> {
+            RecordCursorContinuation nextContinuation = noNextResult.getContinuation();
             if (foundKey[0] != null) {
                 // The current context of the iterator may be different than the original
                 // one that was created above, so be careful to use the current one for our work.
@@ -361,12 +359,11 @@ public class FDBReverseDirectoryCache {
                                 tr.commit().thenApply(ignored2 -> Optional.of(NameOrContinuation.name(foundKey[0]))));
             }
 
-            final byte[] nextContinuation = cursor.getContinuation();
-            if (nextContinuation == null) {
+            if (nextContinuation.isEnd()) {
                 return CompletableFuture.completedFuture(Optional.empty());
             }
 
-            return CompletableFuture.completedFuture(Optional.of(NameOrContinuation.continuation(cursor.getContinuation())));
+            return CompletableFuture.completedFuture(Optional.of(NameOrContinuation.continuation(nextContinuation.toBytes())));
         });
     }
 
@@ -529,18 +526,13 @@ public class FDBReverseDirectoryCache {
                         .build()))
                 .build();
 
-        return AsyncUtil.whileTrue(() -> cursor.onHasNext().thenApply(hasNext -> {
-            if (hasNext) {
-                final KeyValue kv = cursor.next();
-                final String dirName = directorySubspace.unpack(kv.getKey()).getString(0);
-                final Object dirValue = Tuple.fromBytes(kv.getValue()).get(0);
+        return cursor.forEachResult(result -> {
+            final KeyValue kv = result.get();
+            final String dirName = directorySubspace.unpack(kv.getKey()).getString(0);
+            final Object dirValue = Tuple.fromBytes(kv.getValue()).get(0);
 
-                context.ensureActive().set(reverseDirectorySubspace.pack(dirValue), Tuple.from(dirName).pack());
-            }
-
-            return hasNext;
-        }), fdb.getExecutor())
-        .thenApply(ignored -> cursor.getContinuation());
+            context.ensureActive().set(reverseDirectorySubspace.pack(dirValue), Tuple.from(dirName).pack());
+        }).thenApply(result -> result.getContinuation().toBytes());
     }
 
     private static class NameOrContinuation {

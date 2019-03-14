@@ -604,13 +604,9 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
                     10
             );
 
-            int count = 0;
-            while (cursor.hasNext()) {
-                cursor.next();
-                ++count;
-            }
 
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
+            long count = cursor.getCount().join();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNext().getNoNextReason());
             // With a 1ms delay we should read no more than 5 "a" values (there are a total of 10)
             // and each "c" value has 4 values. so we shouldn't have been able to read more than 40
             // total values.
@@ -653,13 +649,8 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
                     .build());
             RecordCursor<ResolvedKeySpacePath> cursor = root.path("root").listSubdirectoryAsync(context, "a", null, props);
 
-            int count = 0;
-            while (cursor.hasNext()) {
-                cursor.next();
-                ++count;
-            }
-
-            assertEquals(noNextReason, cursor.getNoNextReason());
+            long count = cursor.getCount().join();
+            assertEquals(noNextReason, cursor.getNext().getNoNextReason());
             assertEquals(Math.min(returnedRowLimit, scannedRecordLimit), count, "Wrong number of results");
         }
     }
@@ -1161,11 +1152,11 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
                     assertEquals("val_" + idx, subdirs.get(0).getResolvedValue());
                     assertEquals("val_" + (idx + 1), subdirs.get(1).getResolvedValue());
                     idx += 2;
-                    continuation = cursor.getContinuation();
+                    continuation = cursor.getNext().getContinuation().toBytes();
                     System.out.println(continuation == null ? "null" : Tuple.fromBytes(continuation));
                 } else {
-                    continuation = cursor.getContinuation();
-                    assertNull(cursor.getContinuation());
+                    continuation = cursor.getNext().getContinuation().toBytes();
+                    assertNull(continuation);
                 }
             }
         } while (continuation != null);

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,6 +122,12 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
                 .thenApply(ignore -> lastResult);
     }
 
+    @Nonnull
+    @Override
+    public RecordCursorResult<T> getNext() {
+        return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
+    }
+
     private void openContextAndGenerateCursor(@Nullable byte[] continuation) {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Open context and generate a cursor");
@@ -134,6 +141,7 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             mayGetContinuation = false;
@@ -144,6 +152,7 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -156,12 +165,15 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return lastResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return lastResult.getNoNextReason();
     }

@@ -73,9 +73,15 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
-        if (timedOutResult != null) {
+        if (nextResult != null && !nextResult.hasNext()) {
+            // It is necessary to check to see if a result has already completed without a value as it would
+            // otherwise be possible for the NoNextReason to change. In particular, if this cursor completes
+            // because its child cursos hits some limit, one can return a RecordCursorResult where the NoNextReason
+            // is that limit. If the time limit then elapses and then one calls onNext again, if the result weren't
+            // memoized, one might return a NoNextReason of TIME_LIMIT_REACHED.
+            return CompletableFuture.completedFuture(nextResult);
+        } else if (timedOutResult != null) {
             nextResult = timedOutResult;
             return CompletableFuture.completedFuture(nextResult);
         } else {
@@ -103,6 +109,7 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -112,6 +119,7 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -122,11 +130,14 @@ public class TimeLimitedCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

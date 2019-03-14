@@ -69,6 +69,7 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     private byte[] lastKey;
     @Nullable
     private CompletableFuture<Boolean> hasNextFuture = null;
+    @Nullable
     private RecordCursorResult<KeyValue> nextResult;
 
     private KeyValueCursor(@Nonnull final FDBRecordContext recordContext,
@@ -145,7 +146,13 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<KeyValue>> onNext() {
-        if (limitManager.tryRecordScan()) {
+        if (nextResult != null && !nextResult.hasNext()) {
+            // This guard is needed to guarantee that if onNext is called multiple times after the cursor has
+            // returned a result without a value, then the same NoNextReason is returned each time. Without this guard,
+            // one might return SCAN_LIMIT_REACHED (for example) after returning a result with SOURCE_EXHAUSTED because
+            // of the tryRecordScan check.
+            return CompletableFuture.completedFuture(nextResult);
+        } else if (limitManager.tryRecordScan()) {
             return iter.onHasNext().thenApply(hasNext -> {
                 if (hasNext) {
                     KeyValue kv = iter.next();
@@ -178,18 +185,26 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
         }
     }
 
+    @Override
+    @Nonnull
+    public RecordCursorResult<KeyValue> getNext() {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
+    }
+
     @Nonnull
     private RecordCursorContinuation continuationHelper() {
         return new Continuation(lastKey, prefixLength);
     }
 
     @Override
+    @Deprecated
     public boolean hasNext() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onHasNext());
     }
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -199,6 +214,7 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
 
     @Nonnull
     @Override
+    @Deprecated
     public KeyValue next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -209,11 +225,14 @@ public class KeyValueCursor implements BaseCursor<KeyValue> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

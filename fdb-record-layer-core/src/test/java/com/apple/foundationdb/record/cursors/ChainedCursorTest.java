@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.cursors;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
@@ -48,7 +49,7 @@ public class ChainedCursorTest extends FDBTestBase {
 
     @Test
     public void testChainedCursor() {
-        RecordCursor<Long> cursor = newCursor(null);
+        RecordCursorIterator<Long> cursor = newCursor(null).asIterator();
 
         long i = 0L;
         while (cursor.hasNext()) {
@@ -60,7 +61,7 @@ public class ChainedCursorTest extends FDBTestBase {
 
     @Test
     public void testChainedCursorContinuation() {
-        RecordCursor<Long> cursor = newCursor(null);
+        RecordCursorIterator<Long> cursor = newCursor(null).asIterator();
 
         long i = 0L;
         while (cursor.hasNext()) {
@@ -68,7 +69,7 @@ public class ChainedCursorTest extends FDBTestBase {
             ++i;
             if ((i % 2) == 0) {
                 final byte[] continuation = cursor.getContinuation();
-                cursor = newCursor(continuation);
+                cursor = newCursor(continuation).asIterator();
             }
         }
         assertEquals(25, i);
@@ -96,13 +97,14 @@ public class ChainedCursorTest extends FDBTestBase {
                     .setFailOnScanLimitReached(false)
                     .build());
 
-            RecordCursor<Long> cursor = new ChainedCursor<>(
+            RecordCursorIterator<Long> cursor = new ChainedCursor<>(
                     context,
-                    (lastKey) -> nextKey(lastKey),
+                    ChainedCursorTest::nextKey,
                     (key) -> Tuple.from(key).pack(),
                     (prevContinuation) -> Tuple.fromBytes(prevContinuation).getLong(0),
                     null,
-                    props);
+                    props)
+                    .asIterator();
 
             int count = 0;
             while (cursor.hasNext()) {
@@ -124,7 +126,7 @@ public class ChainedCursorTest extends FDBTestBase {
                     .setFailOnScanLimitReached(false)
                     .build());
 
-            RecordCursor<Long> cursor = new ChainedCursor<>(
+            RecordCursorIterator<Long> cursor = new ChainedCursor<>(
                     context,
                     (lastKey) -> nextKey(lastKey).thenApply(value -> {
                         sleep(1L);
@@ -133,7 +135,7 @@ public class ChainedCursorTest extends FDBTestBase {
                     (key) -> Tuple.from(key).pack(),
                     (prevContinuation) -> Tuple.fromBytes(prevContinuation).getLong(0),
                     null,
-                    props);
+                    props).asIterator();
 
             int count = 0;
             while (cursor.hasNext()) {

@@ -336,7 +336,8 @@ public class OnlineIndexer implements AutoCloseable {
         // Note: This runs all of the updates in serial in order to not invoke a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
-        return cursor.forEachAsync(rec -> {
+        return cursor.forEachResultAsync(result -> {
+            FDBStoredRecord<Message> rec = result.get();
             empty.set(false);
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
@@ -349,8 +350,8 @@ public class OnlineIndexer implements AutoCloseable {
             } else {
                 return AsyncUtil.DONE;
             }
-        }, 1).thenCompose(vignore -> {
-            byte[] nextCont = empty.get() ? null : cursor.getContinuation();
+        }).thenCompose(noNextResult -> {
+            byte[] nextCont = empty.get() ? null : noNextResult.getContinuation().toBytes();
             if (nextCont == null) {
                 return CompletableFuture.completedFuture(null);
             } else {
@@ -358,9 +359,9 @@ public class OnlineIndexer implements AutoCloseable {
                 executeProperties.setReturnedRowLimit(1);
                 final ScanProperties scanProperties1 = new ScanProperties(executeProperties.build());
                 RecordCursor<FDBStoredRecord<Message>> nextCursor = store.scanRecords(range, nextCont, scanProperties1);
-                return nextCursor.onHasNext().thenApply(hasNext -> {
-                    if (hasNext) {
-                        FDBStoredRecord<Message> rec = nextCursor.next();
+                return nextCursor.onNext().thenApply(result -> {
+                    if (result.hasNext()) {
+                        FDBStoredRecord<Message> rec = result.get();
                         return rec.getPrimaryKey();
                     } else {
                         return null;
@@ -691,9 +692,9 @@ public class OnlineIndexer implements AutoCloseable {
                 .build();
         final ScanProperties forward = new ScanProperties(limit1);
         RecordCursor<FDBStoredRecord<Message>> beginCursor = store.scanRecords(recordsRange, null, forward);
-        CompletableFuture<Tuple> begin = beginCursor.onHasNext().thenCompose(present -> {
-            if (present) {
-                Tuple firstTuple = beginCursor.next().getPrimaryKey();
+        CompletableFuture<Tuple> begin = beginCursor.onNext().thenCompose(result -> {
+            if (result.hasNext()) {
+                Tuple firstTuple = result.get().getPrimaryKey();
                 return buildRange(store, null, firstTuple).thenApply(vignore -> firstTuple);
             } else {
                 // Empty range -- add the whole thing.
@@ -703,9 +704,9 @@ public class OnlineIndexer implements AutoCloseable {
 
         final ScanProperties backward = new ScanProperties(limit1, true);
         RecordCursor<FDBStoredRecord<Message>> endCursor = store.scanRecords(recordsRange, null, backward);
-        CompletableFuture<Tuple> end = endCursor.onHasNext().thenCompose(present -> {
-            if (present) {
-                Tuple lastTuple = endCursor.next().getPrimaryKey();
+        CompletableFuture<Tuple> end = endCursor.onNext().thenCompose(result -> {
+            if (result.hasNext()) {
+                Tuple lastTuple = result.get().getPrimaryKey();
                 return buildRange(store, lastTuple, null).thenApply(vignore -> lastTuple);
             } else {
                 // As the range is empty, the whole range needs to be added, but that is accomplished

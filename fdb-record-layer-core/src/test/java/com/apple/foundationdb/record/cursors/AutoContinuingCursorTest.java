@@ -31,7 +31,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiFunction;
@@ -58,11 +57,7 @@ public class AutoContinuingCursorTest extends FDBTestBase {
         try (FDBDatabaseRunner runner = database.newRunner()) {
             RecordCursor<Integer> cursor = new AutoContinuingCursor<>(runner, nextCursorGenerator);
 
-            List<Integer> returnedList = new ArrayList<>();
-            while (cursor.hasNext()) {
-                returnedList.add(cursor.next());
-            }
-
+            List<Integer> returnedList = cursor.asList().join();
             assertEquals(expectedList, returnedList);
         }
     }

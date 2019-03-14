@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -38,40 +40,47 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 public class MapWhileCursorTest {
     static final List<Integer> ints = Arrays.asList(1, 2, 3, 4, 5);
 
+    private void validateNoNextReason(@Nonnull RecordCursor<?> cursor, @Nonnull RecordCursor.NoNextReason expectedNoNextResult) {
+        RecordCursorResult<?> noNextResult = cursor.getNext();
+        assertEquals(false, noNextResult.hasNext());
+        assertEquals(expectedNoNextResult, noNextResult.getNoNextReason());
+        if (expectedNoNextResult.isSourceExhausted()) {
+            assertEquals(true, noNextResult.getContinuation().isEnd());
+            assertNull(noNextResult.getContinuation().toBytes());
+        } else {
+            assertEquals(false, noNextResult.getContinuation().isEnd());
+            assertNotNull(noNextResult.getContinuation().toBytes());
+        }
+    }
+
     @Test
     public void noStop() {
         RecordCursor<Integer> cursor = newCursor(i -> i > 5, null, MapWhileCursor.StopContinuation.NONE, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
         assertEquals(Arrays.asList(2, 3, 4, 5, 6), cursor.asList().join());
-        assertNull(cursor.getContinuation());
-        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
+        validateNoNextReason(cursor, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
     }
 
     @Test
     public void stopAndContinue() {
         RecordCursor<Integer> cursor = newCursor(i -> i > 2, null, MapWhileCursor.StopContinuation.AFTER, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
         assertEquals(Arrays.asList(2, 3), cursor.asList().join());
-        assertNotNull(cursor.getContinuation());
-        assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, cursor.getNoNextReason());
-        cursor = newCursor(i -> i > 5, cursor.getContinuation(), MapWhileCursor.StopContinuation.AFTER, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+        validateNoNextReason(cursor, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+        cursor = newCursor(i -> i > 5, cursor.getNext().getContinuation().toBytes(), MapWhileCursor.StopContinuation.AFTER, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
         assertEquals(Arrays.asList(5, 6), cursor.asList().join());
-        assertNull(cursor.getContinuation());
-        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
+        validateNoNextReason(cursor, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
     }
 
     @Test
     public void stopAndRepeat() {
         RecordCursor<Integer> cursor = newCursor(i -> i > 2, null, MapWhileCursor.StopContinuation.BEFORE, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
         assertEquals(Arrays.asList(2, 3), cursor.asList().join());
-        assertNotNull(cursor.getContinuation());
-        assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, cursor.getNoNextReason());
-        cursor = newCursor(i -> i > 4, cursor.getContinuation(), MapWhileCursor.StopContinuation.BEFORE, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+        validateNoNextReason(cursor, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+        cursor = newCursor(i -> i > 4, cursor.getNext().getContinuation().toBytes(), MapWhileCursor.StopContinuation.BEFORE, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
         assertEquals(Arrays.asList(4, 5), cursor.asList().join());
-        assertNotNull(cursor.getContinuation());
-        assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, cursor.getNoNextReason());
-        cursor = newCursor(i -> i > 10, cursor.getContinuation(), MapWhileCursor.StopContinuation.BEFORE, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+        validateNoNextReason(cursor, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+        cursor = newCursor(i -> i > 10, cursor.getNext().getContinuation().toBytes(), MapWhileCursor.StopContinuation.BEFORE, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
         assertEquals(Arrays.asList(6), cursor.asList().join());
-        assertNull(cursor.getContinuation());
-        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
+        validateNoNextReason(cursor, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
     }
 
     private RecordCursor<Integer> newCursor(Predicate<Integer> stopCondition, byte[] continuation, MapWhileCursor.StopContinuation stopContinuation, RecordCursor.NoNextReason noNextReason) {

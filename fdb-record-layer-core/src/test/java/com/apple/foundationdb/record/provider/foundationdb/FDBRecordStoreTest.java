@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -388,7 +389,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openLongRecordStore(context);
-            RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN);
+            RecordCursorIterator<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             FDBStoredRecord<Message> rec1 = cursor.next();
             TestRecords2Proto.MyLongRecord.Builder myrec1 = TestRecords2Proto.MyLongRecord.newBuilder();
@@ -427,7 +428,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     int i = 0;
                     byte[] continuation = null;
                     do {
-                        try (RecordCursor<FDBStoredRecord<Message>> cursor = scanContinuationsCursor(continuation, limit, false, builtInLimit)) {
+                        try (RecordCursorIterator<FDBStoredRecord<Message>> cursor = scanContinuationsCursor(continuation, limit, false, builtInLimit).asIterator()) {
                             while (cursor.hasNext()) {
                                 assertEquals(i, cursor.next().getPrimaryKey().getLong(0));
                                 i++;
@@ -437,7 +438,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     } while (continuation != null);
                     assertEquals(100, i);
                     do {
-                        try (RecordCursor<FDBStoredRecord<Message>> cursor = scanContinuationsCursor(continuation, limit, true, builtInLimit)) {
+                        try (RecordCursorIterator<FDBStoredRecord<Message>> cursor = scanContinuationsCursor(continuation, limit, true, builtInLimit).asIterator()) {
                             while (cursor.hasNext()) {
                                 i--;
                                 assertEquals(i, cursor.next().getPrimaryKey().getLong(0));
@@ -773,9 +774,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             TupleRange range = comparisons.toTupleRange();
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range,
                                                                             null, ScanProperties.FORWARD_SCAN)) {
-                while (cursor.hasNext()) {
-                    rows.add(cursor.next().getKey().getItems());
-                }
+                cursor.forEach(row -> rows.add(row.getKey().getItems())).join();
             }
             assertEquals(Arrays.asList(Arrays.asList("aaa", "goodbye", 2L),
                                        Arrays.asList("aaa", "hello", 1L)),
@@ -928,18 +927,19 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
 
-            RecordCursor<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null,
+            RecordCursorIterator<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null,
                     new ScanProperties(ExecuteProperties.newBuilder()
                             .setReturnedRowLimit(1)
                             .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                            .build()));
+                            .build()))
+                    .asIterator();
             while (messageCursor.hasNext()) {
                 scannedRecords.add(messageCursor.next());
                 messageCursor = recordStore.scanRecords(messageCursor.getContinuation(), new ScanProperties(
                         ExecuteProperties.newBuilder()
                                 .setReturnedRowLimit(1)
                                 .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                        .build()));
+                        .build())).asIterator();
             }
             commit(context);
         }
@@ -2370,12 +2370,12 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(rec1, storedRec1.getRecord());
 
             // Scan should return only that record
-            RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN);
+            RecordCursorIterator<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             FDBStoredRecord<Message> scannedRec1 = cursor.next();
             assertEquals(storedRec1, scannedRec1);
             assertFalse(cursor.hasNext());
-            cursor = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN);
+            cursor = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             FDBStoredRecord<Message> scannedReverseRec1 = cursor.next();
             assertEquals(storedRec1, scannedReverseRec1);
@@ -2395,7 +2395,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(rec2, storedRec2.getRecord());
 
             // Scan should now contain both records.
-            cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN);
+            cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             scannedRec1 = cursor.next();
             assertEquals(storedRec1, scannedRec1);
@@ -2403,7 +2403,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             FDBStoredRecord<Message> scannedRec2 = cursor.next();
             assertEquals(storedRec2, scannedRec2);
             assertFalse(cursor.hasNext());
-            cursor = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN);
+            cursor = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             scannedRec2 = cursor.next();
             assertEquals(storedRec2, scannedRec2);
@@ -2416,12 +2416,12 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.deleteRecord(Tuple.from(1066L)));
 
             // Scan should now have just the second record
-            cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN);
+            cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             scannedRec2 = cursor.next();
             assertEquals(storedRec2, scannedRec2);
             assertFalse(cursor.hasNext());
-            cursor = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN);
+            cursor = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             scannedRec2 = cursor.next();
             assertEquals(storedRec2, scannedRec2);

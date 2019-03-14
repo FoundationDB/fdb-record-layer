@@ -207,8 +207,11 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
+        if (lastResult != null && !lastResult.hasNext()) {
+            return CompletableFuture.completedFuture(lastResult);
+        }
+
         if (returnedRowCount == maxReturnedRows) {
             lastResult = RecordCursorResult.withoutNextValue(
                     new Continuation<>(lastValue, continuationEncoder), NoNextReason.RETURN_LIMIT_REACHED);
@@ -237,6 +240,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             mayGetContinuation = false;
@@ -247,6 +251,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -259,12 +264,15 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return lastResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return lastResult.getNoNextReason();
     }

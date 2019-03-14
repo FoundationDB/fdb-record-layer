@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -280,7 +282,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 }
                 ScanProperties scanProperties = propertiesBuilder.build().asScanProperties(i % 2 == 0);
                 int retrieved = 0;
-                RecordCursor<IndexEntry> cursor = store.scanIndex(index, BY_TEXT_TOKEN, range, continuation, scanProperties);
+                RecordCursorIterator<IndexEntry> cursor = store.scanIndex(index, BY_TEXT_TOKEN, range, continuation, scanProperties).asIterator();
                 while (cursor.hasNext()) {
                     paginatedResults.add(cursor.next());
                     retrieved++;
@@ -1093,13 +1095,14 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             openRecordStore(context);
             ScanProperties scanProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(0).build().asScanProperties(reverse);
             RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), null, scanProperties);
-            if (!cursor.hasNext()) {
-                assertEquals(SOURCE_EXHAUSTED, cursor.getNoNextReason());
+            RecordCursorResult<IndexEntry> result = cursor.getNext();
+            if (!result.hasNext()) {
+                assertEquals(SOURCE_EXHAUSTED, result.getNoNextReason());
                 return;
             }
-            cursor.next();
-            assertThat(cursor.hasNext(), is(false));
-            assertEquals(SCAN_LIMIT_REACHED, cursor.getNoNextReason());
+            result = cursor.getNext();
+            assertThat(result.hasNext(), is(false));
+            assertEquals(SCAN_LIMIT_REACHED, result.getNoNextReason());
         }
     }
 
@@ -1116,13 +1119,13 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             int retrieved = 0;
             while (!cursors.isEmpty()) {
                 RecordCursor<IndexEntry> cursor = cursors.get(cursorIndex);
-                if (cursor.hasNext()) {
-                    cursor.next();
+                RecordCursorResult<IndexEntry> result = cursor.getNext();
+                if (result.hasNext()) {
                     retrieved++;
                     cursorIndex = (cursorIndex + 1) % cursors.size();
                 } else {
-                    if (!cursor.getNoNextReason().isSourceExhausted()) {
-                        assertEquals(SCAN_LIMIT_REACHED, cursor.getNoNextReason());
+                    if (!result.getNoNextReason().isSourceExhausted()) {
+                        assertEquals(SCAN_LIMIT_REACHED, result.getNoNextReason());
                     }
                     cursors.remove(cursorIndex);
                     if (cursorIndex == cursors.size()) {
@@ -1145,7 +1148,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             byte[] continuation = null;
 
             do {
-                RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), continuation, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN);
+                RecordCursorIterator<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), continuation, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN).asIterator();
                 for (int i = 0; i < limit || limit == 0; i++) {
                     if (cursor.hasNext()) {
                         scanResults.add(cursor.next());
@@ -1176,8 +1179,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             final ScanProperties scanProperties = ExecuteProperties.newBuilder().setReturnedRowLimit(limit).setSkip(skip).build().asScanProperties(reverse);
             final RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), null, scanProperties);
             List<IndexEntry> scanResults = cursor.asList().get();
-            assertThat(cursor.hasNext(), is(false));
-            assertEquals((limit != ReadTransaction.ROW_LIMIT_UNLIMITED && scanResults.size() == limit) ? RETURN_LIMIT_REACHED : SOURCE_EXHAUSTED, cursor.getNoNextReason());
+            RecordCursorResult<IndexEntry> noNextResult = cursor.getNext();
+            assertThat(noNextResult.hasNext(), is(false));
+            assertEquals((limit != ReadTransaction.ROW_LIMIT_UNLIMITED && scanResults.size() == limit) ? RETURN_LIMIT_REACHED : SOURCE_EXHAUSTED, noNextResult.getNoNextReason());
             List<IndexEntry> expectedResults;
             if (reverse) {
                 scanResults = new ArrayList<>(scanResults);
@@ -1484,18 +1488,19 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(50).build();
                 RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties);
                 assertEquals(Collections.emptyList(), cursor.asList().get());
-                assertThat(cursor.hasNext(), is(false));
+                RecordCursorResult<FDBQueriedRecord<Message>> noNextResult = cursor.getNext();
+                assertThat(noNextResult.hasNext(), is(false));
                 final int newKeysLoaded = recordStore.getTimer().getCount(FDBStoreTimer.Counts.LOAD_TEXT_ENTRY);
                 totalKeysLoaded += newKeysLoaded - priorKeysLoaded;
-                if (!cursor.getNoNextReason().isSourceExhausted()) {
+                if (!noNextResult.getNoNextReason().isSourceExhausted()) {
                     assertEquals(50, newKeysLoaded - priorKeysLoaded);
-                    assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, cursor.getNoNextReason());
-                    assertNotNull(cursor.getContinuation());
+                    assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, noNextResult.getNoNextReason());
+                    assertNotNull(noNextResult.getContinuation().toBytes());
                 } else {
-                    assertNull(cursor.getContinuation());
+                    assertNull(noNextResult.getContinuation().toBytes());
                     done = true;
                 }
-                continuation = cursor.getContinuation();
+                continuation = noNextResult.getContinuation().toBytes();
             }
             assertEquals(recordCount + 2, totalKeysLoaded);
 
@@ -2438,15 +2443,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                         .filter(record -> record.getRecordType().getName().equals(SIMPLE_DOC))
                         .filter(record -> filter.eval(recordStore, EvaluationContext.EMPTY, record) == Boolean.TRUE)
                         .map(record -> record.getPrimaryKey().getLong(0))) {
-                    while (cursor.hasNext()) {
-                        results.add(cursor.next());
-                    }
+                    cursor.forEach(results::add).get();
 
-                    if (!cursor.getNoNextReason().isSourceExhausted()) {
-                        continuation = cursor.getContinuation();
-                    } else {
-                        continuation = null;
-                    }
+                    RecordCursorResult<Long> noNextResult = cursor.getNext();
+                    continuation = noNextResult.getContinuation().toBytes();
                 }
             }
         } while (continuation != null);
@@ -2481,14 +2481,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
             try (RecordCursor<Long> cursor = recordStore.executeQuery(plan, null, executeProperties)
                     .map(record -> record.getPrimaryKey().getLong(0))) {
-                while (cursor.hasNext()) {
-                    results.add(cursor.next());
-                }
-                if (!cursor.getNoNextReason().isSourceExhausted()) {
-                    continuation = cursor.getContinuation();
-                } else {
-                    continuation = null;
-                }
+                cursor.forEach(results::add).get();
+                continuation = cursor.getNext().getContinuation().toBytes();
             }
         }
 
@@ -2497,15 +2491,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, hook);
                 try (RecordCursor<Long> cursor = recordStore.executeQuery(plan, continuation, executeProperties)
                         .map(record -> record.getPrimaryKey().getLong(0))) {
-                    while (cursor.hasNext()) {
-                        results.add(cursor.next());
-                    }
-
-                    if (!cursor.getNoNextReason().isSourceExhausted()) {
-                        continuation = cursor.getContinuation();
-                    } else {
-                        continuation = null;
-                    }
+                    cursor.forEach(results::add).get();
+                    continuation = cursor.getNext().getContinuation().toBytes();
                 }
             }
         }
@@ -2828,12 +2815,13 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             }
 
             int textSize = 0;
-            RecordCursor<String> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+            RecordCursorIterator<String> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
                     .map(record -> {
                         Message msg = record.getRecord();
                         Descriptors.FieldDescriptor fd = msg.getDescriptorForType().findFieldByName("text");
                         return msg.getField(fd).toString();
-                    });
+                    })
+                    .asIterator();
             while (cursor.hasNext()) {
                 textSize += cursor.next().length();
             }

@@ -135,30 +135,25 @@ public class ResolverMappingReplicator implements AutoCloseable {
                         .setContinuation(continuation.get())
                         .build();
 
-                return AsyncUtil.whileTrue(() ->
-                    cursor.onHasNext().thenCompose(hasNext -> {
-                        CompletableFuture<Void> currentStep;
-                        if (hasNext) {
-                            final KeyValue kv = cursor.next();
-                            final String mappedString = primaryMappingSubspace.unpack(kv.getKey()).getString(0);
-                            final ResolverResult mappedValue = valueDeserializer.apply(kv.getValue());
-                            accumulator.accumulate(mappedValue.getValue());
-                            counter.incrementAndGet();
-
-                            currentStep = replica.setMapping(context, mappedString, mappedValue);
-                        } else {
-                            currentStep = AsyncUtil.DONE;
-                        }
-                        return currentStep.thenApply(ignore2 -> hasNext);
-                    }), context.getExecutor())
-                    .thenCompose(ignore -> context.commitAsync().thenRun(() -> {
-                        byte[] nextContinuation = cursor.getContinuation();
+                return cursor.forEachResultAsync(result -> {
+                    KeyValue kv = result.get();
+                    final String mappedString = primaryMappingSubspace.unpack(kv.getKey()).getString(0);
+                    final ResolverResult mappedValue = valueDeserializer.apply(kv.getValue());
+                    accumulator.accumulate(mappedValue.getValue());
+                    counter.incrementAndGet();
+                    return replica.setMapping(context, mappedString, mappedValue);
+                }).thenCompose(lastResult -> context.commitAsync().thenRun(() -> {
+                    byte[] nextContinuationBytes = lastResult.getContinuation().toBytes();
+                    if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("committing batch",
                                 "scannedSoFar", counter.get(),
-                                "nextContinuation", ByteArrayUtil2.loggable(nextContinuation)
+                                "nextContinuation", ByteArrayUtil2.loggable(nextContinuationBytes)
                         ));
-                        continuation.set(nextContinuation);
-                    })).thenApply(vignore -> Objects.nonNull(continuation.get()));
+                    }
+                    continuation.set(nextContinuationBytes);
+                }))
+                .whenComplete((vignore, eignore) -> cursor.close())
+                .thenApply(vignore -> Objects.nonNull(continuation.get()));
             });
         });
     }

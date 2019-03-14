@@ -60,7 +60,7 @@ import java.util.function.Function;
  *
  * @param <T> the type of result produced when the result includes a value
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.STABLE)
 public class RecordCursorResult<T> {
 
     @Nonnull
@@ -201,7 +201,7 @@ public class RecordCursorResult<T> {
     }
 
     /**
-     * Returns {@code true} if the cursor has reached its end but a continuation is not an end continuation. (i.e. the source is not yet exhausted).
+     * Returns {@code true} if the cursor has reached its end but a continuation is not an end continuation (i.e., the source is not yet exhausted).
      * @return {@code true} if the cursor has reached its end but a continuation is not an end continuation and {@code false} otherwise
      */
     public boolean hasStoppedBeforeEnd() {

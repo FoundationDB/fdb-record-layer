@@ -20,18 +20,20 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.subspace.Subspace;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
@@ -58,9 +60,8 @@ public class SizeStatisticsCollector {
     private long maxValueSize;
     @Nonnull
     private long[] sizeBuckets;
-    @Nullable
-    private byte[] continuation;
-    private boolean done;
+    @Nonnull
+    private RecordCursorContinuation continuation;
 
     private SizeStatisticsCollector(@Nonnull SubspaceProvider subspaceProvider) {
         this.subspaceProvider = subspaceProvider;
@@ -70,8 +71,7 @@ public class SizeStatisticsCollector {
         this.valueSize = 0;
         this.maxValueSize = 0;
         this.sizeBuckets = new long[Integer.SIZE];
-        this.continuation = null;
-        this.done = false;
+        this.continuation = RecordCursorStartContinuation.START;
     }
 
     /**
@@ -92,7 +92,7 @@ public class SizeStatisticsCollector {
      */
     @Nonnull
     public CompletableFuture<Boolean> collectAsync(@Nonnull FDBRecordContext context, @Nonnull ExecuteProperties executeProperties) {
-        if (done) {
+        if (continuation.isEnd()) {
             return AsyncUtil.READY_TRUE;
         }
         return subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
@@ -100,10 +100,12 @@ public class SizeStatisticsCollector {
                     .setStreamingMode(CursorStreamingMode.WANT_ALL);
             final KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
-                    .setContinuation(continuation)
+                    .setContinuation(continuation.toBytes())
                     .setScanProperties(scanProperties)
                     .build();
-            return kvCursor.forEach(kv -> {
+
+            return kvCursor.forEachResult(nextResult -> {
+                KeyValue kv = nextResult.get();
                 keyCount += 1;
                 keySize += kv.getKey().length;
                 maxKeySize = Math.max(maxKeySize, kv.getKey().length);
@@ -113,16 +115,11 @@ public class SizeStatisticsCollector {
                 if (totalSize > 0) {
                     sizeBuckets[Integer.SIZE - Integer.numberOfLeadingZeros(totalSize) - 1] += 1;
                 }
-                continuation = kvCursor.getContinuation();
-            }).handle((vignore, err) -> {
+                continuation = nextResult.getContinuation();
+            }).handle((result, err) -> {
                 if (err == null) {
-                    boolean exhausted = kvCursor.getNoNextReason().isSourceExhausted();
-                    if (!exhausted) {
-                        continuation = kvCursor.getContinuation();
-                    } else {
-                        done = true;
-                    }
-                    return exhausted;
+                    continuation = result.getContinuation();
+                    return continuation.isEnd();
                 } else {
                     if (FDBExceptions.isRetriable(err)) {
                         return false;
@@ -130,7 +127,7 @@ public class SizeStatisticsCollector {
                         throw context.getDatabase().mapAsyncToSyncException(err);
                     }
                 }
-            }).whenComplete((vignore, err) -> kvCursor.close());
+            }).whenComplete((ignore, err) -> kvCursor.close());
         });
     }
 

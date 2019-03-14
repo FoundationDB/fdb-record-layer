@@ -2472,27 +2472,26 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else {
             records = scanRecords(TupleRange.allOf(singleRecordTypeWithPrefixKey.getRecordTypeKeyTuple()), null, scanProperties);
         }
-        return records.onHasNext()
-                .thenApply(hasAny -> {
-                    if (hasAny) {
-                        if (LOGGER.isInfoEnabled()) {
-                            LOGGER.info(KeyValueLogMessage.of("version check scan found non-empty store",
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context)));
-                        }
-                        return Long.MAX_VALUE;
+        return records.onNext().thenApply(result -> {
+            if (result.hasNext()) {
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(KeyValueLogMessage.of("version check scan found non-empty store",
+                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
+                }
+                return Long.MAX_VALUE;
+            } else {
+                if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
+                    KeyValueLogMessage msg = KeyValueLogMessage.build("version check scan found empty store",
+                            subspaceProvider.logKey(), subspaceProvider.toString(context));
+                    if (newStore) {
+                        LOGGER.debug(msg.toString());
                     } else {
-                        if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
-                            KeyValueLogMessage msg = KeyValueLogMessage.build("version check scan found empty store",
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                            if (newStore) {
-                                LOGGER.debug(msg.toString());
-                            } else {
-                                LOGGER.info(msg.toString());
-                            }
-                        }
-                        return 0L;
+                        LOGGER.info(msg.toString());
                     }
-                });
+                }
+                return 0L;
+            }
+        });
     }
 
     @Nullable

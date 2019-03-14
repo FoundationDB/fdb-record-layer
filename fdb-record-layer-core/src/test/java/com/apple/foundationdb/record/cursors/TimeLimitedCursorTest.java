@@ -41,9 +41,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 public class TimeLimitedCursorTest {
 
     @Test
-    public void exhaustedWhenTimeLimited() throws ExecutionException, InterruptedException {
+    public void exhaustedWhenTimeLimited() {
         TimeLimitedCursor<Object> cursor = new TimeLimitedCursor<>(RecordCursor.empty(), System.currentTimeMillis() - 200, 100);
-        RecordCursorResult<Object> cursorResult = cursor.onNext().get();
+        RecordCursorResult<Object> cursorResult = cursor.getNext();
         assertThat(cursorResult.hasNext(), is(false));
         assertThat(cursorResult.getContinuation().isEnd(), is(true));
         assertNull(cursorResult.getContinuation().toBytes());
@@ -53,7 +53,7 @@ public class TimeLimitedCursorTest {
     @Test
     public void singleResult() throws ExecutionException, InterruptedException {
         TimeLimitedCursor<Integer> cursor = new TimeLimitedCursor<>(RecordCursor.fromList(Arrays.asList(1, 2)), System.currentTimeMillis() - 200, 100);
-        RecordCursorResult<Integer> cursorResult = cursor.onNext().get();
+        RecordCursorResult<Integer> cursorResult = cursor.getNext();
         assertThat(cursorResult.hasNext(), is(true));
         assertEquals(1, (int)cursorResult.get());
         final RecordCursorContinuation continuation = cursorResult.getContinuation();
@@ -64,7 +64,7 @@ public class TimeLimitedCursorTest {
         assertNotNull(cursorResult.getContinuation().toBytes());
         assertArrayEquals(continuation.toBytes(), cursorResult.getContinuation().toBytes());
 
-        RecordCursor<Integer> resumedCursor = RecordCursor.fromList(Arrays.asList(1, 2), cursor.getContinuation());
+        RecordCursor<Integer> resumedCursor = RecordCursor.fromList(Arrays.asList(1, 2), cursorResult.getContinuation().toBytes());
         assertEquals(2, (int)resumedCursor.onNext().get().get());
         assertThat(resumedCursor.onNext().get().hasNext(), is(false));
     }
