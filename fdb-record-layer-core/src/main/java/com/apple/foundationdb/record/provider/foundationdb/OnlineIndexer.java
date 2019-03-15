@@ -57,9 +57,12 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -885,6 +888,120 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     public void buildIndex() {
         asyncToSync(buildIndexAsync());
+    }
+
+
+    /**
+     * Split the index build range to support building an index across multiple transactions in parallel if needed.
+     * <p>
+     * It is blocking and should not be called in asynchronous contexts.
+     *
+     * @param minSplit not split if it cannot be split into at least <code>minSplit</code> ranges
+     * @param maxSplit the maximum number of splits generated
+     * @return a list of split primary key ranges (the low endpoint is inclusive and the high endpoint is exclusive)
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public List<Pair<Tuple, Tuple>> splitIndexBuildRange(int minSplit, int maxSplit) {
+        TupleRange originalRange = runner.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());
+
+        // There is no range needing to be built.
+        if (originalRange == null) {
+            return Collections.emptyList();
+        }
+
+        if (minSplit < 1 || maxSplit < 1 || minSplit > maxSplit) {
+            throw new RecordCoreException("splitIndexBuildRange should have 1 < minSplit <= maxSplit");
+        }
+
+        List<Tuple> boundaries = getPrimaryKeyBoundaries(originalRange);
+
+        // The range only spans across very few FDB servers so parallelism is not necessary.
+        if (boundaries.size() - 1 < minSplit) {
+            return Collections.singletonList(Pair.of(originalRange.getLow(), originalRange.getHigh()));
+        }
+
+        List<Pair<Tuple, Tuple>> splitRanges = new ArrayList<>(Math.min(boundaries.size() - 1, maxSplit));
+
+        // step size >= 1
+        int stepSize = -Math.floorDiv(-(boundaries.size() - 1), maxSplit);  // Read ceilDiv(boundaries.size() - 1, maxSplit).
+        int start = 0;
+        while (true) {
+            int next = start + stepSize;
+            if (next < boundaries.size() - 1) {
+                splitRanges.add(Pair.of(boundaries.get(start), boundaries.get(next)));
+            } else {
+                splitRanges.add(Pair.of(boundaries.get(start), boundaries.get(boundaries.size() - 1)));
+                break;
+            }
+            start = next;
+        }
+
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("split index build range",
+                    "indexName", index.getName(),
+                    "originalRange", originalRange,
+                    "splitRanges", splitRanges));
+        }
+
+        return splitRanges;
+    }
+
+    private List<Tuple> getPrimaryKeyBoundaries(TupleRange tupleRange) {
+        List<Tuple> boundaries = runner.run(context -> {
+            RecordCursor<Tuple> cursor = recordStoreBuilder.copyBuilder().setContext(context).open()
+                    .getPrimaryKeyBoundaries(tupleRange.getLow(), tupleRange.getHigh());
+            return context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY, cursor.asList());
+        });
+
+        // Add the two endpoints if they are not in the result
+        if (tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
+            boundaries.add(0, tupleRange.getLow());
+        }
+        if (tupleRange.getHigh().compareTo(boundaries.get(boundaries.size() - 1)) > 0) {
+            boundaries.add(tupleRange.getHigh());
+        }
+
+        return boundaries;
+    }
+
+    /**
+     * Mark the index as readable if it is built.
+     * @return a future that will complete to <code>true</code> if the index is readable and <code>false</code>
+     *     otherwise
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public CompletableFuture<Boolean> markReadableIfBuilt() {
+        return runner.runAsync(context ->
+                openRecordStore(context).thenCompose(store -> {
+                    final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
+                    return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
+                            .thenApply(hasNext -> {
+                                if (hasNext) {
+                                    return false;
+                                } else {
+                                    // Index is built because this is no missing ranges.
+                                    store.markIndexReadable(index);
+                                    return true;
+                                }
+                            });
+                })
+        );
+    }
+
+    /**
+     * Mark the index as readable.
+     * @return a future that will either complete exceptionally if the index can not
+     * be made readable or will contain <code>true</code> if the store was modified
+     * and <code>false</code> otherwise
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public CompletableFuture<Boolean> markReadable() {
+        return runner.runAsync(context ->
+                openRecordStore(context).thenCompose(store -> store.markIndexReadable(index))
+        );
     }
 
     /**
