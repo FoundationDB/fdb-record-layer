@@ -52,7 +52,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Add methods in `OnlineIndexer` to support building an index in parallel [(Issue #453)](https://github.com/FoundationDB/fdb-record-layer/issues/453)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -65,6 +65,9 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 
 // end next release
 -->
+
+### 2.5.50.0
+
 
 ### 2.5.49.0
 
