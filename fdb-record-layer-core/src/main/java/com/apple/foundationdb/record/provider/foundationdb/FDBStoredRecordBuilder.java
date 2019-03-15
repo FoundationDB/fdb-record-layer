@@ -28,7 +28,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Optional;
 
 /**
  * A builder for {@link FDBStoredRecord}.
@@ -50,11 +49,6 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     private int valueSize;
     private boolean split;
     private boolean versionedInline;
-
-    @Nonnull
-    private Optional<Long> timeToLoad = Optional.empty();
-    @Nonnull
-    private Optional<Long> timeToDeserialize = Optional.empty();
 
     public FDBStoredRecordBuilder() {
         // Real initialization via set methods.
@@ -128,16 +122,6 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
         return versionedInline;
     }
 
-    @Nonnull
-    public Optional<Long> getTimeToLoad() {
-        return timeToLoad;
-    }
-
-    @Nonnull
-    public Optional<Long> getTimeToDeserialize() {
-        return timeToDeserialize;
-    }
-
     public FDBStoredRecordBuilder<M> setPrimaryKey(Tuple primaryKey) {
         this.primaryKey = primaryKey;
         return this;
@@ -192,19 +176,8 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
         return this;
     }
 
-    public FDBStoredRecordBuilder<M> setTimeToLoad(final long time) {
-        timeToLoad = Optional.of(time);
-        return this;
-    }
-
-    public FDBStoredRecordBuilder<M> setTimeToDeserialize(final long time) {
-        timeToDeserialize = Optional.of(time);
-        return this;
-    }
-
     public FDBStoredRecord<M> build() {
         return new FDBStoredRecord<>(getPrimaryKey(), getRecordType(), getRecord(),
-                getKeyCount(), getKeySize(), getValueSize(), isSplit(), isVersionedInline(), getVersion(),
-                getTimeToLoad(), getTimeToDeserialize());
+                getKeyCount(), getKeySize(), getValueSize(), isSplit(), isVersionedInline(), getVersion());
     }
 }
