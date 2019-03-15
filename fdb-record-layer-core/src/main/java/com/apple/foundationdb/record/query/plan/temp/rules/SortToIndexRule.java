@@ -20,18 +20,18 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
-
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
@@ -85,7 +85,9 @@ public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
 
         for (Index index : call.getContext().getIndexes()) {
             if (requestedSort.isPrefixKey(index.getRootExpression())) {
-                call.yield(SingleExpressionRef.of(new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_VALUE, ScanComparisons.EMPTY, reverse)));
+                call.yield(SingleExpressionRef.of(
+                        new LogicalIndexScanExpression(index.getName(), IndexScanType.BY_VALUE,
+                                new KeyExpressionComparisons(index.getRootExpression()), reverse)));
                 return ChangesMade.MADE_CHANGES;
             }
         }

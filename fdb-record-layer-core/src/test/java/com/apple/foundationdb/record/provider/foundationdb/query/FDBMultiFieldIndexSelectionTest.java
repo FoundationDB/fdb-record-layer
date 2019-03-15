@@ -55,7 +55,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
     /**
      * Verify that a two field index can be used for queries on both the first field alone and both fields.
      */
-    @Test
+    @DualPlannerTest
     public void testPrefixScalar() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.addIndex("MySimpleRecord", "prefix_scalar", concat(field("num_value_2"), field("num_value_3_indexed")));
@@ -115,7 +115,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
     /**
      * Verify that a complex query with an appropriate multi-field index uses the index.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexQuery2() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -153,7 +153,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
     /**
      * Verify that a complex query with an appropriate multi-field index uses the index.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexQuery3() throws Exception {
         // new Index("multi_index", "str_value_indexed", "num_value_2", "num_value_3_indexed")
         RecordMetaDataHook hook = complexQuerySetupHook();

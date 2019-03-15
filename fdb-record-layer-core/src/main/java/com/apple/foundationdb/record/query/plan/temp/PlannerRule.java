@@ -93,4 +93,9 @@ public abstract class PlannerRule<T extends PlannerExpression> {
         NO_CHANGE,
         MADE_CHANGES
     }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName();
+    }
 }

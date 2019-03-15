@@ -22,9 +22,14 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndComponentRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndComponentRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithFieldWithComparisonRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalIndexScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PickFromPossibilitiesRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctFieldWithComparisonIntoExistingIndexScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushFieldWithComparisonIntoExistingIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushTypeFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveRedundantTypeFilterRule;
@@ -45,19 +50,27 @@ import java.util.Optional;
  */
 @API(API.Status.EXPERIMENTAL)
 public class PlannerRuleSet {
+    private static final List<PlannerRule<? extends PlannerExpression>> NORMALIZATION_RULES = ImmutableList.of(
+            new FlattenNestedAndComponentRule()
+    );
     private static final List<PlannerRule<? extends PlannerExpression>> REWRITE_RULES = ImmutableList.of(
-            new FilterWithScanRule(),
             new CombineFilterRule(),
             new SortToIndexRule(),
             new FilterWithFieldWithComparisonRule(),
-            new RemoveRedundantTypeFilterRule()
+            new PushFieldWithComparisonIntoExistingIndexScanRule(),
+            new PushConjunctFieldWithComparisonIntoExistingIndexScanRule(),
+            new RemoveRedundantTypeFilterRule(),
+            new FindPossibleIndexForAndComponentRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
+            new PickFromPossibilitiesRule(),
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
-            new PushTypeFilterBelowFilterRule()
+            new PushTypeFilterBelowFilterRule(),
+            new LogicalToPhysicalIndexScanRule()
     );
 
+    public static final PlannerRuleSet NORMALIZATION = new PlannerRuleSet(NORMALIZATION_RULES);
     public static final PlannerRuleSet REWRITE = new PlannerRuleSet(REWRITE_RULES);
     public static final PlannerRuleSet IMPLEMENTATION = new PlannerRuleSet(IMPLEMENTATION_RULES);
 
@@ -82,5 +95,4 @@ public class PlannerRuleSet {
     public Iterator<PlannerRule<? extends PlannerExpression>> getRulesMatching(@Nonnull PlannerExpression expression) {
         return Iterators.concat(ruleIndex.get(expression.getClass()).iterator(), alwaysRules.iterator());
     }
-
 }

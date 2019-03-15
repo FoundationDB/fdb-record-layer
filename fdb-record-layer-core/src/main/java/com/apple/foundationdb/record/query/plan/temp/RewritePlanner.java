@@ -47,7 +47,8 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class RewritePlanner implements QueryPlanner {
     @Nonnull
-    private static final List<PlannerRuleSet> PHASES = ImmutableList.of(PlannerRuleSet.REWRITE, PlannerRuleSet.IMPLEMENTATION);
+    private static final List<PlannerRuleSet> PHASES = ImmutableList.of(
+            PlannerRuleSet.NORMALIZATION, PlannerRuleSet.REWRITE, PlannerRuleSet.IMPLEMENTATION);
     @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
@@ -112,6 +113,11 @@ public class RewritePlanner implements QueryPlanner {
                     ExpressionRef<? extends PlannerExpression> child = childrenIterator.next();
                     if (child instanceof SingleExpressionRef) {
                         toTry.add((SingleExpressionRef<PlannerExpression>)child);
+                    } else if (child instanceof FixedCollectionExpressionRef) {
+                        for (SingleExpressionRef<? extends PlannerExpression> member :
+                                ((FixedCollectionExpressionRef<? extends PlannerExpression>)child).getMembers()) {
+                            toTry.add((SingleExpressionRef<PlannerExpression>) member);
+                        }
                     } else {
                         throw new RecordCoreException("invalid reference given to rewrite planner");
                     }

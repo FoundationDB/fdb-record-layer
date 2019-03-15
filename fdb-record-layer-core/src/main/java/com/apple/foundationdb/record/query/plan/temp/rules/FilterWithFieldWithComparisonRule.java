@@ -23,14 +23,12 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
@@ -39,8 +37,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A rewrite rule that turns a logical filter on the results of a full scan (without a sort) into an index scan on
@@ -50,8 +47,7 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<Comparisons.Comparison> comparisonMatcher = TypeMatcher.of(Comparisons.Comparison.class);
-    private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class, comparisonMatcher);
+    private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class);
     private static final ExpressionMatcher<RecordQueryScanPlan> scanMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, filterMatcher, scanMatcher);
 
@@ -67,48 +63,36 @@ public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilter
         }
 
         final FieldWithComparison singleField = call.get(filterMatcher);
-        final Comparisons.Comparison comparison = call.get(comparisonMatcher);
-        final ScanComparisons scanComparisons = ScanComparisons.from(comparison);
-        if (scanComparisons == null) {
+        if (ScanComparisons.getComparisonType(singleField.getComparison()).equals(ScanComparisons.ComparisonType.NONE)) {
             // This comparison cannot be accomplished with a single scan.
             return ChangesMade.NO_CHANGE;
         }
 
-        FieldKeyExpression field = firstField(call.getContext().getCommonPrimaryKey());
-        if (field != null && Objects.equals(singleField.getFieldName(), field.getFieldName())) {
-            call.yield(SingleExpressionRef.of(new RecordQueryScanPlan(scanComparisons, false)));
-            return ChangesMade.MADE_CHANGES;
+
+        final KeyExpression commonPrimaryKey = call.getContext().getCommonPrimaryKey();
+        KeyExpressionComparisons comparisons;
+        Optional<KeyExpressionComparisons> matchedComparisons;
+        if (commonPrimaryKey != null) {
+            comparisons = new KeyExpressionComparisons(commonPrimaryKey);
+            matchedComparisons = comparisons.matchWith(singleField);
+            if (matchedComparisons.isPresent()) {
+                // TODO need to properly support partial matching to the primary key.
+                call.yield(SingleExpressionRef.of(new RecordQueryScanPlan(matchedComparisons.get().toScanComparisons(), false)));
+                return ChangesMade.MADE_CHANGES;
+            }
         }
 
         for (Index index : call.getContext().getIndexes()) {
-            field = firstField(index.getRootExpression());
-            if (field != null && Objects.equals(singleField.getFieldName(), field.getFieldName())) {
+            comparisons = new KeyExpressionComparisons(index.getRootExpression());
+            matchedComparisons = comparisons.matchWith(singleField);
+            if (matchedComparisons.isPresent()) {
                 call.yield(SingleExpressionRef.of(
-                        new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_VALUE, scanComparisons, false)));
+                        new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_VALUE,
+                                matchedComparisons.get().toScanComparisons(), false)));
                 return ChangesMade.MADE_CHANGES;
             }
         }
         // couldn't find an index
         return ChangesMade.NO_CHANGE;
     }
-
-    @Nullable
-    private FieldKeyExpression firstField(@Nullable KeyExpression indexExpression) {
-        if (indexExpression == null) {
-            return null;
-        }
-
-        if (indexExpression instanceof ThenKeyExpression) {
-            ThenKeyExpression then = (ThenKeyExpression) indexExpression;
-            // First column will do it all or not.
-            indexExpression = then.getChildren().get(0);
-        }
-
-        if (indexExpression instanceof FieldKeyExpression) {
-            return (FieldKeyExpression)indexExpression;
-        } else {
-            return null;
-        }
-    }
-
 }
