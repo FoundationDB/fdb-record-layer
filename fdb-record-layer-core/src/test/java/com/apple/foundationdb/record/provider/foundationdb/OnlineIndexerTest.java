@@ -59,6 +59,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.ThreadContext;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
@@ -78,9 +79,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
@@ -2144,6 +2147,156 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
             }).join();
+        }
+    }
+
+    @Test
+    public void lessenLimits() {
+        Index index = new Index("newIndex", field("num_value_2"));
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+
+        try (FDBRecordContext context = openContext()) {
+            // OnlineIndexer.runAsync checks that the index is not readable
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            context.commit();
+        }
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setLimit(100).setMaxRetries(30).setRecordsPerSecond(10000)
+                .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
+                .setMaxAttempts(3)
+                .build()) {
+
+            AtomicInteger attempts = new AtomicInteger();
+            AtomicInteger limit = new AtomicInteger(100);
+
+            // Non-retriable error that is in lessen work codes.
+            attempts.set(0);
+            indexBuilder.runAsync(store -> {
+                assertEquals(attempts.getAndIncrement(), indexBuilder.getLimit(),
+                        limit.getAndUpdate(x -> Math.max(x, (3 * x) / 4)));
+                throw new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
+            }).handle((val, e) -> {
+                assertNotNull(e);
+                assertThat(e, instanceOf(RecordCoreException.class));
+                assertEquals("Non-retriable", e.getMessage());
+                return null;
+            }).join();
+            assertEquals(31, attempts.get());
+        }
+    }
+
+    @Test
+    void notReincreaseLimit() {
+        // Non-retriable error that is in lessen work codes.
+        Supplier<RuntimeException> createException =
+                () -> new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
+
+        Queue<Pair<Integer, Supplier<RuntimeException>>> queue = new LinkedList<>();
+        // failures until it hits 42
+        for (int i = 100; i > 42; i = (3 * i) / 4) {
+            queue.add(Pair.of(i, createException));
+        }
+        // a whole bunch of successes
+        for (int i = 0; i < 100; i++) {
+            queue.add(Pair.of(42, null));
+        }
+        reincreaseLimit(queue, index ->
+                OnlineIndexer.newBuilder()
+                        .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                        .setLimit(100).setMaxRetries(queue.size() + 3).setRecordsPerSecond(10000)
+                        .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
+                        .setMaxAttempts(3)
+                        .build());
+    }
+
+    @Test
+    public void reincreaseLimit() {
+        // Non-retriable error that is in lessen work codes.
+        Supplier<RuntimeException> createException =
+                () -> new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
+
+        Queue<Pair<Integer, Supplier<RuntimeException>>> queue = new LinkedList<>();
+        // failures until it hits 1
+        for (int i = 100; i > 1; i = (3 * i) / 4) {
+            queue.add(Pair.of(i, createException));
+        }
+        // queue size = 13
+        // success for a while
+        for (int i = 0; i < 10; i++) {
+            queue.add(Pair.of(1, null));
+        }
+        // queue size = 23
+        // now starts re-increasing
+        queue.add(Pair.of(2, null));
+        queue.add(Pair.of(3, null));
+        queue.add(Pair.of(4, null));
+        for (int i = 5; i < 100; i = (i * 4) / 3) {
+            queue.add(Pair.of(i, null));
+        }
+        // queue size = 38
+        // does not pass original max
+        queue.add(Pair.of(100, null));
+        queue.add(Pair.of(100, null));
+        queue.add(Pair.of(100, null));
+        for (int i = 100; i > 42; i = (3 * i) / 4) {
+            queue.add(Pair.of(i, createException));
+        }
+        // queue size = 44
+        // success for a while
+        for (int i = 0; i < 10; i++) {
+            queue.add(Pair.of(42, null));
+        }
+        // queue size = 54
+        // fail once
+        queue.add(Pair.of(56, createException));
+        for (int i = 0; i < 10; i++) {
+            queue.add(Pair.of(42, null));
+        }
+        // queue size = 65
+        queue.add(Pair.of(56, createException));
+        queue.add(Pair.of(42, null));
+
+        reincreaseLimit(queue, index ->
+                OnlineIndexer.newBuilder()
+                        .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                        .setLimit(100).setMaxRetries(queue.size() + 3).setRecordsPerSecond(10000)
+                        .setIncreaseLimitAfter(10)
+                        .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
+                        .setMaxAttempts(3)
+                        .build());
+    }
+
+    private void reincreaseLimit(Queue<Pair<Integer, Supplier<RuntimeException>>> queue,
+                                 final Function<Index, OnlineIndexer> buildOnlineIndexer) {
+        Index index = new Index("newIndex", field("num_value_2"));
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+
+        try (FDBRecordContext context = openContext()) {
+            // OnlineIndexer.runAsync checks that the index is not readable
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            context.commit();
+        }
+        try (OnlineIndexer indexBuilder = buildOnlineIndexer.apply(index)) {
+
+            AtomicInteger attempts = new AtomicInteger();
+            attempts.set(0);
+            AsyncUtil.whileTrue(() ->
+                    indexBuilder.runAsync(store -> {
+                        Pair<Integer, Supplier<RuntimeException>> behavior = queue.poll();
+                        if (behavior == null) {
+                            return AsyncUtil.READY_FALSE;
+                        } else {
+                            int currentAttempt = attempts.getAndIncrement();
+                            assertEquals(behavior.getLeft().intValue(), indexBuilder.getLimit(),
+                                    "Attempt " + currentAttempt);
+                            if (behavior.getRight() != null) {
+                                throw behavior.getRight().get();
+                            }
+                            return AsyncUtil.READY_TRUE;
+                        }
+                    })).join();
+            assertNull(queue.poll());
         }
     }
 
