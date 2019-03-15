@@ -861,7 +861,7 @@ public class OnlineIndexer implements AutoCloseable {
         List<Pair<Tuple, Tuple>> splitRanges = new ArrayList<>(Math.min(boundaries.size() - 1, maxSplit));
 
         // step size >= 1
-        int stepSize = -Math.floorDiv(-boundaries.size(), maxSplit);  // Read ceilDiv(boundaries.size(), maxSplit).
+        int stepSize = -Math.floorDiv(-(boundaries.size() - 1), maxSplit);  // Read ceilDiv(boundaries.size() - 1, maxSplit).
         int start = 0;
         while (true) {
             int next = start + stepSize;

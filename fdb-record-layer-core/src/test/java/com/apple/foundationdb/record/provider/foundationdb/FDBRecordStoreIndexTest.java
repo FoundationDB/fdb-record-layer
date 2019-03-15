@@ -72,6 +72,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -2096,19 +2097,24 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         OnlineIndexer indexer;
         List<Tuple> boundaryPrimaryKeys;
+        TupleRange range;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
 
-            // The indexer only uses record store as a prototype so it a live without the original record store being
+            // The indexer only uses recordStore as a prototype so does not require the original record store is still
             // active.
             indexer = OnlineIndexer.newBuilder()
                     .setDatabase(fdb).setRecordStore(recordStore).setIndex(index)
                     .build();
 
+            range = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS,
+                    indexer.buildEndpoints());
+
+            logger.info("The endpoints are " + range);
+
             boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
-                    indexer.buildEndpoints().thenCompose(range ->
-                            recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList()));
+                    recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList());
 
             logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
 
@@ -2126,19 +2132,45 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, boundaryPrimaryKey.size(), "primary keys should be a single value");
         }
 
-
         // Test splitIndexBuildRange.
         assertEquals(1, indexer.splitIndexBuildRange(Integer.MAX_VALUE, Integer.MAX_VALUE).size(),
                 "the range is not split when it cannot be split to at least minSplit ranges");
-        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize, indexer);
-        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 1, indexer); // Exactly one range for each split
-        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 2, indexer);
+        checkSplitIndexBuildRange(1, 2, null, indexer); // to test splitting into fewer than the default number of split points
+        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize - 2, null, indexer); // to test splitting into fewer than the default number of split points
+        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize, null, indexer);
+
+        List<Pair<Tuple, Tuple>> oneRangePerSplit = getOneRangePerSplit(range, boundaryPrimaryKeys);
+        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 1, oneRangePerSplit, indexer); // to test exactly one range for each split
+        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 2, oneRangePerSplit, indexer);
+        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, Integer.MAX_VALUE, oneRangePerSplit, indexer); // to test that integer overflow isn't a problem
 
         indexer.close();
     }
 
-    private void checkSplitIndexBuildRange(int minSplit, int maxSplit, OnlineIndexer indexer) throws Exception {
+    private List<Pair<Tuple, Tuple>> getOneRangePerSplit(TupleRange tupleRange, List<Tuple> boundaries) {
+        List<Tuple> newBoundaries = new ArrayList<>(boundaries);
+        if (tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
+            newBoundaries.add(0, tupleRange.getLow());
+        }
+        if (tupleRange.getHigh().compareTo(boundaries.get(boundaries.size() - 1)) > 0) {
+            newBoundaries.add(tupleRange.getHigh());
+        }
+
+        List<Pair<Tuple, Tuple>> oneRangePerSplit = new ArrayList<>();
+        for (int i = 0; i < newBoundaries.size() - 1; i++) {
+            oneRangePerSplit.add(Pair.of(newBoundaries.get(i), newBoundaries.get(i + 1)));
+        }
+        return oneRangePerSplit;
+    }
+
+    private void checkSplitIndexBuildRange(int minSplit, int maxSplit,
+                                           @Nullable List<Pair<Tuple, Tuple>> expectedSplitRanges,
+                                           OnlineIndexer indexer) throws Exception {
         List<Pair<Tuple, Tuple>> splitRanges = indexer.splitIndexBuildRange(minSplit, maxSplit);
+
+        if (expectedSplitRanges != null) {
+            assertEquals(expectedSplitRanges, splitRanges);
+        }
 
         assertThat(splitRanges.size(), greaterThanOrEqualTo(minSplit));
         assertThat(splitRanges.size(), lessThanOrEqualTo(maxSplit));
@@ -2148,7 +2180,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             // Make sure each enpoint is a valid primary key.
             splitRanges.forEach(range -> {
-                recordStore.loadRecord(range.getLeft());
+                assertTrue(recordStore.recordExists(range.getLeft()));
+                assertTrue(recordStore.recordExists(range.getRight()));
                 recordStore.loadRecord(range.getRight());
             });
 
