@@ -42,7 +42,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** `OnlineIndexer` fails to `getPrimaryKeyBoundaries` when there is no boundary [(Issue #460)](https://github.com/FoundationDB/fdb-record-layer/issues/460)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
