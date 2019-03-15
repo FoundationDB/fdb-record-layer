@@ -829,12 +829,11 @@ public class OnlineIndexer implements AutoCloseable {
 
 
     /**
-     * Split the index build range to support build an index across multiple transactions in parallel if needed.
+     * Split the index build range to support building an index across multiple transactions in parallel if needed.
      * <p>
-     * It is running in an synchronous context because the cursor returned from
-     * {@link FDBRecordStore#getPrimaryKeyBoundaries(Tuple, Tuple)} is blocking.n
+     * It is blocking and should not be called in asynchronous contexts.
      *
-     * @param minSplit not split if it cannot be split to at least <code>minSplit</code> ranges
+     * @param minSplit not split if it cannot be split into at least <code>minSplit</code> ranges
      * @param maxSplit the maximum number of splits generated
      * @return a list of split primary key ranges (the low endpoint is inclusive and the high endpoint is exclusive)
      */
@@ -843,9 +842,13 @@ public class OnlineIndexer implements AutoCloseable {
     public List<Pair<Tuple, Tuple>> splitIndexBuildRange(int minSplit, int maxSplit) {
         TupleRange originalRange = runner.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());
 
-        // There is no range need to be built.
+        // There is no range needing to be built.
         if (originalRange == null) {
-            return new ArrayList<>();
+            return Collections.emptyList();
+        }
+
+        if (minSplit < 1 || maxSplit < 1 || minSplit > maxSplit) {
+            throw new RecordCoreException("splitIndexBuildRange should have 1 < minSplit <= maxSplit");
         }
 
         List<Tuple> boundaries = getPrimaryKeyBoundaries(originalRange);
@@ -855,9 +858,10 @@ public class OnlineIndexer implements AutoCloseable {
             return Collections.singletonList(Pair.of(originalRange.getLow(), originalRange.getHigh()));
         }
 
-        List<Pair<Tuple, Tuple>> splitRanges = new ArrayList<>();
+        List<Pair<Tuple, Tuple>> splitRanges = new ArrayList<>(Math.min(boundaries.size() - 1, maxSplit));
 
-        int stepSize = (boundaries.size() + maxSplit - 1) / maxSplit; // step size >= 1
+        // step size >= 1
+        int stepSize = -Math.floorDiv(-boundaries.size(), maxSplit);  // Read ceilDiv(boundaries.size(), maxSplit).
         int start = 0;
         while (true) {
             int next = start + stepSize;
@@ -870,10 +874,12 @@ public class OnlineIndexer implements AutoCloseable {
             start = next;
         }
 
-        LOGGER.info(KeyValueLogMessage.of("split index build range",
-                "indexName", index.getName(),
-                "originalRange", originalRange,
-                "splitRanges", splitRanges));
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("split index build range",
+                    "indexName", index.getName(),
+                    "originalRange", originalRange,
+                    "splitRanges", splitRanges));
+        }
 
         return splitRanges;
     }
@@ -882,16 +888,14 @@ public class OnlineIndexer implements AutoCloseable {
         List<Tuple> boundaries = runner.run(context -> {
             RecordCursor<Tuple> cursor = recordStoreBuilder.copyBuilder().setContext(context).open()
                     .getPrimaryKeyBoundaries(tupleRange.getLow(), tupleRange.getHigh());
-            List<Tuple> keys = new ArrayList<>();
-            cursor.forEachRemaining(keys::add);
-            return keys;
+            return context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY, cursor.asList());
         });
 
         // Add the two endpoints if they are not in the result
-        if (boundaries.get(0).compareTo(tupleRange.getLow()) < 0) {
+        if (tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
             boundaries.add(0, tupleRange.getLow());
         }
-        if (boundaries.get(boundaries.size() - 1).compareTo(tupleRange.getHigh()) > 0) {
+        if (tupleRange.getHigh().compareTo(boundaries.get(boundaries.size() - 1)) > 0) {
             boundaries.add(tupleRange.getHigh());
         }
 
