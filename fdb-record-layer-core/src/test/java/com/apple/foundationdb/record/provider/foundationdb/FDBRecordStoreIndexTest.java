@@ -2147,6 +2147,50 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         indexer.close();
     }
 
+    @Test
+    public void noBoundaryPrimaryKeys() throws Exception {
+        final String indexName = "MySimpleRecord$num_value_unique";
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+            recordStore.markIndexWriteOnly(indexName).get();
+            commit(context);
+        }
+
+        String bigOlString = Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE + 2);
+        saveAndSplitSimpleRecord(1, bigOlString, 1);
+        saveAndSplitSimpleRecord(2, bigOlString, 2);
+
+        OnlineIndexer indexer;
+        List<Tuple> boundaryPrimaryKeys;
+        TupleRange range;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+            Index index = recordStore.getRecordMetaData().getIndex(indexName);
+
+            // The indexer only uses recordStore as a prototype so does not require the original record store is still
+            // active.
+            indexer = OnlineIndexer.newBuilder()
+                    .setDatabase(fdb).setRecordStore(recordStore).setIndex(index)
+                    .build();
+
+            range = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS,
+                    indexer.buildEndpoints());
+            logger.info("The endpoints are " + range);
+
+            boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
+                    recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList());
+            assertEquals(0, boundaryPrimaryKeys.size());
+            logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
+
+            commit(context);
+        }
+
+        // Test splitIndexBuildRange.
+        assertEquals(1, indexer.splitIndexBuildRange(Integer.MAX_VALUE, Integer.MAX_VALUE).size());
+
+        indexer.close();
+    }
+
     private List<Pair<Tuple, Tuple>> getOneRangePerSplit(TupleRange tupleRange, List<Tuple> boundaries) {
         List<Tuple> newBoundaries = new ArrayList<>(boundaries);
         if (tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {

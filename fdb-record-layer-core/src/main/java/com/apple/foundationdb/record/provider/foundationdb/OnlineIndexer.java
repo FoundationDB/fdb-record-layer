@@ -955,7 +955,7 @@ public class OnlineIndexer implements AutoCloseable {
         });
 
         // Add the two endpoints if they are not in the result
-        if (tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
+        if (boundaries.isEmpty() || tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
             boundaries.add(0, tupleRange.getLow());
         }
         if (tupleRange.getHigh().compareTo(boundaries.get(boundaries.size() - 1)) > 0) {
