@@ -65,6 +65,7 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -2156,9 +2157,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        String bigOlString = Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE + 2);
-        saveAndSplitSimpleRecord(1, bigOlString, 1);
-        saveAndSplitSimpleRecord(2, bigOlString, 2);
+        saveAndSplitSimpleRecord(1, "smallString", 1);
 
         OnlineIndexer indexer;
         List<Tuple> boundaryPrimaryKeys;
@@ -2179,11 +2178,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
                     recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList());
-            assertEquals(0, boundaryPrimaryKeys.size());
             logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
 
             commit(context);
         }
+
+        // There is a small chance that there are boundary keys, in which case the test should be skipped.
+        Assumptions.assumeTrue(boundaryPrimaryKeys.isEmpty());
 
         // Test splitIndexBuildRange.
         assertEquals(1, indexer.splitIndexBuildRange(Integer.MAX_VALUE, Integer.MAX_VALUE).size());
