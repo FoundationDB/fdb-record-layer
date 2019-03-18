@@ -403,7 +403,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     @Nullable
     public <T> T asyncToSync(FDBStoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
-        if (hookForAsyncToSync != null && (!async.isDone() || async.isCompletedExceptionally())) {
+        if (hookForAsyncToSync != null && !MoreAsyncUtil.isCompletedNormally(async)) {
             hookForAsyncToSync.accept(event);
         }
         return database.asyncToSync(timer, event, async);

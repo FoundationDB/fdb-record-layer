@@ -240,7 +240,7 @@ public class RangeSet {
                     byte[] beforeEnd = before.getValue();
                     if (ByteArrayUtil.compareUnsigned(beginNonNull, beforeEnd) < 0) {
                         if (requireEmpty) {
-                            return CompletableFuture.completedFuture(false);
+                            return AsyncUtil.READY_FALSE;
                         } else {
                             lastSeen.set(subspace.pack(beforeEnd));
                         }
@@ -270,7 +270,7 @@ public class RangeSet {
                     // If we are allowing non-empty ranges, then we just need to fill in the gaps.
                     return AsyncUtil.whileTrue(() -> {
                         byte[] lastSeenBytes = lastSeen.get();
-                        if (afterIterator.onHasNext().isDone() && afterIterator.hasNext()) {
+                        if (MoreAsyncUtil.isCompletedNormally(afterIterator.onHasNext()) && afterIterator.hasNext()) {
                             KeyValue kv = afterIterator.next();
                             if (ByteArrayUtil.compareUnsigned(lastSeenBytes, kv.getKey()) < 0) {
                                 tr.set(lastSeenBytes, subspace.unpack(kv.getKey()).getBytes(0));
@@ -487,7 +487,7 @@ public class RangeSet {
 
         private CompletableFuture<Boolean> getNext() {
             return AsyncUtil.whileTrue(() -> {
-                if (after.onHasNext().isDone()) {
+                if (MoreAsyncUtil.isCompletedNormally(after.onHasNext())) {
                     if (after.hasNext()) {
                         KeyValue kv = after.next();
                         byte[] currBeg = currBegin;
@@ -498,12 +498,12 @@ public class RangeSet {
                         }
                         currBegin = kv.getValue();
                         if (found) {
-                            return CompletableFuture.completedFuture(false); // stop looping.
+                            return AsyncUtil.READY_FALSE; // stop looping.
                         } else {
                             return after.onHasNext();
                         }
                     } else {
-                        return CompletableFuture.completedFuture(false);
+                        return AsyncUtil.READY_FALSE;
                     }
                 } else {
                     return after.onHasNext();
@@ -568,7 +568,7 @@ public class RangeSet {
     public CompletableFuture<Void> clear(@Nonnull TransactionContext tc) {
         return tc.runAsync(tr -> {
             tr.clear(subspace.range());
-            return CompletableFuture.completedFuture(null);
+            return AsyncUtil.DONE;
         });
     }
 

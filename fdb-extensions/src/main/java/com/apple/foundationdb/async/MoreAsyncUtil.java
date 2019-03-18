@@ -416,7 +416,7 @@ public class MoreAsyncUtil {
                         nextFuture = whileTrue(() -> {
                             List<CompletableFuture<Boolean>> waitOn = new ArrayList<>(2);
                             CompletableFuture<Boolean> outer = iterator.onHasNext();
-                            if (outer.isDone()) {
+                            if (isCompletedNormally(outer)) {
                                 if (outer.getNow(false) && (pipeline.size() < pipelineSize)) {
                                     AsyncIterator<T2> next = func.apply(iterator.next()).iterator();
                                     pipeline.add(next);
@@ -431,7 +431,7 @@ public class MoreAsyncUtil {
                             AsyncIterator<T2> current = pipeline.peek();
                             if (current != null) {
                                 inner = current.onHasNext();
-                                if (inner.isDone()) {
+                                if (isCompletedNormally(inner)) {
                                     if (inner.getNow(false)) {
                                         // inner onHasNext returned true, break out of whileTrue
                                         return AsyncUtil.READY_FALSE; // First available
