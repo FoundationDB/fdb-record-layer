@@ -1007,10 +1007,19 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Wait for asynchronous index build to complete.
+     *
+     * <p>
+     * This method was marked {@link API.Status#INTERNAL INTERNAL} in a 2.5 release of the Record Layer, and it may be
+     * removed in version 2.7. Outside users of the Record Layer should use the {@code asyncToSync} methods of {@link FDBRecordContext},
+     * {@link FDBDatabase}, or {@link FDBDatabaseRunner} instead. See
+     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/473">Issue #473</a> for more details.
+     * </p>
+     *
      * @param buildIndexFuture the result of {@link #buildIndexAsync}
      * @param <T> return type of function to run
      * @return future that will contain the result of {@code buildIndexFuture} after successful run and commit
      */
+    @API(API.Status.INTERNAL)
     public <T> T asyncToSync(@Nonnull CompletableFuture<T> buildIndexFuture) {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);
     }
