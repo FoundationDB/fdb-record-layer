@@ -1009,7 +1009,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Wait for asynchronous index build to complete.
      * @param buildIndexFuture the result of {@link #buildIndexAsync}
      * @param <T> return type of function to run
-     * @return future that will contain the result of {@code retriable} after successful run and commit
+     * @return future that will contain the result of {@code buildIndexFuture} after successful run and commit
      */
     public <T> T asyncToSync(@Nonnull CompletableFuture<T> buildIndexFuture) {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);

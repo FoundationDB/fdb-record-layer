@@ -2400,7 +2400,6 @@ public class OnlineIndexerTest extends FDBTestBase {
         assertThat("No more commits should have occurred", count3, Matchers.is(count2));
     }
 
-
     @Test
     public void markReadable() {
         Index index = new Index("newIndex", field("num_value_2"));
