@@ -977,13 +977,14 @@ public class OnlineIndexer implements AutoCloseable {
                 openRecordStore(context).thenCompose(store -> {
                     final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
                     return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
-                            .thenApply(hasNext -> {
+                            .thenCompose(hasNext -> {
                                 if (hasNext) {
-                                    return false;
+                                    return AsyncUtil.READY_FALSE;
                                 } else {
-                                    // Index is built because this is no missing ranges.
-                                    store.markIndexReadable(index);
-                                    return true;
+                                    // Index is built because there is no missing range.
+                                    return store.markIndexReadable(index)
+                                            // markIndexReadable will return false if the index was already readable
+                                            .thenApply(vignore -> true);
                                 }
                             });
                 })
@@ -1007,9 +1008,11 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Wait for asynchronous index build to complete.
      * @param buildIndexFuture the result of {@link #buildIndexAsync}
+     * @param <T> return type of function to run
+     * @return future that will contain the result of {@code retriable} after successful run and commit
      */
-    public void asyncToSync(@Nonnull CompletableFuture<Void> buildIndexFuture) {
-        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);
+    public <T> T asyncToSync(@Nonnull CompletableFuture<T> buildIndexFuture) {
+        return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);
     }
 
     /**
