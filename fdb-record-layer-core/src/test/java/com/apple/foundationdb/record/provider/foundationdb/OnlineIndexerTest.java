@@ -105,6 +105,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -2397,5 +2398,31 @@ public class OnlineIndexerTest extends FDBTestBase {
         Thread.sleep(50);
         int count3 = timer.getCount(FDBStoreTimer.Events.COMMIT);
         assertThat("No more commits should have occurred", count3, Matchers.is(count2));
+    }
+
+    @Test
+    public void markReadable() {
+        Index index = new Index("newIndex", field("num_value_2"));
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+
+        try (FDBRecordContext context = openContext()) {
+            // OnlineIndexer.runAsync checks that the index is not readable
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            context.commit();
+        }
+
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .build()) {
+            // No need to build range because there is no record.
+            indexer.asyncToSync(indexer.buildEndpoints());
+
+            // Do mark the the index as readable.
+            assertTrue(indexer.asyncToSync(indexer.markReadableIfBuilt()));
+
+            // When the index is readable:
+            assertFalse(indexer.asyncToSync(indexer.markReadable())); // The status is not modified by markReadable.
+            assertTrue(indexer.asyncToSync(indexer.markReadableIfBuilt()));
+        }
     }
 }
