@@ -42,8 +42,8 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** `OnlineIndexer` fails to `getPrimaryKeyBoundaries` when there is no boundary [(Issue #460)](https://github.com/FoundationDB/fdb-record-layer/issues/460)
-* **Bug fix** The `markReadableIfBuilt` method of `OnlineIndexer` now waits for the index to be marked readable before returning [(Issue #468)](https://github.com/FoundationDB/fdb-record-layer/issues/468)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -65,6 +65,11 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 
 // end next release
 -->
+
+### 2.5.51.0
+
+* **Bug fix** `OnlineIndexer` fails to `getPrimaryKeyBoundaries` when there is no boundary [(Issue #460)](https://github.com/FoundationDB/fdb-record-layer/issues/460)
+* **Bug fix** The `markReadableIfBuilt` method of `OnlineIndexer` now waits for the index to be marked readable before returning [(Issue #468)](https://github.com/FoundationDB/fdb-record-layer/issues/468)
 
 ### 2.5.50.0
 
