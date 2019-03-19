@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
+import com.apple.foundationdb.record.TestRecordsOneOfProto;
 import com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -136,7 +137,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             unionOptions.setUsage(RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION);
             unionMessageOptions.setExtension(RecordMetaDataOptionsProto.record, unionOptions.build());
             unionBuilder.setOptions(unionMessageOptions);
-            
+
             for (int ri = 1; ri <= ntypes; ri++) {
                 DescriptorProtos.DescriptorProto.Builder messageBuilder = fileBuilder.addMessageTypeBuilder();
                 messageBuilder.setName("type_" + ri);
@@ -1276,4 +1277,33 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         }
     }
 
+    @Test
+    public void recordTypesWithOneOfUnion() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsOneOfProto.getDescriptor());
+            final KeyExpression pkey = Key.Expressions.field("rec_no");
+            metaData.getRecordType("MySimpleRecord").setPrimaryKey(pkey);
+            metaData.getRecordType("MyOtherRecord").setPrimaryKey(pkey);
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+
+        // Add a record type to oneOf. It should fail.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            DescriptorProtos.DescriptorProto newRecordType = DescriptorProtos.DescriptorProto.newBuilder()
+                    .setName("MyNewRecord")
+                    .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                            .setName("rec_no")
+                            .setNumber(1))
+                    .build();
+            MetaDataException e = assertThrows(MetaDataException.class, () -> addRecordType(newRecordType, Key.Expressions.field("rec_no")));
+            assertEquals(e.getMessage(), "Adding record type to oneOf is not allowed");
+            context.commit();
+        }
+    }
 }

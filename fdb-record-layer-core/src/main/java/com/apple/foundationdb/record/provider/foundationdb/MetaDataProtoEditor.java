@@ -78,6 +78,9 @@ public class MetaDataProtoEditor {
 
     private static void addFieldToUnion(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType) {
         DescriptorProtos.DescriptorProto.Builder unionBuilder = fetchUnionBuilder(fileBuilder);
+        if (unionBuilder.getOneofDeclCount() > 0) {
+            throw new MetaDataException("Adding record type to oneOf is not allowed");
+        }
         DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder = DescriptorProtos.FieldDescriptorProto.newBuilder()
                 .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                 .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
