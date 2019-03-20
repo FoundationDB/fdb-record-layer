@@ -28,10 +28,17 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.TestNoUnionEvolvedIllegalProto;
+import com.apple.foundationdb.record.TestNoUnionEvolvedProto;
+import com.apple.foundationdb.record.TestNoUnionEvolvedRenamedRecordTypeProto;
+import com.apple.foundationdb.record.TestNoUnionProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedAgainProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
+import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecordsImplicitUsageNoUnionProto;
+import com.apple.foundationdb.record.TestRecordsImplicitUsageProto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
 import com.apple.foundationdb.record.TestRecordsOneOfProto;
 import com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto;
@@ -772,6 +779,15 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             context.commit();
         }
 
+        // The old local file descriptor does not have the new record type. Using it should fail.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.setLocalFileDescriptor(TestRecords1Proto.getDescriptor());
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.getRecordMetaData());
+            assertEquals("record type removed from union", e.getMessage());
+            context.commit();
+        }
+
         // Add a record type with index.
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
@@ -1333,6 +1349,165 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
                     .build();
             MetaDataException e = assertThrows(MetaDataException.class, () -> addRecordType(newRecordType, Key.Expressions.field("rec_no")));
             assertEquals(e.getMessage(), "Adding record type to oneof is not allowed");
+            context.commit();
+        }
+    }
+
+    private enum TestProtoFiles {
+        NO_UNION(TestNoUnionProto.getDescriptor()),
+        DEFAULT_UNION(TestRecords1Proto.getDescriptor()),
+        NON_DEFAULT_UNION(TestRecords4Proto.getDescriptor());
+
+        private Descriptors.FileDescriptor fileDescriptor;
+
+        TestProtoFiles(Descriptors.FileDescriptor fileDescriptor) {
+            this.fileDescriptor = fileDescriptor;
+        }
+
+        @Nonnull
+        public Descriptors.FileDescriptor getFileDescriptor() {
+            return fileDescriptor;
+        }
+    }
+
+    @EnumSource(TestProtoFiles.class)
+    @ParameterizedTest(name = "noUnion [protoFile = {0}]")
+    public void noUnion(@Nonnull TestProtoFiles protoFile) {
+        int version;
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.saveRecordMetaData(protoFile.getFileDescriptor());
+            context.commit();
+            version = metaDataStore.getRecordMetaData().getVersion();
+        }
+
+        // Add a record type.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertEquals(version, metaDataStore.getRecordMetaData().getVersion());
+            DescriptorProtos.DescriptorProto newRecordType = DescriptorProtos.DescriptorProto.newBuilder()
+                    .setName("MyNewRecord")
+                    .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                            .setName("rec_no")
+                            .setNumber(1))
+                    .build();
+            addRecordType(newRecordType, Key.Expressions.field("rec_no"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
+            assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
+            assertEquals(version + 1, metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            context.commit();
+        }
+    }
+
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest(name = "noUnionUpdateRecords [repeatSaveOrDoUpdate = {0}]")
+    public void noUnionUpdateRecords(TestHelpers.BooleanEnum repeatSaveOrDoUpdate) {
+        int version;
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.saveRecordMetaData(TestNoUnionProto.getDescriptor());
+            context.commit();
+            version = metaDataStore.getRecordMetaData().getVersion();
+        }
+
+        // Update records with an evolved proto. A new record type is added earlier in the file.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertEquals(version, metaDataStore.getRecordMetaData().getVersion());
+            if (repeatSaveOrDoUpdate.toBoolean()) {
+                metaDataStore.updateRecords(TestNoUnionEvolvedProto.getDescriptor());
+            } else {
+                metaDataStore.saveRecordMetaData(TestNoUnionEvolvedProto.getDescriptor());
+            }
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyOtherRecord"));
+            assertEquals("_MySimpleRecord", metaDataStore.getRecordMetaData().getUnionDescriptor().findFieldByNumber(1).getName());
+            assertEquals("_MyOtherRecord", metaDataStore.getRecordMetaData().getUnionDescriptor().findFieldByNumber(2).getName());
+            assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
+            context.commit();
+        }
+
+        // Renaming a record type is not allowed
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
+            MetaDataException e;
+            if (repeatSaveOrDoUpdate.toBoolean()) {
+                e = assertThrows(MetaDataException.class, () -> metaDataStore.updateRecords(TestNoUnionEvolvedRenamedRecordTypeProto.getDescriptor()));
+            } else {
+                e = assertThrows(MetaDataException.class, () -> metaDataStore.saveRecordMetaData(TestNoUnionEvolvedRenamedRecordTypeProto.getDescriptor()));
+            }
+            assertEquals("Record type MySimpleRecord removed", e.getMessage());
+            context.commit();
+        }
+    }
+
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest(name = "noUnionImplicitUsage [repeatSaveOrDoUpdate = {0}]")
+    public void noUnionImplicitUsage(TestHelpers.BooleanEnum repeatSaveOrDoUpdate) {
+        int version;
+
+        // MyOtherRecord has no explicit usage. The proto file has a union and does not include MyOtherRecord.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.saveRecordMetaData(TestRecordsImplicitUsageProto.getDescriptor());
+            context.commit();
+            version = metaDataStore.getRecordMetaData().getVersion();
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.getRecordMetaData().getRecordType("MyOtherRecord"));
+            assertEquals(e.getMessage(), "Unknown record type MyOtherRecord");
+        }
+
+        // The evolved proto no longer has a union. The record types with no explicit usage should now automatically show up in the union.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertEquals(version, metaDataStore.getRecordMetaData().getVersion());
+            if (repeatSaveOrDoUpdate.toBoolean()) {
+                metaDataStore.updateRecords(TestRecordsImplicitUsageNoUnionProto.getDescriptor());
+            } else {
+                metaDataStore.saveRecordMetaData(TestRecordsImplicitUsageNoUnionProto.getDescriptor());
+            }
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyOtherRecord"));
+            assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
+            context.commit();
+        }
+    }
+
+
+    @Test
+    public void noUnionLocalFileDescriptor() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.saveRecordMetaData(TestNoUnionProto.getDescriptor());
+            context.commit();
+        }
+
+        // The type cannot become NESTED in the local file descriptor
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.setLocalFileDescriptor(TestNoUnionEvolvedIllegalProto.getDescriptor());
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.getRecordMetaData());
+            assertEquals("record type removed from union", e.getMessage());
+            context.commit();
+        }
+
+        // Deprecate a record type.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            deprecateRecordType(".com.apple.foundationdb.record.testnounion.MySimpleRecord");
+            context.commit();
+        }
+
+        // Pass a local file descriptor and make sure MySimpleRecord's deprecated.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.setLocalFileDescriptor(TestNoUnionProto.getDescriptor());
+            Descriptors.FieldDescriptor deprecatedField = metaDataStore.getRecordMetaData().getUnionDescriptor().getFields().get(0);
+            assertEquals("_MySimpleRecord", deprecatedField.getName());
+            assertTrue(deprecatedField.getOptions().getDeprecated());
             context.commit();
         }
     }

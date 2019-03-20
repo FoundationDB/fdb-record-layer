@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.TestNoUnionProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedAgainProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -67,7 +68,9 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -2811,6 +2814,104 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     .open();
             assertEquals(version + 3, recordStore.getRecordMetaData().getVersion());
             recordStore.saveRecord(evolvedAgainRecord);
+        }
+    }
+
+    @Nonnull
+    private FDBMetaDataStore openMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath metaDataPath, boolean clear) {
+        FDBMetaDataStore metaDataStore = new FDBMetaDataStore(context, metaDataPath);
+        metaDataStore.setDependencies(new Descriptors.FileDescriptor[] {
+                RecordMetaDataOptionsProto.getDescriptor()
+        });
+        metaDataStore.setMaintainHistory(false);
+        if (clear) {
+            context.ensureActive().clear(Range.startsWith(metaDataPath.toSubspace(context).pack()));
+        }
+        return metaDataStore;
+    }
+
+    @Test
+    public void testNoUnion() {
+        final KeySpacePath metaDataPath = TestKeySpace.getKeyspacePath(new Object[]{"record-test", "unit", "metadataStore"});
+        int version;
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = openMetaDataStore(context, metaDataPath, true);
+            metaDataStore.saveRecordMetaData(TestNoUnionProto.getDescriptor());
+            context.commit();
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            version = metaDataStore.getRecordMetaData().getVersion();
+        }
+
+        // Store a MySimpleRecord record.
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = openMetaDataStore(context, metaDataPath, false);
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataStore(metaDataStore)
+                    .createOrOpen();
+            assertEquals(version, recordStore.getRecordMetaData().getVersion());
+            Descriptors.Descriptor mySimpleRecordDescriptor = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getDescriptor();
+            final Descriptors.FieldDescriptor recNo = mySimpleRecordDescriptor.findFieldByName("rec_no");
+            final Descriptors.FieldDescriptor numValue2 = mySimpleRecordDescriptor.findFieldByName("num_value_2");
+            final Descriptors.FieldDescriptor strValueIndexed = mySimpleRecordDescriptor.findFieldByName("str_value_indexed");
+            final Descriptors.FieldDescriptor numValue3Indexed = mySimpleRecordDescriptor.findFieldByName("num_value_3_indexed");
+            Message.Builder messageBuilder = DynamicMessage.newBuilder(mySimpleRecordDescriptor);
+            messageBuilder.setField(recNo, 1066L);
+            messageBuilder.setField(numValue2, 42);
+            messageBuilder.setField(strValueIndexed, "value");
+            messageBuilder.setField(numValue3Indexed, 1729);
+            recordStore.saveRecord(messageBuilder.build());
+        }
+
+        // Store another MySimpleRecord record with local file descriptor.
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = openMetaDataStore(context, metaDataPath, false);
+            metaDataStore.setLocalFileDescriptor(TestNoUnionProto.getDescriptor());
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataStore(metaDataStore)
+                    .createOrOpen();
+            assertEquals(version, recordStore.getRecordMetaData().getVersion());
+            TestNoUnionProto.MySimpleRecord record = TestNoUnionProto.MySimpleRecord.newBuilder()
+                    .setRecNo(1067L)
+                    .setNumValue2(43)
+                    .setStrValueIndexed("value2")
+                    .setNumValue3Indexed(1730)
+                    .build();
+            recordStore.saveRecord(record);
+        }
+
+        // Add a record type.
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = openMetaDataStore(context, metaDataPath, false);
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertEquals(version , metaDataStore.getRecordMetaData().getVersion());
+            DescriptorProtos.DescriptorProto newRecordType = DescriptorProtos.DescriptorProto.newBuilder()
+                    .setName("MyNewRecord")
+                    .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                            .setName("rec_no")
+                            .setNumber(1))
+                    .build();
+            metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType, Key.Expressions.field("rec_no")));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
+            assertEquals(version + 1 , metaDataStore.getRecordMetaData().getVersion());
+            assertEquals(version + 1 , metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            context.commit();
+        }
+
+        // Store a MyNewRecord record.
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = openMetaDataStore(context, metaDataPath, false);
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataStore(metaDataStore)
+                    .createOrOpen();
+            assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
+            Descriptors.Descriptor myNewRecordDescriptor = recordStore.getRecordMetaData().getRecordType("MyNewRecord").getDescriptor();
+            final Descriptors.FieldDescriptor recNo = myNewRecordDescriptor.findFieldByName("rec_no");
+            Message.Builder messageBuilder = DynamicMessage.newBuilder(myNewRecordDescriptor);
+            messageBuilder.setField(recNo, 2345);
+            recordStore.saveRecord(messageBuilder.build());
         }
     }
 }

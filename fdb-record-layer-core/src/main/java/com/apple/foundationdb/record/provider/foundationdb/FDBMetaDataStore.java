@@ -141,6 +141,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * See {@link RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)} for more information.
      * </p>
      *
+     * <p>
+     * Note that it is not allowed to (a) change the name of the existing record types or (b) change existing
+     * non-{@code NESTED} record types to {@code NESTED} record types in the evolved local file descriptor.
+     * </p>
+     *
      * @param localFileDescriptor the local descriptor of the meta-data
      * @see RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)
      */
@@ -520,13 +525,71 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_META_DATA, getRecordMetaDataAsync(true));
     }
 
+    /**
+     * Save the record meta-data into the meta-data store.
+     *
+     * <p>
+     * If the given records descriptor is missing a union message, this method will automatically add one to the descriptor
+     * before saving the meta-data. If the meta-data store is currently empty, a default union descriptor will be added to
+     * the meta-data based on the non-{@code NESTED} record types. Otherwise, it will update the records descriptor of
+     * the currently stored meta-data (see {@link #updateRecords(Descriptors.FileDescriptor)}). The new union descriptor
+     * will include any type in existing union and any new record type in the new file descriptor. This method will
+     * process extension options.
+     * </p>
+     *
+     * @param fileDescriptor the file descriptor of the record meta-data
+     * @see MetaDataProtoEditor#addDefaultUnionIfMissing(Descriptors.FileDescriptor)
+     */
+    @API(API.Status.MAINTAINED)
+    public void saveRecordMetaData(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_META_DATA, saveRecordMetaDataAsync(fileDescriptor));
+    }
+
+    /**
+     * Save the record meta-data into the meta-data store.
+     *
+     * @param metaDataProvider the meta-data provider
+     */
     public void saveRecordMetaData(@Nonnull RecordMetaDataProvider metaDataProvider) {
         saveRecordMetaData(metaDataProvider.getRecordMetaData().toProto());
     }
 
+    /**
+     * Save the record meta-data into the meta-data store.
+     *
+     * @param metaDataProto the serialized record meta-data
+     */
     public void saveRecordMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_META_DATA, saveAndSetCurrent(metaDataProto));
     }
+
+    /**
+     * Save the record meta-data into the meta-data store.
+     *
+     * <p>
+     * If the given records descriptor is missing a union message, this method will automatically add one to the descriptor
+     * before saving the meta-data. If the meta-data store is currently empty, a default union descriptor will be added to
+     * the meta-data based on the non-{@code NESTED} record types. Otherwise, it will update the records descriptor of
+     * the currently stored meta-data (see {@link #updateRecords(Descriptors.FileDescriptor)}). The new union descriptor
+     * will include any type in existing union and any new record type in the new file descriptor. This method will
+     * process extension options. Also the records descriptor of the meta-data will change while generating the union.
+     * </p>
+     *
+     * @param fileDescriptor the file descriptor of the record meta-data
+     * @return a future when save is completed
+     * @see MetaDataProtoEditor#addDefaultUnionIfMissing(Descriptors.FileDescriptor)
+     */
+    @API(API.Status.MAINTAINED)
+    public CompletableFuture<Void> saveRecordMetaDataAsync(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        return getRecordMetaDataAsync(false).thenCompose(metaData -> {
+            if (metaData == null ) {
+                return saveAndSetCurrent(RecordMetaData.build(MetaDataProtoEditor.addDefaultUnionIfMissing(fileDescriptor)).toProto());
+            } else {
+                return updateRecordsAsync(fileDescriptor);
+            }
+        });
+    }
+
 
     @Nonnull
     private CompletableFuture<RecordMetaDataProto.MetaData> loadCurrentProto() {
@@ -695,8 +758,18 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *  Otherwise, {@code updateRecords} will fail.
      * </p>
      *
+     * <p>
+     * If the given file descriptor is missing a union message, this method will add one before updating the meta-data.
+     * The generated union descriptor is constructed by adding any non-{@code NESTED} types in the file descriptor to the
+     * union descriptor from the currently stored meta-data. A new field is not added if a field of the given type already
+     * exists, and the order of any existing fields is preserved. Note that types are identified by name, so renaming
+     * top-level message types may result in validation errors when trying to update the record descriptor. Also the records
+     * descriptor of the meta-data will change while generating the union.
+     * </p>
+     *
      * @param recordsDescriptor the new recordsDescriptor
      */
+    @API(API.Status.MAINTAINED)
     public void updateRecords(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_UPDATE_RECORDS_DESCRIPTOR, updateRecordsAsync(recordsDescriptor));
     }
@@ -711,15 +784,26 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *  Otherwise, {@code updateRecordsAsync} will fail.
      * </p>
      *
+     * <p>
+     * If the given file descriptor is missing a union message, this method will add one before updating the meta-data.
+     * The generated union descriptor is constructed by adding any non-{@code NESTED} types in the file descriptor to the
+     * union descriptor from the currently stored meta-data. A new field is not added if a field of the given type already
+     * exists, and the order of any existing fields is preserved. Note that types are identified by name, so renaming
+     * top-level message types may result in validation errors when trying to update the record descriptor.
+     * </p>
+     *
      * @param recordsDescriptor the new recordsDescriptor
      * @return a future that completes when the records descriptor is updated
      */
     @Nonnull
+    @API(API.Status.MAINTAINED)
     public CompletableFuture<Void> updateRecordsAsync(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             // Update the records without using its local file descriptor. Let saveAndSetCurrent use the local file descriptor when saving the meta-data.
             RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto, false);
-            recordMetaDataBuilder.updateRecords(recordsDescriptor);
+
+            // If union is missing, first add a default union.
+            recordMetaDataBuilder.updateRecords(MetaDataProtoEditor.addDefaultUnionIfMissing(recordsDescriptor, recordMetaDataBuilder.getUnionDescriptor()));
             return saveAndSetCurrent(recordMetaDataBuilder.getRecordMetaData().toProto());
         });
     }

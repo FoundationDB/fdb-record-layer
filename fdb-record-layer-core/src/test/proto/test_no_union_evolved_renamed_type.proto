@@ -1,9 +1,9 @@
 /*
- * test_records_1_evolved_again.proto
+ * test_no_union_evolved_renamed_type.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,48 +19,20 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.test1evolvedagain;
+package com.apple.foundationdb.record.testnounionrenamedrecordtype;
 
 option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecords1EvolvedAgainProto";
+option java_outer_classname = "TestNoUnionEvolvedRenamedRecordTypeProto";
 
 import "record_metadata_options.proto";
 
 option (schema).store_record_versions = true;
 
-message MySimpleRecord {
+message MySimpleRecordRenamed {
   optional int64 rec_no = 1 [(field).primary_key = true];
   optional string str_value_indexed = 2 [(field).index = {}];
   optional int32 num_value_unique = 3 [(field).index = { unique: true }];
   optional int32 num_value_2 = 4;
   optional int32 num_value_3_indexed = 5 [(field).index = {}];
   repeated int32 repeater = 6;
-}
-
-message MyOtherRecord {
-  required int64 rec_no = 1 [(field).primary_key = true];
-  optional int32 num_value_2 = 4;
-  optional int32 num_value_3_indexed = 5;
-}
-
-message AnotherRecord {
-  required int64 rec_no = 1 [(field).primary_key = true];
-  optional int32 num_value_2 = 4;
-  optional int32 num_value_3_indexed = 5 [(field).index = { unique: true }];
-  optional int32 num_value_4 = 6;
-}
-
-message OneMoreRecord {
-  required int64 rec_no = 1 [(field).primary_key = true];
-}
-
-message Record {
-  required int64 rec_no = 1 [(field).primary_key = true];
-}
-
-message RecordTypeUnion {
-  optional MySimpleRecord _MySimpleRecord = 1;
-  optional MyOtherRecord _MyOtherRecord = 2;
-  optional AnotherRecord _AnotherRecord = 3;
-  optional OneMoreRecord _OneMoreRecord = 4;
 }
