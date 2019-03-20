@@ -53,7 +53,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 /**
  * Serialization of {@link RecordMetaData} into the database.
@@ -730,20 +729,19 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *
      * <p>
      * This method applies the given mutation callback on the stored meta-data and then saves it back to the store.
-     * Callers might need to provide an appropriate meta-data evolution validator to the meta-data store, depending on the
-     * changes that the callback perform.
+     * Callers might need to provide an appropriate {@link MetaDataEvolutionValidator} to the meta-data store, depending on the
+     * changes that the callback performs.
      * </p>
      *
      * <p>
-     * Also, callers must be cautious about modifying the stored meta-data using mutation callbacks, as this will make the
+     * Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
      * meta-data store the ultimate (and sole) source of truth for the record definitions and not just the in-database
      * copy of a {@code .proto} file under source control.
      * </p>
      *
-     *
      * @param mutateMetaDataProto a callback that mutates the meta-data proto
      */
-    public void mutateMetaData(@Nonnull Function<RecordMetaDataProto.MetaData.Builder, RecordMetaDataProto.MetaData> mutateMetaDataProto) {
+    public void mutateMetaData(@Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_MUTATE_METADATA, mutateMetaDataAsync(mutateMetaDataProto));
     }
 
@@ -751,13 +749,15 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Mutate the stored meta-data proto and record meta-data builder using mutation callbacks.
      *
      * <p>
-     * This method applies the given mutation callbacks on the stored meta-data and then saves it back to the store.
-     * Callers might need to provide an appropriate meta-data evolution validator to the meta-data store, depending on the
+     * This method applies the given mutation callbacks on the stored meta-data and then saves it back to the store. Note the
+     * order that the callbacks are executed. {@code mutateMetaDataProto} is called first on the meta-data proto and then the
+     * second {@code mutateRecordMetaDataBuilder} is executed on the meta-data builder.
+     * Callers might need to provide an appropriate {@link MetaDataEvolutionValidator} to the meta-data store, depending on the
      * changes that the callbacks perform.
      * </p>
      *
      * <p>
-     * Also, callers must be cautious about modifying the stored meta-data using mutation callbacks, as this will make the
+     * Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
      * meta-data store the ultimate (and sole) source of truth for the record definitions and not just the in-database
      * copy of a {@code .proto} file under source control.
      * </p>
@@ -765,7 +765,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param mutateMetaDataProto a callback that mutates the meta-data proto
      * @param mutateRecordMetaDataBuilder a callback that mutates the record meta-data builder after the meta-data proto is mutated
      */
-    public void mutateMetaData(@Nonnull Function<RecordMetaDataProto.MetaData.Builder, RecordMetaDataProto.MetaData> mutateMetaDataProto,
+    public void mutateMetaData(@Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto,
                                @Nullable Consumer<RecordMetaDataBuilder> mutateRecordMetaDataBuilder) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_MUTATE_METADATA, mutateMetaDataAsync(mutateMetaDataProto, mutateRecordMetaDataBuilder));
     }
@@ -774,13 +774,13 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Mutate the stored meta-data proto using a mutation callback asynchronously.
      *
      * <p>
-     * This method applies the given mutation callbacks on the stored meta-data and then saves it back to the store.
-     * Callers might need to provide an appropriate meta-data evolution validator to the meta-data store, depending on the
-     * changes that the callbacks perform.
+     * This method applies the given mutation callback on the stored meta-data and then saves it back to the store.
+     * Callers might need to provide an appropriate {@link MetaDataEvolutionValidator} to the meta-data store, depending on the
+     * changes that the callback performs.
      * </p>
      *
      * <p>
-     * Also, callers must be cautious about modifying the stored meta-data using mutation callbacks, as this will make the
+     * Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
      * meta-data store the ultimate (and sole) source of truth for the record definitions and not just the in-database
      * copy of a {@code .proto} file under source control.
      * </p>
@@ -789,7 +789,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @return a future that completes when the meta-data is mutated
      */
     @Nonnull
-    public CompletableFuture<Void> mutateMetaDataAsync(@Nonnull Function<RecordMetaDataProto.MetaData.Builder, RecordMetaDataProto.MetaData> mutateMetaDataProto) {
+    public CompletableFuture<Void> mutateMetaDataAsync(@Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto) {
         return mutateMetaDataAsync(mutateMetaDataProto, null);
     }
 
@@ -797,13 +797,15 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Mutate the stored meta-data proto and record meta-data builder using mutation callbacks asynchronously.
      *
      * <p>
-     * This method applies the given mutation callbacks on the stored meta-data and then saves it back to the store.
-     * Callers might need to provide an appropriate meta-data evolution validator to the meta-data store, depending on the
+     * This method applies the given mutation callbacks on the stored meta-data and then saves it back to the store. Note the
+     * order that the callbacks are executed. {@code mutateMetaDataProto} is called first on the meta-data proto and then the
+     * second {@code mutateRecordMetaDataBuilder} is executed on the meta-data builder.
+     * Callers might need to provide an appropriate {@link MetaDataEvolutionValidator} to the meta-data store, depending on the
      * changes that the callbacks perform.
      * </p>
      *
      * <p>
-     * Also, callers must be cautious about modifying the stored meta-data using mutation callbacks, as this will make the
+     * Also, callers must be cautious about modifying the stored records descriptor using mutation callbacks, as this will make the
      * meta-data store the ultimate (and sole) source of truth for the record definitions and not just the in-database
      * copy of a {@code .proto} file under source control.
      * </p>
@@ -813,11 +815,12 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @return a future that completes when the meta-data is mutated
      */
     @Nonnull
-    public CompletableFuture<Void> mutateMetaDataAsync(@Nonnull Function<RecordMetaDataProto.MetaData.Builder, RecordMetaDataProto.MetaData> mutateMetaDataProto,
+    public CompletableFuture<Void> mutateMetaDataAsync(@Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto,
                                                        @Nullable Consumer<RecordMetaDataBuilder> mutateRecordMetaDataBuilder) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
-            RecordMetaDataProto.MetaData metaData = mutateMetaDataProto.apply(metaDataProto.toBuilder());
-            RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaData);
+            RecordMetaDataProto.MetaData.Builder metaDataBuilder = metaDataProto.toBuilder();
+            mutateMetaDataProto.accept(metaDataBuilder);
+            RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataBuilder.build());
             recordMetaDataBuilder.setVersion(metaDataProto.getVersion() + 1);
             if (mutateRecordMetaDataBuilder != null) {
                 mutateRecordMetaDataBuilder.accept(recordMetaDataBuilder);
@@ -854,11 +857,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Enable splitting long records.
      *
      * <p>
-     * Note that enabling splitting long records could result in data corruption if the record store was initially created with format version older than
+     * Note that enabling splitting long records could result in data corruption if the record store was initially created with a format version older than
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION}.
      * Hence the default evolution validator will fail if one enables it. To enable this, first build a custom evolution validator that {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}
      * and use {@link #setEvolutionValidator(MetaDataEvolutionValidator)} to set the evolution validator used by this store.
-     * For more details see {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}.
+     * For more details, see {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}.
      * </p>
      */
     public void enableSplitLongRecords() {
@@ -869,11 +872,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Enable splitting long records asynchronously.
      *
      * <p>
-     * Note that enabling splitting long records could result in data corruption if the record store was initially created with format version older than
+     * Note that enabling splitting long records could result in data corruption if the record store was initially created with a format version older than
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION}.
      * Hence the default evolution validator will fail if one enables it. To enable this, first build a custom evolution validator that {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}
      * and use {@link #setEvolutionValidator(MetaDataEvolutionValidator)} to set the evolution validator used by this store.
-     * For more details see {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}.
+     * For more details, see {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}.
      * </p>
      *
      * @return a future that completes when {@code splitLongRecords} is set

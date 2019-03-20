@@ -29,14 +29,14 @@ import com.google.protobuf.DescriptorProtos;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 /**
  * A helper class for mutating the meta-data proto.
  *
  * <p>
- * This class contains several helper methods for modifying a serialized meta-data, e.g. add a new record type to the meta-data.
- * {@link FDBMetaDataStore#mutateMetaData(Function)} is one example of where these methods can be useful. {@code FDBMetaDataStore#mutateMetaData}
+ * This class contains several helper methods for modifying a serialized meta-data, e.g. adding a new record type to the meta-data.
+ * {@link FDBMetaDataStore#mutateMetaData(Consumer)} is one example of where these methods can be useful. That method
  * modifies the stored meta-data using a mutation callback and saves it back to the meta-data store.
  * </p>
  *
@@ -47,19 +47,18 @@ public class MetaDataProtoEditor {
      * Add a new record type to the meta-data.
      *
      * <p>
-     * Adding the record type involves three steps: the message type is added to the list of file descriptor's
-     * message types, a field of the given type is added to the union, and its primary key is set. This method takes
+     * Adding the record type involves three steps: the message type is added to the file descriptor's list of message types,
+     * a field of the given type is added to the union, and its primary key is set. This method takes
      * care of the first two. Callers must also set the primary key
      * ({@link com.apple.foundationdb.record.metadata.RecordTypeBuilder#setPrimaryKey} for the type.
-     * Note that adding {@code UNION} record types is not allowed. To add {@code NESTED} record types use {@link #addNestedRecordType}.
+     * Note that adding {@code UNION} record types is not allowed. To add {@code NESTED} record types, use {@link #addNestedRecordType}.
      * </p>
      *
      * @param metaDataBuilder the meta-data builder
      * @param newRecordType the new record type
-     * @return the modified meta-data
      */
     @Nonnull
-    public static RecordMetaDataProto.MetaData addRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType) {
+    public static void addRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType) {
         RecordMetaDataOptionsProto.RecordTypeOptions.Usage newRecordTypeUsage = getMessageTypeUsage(newRecordType);
         if (newRecordType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME) ||
                 newRecordTypeUsage == RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION) {
@@ -73,7 +72,6 @@ public class MetaDataProtoEditor {
         }
         metaDataBuilder.getRecordsBuilder().addMessageType(newRecordType);
         addFieldToUnion(metaDataBuilder.getRecordsBuilder(), newRecordType);
-        return metaDataBuilder.build();
     }
 
     private static void addFieldToUnion(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType) {
@@ -119,14 +117,13 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Add a new NESTED record type to the meta-data.
+     * Add a new {@code NESTED} record type to the meta-data, which can be used to define fields in other record types.
      *
      * @param metaDataBuilder the meta-data builder
      * @param newRecordType the new record type
-     * @return the modified meta-data
      */
     @Nonnull
-    public static RecordMetaDataProto.MetaData addNestedRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType) {
+    public static void addNestedRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType) {
         RecordMetaDataOptionsProto.RecordTypeOptions.Usage newRecordTypeUsage = getMessageTypeUsage(newRecordType);
         if (newRecordTypeUsage != RecordMetaDataOptionsProto.RecordTypeOptions.Usage.NESTED &&
                 newRecordTypeUsage != RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNSET) {
@@ -136,7 +133,6 @@ public class MetaDataProtoEditor {
             throw new MetaDataException("Record type " + newRecordType.getName() + " already exists");
         }
         metaDataBuilder.getRecordsBuilder().addMessageType(newRecordType);
-        return metaDataBuilder.build();
     }
 
     @Nonnull
@@ -159,10 +155,9 @@ public class MetaDataProtoEditor {
      *
      * @param metaDataBuilder the meta-data builder
      * @param recordType the record type to be deprecated
-     * @return the modified meta-data
      */
     @Nonnull
-    public static RecordMetaDataProto.MetaData deprecateRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull String recordType) {
+    public static void deprecateRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull String recordType) {
         DescriptorProtos.DescriptorProto.Builder unionBuilder = fetchUnionBuilder(metaDataBuilder.getRecordsBuilder());
         if (unionBuilder.getName().equals(recordType)) {
             throw new MetaDataException("Cannot deprecate the union");
@@ -178,7 +173,6 @@ public class MetaDataProtoEditor {
         if (!found) {
             throw new MetaDataException("Record type " + recordType + " not found");
         }
-        return metaDataBuilder.build();
     }
 
     /**
@@ -187,10 +181,9 @@ public class MetaDataProtoEditor {
      * @param metaDataBuilder the meta-data builder
      * @param recordType the record type to add the field to
      * @param field the field to be added
-     * @return the modified meta-data
      */
     @Nonnull
-    public static RecordMetaDataProto.MetaData addField(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull String recordType, @Nonnull DescriptorProtos.FieldDescriptorProto field) {
+    public static void addField(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull String recordType, @Nonnull DescriptorProtos.FieldDescriptorProto field) {
         DescriptorProtos.DescriptorProto.Builder messageType = findMessageTypeByName(metaDataBuilder.getRecordsBuilder(), recordType);
         if (messageType == null) {
             throw new MetaDataException("Record type " + recordType + " does not exist");
@@ -200,7 +193,6 @@ public class MetaDataProtoEditor {
             throw new MetaDataException("Field " + field.getName() + " already exists in record type " + recordType);
         }
         messageType.addField(field);
-        return metaDataBuilder.build();
     }
 
     /**
@@ -209,10 +201,9 @@ public class MetaDataProtoEditor {
      * @param metaDataBuilder the meta-data builder
      * @param recordType the record type to deprecate the field from
      * @param fieldName the name of the field to be deprecated
-     * @return the modified meta-data
      */
     @Nonnull
-    public static RecordMetaDataProto.MetaData deprecateField(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull String recordType, @Nonnull String fieldName) {
+    public static void deprecateField(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull String recordType, @Nonnull String fieldName) {
         // Find the record type
         DescriptorProtos.DescriptorProto.Builder messageType = findMessageTypeByName(metaDataBuilder.getRecordsBuilder(), recordType);
         if (messageType == null) {
@@ -225,7 +216,6 @@ public class MetaDataProtoEditor {
             throw new MetaDataException("Field " + fieldName + " not found in record type " + recordType);
         }
         setDeprecated(fieldBuilder);
-        return metaDataBuilder.build();
     }
 
     private static void setDeprecated(DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder) {
