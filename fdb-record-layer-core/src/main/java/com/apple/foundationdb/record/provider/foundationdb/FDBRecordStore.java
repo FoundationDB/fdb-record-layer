@@ -687,18 +687,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
-        final long startTime = System.nanoTime();
         CompletableFuture<FDBStoredRecord<M>> result = loadRawRecordAsync(primaryKey, sizeInfo, snapshot)
                 .thenCompose(rawRecord -> {
                     final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
                     if (byteScanLimiter != null) {
                         byteScanLimiter.registerScannedBytes(sizeInfo.getKeySize() + sizeInfo.getValueSize());
                     }
-                    final long startTimeToDeserialize = System.nanoTime();
-                    final long timeToLoad = startTimeToDeserialize - startTime;
                     return rawRecord == null ? CompletableFuture.completedFuture(null) :
-                            deserializeRecord(typedSerializer, rawRecord, metaData, versionFutureOptional)
-                                    .thenApply(storedRecord -> storedRecord.setTimeToLoad(timeToLoad).setTimeToDeserialize(System.nanoTime() - startTimeToDeserialize).build());
+                            deserializeRecord(typedSerializer, rawRecord, metaData, versionFutureOptional);
                 });
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD, result);
     }
@@ -779,11 +775,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return loadRecordVersionAsync(primaryKey, snapshot).map(future -> context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_VERSION, future));
     }
 
-    // This only needs to return the builder instead of the built record to support the temporary timing fields.
-    // TODO: Simplify after that is removed.
-    private <M extends Message> CompletableFuture<FDBStoredRecordBuilder<M>> deserializeRecord(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull final FDBRawRecord rawRecord,
-                                                                                               @Nonnull final RecordMetaData metaData,
-                                                                                               @Nonnull final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional) {
+    private <M extends Message> CompletableFuture<FDBStoredRecord<M>> deserializeRecord(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull final FDBRawRecord rawRecord,
+                                                                                        @Nonnull final RecordMetaData metaData,
+                                                                                        @Nonnull final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional) {
         final Tuple primaryKey = rawRecord.getPrimaryKey();
         final byte[] serialized = rawRecord.getRawRecord();
 
@@ -800,15 +794,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // In the current format version, the version should be read along with the version,
                 // so this should be hit the majority of the time.
                 recordBuilder.setVersion(rawRecord.getVersion());
-                return CompletableFuture.completedFuture(recordBuilder);
+                return CompletableFuture.completedFuture(recordBuilder.build());
             } else if (versionFutureOptional.isPresent()) {
                 // In an old format version, the record version was stored separately and requires
                 // another read (which has hopefully happened in parallel with the main record read in the background).
-                return versionFutureOptional.get().thenApply(recordBuilder::setVersion);
+                return versionFutureOptional.get().thenApply(version -> {
+                    recordBuilder.setVersion(version);
+                    return recordBuilder.build();
+                });
             } else {
                 // Look for the version in the various places that it might be. If we can't find it, then
                 // this will return an FDBStoredRecord where the version is unset.
-                return CompletableFuture.completedFuture(recordBuilder);
+                return CompletableFuture.completedFuture(recordBuilder.build());
             }
         } catch (Exception ex) {
             final LoggableException ex2 = new RecordCoreException("Failed to deserialize record", ex);
@@ -960,8 +957,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // Newer format versions: the version is either in the record or it is not -- do not do another read.
                 versionFutureOptional = Optional.empty();
             }
-            return deserializeRecord(typedSerializer, rawRecord, metaData,
-                    versionFutureOptional).thenApply(FDBStoredRecordBuilder::build);
+            return deserializeRecord(typedSerializer, rawRecord, metaData, versionFutureOptional);
         }, pipelineSizer.getPipelineSize(PipelineOperation.KEY_TO_RECORD));
         return context.instrument(FDBStoreTimer.Events.SCAN_RECORDS, result);
     }

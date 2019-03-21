@@ -574,7 +574,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
 
     /**
      * Complete this version with the version from as successful commit.
-     * @param committedVersion the result of {@link FDBRecordContext#versionStamp}
+     * @param committedVersion the result of {@link FDBRecordContext#getVersionStamp}
      * @return a new record version with a complete version
      */
     @Nonnull

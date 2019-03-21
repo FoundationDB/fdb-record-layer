@@ -20,11 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -156,30 +157,30 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 transaction.mutate(valuePair.getLeft(), key, valuePair.getRight()));
         CompletableFuture<byte[]> versionFuture = transaction.getVersionstamp();
         long beforeCommitTimeMillis = System.currentTimeMillis();
-        CompletableFuture<Void> commit = checks.isDone() && !checks.isCompletedExceptionally() ?
+        CompletableFuture<Void> commit = MoreAsyncUtil.isCompletedNormally(checks) ?
                                          transaction.commit() :
                                          checks.thenCompose(vignore -> transaction.commit());
+        commit = commit.thenCompose(vignore -> {
+            // The committed version will be -1 if the transaction is read-only,
+            // in which case versionFuture has completed exceptionally with
+            // transaction_read_only and thus can be ignored.
+            committedVersion = transaction.getCommittedVersion();
+            if (committedVersion > 0) {
+                // The getVersionstamp() future can complete a tiny bit after the commit() future.
+                return versionFuture.thenAccept(vs -> versionStamp = vs);
+            } else {
+                return AsyncUtil.DONE;
+            }
+        });
         return commit.whenComplete((v, ex) -> {
             StoreTimer.Event event = FDBStoreTimer.Events.COMMIT;
             try {
                 if (ex != null) {
                     event = FDBStoreTimer.Events.COMMIT_FAILURE;
                 } else {
-                    // The committed version will be -1 if the transaction is read-only,
-                    // in which case versionFuture has completed exceptionally with
-                    // transaction_read_only and thus can be ignored.
-                    committedVersion = transaction.getCommittedVersion();
                     if (committedVersion > 0) {
                         if (database.isTrackLastSeenVersionOnCommit()) {
                             database.updateLastSeenFDBVersion(beforeCommitTimeMillis, committedVersion);
-                        }
-                        try {
-                            // versionFuture has completed already, so we can "wait" here
-                            // safely without actually blocking.
-                            versionStamp = asyncToSync(FDBStoreTimer.Waits.WAIT_VERSION_STAMP, versionFuture);
-                        } catch (RuntimeException e) {
-                            LOGGER.warn(KeyValueLogMessage.of("unable to wait for version stamp",
-                                    "committed_version", committedVersion), e);
                         }
                     } else {
                         event = FDBStoreTimer.Events.COMMIT_READ_ONLY;
