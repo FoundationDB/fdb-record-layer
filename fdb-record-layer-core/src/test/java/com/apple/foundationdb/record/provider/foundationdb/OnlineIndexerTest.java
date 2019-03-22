@@ -89,8 +89,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -306,10 +308,17 @@ public class OnlineIndexerTest extends FDBTestBase {
         LOGGER.info(KeyValueLogMessage.of("creating online index builder",
                 "index", index, "recordTypes", metaData.recordTypesForIndex(index),
                 "subspace", ByteArrayUtil2.loggable(subspace.pack()), "limit", 20, "recordsPerSecond", OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+        final OnlineIndexer.Builder builder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
-                .setLimit(20).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100)
-                .build()) {
+                .setLimit(20).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
+        if (ThreadLocalRandom.current().nextBoolean()) {
+            // randomly enable the progress logging to ensure that it doesn't throw exceptions,
+            // or otherwise disrupt the build.
+            LOGGER.info("Setting progress log interval");
+            builder.setProgressLogIntervalMillis(0);
+        }
+
+        try (OnlineIndexer indexBuilder = builder.build()) {
             CompletableFuture<Void> buildFuture;
             LOGGER.info(KeyValueLogMessage.of("building index", "index", index, "agents", agents, "recordsWhileBuilding", recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(), "overlap", overlap));
             if (agents == 1) {
@@ -331,6 +340,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                             for (int i = 0; i < agents; i++) {
                                 long itrStart = start + (end - start) / agents * i;
                                 long itrEnd = (i == agents - 1) ? end : start + (end - start) / agents * (i + 1);
+                                LOGGER.info(KeyValueLogMessage.of("building range", "index", index, "agent", i, "begin", itrStart, "end", itrEnd));
                                 futures[i] = indexBuilder.buildRange(
                                         Key.Evaluated.scalar(itrStart),
                                         Key.Evaluated.scalar(itrEnd));
@@ -357,6 +367,18 @@ public class OnlineIndexerTest extends FDBTestBase {
             }
 
             buildFuture.join();
+
+            // if a record is added to a range that has already been built, it will not be counted, otherwise,
+            // it will.
+            long additionalScans = 0;
+            if (recordsWhileBuilding != null && recordsWhileBuilding.size() > 0) {
+                additionalScans += (long)recordsWhileBuilding.size();
+            }
+            assertThat(indexBuilder.getTotalRecordsScanned(),
+                    Matchers.allOf(
+                            Matchers.greaterThanOrEqualTo((long)records.size()),
+                            Matchers.lessThanOrEqualTo((long)records.size() + additionalScans)
+                    ));
         }
         LOGGER.info(KeyValueLogMessage.of("building index - completed", "index", index));
 
@@ -2063,14 +2085,7 @@ public class OnlineIndexerTest extends FDBTestBase {
 
     @Test
     public void run() {
-        Index index = new Index("newIndex", field("num_value_2"));
-        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
-
-        try (FDBRecordContext context = openContext()) {
-            // OnlineIndexer.runAsync checks that the index is not readable
-            recordStore.clearAndMarkIndexWriteOnly(index).join();
-            context.commit();
-        }
+        Index index = runAsyncSetup();
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setLimit(100).setMaxRetries(3).setRecordsPerSecond(10000)
@@ -2152,14 +2167,7 @@ public class OnlineIndexerTest extends FDBTestBase {
 
     @Test
     public void lessenLimits() {
-        Index index = new Index("newIndex", field("num_value_2"));
-        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
-
-        try (FDBRecordContext context = openContext()) {
-            // OnlineIndexer.runAsync checks that the index is not readable
-            recordStore.clearAndMarkIndexWriteOnly(index).join();
-            context.commit();
-        }
+        Index index = runAsyncSetup();
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setLimit(100).setMaxRetries(30).setRecordsPerSecond(10000)
@@ -2264,19 +2272,13 @@ public class OnlineIndexerTest extends FDBTestBase {
                         .setIncreaseLimitAfter(10)
                         .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
                         .setMaxAttempts(3)
+                        .setProgressLogIntervalMillis(0)
                         .build());
     }
 
     private void reincreaseLimit(Queue<Pair<Integer, Supplier<RuntimeException>>> queue,
                                  final Function<Index, OnlineIndexer> buildOnlineIndexer) {
-        Index index = new Index("newIndex", field("num_value_2"));
-        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
-
-        try (FDBRecordContext context = openContext()) {
-            // OnlineIndexer.runAsync checks that the index is not readable
-            recordStore.clearAndMarkIndexWriteOnly(index).join();
-            context.commit();
-        }
+        Index index = runAsyncSetup();
         try (OnlineIndexer indexBuilder = buildOnlineIndexer.apply(index)) {
 
             AtomicInteger attempts = new AtomicInteger();
@@ -2298,6 +2300,76 @@ public class OnlineIndexerTest extends FDBTestBase {
                     })).join();
             assertNull(queue.poll());
         }
+    }
+
+    @Test
+    public void recordsScanned() {
+        Supplier<RuntimeException> nonRetriableException =
+                () -> new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
+        Supplier<RuntimeException> retriableException =
+                () -> new RecordCoreRetriableTransactionException("Retriable", new FDBException("not_committed", 1020));
+        Queue<Pair<Long, Supplier<RuntimeException>>> queue = new LinkedList<>();
+
+        queue.add(Pair.of(0L, retriableException));
+        queue.add(Pair.of(0L, nonRetriableException));
+        queue.add(Pair.of(0L, null));
+        queue.add(Pair.of(1L, null));
+        queue.add(Pair.of(2L, null));
+        queue.add(Pair.of(3L, null));
+        queue.add(Pair.of(4L, retriableException));
+        queue.add(Pair.of(4L, retriableException));
+        queue.add(Pair.of(4L, nonRetriableException));
+        queue.add(Pair.of(4L, nonRetriableException));
+        queue.add(Pair.of(4L, null));
+        Index index = runAsyncSetup();
+
+
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setLimit(100).setMaxRetries(queue.size() + 3).setRecordsPerSecond(10000)
+                .setIncreaseLimitAfter(10)
+                .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
+                .setMaxAttempts(3)
+                .setProgressLogIntervalMillis(30) // log some of the time, to make sure that doesn't impact things
+                .build()) {
+
+            AtomicInteger attempts = new AtomicInteger();
+            attempts.set(0);
+            AsyncUtil.whileTrue(() -> {
+                AtomicLong recordsScanned = new AtomicLong(0);
+                return indexBuilder.runAsync(
+                        store -> {
+                            Pair<Long, Supplier<RuntimeException>> behavior = queue.poll();
+                            if (behavior == null) {
+                                return AsyncUtil.READY_FALSE;
+                            } else {
+                                int currentAttempt = attempts.getAndIncrement();
+                                assertEquals(1, recordsScanned.incrementAndGet());
+                                assertEquals(behavior.getLeft().longValue(), indexBuilder.getTotalRecordsScanned(),
+                                        "Attempt " + currentAttempt);
+                                if (behavior.getRight() != null) {
+                                    throw behavior.getRight().get();
+                                }
+                                return AsyncUtil.READY_TRUE;
+                            }
+                        },
+                        (result, exception) -> indexBuilder.runAsyncPostTransaction(result, exception, recordsScanned));
+            }).join();
+            assertNull(queue.poll());
+            assertEquals(5L, indexBuilder.getTotalRecordsScanned());
+        }
+    }
+
+    private Index runAsyncSetup() {
+        Index index = new Index("newIndex", field("num_value_2"));
+        openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+
+        try (FDBRecordContext context = openContext()) {
+            // OnlineIndexer.runAsync checks that the index is not readable
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            context.commit();
+        }
+        return index;
     }
 
     @Test
