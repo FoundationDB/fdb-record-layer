@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.DescriptorProtos;
 
 import javax.annotation.Nonnull;
@@ -35,7 +36,7 @@ import java.util.function.Consumer;
  * A helper class for mutating the meta-data proto.
  *
  * <p>
- * This class contains several helper methods for modifying a serialized meta-data, e.g. adding a new record type to the meta-data.
+ * This class contains several helper methods for modifying a serialized meta-data, e.g., adding a new record type to the meta-data.
  * {@link FDBMetaDataStore#mutateMetaData(Consumer)} is one example of where these methods can be useful. That method
  * modifies the stored meta-data using a mutation callback and saves it back to the meta-data store.
  * </p>
@@ -48,17 +49,16 @@ public class MetaDataProtoEditor {
      *
      * <p>
      * Adding the record type involves three steps: the message type is added to the file descriptor's list of message types,
-     * a field of the given type is added to the union, and its primary key is set. This method takes
-     * care of the first two. Callers must also set the primary key
-     * ({@link com.apple.foundationdb.record.metadata.RecordTypeBuilder#setPrimaryKey} for the type.
+     * a field of the given type is added to the union, and its primary key is set.
      * Note that adding {@code UNION} record types is not allowed. To add {@code NESTED} record types, use {@link #addNestedRecordType}.
      * </p>
      *
      * @param metaDataBuilder the meta-data builder
      * @param newRecordType the new record type
+     * @param primaryKey the primary key of the new record type
      */
     @Nonnull
-    public static void addRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType) {
+    public static void addRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType, @Nonnull KeyExpression primaryKey) {
         RecordMetaDataOptionsProto.RecordTypeOptions.Usage newRecordTypeUsage = getMessageTypeUsage(newRecordType);
         if (newRecordType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME) ||
                 newRecordTypeUsage == RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION) {
@@ -71,13 +71,19 @@ public class MetaDataProtoEditor {
             throw new MetaDataException("Record type " + newRecordType.getName() + " already exists");
         }
         metaDataBuilder.getRecordsBuilder().addMessageType(newRecordType);
+        metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
+        metaDataBuilder.addRecordTypes(RecordMetaDataProto.RecordType.newBuilder()
+                .setName(newRecordType.getName())
+                .setPrimaryKey(primaryKey.toKeyExpression())
+                .setSinceVersion(metaDataBuilder.getVersion())
+                .build());
         addFieldToUnion(metaDataBuilder.getRecordsBuilder(), newRecordType);
     }
 
     private static void addFieldToUnion(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType) {
         DescriptorProtos.DescriptorProto.Builder unionBuilder = fetchUnionBuilder(fileBuilder);
         if (unionBuilder.getOneofDeclCount() > 0) {
-            throw new MetaDataException("Adding record type to oneOf is not allowed");
+            throw new MetaDataException("Adding record type to oneof is not allowed");
         }
         DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder = DescriptorProtos.FieldDescriptorProto.newBuilder()
                 .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
@@ -117,7 +123,8 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Add a new {@code NESTED} record type to the meta-data, which can be used to define fields in other record types.
+     * Add a new {@code NESTED} record type to the meta-data. This can be used to define fields in other record types,
+     * but it does not add the new record type to the union.
      *
      * @param metaDataBuilder the meta-data builder
      * @param newRecordType the new record type

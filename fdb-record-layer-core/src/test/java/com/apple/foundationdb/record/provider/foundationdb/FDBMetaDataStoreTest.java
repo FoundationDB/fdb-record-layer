@@ -699,11 +699,12 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
     }
 
     private void addRecordType(@Nonnull DescriptorProtos.DescriptorProto newRecordType, @Nonnull KeyExpression primaryKey) {
-        metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType),
-                recordMetaDataBuilder -> {
-                    recordMetaDataBuilder.getRecordType(newRecordType.getName()).setPrimaryKey(primaryKey);
-                    recordMetaDataBuilder.getRecordType(newRecordType.getName()).setSinceVersion(recordMetaDataBuilder.getVersion());
-                });
+        metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType, primaryKey));
+    }
+
+    private void addRecordType(@Nonnull DescriptorProtos.DescriptorProto newRecordType, @Nonnull KeyExpression primaryKey, @Nonnull Index index) {
+        metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType, primaryKey),
+                recordMetaDataBuilder -> recordMetaDataBuilder.addIndex(newRecordType.getName(), index));
     }
 
     private void deprecateRecordType(@Nonnull String recordType) {
@@ -766,46 +767,75 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             addRecordType(newRecordType, Key.Expressions.field("rec_no"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
-            assertEquals(version + 1 , metaDataStore.getRecordMetaData().getVersion());
-            assertEquals(version + 1 , metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
+            assertEquals(version + 1, metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
             context.commit();
         }
 
-        // Deprecate the just-added record type.
+        // Add a record type with index.
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
+            DescriptorProtos.DescriptorProto newRecordType = DescriptorProtos.DescriptorProto.newBuilder()
+                    .setName("MyNewRecordWithIndex")
+                    .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                            .setName("rec_no")
+                            .setNumber(1))
+                    .build();
+            addRecordType(newRecordType, Key.Expressions.field("rec_no"), new Index("MyNewRecordWithIndex$index", "rec_no"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex"));
+            assertNotNull(metaDataStore.getRecordMetaData().getIndex("MyNewRecordWithIndex$index"));
+            assertEquals(version + 2, metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex").getSinceVersion().intValue());
+            assertEquals(version + 3, metaDataStore.getRecordMetaData().getVersion()); // +1 because of the index.
+            context.commit();
+        }
+
+        // Deprecate the just-added record types.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertEquals(version + 3, metaDataStore.getRecordMetaData().getVersion());
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex"));
             deprecateRecordType("MyNewRecord");
-            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertTrue(metaDataStore.getRecordMetaData().getRecordsDescriptor().findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MyNewRecord").getOptions().getDeprecated());
-            assertEquals(version + 2 , metaDataStore.getRecordMetaData().getVersion());
+            assertEquals(version + 4, metaDataStore.getRecordMetaData().getVersion());
+            deprecateRecordType("MyNewRecordWithIndex");
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex"));
+            assertTrue(metaDataStore.getRecordMetaData().getRecordsDescriptor().findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MyNewRecordWithIndex").getOptions().getDeprecated());
+            assertEquals(version + 5, metaDataStore.getRecordMetaData().getVersion());
             context.commit();
         }
 
         // Deprecate a record type from the original proto.
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
-            assertEquals(version + 2, metaDataStore.getRecordMetaData().getVersion());
+            assertEquals(version + 5, metaDataStore.getRecordMetaData().getVersion());
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             deprecateRecordType(".com.apple.foundationdb.record.test1.MySimpleRecord"); // Record type needs to be fully qualified.
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertTrue(metaDataStore.getRecordMetaData().getRecordsDescriptor().findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MySimpleRecord").getOptions().getDeprecated());
-            assertEquals(version + 3 , metaDataStore.getRecordMetaData().getVersion());
+            assertEquals(version + 6, metaDataStore.getRecordMetaData().getVersion());
             context.commit();
         }
 
         // Deprecate a non-existent record type.
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
-            assertEquals(version + 3, metaDataStore.getRecordMetaData().getVersion());
+            assertEquals(version + 6, metaDataStore.getRecordMetaData().getVersion());
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             MetaDataException e = assertThrows(MetaDataException.class, () -> deprecateRecordType("MyNonExistentRecord"));
             assertEquals(e.getMessage(), "Record type MyNonExistentRecord not found");
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
-            assertEquals(version + 3 , metaDataStore.getRecordMetaData().getVersion());
+            assertEquals(version + 6, metaDataStore.getRecordMetaData().getVersion());
             context.commit();
         }
     }
@@ -1302,7 +1332,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
                             .setNumber(1))
                     .build();
             MetaDataException e = assertThrows(MetaDataException.class, () -> addRecordType(newRecordType, Key.Expressions.field("rec_no")));
-            assertEquals(e.getMessage(), "Adding record type to oneOf is not allowed");
+            assertEquals(e.getMessage(), "Adding record type to oneof is not allowed");
             context.commit();
         }
     }
