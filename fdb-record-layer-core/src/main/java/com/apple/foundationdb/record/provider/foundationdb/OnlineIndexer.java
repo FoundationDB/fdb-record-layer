@@ -165,7 +165,7 @@ public class OnlineIndexer implements AutoCloseable {
     private long timeOfLastProgressLogMillis;
     /**
      * The total number of records scanned in the build.
-     * Unlike {@link FDBStoreTimer.Counts#ONLINE_INDEX_BUILDER_RECORDS_SCANNED} this will not include records that
+     * Unlike {@link FDBStoreTimer.Counts#ONLINE_INDEX_BUILDER_RECORDS_SCANNED}, this will not include records that
      * are scanned as part of a failed transaction.
      * @see Builder#setProgressLogIntervalMillis(long)
      */
@@ -1352,12 +1352,12 @@ public class OnlineIndexer implements AutoCloseable {
          *     <li>realEnd - the tuple that was successfully scanned to (always before endTuple)</li>
          *     <li>recordsScanned - the number of records successfully scanned and processed
          *     <p>
-         *         If one of the transactional methods is used to build the index (i.e. a context is provided),
+         *         If one of the transactional methods is used to build the index (i.e., a context is provided),
          *         then this will simply be the number of records scanned by this {@code OnlineIndexer}.
          *         If one of the methods that builds in multiple transactions (e.g. {@link #buildIndexAsync()} or
          *         {@link #buildRange(Key.Evaluated, Key.Evaluated)}) is called, then transactions that fail will not
          *         count towards this value, only transactions that succeed. As a side effect, this means that transactions
-         *         that get commit_unknown_result will not get counted towards this value, so this value may be short by
+         *         that get {@code commit_unknown_result} will not get counted towards this value, so this value may be short by
          *         the number of records scanned in those transactions if they actually succeeded.
          *     </p></li>
          * </ul>
