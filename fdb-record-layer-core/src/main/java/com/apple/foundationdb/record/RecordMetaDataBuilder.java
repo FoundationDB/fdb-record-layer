@@ -1016,6 +1016,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes.add(new FormerIndex(index.getSubspaceKey(), index.getAddedVersion(), ++version, name));
     }
 
+    public void addFormerIndex(@Nonnull FormerIndex formerIndex) {
+        formerIndexes.add(formerIndex);
+    }
+
     public boolean isSplitLongRecords() {
         return splitLongRecords;
     }
