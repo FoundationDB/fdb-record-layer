@@ -61,7 +61,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.ThreadContext;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -104,8 +103,14 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isOneOf;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -375,9 +380,9 @@ public class OnlineIndexerTest extends FDBTestBase {
                 additionalScans += (long)recordsWhileBuilding.size();
             }
             assertThat(indexBuilder.getTotalRecordsScanned(),
-                    Matchers.allOf(
-                            Matchers.greaterThanOrEqualTo((long)records.size()),
-                            Matchers.lessThanOrEqualTo((long)records.size() + additionalScans)
+                    allOf(
+                            greaterThanOrEqualTo((long)records.size()),
+                            lessThanOrEqualTo((long)records.size() + additionalScans)
                     ));
         }
         LOGGER.info(KeyValueLogMessage.of("building index - completed", "index", index));
@@ -2458,16 +2463,16 @@ public class OnlineIndexerTest extends FDBTestBase {
             while (!future.isDone() && timer.getCount(FDBStoreTimer.Events.COMMIT) < 10 && pass++ < 100) {
                 Thread.sleep(100);
             }
-            assertThat("Should have done several transactions in a few seconds", pass, Matchers.lessThan(100));
+            assertThat("Should have done several transactions in a few seconds", pass, lessThan(100));
         }
         int count1 = timer.getCount(FDBStoreTimer.Events.COMMIT);
         assertThrows(FDBDatabaseRunner.RunnerClosed.class, () -> fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, future));
         Thread.sleep(50);
         int count2 = timer.getCount(FDBStoreTimer.Events.COMMIT);
         // Might close just after committing but before recording.
-        assertThat("At most one more commits should have occurred", count2, Matchers.isOneOf(count1, count1 + 1));
+        assertThat("At most one more commits should have occurred", count2, isOneOf(count1, count1 + 1));
         Thread.sleep(50);
         int count3 = timer.getCount(FDBStoreTimer.Events.COMMIT);
-        assertThat("No more commits should have occurred", count3, Matchers.is(count2));
+        assertThat("No more commits should have occurred", count3, is(count2));
     }
 }
