@@ -95,6 +95,10 @@ message Then {
   repeated KeyExpression child = 1;
 }
 
+message List {
+  repeated KeyExpression child = 1;
+}
+
 message Field {
   required string field_name = 1;
   required FanType fan_type = 2;
@@ -168,6 +172,7 @@ message KeyExpression {
   optional Function function = 9;
   optional KeyWithValue key_with_value = 10;
   optional RecordTypeKey record_type_key = 11;
+  optional List list = 12;
 }
 
 message JoinedRecordType {

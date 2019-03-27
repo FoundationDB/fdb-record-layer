@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
+import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.SplitKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
@@ -62,6 +63,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.list;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression.EMPTY;
 import static com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression.VERSION;
@@ -672,6 +674,16 @@ public class KeyExpressionTest {
     }
 
     @Test
+    public void testList() throws Exception {
+        final KeyExpression list = list(field("field"), field("repeat_me", FanType.Concatenate));
+        list.validate(TestScalarFieldAccess.getDescriptor());
+        assertEquals(Collections.singletonList(concatenate(
+                scalar("Plants").values(),
+                scalar(concatenate("Boxes", "Bowls").values()).values())),
+                evaluate(list, plantsBoxesAndBowls));
+    }
+
+    @Test
     public void testSerializeField() throws Exception {
         final FieldKeyExpression f1 = field("f1", FanType.FanOut);
         final FieldKeyExpression f1Deserialized = new FieldKeyExpression(f1.toProto());
@@ -683,6 +695,14 @@ public class KeyExpressionTest {
     public void testSerializeThen() throws Exception {
         final ThenKeyExpression concat = concat(field("f1"), field("f2"));
         final ThenKeyExpression then = new ThenKeyExpression(concat.toProto());
+        assertEquals(2, then.getChildren().size());
+        assertEquals("f2", ((FieldKeyExpression)then.getChildren().get(1)).getFieldName());
+    }
+
+    @Test
+    public void testSerializeList() throws Exception {
+        final ListKeyExpression list = list(field("f1"), field("f2"));
+        final ListKeyExpression then = new ListKeyExpression(list.toProto());
         assertEquals(2, then.getChildren().size());
         assertEquals("f2", ((FieldKeyExpression)then.getChildren().get(1)).getFieldName());
     }

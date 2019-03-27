@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
@@ -41,6 +42,7 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -161,6 +163,26 @@ public class Key {
                 exprs.add(field(field));
             }
             return new ThenKeyExpression(exprs);
+        }
+
+        /**
+         * Combine multiple expressions into a list.
+         * @param children child expressions
+         * @return a new expression which evaluates each child and returns the cross product as a list
+         */
+        @Nonnull
+        public static ListKeyExpression list(@Nonnull KeyExpression... children) {
+            return new ListKeyExpression(Arrays.asList(children));
+        }
+
+        /**
+         * Combine multiple expressions into a list.
+         * @param children child expressions
+         * @return a new expression which evaluates each child and returns the cross product as a list
+         */
+        @Nonnull
+        public static ListKeyExpression list(@Nonnull List<KeyExpression> children) {
+            return new ListKeyExpression(children);
         }
 
         /**
