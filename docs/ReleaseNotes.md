@@ -47,7 +47,7 @@ The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. U
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** The preload cache in `FDBRecordStore` now invalidates entries corresponding to updated records. [(Issue #494)](https://github.com/FoundationDB/fdb-record-layer/issues/494)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
