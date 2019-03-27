@@ -143,7 +143,10 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("OneToOne"));
-            Multiset<Tuple> expected1 = ImmutableMultiset.of(Tuple.from(-1, 0, 1000), Tuple.from(-1, 1, 1001), Tuple.from(-1, 2, 1002));
+            Multiset<Tuple> expected1 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(0), Tuple.from(1000)),
+                    Tuple.from(-1, Tuple.from(1), Tuple.from(1001)),
+                    Tuple.from(-1, Tuple.from(2), Tuple.from(1002)));
             Multiset<Tuple> results1 = HashMultiset.create(plan1.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected1, results1);
         }
@@ -179,13 +182,18 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("ManyToOne"));
-            Multiset<Tuple> expected1 = ImmutableMultiset.of(Tuple.from(-1, 100, 1001), Tuple.from(-1, 200, 1002), Tuple.from(-1, 201, 1002));
+            Multiset<Tuple> expected1 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(100), Tuple.from(1001)),
+                    Tuple.from(-1, Tuple.from(200), Tuple.from(1002)),
+                    Tuple.from(-1, Tuple.from(201), Tuple.from(1002)));
             Multiset<Tuple> results1 = HashMultiset.create(plan1.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected1, results1);
 
             FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1002));
             SyntheticRecordFromStoredRecordPlan plan2 = planner.fromStoredType(record.getRecordType(), false);
-            Multiset<Tuple> expected2 = ImmutableMultiset.of(Tuple.from(-1, 200, 1002), Tuple.from(-1, 201, 1002));
+            Multiset<Tuple> expected2 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(200), Tuple.from(1002)),
+                    Tuple.from(-1, Tuple.from(201), Tuple.from(1002)));
             Multiset<Tuple> results2 = HashMultiset.create(plan2.execute(recordStore, record).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected2, results2);
         }
@@ -227,7 +235,10 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("ManyToMany"));
-            Multiset<Tuple> expected1 = ImmutableMultiset.of(Tuple.from(-1, 1, 1000, 100), Tuple.from(-1, 2, 1000, 101), Tuple.from(-1, 2, 1002, 102));
+            Multiset<Tuple> expected1 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(1), Tuple.from(1000), Tuple.from(100)),
+                    Tuple.from(-1, Tuple.from(2), Tuple.from(1000), Tuple.from(101)),
+                    Tuple.from(-1, Tuple.from(2), Tuple.from(1002), Tuple.from(102)));
             Multiset<Tuple> results1 = HashMultiset.create(plan1.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected1, results1);
         }
@@ -258,13 +269,17 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("SelfJoin"));
-            Multiset<Tuple> expected1 = ImmutableMultiset.of(Tuple.from(-1, 0, 1), Tuple.from(-1, 1, 2));
+            Multiset<Tuple> expected1 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(0), Tuple.from(1)),
+                    Tuple.from(-1, Tuple.from(1), Tuple.from(2)));
             Multiset<Tuple> results1 = HashMultiset.create(plan1.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected1, results1);
 
             FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1));
             SyntheticRecordFromStoredRecordPlan plan2 = planner.fromStoredType(record.getRecordType(), false);
-            Multiset<Tuple> expected2 = ImmutableMultiset.of(Tuple.from(-1, 0, 1), Tuple.from(-1, 1, 2));
+            Multiset<Tuple> expected2 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(0), Tuple.from(1)),
+                    Tuple.from(-1, Tuple.from(1), Tuple.from(2)));
             Multiset<Tuple> results2 = HashMultiset.create(plan2.execute(recordStore, record).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected2, results2);
         }
@@ -306,23 +321,34 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("InnerJoined"));
-            Multiset<Tuple> expected1 = ImmutableMultiset.of(Tuple.from(-1, 0, 1001), Tuple.from(-1, 1, 1002));
+            Multiset<Tuple> expected1 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(0), Tuple.from(1001)),
+                    Tuple.from(-1, Tuple.from(1), Tuple.from(1002)));
             Multiset<Tuple> results1 = HashMultiset.create(plan1.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected1, results1);
 
             SyntheticRecordPlan plan2 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("LeftJoined"));
-            Multiset<Tuple> expected2 = ImmutableMultiset.of(Tuple.from(-2, 0, 1001), Tuple.from(-2, 1, 1002), Tuple.from(-2, 2, null));
+            Multiset<Tuple> expected2 = ImmutableMultiset.of(
+                    Tuple.from(-2, Tuple.from(0), Tuple.from(1001)),
+                    Tuple.from(-2, Tuple.from(1), Tuple.from(1002)),
+                    Tuple.from(-2, Tuple.from(2), null));
             Multiset<Tuple> results2 = HashMultiset.create(plan2.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected2, results2);
 
             SyntheticRecordPlan plan3 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("FullOuterJoined"));
-            Multiset<Tuple> expected3 = ImmutableMultiset.of(Tuple.from(-3, null, 1000), Tuple.from(-3, 0, 1001), Tuple.from(-3, 1, 1002), Tuple.from(-3, 2, null));
+            Multiset<Tuple> expected3 = ImmutableMultiset.of(
+                    Tuple.from(-3, null, Tuple.from(1000)),
+                    Tuple.from(-3, Tuple.from(0), Tuple.from(1001)),
+                    Tuple.from(-3, Tuple.from(1), Tuple.from(1002)),
+                    Tuple.from(-3, Tuple.from(2), null));
             Multiset<Tuple> results3 = HashMultiset.create(plan3.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected3, results3);
 
             FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(2));
             SyntheticRecordFromStoredRecordPlan plan4 = planner.fromStoredType(record.getRecordType(), false);
-            Multiset<Tuple> expected4 = ImmutableMultiset.of(Tuple.from(-2, 2, null), Tuple.from(-3, 2, null));
+            Multiset<Tuple> expected4 = ImmutableMultiset.of(
+                    Tuple.from(-2, Tuple.from(2), null),
+                    Tuple.from(-3, Tuple.from(2), null));
             Multiset<Tuple> results4 = HashMultiset.create(plan4.execute(recordStore, record).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected4, results4);
         }
@@ -361,7 +387,10 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("Clique"));
-            Multiset<Tuple> expected1 = ImmutableMultiset.of(Tuple.from(-1, 100, 200, 300), Tuple.from(-1, 101, 201, 301), Tuple.from(-1, 102, 202, 302));
+            Multiset<Tuple> expected1 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(100), Tuple.from(200), Tuple.from(300)),
+                    Tuple.from(-1, Tuple.from(101), Tuple.from(201), Tuple.from(301)),
+                    Tuple.from(-1, Tuple.from(102), Tuple.from(202), Tuple.from(302)));
             Multiset<Tuple> results1 = HashMultiset.create(plan1.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected1, results1);
 
@@ -371,7 +400,9 @@ public class SyntheticRecordPlannerTest {
             recordStore.saveRecord(typeC.build());
             
             SyntheticRecordPlan plan2 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("Clique"));
-            Multiset<Tuple> expected2 = ImmutableMultiset.of(Tuple.from(-1, 100, 200, 300), Tuple.from(-1, 102, 202, 302));
+            Multiset<Tuple> expected2 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(100), Tuple.from(200), Tuple.from(300)),
+                    Tuple.from(-1, Tuple.from(102), Tuple.from(202), Tuple.from(302)));
             Multiset<Tuple> results2 = HashMultiset.create(plan2.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected2, results2);
         }
@@ -421,14 +452,23 @@ public class SyntheticRecordPlannerTest {
             final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(recordStore);
 
             SyntheticRecordPlan plan1 = planner.scanForType(recordStore.getRecordMetaData().getSyntheticRecordType("NestedRepeated"));
-            Multiset<Tuple> expected1 = ImmutableMultiset.of(Tuple.from(-1, 101, 201), Tuple.from(-1, 101, 202), Tuple.from(-1, 102, 201), Tuple.from(-1, 102, 202));
+            Multiset<Tuple> expected1 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(101), Tuple.from(201)),
+                    Tuple.from(-1, Tuple.from(101), Tuple.from(202)),
+                    Tuple.from(-1, Tuple.from(102), Tuple.from(201)),
+                    Tuple.from(-1, Tuple.from(102), Tuple.from(202)));
             Multiset<Tuple> results1 = HashMultiset.create(plan1.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected1, results1);
 
             FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(101));
             SyntheticRecordFromStoredRecordPlan plan2 = planner.fromStoredType(record.getRecordType(), false);
             // TODO: IN can generate duplicates from repeated field (https://github.com/FoundationDB/fdb-record-layer/issues/98)
-            Multiset<Tuple> expected2 = ImmutableMultiset.of(Tuple.from(-1, 101, 201), Tuple.from(-1, 101, 201), Tuple.from(-1, 101, 202), Tuple.from(-1, 101, 202), Tuple.from(-1, 101, 202));
+            Multiset<Tuple> expected2 = ImmutableMultiset.of(
+                    Tuple.from(-1, Tuple.from(101), Tuple.from(201)),
+                    Tuple.from(-1, Tuple.from(101), Tuple.from(201)),
+                    Tuple.from(-1, Tuple.from(101), Tuple.from(202)),
+                    Tuple.from(-1, Tuple.from(101), Tuple.from(202)),
+                    Tuple.from(-1, Tuple.from(101), Tuple.from(202)));
             Multiset<Tuple> results2 = HashMultiset.create(plan2.execute(recordStore, record).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected2, results2);
         }
@@ -471,7 +511,7 @@ public class SyntheticRecordPlannerTest {
                     .build()
                     .toTupleRange();
 
-            List<Tuple> expected1 = Arrays.asList(Tuple.from("even", 2, -1, 200, 1002));
+            List<Tuple> expected1 = Arrays.asList(Tuple.from("even", 2, -1, Tuple.from(200), Tuple.from(1002)));
             List<Tuple> results1 = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join();
             assertEquals(expected1, results1);
 
@@ -480,7 +520,7 @@ public class SyntheticRecordPlannerTest {
             recordBuilder.setStrValue("even");
             recordStore.saveRecord(recordBuilder.build());
 
-            List<Tuple> expected2 = Arrays.asList(Tuple.from("even", 2, -1, 200, 1002), Tuple.from("even", 2, -1, 201, 1002));
+            List<Tuple> expected2 = Arrays.asList(Tuple.from("even", 2, -1, Tuple.from(200), Tuple.from(1002)), Tuple.from("even", 2, -1, Tuple.from(201), Tuple.from(1002)));
             List<Tuple> results2 = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join();
             assertEquals(expected2, results2);
 
@@ -528,7 +568,7 @@ public class SyntheticRecordPlannerTest {
                     .build()
                     .toTupleRange();
 
-            List<Tuple> expected1 = Arrays.asList(Tuple.from(2, 3, -1, 1, 1001));
+            List<Tuple> expected1 = Arrays.asList(Tuple.from(2, 3, -1, Tuple.from(1), Tuple.from(1001)));
             List<Tuple> results1 = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join();
             assertEquals(expected1, results1);
         }

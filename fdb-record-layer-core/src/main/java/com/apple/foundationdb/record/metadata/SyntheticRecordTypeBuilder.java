@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * A builder for {@link SyntheticRecordType}.
@@ -173,14 +174,13 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
 
     @Nonnull
     protected KeyExpression buildPrimaryKey() {
-        List<KeyExpression> keys = new ArrayList<>(constituents.size() + 1);
-        keys.add(Key.Expressions.recordType());
-        for (Constituent constituent : constituents) {
-            keys.add(constituent.getRecordType().getPrimaryKey());
-        }
-        // TODO: Would a non-flattened version of concat be easier to deal with?
-        //  In particular, outer joins need to insert n nulls this way.
-        return Key.Expressions.concat(keys);
+        // The 0th component is the synthetic record type's key, since multiple synthetic records might involve the same children.
+        // The nth component is the nth constituent record's primary key, with no flattening.
+        return Key.Expressions.concat(
+                Key.Expressions.recordType(),
+                Key.Expressions.list(constituents.stream()
+                        .map(c -> Key.Expressions.field(c.getName()).nest(c.getRecordType().getPrimaryKey()))
+                        .collect(Collectors.toList())));
     }
 
 }

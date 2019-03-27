@@ -72,7 +72,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
     @Nonnull
     public static FDBSyntheticRecord of(@Nonnull SyntheticRecordType<?> recordType,
                                         @Nonnull Map<String, FDBStoredRecord<? extends Message>> constituents) {
-        // Note flattening and repeating nulls for outer-joined. Would nested Tuples always be superior?
+        // Each constituent's primary key goes into a subtuple.
         final List<Object> constituentPrimaryKeys = new ArrayList<>(recordType.getConstituents().size() + 1);
         constituentPrimaryKeys.add(recordType.getRecordTypeKey());
         DynamicMessage.Builder recordBuilder = DynamicMessage.newBuilder(recordType.getDescriptor());
@@ -81,12 +81,9 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
             final SyntheticRecordType.Constituent constituent = recordType.getConstituents().get(i);
             final FDBStoredRecord<? extends Message> constituentRecord = constituents.get(constituent.getName());
             if (constituentRecord == null) {
-                final int nnulls = constituent.getRecordType().getPrimaryKey().getColumnSize();
-                for (int j = 0; j < nnulls; j++) {
-                    constituentPrimaryKeys.add(null);
-                }
+                constituentPrimaryKeys.add(null);
             } else {
-                constituentPrimaryKeys.addAll(constituentRecord.getPrimaryKey().getItems());
+                constituentPrimaryKeys.add(constituentRecord.getPrimaryKey());
                 final Descriptors.FieldDescriptor field = recordType.getDescriptor().getFields().get(i);
                 recordBuilder.setField(field, constituentRecord.getRecord());
                 size.add(constituentRecord);
