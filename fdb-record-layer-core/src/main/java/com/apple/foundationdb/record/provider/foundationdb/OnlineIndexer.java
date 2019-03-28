@@ -60,6 +60,7 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -285,7 +286,8 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     <R> CompletableFuture<R> runAsync(@Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
         return runAsync(function,
-                (result, exception) -> runAsyncPostTransaction(result, exception, null));
+                (result, exception) -> runAsyncPostTransaction(result, exception, null),
+                null);
     }
 
     // This retry loop runs an operation on a record store. The reason that this retry loop exists
@@ -297,7 +299,8 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     @VisibleForTesting
     <R> CompletableFuture<R> runAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
-                                      @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction) {
+                                      @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
+                                      @Nullable List<Object> additionalLogMessageKeyValues) {
         AtomicInteger tries = new AtomicInteger(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
         AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
@@ -315,7 +318,7 @@ public class OnlineIndexer implements AutoCloseable {
                         }
                         return function.apply(store);
                     });
-                }, handlePostTransaction).handle((value, e) -> {
+                }, handlePostTransaction, additionalLogMessageKeyValues).handle((value, e) -> {
                     if (e == null) {
                         ret.complete(value);
                         return AsyncUtil.READY_FALSE;
@@ -332,7 +335,7 @@ public class OnlineIndexer implements AutoCloseable {
                             return AsyncUtil.READY_FALSE;
                         } else {
                             if (lessenWorkCodes.contains(fdbE.getCode())) {
-                                decreaseLimit(fdbE);
+                                decreaseLimit(fdbE, additionalLogMessageKeyValues);
                                 long delay = (long)(Math.random() * toWait.get());
                                 toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
                                 return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
@@ -378,15 +381,20 @@ public class OnlineIndexer implements AutoCloseable {
         return Pair.of(result, exception);
     }
 
-    private void decreaseLimit(FDBException fdbException) {
+    private void decreaseLimit(@Nonnull FDBException fdbException,
+                               @Nullable List<Object> additionalLogMessageKeyValues) {
         limit = Math.max(1, (3 * limit) / 4);
         if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(KeyValueLogMessage.of("Lessening limit of online index build",
+            final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
                     "indexName", index.getName(),
                     "indexVersion", index.getLastModifiedVersion(),
                     "error", fdbException.getMessage(),
                     "errorCode", fdbException.getCode(),
-                    "limit", limit),
+                    "limit", limit);
+            if (additionalLogMessageKeyValues != null) {
+                message.addKeysAndValues(additionalLogMessageKeyValues);
+            }
+            LOGGER.info(message.toString(),
                     fdbException);
         }
     }
@@ -723,16 +731,26 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private CompletableFuture<Tuple> buildUnbuiltRange(@Nullable Tuple start, @Nullable Tuple end) {
         AtomicLong recordsScanned = new AtomicLong(0);
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
+                LogMessageKeys.RANGE_START, start,
+                LogMessageKeys.RANGE_END, end);
         return runAsync(store -> buildUnbuiltRange(store, start, end, recordsScanned),
-                (result, exception) -> runAsyncPostTransaction(result, exception, recordsScanned));
+                (result, exception) -> runAsyncPostTransaction(
+                        result, exception, recordsScanned),
+                additionalLogMessageKeyValues);
     }
 
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         AtomicLong recordsScanned = new AtomicLong(0);
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
+                LogMessageKeys.RANGE_START, start,
+                LogMessageKeys.RANGE_END, end);
         return runAsync(store -> buildUnbuiltRange(store, start, end, recordsScanned),
-                (result, exception) -> runAsyncPostTransaction(result, exception, recordsScanned));
+                (result, exception) -> runAsyncPostTransaction(
+                        result, exception, recordsScanned),
+                additionalLogMessageKeyValues);
     }
 
     /**
@@ -877,8 +895,11 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints() {
         AtomicLong recordsScanned = new AtomicLong(0);
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildEndpoints");
         return runAsync(store -> buildEndpoints(store, recordsScanned),
-                (result, exception) -> runAsyncPostTransaction(result, exception, recordsScanned));
+                (result, exception) -> runAsyncPostTransaction(
+                        result, exception, recordsScanned),
+                additionalLogMessageKeyValues);
     }
 
     /**

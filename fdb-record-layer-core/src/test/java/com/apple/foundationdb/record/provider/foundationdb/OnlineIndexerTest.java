@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -2358,7 +2359,8 @@ public class OnlineIndexerTest extends FDBTestBase {
                                 return AsyncUtil.READY_TRUE;
                             }
                         },
-                        (result, exception) -> indexBuilder.runAsyncPostTransaction(result, exception, recordsScanned));
+                        (result, exception) -> indexBuilder.runAsyncPostTransaction(result, exception, recordsScanned),
+                        Arrays.asList(LogMessageKeys.CALLING_METHOD, "OnlineIndexerTest.recordsScanned"));
             }).join();
             assertNull(queue.poll());
             assertEquals(5L, indexBuilder.getTotalRecordsScanned());
