@@ -26,6 +26,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
+import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -305,6 +306,12 @@ public class FDBDatabaseRunner implements AutoCloseable {
         @Nullable private FDBRecordContext context;
         @Nullable T retVal = null;
         @Nullable RuntimeException exception = null;
+        @Nullable private final List<Object> additionalLogMessageKeyValues;
+
+        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        private RunRetriable(@Nullable List<Object> additionalLogMessageKeyValues) {
+            this.additionalLogMessageKeyValues = additionalLogMessageKeyValues;
+        }
 
         @Nonnull
         private CompletableFuture<Boolean> handle(@Nullable T val, @Nullable Throwable e) {
@@ -341,8 +348,12 @@ public class FDBDatabaseRunner implements AutoCloseable {
 
                 if (tries + 1 < getMaxAttempts() && retry) {
                     if (LOGGER.isWarnEnabled()) {
-                        LOGGER.warn(KeyValueLogMessage.of("Retrying FDB Exception",
-                                "message", fdbMessage, "code", code), e);
+                        final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying FDB Exception",
+                                "message", fdbMessage, "code", code);
+                        if (additionalLogMessageKeyValues != null) {
+                            message.addKeysAndValues(additionalLogMessageKeyValues);
+                        }
+                        LOGGER.warn(message.toString(), e);
                     }
                     long delay = (long)(Math.random() * currDelay);
                     CompletableFuture<Void> future = MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS);
@@ -428,7 +439,24 @@ public class FDBDatabaseRunner implements AutoCloseable {
      * @see #runAsync(Function)
      */
     public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
-        return new RunRetriable<T>().run(retriable);
+        return run(retriable, null);
+    }
+
+    /**
+     * Runs a transactional function against with retry logic.
+     * This is a blocking call. See the appropriate overload of {@link #runAsync}
+     * for the non-blocking version of this method.
+     *
+     * @param <T> return type of function to run
+     * @param retriable the database operation to run transactionally
+     * @param additionalLogMessageKeyValues additional key/value pairs to be included in logs
+     * @return result of function after successful run and commit
+     * @see #runAsync(Function)
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
+                     @Nullable List<Object> additionalLogMessageKeyValues) {
+        return new RunRetriable<T>(additionalLogMessageKeyValues).run(retriable);
     }
 
     /**
@@ -461,7 +489,28 @@ public class FDBDatabaseRunner implements AutoCloseable {
     @Nonnull
     public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
-        return new RunRetriable<T>().runAsync(retriable, handlePostTransaction);
+        return runAsync(retriable, handlePostTransaction, null);
+    }
+
+    /**
+     * Runs a transactional function asynchronously with retry logic.
+     * This is also a non-blocking call.
+     *
+     * @param <T> return type of function to run
+     * @param retriable the database operation to run transactionally
+     * @param handlePostTransaction after the transaction is committed, or fails to commit, this function is called with the
+     * result or exception respectively. This handler should return a new pair with either the result to return from
+     * {@code runAsync} or an exception to be checked whether {@code retriable} should be retried.
+     * @param additionalLogMessageKeyValues additional key/value pairs to be included in logs
+     * @return future that will contain the result of {@code retriable} after successful run and commit
+     * @see #run(Function)
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction,
+                                             @Nullable List<Object> additionalLogMessageKeyValues) {
+        return new RunRetriable<T>(additionalLogMessageKeyValues).runAsync(retriable, handlePostTransaction);
     }
 
     @Nullable

@@ -66,6 +66,7 @@ The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. U
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* All changes from version [2.5.49.16](#254916)
 
 // end next release
 -->
@@ -84,6 +85,11 @@ The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. U
 ### 2.5.50.0
 
 * **Feature** Add methods in `OnlineIndexer` to support building an index in parallel [(Issue #453)](https://github.com/FoundationDB/fdb-record-layer/issues/453)
+
+### 2.5.49.16
+
+* **Feature** OnlineIndexer logs number of records scanned [(Issue #479)](https://github.com/FoundationDB/fdb-record-layer/issues/479)
+* **Feature** OnlineIndexer includes range being built in retry logs [(Issue #480)](https://github.com/FoundationDB/fdb-record-layer/issues/480)
 
 ### 2.5.49.0
 
