@@ -117,7 +117,25 @@ import java.util.stream.Collectors;
 /**
  * A multi-type record store.
  *
- * Uses Protobuf dynamic messages to process records.
+ * By default, this uses Protobuf dynamic messages to process records. However, one can specify a custom {@link RecordSerializer}
+ * such as a {@link com.apple.foundationdb.record.provider.common.MessageBuilderRecordSerializer MessageBuilderRecordSerializer}
+ * or a {@link com.apple.foundationdb.record.provider.common.TransformedRecordSerializer TransformedRecordSerializer} to use
+ * as an alternative. Unlike the serializers used by an {@link FDBTypedRecordStore} which only need to be able to process records
+ * of the appropriate record type, the provided serializer must be able to serialize and deseralize all record types specified by
+ * the record store's {@link RecordMetaData}.
+ *
+ * <p>
+ * <b>Warning</b>: It is unsafe to create and use two {@code FDBRecordStore}s concurrently over the same {@link Subspace}
+ * within the context of a single transaction, i.e., with the same {@link FDBRecordContext}. This is because the {@code FDBRecordStore}
+ * object maintains state about certain uncommitted operations, and concurrent access through two objects will not see
+ * changes to this in-memory state. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/489">Issue #489</a>
+ * for more details. Note also that the record stores returned by {@link #getTypedRecordStore(RecordSerializer)} and
+ * {@link #getUntypedRecordStore()} will share an {@code FDBRecordStore} with the record store on which they are called,
+ * so it <em>is</em> safe to have a typed- and untyped-record store open over the same {@code Subspace} within the context
+ * of the same transaction if one uses one of those methods.
+ * </p>
+ *
+ * @see FDBRecordStoreBase
  */
 @API(API.Status.STABLE)
 public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<Message> {
