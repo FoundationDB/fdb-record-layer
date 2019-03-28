@@ -107,6 +107,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -331,6 +332,140 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
             CompletableFuture.allOf(futures).get();
             assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
+        }
+    }
+
+    @Test
+    public void readPreloaded() throws Exception {
+        byte[] versionstamp;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .build();
+            recordStore.saveRecord(rec);
+
+            commit(context);
+            versionstamp = context.getVersionStamp();
+            assertNotNull(versionstamp);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.preloadRecordAsync(Tuple.from(1066L)).get();  // ensure loaded in context
+            context.ensureActive().cancel(); // ensure no more I/O done through the transaction
+            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1066L));
+            assertNotNull(record);
+            assertSame(TestRecords1Proto.MySimpleRecord.getDescriptor(), record.getRecordType().getDescriptor());
+            assertEquals(1066L, record.getRecord().getField(TestRecords1Proto.MySimpleRecord.getDescriptor().findFieldByNumber(TestRecords1Proto.MySimpleRecord.REC_NO_FIELD_NUMBER)));
+            assertEquals(FDBRecordVersion.complete(versionstamp, 0), record.getVersion());
+
+            FDBExceptions.FDBStoreException e = assertThrows(FDBExceptions.FDBStoreException.class, context::commit);
+            assertNotNull(e.getCause());
+            assertThat(e.getCause(), instanceOf(FDBException.class));
+            FDBException fdbE = (FDBException)e.getCause();
+            assertEquals(1025, fdbE.getCode());  // transaction_cancelled
+        }
+    }
+
+    @Test
+    public void readYourWritesPreloaded() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .build();
+            recordStore.saveRecord(rec);
+
+            recordStore.preloadRecordAsync(Tuple.from(1066L)).get();
+            context.ensureActive().cancel(); // ensure no more I/O done through the transaction
+            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1066L));
+            assertNotNull(record);
+            assertSame(TestRecords1Proto.MySimpleRecord.getDescriptor(), record.getRecordType().getDescriptor());
+            assertEquals(rec.toByteString(), record.getRecord().toByteString());
+            assertEquals(FDBRecordVersion.incomplete(0), record.getVersion());
+
+            FDBExceptions.FDBStoreException e = assertThrows(FDBExceptions.FDBStoreException.class, context::commit);
+            assertNotNull(e.getCause());
+            assertThat(e.getCause(), instanceOf(FDBException.class));
+            FDBException fdbE = (FDBException)e.getCause();
+            assertEquals(1025, fdbE.getCode());  // transaction_cancelled
+        }
+    }
+
+    @Test
+    public void deletePreloaded() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .build();
+            recordStore.saveRecord(rec);
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.preloadRecordAsync(Tuple.from(1066L)).get();  // ensure loaded in context
+            recordStore.deleteRecord(Tuple.from(1066L));
+            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1066L));
+            assertNull(record);
+        }
+    }
+
+    @Test
+    public void deleteAllPreloaded() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .build();
+            recordStore.saveRecord(rec);
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.preloadRecordAsync(Tuple.from(1066L)).get();  // ensure loaded in context
+            recordStore.deleteAllRecords();
+            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1066L));
+            assertNull(record);
+        }
+    }
+
+    @Test
+    public void saveOverPreloaded() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setStrValueIndexed("first_value")
+                    .build();
+            recordStore.saveRecord(rec);
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.preloadRecordAsync(Tuple.from(1066L)).get();  // ensure loaded in context
+
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setStrValueIndexed("second_value")
+                    .build();
+            recordStore.saveRecord(rec);
+
+            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1066L));
+            assertNotNull(record);
+            assertSame(TestRecords1Proto.MySimpleRecord.getDescriptor(), record.getRecordType().getDescriptor());
+            assertEquals(1066L, record.getRecord().getField(TestRecords1Proto.MySimpleRecord.getDescriptor().findFieldByNumber(TestRecords1Proto.MySimpleRecord.REC_NO_FIELD_NUMBER)));
+            assertEquals("second_value", record.getRecord().getField(TestRecords1Proto.MySimpleRecord.getDescriptor().findFieldByNumber(TestRecords1Proto.MySimpleRecord.STR_VALUE_INDEXED_FIELD_NUMBER)));
+            assertEquals(FDBRecordVersion.incomplete(0), record.getVersion());
         }
     }
 
