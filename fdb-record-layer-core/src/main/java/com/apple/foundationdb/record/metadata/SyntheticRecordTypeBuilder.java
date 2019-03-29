@@ -46,6 +46,9 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
 
     /**
      * A constituent type within a joined record type.
+     *
+     * A constituent is a record type with an associated correlation name. The correlation name must be unique.
+     * The same record type can appear more than once with different correlation names (for implementing self-joins).
      */
     public static class Constituent {
         @Nonnull
@@ -78,10 +81,6 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
         super(name);
         this.recordTypeKey = recordTypeKey;
         this.metaDataBuilder = metaDataBuilder;
-    }
-
-    protected SyntheticRecordTypeBuilder(@Nonnull String name, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
-        this(name, metaDataBuilder.getNextRecordTypeKey(), metaDataBuilder);
     }
 
     @Override
@@ -136,7 +135,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
     }
 
     /**
-     * Add a new constituent.
+     * Add a new constituent with a correlation name that is the same as the record type name.
      * @param recordType the record type for the new constituent
      * @return the newly added constituent
      */
@@ -146,8 +145,8 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
     }
 
     /**
-     * Add a new constituent.
-     * @param constituent the correlation name and name of the record type for the new constituent
+     * Add a new constituent with a correlation name that is the same as the record type name.
+     * @param constituent name of the record type for the new constituent
      * @return the newly added constituent
      */
     @Nonnull

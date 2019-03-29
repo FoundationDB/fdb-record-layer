@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegist
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
@@ -1034,8 +1035,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @return a new unique record type key
      */
     @Nonnull
-    @API(API.Status.EXPERIMENTAL)
-    public Long getNextRecordTypeKey() {
+    private Long getNextRecordTypeKey() {
         long minKey = 0;
         for (SyntheticRecordTypeBuilder<?> syntheticRecordType : syntheticRecordTypes.values()) {
             if (syntheticRecordType.getRecordTypeKey() instanceof Number) {
@@ -1062,7 +1062,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (syntheticRecordTypes.containsKey(name)) {
             throw new MetaDataException("There is already a synthetic record type named " + name);
         }
-        JoinedRecordTypeBuilder recordType = new JoinedRecordTypeBuilder(name, this);
+        JoinedRecordTypeBuilder recordType = new JoinedRecordTypeBuilder(name, getNextRecordTypeKey(), this);
         syntheticRecordTypes.put(name, recordType);
         return recordType;
     }
@@ -1447,8 +1447,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      */
     @Nonnull
     public RecordMetaData build(boolean validate) {
-        Map<String, RecordType> builtRecordTypes = new HashMap<>(recordTypes.size());
-        Map<String, SyntheticRecordType<?>> builtSyntheticRecordTypes = new HashMap<>(syntheticRecordTypes.size());
+        Map<String, RecordType> builtRecordTypes = Maps.newHashMapWithExpectedSize(recordTypes.size());
+        Map<String, SyntheticRecordType<?>> builtSyntheticRecordTypes = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes,
                 indexes, universalIndexes, formerIndexes,

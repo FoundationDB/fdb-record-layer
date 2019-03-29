@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.synthetic;
 
-import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -38,8 +37,7 @@ import java.util.Set;
 /**
  * Select a synthetic record sub-plan based on the record type of the given record.
  */
-@API(API.Status.EXPERIMENTAL)
-public class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  {
+class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  {
 
     @Nonnull
     private final Map<String, SyntheticRecordFromStoredRecordPlan> subPlans;

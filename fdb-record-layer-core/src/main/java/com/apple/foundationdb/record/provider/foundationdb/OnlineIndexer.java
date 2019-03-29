@@ -505,6 +505,7 @@ public class OnlineIndexer implements AutoCloseable {
                 if (syntheticPlan == null) {
                     return maintainer.update(null, rec);
                 } else {
+                    // Pipeline size is 1, since not all maintainers are thread-safe.
                     return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
                 }
             } else {

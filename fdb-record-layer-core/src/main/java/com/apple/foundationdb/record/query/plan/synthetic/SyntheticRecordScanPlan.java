@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.synthetic;
 
-import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCursor;
@@ -36,8 +35,7 @@ import java.util.Objects;
  * Generate synthetic records by querying records and passing to a {@link SyntheticRecordFromStoredRecordPlan}.
  *
  */
-@API(API.Status.EXPERIMENTAL)
-public class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
+class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
 
     @Nonnull
     private final RecordQueryPlan recordPlan;

@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  * A plan for generating synthetic records without an explicit starting point.
  *
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.INTERNAL)
 public interface SyntheticRecordPlan extends PlanHashable  {
     /**
      * Execute this plan.

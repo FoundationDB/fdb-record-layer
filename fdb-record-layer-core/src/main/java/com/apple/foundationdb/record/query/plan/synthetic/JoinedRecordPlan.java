@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.synthetic;
 
-import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.EvaluationContextBuilder;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -54,8 +53,7 @@ import java.util.stream.Collectors;
  * Execute a stack of join queries starting with a stored {@link com.apple.foundationdb.record.metadata.RecordType}
  * and generating {@link JoinedRecordType} {@linkplain FDBSyntheticRecord records}.
  */
-@API(API.Status.EXPERIMENTAL)
-public class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
+class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
 
     @Nonnull
     private final JoinedRecordType joinedRecordType;
@@ -68,18 +66,18 @@ public class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         @Nonnull
         protected final JoinedRecordType.JoinConstituent constituent;
         @Nonnull
-        protected final List<Binding> bindings;
+        protected final List<BindingPlan> bindingPlans;
 
-        public JoinedType(@Nonnull JoinedRecordType.JoinConstituent constituent, @Nonnull List<Binding> bindings) {
+        public JoinedType(@Nonnull JoinedRecordType.JoinConstituent constituent, @Nonnull List<BindingPlan> bindingPlans) {
             this.constituent = constituent;
-            this.bindings = bindings;
+            this.bindingPlans = bindingPlans;
         }
 
         public <M extends Message> EvaluationContext bind(@Nonnull EvaluationContext context, @Nullable FDBStoredRecord<M> record) {
             EvaluationContextBuilder builder = context.childBuilder();
             builder.setBinding(constituent.getName(), record);
-            for (Binding binding : bindings) {
-                builder.setBinding(binding.name, binding.evaluate(record));
+            for (BindingPlan bindingPlan : bindingPlans) {
+                builder.setBinding(bindingPlan.name, bindingPlan.evaluate(record));
             }
             return builder.build();
         }
@@ -94,29 +92,29 @@ public class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
             }
             JoinedType that = (JoinedType)o;
             return Objects.equals(constituent, that.constituent) &&
-                   Objects.equals(bindings, that.bindings);
+                   Objects.equals(bindingPlans, that.bindingPlans);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(constituent, bindings);
+            return Objects.hash(constituent, bindingPlans);
         }
 
         @Override
         public int planHash() {
             return constituent.getName().hashCode() +
-                   PlanHashable.planHash(bindings);
+                   PlanHashable.planHash(bindingPlans);
         }
     }
 
-    protected static class Binding implements PlanHashable {
+    protected static class BindingPlan implements PlanHashable {
         @Nonnull
         protected final String name;
         @Nonnull
         protected final KeyExpression expression;
         protected final boolean singleton;
 
-        public Binding(@Nonnull String name, @Nonnull KeyExpression expression, boolean singleton) {
+        public BindingPlan(@Nonnull String name, @Nonnull KeyExpression expression, boolean singleton) {
             this.name = name;
             this.expression = expression;
             this.singleton = singleton;
@@ -126,7 +124,7 @@ public class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
             if (singleton) {
                 return toValue(expression.evaluateSingleton(record));
             } else {
-                return expression.evaluate(record).stream().map(Binding::toValue).collect(Collectors.toList());
+                return expression.evaluate(record).stream().map(BindingPlan::toValue).collect(Collectors.toList());
             }
         }
 
@@ -150,10 +148,10 @@ public class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            Binding binding = (Binding)o;
-            return singleton == binding.singleton &&
-                   Objects.equals(name, binding.name) &&
-                   Objects.equals(expression, binding.expression);
+            BindingPlan bindingPlan = (BindingPlan)o;
+            return singleton == bindingPlan.singleton &&
+                   Objects.equals(name, bindingPlan.name) &&
+                   Objects.equals(expression, bindingPlan.expression);
         }
 
         @Override
@@ -257,8 +255,8 @@ public class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
             } else {
                 str.append(queries.get(i - 1));
             }
-            for (Binding binding : joinedType.bindings) {
-                str.append(", ").append(binding);
+            for (BindingPlan bindingPlan : joinedType.bindingPlans) {
+                str.append(", ").append(bindingPlan);
             }
             str.append(" => ");
         }
@@ -287,8 +285,6 @@ public class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
 
     @Override
     public int planHash() {
-        return joinedRecordType.getName().hashCode() +
-               PlanHashable.planHash(joinedTypes) +
-               PlanHashable.planHash(queries);
+        return PlanHashable.objectsPlanHash(joinedRecordType.getName(), joinedTypes, queries);
     }
 }

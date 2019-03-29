@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.synthetic;
 
-import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
@@ -54,7 +53,6 @@ import java.util.stream.Collectors;
  * there really need to be indexes in both directions, which means that join ordering isn't as much of an issue.
  *
  */
-@API(API.Status.EXPERIMENTAL)
 class JoinedRecordPlanner {
     @Nonnull
     private final JoinedRecordType joinedRecordType;
@@ -169,13 +167,14 @@ class JoinedRecordPlanner {
             bindAndRemove(pendingType);
         }
         if (!pendingJoins.isEmpty()) {
+            // pendingJoins are removed by buildQuery as both sides become bound, so the plan must be incomplete.
             throw new RecordCoreException("did not perform all joins");
         }
         return new JoinedRecordPlan(joinedRecordType, joinedTypes, queries);
     }
 
     private void bindAndRemove(@Nonnull PendingType pendingType) {
-        final List<JoinedRecordPlan.Binding> bindings = new ArrayList<>();
+        final List<JoinedRecordPlan.BindingPlan> bindingPlans = new ArrayList<>();
         for (PendingJoin pendingJoin : pendingType.pendingJoins) {
             if (pendingJoins.contains(pendingJoin)) {
                 final KeyExpression expression;
@@ -189,10 +188,10 @@ class JoinedRecordPlanner {
                     throw notFoundEitherSide();
                 }
                 pendingJoin.singleton = !expression.createsDuplicates();
-                bindings.add(new JoinedRecordPlan.Binding(pendingJoin.bindingName, expression, pendingJoin.singleton));
+                bindingPlans.add(new JoinedRecordPlan.BindingPlan(pendingJoin.bindingName, expression, pendingJoin.singleton));
             }
         }
-        joinedTypes.add(new JoinedRecordPlan.JoinedType(pendingType.joinConstituent, bindings));
+        joinedTypes.add(new JoinedRecordPlan.JoinedType(pendingType.joinConstituent, bindingPlans));
         pendingTypes.remove(pendingType);
     }
 
@@ -231,19 +230,25 @@ class JoinedRecordPlanner {
     private static QueryComponent buildCondition(@Nonnull KeyExpression expression, @Nonnull Comparisons.Comparison comparison) {
         if (expression instanceof FieldKeyExpression) {
             final FieldKeyExpression field = (FieldKeyExpression)expression;
-            if (field.getFanType() == KeyExpression.FanType.None) {
-                return new FieldWithComparison(field.getFieldName(), comparison);
-            } else {
-                return new OneOfThemWithComparison(field.getFieldName(), comparison);
+            switch (field.getFanType()) {
+                case None:
+                    return new FieldWithComparison(field.getFieldName(), comparison);
+                case FanOut:
+                    return new OneOfThemWithComparison(field.getFieldName(), comparison);
+                default:
+                    throw new RecordCoreException("unsupported fan type in join key expression: " + expression);
             }
         } else if (expression instanceof NestingKeyExpression) {
             final NestingKeyExpression nesting = (NestingKeyExpression)expression;
             final QueryComponent condition = buildCondition(nesting.getChild(), comparison);
             final String fieldName = nesting.getParent().getFieldName();
-            if (nesting.getParent().getFanType() == KeyExpression.FanType.None) {
-                return new NestedField(fieldName, condition);
-            } else {
-                return new OneOfThemWithComponent(fieldName, condition);
+            switch (nesting.getParent().getFanType()) {
+                case None:
+                    return new NestedField(fieldName, condition);
+                case FanOut:
+                    return new OneOfThemWithComponent(fieldName, condition);
+                default:
+                    throw new RecordCoreException("unsupported fan type in join key expression: " + expression);
             }
         } else {
             throw new RecordCoreException("unsupported join key expression: " + expression);

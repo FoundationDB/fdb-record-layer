@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.synthetic;
 
-import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
@@ -44,8 +43,7 @@ import java.util.stream.Collectors;
  * 
  * Similar to the union cursor proposed in https://github.com/FoundationDB/fdb-record-layer/issues/148.
  */
-@API(API.Status.EXPERIMENTAL)
-public class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  {
+class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  {
 
     @Nonnull
     private final List<SyntheticRecordFromStoredRecordPlan> subPlans;

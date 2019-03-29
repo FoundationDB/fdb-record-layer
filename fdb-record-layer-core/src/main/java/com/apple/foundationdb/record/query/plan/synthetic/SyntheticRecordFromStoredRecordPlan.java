@@ -37,7 +37,7 @@ import java.util.Set;
  * A plan for deriving synthetic records from a given record.
  *
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.INTERNAL)
 public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
     /**
      * Get the possible record types for the stored record to which this plan can be applied.

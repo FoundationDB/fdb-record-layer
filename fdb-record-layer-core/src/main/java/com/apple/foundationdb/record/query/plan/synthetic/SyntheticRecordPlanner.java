@@ -51,7 +51,7 @@ import java.util.Set;
  * A planner for {@link SyntheticRecordPlan} and {@link SyntheticRecordFromStoredRecordPlan} plans.
  *
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.INTERNAL)
 public class SyntheticRecordPlanner {
 
     @Nonnull
@@ -187,7 +187,11 @@ public class SyntheticRecordPlanner {
     }
 
     /**
-     * Determine what stored record types would be needed to rebuild a given index.
+     * Determine what stored record types would be need to scanned in order to rebuild a given index.
+     *
+     * From those scans, queries will be executed to load other record types to complete the synthesis.
+     * <p>
+     * In cases such as full outer join, there is no single record type from which all joins can be produced.
      * @param index the index that needs to be built
      * @param recordTypes a subset of the index's record types or {@code null} for all
      * @return a set of stored record types that are sufficient to generate the synthesized records for the index
@@ -217,7 +221,7 @@ public class SyntheticRecordPlanner {
     /**
      * Construct a plan for generating synthetic records for a given index.
      *
-     * The generated records will be of indexes record types.
+     * The generated records will be of indexed record types.
      *
      * Used by the {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer} to build from a full scan of stored records.
      * @param index an index on synthetic record types

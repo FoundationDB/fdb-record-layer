@@ -32,6 +32,7 @@ import java.util.List;
  * <ul>
  * <li>name.</li>
  * <li>optional secondary indexes.</li>
+ * <li>record type key.</li>
  * </ul>
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")

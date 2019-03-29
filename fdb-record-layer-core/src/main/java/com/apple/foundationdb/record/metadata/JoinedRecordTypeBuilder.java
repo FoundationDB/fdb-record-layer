@@ -111,8 +111,8 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
         }
     }
 
-    public JoinedRecordTypeBuilder(@Nonnull String name, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
-        super(name, metaDataBuilder);
+    public JoinedRecordTypeBuilder(@Nonnull String name, @Nonnull Object recordTypeKey, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        super(name, recordTypeKey, metaDataBuilder);
     }
 
     public JoinedRecordTypeBuilder(@Nonnull RecordMetaDataProto.JoinedRecordType typeProto, @Nonnull RecordMetaDataBuilder metaDataBuilder) {

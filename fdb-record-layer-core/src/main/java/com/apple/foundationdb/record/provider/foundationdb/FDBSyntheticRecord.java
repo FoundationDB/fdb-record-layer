@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.API;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -93,6 +92,12 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
         return new FDBSyntheticRecord(Tuple.fromList(constituentPrimaryKeys), recordType, recordBuilder.build(), size, constituents);
     }
 
+    /**
+     * Get the primary key for this synthetic record.
+     * The primary key is the record type key for the synthetic record type, followed by the primary keys of each
+     * of the constituent records as nested tuples.
+     * @return primary key for this record
+     */
     @Nonnull
     @Override
     public Tuple getPrimaryKey() {
@@ -101,7 +106,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
 
     @Nonnull
     @Override
-    public RecordType getRecordType() {
+    public SyntheticRecordType<?> getRecordType() {
         return recordType;
     }
 
@@ -111,16 +116,31 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
         return record;
     }
 
+    /**
+     * Get the number of keys used to store this record.
+     * For a synthetic record, this is the sum of the number of keys used to store each of the constituent records.
+     * @return number of keys
+     */
     @Override
     public int getKeyCount() {
         return keyCount;
     }
 
+    /**
+     * Get the size in bytes of all keys used to store this record.
+     * For a synthetic record, this is the sum of the sizes used to store each of the constituent records.
+     * @return size in bytes
+     */
     @Override
     public int getKeySize() {
         return keySize;
     }
 
+    /**
+     * Get the size in bytes of all values used to store this record.
+     * For a synthetic record, this is the sum of the sizes used to store each of the constituent records.
+     * @return size in bytes
+     */
     @Override
     public int getValueSize() {
         return valueSize;
