@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndComponentRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndComponentRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithFieldWithComparisonRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalIndexScanRule;
@@ -71,7 +72,8 @@ public class PlannerRuleSet {
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
             new LogicalToPhysicalIndexScanRule(),
-            new ImplementUnorderedUnionRule()
+            new ImplementUnorderedUnionRule(),
+            new ImplementDistinctRule()
     );
 
     public static final PlannerRuleSet NORMALIZATION = new PlannerRuleSet(NORMALIZATION_RULES);

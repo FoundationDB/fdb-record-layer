@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
@@ -38,9 +38,10 @@ import java.util.List;
  * A rule that implements an unordered union of its (already implemented) children. This will combine the
  * {@link RecordQueryPlan}s corresponding to its children.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnorderedUnionExpression> {
     @Nonnull
-    private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> childMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<RecordQueryPlan> childMatcher = TypeMatcher.of(RecordQueryPlan.class, AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
     @Nonnull
     private static final ExpressionMatcher<LogicalUnorderedUnionExpression> root = TypeMatcher.of(LogicalUnorderedUnionExpression.class,
             AllChildrenMatcher.allMatching(childMatcher));
@@ -52,8 +53,8 @@ public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnorderedUni
     @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
-        final List<ExpressionRef<RecordQueryPlan>> planChildren = call.getBindings().getAll(childMatcher);
-        call.yield(call.ref(RecordQueryUnorderedUnionPlan.fromRefs(planChildren)));
+        final List<RecordQueryPlan> planChildren = call.getBindings().getAll(childMatcher);
+        call.yield(call.ref(RecordQueryUnorderedUnionPlan.from(planChildren)));
         return ChangesMade.MADE_CHANGES;
     }
 }

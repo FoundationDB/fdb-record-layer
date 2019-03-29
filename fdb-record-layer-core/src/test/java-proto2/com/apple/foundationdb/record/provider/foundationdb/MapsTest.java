@@ -24,20 +24,23 @@ import com.apple.foundationdb.record.TestRecordsMapsProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
 
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -110,9 +113,9 @@ public class MapsTest extends FDBRecordStoreTestBase {
             RecordQueryPlan plan = planner.plan(query);
             List<Tuple> results = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).asList().join();
             assertEquals(Collections.singletonList(Tuple.from(2)), results);
-            MatcherAssert.assertThat(plan, PlanMatchers.primaryKeyDistinct(PlanMatchers.indexScan(Matchers.allOf(
+            assertThat(plan, primaryKeyDistinct(indexScan(allOf(
                     indexName("mapKeyValue"),
-                    PlanMatchers.bounds(PlanMatchers.hasTupleString("([num, 1],[num]]"))))));
+                    bounds(hasTupleString("([num, 1],[num]]"))))));
             commit(context);
         }
     }

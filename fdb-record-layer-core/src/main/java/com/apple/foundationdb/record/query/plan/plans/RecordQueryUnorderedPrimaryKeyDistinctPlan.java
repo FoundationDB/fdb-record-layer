@@ -64,7 +64,11 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_PK_DISTINCT_PLAN_DUPLICATES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
     public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull RecordQueryPlan inner) {
-        this.inner = SingleExpressionRef.of(inner);
+        this(SingleExpressionRef.of(inner));
+    }
+
+    public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull ExpressionRef<RecordQueryPlan> inner) {
+        this.inner = inner;
     }
 
     @Nonnull

@@ -1991,8 +1991,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("ang"), 0L, -1013515738));
             assertEquals(Arrays.asList(Tuple.from(1L, 3L), Tuple.from(1L, 1L)),
                     queryComplexDocumentsWithIndex(Query.field("text").text().containsPrefix("un"), 1L, -995158140));
-            assertEquals(Arrays.asList(Tuple.from(0L, 0L), Tuple.from(0L, 2L)),
-                    queryComplexDocumentsWithIndex(Query.field("text").text().containsAnyPrefix("ang par nap kin"), 0L, -1089713854));
+            assertEquals(ImmutableSet.of(Tuple.from(0L, 0L), Tuple.from(0L, 2L)),
+                    ImmutableSet.copyOf(queryComplexDocumentsWithIndex(Query.field("text").text().containsAnyPrefix("ang par nap kin"), 0L, -1089713854)));
             assertEquals(Collections.singletonList(Tuple.from(0L, 0L)),
                     queryComplexDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("ang uni name", false), 0L, 646414402));
 

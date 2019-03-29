@@ -74,7 +74,6 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 /**
  * Tests related to planning a query with an OR clause into a union plan.
@@ -344,7 +343,6 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testOrQuery5 [removesDuplicates = {0}]")
     public void testOrQuery5(@Nonnull TestHelpers.BooleanEnum removesDuplicatesEnum) throws Exception {
         final boolean removesDuplicates = removesDuplicatesEnum.toBoolean();
-        assumeFalse(removesDuplicates);
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -398,7 +396,6 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testOrQuery5WithLimits [limit = {0}, removesDuplicates = {1}]")
     @DualPlannerTest
     public void testOrQuery5WithLimits(int limit, boolean removesDuplicates) throws Exception {
-        assumeFalse(removesDuplicates);
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -511,7 +508,6 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest
     public void testUnorderableOrQueryWithAnd(@Nonnull TestHelpers.BooleanEnum removesDuplicatesEnum) throws Exception {
         final boolean removesDuplicates = removesDuplicatesEnum.toBoolean();
-        assumeFalse(removesDuplicates);
         RecordMetaDataHook hook = metaDataBuilder -> {
             complexQuerySetupHook().apply(metaDataBuilder);
             metaDataBuilder.addIndex("MySimpleRecord", new Index("multi_index_2", "str_value_indexed", "num_value_3_indexed"));

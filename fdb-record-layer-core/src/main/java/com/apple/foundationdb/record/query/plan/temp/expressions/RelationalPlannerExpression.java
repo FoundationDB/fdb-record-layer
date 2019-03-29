@@ -50,6 +50,9 @@ public interface RelationalPlannerExpression extends PlannerExpression {
         if (!query.getRecordTypes().isEmpty()) {
             expression = new LogicalTypeFilterExpression(query.getRecordTypes(), expression);
         }
+        if (query.removesDuplicates()) {
+            expression = new LogicalDistinctExpression(expression);
+        }
         return expression;
     }
 }
