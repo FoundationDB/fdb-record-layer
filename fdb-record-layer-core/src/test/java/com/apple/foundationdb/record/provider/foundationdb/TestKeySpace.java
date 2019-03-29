@@ -39,6 +39,7 @@ public class TestKeySpace {
                             .addSubdirectory(new DirectoryLayerDirectory("keyvaluecursor", "keyvaluecursor"))
                             .addSubdirectory(new DirectoryLayerDirectory("ackeyvaluecursor", "ackeyvaluecursor"))
                             .addSubdirectory(new DirectoryLayerDirectory("typedtest", "typedtest"))
+                            .addSubdirectory(new DirectoryLayerDirectory("concatcursor", "concatcursor"))
                             .addSubdirectory(new DirectoryLayerDirectory("indexTest", "indexTest")
                                     .addSubdirectory(new KeySpaceDirectory("leaderboard", KeySpaceDirectory.KeyType.LONG, 8L))
                                     .addSubdirectory(new KeySpaceDirectory("version", KeySpaceDirectory.KeyType.LONG, 9L))
