@@ -52,7 +52,7 @@ import java.util.stream.Collectors;
 
 /**
  * Execute a stack of join queries starting with a stored {@link com.apple.foundationdb.record.metadata.RecordType}
- * and generating {@link JoinedRecordType} {@link FDBSyntheticRecord records}.
+ * and generating {@link JoinedRecordType} {@linkplain FDBSyntheticRecord records}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {

@@ -1029,7 +1029,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Get the next record type key for a synthetic record type.
      *
-     * These keys are negative, unless stored record types, which are initially positive.
+     * These keys are negative, unlike stored record types which are initially positive.
      * This isn't strictly speaking necessary, but simplifies debugging.
      * @return a new unique record type key
      */

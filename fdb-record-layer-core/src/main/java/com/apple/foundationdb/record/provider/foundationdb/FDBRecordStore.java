@@ -616,7 +616,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 final List<CompletableFuture<Void>> subFutures = new ArrayList<>();
                 for (FDBSyntheticRecord oldSyntheticRecord : oldRecords.values()) {
                     CompletableFuture<Void> subFuture = runSyntheticMaintainers(maintainers, oldSyntheticRecord, null);
-                    if (!subFuture.isDone()) {
+                    if (!MoreAsyncUtil.isCompletedNormally(subFuture)) {
                         subFutures.add(subFuture);
                     }
                 }
@@ -669,7 +669,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (IndexMaintainer indexMaintainer : maintainers.get(recordType)) {
             CompletableFuture<Void> future = indexMaintainer.update(oldRecord, newRecord);
-            if (!future.isDone()) {
+            if (!MoreAsyncUtil.isCompletedNormally(future)) {
                 futures.add(future);
             }
         }

@@ -219,7 +219,7 @@ public class SyntheticRecordPlanner {
      *
      * The generated records will be of indexes record types.
      *
-     * Used by the online index builder to build from a full scan of stored records.
+     * Used by the {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer} to build from a full scan of stored records.
      * @param index an index on synthetic record types
      * @return a plan that can be applied to scanned records to generate synthetic records
      */

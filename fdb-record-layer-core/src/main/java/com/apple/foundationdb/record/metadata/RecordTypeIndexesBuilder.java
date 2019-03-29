@@ -69,7 +69,7 @@ public abstract class RecordTypeIndexesBuilder {
     }
 
     /**
-     * The Indexes that this record type is on that also contain other record types.
+     * The {@link Index}es that this record type is on that also contain other record types.
      * @return a list of all indexes that include this record type along with other types.
      */
     @Nonnull

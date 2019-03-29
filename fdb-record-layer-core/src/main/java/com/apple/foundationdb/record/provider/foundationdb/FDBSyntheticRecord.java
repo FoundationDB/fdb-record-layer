@@ -24,6 +24,7 @@ import com.apple.foundationdb.API;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
@@ -168,7 +169,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
         }
 
         FDBSyntheticRecord that = (FDBSyntheticRecord)o;
-        if (!primaryKey.equals(that.primaryKey)) {
+        if (!TupleHelpers.equals(primaryKey, that.primaryKey)) {
             return false;
         }
         if (!recordType.getName().equals(that.recordType.getName())) {
