@@ -10,6 +10,8 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 The Guava version has been updated to version 27. Users of the [shaded variants](Shaded.html#Variants) of the Record Layer dependencies should not be affected by this change. Users of the unshaded variant using an older version of Guava as part of their own project may find that their own Guava dependency is updated automatically by their dependency manager.
 
+Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` have been marked as deprecated in favor of static initializers. This will allow for more flexibility as work on the new planner develops.
+
 <!--
 // begin next release
 ### NEXT_RELEASE

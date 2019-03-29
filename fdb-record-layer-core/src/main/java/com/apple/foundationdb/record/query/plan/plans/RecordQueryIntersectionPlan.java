@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -73,24 +74,50 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
     private boolean reverse;
 
+    /**
+     * Construct a new intersection of two compatibly-ordered plans. This constructor has been deprecated in favor
+     * of the static initializer {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression)}.
+     *
+     * @param left the first plan to intersect
+     * @param right the second plan to intersect
+     * @param comparisonKey a key expression by which the results of both plans are ordered
+     * @param reverse whether both plans return results in reverse (i.e., descending) order by the comparison key
+     * @deprecated in favor of {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression)}
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     public RecordQueryIntersectionPlan(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
                                        @Nonnull KeyExpression comparisonKey, boolean reverse) {
-        this(ImmutableList.of(left, right), comparisonKey, reverse);
+        this(ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right)), SingleExpressionRef.of(comparisonKey), reverse);
     }
 
+    /**
+     * Construct a new intersection of two or more compatibly-ordered plans. This constructor has been deprecated in favor
+     * of the static initializer {@link #from(List, KeyExpression)}.
+     *
+     * @param children the list of plans to take the intersection of
+     * @param comparisonKey a key expression by which the results of both plans are ordered
+     * @param reverse whether all plans return results in reverse (i.e., descending) order by the comparison key
+     * @deprecated in favor of {@link #from(List, KeyExpression)}
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     public RecordQueryIntersectionPlan(@Nonnull List<RecordQueryPlan> children,
                                        @Nonnull KeyExpression comparisonKey, boolean reverse) {
-        final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childrenBuilder = ImmutableList.builder();
-        final ImmutableList.Builder<ExpressionRef<? extends PlannerExpression>> expressionChildrenBuilder = ImmutableList.builder();
-        for (RecordQueryPlan child : children) {
-            ExpressionRef<RecordQueryPlan> childRef = SingleExpressionRef.of(child);
-            childrenBuilder.add(childRef);
-            expressionChildrenBuilder.add(childRef);
-        }
-        this.children = childrenBuilder.build();
-        this.comparisonKey = SingleExpressionRef.of(comparisonKey);
-        this.expressionChildren = expressionChildrenBuilder.add(this.comparisonKey).build();
+        this(children.stream().map(SingleExpressionRef::of).collect(Collectors.toList()), SingleExpressionRef.of(comparisonKey), reverse);
+    }
+
+    private RecordQueryIntersectionPlan(@Nonnull List<ExpressionRef<RecordQueryPlan>> children,
+                                        @Nonnull ExpressionRef<KeyExpression> comparisonKey,
+                                        boolean reverse) {
+        this.children = children;
+        this.comparisonKey = comparisonKey;
         this.reverse = reverse;
+
+        final ImmutableList.Builder<ExpressionRef<? extends PlannerExpression>> expressionChildrenBuilder = ImmutableList.builder();
+        expressionChildrenBuilder.addAll(children);
+        expressionChildrenBuilder.add(comparisonKey);
+        expressionChildren = expressionChildrenBuilder.build();
     }
 
     @Nonnull
@@ -209,5 +236,54 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Override
     public int getRelationalChildCount() {
         return children.size();
+    }
+
+    /**
+     * Construct a new union of two compatibly-ordered plans. The resulting plan will return all results that are
+     * returned by both the {@code left} or {@code right} child plans. Each plan should return results in the same
+     * order according to the provided {@code comparisonKey}. The two children should also either both return results
+     * in forward order, or they should both return results in reverse order. (That is, {@code left.isReverse()} should
+     * equal {@code right.isReverse()}.)
+     *
+     * @param left the first plan to intersect
+     * @param right the second plan to intersect
+     * @param comparisonKey a key expression by which the results of both plans are ordered
+     * @return a new plan that will return the intersection of all results from both child plans
+     */
+    @Nonnull
+    public static RecordQueryIntersectionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
+                                                   @Nonnull KeyExpression comparisonKey) {
+        if (left.isReverse() != right.isReverse()) {
+            throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
+        }
+        final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right));
+        return new RecordQueryIntersectionPlan(childRefs, SingleExpressionRef.of(comparisonKey), left.isReverse());
+    }
+
+    /**
+     * Construct a new union of two compatibly-ordered plans. The resulting plan will return all results that are
+     * returned by all of the child plans. Each plan should return results in the same order according to the provided
+     * {@code comparisonKey}. The children should also either all return results in forward order, or they should all
+     * return results in reverse order. (That is, {@link RecordQueryPlan#isReverse()} should return the same value
+     * for each child.)
+     *
+     * @param children the list of plans to take the intersection of
+     * @param comparisonKey a key expression by which the results of both plans are ordered
+     * @return a new plan that will return the intersection of all results from both child plans
+     */
+    @Nonnull
+    public static RecordQueryIntersectionPlan from(@Nonnull List<RecordQueryPlan> children, @Nonnull KeyExpression comparisonKey) {
+        if (children.size() < 2) {
+            throw new RecordCoreArgumentException("fewer than two children given to union plan");
+        }
+        boolean firstReverse = children.get(0).isReverse();
+        if (!children.stream().allMatch(child -> child.isReverse() == firstReverse)) {
+            throw new RecordCoreArgumentException("children of union plan do all have same value for reverse field");
+        }
+        final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childRefsBuilder = ImmutableList.builder();
+        for (RecordQueryPlan child : children) {
+            childRefsBuilder.add(SingleExpressionRef.of(child));
+        }
+        return new RecordQueryIntersectionPlan(childRefsBuilder.build(), SingleExpressionRef.of(comparisonKey), firstReverse);
     }
 }

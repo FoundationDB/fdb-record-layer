@@ -109,31 +109,31 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
                 Arguments.of("filter on index plan", fail, new RecordQueryFilterPlan(indexPlan, filter)),
                 Arguments.of("type filter on scan plan", fail, new RecordQueryTypeFilterPlan(scanPlan, Collections.singletonList("MySimpleRecord"))),
                 Arguments.of("type filter on index plan", fail, new RecordQueryTypeFilterPlan(indexPlan, Collections.singletonList("MySimpleRecord"))),
-                Arguments.of("disjoint union", fail, new RecordQueryUnionPlan(
+                Arguments.of("disjoint union", fail, RecordQueryUnionPlan.from(
                         indexPlanEquals("MySimpleRecord$str_value_indexed", "odd"),
                         indexPlanEquals("MySimpleRecord$str_value_indexed", "even"),
-                        primaryKey(), false, false)),
-                Arguments.of("overlapping union", fail, new RecordQueryUnionPlan(firstChild, secondChild, primaryKey(), false, false)),
-                Arguments.of("overlapping union (swapped args)", fail, new RecordQueryUnionPlan(secondChild, firstChild, primaryKey(), false, false)),
-                Arguments.of("overlapping intersection", fail, new RecordQueryIntersectionPlan(firstChild, secondChild, primaryKey(), false)),
-                Arguments.of("overlapping intersection", fail, new RecordQueryIntersectionPlan(secondChild, firstChild, primaryKey(), false)),
-                Arguments.of("union with inner filter", fail, new RecordQueryUnionPlan(
-                        new RecordQueryFilterPlan(firstChild, middleFilter), secondChild, primaryKey(), false, false)),
-                Arguments.of("union with two inner filters", fail, new RecordQueryUnionPlan(
-                        new RecordQueryFilterPlan(firstChild, middleFilter),
-                        new RecordQueryFilterPlan(secondChild, Query.field("rec_no").lessThan(55L)),
-                        primaryKey(), false, false)),
-                Arguments.of("intersection with inner filter", fail, new RecordQueryIntersectionPlan(
+                        primaryKey(), false)),
+                Arguments.of("overlapping union", fail, RecordQueryUnionPlan.from(firstChild, secondChild, primaryKey(), false)),
+                Arguments.of("overlapping union (swapped args)", fail, RecordQueryUnionPlan.from(secondChild, firstChild, primaryKey(), false)),
+                Arguments.of("overlapping intersection", fail, RecordQueryIntersectionPlan.from(firstChild, secondChild, primaryKey())),
+                Arguments.of("overlapping intersection", fail, RecordQueryIntersectionPlan.from(secondChild, firstChild, primaryKey())),
+                Arguments.of("union with inner filter", fail, RecordQueryUnionPlan.from(
                         new RecordQueryFilterPlan(firstChild, middleFilter), secondChild, primaryKey(), false)),
-                Arguments.of("intersection with two inner filters", fail, new RecordQueryIntersectionPlan(
+                Arguments.of("union with two inner filters", fail, RecordQueryUnionPlan.from(
                         new RecordQueryFilterPlan(firstChild, middleFilter),
                         new RecordQueryFilterPlan(secondChild, Query.field("rec_no").lessThan(55L)),
-                        primaryKey(), false)));
+                        primaryKey(), false)),
+                Arguments.of("intersection with inner filter", fail, RecordQueryIntersectionPlan.from(
+                        new RecordQueryFilterPlan(firstChild, middleFilter), secondChild, primaryKey())),
+                Arguments.of("intersection with two inner filters", fail, RecordQueryIntersectionPlan.from(
+                        new RecordQueryFilterPlan(firstChild, middleFilter),
+                        new RecordQueryFilterPlan(secondChild, Query.field("rec_no").lessThan(55L)),
+                        primaryKey())));
     }
 
     public Stream<Arguments> unorderedPlans(boolean fail) {
         return Stream.of(
-                Arguments.of("unordered union", fail, new RecordQueryUnorderedUnionPlan(indexPlanEquals("MySimpleRecord$str_value_indexed", "even"), indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2), false))
+                Arguments.of("unordered union", fail, RecordQueryUnorderedUnionPlan.from(indexPlanEquals("MySimpleRecord$str_value_indexed", "even"), indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2)))
         );
     }
 }

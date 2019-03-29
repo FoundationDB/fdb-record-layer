@@ -38,6 +38,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface RelationalPlannerExpression extends PlannerExpression {
+    @Nonnull
     static PlannerExpression fromRecordQuery(@Nonnull RecordQuery query) {
         RelationalPlannerExpression expression = new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
         if (query.getSort() != null) {

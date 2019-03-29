@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -39,11 +40,15 @@ import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedExactly;
@@ -69,6 +74,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 /**
  * Tests related to planning a query with an OR clause into a union plan.
@@ -333,8 +339,12 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an OR of inequalities on different fields uses an unordered union, since there is no compatible ordering.
      */
-    @Test
-    public void testOrQuery5() throws Exception {
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @DualPlannerTest
+    @ParameterizedTest(name = "testOrQuery5 [removesDuplicates = {0}]")
+    public void testOrQuery5(@Nonnull TestHelpers.BooleanEnum removesDuplicatesEnum) throws Exception {
+        final boolean removesDuplicates = removesDuplicatesEnum.toBoolean();
+        assumeFalse(removesDuplicates);
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -342,12 +352,18 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.or(
                         Query.field("str_value_indexed").lessThan("m"),
                         Query.field("num_value_3_indexed").greaterThan(3)))
+                .setRemoveDuplicates(removesDuplicates)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, primaryKeyDistinct(unorderedUnion(
+        Matcher<RecordQueryPlan> planMatcher = unorderedUnion(
                 indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([null],[m])")))),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>")))))));
-        assertEquals(-1569447744, plan.planHash());
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>"))))
+        );
+        if (removesDuplicates) {
+            planMatcher = primaryKeyDistinct(planMatcher);
+        }
+        assertThat(plan, planMatcher);
+        assertEquals(removesDuplicates ? -1569447744 : -1569447745, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             context.getTimer().reset();
@@ -363,14 +379,26 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     i++;
                 }
             }
-            assertEquals(50 + 10, i);
-            assertDiscardedAtMost(10, context);
+            if (removesDuplicates) {
+                assertEquals(50 + 10, i);
+                assertDiscardedAtMost(10, context);
+            } else {
+                assertEquals(70, i);
+                assertDiscardedNone(context);
+            }
         }
     }
 
-    @ValueSource(ints = {1, 2, 5, 7})
-    @ParameterizedTest(name = "testOrQuery5WithLimits [limit = {0}]")
-    public void testOrQuery5WithLimits(int limit) throws Exception {
+    @Nonnull
+    private static Stream<Arguments> query5WithLimitsArgs() {
+        return Stream.of(1, 2, 5, 7).flatMap(i -> Stream.of(Arguments.of(i, false), Arguments.of(i, true)));
+    }
+
+    @MethodSource("query5WithLimitsArgs")
+    @ParameterizedTest(name = "testOrQuery5WithLimits [limit = {0}, removesDuplicates = {1}]")
+    @DualPlannerTest
+    public void testOrQuery5WithLimits(int limit, boolean removesDuplicates) throws Exception {
+        assumeFalse(removesDuplicates);
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -378,12 +406,18 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.or(
                         Query.field("str_value_indexed").lessThan("m"),
                         Query.field("num_value_3_indexed").greaterThan(3)))
+                .setRemoveDuplicates(removesDuplicates)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, primaryKeyDistinct(unorderedUnion(
+        Matcher<RecordQueryPlan> planMatcher = unorderedUnion(
                 indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([null],[m])")))),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>")))))));
-        assertEquals(-1569447744, plan.planHash());
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>"))))
+        );
+        if (removesDuplicates) {
+            planMatcher = primaryKeyDistinct(planMatcher);
+        }
+        assertThat(plan, planMatcher);
+        assertEquals(removesDuplicates ? -1569447744 : -1569447745, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -405,7 +439,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         assertTrue(myrec.getStrValueIndexed().compareTo("m") < 0 ||
                                    myrec.getNumValue3Indexed() > 3);
                         uniqueKeys.add(rec.getPrimaryKey());
-                        assertThat(keysThisIteration.add(rec.getPrimaryKey()), is(true));
+                        if (removesDuplicates) {
+                            assertThat(keysThisIteration.add(rec.getPrimaryKey()), is(true));
+                        }
                         i++;
                     }
                     continuation = cursor.getContinuation();
@@ -422,7 +458,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
-     * Verify that a complex query with with an OR of an AND produces a union plan if appropriate indexes are defined.
+     * Verify that a complex query with an OR of an AND produces a union plan if appropriate indexes are defined.
      * In particular, verify that it can use the last field of an index and does not require primary key ordering
      * compatibility.
      */
@@ -463,6 +499,65 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(20 + 10, i);
             assertDiscardedNone(context);
+        }
+    }
+
+    /**
+     * Verify that a complex query with an OR of an AND produces a union plan if the appropriate indexes are defined.
+     * Unlike {@link #testOrQuery6()}, the legs of the union are not compatibly ordered, so this will revert to using
+     * an unordered union.
+     */
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest
+    public void testUnorderableOrQueryWithAnd(@Nonnull TestHelpers.BooleanEnum removesDuplicatesEnum) throws Exception {
+        final boolean removesDuplicates = removesDuplicatesEnum.toBoolean();
+        assumeFalse(removesDuplicates);
+        RecordMetaDataHook hook = metaDataBuilder -> {
+            complexQuerySetupHook().apply(metaDataBuilder);
+            metaDataBuilder.addIndex("MySimpleRecord", new Index("multi_index_2", "str_value_indexed", "num_value_3_indexed"));
+        };
+        complexQuerySetup(hook);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(
+                        Query.and(
+                                Query.field("str_value_indexed").equalsValue("even"),
+                                Query.or(Query.field("num_value_2").lessThanOrEquals(1), Query.field("num_value_3_indexed").greaterThanOrEquals(3))
+                        )
+                )
+                .setRemoveDuplicates(removesDuplicates)
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        Matcher<RecordQueryPlan> planMatcher = unorderedUnion(
+                indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([even, null],[even, 1]]")))),
+                indexScan(allOf(indexName("multi_index_2"), bounds(hasTupleString("[[even, 3],[even]]"))))
+        );
+        if (removesDuplicates) {
+            planMatcher = primaryKeyDistinct(planMatcher);
+        }
+        assertThat(plan, planMatcher);
+        assertEquals(removesDuplicates ? -173785610 : -173785611, plan.planHash());
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            int i = 0;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(rec.getRecord());
+                    assertTrue(myrec.getStrValueIndexed().equals("even") &&
+                               (myrec.getNumValue2() <= 1 || myrec.getNumValue3Indexed() >= 3));
+                    i++;
+                }
+            }
+            if (removesDuplicates) {
+                assertEquals(40, i);
+                assertDiscardedAtMost(13, context);
+            } else {
+                assertEquals(53, i);
+                assertDiscardedNone(context);
+            }
         }
     }
 

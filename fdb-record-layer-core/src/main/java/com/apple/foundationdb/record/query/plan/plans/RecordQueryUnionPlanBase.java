@@ -63,16 +63,11 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     private final boolean reverse;
 
     public RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
-        this(ImmutableList.of(left, right), reverse);
+        this(ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right)), reverse);
     }
 
-    public RecordQueryUnionPlanBase(@Nonnull List<RecordQueryPlan> children, boolean reverse) {
-        final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childrenBuilder = ImmutableList.builder();
-        for (RecordQueryPlan child : children) {
-            ExpressionRef<RecordQueryPlan> childRef = SingleExpressionRef.of(child);
-            childrenBuilder.add(childRef);
-        }
-        this.children = childrenBuilder.build();
+    public RecordQueryUnionPlanBase(@Nonnull List<ExpressionRef<RecordQueryPlan>> children, boolean reverse) {
+        this.children = children;
         this.reverse = reverse;
     }
 

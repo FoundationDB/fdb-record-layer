@@ -216,30 +216,30 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
 
     @Test
     public void union() throws Exception {
-        final RecordQueryPlan plan = new RecordQueryUnionPlan(
+        final RecordQueryPlan plan = RecordQueryUnionPlan.from(
                 indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2),
                 indexPlanEquals("MySimpleRecord$num_value_3_indexed", 4),
-                primaryKey(), false, false);
+                primaryKey(), false);
         compareSkipsAndCursors(plan);
     }
 
     @Test
     public void unionOneSideAtATime() throws Exception {
-        final RecordQueryPlan plan = new RecordQueryUnionPlan(
+        final RecordQueryPlan plan = RecordQueryUnionPlan.from(
                 indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2),
                 indexPlanEquals("MySimpleRecord$num_value_3_indexed", 4),
                 Key.Expressions.concat(Key.Expressions.field("num_value_3_indexed"),
                         primaryKey()),
-                false, true);
+                true);
         compareSkipsAndCursors(plan);
     }
 
     @Test
     public void intersection() throws Exception {
-        final RecordQueryPlan plan = new RecordQueryIntersectionPlan(
+        final RecordQueryPlan plan = RecordQueryIntersectionPlan.from(
                 indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2),
                 indexPlanEquals("MySimpleRecord$str_value_indexed", "even"),
-                primaryKey(), false);
+                primaryKey());
         compareSkipsAndCursors(plan);
     }
 

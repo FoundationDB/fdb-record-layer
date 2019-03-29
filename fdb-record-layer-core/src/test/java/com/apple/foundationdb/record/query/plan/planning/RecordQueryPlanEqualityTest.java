@@ -64,17 +64,17 @@ public class RecordQueryPlanEqualityTest {
     }
 
     private RecordQueryPlan unionPlan(Object value1, Object value2) {
-        return new RecordQueryUnionPlan(
-                indexPlanEquals("MySimpleRecord$num_value_3_indexed", value1),
-                indexPlanEquals("MySimpleRecord$num_value_3_indexed", value2),
-                Key.Expressions.field("num_value_3_indexed"), false, false);
-    }
-
-    private RecordQueryPlan intersectionPlan(Object value1, Object value2) {
-        return new RecordQueryIntersectionPlan(
+        return RecordQueryUnionPlan.from(
                 indexPlanEquals("MySimpleRecord$num_value_3_indexed", value1),
                 indexPlanEquals("MySimpleRecord$num_value_3_indexed", value2),
                 Key.Expressions.field("num_value_3_indexed"), false);
+    }
+
+    private RecordQueryPlan intersectionPlan(Object value1, Object value2) {
+        return RecordQueryIntersectionPlan.from(
+                indexPlanEquals("MySimpleRecord$num_value_3_indexed", value1),
+                indexPlanEquals("MySimpleRecord$num_value_3_indexed", value2),
+                Key.Expressions.field("num_value_3_indexed"));
     }
 
     private List<Supplier<RecordQueryPlan>> planSuppliers = Arrays.asList(
