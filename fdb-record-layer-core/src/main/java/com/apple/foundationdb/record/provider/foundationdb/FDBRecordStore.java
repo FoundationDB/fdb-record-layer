@@ -1824,7 +1824,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                     "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
                                     "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
                                     subspaceProvider.logKey(), subspaceProvider,
-                                    "indexSubspace", indexSubspace(index));
+                                    LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
                         } else if (uniquenessViolation.isPresent()) {
                             RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
                                                                                                         uniquenessViolation.get());
