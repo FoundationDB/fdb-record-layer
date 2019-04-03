@@ -111,12 +111,12 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Override
     public int hashCode() {
-        return Objects.hash(Sets.newHashSet(getChildren()), getComparisonKey(), isReverse()); // isomorphic under re-ordering of children
+        return Objects.hash(Sets.newHashSet(getQueryPlanChildren()), getComparisonKey(), isReverse()); // isomorphic under re-ordering of children
     }
 
     @Override
     public int planHash() {
-        return PlanHashable.planHash(getChildren()) + getComparisonKey().planHash() + (isReverse() ? 1 : 0);
+        return PlanHashable.planHash(getQueryPlanChildren()) + getComparisonKey().planHash() + (isReverse() ? 1 : 0);
     }
 
     @Nonnull

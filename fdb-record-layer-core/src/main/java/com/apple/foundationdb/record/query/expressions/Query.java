@@ -76,7 +76,7 @@ public class Query {
      * @return a new component that will return the record if all the children match
      */
     @Nonnull
-    public static QueryComponent and(@Nonnull List<QueryComponent> operands) {
+    public static QueryComponent and(@Nonnull List<? extends QueryComponent> operands) {
         return AndComponent.from(operands);
     }
 

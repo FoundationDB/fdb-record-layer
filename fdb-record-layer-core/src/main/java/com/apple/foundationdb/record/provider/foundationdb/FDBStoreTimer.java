@@ -234,6 +234,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_CHECK_VERSION("wait for check version"),
         /** Wait for {@link OnlineIndexer} to complete building an index. */
         WAIT_ONLINE_BUILD_INDEX("wait for online build index"),
+        /** Wait for {@link OnlineIndexer} to build endpoints. */
+        WAIT_BUILD_ENDPOINTS("wait for building endpoints"),
         /** Wait for a record scan without an index. */
         WAIT_SCAN_RECORDS("wait for scan records"),
         /** Wait for a indexed record scan. */
@@ -248,6 +250,18 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_REVERSE_DIRECTORY_LOCATE("wait for finding reverse directory location"),
         /** Wait for an {@link IndexOperation} to complete. */
         WAIT_INDEX_OPERATION("wait for index operation"),
+        /** Wait for adding an index. */
+        WAIT_ADD_INDEX("wait for adding an index"),
+        /** Wait for dropping an index. */
+        WAIT_DROP_INDEX("wait for dropping an index"),
+        /** Wait for updating records descriptor. */
+        WAIT_UPDATE_RECORDS_DESCRIPTOR("wait for updating the records descriptor"),
+        /** Wait for meta-data mutation. */
+        WAIT_MUTATE_METADATA("wait for meta-data mutation"),
+        /** Wait for updating if record versions should be stored. */
+        WAIT_UPDATE_STORE_RECORD_VERSIONS("wait for updating if record versions must be stored"),
+        /** Wait for enabling splitting long records. */
+        WAIT_ENABLE_SPLIT_LONG_RECORDS("wait for enabling splitting long records"),
         /**
          * Wait for the updated version stamp from a committed transaction.
          * This future should normally be completed already, so this is mainly for error checking.
@@ -270,7 +284,10 @@ public class FDBStoreTimer extends StoreTimer {
         /** Wait for a backoff delay on retryable error in {@link FDBDatabase#run}. */
         WAIT_RETRY_DELAY("wait for retry delay"),
         /** Wait for statistics to be collected by a {@link SizeStatisticsCollector}. */
-        WAIT_COLLECT_STATISTICS("wait for statistics to be collected of a record store or index");
+        WAIT_COLLECT_STATISTICS("wait for statistics to be collected of a record store or index"),
+        /** Wait for getting boundaries. */
+        WAIT_GET_BOUNDARY("wait for boundary result from locality api"),
+        ;
 
         private final String title;
         Waits(String title) {

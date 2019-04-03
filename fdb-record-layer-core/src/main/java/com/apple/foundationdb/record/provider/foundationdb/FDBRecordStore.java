@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ByteScanLimiter;
@@ -115,7 +117,25 @@ import java.util.stream.Collectors;
 /**
  * A multi-type record store.
  *
- * Uses Protobuf dynamic messages to process records.
+ * By default, this uses Protobuf dynamic messages to process records. However, one can specify a custom {@link RecordSerializer}
+ * such as a {@link com.apple.foundationdb.record.provider.common.MessageBuilderRecordSerializer MessageBuilderRecordSerializer}
+ * or a {@link com.apple.foundationdb.record.provider.common.TransformedRecordSerializer TransformedRecordSerializer} to use
+ * as an alternative. Unlike the serializers used by an {@link FDBTypedRecordStore} which only need to be able to process records
+ * of the appropriate record type, the provided serializer must be able to serialize and deseralize all record types specified by
+ * the record store's {@link RecordMetaData}.
+ *
+ * <p>
+ * <b>Warning</b>: It is unsafe to create and use two {@code FDBRecordStore}s concurrently over the same {@link Subspace}
+ * within the context of a single transaction, i.e., with the same {@link FDBRecordContext}. This is because the {@code FDBRecordStore}
+ * object maintains state about certain uncommitted operations, and concurrent access through two objects will not see
+ * changes to this in-memory state. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/489">Issue #489</a>
+ * for more details. Note also that the record stores returned by {@link #getTypedRecordStore(RecordSerializer)} and
+ * {@link #getUntypedRecordStore()} will share an {@code FDBRecordStore} with the record store on which they are called,
+ * so it <em>is</em> safe to have a typed- and untyped-record store open over the same {@code Subspace} within the context
+ * of the same transaction if one uses one of those methods.
+ * </p>
+ *
+ * @see FDBRecordStoreBase
  */
 @API(API.Status.STABLE)
 public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<Message> {
@@ -421,6 +441,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final byte[] serialized = typedSerializer.serialize(metaData, recordBuilder.getRecordType(), recordBuilder.getRecord(), getTimer());
         final FDBRecordVersion splitVersion = useOldVersionFormat() ? null : version;
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        preloadCache.invalidate(primaryKey); // clear out cache of older value if present
         SplitHelper.saveWithSplit(context, recordsSubspace(), recordBuilder.getPrimaryKey(), serialized, splitVersion, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldSizeInfo, sizeInfo);
         countKeysAndValues(FDBStoreTimer.Counts.SAVE_RECORD_KEY, FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, sizeInfo);
         recordBuilder.setSize(sizeInfo);
@@ -1091,6 +1112,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component) {
         preloadCache.invalidateAll();
         return new RecordsWhereDeleter(component).run();
+    }
+
+    /**
+     * Returns whether or not record keys contain a trailing suffix indicating whether or not the record has been (or
+     * could have been) split across multiple records.
+     * @return <code>true</code> if the keys have split suffixes, otherwise <code>false</code>.
+     */
+    private boolean hasSplitRecordSuffix() {
+        return getRecordMetaData().isSplitLongRecords() || !omitUnsplitRecordSuffix;
     }
 
     class RecordsWhereDeleter {
@@ -1788,7 +1818,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                     LogMessageKeys.INDEX_NAME, index.getName(),
                                     "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
                                     "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context),
+                                    LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
                         } else if (uniquenessViolation.isPresent()) {
                             RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
                                                                                                         uniquenessViolation.get());
@@ -2686,6 +2717,60 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
         future = context.instrument(FDBStoreTimer.Events.RECOUNT_RECORDS, future);
         work.add(future);
+    }
+
+    /**
+     * Return a cursor of boundaries separating the key ranges maintained by each FDB server. This information can be
+     * useful for splitting a large task (e.g., rebuilding an index for a large record store) into smaller tasks (e.g.,
+     * rebuilding the index for records in certain primary key ranges) more evenly so that they can be executed in a
+     * parallel fashion efficiently. The returned boundaries are an estimate from FDB's locality API and may not
+     * represent the exact boundary locations at any database version.
+     * <p>
+     * The boundaries are returned as a cursor which is sorted and does not contain any duplicates. The first element of
+     * the list is greater than or equal to <code>low</code>, and the last element is less than or equal to
+     * <code>high</code>.
+     * <p>
+     * This implementation may not work when there are too many shard boundaries to complete in a single transaction.
+     * <p>
+     * Note: the returned cursor is blocking and must not be used in an asynchronous context
+     *
+     * @param low low endpoint of primary key range (inclusive)
+     * @param high high endpoint of primary key range (exclusive)
+     * @return the list of boundary primary keys
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public RecordCursor<Tuple> getPrimaryKeyBoundaries(@Nonnull Tuple low, @Nonnull Tuple high) {
+        final Transaction transaction = ensureContextActive();
+        byte[] rangeStart = recordsSubspace().pack(low);
+        byte[] rangeEnd = recordsSubspace().pack(high);
+        CloseableAsyncIterator<byte[]> cursor = LocalityUtil.getBoundaryKeys(transaction, rangeStart, rangeEnd);
+        final boolean hasSplitRecordSuffix = hasSplitRecordSuffix();
+        DistinctFilterCursorClosure closure = new DistinctFilterCursorClosure();
+        return RecordCursor.fromIterator(getExecutor(), cursor)
+                .flatMapPipelined(
+                        result -> RecordCursor.fromIterator(getExecutor(),
+                                transaction.snapshot().getRange(result, rangeEnd, 1).iterator()),
+                        DEFAULT_PIPELINE_SIZE)
+                .map(keyValue -> {
+                    Tuple recordKey = recordsSubspace().unpack(keyValue.getKey());
+                    return hasSplitRecordSuffix ? recordKey.popBack() : recordKey;
+                })
+                // The input stream is expected to be sorted so this filter can work to de-duplicate the data.
+                .filter(closure::pred);
+    }
+
+    private static class DistinctFilterCursorClosure {
+        private Tuple previousKey = null;
+
+        private boolean pred(Tuple key) {
+            if (key.equals(previousKey)) {
+                return false;
+            } else {
+                previousKey = key;
+                return true;
+            }
+        }
     }
 
     /**

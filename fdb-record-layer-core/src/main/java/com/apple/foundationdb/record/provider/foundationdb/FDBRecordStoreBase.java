@@ -70,6 +70,41 @@ import java.util.concurrent.Executor;
 
 /**
  * Base interface for typed and untyped record stores.
+ *
+ * This interface is the main front-end for most operations inserting, modifying, or querying data through
+ * the Record Layer. A record store combines:
+ *
+ * <ul>
+ *     <li>A {@link Subspace} (often specified via a {@link KeySpacePath})</li>
+ *     <li>The {@link com.apple.foundationdb.record.RecordMetaData RecordMetaData} associated with the data stored with the data in that subspace</li>
+ *     <li>An {@link FDBRecordContext} which wraps a FoundationDB {@link com.apple.foundationdb.Transaction Transaction}</li>
+ * </ul>
+ *
+ * <p>
+ * All of the record store's data&mdash;including index data&mdash;are stored durably within the given subspace. Note that
+ * the meta-data is <em>not</em> stored by the record store directly. However, information about the store's current meta-data
+ * version is persisted with the store to detect when the meta-data have changed and to know if any action needs to be taken
+ * to begin using the new meta-data. (For example, new indexes might need to be built and removed indexes deleted.) The same
+ * meta-data may be used for multiple record stores, and separating the meta-data from the data makes updating the shared
+ * meta-data simpler as it only needs to be updated in one place. The {@link FDBMetaDataStore} may be used if one wishes
+ * to persist the meta-data into a FoundationDB cluster.
+ * </p>
+ *
+ * <p>
+ * All operations conducted by a record store are conducted within the lifetime single transaction, and no data is persisted
+ * to the database until the transaction is committed by calling {@link FDBRecordContext#commit()} or
+ * {@link FDBRecordContext#commitAsync()}. Record Layer transactions inherit all of the guarantees and limitations of
+ * the transactions exposed by FoundationDB, including their durability and consistency guarantees as well as size and
+ * duration limits. See the FoundationDB <a href="https://apple.github.io/foundationdb/known-limitations.html">known limitations</a>
+ * for more details.
+ * </p>
+ *
+ * <p>
+ * The record store also allows the user to tweak additional parameters such as what the parallelism of pipelined operations
+ * should be (through the {@link PipelineSizer}) and what serializer should be used to read and write data to the database.
+ * See the {@link BaseBuilder} interface for more details.
+ * </p>
+ *
  * @param <M> type used to represent stored records
  * @see FDBRecordStore
  * @see FDBTypedRecordStore

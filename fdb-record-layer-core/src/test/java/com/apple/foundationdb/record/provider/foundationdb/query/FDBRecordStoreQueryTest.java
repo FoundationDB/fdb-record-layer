@@ -365,7 +365,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that index lookups work with parameterized queries.
      */
-    @Test
+    @DualPlannerTest
     public void testParameterQuery1() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);

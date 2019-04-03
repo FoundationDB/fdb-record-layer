@@ -21,13 +21,11 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
-import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * An expression matcher that matches against any reference at all. It is frequently used by rules that want to capture
@@ -58,17 +56,20 @@ public class ReferenceMatcher<T extends PlannerExpression> implements Expression
 
     @Nonnull
     @Override
-    public List<ExpressionMatcher<? extends Bindable>> getChildren() {
-        return Collections.emptyList();
+    public ExpressionChildrenMatcher getChildrenMatcher() {
+        return ListChildrenMatcher.empty();
     }
 
+    @Nonnull
     @Override
-    public Result matches(@Nonnull Bindable bindable) {
-        if (bindable instanceof ExpressionRef) {
-            return Result.MATCHES;
-        } else {
-            return Result.DOES_NOT_MATCH;
-        }
+    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+        return Stream.of(PlannerBindings.from(this, ref));
+    }
+
+    @Nonnull
+    @Override
+    public Stream<PlannerBindings> matchWith(@Nonnull PlannerExpression expression) {
+        return Stream.empty();
     }
 
     /**
@@ -78,7 +79,7 @@ public class ReferenceMatcher<T extends PlannerExpression> implements Expression
      * @param <U> the type of {@link PlannerExpression} that is guaranteed (by programmer knowledge) to be behind the references that this matcher will bind to
      * @return a new, distinct matcher that matches to any reference
      */
-    public static <U extends PlannerExpression> ExpressionMatcher<ExpressionRef<U>> anyRef() {
+    public static <U extends PlannerExpression> ReferenceMatcher<U> anyRef() {
         // This must return a new matcher so that it is distinct from other ReferenceMatchers according to pointer comparison.
         return new ReferenceMatcher<>();
     }

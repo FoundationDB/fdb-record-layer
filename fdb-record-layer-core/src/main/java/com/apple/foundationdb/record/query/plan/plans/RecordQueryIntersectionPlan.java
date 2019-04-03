@@ -179,18 +179,18 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
         }
         RecordQueryIntersectionPlan that = (RecordQueryIntersectionPlan) o;
         return reverse == that.reverse &&
-                Objects.equals(Sets.newHashSet(getChildren()), Sets.newHashSet(that.getChildren())) &&
+                Objects.equals(Sets.newHashSet(getQueryPlanChildren()), Sets.newHashSet(that.getQueryPlanChildren())) &&
                 Objects.equals(getComparisonKey(), that.getComparisonKey());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(Sets.newHashSet(getChildren()), getComparisonKey(), reverse);
+        return Objects.hash(Sets.newHashSet(getQueryPlanChildren()), getComparisonKey(), reverse);
     }
 
     @Override
     public int planHash() {
-        return PlanHashable.planHash(getChildren()) + getComparisonKey().planHash() + (reverse ? 1 : 0);
+        return PlanHashable.planHash(getQueryPlanChildren()) + getComparisonKey().planHash() + (reverse ? 1 : 0);
     }
 
     @Override
@@ -203,7 +203,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
 
     @Override
     public int getComplexity() {
-        return 1 + getChildren().stream().mapToInt(RecordQueryPlan::getComplexity).sum();
+        return 1 + getChildStream().mapToInt(RecordQueryPlan::getComplexity).sum();
     }
 
     @Override

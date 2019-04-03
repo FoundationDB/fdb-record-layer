@@ -28,8 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.google.common.collect.Iterators;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -47,10 +45,10 @@ import java.util.Set;
 @API(API.Status.MAINTAINED)
 public class RecordTypeKeyComparison implements ComponentWithComparison {
     @Nonnull
-    private final ExpressionRef<RecordTypeComparison> comparison;
+    private final RecordTypeComparison comparison;
 
     public RecordTypeKeyComparison(@Nonnull String recordTypeName) {
-        this.comparison = SingleExpressionRef.of(new RecordTypeComparison(recordTypeName));
+        this.comparison = new RecordTypeComparison(recordTypeName);
     }
 
     public static boolean hasRecordTypeKeyComparison(@Nonnull ScanComparisons scanComparisons) {
@@ -81,14 +79,14 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     @Override
     @Nonnull
     public Comparisons.Comparison getComparison() {
-        return comparison.get();
+        return comparison;
     }
 
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(comparison);
+        return Collections.emptyIterator();
     }
 
     @Override
@@ -171,13 +169,6 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         @Override
         public int planHash() {
             return PlanHashable.objectPlanHash(recordTypeName);
-        }
-
-        @Nonnull
-        @Override
-        @API(API.Status.EXPERIMENTAL)
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
         }
 
         @Override

@@ -26,13 +26,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.google.common.collect.Iterators;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -43,11 +42,11 @@ import java.util.Objects;
 @API(API.Status.MAINTAINED)
 public class OneOfThemWithComparison extends BaseRepeatedField implements ComponentWithComparison {
     @Nonnull
-    private final ExpressionRef<Comparisons.Comparison> comparison;
+    private final Comparisons.Comparison comparison;
 
     public OneOfThemWithComparison(@Nonnull String fieldName, @Nonnull Comparisons.Comparison comparison) {
         super(fieldName);
-        this.comparison = SingleExpressionRef.of(comparison);
+        this.comparison = comparison;
     }
 
     @Override
@@ -81,7 +80,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
     @Override
     @Nonnull
     public Comparisons.Comparison getComparison() {
-        return comparison.get();
+        return comparison;
     }
 
     @Override
@@ -93,12 +92,12 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.comparison);
+        return Collections.emptyIterator();
     }
 
     @Override
     public String toString() {
-        return "one of " + getFieldName() + " " + comparison.get();
+        return "one of " + getFieldName() + " " + getComparison();
     }
 
     @Override

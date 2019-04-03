@@ -35,8 +35,6 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.Iterators;
@@ -626,7 +624,7 @@ public class Comparisons {
      * A comparison between a value associated with someplace in the record (such as a field) and a value associated
      * with the plan (such as a constant or a bound parameter).
      */
-    public interface Comparison extends PlanHashable, PlannerExpression {
+    public interface Comparison extends PlanHashable {
         /**
          * Evaluate this comparison for the value taken from the target record.
          * @param store the record store for the query
@@ -761,13 +759,6 @@ public class Comparisons {
             return type;
         }
 
-        @Nonnull
-        @Override
-        @API(API.Status.EXPERIMENTAL)
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
-        }
-
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
@@ -869,13 +860,6 @@ public class Comparisons {
                 throw new EvaluationContextRequiredException("Cannot get parameter without context");
             }
             return context.getBinding(parameter);
-        }
-
-        @Nonnull
-        @Override
-        @API(API.Status.EXPERIMENTAL)
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
         }
 
         @Nullable
@@ -1024,13 +1008,6 @@ public class Comparisons {
             return type;
         }
 
-        @Nonnull
-        @Override
-        @API(API.Status.EXPERIMENTAL)
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
-        }
-
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
@@ -1112,13 +1089,6 @@ public class Comparisons {
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             // Requires special handling in TupleRange.
             return null;
-        }
-
-        @Nonnull
-        @Override
-        @API(API.Status.EXPERIMENTAL)
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
         }
 
         @Nonnull
@@ -1291,13 +1261,6 @@ public class Comparisons {
             } else {
                 return comparand.toString();
             }
-        }
-
-        @Nonnull
-        @Override
-        @API(API.Status.EXPERIMENTAL)
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
         }
 
         @Nonnull

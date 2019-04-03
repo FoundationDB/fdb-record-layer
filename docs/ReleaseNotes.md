@@ -34,7 +34,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 2.6
 
-### Breaking changes
+### Breaking Changes
 
 The formerly experimental API for advancing a `RecordCursor` while ensuring correct continuation handling is now preferred. Specifically, the `RecordCursor.onNext()` method is now stable. Meanwhile, the `AsyncIterator`-style methods (such as `onHasNext()`, `hasNext()`, and `next()`) are deprecated. Clients should transition away from these methods before the 2.7 release.
 
@@ -52,7 +52,7 @@ This version of the Record Layer requires a FoundationDB server version of at le
 
 The `getTimeToLoad` and `getTimeToDeserialize` methods on `FDBStoredRecord` have been removed. These were needed for a short-term experiment but stuck around longer than intended.
 
-### Newly deprecated
+### Newly Deprecated
 
 Methods for retrieving a record from a record store based on an index entry generally took both an index and an index entry. As index entries now store a reference to their associatedindex, these methods have been deprecated in favor of methods that only take an index entry. The earlier methods may be removed in a future release. The same is true for a constructor on `FDBIndexedRecord` which no longer needs to take both an index and an index entry.
 
@@ -63,6 +63,7 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 ### NEXT_RELEASE
 
 * **Bug fix** getVersionstamp() future can complete a tiny bit after the commit() future [(Issue #476)](https://github.com/FoundationDB/fdb-record-layer/issues/476)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -93,14 +94,80 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 
 ## 2.5
 
-### Breaking changes
+### Breaking Changes
 
 In order to simplify typed record stores, the `FDBRecordStoreBase` class was turned into an interface and all I/O was placed in the `FDBRecordStore` class. This makes the `FDBTypedRecordStore` serve as only a type-safe wrapper around the `FDBRecordStore` class. As part of this work, the `IndexMaintainer` interface and its implementations lost their type parameters and now only interact with `Message` types, and the `OnlineIndexerBase` class was removed. Additionally, the `FDBEvaluationContext` class was removed in favor of using `EvaluationContext` (without a type parameter) directly. That class also no longer carries around an `FDBRecordStore` reference, so query plans now require an explicit record store in addition to an evaluation context. Finally, the `evaluate` family of methods on key expressions no longer take evaluation contexts. Users should switch any uses of the `OnlineIndexerBase` to a generic `OnlineIndexer` and will need to update any explicit key expression evluation calls. Users should also switch from calling `RecordQueryPlan::execute` to calling `FDBRecordStore::executeQuery` if possible as that second API is more stable (and was not changed as part of the recent work).
+
+### Newly Deprecated
+
+The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. Users should transition to using one of the `asyncToSync` methods defined on either `FDBDatabase`, `FDBRecordContext`, or `FDBDatabaseRunner`. This method may be removed from our public API in a later release (see [Issue # 473](https://github.com/FoundationDB/fdb-record-layer/issues/473)).
+
+### 2.5.54.0
+
+* **Bug fix** The preload cache in `FDBRecordStore` now invalidates entries corresponding to updated records. [(Issue #494)](https://github.com/FoundationDB/fdb-record-layer/issues/494)
+* **Feature** Include index subspace key in "Attempted to make unbuilt index readable" message [(Issue #470)](https://github.com/FoundationDB/fdb-record-layer/issues/470)
+
+### 2.5.53.0
+
+* **Feature** `FDBMetaDataStore` class now has convenience methods for adding and deprecating record types and fields [(Issue #376)](https://github.com/FoundationDB/fdb-record-layer/issues/376)
+* All changes from version [2.5.49.16](#254916)
+
+### 2.5.52.0
+
+* **Bug fix** KeyValueLogMessage now converts `"` to `'` in values [(Issue #472)](https://github.com/FoundationDB/fdb-record-layer/issues/472)
+* **Feature** Add `RecordMetaDataBuilder.addFormerIndex` [(Issue #485)](https://github.com/FoundationDB/fdb-record-layer/issues/485)
+* **Deprecated** The `asyncToSync` method of the `OnlineIndexer` has been marked `INTERNAL` [(Issue #474)](https://github.com/FoundationDB/fdb-record-layer/issues/474)
+
+### 2.5.51.0
+
+* **Bug fix** `OnlineIndexer` fails to `getPrimaryKeyBoundaries` when there is no boundary [(Issue #460)](https://github.com/FoundationDB/fdb-record-layer/issues/460)
+* **Bug fix** The `markReadableIfBuilt` method of `OnlineIndexer` now waits for the index to be marked readable before returning [(Issue #468)](https://github.com/FoundationDB/fdb-record-layer/issues/468)
+
+### 2.5.50.0
+
+* **Feature** Add methods in `OnlineIndexer` to support building an index in parallel [(Issue #453)](https://github.com/FoundationDB/fdb-record-layer/issues/453)
+
+### 2.5.49.16
+
+* **Feature** OnlineIndexer logs number of records scanned [(Issue #479)](https://github.com/FoundationDB/fdb-record-layer/issues/479)
+* **Feature** OnlineIndexer includes range being built in retry logs [(Issue #480)](https://github.com/FoundationDB/fdb-record-layer/issues/480)
+
+### 2.5.49.0
+
+* **Feature** Add an `AsyncIteratorCursor` between `IteratorCursor` and `KeyValueCursor` [(Issue #449)](https://github.com/FoundationDB/fdb-record-layer/issues/449)
+* **Feature** OnlineIndexer can increase limit after successful range builds [(Issue #444)](https://github.com/FoundationDB/fdb-record-layer/issues/444)
+
+### 2.5.48.0
+
+* **Bug fix** Use ContextRestoringExecutor for FDBDatabaseRunner [(Issue #436)](https://github.com/FoundationDB/fdb-record-layer/issues/436)
+* **Feature** Add a method to get primary key boundaries in `FDBRecordStore` [(Issue #439)](https://github.com/FoundationDB/fdb-record-layer/issues/439)
+* All changes from version [2.5.44.14](#254414)
+* All changes from version [2.5.44.15](#254415)
+
+### 2.5.47.0
+
+* **Feature** `RankedSet` and the `RANK` and `TIME_WINDOW_LEADERBOARD` index types that use it now support operations for getting the rank of a score regardless of whether the set contains that value [(Issue #425)](https://github.com/FoundationDB/fdb-record-layer/issues/425), [(Issue #426)](https://github.com/FoundationDB/fdb-record-layer/issues/426)
+
+### 2.5.46.0
+
+* **Bug fix** Record type and index subspace keys with identical serializations are now validated for collisions [(Issue #394)](https://github.com/FoundationDB/fdb-record-layer/issues/394)
+* **Bug fix** Byte scan limit now reliably throws exceptions when `ExecuteProperties.failOnScanLimitReached` is `true` [(Issue #422)](https://github.com/FoundationDB/fdb-record-layer/issues/422)
+* **Feature** By default, `FDBMetaDataStore`s are now initialized with an extension registry with all extensions from `record_metadata_options.proto` [(Issue #352)](https://github.com/FoundationDB/fdb-record-layer/issues/352)
+* **Feature** `FDBMetaDataStore` class now has convenience methods for `addIndex`, `dropIndex` and `updateRecords` [(Issue #281)](https://github.com/FoundationDB/fdb-record-layer/issues/281)
+* **Feature** Index subspace keys can now be assigned based on a counter [(Issue #11)](https://github.com/FoundationDB/fdb-record-layer/issues/11)
 
 ### 2.5.45.0
 
 * **Bug fix** The `AsyncLoadingCache` could cache exceptional futures in rare scenarios [(Issue #395)](https://github.com/FoundationDB/fdb-record-layer/issues/395)
 * **Feature** A `MetaDataEvolutionValidator` now can be used to ensure that meta-data changes are compatible with the [schema evolution guidelines](SchemaEvolution.md) [(Issue #85)](https://github.com/FoundationDB/fdb-record-layer/issues/85)
+
+### 2.5.44.15
+
+* **Bug fix** The `UnorderedUnionCursor` should now propagate errors from its children instead of sometimes swallowing the exception [(Issue #437)](https://github.com/FoundationDB/fdb-record-layer/issues/437)
+
+### 2.5.44.14
+
+* **Feature** Optionally log successful progress in OnlineIndexer [(Issue #429)](https://github.com/FoundationDB/fdb-record-layer/issues/429)
 
 ### 2.5.44.0
 
@@ -148,7 +215,7 @@ In order to simplify typed record stores, the `FDBRecordStoreBase` class was tur
 
 The `RecordCursor` API has been reworked to make using continuations safer and less error prone as well as generally making safer use easier. Previously, a continuation could be retrieved from a `RecordCursor` by calling the `getContinuation` method. However, this method was only legal to call at certain times which made it painful and error-prone to use in asynchronous contexts. (Similar problems existed with the `getNoNextReason` method.) The new API is designed to make correct use more natural. Users are now encouraged to access elements through the new `onNext` method. This method returns the next element of the cursor if one exists or a reason why the cursor cannot return an element if it cannot. It also will always return a valid continuation that can be used to resume the cursor. As the `RecordCursor` interface is fairly fundamental to using the Record Layer, the old API has not yet been deprecated.
 
-### Breaking changes
+### Breaking Changes
 
 The `GlobalDirectoryResolverFactory` class was removed. This is part of a larger effort to migrate away from the `ScopedDirectoryLayer` class in favor of the `ExtendedDirectoryLayer` class when resolving `DirectoryLayerDirectories` as part of a record store's `KeySpacePath`. Users can still access the global directory layer by calling `ExtendedDirectoryLayer.global()`.
 

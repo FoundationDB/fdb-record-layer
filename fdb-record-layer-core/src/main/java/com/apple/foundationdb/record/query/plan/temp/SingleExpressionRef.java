@@ -21,13 +21,12 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
-import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * A mutable reference to a single planner expression. Since it references a single expression, it can provide
@@ -73,29 +72,9 @@ public class SingleExpressionRef<T extends PlannerExpression> implements Mutable
         return new SingleExpressionRef<>(expression);
     }
 
-    /**
-     * Implement binding of an expression matcher to the planner expression contained by this reference.
-     * Binding to references can be a bit subtle: some matchers (such as <code>ReferenceMatcher</code>) can bind to references
-     * directly while others (such as <code>TypeMatcher</code>) can't, since they need access to the underlying operator
-     * which might not even be well defined. If possible, the matcher binds to the reference; if the binding returns
-     * <code>Result.UNKNOWN</code>, then it tries to bind to the expression behind the reference.
-     * @param binding the binding to match against
-     * @param existing an existing map of bindings
-     * @return a map of bindings if the match succeeded, or an empty <code>Optional</code> if it failed
-     */
-    @Override
     @Nonnull
-    public Optional<PlannerBindings> bindWithExisting(@Nonnull ExpressionMatcher<? extends Bindable> binding, @Nonnull PlannerBindings existing) {
-        switch (binding.matches(this)) {
-            case UNKNOWN:
-                return expression.bindWithExisting(binding, existing);
-            case MATCHES:
-                existing.put(binding, this);
-                return Optional.of(existing);
-            case DOES_NOT_MATCH:
-                return Optional.empty();
-            default:
-                throw new RecordCoreException("added another variant to the Result enum but did not update switch");
-        }
+    @Override
+    public Stream<PlannerBindings> bindWithin(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        return expression.bindTo(matcher);
     }
 }

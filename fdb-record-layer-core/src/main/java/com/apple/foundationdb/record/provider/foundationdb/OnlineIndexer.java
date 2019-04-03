@@ -51,15 +51,19 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -69,6 +73,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -78,8 +83,8 @@ import java.util.function.Function;
  * done in a fashion that will decrease as the number of failures for a given build attempt increases.
  *
  * <p>
- * As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link com.apple.foundationdb.async.RangeSet}
- * associated with the index being built. This {@link com.apple.foundationdb.async.RangeSet} is used to (a) coordinate work between
+ * As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link RangeSet}
+ * associated with the index being built. This {@link RangeSet} is used to (a) coordinate work between
  * different builders that might be running on different machines to ensure that the same work isn't
  * duplicated and to (b) make sure that non-idempotent indexes (like <code>COUNT</code> or <code>SUM_LONG</code>)
  * don't update themselves (or fail to update themselves) incorrectly.
@@ -118,9 +123,21 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public static final int DEFAULT_MAX_RETRIES = 100;
     /**
+     * Default interval to be logging successful progress in millis when building across transactions.
+     * {@code -1} means it will not log.
+     */
+    public static final int DEFAULT_PROGRESS_LOG_INTERVAL = -1;
+    /**
      * Constant indicating that there should be no limit to some usually limited operation.
      */
     public static final int UNLIMITED = Integer.MAX_VALUE;
+
+    /**
+     * If {@link Builder#getIncreaseLimitAfter()} is this value, the limit will not go back up, no matter how many
+     * successes there are.
+     * This is the default value.
+     */
+    public static final int DO_NOT_RE_INCREASE_LIMIT = -1;
 
     @Nonnull private static final byte[] START_BYTES = new byte[]{0x00};
     @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
@@ -136,22 +153,45 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final Collection<RecordType> recordTypes;
     @Nonnull private final TupleRange recordsRange;
 
-    private int limit;  // Not final as may be adjusted when running.
+    private final int maxLimit;
     private final int maxRetries;
     private final int recordsPerSecond;
+    private final long progressLogIntervalMillis;
+    private final int increaseLimitAfter;
+    /**
+     * The current number of records to process in a single transaction, this may go up or down when using
+     * {@link #runAsync(Function)}, but never above {@link #maxRetries}.
+     */
+    private int limit;
+    /**
+     * The number of successful transactions in a row as called by {@link #runAsync(Function)}.
+     */
+    private int successCount;
+    private long timeOfLastProgressLogMillis;
+    /**
+     * The total number of records scanned in the build.
+     * @see Builder#setProgressLogIntervalMillis(long)
+     */
+    private AtomicLong totalRecordsScanned;
 
     protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                             @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                             @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
-                            int limit, int maxRetries, int recordsPerSecond) {
+                            int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis,
+                            int increaseLimitAfter) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
         this.recordTypes = recordTypes;
-        this.limit = limit;
+        this.limit = maxLimit;
+        this.maxLimit = maxLimit;
         this.maxRetries = maxRetries;
         this.recordsPerSecond = recordsPerSecond;
+        this.progressLogIntervalMillis = progressLogIntervalMillis;
+        this.increaseLimitAfter = increaseLimitAfter;
         this.recordsRange = computeRecordsRange();
+        timeOfLastProgressLogMillis = System.currentTimeMillis();
+        totalRecordsScanned = new AtomicLong(0);
     }
 
     /**
@@ -167,6 +207,16 @@ public class OnlineIndexer implements AutoCloseable {
             addLogInfo(LogMessageKeys.RANGE_START, start);
             addLogInfo(LogMessageKeys.RANGE_END, end);
         }
+    }
+
+    /**
+     * Get the current number of records to process in one transaction.
+     * This may go up or down while {@link #runAsync(Function)} is running, if there are failures committing or
+     * repeated successes.
+     * @return the current number of records to process in one transaction
+     */
+    public int getLimit() {
+        return limit;
     }
 
     private TupleRange computeRecordsRange() {
@@ -235,6 +285,15 @@ public class OnlineIndexer implements AutoCloseable {
         runner.close();
     }
 
+    // Just like runAsync that takes a handler, except recordsScanned will always be 0
+    @Nonnull
+    @VisibleForTesting
+    <R> CompletableFuture<R> runAsync(@Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
+        return runAsync(function,
+                (result, exception) -> runAsyncPostTransaction(result, exception, null),
+                null);
+    }
+
     // This retry loop runs an operation on a record store. The reason that this retry loop exists
     // (despite the fact that FDBDatabase.runAsync exists and is (in fact) used by the logic here)
     // is that this will adjust the value of limit in the case that we encounter errors like transaction_too_large
@@ -243,7 +302,9 @@ public class OnlineIndexer implements AutoCloseable {
     // a bad value for limit.
     @Nonnull
     @VisibleForTesting
-    <R> CompletableFuture<R> runAsync(@Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
+    <R> CompletableFuture<R> runAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
+                                      @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
+                                      @Nullable List<Object> additionalLogMessageKeyValues) {
         AtomicInteger tries = new AtomicInteger(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
         AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
@@ -261,7 +322,7 @@ public class OnlineIndexer implements AutoCloseable {
                         }
                         return function.apply(store);
                     });
-                }).handle((value, e) -> {
+                }, handlePostTransaction, additionalLogMessageKeyValues).handle((value, e) -> {
                     if (e == null) {
                         ret.complete(value);
                         return AsyncUtil.READY_FALSE;
@@ -278,16 +339,7 @@ public class OnlineIndexer implements AutoCloseable {
                             return AsyncUtil.READY_FALSE;
                         } else {
                             if (lessenWorkCodes.contains(fdbE.getCode())) {
-                                limit = Math.max(1, (3 * limit) / 4);
-                                if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(KeyValueLogMessage.of("Lessening limit of online index build",
-                                                    "indexName", index.getName(),
-                                                    "indexVersion", index.getLastModifiedVersion(),
-                                                    "error", fdbE.getMessage(),
-                                                    "errorCode", fdbE.getCode(),
-                                                    "limit", limit),
-                                            fdbE);
-                                }
+                                decreaseLimit(fdbE, additionalLogMessageKeyValues);
                                 long delay = (long)(Math.random() * toWait.get());
                                 toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
                                 return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
@@ -307,18 +359,74 @@ public class OnlineIndexer implements AutoCloseable {
         return ret;
     }
 
+    /**
+     * Run after a single transactional call within runAsync.
+     */
+    @VisibleForTesting
+    <R> Pair<R, Throwable> runAsyncPostTransaction(@Nullable R result, @Nullable Throwable exception,
+                                                   @Nullable AtomicLong recordsScanned) {
+        if (increaseLimitAfter > 0) {
+            if (exception == null) {
+                successCount++;
+                if (successCount >= increaseLimitAfter && limit < maxLimit) {
+                    increaseLimit();
+                }
+            } else {
+                successCount = 0;
+            }
+        }
+        if (recordsScanned != null) {
+            if (exception == null) {
+                totalRecordsScanned.addAndGet(recordsScanned.get());
+            } else {
+                recordsScanned.set(0);
+            }
+        }
+        return Pair.of(result, exception);
+    }
+
+    private void decreaseLimit(@Nonnull FDBException fdbException,
+                               @Nullable List<Object> additionalLogMessageKeyValues) {
+        limit = Math.max(1, (3 * limit) / 4);
+        if (LOGGER.isInfoEnabled()) {
+            final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
+                    "indexName", index.getName(),
+                    "indexVersion", index.getLastModifiedVersion(),
+                    "error", fdbException.getMessage(),
+                    "errorCode", fdbException.getCode(),
+                    "limit", limit);
+            if (additionalLogMessageKeyValues != null) {
+                message.addKeysAndValues(additionalLogMessageKeyValues);
+            }
+            LOGGER.info(message.toString(),
+                    fdbException);
+        }
+    }
+
+    private void increaseLimit() {
+        limit = Math.min(maxLimit, Math.max(limit + 1, (4 * limit) / 3));
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.of("Re-increasing limit of online index build",
+                    "indexName", index.getName(),
+                    "indexVersion", index.getLastModifiedVersion(),
+                    "limit", limit));
+        }
+    }
+
     // Builds the index for all of the keys within a given range. This does not update the range set
     // associated with this index, so it is really designed to be a helper for other methods.
     @Nonnull
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store,
                                                     @Nullable Tuple start, @Nullable Tuple end,
-                                                    boolean respectLimit) {
-        return buildRangeOnly(store, TupleRange.between(start, end), respectLimit).thenApply(realEnd -> realEnd == null ? end : realEnd);
+                                                    boolean respectLimit, @Nullable AtomicLong recordsScanned) {
+        return buildRangeOnly(store, TupleRange.between(start, end), respectLimit, recordsScanned)
+                .thenApply(realEnd -> realEnd == null ? end : realEnd);
     }
 
     // TupleRange version of above.
     @Nonnull
-    private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull TupleRange range, boolean respectLimit) {
+    private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull TupleRange range,
+                                                    boolean respectLimit, @Nullable AtomicLong recordsScanned) {
         if (store.getRecordMetaData() != recordStoreBuilder.getMetaDataProvider().getRecordMetaData()) {
             throw new MetaDataException("Store does not have the same metadata");
         }
@@ -337,10 +445,13 @@ public class OnlineIndexer implements AutoCloseable {
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
         return cursor.forEachResultAsync(result -> {
-            FDBStoredRecord<Message> rec = result.get();
+            final FDBStoredRecord<Message> rec = result.get();
             empty.set(false);
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+            }
+            if (recordsScanned != null) {
+                recordsScanned.incrementAndGet();
             }
             if (recordTypes.contains(rec.getRecordType())) {
                 if (timer != null) {
@@ -374,7 +485,8 @@ public class OnlineIndexer implements AutoCloseable {
     // Builds a range within a single transaction. It will look for the missing ranges within the given range and build those while
     // updating the range set.
     @Nonnull
-    private CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store, @Nullable Tuple start, @Nullable Tuple end) {
+    private CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store, @Nullable Tuple start, @Nullable Tuple end,
+                                               @Nullable AtomicLong recordsScanned) {
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
         AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), packOrNull(start), packOrNull(end)).iterator();
         return ranges.onHasNext().thenCompose(hasAny -> {
@@ -387,7 +499,7 @@ public class OnlineIndexer implements AutoCloseable {
                             // All of the requested range without limit.
                             // In practice, this method works because it is only called for the endpoint ranges, which are empty and
                             // one long, respectively.
-                            buildRangeOnly(store, rangeStart, rangeEnd, false),
+                            buildRangeOnly(store, rangeStart, rangeEnd, false, recordsScanned),
                             rangeSet.insertRange(store.ensureContextActive(), range, true)
                     ).thenCompose(vignore -> ranges.onHasNext());
                 }, store.getExecutor());
@@ -430,7 +542,7 @@ public class OnlineIndexer implements AutoCloseable {
                     AtomicReference<Tuple> currStart = new AtomicReference<>(startTuple);
                     return AsyncUtil.whileTrue(() ->
                         // Bold claim: this will never cause a RecordBuiltRangeException because of transactions.
-                        buildUnbuiltRange(store, currStart.get(), endTuple).thenApply(realEnd -> {
+                        buildUnbuiltRange(store, currStart.get(), endTuple, null).thenApply(realEnd -> {
                             if (realEnd != null && !realEnd.equals(endTuple)) {
                                 currStart.set(realEnd);
                                 return true;
@@ -474,13 +586,14 @@ public class OnlineIndexer implements AutoCloseable {
                     ReadTransactionContext rtc = context.ensureActive();
                     return rangeSet.missingRanges(rtc, startBytes, endBytes)
                             .thenAccept(rangeDeque::addAll)
-                            .thenCompose(vignore -> buildRanges(subspace, rangeSet, rangeDeque));
+                            .thenCompose(vignore -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
                 })
         );
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildRanges(@Nonnull Subspace subspace, RangeSet rangeSet, Queue<Range> rangeDeque) {
+    private CompletableFuture<Void> buildRanges(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                RangeSet rangeSet, Queue<Range> rangeDeque) {
         return AsyncUtil.whileTrue(() -> {
             if (rangeDeque.isEmpty()) {
                 return CompletableFuture.completedFuture(false); // We're done.
@@ -491,13 +604,16 @@ public class OnlineIndexer implements AutoCloseable {
             Tuple startTuple = Tuple.fromBytes(toBuild.begin);
             Tuple endTuple = Arrays.equals(toBuild.end, END_BYTES) ? null : Tuple.fromBytes(toBuild.end);
             return buildUnbuiltRange(startTuple, endTuple)
-                    .handle((realEnd, ex) -> handleBuiltRange(subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
+                    .handle((realEnd, ex) -> handleBuiltRange(subspaceProvider, subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
                     .thenCompose(Function.identity());
         }, runner.getExecutor());
     }
 
     @Nonnull
-    private CompletableFuture<Boolean> handleBuiltRange(@Nonnull Subspace subspace, RangeSet rangeSet, Queue<Range> rangeDeque, Tuple startTuple, Tuple endTuple, Tuple realEnd, Throwable ex) {
+    private CompletableFuture<Boolean> handleBuiltRange(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                        RangeSet rangeSet, Queue<Range> rangeDeque,
+                                                        Tuple startTuple, Tuple endTuple, Tuple realEnd,
+                                                        Throwable ex) {
         final RuntimeException unwrappedEx = ex == null ? null : runner.getDatabase().mapAsyncToSyncException(ex);
         long toWait = (recordsPerSecond == UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
         if (unwrappedEx == null) {
@@ -509,6 +625,7 @@ public class OnlineIndexer implements AutoCloseable {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
+            maybeLogBuildProgress(subspaceProvider, startTuple, endTuple, realEnd);
             return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
         } else {
             Throwable cause = unwrappedEx;
@@ -533,10 +650,28 @@ public class OnlineIndexer implements AutoCloseable {
         }
     }
 
+    private void maybeLogBuildProgress(SubspaceProvider subspaceProvider, Tuple startTuple, Tuple endTuple, Tuple realEnd) {
+        if (LOGGER.isInfoEnabled()
+                && (progressLogIntervalMillis > 0
+                    && System.currentTimeMillis() - timeOfLastProgressLogMillis > progressLogIntervalMillis)
+                || progressLogIntervalMillis == 0) {
+            LOGGER.info(KeyValueLogMessage.of("Built Range",
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    "indexVersion", index.getLastModifiedVersion(),
+                    subspaceProvider.logKey(), subspaceProvider,
+                    "startTuple", startTuple,
+                    "endTuple", endTuple,
+                    "realEnd", realEnd,
+                    "recordsScanned", totalRecordsScanned.get()));
+            timeOfLastProgressLogMillis = System.currentTimeMillis();
+        }
+    }
+
     // Helper function that works on Tuples instead of keys.
     @Nonnull
-    private CompletableFuture<Tuple> buildUnbuiltRange(@Nonnull FDBRecordStore store, @Nullable Tuple start, @Nullable Tuple end) {
-        CompletableFuture<Tuple> buildFuture = buildRangeOnly(store, start, end, true);
+    private CompletableFuture<Tuple> buildUnbuiltRange(@Nonnull FDBRecordStore store, @Nullable Tuple start,
+                                                       @Nullable Tuple end, @Nullable AtomicLong recordsScanned) {
+        CompletableFuture<Tuple> buildFuture = buildRangeOnly(store, start, end, true, recordsScanned);
 
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
         byte[] startBytes = packOrNull(start);
@@ -584,21 +719,45 @@ public class OnlineIndexer implements AutoCloseable {
      * @throws RecordBuiltRangeException if the given range contains keys already processed by the index build
      */
     @Nonnull
-    public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return buildUnbuiltRange(store, convertOrNull(start), convertOrNull(end))
+    public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
+                                                              @Nullable Key.Evaluated start,
+                                                              @Nullable Key.Evaluated end) {
+        return buildUnbuiltRange(store, start, end, null);
+    }
+
+    // just like the overload that doesn't take a recordsScanned
+    @Nonnull
+    private CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
+                                                               @Nullable Key.Evaluated start, @Nullable Key.Evaluated end,
+                                                               @Nullable AtomicLong recordsScanned) {
+        return buildUnbuiltRange(store, convertOrNull(start), convertOrNull(end), recordsScanned)
                 .thenApply(tuple -> (tuple == null) ? null : Key.Evaluated.fromTuple(tuple));
     }
 
     // Helper function with the same behavior as buildUnbuiltRange, but it works on tuples instead of primary keys.
     @Nonnull
     private CompletableFuture<Tuple> buildUnbuiltRange(@Nullable Tuple start, @Nullable Tuple end) {
-        return runAsync(store -> buildUnbuiltRange(store, start, end));
+        AtomicLong recordsScanned = new AtomicLong(0);
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
+                LogMessageKeys.RANGE_START, start,
+                LogMessageKeys.RANGE_END, end);
+        return runAsync(store -> buildUnbuiltRange(store, start, end, recordsScanned),
+                (result, exception) -> runAsyncPostTransaction(
+                        result, exception, recordsScanned),
+                additionalLogMessageKeyValues);
     }
 
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return runAsync(store -> buildUnbuiltRange(store, start, end));
+        AtomicLong recordsScanned = new AtomicLong(0);
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
+                LogMessageKeys.RANGE_START, start,
+                LogMessageKeys.RANGE_END, end);
+        return runAsync(store -> buildUnbuiltRange(store, start, end, recordsScanned),
+                (result, exception) -> runAsyncPostTransaction(
+                        result, exception, recordsScanned),
+                additionalLogMessageKeyValues);
     }
 
     /**
@@ -629,7 +788,7 @@ public class OnlineIndexer implements AutoCloseable {
         // Rebuild the index by going through all of the records in a transaction.
         AtomicReference<TupleRange> rangeToGo = new AtomicReference<>(recordsRange);
         CompletableFuture<Void> buildFuture = AsyncUtil.whileTrue(() ->
-                buildRangeOnly(store, rangeToGo.get(), true).thenApply(nextStart -> {
+                buildRangeOnly(store, rangeToGo.get(), true, null).thenApply(nextStart -> {
                     if (nextStart == null) {
                         return false;
                     } else {
@@ -672,20 +831,28 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store) {
+        return buildEndpoints(store, null);
+    }
+
+    // just like the overload that doesn't take a recordsScanned
+    @Nonnull
+    private CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store,
+                                                         @Nullable AtomicLong recordsScanned) {
         final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
         if (TupleRange.ALL.equals(recordsRange)) {
-            return buildEndpoints(store, rangeSet);
+            return buildEndpoints(store, rangeSet, recordsScanned);
         }
         // If records do not occupy whole range, first mark outside as built.
         final Range asRange = recordsRange.toRange();
         return CompletableFuture.allOf(
                 rangeSet.insertRange(store.ensureContextActive(), null, asRange.begin),
                 rangeSet.insertRange(store.ensureContextActive(), asRange.end, null))
-                .thenCompose(vignore -> buildEndpoints(store, rangeSet));
+                .thenCompose(vignore -> buildEndpoints(store, rangeSet, recordsScanned));
     }
 
     @Nonnull
-    private CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store, @Nonnull RangeSet rangeSet) {
+    private CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store, @Nonnull RangeSet rangeSet,
+                                                         @Nullable AtomicLong recordsScanned) {
         final ExecuteProperties limit1 = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(1)
                 .setIsolationLevel(IsolationLevel.SERIALIZABLE)
@@ -695,7 +862,7 @@ public class OnlineIndexer implements AutoCloseable {
         CompletableFuture<Tuple> begin = beginCursor.onNext().thenCompose(result -> {
             if (result.hasNext()) {
                 Tuple firstTuple = result.get().getPrimaryKey();
-                return buildRange(store, null, firstTuple).thenApply(vignore -> firstTuple);
+                return buildRange(store, null, firstTuple, recordsScanned).thenApply(vignore -> firstTuple);
             } else {
                 // Empty range -- add the whole thing.
                 return rangeSet.insertRange(store.ensureContextActive(), null, null).thenApply(bignore -> null);
@@ -707,7 +874,7 @@ public class OnlineIndexer implements AutoCloseable {
         CompletableFuture<Tuple> end = endCursor.onNext().thenCompose(result -> {
             if (result.hasNext()) {
                 Tuple lastTuple = result.get().getPrimaryKey();
-                return buildRange(store, lastTuple, null).thenApply(vignore -> lastTuple);
+                return buildRange(store, lastTuple, null, recordsScanned).thenApply(vignore -> lastTuple);
             } else {
                 // As the range is empty, the whole range needs to be added, but that is accomplished
                 // by the above future, so this has nothing to do.
@@ -734,7 +901,12 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints() {
-        return runAsync(this::buildEndpoints);
+        AtomicLong recordsScanned = new AtomicLong(0);
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildEndpoints");
+        return runAsync(store -> buildEndpoints(store, recordsScanned),
+                (result, exception) -> runAsyncPostTransaction(
+                        result, exception, recordsScanned),
+                additionalLogMessageKeyValues);
     }
 
     /**
@@ -799,12 +971,144 @@ public class OnlineIndexer implements AutoCloseable {
         asyncToSync(buildIndexAsync());
     }
 
+
+    /**
+     * Split the index build range to support building an index across multiple transactions in parallel if needed.
+     * <p>
+     * It is blocking and should not be called in asynchronous contexts.
+     *
+     * @param minSplit not split if it cannot be split into at least <code>minSplit</code> ranges
+     * @param maxSplit the maximum number of splits generated
+     * @return a list of split primary key ranges (the low endpoint is inclusive and the high endpoint is exclusive)
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public List<Pair<Tuple, Tuple>> splitIndexBuildRange(int minSplit, int maxSplit) {
+        TupleRange originalRange = runner.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());
+
+        // There is no range needing to be built.
+        if (originalRange == null) {
+            return Collections.emptyList();
+        }
+
+        if (minSplit < 1 || maxSplit < 1 || minSplit > maxSplit) {
+            throw new RecordCoreException("splitIndexBuildRange should have 1 < minSplit <= maxSplit");
+        }
+
+        List<Tuple> boundaries = getPrimaryKeyBoundaries(originalRange);
+
+        // The range only spans across very few FDB servers so parallelism is not necessary.
+        if (boundaries.size() - 1 < minSplit) {
+            return Collections.singletonList(Pair.of(originalRange.getLow(), originalRange.getHigh()));
+        }
+
+        List<Pair<Tuple, Tuple>> splitRanges = new ArrayList<>(Math.min(boundaries.size() - 1, maxSplit));
+
+        // step size >= 1
+        int stepSize = -Math.floorDiv(-(boundaries.size() - 1), maxSplit);  // Read ceilDiv(boundaries.size() - 1, maxSplit).
+        int start = 0;
+        while (true) {
+            int next = start + stepSize;
+            if (next < boundaries.size() - 1) {
+                splitRanges.add(Pair.of(boundaries.get(start), boundaries.get(next)));
+            } else {
+                splitRanges.add(Pair.of(boundaries.get(start), boundaries.get(boundaries.size() - 1)));
+                break;
+            }
+            start = next;
+        }
+
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("split index build range",
+                    "indexName", index.getName(),
+                    "originalRange", originalRange,
+                    "splitRanges", splitRanges));
+        }
+
+        return splitRanges;
+    }
+
+    private List<Tuple> getPrimaryKeyBoundaries(TupleRange tupleRange) {
+        List<Tuple> boundaries = runner.run(context -> {
+            RecordCursor<Tuple> cursor = recordStoreBuilder.copyBuilder().setContext(context).open()
+                    .getPrimaryKeyBoundaries(tupleRange.getLow(), tupleRange.getHigh());
+            return context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY, cursor.asList());
+        });
+
+        // Add the two endpoints if they are not in the result
+        if (boundaries.isEmpty() || tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
+            boundaries.add(0, tupleRange.getLow());
+        }
+        if (tupleRange.getHigh().compareTo(boundaries.get(boundaries.size() - 1)) > 0) {
+            boundaries.add(tupleRange.getHigh());
+        }
+
+        return boundaries;
+    }
+
+    /**
+     * Mark the index as readable if it is built.
+     * @return a future that will complete to <code>true</code> if the index is readable and <code>false</code>
+     *     otherwise
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public CompletableFuture<Boolean> markReadableIfBuilt() {
+        return runner.runAsync(context ->
+                openRecordStore(context).thenCompose(store -> {
+                    final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
+                    return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
+                            .thenCompose(hasNext -> {
+                                if (hasNext) {
+                                    return AsyncUtil.READY_FALSE;
+                                } else {
+                                    // Index is built because there is no missing range.
+                                    return store.markIndexReadable(index)
+                                            // markIndexReadable will return false if the index was already readable
+                                            .thenApply(vignore -> true);
+                                }
+                            });
+                })
+        );
+    }
+
+    /**
+     * Mark the index as readable.
+     * @return a future that will either complete exceptionally if the index can not
+     * be made readable or will contain <code>true</code> if the store was modified
+     * and <code>false</code> otherwise
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public CompletableFuture<Boolean> markReadable() {
+        return runner.runAsync(context ->
+                openRecordStore(context).thenCompose(store -> store.markIndexReadable(index))
+        );
+    }
+
     /**
      * Wait for asynchronous index build to complete.
+     *
+     * <p>
+     * This method was marked {@link API.Status#INTERNAL INTERNAL} in a 2.5 release of the Record Layer, and it may be
+     * removed in version 2.7. Outside users of the Record Layer should use the {@code asyncToSync} methods of {@link FDBRecordContext},
+     * {@link FDBDatabase}, or {@link FDBDatabaseRunner} instead. See
+     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/473">Issue #473</a> for more details.
+     * </p>
+     *
      * @param buildIndexFuture the result of {@link #buildIndexAsync}
+     * @param <T> return type of function to run
+     * @return future that will contain the result of {@code buildIndexFuture} after successful run and commit
      */
-    public void asyncToSync(@Nonnull CompletableFuture<Void> buildIndexFuture) {
-        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);
+    @API(API.Status.INTERNAL)
+    public <T> T asyncToSync(@Nonnull CompletableFuture<T> buildIndexFuture) {
+        return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);
+    }
+
+    @API(API.Status.INTERNAL)
+    @VisibleForTesting
+    long getTotalRecordsScanned() {
+        return totalRecordsScanned.get();
     }
 
     /**
@@ -833,6 +1137,8 @@ public class OnlineIndexer implements AutoCloseable {
         protected int limit = DEFAULT_LIMIT;
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
+        private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
+        private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
 
         protected Builder() {
         }
@@ -985,6 +1291,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get the maximum number of times to retry a single range rebuild.
+         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and it will also retry for other error
+         * codes, such as {@code transaction_too_large}.
          * @return the maximum number of times to retry a single range rebuild
          */
         public int getMaxRetries() {
@@ -993,6 +1301,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the maximum number of times to retry a single range rebuild.
+         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, it and will also retry for other error
+         * codes, such as {@code transaction_too_large}.
          *
          * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
          * @param maxRetries the maximum number of times to retry a single range rebuild
@@ -1076,6 +1386,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get the maximum number of transaction retry attempts.
+         * This is the number of times that it will retry a given transaction that throws
+         * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
          * @return the maximum number of attempts
          * @see FDBDatabaseRunner#getMaxAttempts
          */
@@ -1088,6 +1400,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the maximum number of transaction retry attempts.
+         * This is the number of times that it will retry a given transaction that throws
+         * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
          * @param maxAttempts the maximum number of attempts
          * @return this builder
          * @see FDBDatabaseRunner#setMaxAttempts
@@ -1098,6 +1412,31 @@ public class OnlineIndexer implements AutoCloseable {
             }
             runner.setMaxAttempts(maxAttempts);
             return this;
+        }
+
+        /**
+         * Set the number of successful range builds before re-increasing the number of records to process in a single
+         * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
+         * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
+         * @param increaseLimitAfter the number of successful range builds before increasing the number of records
+         * processed in a single transaction
+         * @return this builder
+         */
+        public Builder setIncreaseLimitAfter(int increaseLimitAfter) {
+            this.increaseLimitAfter = increaseLimitAfter;
+            return this;
+        }
+
+        /**
+         * Get the number of successful range builds before re-increasing the number of records to process in a single
+         * transaction.
+         * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
+         * @return the number of successful range builds before increasing the number of records processed in a single
+         * transaction
+         * @see #limit
+         */
+        public int getIncreaseLimitAfter() {
+            return increaseLimitAfter;
         }
 
         /**
@@ -1149,6 +1488,46 @@ public class OnlineIndexer implements AutoCloseable {
                 throw new MetaDataException("initial delay can only be set after runner has been set");
             }
             runner.setInitialDelayMillis(initialDelayMillis);
+            return this;
+        }
+
+        /**
+         * Get the minimum time between successful progress logs when building across transactions.
+         * Negative will not log at all, 0 will log after every commit.
+         * @return the minimum time between successful progress logs in milliseconds
+         * @see #setProgressLogIntervalMillis(long) for more information on the format of the log
+         */
+        public long getProgressLogIntervalMillis() {
+            return progressLogIntervalMillis;
+        }
+
+        /**
+         * Set the minimum time between successful progress logs when building across transactions.
+         * Negative will not log at all, 0 will log after every commit.
+         * This log will contain the following information:
+         * <ul>
+         *     <li>startTuple - the first primaryKey scanned as part of this range</li>
+         *     <li>endTuple - the desired primaryKey that is the end of this range</li>
+         *     <li>realEnd - the tuple that was successfully scanned to (always before endTuple)</li>
+         *     <li>recordsScanned - the number of records successfully scanned and processed
+         *     <p>
+         *         This is the count of records scanned as part of successful transactions used by the
+         *         multi-transaction methods (e.g. {@link #buildIndexAsync()} or
+         *         {@link #buildRange(Key.Evaluated, Key.Evaluated)}). The transactional methods (i.e., the methods that
+         *         take a store) do not count towards this value. Since only successful transactions are included,
+         *         transactions that get {@code commit_unknown_result} will not get counted towards this value,
+         *         so this may be short by the number of records scanned in those transactions if they actually
+         *         succeeded. In contrast, the timer count:
+         *         {@link FDBStoreTimer.Counts#ONLINE_INDEX_BUILDER_RECORDS_SCANNED}, includes all records scanned,
+         *         regardless of whether the associated transaction was successful or not.
+         *     </p></li>
+         * </ul>
+         *
+         * @param millis the number of milliseconds to wait between successful logs
+         * @return this builder
+         */
+        public Builder setProgressLogIntervalMillis(long millis) {
+            progressLogIntervalMillis = millis;
             return this;
         }
 
@@ -1253,7 +1632,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public OnlineIndexer build() {
             validate();
-            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond);
+            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
         }
 
         protected void validate() {
@@ -1293,7 +1672,6 @@ public class OnlineIndexer implements AutoCloseable {
                 throw new RecordCoreException("Non-positive value " + value + " given for " + desc);
             }
         }
-
     }
 
     /**

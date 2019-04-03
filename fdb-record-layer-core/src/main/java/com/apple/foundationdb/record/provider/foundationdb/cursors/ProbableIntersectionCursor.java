@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -125,7 +126,7 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
             boolean allDone = true;
             for (ProbableIntersectionCursorState<T> cursorState : cursorStates) {
                 final CompletableFuture<RecordCursorResult<T>> onNextFuture = cursorState.getOnNextFuture();
-                if (!onNextFuture.isDone()) {
+                if (!MoreAsyncUtil.isCompletedNormally(onNextFuture)) {
                     allDone = false;
                     continue;
                 }

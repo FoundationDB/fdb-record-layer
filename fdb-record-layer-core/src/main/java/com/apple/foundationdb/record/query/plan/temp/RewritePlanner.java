@@ -36,7 +36,6 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * A simple planner that applies rewrite rules until it can't apply any more of them, then returns the resulting plan.
@@ -48,7 +47,8 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public class RewritePlanner implements QueryPlanner {
     @Nonnull
-    private static final List<PlannerRuleSet> PHASES = ImmutableList.of(PlannerRuleSet.REWRITE, PlannerRuleSet.IMPLEMENTATION);
+    private static final List<PlannerRuleSet> PHASES = ImmutableList.of(
+            PlannerRuleSet.NORMALIZATION, PlannerRuleSet.REWRITE, PlannerRuleSet.IMPLEMENTATION);
     @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
@@ -113,6 +113,11 @@ public class RewritePlanner implements QueryPlanner {
                     ExpressionRef<? extends PlannerExpression> child = childrenIterator.next();
                     if (child instanceof SingleExpressionRef) {
                         toTry.add((SingleExpressionRef<PlannerExpression>)child);
+                    } else if (child instanceof FixedCollectionExpressionRef) {
+                        for (SingleExpressionRef<? extends PlannerExpression> member :
+                                ((FixedCollectionExpressionRef<? extends PlannerExpression>)child).getMembers()) {
+                            toTry.add((SingleExpressionRef<PlannerExpression>) member);
+                        }
                     } else {
                         throw new RecordCoreException("invalid reference given to rewrite planner");
                     }
@@ -123,16 +128,16 @@ public class RewritePlanner implements QueryPlanner {
 
     private PlannerRule.ChangesMade applyRulesTo(@Nonnull PlannerRuleSet ruleSet, @Nonnull SingleExpressionRef<PlannerExpression> expression) {
         Iterator<PlannerRule<? extends PlannerExpression>> possibleRules = ruleSet.getRulesMatching(expression.get());
-        PlannerRule.ChangesMade madeChanges = PlannerRule.ChangesMade.NO_CHANGE;
         while (possibleRules.hasNext()) {
-            Optional<RewriteRuleCall> attemptedCall = RewriteRuleCall.tryMatchRule(context, possibleRules.next(), expression);
-            if (attemptedCall.isPresent()) {
-                if (attemptedCall.get().run().equals(PlannerRule.ChangesMade.MADE_CHANGES)) {
-                    possibleRules = ruleSet.getRulesMatching(expression.get());
-                    madeChanges = PlannerRule.ChangesMade.MADE_CHANGES;
+            Iterator<RewriteRuleCall> calls = RewriteRuleCall.tryMatchRule(context, possibleRules.next(), expression).iterator();
+
+            while (calls.hasNext()) {
+                RewriteRuleCall call = calls.next();
+                if (call.run().equals(PlannerRule.ChangesMade.MADE_CHANGES)) {
+                    return PlannerRule.ChangesMade.MADE_CHANGES;
                 }
             }
         }
-        return madeChanges;
+        return PlannerRule.ChangesMade.NO_CHANGE;
     }
 }

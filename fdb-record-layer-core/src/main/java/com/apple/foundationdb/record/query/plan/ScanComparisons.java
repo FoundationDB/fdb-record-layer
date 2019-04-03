@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -192,6 +193,17 @@ public class ScanComparisons implements PlanHashable {
         @Nonnull
         public Builder addInequalityComparison(@Nonnull Comparisons.Comparison comparison) {
             inequalityComparisons.add(comparison);
+            return this;
+        }
+
+        @API(API.Status.EXPERIMENTAL)
+        @Nonnull
+        public Builder addComparisonRange(@Nonnull ComparisonRange comparisonRange) {
+            if (comparisonRange.isEquality()) {
+                addEqualityComparison(comparisonRange.getEqualityComparison());
+            } else if (comparisonRange.isInequality()) {
+                inequalityComparisons.addAll(comparisonRange.getInequalityComparisons());
+            }
             return this;
         }
 

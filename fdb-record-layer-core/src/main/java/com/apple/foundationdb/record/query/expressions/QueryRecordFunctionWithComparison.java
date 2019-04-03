@@ -27,13 +27,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.google.common.collect.Iterators;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -47,11 +46,11 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     @Nonnull
     private final RecordFunction<?> function;
     @Nonnull
-    private final ExpressionRef<Comparisons.Comparison> comparison;
+    private final Comparisons.Comparison comparison;
 
     public QueryRecordFunctionWithComparison(@Nonnull RecordFunction<?> function, @Nonnull Comparisons.Comparison comparison) {
         this.function = function;
-        this.comparison = SingleExpressionRef.of(comparison);
+        this.comparison = comparison;
     }
 
     @Nonnull
@@ -62,7 +61,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     @Override
     @Nonnull
     public Comparisons.Comparison getComparison() {
-        return comparison.get();
+        return comparison;
     }
 
     @Override
@@ -106,7 +105,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     @Override
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.comparison);
+        return Collections.emptyIterator();
     }
 
     @Override

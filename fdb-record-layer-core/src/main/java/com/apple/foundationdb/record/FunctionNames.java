@@ -54,6 +54,10 @@ public class FunctionNames {
     public static final String SCORE_FOR_RANK_ELSE_SKIP = "score_for_rank_else_skip";
     public static final String SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP = "score_for_time_window_rank_else_skip";
 
+    /* Rank for score (even if not present) functions */
+    public static final String RANK_FOR_SCORE = "rank_for_score";
+    public static final String TIME_WINDOW_RANK_FOR_SCORE = "time_window_rank_for_score";
+
     private FunctionNames() {
     }
 }

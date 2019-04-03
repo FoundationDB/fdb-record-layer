@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
@@ -30,7 +29,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * The basic type that represents a part of the planner expression tree. An expression is generally an immutable
@@ -65,35 +64,15 @@ public interface PlannerExpression extends Bindable {
     /**
      * Matches a matcher expression to an expression tree rooted at this node, adding to some existing bindings.
      * @param binding the binding to match against
-     * @param existing an existing map of bindings
      * @return the existing bindings extended with some new ones if the match was successful or <code>Optional.empty()</code> otherwise
      */
     @Override
     @Nonnull
-    default Optional<PlannerBindings> bindWithExisting(@Nonnull ExpressionMatcher<? extends Bindable> binding, @Nonnull PlannerBindings existing) {
-        if (existing.containsKey(binding)) {
-            throw new RecordCoreException("tried to bind to a matcher that is already bound");
-        }
-
-        if (!binding.matches(this).equals(ExpressionMatcher.Result.MATCHES)) {
-            return Optional.empty();
-        }
-        Iterator<? extends ExpressionRef<? extends PlannerExpression>> childIterator = getPlannerExpressionChildren();
-        Iterator<ExpressionMatcher<? extends Bindable>> bindingIterator = binding.getChildren().iterator();
-
-        while (childIterator.hasNext() && bindingIterator.hasNext()) {
-            Optional<PlannerBindings> possible = childIterator.next().bindWithExisting(bindingIterator.next(), existing);
-            if (!possible.isPresent()) {
-                return possible;
-            }
-            existing = possible.get();
-        }
-
-        if (childIterator.hasNext() || bindingIterator.hasNext()) { // unable to match completely
-            return Optional.empty();
-        }
-        existing.put(binding, this);
-        return Optional.of(existing);
+    default Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
+        Stream<PlannerBindings> bindings = binding.matchWith(this);
+        // TODO this is probably kind of inefficient for the really common case where we don't match at all.
+        return bindings.flatMap(outerBindings -> binding.getChildrenMatcher().matches(getPlannerExpressionChildren())
+                .map(outerBindings::mergedWith));
     }
 
     /**

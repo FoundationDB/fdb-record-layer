@@ -73,6 +73,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final boolean splitLongRecords;
     private final boolean storeRecordVersions;
     private final int version;
+    private final long subspaceKeyCounter;
+    private final boolean usesSubspaceKeyCounter;
     @Nullable
     private final KeyExpression recordCountKey;
 
@@ -91,6 +93,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
+                             long subspaceKeyCounter,
+                             boolean usesSubspaceKeyCounter,
                              @Nullable KeyExpression recordCountKey) {
         this.recordsDescriptor = recordsDescriptor;
         this.unionDescriptor = unionDescriptor;
@@ -102,6 +106,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.splitLongRecords = splitLongRecords;
         this.storeRecordVersions = storeRecordVersions;
         this.version = version;
+        this.subspaceKeyCounter = subspaceKeyCounter;
+        this.usesSubspaceKeyCounter = usesSubspaceKeyCounter;
         this.recordCountKey = recordCountKey;
     }
 
@@ -206,6 +212,24 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     public int getVersion() {
         return version;
+    }
+
+    /**
+     * Get value of the counter used for index subspace keys if the counter-based assignment is used.
+     * @return the value of the counter
+     * @see RecordMetaDataBuilder#enableCounterBasedSubspaceKeys()
+     */
+    public long getSubspaceKeyCounter() {
+        return subspaceKeyCounter;
+    }
+
+    /**
+     * Checks if counter-based subspace key assignment is used.
+     * @return {@code true} if the subspace key counter is used
+     * @see RecordMetaDataBuilder#enableCounterBasedSubspaceKeys()
+     */
+    public boolean usesSubspaceKeyCounter() {
+        return usesSubspaceKeyCounter;
     }
 
     public List<FormerIndex> getFormerIndexesSince(int version) {
@@ -396,6 +420,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);
+        if (usesSubspaceKeyCounter()) {
+            builder.setSubspaceKeyCounter(subspaceKeyCounter);
+            builder.setUsesSubspaceKeyCounter(true);
+        }
         if (recordCountKey != null) {
             builder.setRecordCountKey(recordCountKey.toKeyExpression());
         }

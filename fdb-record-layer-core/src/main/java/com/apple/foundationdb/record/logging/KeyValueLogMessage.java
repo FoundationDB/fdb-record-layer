@@ -89,7 +89,7 @@ public class KeyValueLogMessage {
 
     @Nonnull
     private static String sanitizeValue(@Nonnull final String value) {
-        return value.replace("'", "");
+        return value.replace("\"", "'");
     }
 
     @Nonnull

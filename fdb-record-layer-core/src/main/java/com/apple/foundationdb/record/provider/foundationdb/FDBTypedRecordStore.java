@@ -70,6 +70,8 @@ import java.util.function.Supplier;
  * store with the same underlying untyped record store.
  *
  * @param <M> type used to represent stored records
+ * @see FDBRecordStore
+ * @see FDBRecordStoreBase
  */
 @API(API.Status.MAINTAINED)
 public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBase<M> {

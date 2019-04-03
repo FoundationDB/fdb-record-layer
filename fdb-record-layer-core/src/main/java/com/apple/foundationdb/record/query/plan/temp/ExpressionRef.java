@@ -22,8 +22,11 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
+import java.util.stream.Stream;
 
 /**
  * This interface is used mostly as an (admittedly surmountable) barrier to rules mutating bound references directly,
@@ -43,6 +46,37 @@ public interface ExpressionRef<T extends PlannerExpression> extends Bindable {
     T get();
 
     <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> property);
+
+    /**
+     * Try to bind the given matcher to this reference. It should not try to match to the members of the reference;
+     * if the given matcher needs to match to a {@link PlannerExpression} rather than an {@link ExpressionRef}, it will
+     * call {@link #bindWithin(ExpressionMatcher)} instead.
+     *
+     * <p>
+     * Binding to references can be a bit subtle: some matchers (such as {@code ReferenceMatcher}) can bind to references
+     * directly while others (such as {@code TypeMatcher}) can't, since they need access to the underlying operator
+     * which might not even be well defined. This method implements binding to the <em>reference</em>, rather than to
+     * its member(s).
+     * </p>
+     * @param matcher a matcher to match with
+     * @return a stream of bindings if the match succeeded or an empty stream if it failed
+     */
+    @Nonnull
+    @Override
+    default Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        return matcher.matchWith(this);
+    }
+
+    /**
+     * Try to bind the given matcher to the members of this reference. If this reference has more than one member,
+     * it should try to match to any of them and produce a stream of bindings covering all possible combinations.
+     * If possible, this should be done in a lazy fashion using the {@link Stream} API, so as to minimize unnecessary
+     * work.
+     * @param matcher an expression matcher to match the member(s) of this reference with
+     * @return a stream of bindings if the match succeeded or an empty stream if it failed
+     */
+    @Nonnull
+    Stream<PlannerBindings> bindWithin(@Nonnull ExpressionMatcher<? extends Bindable> matcher);
 
     /**
      * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.

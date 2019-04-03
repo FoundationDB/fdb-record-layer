@@ -65,6 +65,21 @@ public class RecordTypeBuilder implements RecordTypeOrBuilder {
         this.multiTypeIndexes = new ArrayList<>();
     }
 
+    /**
+     * Copy constructor for {@code RecordTypeBuilder} that copies all fields except the descriptor.
+     * @param descriptor the descriptor of the new record type
+     * @param other the record type builder to copy from
+     */
+    public RecordTypeBuilder(@Nonnull Descriptors.Descriptor descriptor, @Nonnull RecordTypeBuilder other) {
+        this.descriptor = descriptor;
+        this.name = other.name;
+        this.indexes = other.indexes;
+        this.multiTypeIndexes = other.multiTypeIndexes;
+        this.primaryKey = other.primaryKey;
+        this.recordTypeKey = other.recordTypeKey;
+        this.sinceVersion = other.sinceVersion;
+    }
+
     @Override
     @Nonnull
     public String getName() {

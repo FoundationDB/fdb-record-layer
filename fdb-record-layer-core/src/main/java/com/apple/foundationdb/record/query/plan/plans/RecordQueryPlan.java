@@ -23,21 +23,18 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Set;
 
 /**
- * An executable query plan.
+ * An executable query plan for producing records.
  *
  * A query plan is run against a record store to produce a stream of matching records.
  *
@@ -48,7 +45,7 @@ import java.util.Set;
  *
  */
 @API(API.Status.STABLE)
-public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpression  {
+public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>> {
 
     /**
      * Execute this query plan.
@@ -64,6 +61,15 @@ public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpressi
                                                                   @Nonnull EvaluationContext context,
                                                                   @Nullable byte[] continuation,
                                                                   @Nonnull ExecuteProperties executeProperties);
+
+    @Nonnull
+    @Override
+    default RecordCursor<FDBQueriedRecord<Message>> execute(@Nonnull FDBRecordStore store,
+                                                            @Nonnull EvaluationContext context,
+                                                            @Nullable byte[] continuation,
+                                                            @Nonnull ExecuteProperties executeProperties) {
+        return execute((FDBRecordStoreBase<Message>)store, context, continuation, executeProperties);
+    }
 
     /**
      * Execute this query plan.
@@ -89,67 +95,25 @@ public interface RecordQueryPlan extends PlanHashable, RelationalPlannerExpressi
     }
 
     /**
-     * Indicates whether this plan will return values in "reverse" order from the
-     * natural order of results of this plan. The return value is <code>true</code> if the plan
-     * returns elements in descending order and <code>false</code> if the elements are
-     * returned in ascending order.
-     * @return <code>true</code> if this plan returns elements in reverse order.
-     */
-    boolean isReverse();
-
-    /**
-     * Indicates whether this plan (or one of its components) scans at least a subset of the record range directly
-     * rather than going through a secondary index.
-     * A plan may only scan over a subset of all records. Someone might not use any secondary indexes explicitly, but
-     * they might make use of the primary key index. For example, if they had a compound primary key, and they issued
-     * a query for all records that had some value for the first element of their primary key, the planner will produce
-     * a plan which scans over a subset of all records.
-     * @return <code>true</code> if this plan (or one of its components) scans at least a subset of the records directly.
-     */
-    boolean hasRecordScan();
-
-    /**
-     * Indicates whether this plan (or one of its components) must perform a scan over all records in the store directly
-     * rather than going through a secondary index.
-     * See {@link #hasRecordScan hasRecordScan} for the comparison between two methods.
-     * @return <code>true</code> if this plan (or one of its components) must perform a scan over all records in the
-     * store directly.
-     */
-    boolean hasFullRecordScan();
-
-    /**
-     * Indicates whether this plan scans the given index.
-     * @param indexName the name of the index to check for
-     * @return <code>true</code> if this plan (or one of its children) scans the given index.
-     */
-    boolean hasIndexScan(@Nonnull String indexName);
-
-    /**
-     * Returns a set of names of the indexes used by this plan (and its sub-plans).
-     * @return an set of indexes used by this plan.
-     */
-    @Nonnull
-    Set<String> getUsedIndexes();
-
-    /**
-     * Adds one to an appropriate {@link StoreTimer} counter for each plan and subplan of this plan, allowing tracking
-     * of which plans are being chosen (e.g. index scan vs. full scan).
-     * @param timer the counters to increment
-     */
-    void logPlanStructure(StoreTimer timer);
-
-    /**
-     * Returns an integer representing the "complexity" of the generated plan.
-     * Currently, this should simply be the number of plans in the plan tree with this plan as the root (i.e. the
-     * number of descendants of this plan, including itself).
-     * @return the complexity of this plan
-     */
-    int getComplexity();
-
-    /**
-     * Returns the (zero or more) children of this plan.
+     * Returns the (zero or more) {@code RecordQueryPlan} children of this plan.
+     *
+     * <p>
+     * <b>Warning</b>: This part of the API is undergoing active development. At some point in the future,
+     * the return type of this method will change to allow it to return a list of generic {@link QueryPlan}s.
+     * At current, every {@code RecordQueryPlan} can only have other {@code RecordQueryPlan}s as children.
+     * However, this is not guaranteed to be the case in the future. This method has been marked as
+     * {@link API.Status#UNSTABLE} as of version 2.5.
+     * </p>
+     *
      * @return the child plans
      */
+    @API(API.Status.UNSTABLE)
     @Nonnull
     List<RecordQueryPlan> getChildren();
+
+    @Nonnull
+    @Override
+    default List<? extends QueryPlan<?>> getQueryPlanChildren() {
+        return getChildren();
+    }
 }
