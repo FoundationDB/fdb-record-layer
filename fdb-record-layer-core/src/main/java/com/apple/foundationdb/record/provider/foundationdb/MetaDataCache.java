@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 
 import javax.annotation.Nonnull;
@@ -32,8 +32,16 @@ import java.util.concurrent.CompletableFuture;
  * A cache implementation can implement any subset of object, serialized and version cached.
  * The caller is responsible for calling all of the relevant the <code>set</code> methods
  * when something changes.
+ *
+ * <p>
+ * Note that this interface is currently undergoing active development. Work on evolving
+ * this API is currently being tracked as part of
+ * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/280">Issue #280</a>.
+ * Users are advised to avoid implementing or using this interface until work on that issue
+ * has been completed.
+ * </p>
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.EXPERIMENTAL)
 public interface MetaDataCache {
     /**
      * Get a version to use for cache validation of <code>-1</code> to skip validation.

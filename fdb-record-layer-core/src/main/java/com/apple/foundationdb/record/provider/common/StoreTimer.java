@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -420,6 +420,7 @@ public class StoreTimer {
 
             @Override
             @Nonnull
+            @Deprecated
             public CompletableFuture<Boolean> onHasNext() {
                 if (nextFuture == null) {
                     nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -429,6 +430,7 @@ public class StoreTimer {
 
             @Override
             @Nullable
+            @Deprecated
             public T next() {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
@@ -439,11 +441,14 @@ public class StoreTimer {
 
             @Override
             @Nullable
+            @Deprecated
             public byte[] getContinuation() {
                 return nextResult.getContinuation().toBytes();
             }
 
+            @Nonnull
             @Override
+            @Deprecated
             public NoNextReason getNoNextReason() {
                 return nextResult.getNoNextReason();
             }

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

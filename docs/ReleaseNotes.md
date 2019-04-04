@@ -32,20 +32,37 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 // end template
 -->
 
-## 2.5
+## 2.6
 
-### Breaking changes
+### Breaking Changes
 
-In order to simplify typed record stores, the `FDBRecordStoreBase` class was turned into an interface and all I/O was placed in the `FDBRecordStore` class. This makes the `FDBTypedRecordStore` serve as only a type-safe wrapper around the `FDBRecordStore` class. As part of this work, the `IndexMaintainer` interface and its implementations lost their type parameters and now only interact with `Message` types, and the `OnlineIndexerBase` class was removed. Additionally, the `FDBEvaluationContext` class was removed in favor of using `EvaluationContext` (without a type parameter) directly. That class also no longer carries around an `FDBRecordStore` reference, so query plans now require an explicit record store in addition to an evaluation context. Finally, the `evaluate` family of methods on key expressions no longer take evaluation contexts. Users should switch any uses of the `OnlineIndexerBase` to a generic `OnlineIndexer` and will need to update any explicit key expression evluation calls. Users should also switch from calling `RecordQueryPlan::execute` to calling `FDBRecordStore::executeQuery` if possible as that second API is more stable (and was not changed as part of the recent work).
+The formerly experimental API for advancing a `RecordCursor` while ensuring correct continuation handling is now preferred. Specifically, the `RecordCursor.onNext()` method is now stable. Meanwhile, the `AsyncIterator`-style methods (such as `onHasNext()`, `hasNext()`, and `next()`) are deprecated. Clients should transition away from these methods before the 2.7 release.
+
+To ease the transition, a new `AsyncIterator` called `RecordCursorIterator` provides these method and can built form a `RecordCursor` using `RecordCursor.asIterator()`.
+
+The `IndexEntry` class now contains a reference to its source index. This meant breaking the constructor on that class. This class should probably only have been instantiated from within the Record Layer, so its old constructors have been removed, and the new constructors are now marked as [`INTERNAL`](https://javadoc.io/page/org.foundationdb/fdb-extensions/latest/com/apple/foundationdb/annotation/API.Status.html#INTERNAL).
+
+The API stability annotations have been moved to their own package. This allows for references to the stability levels within Javadoc pages to link to the annotation documentation. Any external users who had also used these annotations will be required to modify their imports to match the new package. Because these annotations have `CLASS` retention level, this change also requires that any client who depends on the Record Layer update any transitive dependency on `fdb-extensions` to 2.6 to avoid compile-time warnings about missing annotation classes.
+
+The `IndexMaintainer` class now has a new public method `validateEntries`. Subclasses inheriting it should implement the new method. It does not break classes extending `StandardIndexMaintainer` which has a default implementation that does nothing.
+
+The `SubspaceProvider` interface is changed to no longer require an `FDBRecordContext` at construction. Instead, methods that resolve subspaces are directly provided with an `FDBRecordContext`. This provides implementations with the flexibility to resolve logical subspace representations against different FoundationDB backends.
+
+This version of the Record Layer requires a FoundationDB server version of at least version 6.0. Attempting to connect to older versions may result in the client hanging when attempting to connect to the database.
+
+The `getTimeToLoad` and `getTimeToDeserialize` methods on `FDBStoredRecord` have been removed. These were needed for a short-term experiment but stuck around longer than intended.
 
 ### Newly Deprecated
 
-The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. Users should transition to using one of the `asyncToSync` methods defined on either `FDBDatabase`, `FDBRecordContext`, or `FDBDatabaseRunner`. This method may be removed from our public API in a later release (see [Issue # 473](https://github.com/FoundationDB/fdb-record-layer/issues/473)).
+Methods for retrieving a record from a record store based on an index entry generally took both an index and an index entry. As index entries now store a reference to their associatedindex, these methods have been deprecated in favor of methods that only take an index entry. The earlier methods may be removed in a future release. The same is true for a constructor on `FDBIndexedRecord` which no longer needs to take both an index and an index entry.
+
+While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/MetaDataCache.html) interface's stability has been lessened from [`MAINTAINED`](https://javadoc.io/page/org.foundationdb/fdb-extensions/latest/com/apple/foundationdb/annotation/API.Status.html#MAINTAINED) to [`EXPERIMENTAL`](https://javadoc.io/page/org.foundationdb/fdb-extensions/latest/com/apple/foundationdb/annotation/API.Status.html#EXPERIMENTAL). That interface may undergo further changes as work progresses on [Issue #280](https://github.com/FoundationDB/fdb-record-layer/issues/280). Clients are discouraged from using that interface until work evolving that API has progressed.
 
 <!--
 // begin next release
 ### NEXT_RELEASE
 
+* **Bug fix** getVersionstamp() future can complete a tiny bit after the commit() future [(Issue #476)](https://github.com/FoundationDB/fdb-record-layer/issues/476)
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -56,19 +73,34 @@ The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. U
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** A new cursor type `AutoContinuingCursor` which can iterate over a cursor across transactions [(Issue #397)](https://github.com/FoundationDB/fdb-record-layer/issues/397)
+* **Feature** A new `AsyncIterator` that wraps `RecordCursor` provides an easy migration path away from the old methods on `RecordCursor` [(Issue #368)](https://github.com/FoundationDB/fdb-record-layer/issues/368)
+* **Feature** The `getNext` method on `RecordCusor`s now provides a blocking version of `onNext` [(Issue #408)](https://github.com/FoundationDB/fdb-record-layer/issues/408)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** `IndexEntry` objects now contain a reference to their associated index [(Issue #403)](https://github.com/FoundationDB/fdb-record-layer/issues/403)
+* **Breaking change** Remove deprecated `KeySpacePath` APIs [(Issue #169)](https://github.com/FoundationDB/fdb-record-layer/issues/169)
+* **Breaking change** `IndexMaintainer`s should implement `validateEntries` to validate orphan index entries [(Issue #383)](https://github.com/FoundationDB/fdb-record-layer/issues/383)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The API stability annotations have been moved into `com.apple.foundationdb.annotation` [(Issue #406)](https://github.com/FoundationDB/fdb-record-layer/issues/406)
+* **Breaking change** `SubspaceProvider` receives an `FDBRecordContext` when a subspace is resolved instead of when constructed. [(Issue #338)](https://github.com/FoundationDB/fdb-record-layer/issues/338)
+* **Breaking change** The `MetaDataCache` interface is now `EXPERIMENTAL` [(Issue #447)](https://github.com/FoundationDB/fdb-record-layer/issues/447)
+* **Breaking change** The `AsyncIterator` methods on `RecordCursor` are now deprecated [(Issue #368)](https://github.com/FoundationDB/fdb-record-layer/issues/368)
+* **Breaking change** The Record Layer now requires a minimum FoundationDB version of 6.0 [(Issue #313)](https://github.com/FoundationDB/fdb-record-layer/issues/313)
+* **Breaking change** Remove per-record time-to-load [(Issue #461)](https://github.com/FoundationDB/fdb-record-layer/issues/461)
 
 // end next release
 -->
+
+## 2.5
+
+### Breaking Changes
+
+In order to simplify typed record stores, the `FDBRecordStoreBase` class was turned into an interface and all I/O was placed in the `FDBRecordStore` class. This makes the `FDBTypedRecordStore` serve as only a type-safe wrapper around the `FDBRecordStore` class. As part of this work, the `IndexMaintainer` interface and its implementations lost their type parameters and now only interact with `Message` types, and the `OnlineIndexerBase` class was removed. Additionally, the `FDBEvaluationContext` class was removed in favor of using `EvaluationContext` (without a type parameter) directly. That class also no longer carries around an `FDBRecordStore` reference, so query plans now require an explicit record store in addition to an evaluation context. Finally, the `evaluate` family of methods on key expressions no longer take evaluation contexts. Users should switch any uses of the `OnlineIndexerBase` to a generic `OnlineIndexer` and will need to update any explicit key expression evluation calls. Users should also switch from calling `RecordQueryPlan::execute` to calling `FDBRecordStore::executeQuery` if possible as that second API is more stable (and was not changed as part of the recent work).
+
+### Newly Deprecated
+
+The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. Users should transition to using one of the `asyncToSync` methods defined on either `FDBDatabase`, `FDBRecordContext`, or `FDBDatabaseRunner`. This method may be removed from our public API in a later release (see [Issue # 473](https://github.com/FoundationDB/fdb-record-layer/issues/473)).
 
 ### 2.5.54.0
 
@@ -183,7 +215,7 @@ The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. U
 
 The `RecordCursor` API has been reworked to make using continuations safer and less error prone as well as generally making safer use easier. Previously, a continuation could be retrieved from a `RecordCursor` by calling the `getContinuation` method. However, this method was only legal to call at certain times which made it painful and error-prone to use in asynchronous contexts. (Similar problems existed with the `getNoNextReason` method.) The new API is designed to make correct use more natural. Users are now encouraged to access elements through the new `onNext` method. This method returns the next element of the cursor if one exists or a reason why the cursor cannot return an element if it cannot. It also will always return a valid continuation that can be used to resume the cursor. As the `RecordCursor` interface is fairly fundamental to using the Record Layer, the old API has not yet been deprecated.
 
-### Breaking changes
+### Breaking Changes
 
 The `GlobalDirectoryResolverFactory` class was removed. This is part of a larger effort to migrate away from the `ScopedDirectoryLayer` class in favor of the `ExtendedDirectoryLayer` class when resolving `DirectoryLayerDirectories` as part of a record store's `KeySpacePath`. Users can still access the global directory layer by calling `ExtendedDirectoryLayer.global()`.
 

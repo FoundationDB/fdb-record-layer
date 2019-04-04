@@ -279,7 +279,8 @@ public class LeaderboardIndexTest extends FDBTestBase {
         }
 
         public Collection<Tuple> trim(Collection<Key.Evaluated> untrimmed) {
-            List<IndexEntry> untrimmedEntries = untrimmed.stream().map(IndexEntry::new).collect(Collectors.toList());
+            Index index = metaData.getIndex("LeaderboardIndex");
+            List<IndexEntry> untrimmedEntries = untrimmed.stream().map(key -> new IndexEntry(index, key)).collect(Collectors.toList());
             return ((TimeWindowLeaderboardScoreTrimResult)recordStore.performIndexOperation("LeaderboardIndex",
                     new TimeWindowLeaderboardScoreTrim(untrimmedEntries, true))).getScores().stream()
                     .map(IndexEntry::getKey)

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -84,7 +84,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build())) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -117,7 +117,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build())) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -146,7 +146,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build())) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -175,7 +175,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build())) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     i += 1;
@@ -205,7 +205,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build())) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();

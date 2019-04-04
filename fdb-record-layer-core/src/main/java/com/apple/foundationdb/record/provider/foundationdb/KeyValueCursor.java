@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
@@ -81,7 +81,13 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<KeyValue>> onNext() {
-        if (limitManager.tryRecordScan()) {
+        if (nextResult != null && !nextResult.hasNext()) {
+            // This guard is needed to guarantee that if onNext is called multiple times after the cursor has
+            // returned a result without a value, then the same NoNextReason is returned each time. Without this guard,
+            // one might return SCAN_LIMIT_REACHED (for example) after returning a result with SOURCE_EXHAUSTED because
+            // of the tryRecordScan check.
+            return CompletableFuture.completedFuture(nextResult);
+        } else if (limitManager.tryRecordScan()) {
             return iterator.onHasNext().thenApply(hasNext -> {
                 mayGetContinuation = !hasNext;
                 if (hasNext) {
@@ -113,6 +119,12 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), stoppedReason.get());
             return CompletableFuture.completedFuture(nextResult);
         }
+    }
+
+    @Override
+    @Nonnull
+    public RecordCursorResult<KeyValue> getNext() {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
     }
 
     @Nonnull

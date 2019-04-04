@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.google.common.collect.ImmutableSet;

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.map.BunchedMapMultiIterator;
 import com.apple.foundationdb.map.BunchedMapScanEntry;
 import com.apple.foundationdb.record.ByteArrayContinuation;
@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.Tuple;
@@ -57,8 +58,12 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.EXPERIMENTAL)
 class TextCursor implements BaseCursor<IndexEntry> {
+    @Nonnull
     private final BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying;
+    @Nonnull
     private final Executor executor;
+    @Nonnull
+    private final Index index;
     @Nonnull
     private final CursorLimitManager limitManager;
     @Nullable
@@ -72,10 +77,12 @@ class TextCursor implements BaseCursor<IndexEntry> {
     TextCursor(@Nonnull BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying,
                @Nonnull Executor executor,
                @Nonnull FDBRecordContext context,
-               @Nonnull ScanProperties scanProperties) {
+               @Nonnull ScanProperties scanProperties,
+               @Nonnull Index index) {
         this.underlying = underlying;
         this.executor = executor;
         this.limitManager = new CursorLimitManager(context, scanProperties);
+        this.index = index;
 
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
         this.timer = context.getTimer();
@@ -84,7 +91,11 @@ class TextCursor implements BaseCursor<IndexEntry> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
-        if (limitRemaining > 0 && limitManager.tryRecordScan()) {
+        if (nextResult != null && !nextResult.hasNext()) {
+            // Like the KeyValueCursor, it is necessary to memoize and return the first result where
+            // hasNext is false to avoid the NoNextReason changing.
+            return CompletableFuture.completedFuture(nextResult);
+        } else if (limitRemaining > 0 && limitManager.tryRecordScan()) {
             return underlying.onHasNext().thenApply(hasNext -> {
                 if (hasNext) {
                     BunchedMapScanEntry<Tuple, List<Integer>, Tuple> nextItem = underlying.next();
@@ -101,7 +112,7 @@ class TextCursor implements BaseCursor<IndexEntry> {
                         limitRemaining--;
                     }
                     nextResult = RecordCursorResult.withNextValue(
-                            new IndexEntry(k, Tuple.from(nextItem.getValue())), continuationHelper());
+                            new IndexEntry(index, k, Tuple.from(nextItem.getValue())), continuationHelper());
                 } else {
                     // Source iterator is exhausted
                     nextResult = RecordCursorResult.exhausted();
@@ -130,6 +141,7 @@ class TextCursor implements BaseCursor<IndexEntry> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -139,6 +151,7 @@ class TextCursor implements BaseCursor<IndexEntry> {
 
     @Nullable
     @Override
+    @Deprecated
     public IndexEntry next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -149,12 +162,14 @@ class TextCursor implements BaseCursor<IndexEntry> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         return nextResult.getContinuation().toBytes();
     }
 
     @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -59,8 +59,10 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        }
         if (limitReached()) {
             mayGetContinuation = true;
             NoNextReason reason = (!nextResult.hasNext() && nextResult.getContinuation().isEnd())
@@ -80,6 +82,7 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -89,6 +92,7 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -100,12 +104,15 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

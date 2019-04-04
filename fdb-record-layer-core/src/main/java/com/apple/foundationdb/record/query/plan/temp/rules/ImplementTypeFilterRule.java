@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;

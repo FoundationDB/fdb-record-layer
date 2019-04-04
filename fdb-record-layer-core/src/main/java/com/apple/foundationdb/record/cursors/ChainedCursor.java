@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -51,8 +51,8 @@ import java.util.function.Function;
  *             } else {
  *                 return Optional.empty();
  *             }
- *             return Optional.of(1);
  *         }
+ *         return Optional.of(1);
  *     }
  * </pre>
  * Given this function, the <code>ChainedCursor</code> would iteratively generate the value from 1 to 10.
@@ -70,7 +70,6 @@ import java.util.function.Function;
  *                 } else {
  *                     return Optional.empty();
  *                 }
- *                 return Optional.of(1);
  *             }
  *             return Optional.of(1);
  *         },
@@ -208,8 +207,11 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
+        if (lastResult != null && !lastResult.hasNext()) {
+            return CompletableFuture.completedFuture(lastResult);
+        }
+
         if (returnedRowCount == maxReturnedRows) {
             lastResult = RecordCursorResult.withoutNextValue(
                     new Continuation<>(lastValue, continuationEncoder), NoNextReason.RETURN_LIMIT_REACHED);
@@ -238,6 +240,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             mayGetContinuation = false;
@@ -248,6 +251,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -260,12 +264,15 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return lastResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return lastResult.getNoNextReason();
     }

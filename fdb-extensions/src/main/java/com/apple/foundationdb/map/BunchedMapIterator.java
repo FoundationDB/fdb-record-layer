@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.map;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.async.AsyncPeekIterator;

@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -220,11 +220,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
+            try (RecordCursorIterator<IndexEntry> cursor = recordStore.scanIndex(
                     recordStore.getRecordMetaData().getIndex("multi_index_value"),
                     IndexScanType.BY_VALUE,
                     new TupleRange(Tuple.from(900L), Tuple.from(950L), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE),
-                    null, ScanProperties.FORWARD_SCAN)) {
+                    null, ScanProperties.FORWARD_SCAN).asIterator()) {
                 while (cursor.hasNext()) {
                     IndexEntry tuples = cursor.next();
                     Tuple key = tuples.getKey();

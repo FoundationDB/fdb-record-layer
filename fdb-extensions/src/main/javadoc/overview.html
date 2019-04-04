@@ -33,14 +33,14 @@ useful to users of the FoundationDB Java API.
 <p>
 Many of the functions here are unstable as they serve primarily as utility functions for the Record Layer and
 are subject to change at short notice. To assist users with understanding whether a function is stable or unstable
-(and therefore liable to change with little warning), this package also includes the {@link com.apple.foundationdb.API}
-stability annotations. They are used throughout the Record Layer. Users are encouraged to check the API stability of
-any class or method before using it within their own project.
+(and therefore liable to change with little warning), this project also includes a set of
+{@link com.apple.foundationdb.annotation.API API} stability annotations. They are used throughout the Record Layer.
+Users are encouraged to check the API stability of any class or method before using it within their own project.
 </p>
 
 <p>
 This library and the <a href="https://javadoc.io/doc/org.foundationdb/fdb-record-layer-core/"><code>fdb-record-layer-core</code></a>
-project are versioned together. It is <i>highly</i> recommended that any users of the
+project are versioned together. It is <em>highly</em> recommended that any users of the
 Record Layer use the same version for this library as for the core library as no other configurations are
 tested or supported.
 </p>

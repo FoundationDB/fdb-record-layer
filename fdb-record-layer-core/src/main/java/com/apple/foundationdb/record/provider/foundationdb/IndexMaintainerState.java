@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.subspace.Subspace;

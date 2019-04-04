@@ -20,30 +20,50 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
-
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Subspace provider can provide a subspace (might be blocking) and logging information to the subspace (non-blocking).
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public interface SubspaceProvider {
     /**
      * This might be blocking if the subspace is never fetched before.
+     *
+     * @param context record context used to resolve the subspace
+     *
      * @return Subspace
      */
     @Nonnull
-    Subspace getSubspace();
+    Subspace getSubspace(@Nonnull FDBRecordContext context);
 
+    /**
+     * Asynchronously resolves the subspace against the database associated with {@link FDBRecordContext}.
+     *
+     * @param context record context used to resolve the subspace
+     *
+     * @return CompletableFuture&lt;Subspace&gt;
+     */
     @Nonnull
-    CompletableFuture<Subspace> getSubspaceAsync();
+    CompletableFuture<Subspace> getSubspaceAsync(@Nonnull FDBRecordContext context);
 
     @Nonnull
     LogMessageKeys logKey();
+
+    /**
+     * This method is typically called in support of error logging; hence, implementations should not assume
+     * a working {@link FDBRecordContext} but might, for example, use it to retrieve a subspace previously
+     * resolved against the corresponding database.
+     *
+     * @param context record context used to resolve the subspace
+     *
+     * @return CompletableFuture&lt;Subspace&gt;
+     */
+    String toString(@Nonnull FDBRecordContext context);
 
     @Override
     String toString();

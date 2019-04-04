@@ -23,9 +23,11 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
+import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
@@ -428,16 +430,19 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final Holder<byte[]> continuation = new Holder<>();
         queryRecordsWithHeader(recordMetaDataHook, plan, null, 10,
                 cursor -> {
-                    assertEquals("_1",cursor.next().getStrValue());
-                    continuation.value = cursor.getContinuation();
+                    RecordCursorResult<TestRecordsWithHeaderProto.MyRecord.Builder> result = cursor.getNext();
+                    assertEquals("_1", result.get().getStrValue());
+                    continuation.value = result.getContinuation().toBytes();
                 },
                 TestHelpers::assertDiscardedNone);
         queryRecordsWithHeader(recordMetaDataHook, planner.plan(query),
                 continuation.value, 10,
                 cursor -> {
-                    assertEquals("_51", cursor.next().getStrValue());
-                    assertEquals("_56", cursor.next().getStrValue());
-                    continuation.value = cursor.getContinuation();
+                    RecordCursorResult<TestRecordsWithHeaderProto.MyRecord.Builder> result = cursor.getNext();
+                    assertEquals("_51", result.get().getStrValue());
+                    result = cursor.getNext();
+                    assertEquals("_56", result.get().getStrValue());
+                    continuation.value = result.getContinuation().toBytes();
                 },
                 TestHelpers::assertDiscardedNone);
         RecordQuery query2 = RecordQuery.newBuilder()
@@ -454,9 +459,12 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 planner.plan(query2),
                 continuation.value, 10,
                 cursor -> {
-                    assertEquals("_11", cursor.next().getStrValue());
-                    assertEquals("_61", cursor.next().getStrValue());
-                    assertFalse(cursor.hasNext());
+                    RecordCursorResult<TestRecordsWithHeaderProto.MyRecord.Builder> result = cursor.getNext();
+                    assertEquals("_11", result.get().getStrValue());
+                    result = cursor.getNext();
+                    assertEquals("_61", result.get().getStrValue());
+                    result = cursor.getNext();
+                    assertFalse(result.hasNext());
                 },
                 TestHelpers::assertDiscardedNone);
     }
@@ -737,7 +745,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openEnumRecordStore(context, hook);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecordsEnumProto.MyShapeRecord.Builder shapeRec = TestRecordsEnumProto.MyShapeRecord.newBuilder();

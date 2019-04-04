@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;

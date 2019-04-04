@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -100,6 +101,13 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
     @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         throw new UnsupportedOperationException("Terrible index cannot scan uniqueness violations");
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
+                                                           @Nullable ScanProperties scanProperties) {
+        return RecordCursor.empty();
     }
 
     @Override

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 
 /**
  * Suppress warnings from FindBugs / SpotBugs tools.

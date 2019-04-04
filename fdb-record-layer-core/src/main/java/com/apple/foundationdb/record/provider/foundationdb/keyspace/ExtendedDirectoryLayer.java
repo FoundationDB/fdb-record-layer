@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -36,7 +36,6 @@ import com.google.common.primitives.Bytes;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.charset.Charset;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -67,44 +66,42 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     private final Subspace contentSubspace;
 
     /**
-     * Create an extended directory layer. This constructor utilizes blocking calls and should not
-     * be used in an asynchronous context.
-     *
-     * @param path the path at which the directory layer should store its mappings
-     * @deprecated Use {@link #ExtendedDirectoryLayer(FDBRecordContext, KeySpacePath)} instead
-     */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public ExtendedDirectoryLayer(@Nonnull KeySpacePath path) {
-        this(path.getContext(), path);
-    }
-
-    /**
-     * Create an extended directory layer. This constructor utilizes blocking calls and should not
-     * be used in an asynchronous context.
+     * Create an extended directory layer.
      *
      * @param context the context that will be used to resolve the provided path into the subspace at which
      *   the directory layer will be created. This context is only used during the construction of the
      *   this class is not subsequently used
      * @param path the path at which the directory layer should store its mappings.
+     * @deprecated use {@link #ExtendedDirectoryLayer(FDBDatabase, ResolvedKeySpacePath)} instead
      */
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     public ExtendedDirectoryLayer(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
-        this(context.getDatabase(), context, path);
+        this(context.getDatabase(), path, path.toResolvedPathAsync(context));
+    }
+
+    /**
+     * Create an extended directory layer.
+     *
+     * @param database database that will be used when resolving values
+     * @param path the path at which the directory layer should store its mappings.
+     */
+    public ExtendedDirectoryLayer(@Nonnull FDBDatabase database, @Nonnull ResolvedKeySpacePath path) {
+        this(database, path.toPath(), CompletableFuture.completedFuture(path));
     }
 
     private ExtendedDirectoryLayer(@Nonnull FDBDatabase database,
-                                   @Nullable FDBRecordContext context,
-                                   @Nullable KeySpacePath path) {
-        super(database, path);
-        if (path == null) {
+                                   @Nullable KeySpacePath path,
+                                   @Nullable CompletableFuture<ResolvedKeySpacePath> resolvedPathFuture) {
+        super(database, path, resolvedPathFuture);
+        if (path == null && resolvedPathFuture == null) {
             this.isRootLevel = true;
             this.baseSubspaceFuture = CompletableFuture.completedFuture(DEFAULT_BASE_SUBSPACE);
             this.nodeSubspaceFuture = CompletableFuture.completedFuture(DEFAULT_NODE_SUBSPACE);
             this.contentSubspace = DEFAULT_CONTENT_SUBSPACE;
         } else {
-            Objects.requireNonNull(context, "non null path requires non null context");
             this.isRootLevel = false;
-            this.baseSubspaceFuture = path.toSubspaceAsync(context);
+            this.baseSubspaceFuture = resolvedPathFuture.thenApply(ResolvedKeySpacePath::toSubspace);
             this.nodeSubspaceFuture = baseSubspaceFuture.thenApply(base ->
                     new Subspace(Bytes.concat(base.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())));
             this.contentSubspace = new Subspace(RESERVED_CONTENT_SUBSPACE_PREFIX);

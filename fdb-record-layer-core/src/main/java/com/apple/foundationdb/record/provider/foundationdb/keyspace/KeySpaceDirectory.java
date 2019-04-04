@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
@@ -66,7 +66,7 @@ public class KeySpaceDirectory {
      * Return value from <code>pathFromKey</code> to indicate that a given tuple value is not appropriate
      * for a given directory.
      */
-    protected static final CompletableFuture<Optional<KeySpacePath>> DIRECTORY_NOT_FOR_KEY =
+    protected static final CompletableFuture<Optional<ResolvedKeySpacePath>> DIRECTORY_NOT_FOR_KEY =
             CompletableFuture.completedFuture(Optional.empty());
 
     /**
@@ -193,29 +193,36 @@ public class KeySpaceDirectory {
      * {@code keyIndex} position in the {@code key}
      */
     @Nonnull
-    protected CompletableFuture<Optional<KeySpacePath>> pathFromKey(@Nonnull FDBRecordContext context,
-                                                                    @Nullable KeySpacePath parent,
-                                                                    @Nonnull Tuple key,
-                                                                    final int keySize,
-                                                                    final int keyIndex) {
+    protected CompletableFuture<Optional<ResolvedKeySpacePath>> pathFromKey(@Nonnull FDBRecordContext context,
+                                                                            @Nullable ResolvedKeySpacePath parent,
+                                                                            @Nonnull Tuple key,
+                                                                            final int keySize,
+                                                                            final int keyIndex) {
         final Object tupleValue = key.get(keyIndex);
         if (KeyType.typeOf(tupleValue) != getKeyType()
                 || (this.value != ANY_VALUE && !areEqual(this.value, tupleValue))) {
             return DIRECTORY_NOT_FOR_KEY;
         }
 
+        final KeySpacePath parentPath = parent == null ? null : parent.toPath();
+        final PathValue pathValue = new PathValue(tupleValue);
+
         return toTupleValueAsync(context, tupleValue).thenCompose(resolvedValue -> {
             // Have we hit the leaf of the tree or run out of tuple to process?
             if (subdirs.isEmpty() || keyIndex + 1 == keySize) {
+                final Tuple remainder = (keyIndex + 1 == key.size()) ? null : TupleHelpers.subTuple(key, keyIndex + 1, key.size());
+                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue,
+                        true, resolvedValue, remainder);
+
                 return CompletableFuture.completedFuture(
-                        Optional.of(KeySpacePathImpl.newPath(parent, this, context, tupleValue, true, resolvedValue,
-                                (keyIndex + 1 == key.size()) ? null : TupleHelpers.subTuple(key, keyIndex + 1, key.size()))));
+                        Optional.of(new ResolvedKeySpacePath(parent, path, new PathValue(tupleValue), remainder)));
             } else {
+                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue,
+                        true, resolvedValue, null);
                 return findChildForKey(context,
-                        KeySpacePathImpl.newPath(parent, this, context, tupleValue, true, resolvedValue, null),
+                        new ResolvedKeySpacePath(parent, path, pathValue, null),
                         key, keySize, keyIndex + 1).thenApply(Optional::of);
             }
-
         });
     }
 
@@ -233,20 +240,20 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if no compatible child can be found
      */
     @Nonnull
-    protected CompletableFuture<KeySpacePath> findChildForKey(@Nonnull FDBRecordContext context,
-                                                              @Nullable KeySpacePath parent,
-                                                              @Nonnull Tuple key,
-                                                              final int keySize,
-                                                              final int keyIndex) {
+    protected CompletableFuture<ResolvedKeySpacePath> findChildForKey(@Nonnull FDBRecordContext context,
+                                                                      @Nullable ResolvedKeySpacePath parent,
+                                                                      @Nonnull Tuple key,
+                                                                      final int keySize,
+                                                                      final int keyIndex) {
         return nextChildForKey(0, context, parent, key, keySize, keyIndex);
     }
 
-    protected CompletableFuture<KeySpacePath> nextChildForKey(final int childIndex,
-                                                              @Nonnull FDBRecordContext context,
-                                                              @Nullable KeySpacePath parent,
-                                                              @Nonnull Tuple key,
-                                                              final int keySize,
-                                                              final int keyIndex) {
+    protected CompletableFuture<ResolvedKeySpacePath> nextChildForKey(final int childIndex,
+                                                                      @Nonnull FDBRecordContext context,
+                                                                      @Nullable ResolvedKeySpacePath parent,
+                                                                      @Nonnull Tuple key,
+                                                                      final int keySize,
+                                                                      final int keyIndex) {
         if (childIndex >= subdirs.size()) {
             throw new RecordCoreArgumentException("No subdirectory available to hold provided type",
                     LogMessageKeys.PARENT_DIR, getName(),
@@ -387,31 +394,31 @@ public class KeySpaceDirectory {
     }
 
     @Nonnull
-    protected RecordCursor<KeySpacePath> listAsync(@Nullable KeySpacePath listFrom,
-                                                   @Nonnull FDBRecordContext context,
-                                                   @Nonnull String subdirName,
-                                                   @Nullable byte[] continuation,
-                                                   @Nonnull ScanProperties scanProperties) {
-        return listAsync(listFrom, context, subdirName, null, continuation, scanProperties);
+    protected RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nullable KeySpacePath listFrom,
+                                                                       @Nonnull FDBRecordContext context,
+                                                                       @Nonnull String subdirName,
+                                                                       @Nullable byte[] continuation,
+                                                                       @Nonnull ScanProperties scanProperties) {
+        return listSubdirectoryAsync(listFrom, context, subdirName, null, continuation, scanProperties);
     }
 
     @Nonnull
     @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the cursor is wrapped and returned
-    protected RecordCursor<KeySpacePath> listAsync(@Nullable KeySpacePath listFrom,
-                                                   @Nonnull FDBRecordContext context,
-                                                   @Nonnull String subdirName,
-                                                   @Nullable ValueRange<?> valueRange,
-                                                   @Nullable byte[] continuation,
-                                                   @Nonnull ScanProperties scanProperties) {
+    protected RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nullable KeySpacePath listFrom,
+                                                                       @Nonnull FDBRecordContext context,
+                                                                       @Nonnull String subdirName,
+                                                                       @Nullable ValueRange<?> valueRange,
+                                                                       @Nullable byte[] continuation,
+                                                                       @Nonnull ScanProperties scanProperties) {
         if (listFrom != null && listFrom.getDirectory() != this) {
             throw new RecordCoreException("Provided path does not belong to this directory")
                     .addLogInfo("path", listFrom, "directory", this.getName());
         }
 
         final KeySpaceDirectory subdir = getSubdirectory(subdirName);
-        final CompletableFuture<Subspace> fromSubspaceFuture = listFrom == null
-                ? CompletableFuture.completedFuture(new Subspace())
-                : listFrom.toSubspaceAsync(context);
+        final CompletableFuture<ResolvedKeySpacePath> resolvedFromFuture = listFrom == null
+                ? CompletableFuture.completedFuture(null)
+                : listFrom.toResolvedPathAsync(context);
 
         // The chained cursor cannot implement reverse scan, so we implement it by having the
         // inner key value cursor do the reversing but telling the chained cursor we are moving
@@ -431,21 +438,23 @@ public class KeySpaceDirectory {
                 props -> props.clearState().setReturnedRowLimit(1));
 
         return new LazyCursor<>(
-                fromSubspaceFuture.thenCompose(subspace ->
-                        subdir.getValueRange(context, valueRange, subspace).thenApply(range -> {
-                            final RecordCursor<Tuple> cursor = new ChainedCursor<>(
-                                    context,
-                                    lastKey -> nextTuple(context, subspace, range, lastKey, keyReadScanProperties),
-                                    Tuple::pack,
-                                    Tuple::fromBytes,
-                                    continuation,
-                                    chainedCursorScanProperties);
+                resolvedFromFuture.thenCompose(resolvedFrom -> {
+                    final Subspace subspace = resolvedFrom == null ? new Subspace() : resolvedFrom.toSubspace();
+                    return subdir.getValueRange(context, valueRange, subspace).thenApply(range -> {
+                        final RecordCursor<Tuple> cursor = new ChainedCursor<>(
+                                context,
+                                lastKey -> nextTuple(context, subspace, range, lastKey, keyReadScanProperties),
+                                Tuple::pack,
+                                Tuple::fromBytes,
+                                continuation,
+                                chainedCursorScanProperties);
 
-                            return cursor.mapPipelined(tuple -> {
-                                final Tuple key = Tuple.fromList(tuple.getItems());
-                                return findChildForKey(context, listFrom, key, 1, 0);
-                            }, 1);
-                        })),
+                        return cursor.mapPipelined(tuple -> {
+                            final Tuple key = Tuple.fromList(tuple.getItems());
+                            return findChildForKey(context, resolvedFrom, key, 1, 0);
+                        }, 1);
+                    });
+                }),
                 context.getExecutor()
         );
     }
@@ -551,9 +560,9 @@ public class KeySpaceDirectory {
             }
         }
 
-        return cursor.onHasNext().thenApply( hasNext -> {
-            if (hasNext) {
-                KeyValue kv = cursor.next();
+        return cursor.onNext().thenApply(next -> {
+            if (next.hasNext()) {
+                KeyValue kv = next.get();
                 return Optional.of(subspace.unpack(kv.getKey()));
             }
             return Optional.empty();

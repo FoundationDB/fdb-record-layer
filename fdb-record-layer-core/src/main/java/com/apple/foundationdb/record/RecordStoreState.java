@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.common.collect.ImmutableMap;

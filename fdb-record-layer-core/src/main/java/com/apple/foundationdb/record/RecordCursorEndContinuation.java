@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nullable;
 
@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
  * A concrete continuation representing that a {@link RecordCursor} has returned all of the records that it ever will.
  * This is the structured continuation equivalent of a {@code null} byte array continuation.
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.INTERNAL)
 public class RecordCursorEndContinuation implements RecordCursorContinuation {
     public static final RecordCursorContinuation END = new RecordCursorEndContinuation();
 

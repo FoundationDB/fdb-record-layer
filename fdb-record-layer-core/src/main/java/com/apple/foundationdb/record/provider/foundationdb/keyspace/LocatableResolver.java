@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ResolverStateProto;
@@ -63,14 +63,36 @@ public abstract class LocatableResolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(LocatableResolver.class);
     @Nonnull
     protected final FDBDatabase database;
-    @Nullable
-    protected final KeySpacePath path;
+    // NOTE: Once the deprecated code has been removed this should be switched to a ResolvedKeySpacePath
+    @Nonnull
+    protected final ResolverLocation location;
     protected final int hashCode;
 
+    /**
+     * Created a locatable resolver.
+     *
+     * <p>This constructor may seem a little strange in taking two paths that are, effectively, the same. The
+     * encouraged behavior for your resolvers is to create them from a {@link ResolvedKeySpacePath}, however for
+     * backward compatibility we still allow resolvers to be created from a {@link FDBRecordContext} and a {@link KeySpacePath}.
+     * All of the implementations of <code>LocatableResolver</code> are built such that if they are starting
+     * from a <code>KeySpacePath</code>, they will then turn it into a resolved path, then use that to get the subspace,
+     * but if they are created from a <code>ResolvedKeySpacePath</code>, they will instead directly get the subspace.
+     * This constructor is handed both the path and the potentially completed resolved form of that path, and when
+     * logging the path, if the resolved path is completed, will log that since it provides more detail.
+     *
+     * @param database the database to use for resolution
+     * @param path the path at which the resolver has its data located
+     * @param resolvedPath the resolved form of the path
+     */
     protected LocatableResolver(@Nonnull FDBDatabase database,
-                                @Nullable KeySpacePath path) {
+                                @Nullable KeySpacePath path,
+                                @Nullable CompletableFuture<ResolvedKeySpacePath> resolvedPath) {
+        if ((path == null && resolvedPath != null)
+                || (resolvedPath == null && path != null)) {
+            throw new IllegalArgumentException("Path and resolved path must both be null or neither be null");
+        }
         this.database = database;
-        this.path = path;
+        this.location = new ResolverLocation(path, resolvedPath);
         this.hashCode = Objects.hash(getClass(), path, database);
     }
 
@@ -232,7 +254,7 @@ public abstract class LocatableResolver {
                 .thenCompose(checkValues -> {
                     if (checkValues.contains(false)) {
                         throw new LocatableResolverLockedException("prewrite check failed")
-                                .addLogInfo(LogMessageKeys.RESOLVER_PATH, path)
+                                .addLogInfo(LogMessageKeys.RESOLVER_PATH, location)
                                 .addLogInfo(LogMessageKeys.RESOLVER_KEY, key);
                     }
                     return readResolverStateInTransaction(context);
@@ -241,7 +263,7 @@ public abstract class LocatableResolver {
                     if (!readState.equals(cachedState)) {
                         LOGGER.warn(KeyValueLogMessage.of("cached state and read stated differ",
                                 LogMessageKeys.RESOLVER_KEY, key,
-                                LogMessageKeys.RESOLVER_PATH, path,
+                                LogMessageKeys.RESOLVER_PATH, location,
                                 "cachedState", cachedState,
                                 "readState", readState));
                     }
@@ -251,7 +273,7 @@ public abstract class LocatableResolver {
                     if (state.getLock() != ResolverStateProto.WriteLock.UNLOCKED) {
                         throw new LocatableResolverLockedException("locatable resolver is not writable")
                                 .addLogInfo(LogMessageKeys.RESOLVER_KEY, key)
-                                .addLogInfo(LogMessageKeys.RESOLVER_PATH, path)
+                                .addLogInfo(LogMessageKeys.RESOLVER_PATH, location)
                                 .addLogInfo("lockState", state.getLock());
                     }
                     return create(context, key, metadata);
@@ -506,8 +528,7 @@ public abstract class LocatableResolver {
 
     @Override
     public String toString() {
-        return this.getClass().getName() +
-               (path == null ? "GLOBAL" : path.toString());
+        return this.getClass().getName() + ":" + location.toString();
     }
 
     @Override
@@ -521,7 +542,7 @@ public abstract class LocatableResolver {
         }
         LocatableResolver that = this.getClass().cast(obj);
 
-        return Objects.equals(this.database, that.database) && Objects.equals(this.path, that.path);
+        return Objects.equals(this.database, that.database) && this.location.equals(that.location);
     }
 
     @Override
@@ -566,4 +587,46 @@ public abstract class LocatableResolver {
         }
     }
 
+    /**
+     * Simple class to hide what type of path (if any) the resolver was created with, providing nothing but
+     * the ability to log the value.
+     */
+    private static class ResolverLocation {
+        @Nullable KeySpacePath path;
+        @Nullable ResolvedKeySpacePath resolvedKeySpacePath;
+
+        public ResolverLocation(@Nullable KeySpacePath path, @Nullable CompletableFuture<ResolvedKeySpacePath> resolvedFuture) {
+            if (resolvedFuture != null && resolvedFuture.isDone() && !resolvedFuture.isCompletedExceptionally()) {
+                this.resolvedKeySpacePath = resolvedFuture.join();
+            }
+            this.path = path;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ResolverLocation that = (ResolverLocation)o;
+            return Objects.equals(this.path, that.path);
+        }
+
+        @Override
+        public int hashCode() {
+            return path == null ? 0 : path.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            if (resolvedKeySpacePath != null) {
+                return resolvedKeySpacePath.toString();
+            } else if (path != null) {
+                return path.toString();
+            }
+            return "GLOBAL";
+        }
+    }
 }

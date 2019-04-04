@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;

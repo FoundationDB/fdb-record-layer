@@ -20,7 +20,8 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin;
 import com.apple.foundationdb.tuple.Tuple;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * An <code>IndexEntry</code> carries around the key and value read from an index (as the name would imply).
@@ -39,9 +41,13 @@ public class IndexEntry {
     private static final NullStandin[] NO_NULLS = new NullStandin[0];
 
     @Nonnull
+    private final Index index;
+    @Nonnull
     private final Tuple key;
     @Nonnull
     private final Tuple value;
+    @Nullable
+    private Tuple primaryKey;
 
     // This will be null if created from a tuple, in which case it is not legal to ask the question about
     // the type of null at a given position. If it is zero length, then it came from a Key.Evaluated but
@@ -49,8 +55,9 @@ public class IndexEntry {
     @Nullable
     private NullStandin[] nullStandins;
 
-    public IndexEntry(@Nonnull Key.Evaluated key, @Nonnull Key.Evaluated value) {
-        this(key.toTuple(), value.toTuple());
+    @API(API.Status.INTERNAL)
+    public IndexEntry(@Nonnull Index index, @Nonnull Key.Evaluated key, @Nonnull Key.Evaluated value) {
+        this(index, key.toTuple(), value.toTuple());
         int idx = 0;
         for (Object keyValue : key.values()) {
             if (keyValue instanceof NullStandin) {
@@ -66,27 +73,73 @@ public class IndexEntry {
         }
     }
 
-    public IndexEntry(@Nonnull Key.Evaluated key) {
-        this(key, Key.Evaluated.EMPTY);
+    @API(API.Status.INTERNAL)
+    public IndexEntry(@Nonnull Index index, @Nonnull Key.Evaluated key) {
+        this(index, key, Key.Evaluated.EMPTY);
     }
 
-    public IndexEntry(@Nonnull Tuple key, @Nonnull Tuple value) {
+    @API(API.Status.INTERNAL)
+    public IndexEntry(@Nonnull Index index, @Nonnull Tuple key, @Nonnull Tuple value) {
+        this.index = index;
         this.key = key;
         this.value = value;
     }
 
+    /**
+     * Get the index associated with this entry. This entry was either created in order to
+     * store within this index or it was constructed from reading this index.
+     *
+     * @return the index associated with this entry
+     */
     @Nonnull
-    public Tuple getValue() {
-        return value;
+    public Index getIndex() {
+        return index;
     }
 
+    /**
+     * Get the key portion of the index entry. This is stored in the key portion of the key-value pair
+     * in the database. Index entries are generally sorted by key, and this key must be unique for all entries
+     * in an index. As a result, it generally contains the primary key of its associated record as a sub-component.
+     *
+     * @return the key portion of the index entry
+     * @see #getPrimaryKey()
+     */
     @Nonnull
     public Tuple getKey() {
         return key;
     }
 
+    /**
+     * Get the value portion of the index entry. This is stored in the value portion of the key-value pair
+     * in the database. Index entries are not sorted by value, but the user might configure indexes
+     * to have additional fields in the index value in order to increase the number of queries that can
+     * be satisfied without needing to resolve the underlying record.
+     *
+     * @return the value portion of the index entry
+     */
+    @Nonnull
+    public Tuple getValue() {
+        return value;
+    }
+
     public int getKeySize() {
         return key.size();
+    }
+
+    /**
+     * Get the primary key of the record associated with this entry. Note that some indexes, such as
+     * the {@linkplain com.apple.foundationdb.record.provider.foundationdb.indexes.AtomicMutationIndexMaintainer atomic mutation}
+     * indexes, erase the primary key information from the indexes they store. In that case, this method
+     * might not return a reasonable result.
+     *
+     * @return the primary key of the record that produced this index entry
+     */
+    @Nonnull
+    public Tuple getPrimaryKey() {
+        if (primaryKey == null) {
+            primaryKey = index.getEntryPrimaryKey(key);
+        }
+        return primaryKey;
     }
 
     /**
@@ -97,6 +150,17 @@ public class IndexEntry {
     @Nullable
     public Object getKeyValue(int idx) {
         return key.get(idx);
+    }
+
+    /**
+     * Validate that this entry is associated with the given index.
+     * @param index the index this entry should be a member of
+     */
+    @API(API.Status.INTERNAL)
+    public void validateInIndex(@Nonnull Index index) {
+        if (!index.equals(getIndex())) {
+            throw new RecordCoreArgumentException("index entry's index " + getIndex().getName() + " differs from specified index " + index.getName());
+        }
     }
 
     /**
@@ -143,7 +207,7 @@ public class IndexEntry {
             return this;
         }
 
-        IndexEntry subKey = new IndexEntry(TupleHelpers.subTuple(key, startIdx, endIdx), value);
+        IndexEntry subKey = new IndexEntry(index, TupleHelpers.subTuple(key, startIdx, endIdx), value);
         if (nullStandins == null || nullStandins.length == 0) {
             subKey.nullStandins = nullStandins;
         } else {
@@ -173,21 +237,20 @@ public class IndexEntry {
 
         IndexEntry that = (IndexEntry) o;
 
-        // It is important to use compare() here. Tuple.equals() packs the value which explodes if
-        // the tuple contains an incomplete version stamp.
-        return TupleHelpers.compare(this.key, that.key) == 0
-                && TupleHelpers.compare(this.value, that.value) == 0;
+        // It is important to use TupleHelpers.equals() here. Tuple.equals() packs the value which explodes if
+        // the tuple contains an incomplete version stamp (in addition to being inefficient).
+        return Objects.equals(this.index, that.index)
+               && TupleHelpers.equals(this.key, that.key)
+               && TupleHelpers.equals(this.value, that.value);
     }
 
     @Override
     public int hashCode() {
-        int result = key.hashCode();
-        result = 31 * result + value.hashCode();
-        return result;
+        return Objects.hash(index, key, value);
     }
 
     @Override
     public String toString() {
-        return key + ":" + value;
+        return index.getName() + ":" + key + ":" + value;
     }
 }

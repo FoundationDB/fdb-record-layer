@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -60,7 +60,7 @@ import java.util.function.Function;
  *
  * @param <T> the type of result produced when the result includes a value
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.STABLE)
 public class RecordCursorResult<T> {
 
     @Nonnull
@@ -198,6 +198,14 @@ public class RecordCursorResult<T> {
         } else {
             return CompletableFuture.completedFuture((RecordCursorResult<U>) this);
         }
+    }
+
+    /**
+     * Returns {@code true} if the cursor has reached its end but a continuation is not an end continuation (i.e., the source is not yet exhausted).
+     * @return {@code true} if the cursor has reached its end but a continuation is not an end continuation and {@code false} otherwise
+     */
+    public boolean hasStoppedBeforeEnd() {
+        return !hasNext && !continuation.isEnd();
     }
 
     /**

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -103,8 +104,14 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
             byte[] continuation = null;
             do {
                 try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, justLimit)) {
-                    byCursors.addAll(cursor.map(getRecNo).asList().get());
-                    continuation = cursor.getContinuation();
+                    RecordCursorResult<FDBQueriedRecord<Message>> result = null;
+                    do {
+                        result = cursor.getNext();
+                        if (result.hasNext()) {
+                            byCursors.add(getRecNo.apply(result.get()));
+                        }
+                    } while (result.hasNext());
+                    continuation = result.getContinuation().toBytes();
                 }
             } while (continuation != null);
             assertEquals(whole, byCursors);
@@ -262,7 +269,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
                 int count = cursor.getCount().get();
                 assertThat(count, lessThanOrEqualTo(amount));
                 unfilteredCount += count;
-                continuation = cursor.getContinuation();
+                continuation = cursor.getNext().getContinuation().toBytes();
             } while (continuation != null);
 
             recordStore.getTimer().reset();
@@ -279,7 +286,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
                 int count = cursor.getCount().get();
                 assertThat(count, lessThanOrEqualTo(amount));
                 filteredCount += count;
-                continuation = cursor.getContinuation();
+                continuation = cursor.getNext().getContinuation().toBytes();
             } while (continuation != null);
 
             int filteredGiven = recordStore.getTimer().getCount(FDBStoreTimer.Counts.QUERY_FILTER_PLAN_GIVEN);

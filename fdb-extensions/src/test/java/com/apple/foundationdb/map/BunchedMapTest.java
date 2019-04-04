@@ -94,7 +94,7 @@ public class BunchedMapTest {
 
     @BeforeAll
     public static void setup() throws InterruptedException, ExecutionException {
-        FDB fdb = FDB.selectAPIVersion(520);
+        FDB fdb = FDB.selectAPIVersion(600);
         fdb.setUnclosedWarning(true);
         db = fdb.open();
         bmSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(BunchedMap.class.getSimpleName())).get();

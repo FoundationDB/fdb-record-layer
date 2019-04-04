@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -58,8 +58,10 @@ public class MapCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<V>> onNext() {
+        if (nextResult != null && !nextResult.hasNext()) {
+            return CompletableFuture.completedFuture(nextResult);
+        }
         mayGetContinuation = false;
         return inner.onNext().thenApply(result -> result.map(func))
                 .thenApply(result -> {
@@ -71,6 +73,7 @@ public class MapCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -80,6 +83,7 @@ public class MapCursor<T, V> implements RecordCursor<V> {
 
     @Nullable
     @Override
+    @Deprecated
     public V next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -91,12 +95,15 @@ public class MapCursor<T, V> implements RecordCursor<V> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

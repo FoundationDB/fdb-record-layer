@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -40,23 +40,47 @@ import java.util.Objects;
 @API(API.Status.MAINTAINED)
 public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBStoredSizes {
     @Nonnull
-    private final Index index;
-    @Nonnull
     private final IndexEntry indexEntry;
     // When scanning for orphaned index entries (which can happen when index maintenance is too expensive to perform
     // in-line in a transaction), this will be null to indicate that the entry in the index has no corresponding record.
     @Nullable
     private final FDBStoredRecord<M> storedRecord;
 
+    /**
+     * Wrap a stored record with an index entry that pointed to it.
+     *
+     * @param index the index that this record originated from
+     * @param indexEntry the index entry that produced this record
+     * @param storedRecord the {@link FDBStoredRecord} containing the record's data
+     * @deprecated use {@link FDBIndexedRecord#FDBIndexedRecord(IndexEntry, FDBStoredRecord)} instead
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     public FDBIndexedRecord(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nullable FDBStoredRecord<M> storedRecord) {
-        this.index = index;
+        this(indexEntry, storedRecord);
+        indexEntry.validateInIndex(index);
+    }
+
+    /**
+     * Wrap a stored record with an index entry that pointed to it. This method is internal, and it generally
+     * should not be called be external clients.
+     *
+     * @param indexEntry the index entry that produced this record
+     * @param storedRecord the {@link FDBStoredRecord} containing the record's data
+     */
+    @API(API.Status.INTERNAL)
+    public FDBIndexedRecord(@Nonnull IndexEntry indexEntry, @Nullable FDBStoredRecord<M> storedRecord) {
         this.indexEntry = indexEntry;
         this.storedRecord = storedRecord;
     }
 
+    /**
+     * Get the index for this record.
+     * @return the index that contained the entry pointing to this record
+     */
     @Nonnull
     public Index getIndex() {
-        return index;
+        return indexEntry.getIndex();
     }
 
     /**
@@ -81,7 +105,7 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
     public FDBStoredRecord<M> getStoredRecord() {
         if (storedRecord == null) {
             throw new RecordCoreException("No record associated with index entry").addLogInfo(
-                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    LogMessageKeys.INDEX_NAME, getIndex().getName(),
                     LogMessageKeys.INDEX_KEY, indexEntry.getKey());
         }
         return storedRecord;

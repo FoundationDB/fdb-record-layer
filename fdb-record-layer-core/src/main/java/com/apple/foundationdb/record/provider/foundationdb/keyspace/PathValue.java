@@ -20,16 +20,17 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
 
 /**
  * A class to represent the value stored at a particular element of a {@link KeySpacePath}. The <code>resolvedValue</code>
- * is the object that will appear in the {@link com.apple.foundationdb.tuple.Tuple} when {@link KeySpacePath#toTuple()}
- * is invoked. The <code>metadata</code> is left null by {@link KeySpaceDirectory} but other implementations may make use
- * of it (e.g. {@link DirectoryLayerDirectory}.
+ * is the object that will appear in the {@link com.apple.foundationdb.tuple.Tuple} when
+ * {@link KeySpacePath#toTuple(com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext)} is invoked.
+ * The <code>metadata</code> is left null by {@link KeySpaceDirectory} but other implementations may make use of
+ * it (e.g. {@link DirectoryLayerDirectory}.
  */
 @API(API.Status.MAINTAINED)
 public class PathValue {
@@ -47,11 +48,23 @@ public class PathValue {
         this.metadata = metadata == null ? null : Arrays.copyOf(metadata, metadata.length);
     }
 
+    /**
+     * Returns the value that will be stored in the FDB row key for a path.
+     * @return the value that will be stored in the FDB row key
+     */
     @Nullable
     public Object getResolvedValue() {
         return resolvedValue;
     }
 
+    /**
+     * If the <code>PathValue</code> was returned by the {@link DirectoryLayerDirectory} or some other directory
+     * type that involves a {@link LocatableResolver}, this will return any metadata that is associated with the
+     * key in by <code>LocatableResolver</code>.
+     *
+     * @return metadata associated with the key in the <code>LocatableResolver</code> or <code>null</code> if
+     *   no metadata exists or is applicable for the directory type
+     */
     @Nullable
     public byte[] getMetadata() {
         return metadata == null ? null : Arrays.copyOf(metadata, metadata.length);

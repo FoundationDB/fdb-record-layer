@@ -2,7 +2,7 @@ version: "3"
 
 services:
   common: &common
-    image: fdb-record-layer-build:0.0.1
+    image: fdb-record-layer-build:0.0.10
     build:
       context: .
       dockerfile: Dockerfile.build
@@ -17,7 +17,7 @@ services:
       - FDBHOSTNAME=fdbserver
 
   fdbserver:
-    image: foundationdb-server:5.2.5-2
+    image: foundationdb-server:6.0.15
     environment:
       - FDBSTARTOPT=2
       - HOST_IP=0.0.0.0

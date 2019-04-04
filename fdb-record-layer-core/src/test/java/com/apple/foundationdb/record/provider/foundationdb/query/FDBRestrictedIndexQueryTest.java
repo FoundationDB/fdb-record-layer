@@ -397,12 +397,11 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan1)) {
-                assertTrue(cursor.hasNext());
-                FDBQueriedRecord<Message> rec = cursor.next();
+                FDBQueriedRecord<Message> rec = cursor.getNext().get();
                 TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
                 assertEquals("abc", myrec.getStrValueIndexed());
-                assertFalse(cursor.hasNext());
+                assertFalse(cursor.getNext().hasNext());
             }
             TestHelpers.assertDiscardedExactly(1, context);
             clearStoreCounter(context);
@@ -421,12 +420,11 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan2)) {
-                assertTrue(cursor.hasNext());
-                FDBQueriedRecord<Message> rec = cursor.next();
+                FDBQueriedRecord<Message> rec = cursor.getNext().get();
                 TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
                 assertEquals("abc", myrec.getStrValueIndexed());
-                assertFalse(cursor.hasNext());
+                assertFalse(cursor.getNext().hasNext());
             }
             TestHelpers.assertDiscardedNone(context);
         }

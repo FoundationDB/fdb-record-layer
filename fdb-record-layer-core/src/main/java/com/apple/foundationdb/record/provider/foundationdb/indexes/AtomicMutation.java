@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;

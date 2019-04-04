@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.limits;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -95,7 +96,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
         context.getTimer().reset();
         do {
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.SERIAL_EXECUTE)) {
-                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.onNext().join();
+                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                 if (result.hasNext()) {
                     byteCountsByRecord.add(byteCounter.getBytesScanned(context));
                     context.getTimer().reset();
@@ -168,7 +169,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                     .build();
 
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
-                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.onNext().join();
+                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                 final long bytesScanned = byteCounter.getBytesScanned(context);
                 if (currentIndex == byteCountsByRecord.size() - 1) { // Final record
                     // If this is a final record, then there must be enough room to scan everything until the end,
@@ -199,7 +200,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                     .setScannedBytesLimit(byteCountsByRecord.get(currentIndex))
                     .build();
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
-                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.onNext().join();
+                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                 final long bytesScanned = byteCounter.getBytesScanned(context);
                 // If the execution order is a little bit different this time (especially for union/intersection
                 // cursors) then we might not have a result when we expect to.
@@ -224,10 +225,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                     .setScannedBytesLimit(byteCountsByRecord.get(i) + 1)
                     .build();
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
-                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.onNext().join();
+                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                 assertTrue(result.hasNext());
                 continuation = result.getContinuation().toBytes();
-                result = cursor.onNext().join();
+                result = cursor.getNext();
 
                 long bytesScanned = byteCounter.getBytesScanned(context);
                 // Assertion of claim (c)
@@ -239,7 +240,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
 
                 i++;
                 if (result.hasNext()) {
-                    result = cursor.onNext().join();
+                    result = cursor.getNext();
                     assertFalse(result.hasNext());
                 }
                 context.getTimer().reset();
@@ -320,10 +321,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                     .setScannedBytesLimit(0)
                     .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                     .build());
-            RecordCursor<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null, props.get());
+            RecordCursorIterator<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null, props.get()).asIterator();
             while (messageCursor.hasNext()) {
                 scannedRecords.add(messageCursor.next());
-                messageCursor = recordStore.scanRecords(messageCursor.getContinuation(), props.get());
+                messageCursor = recordStore.scanRecords(messageCursor.getContinuation(), props.get()).asIterator();
             }
             commit(context);
         }

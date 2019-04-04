@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -80,6 +80,12 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
     @Nonnull
     @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        return RecordCursor.empty();
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation, @Nullable ScanProperties scanProperties) {
         return RecordCursor.empty();
     }
 

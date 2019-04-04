@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 
 import java.util.Comparator;

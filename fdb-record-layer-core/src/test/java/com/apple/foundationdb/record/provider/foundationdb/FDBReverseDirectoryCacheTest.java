@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolvedKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedDirectoryLayer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.tuple.Tuple;
@@ -653,8 +653,8 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
         final String name = String.format("name-%d", Math.abs(random.nextLong()));
         KeySpace keySpace = new KeySpace(new KeySpaceDirectory(name, KeySpaceDirectory.KeyType.STRING, name));
         FDBRecordContext context = fdb.openContext();
-        KeySpacePath path = keySpace.pathFromKey(context, Tuple.from(name));
-        return new ScopedDirectoryLayer(context, path);
+        ResolvedKeySpacePath path = keySpace.resolveFromKey(context, Tuple.from(name));
+        return new ScopedDirectoryLayer(fdb, path);
     }
 
 

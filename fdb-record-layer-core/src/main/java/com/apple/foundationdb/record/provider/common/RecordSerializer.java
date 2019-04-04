@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;

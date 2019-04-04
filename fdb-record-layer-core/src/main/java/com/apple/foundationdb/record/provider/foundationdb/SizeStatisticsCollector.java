@@ -20,18 +20,20 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.subspace.Subspace;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
@@ -50,7 +52,7 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.EXPERIMENTAL)
 public class SizeStatisticsCollector {
     @Nonnull
-    private final Subspace subspace;
+    private final SubspaceProvider subspaceProvider;
     private long keyCount;
     private long keySize;
     private long maxKeySize;
@@ -58,20 +60,18 @@ public class SizeStatisticsCollector {
     private long maxValueSize;
     @Nonnull
     private long[] sizeBuckets;
-    @Nullable
-    private byte[] continuation;
-    private boolean done;
+    @Nonnull
+    private RecordCursorContinuation continuation;
 
-    private SizeStatisticsCollector(@Nonnull Subspace subspace) {
-        this.subspace = subspace;
+    private SizeStatisticsCollector(@Nonnull SubspaceProvider subspaceProvider) {
+        this.subspaceProvider = subspaceProvider;
         this.keyCount = 0;
         this.keySize = 0;
         this.maxKeySize = 0;
         this.valueSize = 0;
         this.maxValueSize = 0;
         this.sizeBuckets = new long[Integer.SIZE];
-        this.continuation = null;
-        this.done = false;
+        this.continuation = RecordCursorStartContinuation.START;
     }
 
     /**
@@ -86,48 +86,49 @@ public class SizeStatisticsCollector {
      *
      * @param context the transaction context in which to collect statistics
      * @param executeProperties limits on execution
-     * @return a future that completes to <code>true</code> if this object is done collecting statistics or <code>false</code> otherwise
+     *
+     * @return a future that completes to <code>true</code> if this object is done collecting statistics or
+     * <code>false</code> otherwise
      */
     @Nonnull
     public CompletableFuture<Boolean> collectAsync(@Nonnull FDBRecordContext context, @Nonnull ExecuteProperties executeProperties) {
-        if (done) {
+        if (continuation.isEnd()) {
             return AsyncUtil.READY_TRUE;
         }
-        final ScanProperties scanProperties = new ScanProperties(executeProperties)
-                .setStreamingMode(CursorStreamingMode.WANT_ALL);
-        final KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
-                .setContext(context)
-                .setContinuation(continuation)
-                .setScanProperties(scanProperties)
-                .build();
-        return kvCursor.forEach(kv -> {
-            keyCount += 1;
-            keySize += kv.getKey().length;
-            maxKeySize = Math.max(maxKeySize, kv.getKey().length);
-            valueSize += kv.getValue().length;
-            maxValueSize = Math.max(maxValueSize, kv.getValue().length);
-            int totalSize = kv.getKey().length + kv.getValue().length;
-            if (totalSize > 0) {
-                sizeBuckets[Integer.SIZE - Integer.numberOfLeadingZeros(totalSize) - 1] += 1;
-            }
-            continuation = kvCursor.getContinuation();
-        }).handle((vignore, err) -> {
-            if (err == null) {
-                boolean exhausted = kvCursor.getNoNextReason().isSourceExhausted();
-                if (!exhausted) {
-                    continuation = kvCursor.getContinuation();
-                } else {
-                    done = true;
+        return subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
+            final ScanProperties scanProperties = new ScanProperties(executeProperties)
+                    .setStreamingMode(CursorStreamingMode.WANT_ALL);
+            final KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setContinuation(continuation.toBytes())
+                    .setScanProperties(scanProperties)
+                    .build();
+
+            return kvCursor.forEachResult(nextResult -> {
+                KeyValue kv = nextResult.get();
+                keyCount += 1;
+                keySize += kv.getKey().length;
+                maxKeySize = Math.max(maxKeySize, kv.getKey().length);
+                valueSize += kv.getValue().length;
+                maxValueSize = Math.max(maxValueSize, kv.getValue().length);
+                int totalSize = kv.getKey().length + kv.getValue().length;
+                if (totalSize > 0) {
+                    sizeBuckets[Integer.SIZE - Integer.numberOfLeadingZeros(totalSize) - 1] += 1;
                 }
-                return exhausted;
-            } else {
-                if (FDBExceptions.isRetriable(err)) {
-                    return false;
+                continuation = nextResult.getContinuation();
+            }).handle((result, err) -> {
+                if (err == null) {
+                    continuation = result.getContinuation();
+                    return continuation.isEnd();
                 } else {
-                    throw context.getDatabase().mapAsyncToSyncException(err);
+                    if (FDBExceptions.isRetriable(err)) {
+                        return false;
+                    } else {
+                        throw context.getDatabase().mapAsyncToSyncException(err);
+                    }
                 }
-            }
-        }).whenComplete((vignore, err) -> kvCursor.close());
+            }).whenComplete((ignore, err) -> kvCursor.close());
+        });
     }
 
     /**
@@ -136,6 +137,7 @@ public class SizeStatisticsCollector {
      *
      * @param context the transaction context in which to collect statistics
      * @param executeProperties limits on execution
+     *
      * @return <code>true</code> if this object is done collecting statistics or <code>false</code> otherwise
      */
     public boolean collect(@Nonnull FDBRecordContext context, @Nonnull ExecuteProperties executeProperties) {
@@ -144,6 +146,7 @@ public class SizeStatisticsCollector {
 
     /**
      * Get the number of keys in the requested key range.
+     *
      * @return the number of keys
      */
     public long getKeyCount() {
@@ -152,6 +155,7 @@ public class SizeStatisticsCollector {
 
     /**
      * Get the total size (in bytes) of all keys in the requested key range.
+     *
      * @return the size (in bytes) of the requested keys
      */
     public long getKeySize() {
@@ -160,6 +164,7 @@ public class SizeStatisticsCollector {
 
     /**
      * Get the total size (in bytes) of all values in the requested key range.
+     *
      * @return the size (in bytes) of the requested values
      */
     public long getValueSize() {
@@ -168,6 +173,7 @@ public class SizeStatisticsCollector {
 
     /**
      * Get the total size (in bytes) of all keys and values in the requested key range.
+     *
      * @return the size (in bytes) of the requested keys and values
      */
     public long getTotalSize() {
@@ -176,6 +182,7 @@ public class SizeStatisticsCollector {
 
     /**
      * Get the size (in bytes) of the largest key in the requested key range.
+     *
      * @return the size (in bytes) of the largest key
      */
     public long getMaxKeySize() {
@@ -184,6 +191,7 @@ public class SizeStatisticsCollector {
 
     /**
      * Get the size (in bytes) of the largest value in the requested key range.
+     *
      * @return the size (in bytes) of the largest value
      */
     public long getMaxValueSize() {
@@ -192,6 +200,7 @@ public class SizeStatisticsCollector {
 
     /**
      * Get the mean size (in bytes) of keys in the requested key range.
+     *
      * @return the mean size (in bytes) of all keys
      */
     public double getAverageKeySize() {
@@ -200,6 +209,7 @@ public class SizeStatisticsCollector {
 
     /**
      * Get the mean size (in bytes) of values in the requested key range.
+     *
      * @return the mean size (in bytes) of all values
      */
     public double getAverageValueSize() {
@@ -208,6 +218,7 @@ public class SizeStatisticsCollector {
 
     /**
      * Get the mean size (in bytes) of combined key-value pairs in the requested key range.
+     *
      * @return the mean size (in bytes) of all key-value pairs
      */
     public double getAverage() {
@@ -238,6 +249,7 @@ public class SizeStatisticsCollector {
      * interpolated from the recorded size distribution.
      *
      * @param proportion the proportion of key-value pairs that should have a size less than the returned size
+     *
      * @return an estimate for the size that is consistent with the given proportion
      */
     public double getProportion(double proportion) {
@@ -295,11 +307,12 @@ public class SizeStatisticsCollector {
      * This includes records, indexes, and other meta-data.
      *
      * @param store the store from which to collect statistics on key and value sizes
+     *
      * @return a statistics collector of that store
      */
     @Nonnull
     public static SizeStatisticsCollector ofStore(@Nonnull FDBRecordStore store) {
-        return new SizeStatisticsCollector(store.getSubspace());
+        return new SizeStatisticsCollector(store.getSubspaceProvider());
     }
 
     /**
@@ -307,11 +320,12 @@ public class SizeStatisticsCollector {
      * This only looks at the records stored by that store, not any indexes.
      *
      * @param store the store from which to collect statistics on key and value sizes
+     *
      * @return a statistics collector of the records of that store
      */
     @Nonnull
     public static SizeStatisticsCollector ofRecords(@Nonnull FDBRecordStore store) {
-        return new SizeStatisticsCollector(store.recordsSubspace());
+        return new SizeStatisticsCollector(new SubspaceProviderBySubspace(store.recordsSubspace()));
     }
 
     /**
@@ -320,6 +334,7 @@ public class SizeStatisticsCollector {
      *
      * @param store a store with the given index
      * @param indexName the name of the index to collect statistics on key and value sizes
+     *
      * @return a statistics collector of the given index
      */
     @Nonnull
@@ -334,47 +349,23 @@ public class SizeStatisticsCollector {
      *
      * @param store a store with the given index
      * @param index the index to collect statistics on key and value sizes
+     *
      * @return a statistics collector of the given index
      */
     @Nonnull
     public static SizeStatisticsCollector ofIndex(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        return new SizeStatisticsCollector(store.indexSubspace(index));
+        return new SizeStatisticsCollector(new SubspaceProviderBySubspace(store.indexSubspace(index)));
     }
 
     /**
      * Create a statistics collector of all keys used by index within a given {@link Subspace}.
      *
      * @param subspace the subspace to collect statistics on key and value sizes
+     *
      * @return a statistics collector of the given subspace
      */
     @Nonnull
     public static SizeStatisticsCollector ofSubspace(@Nonnull Subspace subspace) {
-        return new SizeStatisticsCollector(subspace);
-    }
-
-    /**
-     * Create a statistics collector of all keys used by index within a given {@link SubspaceProvider}'s subspace.
-     * If the implementation of {@link SubspaceProvider#getSubspace() getSubspace()} is blocking for the
-     * given <code>SubspaceProvide</code>, then this method will also be blocking.
-     *
-     * @param subspaceProvider the provider of the subspace to collect statistics on key and value sizes
-     * @return a statistics collector of the given subspace
-     */
-    @Nonnull
-    public static SizeStatisticsCollector ofSubspaceProvider(@Nonnull SubspaceProvider subspaceProvider) {
-        return new SizeStatisticsCollector(subspaceProvider.getSubspace());
-    }
-
-    /**
-     * Create a statistics collector of all keys used by index within a given {@link SubspaceProvider}'s subspace.
-     * This method is non-blocking, and it returns a future that will contain the statistics collector when
-     * ready.
-     *
-     * @param subspaceProvider the provider of the subspace to collect statistics on key and value sizes
-     * @return a future containing the statistics collector of the given subspace
-     */
-    @Nonnull
-    public static CompletableFuture<SizeStatisticsCollector> ofSubspaceProviderAsync(@Nonnull SubspaceProvider subspaceProvider) {
-        return subspaceProvider.getSubspaceAsync().thenApply(SizeStatisticsCollector::new);
+        return new SizeStatisticsCollector(new SubspaceProviderBySubspace(subspace));
     }
 }

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -132,6 +133,21 @@ public abstract class IndexMaintainer {
      */
     @Nonnull
     public abstract RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
+
+    /**
+     * Validates the integrity of the index entries. The definition of exactly what validations are performed is up to
+     * the implementation of the index.
+     *
+     * It is not responsible for metadata validation, which is defined in
+     * {@link com.apple.foundationdb.record.metadata.IndexValidator}.
+     *
+     * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @return a cursor over invalid index entries including reasons
+     */
+    @Nonnull
+    public abstract RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
+                                                                    @Nullable ScanProperties scanProperties);
 
     /**
      * Return <code>true</code> if this index be used to evaluate the given record function.

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -64,19 +64,25 @@ public class ListCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
+        return CompletableFuture.completedFuture(getNext());
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursorResult<T> getNext() {
         if (nextPosition < list.size()) {
             nextResult = RecordCursorResult.withNextValue(list.get(nextPosition), new Continuation(nextPosition + 1, list.size()));
             nextPosition++;
         } else {
             nextResult = RecordCursorResult.exhausted();
         }
-        return CompletableFuture.completedFuture(nextResult);
+        return nextResult;
     }
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -86,6 +92,7 @@ public class ListCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -96,11 +103,14 @@ public class ListCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

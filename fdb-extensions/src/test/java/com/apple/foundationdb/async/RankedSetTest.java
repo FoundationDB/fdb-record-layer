@@ -61,7 +61,7 @@ public class RankedSetTest
 
     @BeforeEach
     public void setUp() throws Exception {
-        FDB fdb = FDB.selectAPIVersion(520);
+        FDB fdb = FDB.selectAPIVersion(600);
         if (TRACE) {
             NetworkOptions options = fdb.options();
             options.setTraceEnable("/tmp");

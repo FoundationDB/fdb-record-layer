@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -188,7 +188,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         if (isHighScoreFirst) {
             key = negateScoreForHighScoreFirst(key, groupPrefixSize);
         }
-        return new IndexEntry(key, rawEntry.getValue());
+        return new IndexEntry(rawEntry.getIndex(), key, rawEntry.getValue());
     }
 
     /**
@@ -275,7 +275,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
                             // Update the ordinary B-tree for this leaderboard.
                             final Tuple entryKey = leaderboardGroupKey.addAll(indexKey.scoreKey);
-                            updateOneKey(savedRecord, remove, new IndexEntry(entryKey, entryValue));
+                            updateOneKey(savedRecord, remove, new IndexEntry(state.index, entryKey, entryValue));
 
                             // Update the corresponding rankset for this leaderboard.
                             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);

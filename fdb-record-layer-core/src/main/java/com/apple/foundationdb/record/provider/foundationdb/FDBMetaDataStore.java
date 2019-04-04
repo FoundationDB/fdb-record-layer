@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -248,14 +248,14 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                     addPendingCacheUpdate(recordMetaData);
                     if (LOGGER.isDebugEnabled()) {
                         LOGGER.debug(KeyValueLogMessage.of("Using cached serialized meta-data",
-                                subspaceProvider.logKey(), subspaceProvider,
+                                subspaceProvider.logKey(), subspaceProvider.toString(context),
                                 LogMessageKeys.VERSION, currentVersion));
                     }
                     return CompletableFuture.completedFuture(metaDataProto);
                 }
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(KeyValueLogMessage.of("Cached serialized meta-data is out-of-date",
-                            subspaceProvider.logKey(), subspaceProvider,
+                            subspaceProvider.logKey(), subspaceProvider.toString(context),
                             LogMessageKeys.VERSION, currentVersion,
                             "cachedVersion", cachedSerializedVersion));
                 }
@@ -284,7 +284,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                     }
                     if (LOGGER.isDebugEnabled()) {
                         LOGGER.debug(KeyValueLogMessage.of("Loaded meta-data",
-                                subspaceProvider.logKey(), subspaceProvider,
+                                subspaceProvider.logKey(), subspaceProvider.toString(context),
                                 LogMessageKeys.VERSION, metaDataProto.getVersion()));
                     }
                     return metaDataProto;
@@ -304,7 +304,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                                     if (oldRawRecord != null) {
                                         final byte[] oldBytes = oldRawRecord.getRawRecord();
                                         LOGGER.info(KeyValueLogMessage.of("Upgrading old-format meta-data store",
-                                                subspaceProvider.logKey(), subspaceProvider));
+                                                subspaceProvider.logKey(), subspaceProvider.toString(context)));
                                         ensureContextActive().clear(getSubspace().range(OLD_FORMAT_KEY));
                                         SplitHelper.saveWithSplit(context, getSubspace(), CURRENT_KEY, oldBytes, null);
                                         return oldBytes;
@@ -375,7 +375,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                 int oldVersion = oldProto.getVersion();
                 if (metaDataProto.getVersion() <= oldVersion) {
                     LOGGER.warn(KeyValueLogMessage.of("Meta-data version did not increase",
-                            subspaceProvider.logKey(), subspaceProvider,
+                            subspaceProvider.logKey(), subspaceProvider.toString(context),
                             "old", oldVersion,
                             "new", metaDataProto.getVersion()));
                     throw new MetaDataException("meta-data version must increase");
@@ -427,14 +427,14 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                             if (currentVersion == recordMetaData.getVersion()) {
                                 if (LOGGER.isDebugEnabled()) {
                                     LOGGER.debug(KeyValueLogMessage.of("Using cached meta-data",
-                                                                   subspaceProvider.logKey(), subspaceProvider,
+                                                                   subspaceProvider.logKey(), subspaceProvider.toString(context),
                                                                    LogMessageKeys.VERSION, currentVersion));
                                 }
                                 return CompletableFuture.completedFuture(recordMetaData);
                             }
                             if (LOGGER.isDebugEnabled()) {
                                 LOGGER.debug(KeyValueLogMessage.of("Cached meta-data is out-of-date",
-                                                               subspaceProvider.logKey(), subspaceProvider,
+                                                               subspaceProvider.logKey(), subspaceProvider.toString(context),
                                                                LogMessageKeys.VERSION, currentVersion,
                                                                "cachedVersion", recordMetaData.getVersion()));
                             }

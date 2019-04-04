@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -41,8 +41,17 @@ import java.util.concurrent.Executor;
 public abstract class FDBStoreBase {
     @Nonnull
     protected final FDBRecordContext context;
+
     @Nonnull
     protected final SubspaceProvider subspaceProvider;
+
+    //cache of resolved subspace future used by getSubspaceAsync; do not directly access
+    @Nullable
+    private CompletableFuture<Subspace> subspaceFuture;
+
+    //cache of resolved subspace used by getSubspace; do not directly access
+    @Nullable
+    private Subspace subspace;
 
     // It is recommended to use {@link #FDBStoreBase(FDBRecordContext, SubspaceProvider)} instead.
     @API(API.Status.UNSTABLE)
@@ -81,8 +90,24 @@ public abstract class FDBStoreBase {
     }
 
     @Nonnull
+    public CompletableFuture<Subspace> getSubspaceAsync() {
+        if (subspaceFuture == null) {
+            return subspaceProvider.getSubspaceAsync(context).whenComplete((s, e) -> {
+                if (e == null) { //only cache if no exception
+                    subspace = s;
+                    subspaceFuture = CompletableFuture.completedFuture(subspace);
+                }
+            });
+        }
+        return subspaceFuture;
+    }
+
+    @Nonnull
     public Subspace getSubspace() {
-        return subspaceProvider.getSubspace();
+        if (subspace == null) {
+            subspace = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync());
+        }
+        return subspace;
     }
 
     public void addConflictForSubspace(boolean write) {

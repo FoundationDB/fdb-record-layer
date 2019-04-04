@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.google.auto.service.AutoService;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistryJRE;
 

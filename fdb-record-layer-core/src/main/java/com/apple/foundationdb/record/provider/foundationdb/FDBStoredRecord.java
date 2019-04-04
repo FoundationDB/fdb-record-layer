@@ -20,14 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Optional;
 
 /**
  * A record stored in the database.
@@ -54,25 +53,15 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     private final boolean split;
     private final boolean versionedInline;
 
-    // TODO: Remove these at some point once experiments are complete.
-    private final Optional<Long> timeToLoad;
-    private final Optional<Long> timeToDeserialize;
-
-    @SuppressWarnings("squid:S00107") // Allow this many args since mostly initialized by builder.
-    protected FDBStoredRecord(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M record,
-                              @Nonnull int keyCount, int keySize, int valueSize, boolean split, boolean versionedInline, @Nullable FDBRecordVersion recordVersion) {
-        this(primaryKey, recordType, record, keyCount, keySize, valueSize, split, versionedInline, recordVersion, Optional.empty(), Optional.empty());
-    }
-
     public FDBStoredRecord(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M record,
                            @Nonnull FDBStoredSizes size, @Nullable FDBRecordVersion recordVersion) {
         this(primaryKey, recordType, record, size.getKeyCount(), size.getKeySize(), size.getValueSize(), size.isSplit(), size.isVersionedInline(), recordVersion);
     }
 
+    @API(API.Status.INTERNAL)
     @SuppressWarnings("squid:S00107")
     public FDBStoredRecord(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M record,
-                           @Nonnull int keyCount, int keySize, int valueSize, boolean split, boolean versionedInline, @Nullable FDBRecordVersion recordVersion,
-                           @Nonnull Optional<Long> timeToLoad, @Nonnull Optional<Long> timeToDeserialize) {
+                           int keyCount, int keySize, int valueSize, boolean split, boolean versionedInline, @Nullable FDBRecordVersion recordVersion) {
 
         this.primaryKey = primaryKey;
         this.recordType = recordType;
@@ -84,9 +73,6 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
         this.split = split;
         this.recordVersion = recordVersion;
         this.versionedInline = versionedInline;
-
-        this.timeToLoad = timeToLoad;
-        this.timeToDeserialize = timeToDeserialize;
     }
 
     @Override
@@ -174,13 +160,12 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
         return new FDBStoredRecord<>(primaryKey, recordType, record, this, recordVersion);
     }
 
-
     /**
      * Get this record with an updated version after committing.
      *
      * If this record has an incomplete version, it is completed with the given version stamp.
      * If the version is already complete or this record does not have a version, this record is returned.
-     * @param committedVersion the result of {@link FDBRecordContext#versionStamp}
+     * @param committedVersion the result of {@link FDBRecordContext#getVersionStamp}
      * @return a stored record with the given version
      */
     @Nonnull
@@ -189,16 +174,6 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
             return this;
         }
         return withVersion(recordVersion.withCommittedVersion(committedVersion));
-    }
-
-    @Nonnull
-    public Optional<Long> getTimeToLoad() {
-        return timeToLoad;
-    }
-
-    @Nonnull
-    public Optional<Long> getTimeToDeserialize() {
-        return timeToDeserialize;
     }
 
     @Override

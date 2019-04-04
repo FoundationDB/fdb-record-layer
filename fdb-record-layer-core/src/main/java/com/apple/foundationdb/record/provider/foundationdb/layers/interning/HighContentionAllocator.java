@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.layers.interning;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;

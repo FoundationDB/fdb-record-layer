@@ -112,7 +112,7 @@ public class RangeSetTest {
 
     @BeforeEach
     public void setUp() throws Exception {
-        db = FDB.selectAPIVersion(520).open();
+        db = FDB.selectAPIVersion(600).open();
         rsSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(getClass().getSimpleName())).get();
         rs = new RangeSet(rsSubspace);
         rs.clear(db).join();

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 
 /**
  * A {@link KeyExpression} with no children.

@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
@@ -99,18 +98,13 @@ public class ResolverMappingDigest implements AutoCloseable {
                     .setContinuation(continuation)
                     .build();
 
-            return AsyncUtil.whileTrue(() ->
-                    cursor.onHasNext().thenApply(hasNext -> {
-                        if (hasNext) {
-                            KeyValue kv = cursor.next();
-                            String key = mappingSubspace.unpack(kv.getKey()).getString(0);
-                            ResolverResult value = resolver.deserializeValue(kv.getValue());
+            return cursor.forEachResult(result -> {
+                KeyValue kv = result.get();
+                String key = mappingSubspace.unpack(kv.getKey()).getString(0);
+                ResolverResult value = resolver.deserializeValue(kv.getValue());
 
-                            messageDigest.update(Tuple.from(key, value.getValue(), value.getMetadata()).pack());
-                        }
-                        return hasNext;
-                    }), context.getExecutor()
-            ).thenApply(ignore -> cursor.getContinuation());
+                messageDigest.update(Tuple.from(key, value.getValue(), value.getMetadata()).pack());
+            }).thenApply(result -> result.getContinuation().toBytes());
         });
     }
 }

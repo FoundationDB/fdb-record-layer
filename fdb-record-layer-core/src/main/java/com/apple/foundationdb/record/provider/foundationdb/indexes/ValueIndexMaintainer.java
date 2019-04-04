@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
@@ -63,6 +63,19 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
             throw new RecordCoreException("Can only scan standard index by value.");
         }
         return scan(range, continuation, scanProperties);
+    }
+
+    /**
+     * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
+     * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @return a cursor over index entries that have no associated records
+     */
+    @Nonnull
+    @Override
+    public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
+                                                           @Nullable ScanProperties scanProperties) {
+        return validateOrphanEntries(continuation, scanProperties);
     }
 
     @Override

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordStoreState;
@@ -81,10 +82,14 @@ public class Main {
         RecordQueryPlan plan = store.planQuery(query);
         LOGGER.info("plan: {}", plan);  // The plan string works like a basic "explain" function
         try (RecordCursor<FDBQueriedRecord<Message>> cursor = store.executeQuery(plan)) {
-            while (cursor.hasNext()) {
-                SampleProto.Customer.Builder builder = SampleProto.Customer.newBuilder().mergeFrom(cursor.next().getRecord());
-                names.add(builder.getFirstName() + " " + builder.getLastName());
-            }
+            RecordCursorResult<FDBQueriedRecord<Message>> result;
+            do {
+                result = cursor.getNext();
+                if (result.hasNext()) {
+                    SampleProto.Customer.Builder builder = SampleProto.Customer.newBuilder().mergeFrom(result.get().getRecord());
+                    names.add(builder.getFirstName() + " " + builder.getLastName());
+                }
+            } while (result.hasNext());
         }
         return names;
     }
@@ -181,11 +186,15 @@ public class Main {
                     .setFilter(Query.field("vendor_id").equalsValue(9375L))
                     .build();
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = store.executeQuery(query)) {
-                while (cursor.hasNext()) {
-                    itemIDs.add(SampleProto.Item.newBuilder()
-                            .mergeFrom(cursor.next().getRecord())
-                            .getItemId());
-                }
+                RecordCursorResult<FDBQueriedRecord<Message>> result;
+                do {
+                    result = cursor.getNext();
+                    if (result.hasNext()) {
+                        itemIDs.add(SampleProto.Item.newBuilder()
+                                .mergeFrom(result.get().getRecord())
+                                .getItemId());
+                    }
+                } while (result.hasNext());
             }
 
             return itemIDs;
@@ -278,7 +287,7 @@ public class Main {
         // preference_tag field and keep track of the number of customer
         // records with each value.
         rmdBuilder.addIndex("Customer", new Index("preference_tag_count",
-                field("customer_id").groupBy(field("preference_tag", FanType.FanOut)),
+                new GroupingKeyExpression(field("preference_tag", FanType.FanOut), 0),
                 IndexTypes.COUNT));
 
         // Add a nested secondary index for order such that each value for

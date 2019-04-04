@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -81,6 +81,7 @@ public class FirableCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (onHasNextFuture == null) {
             onHasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -90,6 +91,7 @@ public class FirableCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -101,12 +103,15 @@ public class FirableCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

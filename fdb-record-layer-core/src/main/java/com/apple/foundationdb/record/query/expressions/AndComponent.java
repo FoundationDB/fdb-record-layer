@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;

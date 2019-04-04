@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorTest;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -34,7 +36,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
@@ -102,16 +103,20 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
 
             RecordCursor<FDBStoredRecord<Message>> cursor = UnionCursor.create(recordStore, comparisonKey, false, leftLimited, right, null);
             assertEquals(Arrays.asList(10L, 11L, 12L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = UnionCursor.create(recordStore, comparisonKey, false, left, rightLimited, cursor.getContinuation());
+            RecordCursorResult<FDBStoredRecord<Message>> noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = UnionCursor.create(recordStore, comparisonKey, false, left, rightLimited, noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(13L, 14L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = UnionCursor.create(recordStore, comparisonKey, false, leftLimited, rightLimited, cursor.getContinuation());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = UnionCursor.create(recordStore, comparisonKey, false, leftLimited, rightLimited, noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(15L, 16L, 17L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = UnionCursor.create(recordStore, comparisonKey, false, leftLimited, rightLimited, cursor.getContinuation());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = UnionCursor.create(recordStore, comparisonKey, false, leftLimited, rightLimited, noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(18L, 19L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, noNextResult.getNoNextReason());
         }
     }
 
@@ -128,19 +133,24 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
 
             RecordCursor<FDBStoredRecord<Message>> cursor = UnionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, second, thirdLimited), null);
             assertEquals(Arrays.asList(10L, 11L, 12L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = UnionCursor.create(recordStore, comparisonKey, false, Arrays.asList(first, secondLimited, thirdLimited), cursor.getContinuation());
+            RecordCursorResult<FDBStoredRecord<Message>> noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = UnionCursor.create(recordStore, comparisonKey, false, Arrays.asList(first, secondLimited, thirdLimited), noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(13L, 14L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = UnionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, secondLimited, thirdLimited), cursor.getContinuation());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = UnionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, secondLimited, thirdLimited), noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(15L, 16L, 17L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = UnionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, secondLimited, thirdLimited), cursor.getContinuation());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = UnionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, secondLimited, thirdLimited), noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(18L, 19L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = UnionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, secondLimited, thirdLimited), cursor.getContinuation());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = UnionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, secondLimited, thirdLimited), noNextResult.getContinuation().toBytes());
             assertEquals(Collections.singletonList(20L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, noNextResult.getNoNextReason());
         }
     }
 
@@ -155,16 +165,20 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
 
             RecordCursor<FDBStoredRecord<Message>> cursor = IntersectionCursor.create(recordStore, comparisonKey, false, leftLimited, right, null);
             assertEquals(Collections.emptyList(), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, leftLimited, right, cursor.getContinuation());
+            RecordCursorResult<FDBStoredRecord<Message>> noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, leftLimited, right, noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(12L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, left, rightLimited, cursor.getContinuation());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, left, rightLimited, noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(13L, 14L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, leftLimited, rightLimited, cursor.getContinuation());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, leftLimited, rightLimited, noNextResult.getContinuation().toBytes());
             assertEquals(Collections.emptyList(), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, noNextResult.getNoNextReason());
         }
     }
 
@@ -181,13 +195,12 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
         List<Integer> results = new ArrayList<>();
         while (!done) {
             IntersectionCursor<Integer> intersectionCursor = IntersectionCursor.create(Collections::singletonList, false, left, right, continuation, timer);
-            while (intersectionCursor.hasNext()) {
-                results.add(intersectionCursor.next());
-            }
-            done = intersectionCursor.getNoNextReason().isSourceExhausted();
-            continuation = intersectionCursor.getContinuation();
+            intersectionCursor.forEach(results::add).join();
+            RecordCursorResult<Integer> noNextResult = intersectionCursor.getNext();
+            done = noNextResult.getNoNextReason().isSourceExhausted();
+            continuation = noNextResult.getContinuation().toBytes();
             if (!done) {
-                assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, intersectionCursor.getNoNextReason());
+                assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, noNextResult.getNoNextReason());
             }
         }
         assertEquals(Collections.emptyList(), results);
@@ -207,13 +220,16 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
 
             RecordCursor<FDBStoredRecord<Message>> cursor = IntersectionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, second, third), null);
             assertEquals(Collections.emptyList(), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, secondLimited, thirdLimited), cursor.getContinuation());
+            RecordCursorResult<FDBStoredRecord<Message>> noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, secondLimited, thirdLimited), noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(13L, 14L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
-            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, second, thirdLimited), cursor.getContinuation());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, noNextResult.getNoNextReason());
+            cursor = IntersectionCursor.create(recordStore, comparisonKey, false, Arrays.asList(firstLimited, second, thirdLimited), noNextResult.getContinuation().toBytes());
             assertEquals(Arrays.asList(15L, 16L), cursor.map(this::storedRecordRecNo).asList().get());
-            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
+            noNextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, noNextResult.getNoNextReason());
         }
     }
 
@@ -222,10 +238,10 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
         byte[] continuation = null;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            RecordCursor<? extends FDBRecord<Message>> union;
+            RecordCursorIterator<? extends FDBRecord<Message>> union;
             boolean done = false;
             do {
-                union = UnionCursor.create(recordStore, comparisonKey, false, cursorFunctions, continuation);
+                union = UnionCursor.create(recordStore, comparisonKey, false, cursorFunctions, continuation).asIterator();
                 while (union.hasNext()) {
                     assertFalse(done); // if we think we're done, should not get more records
                     long expected = target.next();
@@ -337,7 +353,7 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
                     (byte[] rightContinuation) -> recordStore.scanIndex(numValue3Index, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(1)), rightContinuation, scanProperties),
                     null,
                     recordStore.getTimer())
-                    .mapPipelined(indexEntry -> recordStore.loadRecordAsync(FDBRecordStoreBase.indexEntryPrimaryKey(strValueIndex, indexEntry.getKey())), recordStore.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
+                    .mapPipelined(indexEntry -> recordStore.loadRecordAsync(strValueIndex.getEntryPrimaryKey(indexEntry.getKey())), recordStore.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
                     .map(this::storedRecordRecNo)
                     .asList()
                     .get();
@@ -351,7 +367,7 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
                     (byte[] rightContinuation) -> recordStore.scanIndex(numValue3Index, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(1)), rightContinuation, scanProperties),
                     null,
                     recordStore.getTimer())
-                .mapPipelined(indexEntry -> recordStore.loadRecordAsync(FDBRecordStoreBase.indexEntryPrimaryKey(strValueIndex, indexEntry.getKey())), recordStore.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
+                .mapPipelined(indexEntry -> recordStore.loadRecordAsync(strValueIndex.getEntryPrimaryKey(indexEntry.getKey())), recordStore.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
                 .map(this::storedRecordRecNo)
                 .asList()
                 .get();

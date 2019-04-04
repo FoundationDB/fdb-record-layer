@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -574,7 +574,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
 
     /**
      * Complete this version with the version from as successful commit.
-     * @param committedVersion the result of {@link FDBRecordContext#versionStamp}
+     * @param committedVersion the result of {@link FDBRecordContext#getVersionStamp}
      * @return a new record version with a complete version
      */
     @Nonnull

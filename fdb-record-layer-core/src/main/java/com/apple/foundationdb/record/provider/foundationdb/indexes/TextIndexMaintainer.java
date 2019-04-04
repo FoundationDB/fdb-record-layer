@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -550,7 +550,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                 callback,
                 scanProperties.isReverse()
         );
-        RecordCursor<IndexEntry> cursor = new TextCursor(iterator, state.store.getExecutor(), state.context, withAdjustedLimit);
+        RecordCursor<IndexEntry> cursor = new TextCursor(iterator, state.store.getExecutor(), state.context, withAdjustedLimit, state.index);
         if (scanProperties.getExecuteProperties().getSkip() != 0) {
             cursor = cursor.skip(scanProperties.getExecuteProperties().getSkip());
         }

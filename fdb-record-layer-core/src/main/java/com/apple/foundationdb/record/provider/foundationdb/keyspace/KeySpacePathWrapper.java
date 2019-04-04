@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.ValueRange;
@@ -94,20 +94,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
         this.inner = inner;
     }
 
-    @Deprecated
-    @Nonnull
-    @Override
-    public KeySpacePath copyWithNewContext(@Nonnull FDBRecordContext newContext) {
-        return inner.copyWithNewContext(newContext);
-    }
-
-    @Deprecated
-    @Override
-    @Nonnull
-    public FDBRecordContext getContext() {
-        return inner.getContext();
-    }
-
     @Override
     @Nonnull
     public KeySpacePath add(@Nonnull String dirName) {
@@ -120,6 +106,7 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.add(dirName, value);
     }
 
+    @Deprecated
     @Override
     @Nullable
     public Tuple getRemainder() {
@@ -149,12 +136,14 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.getValue();
     }
 
+    @Deprecated
     @Override
     @Nonnull
     public PathValue getStoredValue() {
         return inner.getStoredValue();
     }
 
+    @Deprecated
     @Override
     public boolean hasStoredValue() {
         return inner.hasStoredValue();
@@ -190,6 +179,7 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.deleteAllDataAsync(context);
     }
 
+    @Deprecated
     @Override
     @Nonnull
     public RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context,
@@ -199,6 +189,23 @@ public class KeySpacePathWrapper implements KeySpacePath {
                                                 @Nonnull ScanProperties scanProperties) {
         return inner.listAsync(context, subdirName, range, continuation, scanProperties);
     }
+
+    @Nonnull
+    @Override
+    public RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context,
+                                                                    @Nonnull String subdirName,
+                                                                    @Nullable ValueRange<?> range,
+                                                                    @Nullable byte[] continuation,
+                                                                    @Nonnull ScanProperties scanProperties) {
+        return inner.listSubdirectoryAsync(context, subdirName, range, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context) {
+        return inner.toResolvedPathAsync(context);
+    }
+
 
     @Override
     public boolean equals(Object obj) {
@@ -213,5 +220,10 @@ public class KeySpacePathWrapper implements KeySpacePath {
     @Override
     public String toString() {
         return inner.toString();
+    }
+
+    @Override
+    public String toString(@Nonnull Tuple t) {
+        return inner.toString(t);
     }
 }

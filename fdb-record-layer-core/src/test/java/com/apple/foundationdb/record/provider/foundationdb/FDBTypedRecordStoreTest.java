@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TypedRecordSerializer;
@@ -125,7 +125,7 @@ public class FDBTypedRecordStoreTest extends FDBTestBase {
         try (FDBRecordContext context = fdb.openContext()) {
             openTypedRecordStore(context);
             int i = 0;
-            try (RecordCursor<FDBQueriedRecord<TestRecords1Proto.MySimpleRecord>> cursor = recordStore.executeQuery(query)) {
+            try (RecordCursorIterator<FDBQueriedRecord<TestRecords1Proto.MySimpleRecord>> cursor = recordStore.executeQuery(query).asIterator()) {
                 while (cursor.hasNext()) {
                     TestRecords1Proto.MySimpleRecord myrec = cursor.next().getRecord();
                     assertTrue((myrec.getNumValueUnique() % 2) == 0);

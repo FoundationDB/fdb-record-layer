@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -33,7 +33,6 @@ import com.google.common.primitives.Bytes;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -58,41 +57,39 @@ public class ScopedDirectoryLayer extends LocatableResolver {
     private final Subspace contentSubspace;
 
     /**
-     * Creates a scoped directory layer. This constructor invokes blocking calls and must not
-     * not be called in the context of an asynchronous operation.
-     *
-     * @param path the path at which the directory layer should live
-     * @deprecated use {@link #ScopedDirectoryLayer(FDBRecordContext, KeySpacePath)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public ScopedDirectoryLayer(@Nonnull KeySpacePath path) {
-        this(path.getContext(), path);
-    }
-
-    /**
-     * Creates a scoped directory layer. This constructor invokes blocking calls and must not
-     * not be called in the context of an asynchronous operation.
+     * Creates a scoped directory layer.
      *
      * @param context a context that is used only during the construction of this scope in order to
      *   resolve the provided path into a subspace
      * @param path the path at which the directory layer should live
+     * @deprecated use {@link #ScopedDirectoryLayer(FDBDatabase, ResolvedKeySpacePath)} instead
      */
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     public ScopedDirectoryLayer(@Nonnull FDBRecordContext context,
                                 @Nonnull KeySpacePath path) {
-        this(context.getDatabase(), context, path);
+        this(context.getDatabase(), path, path.toResolvedPathAsync(context));
+    }
+
+    /**
+     * Create a scoped directory layer.
+     *
+     * @param database database that will be used when resolving values
+     * @param path the path at which the directory layer should store its mappings.
+     */
+    public ScopedDirectoryLayer(@Nonnull FDBDatabase database, @Nonnull ResolvedKeySpacePath path) {
+        this(database, path.toPath(), CompletableFuture.completedFuture(path));
     }
 
     private ScopedDirectoryLayer(@Nonnull FDBDatabase database,
-                                 @Nullable FDBRecordContext context,
-                                 @Nullable KeySpacePath path) {
-        super(database, path);
-        if (path == null) {
+                                 @Nullable KeySpacePath path,
+                                 @Nullable CompletableFuture<ResolvedKeySpacePath> resolvedPath) {
+        super(database, path, resolvedPath);
+        if (path == null && resolvedPath == null) {
             this.baseSubspaceFuture = CompletableFuture.completedFuture(new Subspace());
             this.contentSubspace = new Subspace();
         } else {
-            Objects.requireNonNull(context, "non null path requires non null context");
-            this.baseSubspaceFuture = path.toSubspaceAsync(context);
+            this.baseSubspaceFuture = resolvedPath.thenApply(ResolvedKeySpacePath::toSubspace);
             this.contentSubspace = new Subspace(RESERVED_CONTENT_SUBSPACE_PREFIX);
         }
         this.nodeSubspaceFuture = baseSubspaceFuture.thenApply(base ->

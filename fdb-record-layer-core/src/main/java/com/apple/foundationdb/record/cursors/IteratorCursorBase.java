@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
@@ -72,6 +73,8 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
 
     @Nonnull
     @Override
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             mayGetContinuation = false;
@@ -82,6 +85,8 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
 
     @Nullable
     @Override
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -93,12 +98,17 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
 
     @Nullable
     @Override
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

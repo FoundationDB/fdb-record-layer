@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;

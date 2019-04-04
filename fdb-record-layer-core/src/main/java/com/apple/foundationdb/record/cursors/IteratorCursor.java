@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursorResult;
 
 import javax.annotation.Nonnull;
@@ -43,7 +43,6 @@ public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return CompletableFuture.completedFuture(computeNextResult(iterator.hasNext()));
     }

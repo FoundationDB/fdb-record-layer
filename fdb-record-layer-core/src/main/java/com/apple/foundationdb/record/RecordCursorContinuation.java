@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nullable;
 
@@ -49,7 +49,7 @@ import javax.annotation.Nullable;
  * {@link com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor}'s continuation.
  * </p>
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.STABLE)
 public interface RecordCursorContinuation {
     /**
      * Serialize this continuation to a byte array. This method must always return the same array contents (but not

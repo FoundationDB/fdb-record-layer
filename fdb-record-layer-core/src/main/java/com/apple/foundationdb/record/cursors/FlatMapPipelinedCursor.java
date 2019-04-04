@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
@@ -109,8 +109,10 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<V>> onNext() {
+        if (lastResult != null && !lastResult.hasNext()) {
+            return CompletableFuture.completedFuture(lastResult);
+        }
         mayGetContinuation = false;
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
             lastResult = pipeline.peek().nextResult();
@@ -121,6 +123,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (nextFuture == null) {
             mayGetContinuation = false;
@@ -131,6 +134,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nullable
     @Override
+    @Deprecated
     public V next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -142,6 +146,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return lastResult.getContinuation().toBytes();
@@ -163,7 +168,9 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         outerCursor.close();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return lastResult.getNoNextReason();
     }

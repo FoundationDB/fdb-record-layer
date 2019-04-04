@@ -20,9 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -151,6 +152,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final Index index;
     @Nonnull private final Collection<RecordType> recordTypes;
     @Nonnull private final TupleRange recordsRange;
+
     private final int maxLimit;
     private final int maxRetries;
     private final int recordsPerSecond;
@@ -316,7 +318,7 @@ public class OnlineIndexer implements AutoCloseable {
                         if (!store.isIndexWriteOnly(index)) {
                             throw new RecordCoreStorageException("Attempted to build readable index",
                                     LogMessageKeys.INDEX_NAME, index.getName(),
-                                    recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider());
+                                    recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
                         }
                         return function.apply(store);
                     });
@@ -442,7 +444,8 @@ public class OnlineIndexer implements AutoCloseable {
         // Note: This runs all of the updates in serial in order to not invoke a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
-        return cursor.forEachAsync(rec -> {
+        return cursor.forEachResultAsync(result -> {
+            final FDBStoredRecord<Message> rec = result.get();
             empty.set(false);
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
@@ -458,8 +461,8 @@ public class OnlineIndexer implements AutoCloseable {
             } else {
                 return AsyncUtil.DONE;
             }
-        }, 1).thenCompose(vignore -> {
-            byte[] nextCont = empty.get() ? null : cursor.getContinuation();
+        }).thenCompose(noNextResult -> {
+            byte[] nextCont = empty.get() ? null : noNextResult.getContinuation().toBytes();
             if (nextCont == null) {
                 return CompletableFuture.completedFuture(null);
             } else {
@@ -467,9 +470,9 @@ public class OnlineIndexer implements AutoCloseable {
                 executeProperties.setReturnedRowLimit(1);
                 final ScanProperties scanProperties1 = new ScanProperties(executeProperties.build());
                 RecordCursor<FDBStoredRecord<Message>> nextCursor = store.scanRecords(range, nextCont, scanProperties1);
-                return nextCursor.onHasNext().thenApply(hasNext -> {
-                    if (hasNext) {
-                        FDBStoredRecord<Message> rec = nextCursor.next();
+                return nextCursor.onNext().thenApply(result -> {
+                    if (result.hasNext()) {
+                        FDBStoredRecord<Message> rec = result.get();
                         return rec.getPrimaryKey();
                     } else {
                         return null;
@@ -569,21 +572,23 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<Void> buildRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        final SubspaceProvider subspaceProvider = recordStoreBuilder.getSubspaceProvider();
-        return subspaceProvider.getSubspaceAsync()
-                .thenCompose(subspace -> buildRange(subspaceProvider, subspace, start, end));
+        return buildRange(recordStoreBuilder.getSubspaceProvider(), start, end);
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildRange(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
-                                               @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
-        byte[] startBytes = packOrNull(convertOrNull(start));
-        byte[] endBytes = packOrNull(convertOrNull(end));
-        Queue<Range> rangeDeque = new ArrayDeque<>();
-        return rangeSet.missingRanges(runner.getDatabase().database(), startBytes, endBytes)
-                .thenAccept(rangeDeque::addAll)
-                .thenCompose(vignore -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
+    private CompletableFuture<Void> buildRange(@Nonnull SubspaceProvider subspaceProvider, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
+        return runner.runAsync(context ->
+                subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
+                    RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
+                    byte[] startBytes = packOrNull(convertOrNull(start));
+                    byte[] endBytes = packOrNull(convertOrNull(end));
+                    Queue<Range> rangeDeque = new ArrayDeque<>();
+                    ReadTransactionContext rtc = context.ensureActive();
+                    return rangeSet.missingRanges(rtc, startBytes, endBytes)
+                            .thenAccept(rangeDeque::addAll)
+                            .thenCompose(vignore -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
+                })
+        );
     }
 
     @Nonnull
@@ -854,9 +859,9 @@ public class OnlineIndexer implements AutoCloseable {
                 .build();
         final ScanProperties forward = new ScanProperties(limit1);
         RecordCursor<FDBStoredRecord<Message>> beginCursor = store.scanRecords(recordsRange, null, forward);
-        CompletableFuture<Tuple> begin = beginCursor.onHasNext().thenCompose(present -> {
-            if (present) {
-                Tuple firstTuple = beginCursor.next().getPrimaryKey();
+        CompletableFuture<Tuple> begin = beginCursor.onNext().thenCompose(result -> {
+            if (result.hasNext()) {
+                Tuple firstTuple = result.get().getPrimaryKey();
                 return buildRange(store, null, firstTuple, recordsScanned).thenApply(vignore -> firstTuple);
             } else {
                 // Empty range -- add the whole thing.
@@ -866,9 +871,9 @@ public class OnlineIndexer implements AutoCloseable {
 
         final ScanProperties backward = new ScanProperties(limit1, true);
         RecordCursor<FDBStoredRecord<Message>> endCursor = store.scanRecords(recordsRange, null, backward);
-        CompletableFuture<Tuple> end = endCursor.onHasNext().thenCompose(present -> {
-            if (present) {
-                Tuple lastTuple = endCursor.next().getPrimaryKey();
+        CompletableFuture<Tuple> end = endCursor.onNext().thenCompose(result -> {
+            if (result.hasNext()) {
+                Tuple lastTuple = result.get().getPrimaryKey();
                 return buildRange(store, lastTuple, null, recordsScanned).thenApply(vignore -> lastTuple);
             } else {
                 // As the range is empty, the whole range needs to be added, but that is accomplished

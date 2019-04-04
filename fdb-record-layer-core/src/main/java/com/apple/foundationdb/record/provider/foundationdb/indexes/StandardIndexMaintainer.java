@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
@@ -28,7 +28,9 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -45,6 +47,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
@@ -138,7 +141,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      */
     @Nonnull
     protected IndexEntry unpackKeyValue(@Nonnull final Subspace subspace, @Nonnull final KeyValue kv) {
-        return new IndexEntry(unpackKey(subspace, kv), decodeValue(kv.getValue()));
+        return new IndexEntry(state.index, unpackKey(subspace, kv), decodeValue(kv.getValue()));
     }
 
     /**
@@ -365,6 +368,48 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return keyValues.map(kv -> unpackKeyValue(uniquenessViolationsSubspace, kv));
     }
 
+    /**
+     * Validate the integrity of the index (such as identifying index entries that do not point to records or
+     * identifying records that do not point to valid index entries). The default implementation provided by the
+     * <code>StandardIndexMaintainer</code> class is a no-op (performs no validation) and should be overridden by
+     * implementing classes.
+     * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @return a cursor over invalid index entries including reasons (the default is an empty cursor)
+     */
+    @Nonnull
+    @Override
+    public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
+                                                           @Nullable ScanProperties scanProperties) {
+        return RecordCursor.empty();
+    }
+
+    /**
+     * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
+     * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @return a cursor over index entries that have no associated records including the reason
+     */
+    @Nonnull
+    protected RecordCursor<InvalidIndexEntry> validateOrphanEntries(@Nullable byte[] continuation,
+                                                          @Nullable ScanProperties scanProperties) {
+        if (scanProperties == null) {
+            scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setReturnedRowLimit(Integer.MAX_VALUE)
+                    // For orphan index entry validation, it does not hurt to have a weaker isolation.
+                    .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                    .build());
+        }
+        return scan(IndexScanType.BY_VALUE, TupleRange.ALL, continuation, scanProperties)
+                .filterAsync(
+                        indexEntry -> state.store
+                                .hasIndexEntryRecord(indexEntry, IsolationLevel.SNAPSHOT)
+                                .thenApply(has -> !has),
+                        FDBRecordStore.DEFAULT_PIPELINE_SIZE)
+                .map(indexEntry ->
+                        new InvalidIndexEntry(indexEntry, InvalidIndexEntry.Reasons.ORPHAN));
+    }
+
     protected <M extends Message> void checkKeyValueSizes(@Nonnull FDBIndexableRecord<M> savedRecord,
                                                           @Nonnull Tuple valueKey, @Nonnull Tuple value,
                                                           @Nonnull byte[] keyBytes, @Nonnull byte[] valueBytes) {
@@ -513,10 +558,10 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         if (rootExpression instanceof KeyWithValueExpression) {
             final KeyWithValueExpression keyWithValueExpression = (KeyWithValueExpression) rootExpression;
             return indexKeys.stream()
-                    .map(key -> new IndexEntry(keyWithValueExpression.getKey(key), keyWithValueExpression.getValue(key)) )
+                    .map(key -> new IndexEntry(state.index, keyWithValueExpression.getKey(key), keyWithValueExpression.getValue(key)) )
                     .collect(Collectors.toList());
         }
 
-        return indexKeys.stream().map(IndexEntry::new).collect(Collectors.toList());
+        return indexKeys.stream().map(key -> new IndexEntry(state.index, key)).collect(Collectors.toList());
     }
 }

@@ -31,8 +31,8 @@ public class InterningLayerToInterningLayerReplicaTest extends ResolverMappingRe
     @BeforeEach
     public void setup() {
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("primary"));
-            replica = new ScopedInterningLayer(context, keySpace.path("test-path").add("to").add("replica"));
+            primary = new ScopedInterningLayer(database, keySpace.path("test-path").add("to").add("primary").toResolvedPath(context));
+            replica = new ScopedInterningLayer(database, keySpace.path("test-path").add("to").add("replica").toResolvedPath(context));
         }
         seedWithMetadata = true;
     }

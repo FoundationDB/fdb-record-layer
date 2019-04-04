@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -46,30 +46,40 @@ public class EmptyCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
     }
 
     @Nonnull
     @Override
+    public RecordCursorResult<T> getNext() {
+        return RecordCursorResult.exhausted();
+    }
+
+    @Nonnull
+    @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         return CompletableFuture.completedFuture(Boolean.FALSE);
     }
 
     @Nullable
     @Override
+    @Deprecated
     public T next() {
         throw new NoSuchElementException();
     }
 
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         return null;
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return NoNextReason.SOURCE_EXHAUSTED;
     }

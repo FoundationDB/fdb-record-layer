@@ -61,6 +61,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -307,19 +308,19 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             assertEquals(path2ExpectedTuple, path2Tuple);
 
             // Now, make sure that we can take a tuple and turn it back into a keyspace path.
-            List<KeySpacePath> revPath1 = root.pathFromKey(context, path1ExpectedTuple).flatten();
+            List<ResolvedKeySpacePath> revPath1 = root.resolveFromKey(context, path1ExpectedTuple).flatten();
             assertEquals("production", revPath1.get(0).getDirectoryName());
-            assertEquals(entries.get(0), revPath1.get(0).resolveAsync(context).get().getResolvedValue());
+            assertEquals(entries.get(0), revPath1.get(0).getResolvedValue());
             assertEquals("userid", revPath1.get(1).getDirectoryName());
-            assertEquals(123456789L, revPath1.get(1).resolveAsync(context).get().getResolvedValue());
+            assertEquals(123456789L, revPath1.get(1).getResolvedValue());
             assertEquals("application", revPath1.get(2).getDirectoryName());
-            assertEquals(entries.get(2), revPath1.get(2).resolveAsync(context).get().getResolvedValue());
+            assertEquals(entries.get(2), revPath1.get(2).getResolvedValue());
             assertEquals("dataStore", revPath1.get(3).getDirectoryName());
-            assertEquals(null, revPath1.get(3).resolveAsync(context).get().getResolvedValue());
+            assertEquals(null, revPath1.get(3).getResolvedValue());
 
             // Tack on extra value to make sure it is in the remainder.
             Tuple extendedPath2 = path2ExpectedTuple.add(10L);
-            List<KeySpacePath> revPath2 = root.pathFromKey(context, extendedPath2).flatten();
+            List<ResolvedKeySpacePath> revPath2 = root.resolveFromKey(context, extendedPath2).flatten();
             assertEquals("test", revPath2.get(0).getDirectoryName());
             assertEquals("userid", revPath2.get(1).getDirectoryName());
             assertEquals("application", revPath2.get(2).getDirectoryName());
@@ -514,7 +515,7 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            DirWithMetadataWrapper fromPath = (DirWithMetadataWrapper) root.pathFromKey(context, tuple);
+            DirWithMetadataWrapper fromPath = (DirWithMetadataWrapper) root.resolveFromKey(context, tuple).toPath();
             assertArrayEquals(fromPath.metadata(context).join(), DirWithMetadataWrapper.metadataHook(dir));
         }
     }
@@ -581,26 +582,31 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
                     .setFailOnScanLimitReached(false)
                     .setTimeLimit(5L)
                     .build());
-            RecordCursor<KeySpacePath> cursor = RecordCursor.flatMapPipelined(
+
+            // The inner and outer iterator are declared here instead of in-line with the call to flatMapPipelined
+            // because IntelliJ was having issues groking the call as a single call.
+            Function<byte[], RecordCursor<ResolvedKeySpacePath>> aIterator =
                     outerContinuation ->
-                            root.path("root").listAsync(context, "a", outerContinuation, props)
+                            root.path("root").listSubdirectoryAsync(context, "a", outerContinuation, props)
                                     .map(value -> {
                                         sleep(1L);
                                         return value;
-                                    }),
+                                    });
+
+            BiFunction<ResolvedKeySpacePath, byte[], RecordCursor<ResolvedKeySpacePath>> bIterator =
                     (aPath, innerContinuation) ->
-                            aPath.add("b", 0).listAsync(context, "c", innerContinuation, props),
+                            aPath.toPath().add("b", 0).listSubdirectoryAsync(context, "c", innerContinuation, props);
+
+            RecordCursor<ResolvedKeySpacePath> cursor = RecordCursor.flatMapPipelined(
+                    aIterator,
+                    bIterator,
                     null,
                     10
             );
 
-            int count = 0;
-            while (cursor.hasNext()) {
-                cursor.next();
-                ++count;
-            }
 
-            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNoNextReason());
+            long count = cursor.getCount().join();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, cursor.getNext().getNoNextReason());
             // With a 1ms delay we should read no more than 5 "a" values (there are a total of 10)
             // and each "c" value has 4 values. so we shouldn't have been able to read more than 40
             // total values.
@@ -641,15 +647,10 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
                     .setReturnedRowLimit(returnedRowLimit)
                     .setScannedRecordsLimit(scannedRecordLimit)
                     .build());
-            RecordCursor<KeySpacePath> cursor = root.path("root").listAsync(context, "a", null, props);
+            RecordCursor<ResolvedKeySpacePath> cursor = root.path("root").listSubdirectoryAsync(context, "a", null, props);
 
-            int count = 0;
-            while (cursor.hasNext()) {
-                cursor.next();
-                ++count;
-            }
-
-            assertEquals(noNextReason, cursor.getNoNextReason());
+            long count = cursor.getCount().join();
+            assertEquals(noNextReason, cursor.getNext().getNoNextReason());
             assertEquals(Math.min(returnedRowLimit, scannedRecordLimit), count, "Wrong number of results");
         }
     }
@@ -687,8 +688,8 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext()) {
             ScanProperties props = new ScanProperties(ExecuteProperties.newBuilder().build(), true);
             results = root.path("root")
-                    .listAsync(context, "a", null, props).asList().join().stream()
-                    .map(path -> path.toTuple(context))
+                    .listSubdirectoryAsync(context, "a", null, props).asList().join().stream()
+                    .map(path -> path.toTuple())
                     .collect(Collectors.toList());
         }
 
@@ -702,7 +703,8 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         String tmpDirLayer = "tmp-dir-layer-" + random.nextLong();
         KeySpace dirLayerKeySpace = new KeySpace(new KeySpaceDirectory(tmpDirLayer, KeyType.STRING, tmpDirLayer));
         return context ->
-                CompletableFuture.completedFuture(new ScopedInterningLayer(context, dirLayerKeySpace.path(tmpDirLayer)));
+                CompletableFuture.completedFuture(new ScopedInterningLayer(context.getDatabase(),
+                        dirLayerKeySpace.path(tmpDirLayer).toResolvedPath(context)));
     }
 
     private KeySpace rootForMetadataTests(String name,
@@ -766,11 +768,11 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
         try (FDBRecordContext context = database.openContext()) {
             Tuple tuple = Tuple.from(1L, "a");
-            assertEquals(tuple, root.pathFromKey(context, tuple).toTuple(context));
+            assertEquals(tuple, root.resolveFromKey(context, tuple).toTuple());
             tuple = Tuple.from(1L, "b");
-            assertEquals(tuple, root.pathFromKey(context, tuple).toTuple(context));
+            assertEquals(tuple, root.resolveFromKey(context, tuple).toTuple());
             final Tuple badTuple1 = Tuple.from(1L, "c", "d");
-            assertThrows(RecordCoreArgumentException.class, () -> root.pathFromKey(context, badTuple1).toTuple(context),
+            assertThrows(RecordCoreArgumentException.class, () -> root.resolveFromKey(context, badTuple1).toTuple(),
                     "key_tuple", badTuple1,
                     "key_tuple_pos", 1);
         }
@@ -796,10 +798,10 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            assertEquals("/root:4/dir1:hi/dir2:0x4142+(\"blah\")",
-                    root.pathFromKey(context, Tuple.from(4L, "hi", new byte[] { 0x41, 0x42 }, "blah")).toString());
-            assertEquals("/root:11", root.pathFromKey(context, Tuple.from(11L)).toString());
-            assertEquals("/root:14/dir3:4/dir4:" + barValue + "->_bar", root.pathFromKey(context, Tuple.from(14L, 4L, barValue)).toString());
+            assertEquals("/root:4/dir1:\"hi\"/dir2:0x4142+(\"blah\")",
+                    root.resolveFromKey(context, Tuple.from(4L, "hi", new byte[] { 0x41, 0x42 }, "blah")).toString());
+            assertEquals("/root:11", root.resolveFromKey(context, Tuple.from(11L)).toString());
+            assertEquals("/root:14/dir3:4/dir4:\"_bar\"[" + barValue + "]", root.resolveFromKey(context, Tuple.from(14L, 4L, barValue)).toString());
 
             assertEquals("/root:11/dir3:17/dir4:" + fooValue,
                     root.path("root", 11L)
@@ -833,18 +835,18 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         // list all "b" directories you only get a path leading up to the "b"'s, wth the "c" values as a
         // remainder on the "b" path entry.
         try (FDBRecordContext context = database.openContext()) {
-            List<KeySpacePath> paths;
+            List<ResolvedKeySpacePath> paths;
 
             // Check listing from the root
-            paths = root.list(context, "a");
+            paths = root.listDirectory(context, "a");
             assertThat("Number of paths in 'a'", paths.size(), is(1));
-            assertThat("Value of subdirectory 'a'", paths.get(0).getValue(), is(root.getDirectory("a").getValue()));
+            assertThat("Value of subdirectory 'a'", paths.get(0).getLogicalValue(), is(root.getDirectory("a").getValue()));
             assertThat("Remainder size of 'a'", paths.get(0).getRemainder().size(), is(3));
 
             // List from "b"
-            paths = root.path("a").list(context, "b");
+            paths = root.path("a").listSubdirectory(context, "b");
             assertThat("Number of paths in 'b'", paths.size(), is(5));
-            for (KeySpacePath path : paths) {
+            for (ResolvedKeySpacePath path : paths) {
                 assertThat("Listing of 'b' directory", path.getDirectoryName(), is("b"));
                 Tuple remainder = path.getRemainder();
                 assertThat("Remainder of 'b'", remainder.size(), is(2));
@@ -853,9 +855,9 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             }
 
             // List from "c"
-            paths = root.path("a").add("b", "foo_0").list(context, "c");
+            paths = root.path("a").add("b", "foo_0").listSubdirectory(context, "c");
             assertThat("Number of paths in 'c'", paths.size(), is(1));
-            for (KeySpacePath path  : paths) {
+            for (ResolvedKeySpacePath path  : paths) {
                 assertThat("Listing of 'c' directory", path.getDirectoryName(), is("c"));
                 final Tuple remainder = path.getRemainder();
                 assertThat("Remainder of 'c'", remainder.size(), is(1));
@@ -863,13 +865,13 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             }
 
             // List from "d"
-            paths = root.path("a").add("b", "foo_0").add("c", "hi_0").list(context, "d");
+            paths = root.path("a").add("b", "foo_0").add("c", "hi_0").listSubdirectory(context, "d");
             assertThat("Number of paths in 'd'", paths.size(), is(1));
-            KeySpacePath path = paths.get(0);
+            ResolvedKeySpacePath path = paths.get(0);
             assertThat("Remainder of 'd'", path.getRemainder(), is((Tuple) null));
 
             // List from "e" (which has no data)
-            paths = root.path("a").add("b", "foo_0").add("c", "hi_0").add("d", new byte[] { 0x00 }).list(context, "e");
+            paths = root.path("a").add("b", "foo_0").add("c", "hi_0").add("d", new byte[] { 0x00 }).listSubdirectory(context, "e");
             assertThat("Number of paths in 'e'", paths.size(), is(0));
         }
     }
@@ -1056,14 +1058,14 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
                 "expectedValues", expectedValues,
                 "keyType", keyType).toString();
 
-        List<KeySpacePath> paths = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
+        List<ResolvedKeySpacePath> paths = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
                 root.path("a")
-                        .listAsync(context, keyType.toString(), range, null, ScanProperties.FORWARD_SCAN).asList());
+                        .listSubdirectoryAsync(context, keyType.toString(), range, null, ScanProperties.FORWARD_SCAN).asList());
 
         assertEquals(expectedValues.size(), paths.size(), "The result size does not match" + testCaseInfo);
 
-        for (KeySpacePath path : paths) {
-            Tuple tuple = path.toTuple(context);
+        for (ResolvedKeySpacePath path : paths) {
+            Tuple tuple = path.toTuple();
             assertTrue(expectedValues.remove(Tuple.from(tuple.get(1))), "missing: " + tuple.get(1) + testCaseInfo);
         }
 
@@ -1085,14 +1087,14 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext()) {
             // Positive example.
             root.path(rootDir)
-                    .list(context, stringDir,
+                    .listSubdirectory(context, stringDir,
                             new ValueRange<>("A", "B", EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
                             null,
                             ScanProperties.FORWARD_SCAN);
 
             // The range value should be in the same type.
             assertThrows(RecordCoreArgumentException.class, () ->
-                    root.path(rootDir).list(
+                    root.path(rootDir).listSubdirectory(
                             context,
                             stringDir,
                             new ValueRange<>(100, 200, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
@@ -1102,7 +1104,7 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
 
             // PREFIX_STRING should not be used as a endpoint type.
             assertThrows(RecordCoreArgumentException.class, () ->
-                    root.path(rootDir).list(
+                    root.path(rootDir).listSubdirectory(
                             context,
                             stringDir,
                             new ValueRange<>("A", "B", EndpointType.PREFIX_STRING, EndpointType.RANGE_EXCLUSIVE),
@@ -1112,7 +1114,7 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
 
             // Range should be null when the subdirectory has a value.
             assertThrows(RecordCoreArgumentException.class, () ->
-                    root.path(rootDir).list(
+                    root.path(rootDir).listSubdirectory(
                             context,
                             longConstDir,
                             new ValueRange<>(100, 200, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
@@ -1142,19 +1144,19 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         int idx = 0;
         do {
             try (final FDBRecordContext context = database.openContext()) {
-                final RecordCursor<KeySpacePath>  cursor = rootPath.listAsync(context, "b", continuation,
+                final RecordCursor<ResolvedKeySpacePath>  cursor = rootPath.listSubdirectoryAsync(context, "b", continuation,
                         new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(2).build()));
-                List<KeySpacePath> subdirs = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST, cursor.asList());
+                List<ResolvedKeySpacePath> subdirs = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST, cursor.asList());
                 if (!subdirs.isEmpty()) {
                     assertEquals(2, subdirs.size(), "Wrong number of path entries returned");
-                    assertEquals("val_" + idx, subdirs.get(0).resolveAsync(context).get().getResolvedValue());
-                    assertEquals("val_" + (idx + 1), subdirs.get(1).resolveAsync(context).get().getResolvedValue());
+                    assertEquals("val_" + idx, subdirs.get(0).getResolvedValue());
+                    assertEquals("val_" + (idx + 1), subdirs.get(1).getResolvedValue());
                     idx += 2;
-                    continuation = cursor.getContinuation();
+                    continuation = cursor.getNext().getContinuation().toBytes();
                     System.out.println(continuation == null ? "null" : Tuple.fromBytes(continuation));
                 } else {
-                    continuation = cursor.getContinuation();
-                    assertNull(cursor.getContinuation());
+                    continuation = cursor.getNext().getContinuation().toBytes();
+                    assertNull(continuation);
                 }
             }
         } while (continuation != null);
@@ -1200,12 +1202,12 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             for (KeyTypeValue kv : valueOfEveryType) {
                 KeySpaceDirectory dir = root.getDirectory("a").getSubdirectory(kv.keyType.name());
 
-                List<KeySpacePath> paths = root.path("a").list(context, kv.keyType.toString());
+                List<ResolvedKeySpacePath> paths = root.path("a").listSubdirectory(context, kv.keyType.toString());
                 assertEquals(1, paths.size());
                 if (dir.getKeyType() == KeyType.BYTES) {
-                    assertTrue(Arrays.equals((byte[]) dir.getValue(), paths.get(0).toTuple(context).getBytes(1)));
+                    assertTrue(Arrays.equals((byte[]) dir.getValue(), paths.get(0).toTuple().getBytes(1)));
                 } else {
-                    assertEquals(dir.getValue(), paths.get(0).toTuple(context).get(1));
+                    assertEquals(dir.getValue(), paths.get(0).toTuple().get(1));
                 }
             }
         }
@@ -1242,23 +1244,23 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            List<KeySpacePath> paths = root.path("a").list(context, "b");
+            List<ResolvedKeySpacePath> paths = root.path("a").listSubdirectory(context, "b");
             assertEquals(10, paths.size());
 
-            for (KeySpacePath path : paths) {
+            for (ResolvedKeySpacePath path : paths) {
                 final long index = path.getRemainder().getLong(0); // The first part of the remainder was the index
                 // We should always get the "first" key for the value in the directory
                 assertEquals(0, path.getRemainder().getLong(1));
                 assertTrue(index >= 0 && index < 10);
                 assertEquals("a", path.getParent().getDirectoryName());
-                assertEquals(root.getDirectory("a").getValue(), path.getParent().getValue());
-                assertEquals("value_" + index, path.getValue());
+                assertEquals(root.getDirectory("a").getValue(), path.getParent().getLogicalValue());
+                assertEquals("value_" + index, path.getLogicalValue());
             }
 
             for (String subdir : ImmutableList.of("d", "e", "f")) {
-                paths = root.path("a").add("c").list(context, subdir);
+                paths = root.path("a").add("c").listSubdirectory(context, subdir);
                 assertEquals(1, paths.size());
-                assertEquals(subdir, paths.get(0).getValue());
+                assertEquals(subdir, paths.get(0).getLogicalValue());
                 assertEquals(0L, paths.get(0).getRemainder().getLong(0));
                 assertEquals("c", paths.get(0).getParent().getDirectoryName());
                 assertEquals("a", paths.get(0).getParent().getParent().getDirectoryName());
@@ -1293,10 +1295,10 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             assertEquals(Tuple.from(entries.get(0), 123L, entries.get(1), EnvironmentKeySpace.DATA_VALUE), dataStoreTuple);
             assertEquals(Tuple.from(entries.get(0), 123L, entries.get(1), EnvironmentKeySpace.METADATA_VALUE), metadataStoreTuple);
 
-            KeySpacePath path =  keySpace.fromKey(context, dataStoreTuple);
-            assertThat(path, instanceOf(DataPath.class));
+            ResolvedKeySpacePath path =  keySpace.fromKey(context, dataStoreTuple);
+            assertThat(path.toPath(), instanceOf(DataPath.class));
 
-            DataPath mainStorePath = (DataPath) path;
+            DataPath mainStorePath = (DataPath) path.toPath();
             assertEquals(EnvironmentKeySpace.DATA_VALUE, mainStorePath.getValue());
             assertEquals(EnvironmentKeySpace.DATA_VALUE, mainStorePath.resolveAsync(context).get().getResolvedValue());
             assertEquals(entries.get(1), mainStorePath.parent().resolveAsync(context).get().getResolvedValue());
@@ -1306,14 +1308,14 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             assertEquals("production", mainStorePath.parent().parent().parent().getValue());
             assertEquals(null, mainStorePath.parent().parent().parent().parent());
 
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 1)), instanceOf(EnvironmentRoot.class));
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 2)), instanceOf(UserPath.class));
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 3)), instanceOf(ApplicationPath.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 1)).toPath(), instanceOf(EnvironmentRoot.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 2)).toPath(), instanceOf(UserPath.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 3)).toPath(), instanceOf(ApplicationPath.class));
 
             path = keySpace.fromKey(context, metadataStoreTuple);
-            assertThat(path, instanceOf(MetadataPath.class));
+            assertThat(path.toPath(), instanceOf(MetadataPath.class));
 
-            MetadataPath metadataPath = (MetadataPath) path;
+            MetadataPath metadataPath = (MetadataPath) path.toPath();
             assertEquals(EnvironmentKeySpace.METADATA_VALUE, metadataPath.getValue());
             assertEquals(EnvironmentKeySpace.METADATA_VALUE, metadataPath.resolveAsync(context).get().getResolvedValue());
             assertEquals(entries.get(1), metadataPath.parent().resolveAsync(context).get().getResolvedValue());
@@ -1323,16 +1325,16 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             assertEquals("production", metadataPath.parent().parent().parent().getValue());
             assertEquals(null, metadataPath.parent().parent().parent().parent());
 
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 1)), instanceOf(EnvironmentRoot.class));
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 2)), instanceOf(UserPath.class));
-            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 3)), instanceOf(ApplicationPath.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 1)).toPath(), instanceOf(EnvironmentRoot.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 2)).toPath(), instanceOf(UserPath.class));
+            assertThat(keySpace.fromKey(context, TupleHelpers.subTuple(dataStoreTuple, 0, 3)).toPath(), instanceOf(ApplicationPath.class));
 
             // Create a fake main store "record" key to demonstrate that we can get the key as the remainder
             Tuple recordTuple = dataStoreTuple.add(1L).add("someStr").add(0L); // 1=record space, record id, 0=unsplit record
             path =  keySpace.fromKey(context, recordTuple);
-            assertThat(path, instanceOf(DataPath.class));
+            assertThat(path.toPath(), instanceOf(DataPath.class));
             assertEquals(Tuple.from(1L, "someStr", 0L), path.getRemainder());
-            assertEquals(dataStoreTuple, path.toTuple(context));
+            assertEquals(dataStoreTuple, path.toTuple());
         }
     }
 
@@ -1384,8 +1386,8 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            List<KeySpacePath> paths = keySpace.path("a", "foo").list(context, "b");
-            for (KeySpacePath path : paths) {
+            List<ResolvedKeySpacePath> paths = keySpace.path("a", "foo").listSubdirectory(context, "b");
+            for (ResolvedKeySpacePath path : paths) {
                 assertThat("Path should be PathB", path, instanceOf(PathB.class));
                 assertThat("parent should be PathA", path.getParent(), instanceOf(PathA.class));
             }
@@ -1401,51 +1403,6 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
         List<KeySpacePath> path = keySpace.path("a", "foo").add("b", "bar").flatten();
         assertThat("a should be pathA", path.get(0), instanceOf(PathA.class));
         assertThat("b should be pathB", path.get(1), instanceOf(PathB.class));
-    }
-
-    @SuppressWarnings("deprecation")
-    @Test
-    public void deprecatedtestCopyPreservesWrapper() {
-        KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("a", KeyType.STRING, PathA::new)
-                        .addSubdirectory(new KeySpaceDirectory("b", KeyType.STRING, PathB::new))
-                        .addSubdirectory(new DirectoryLayerDirectory("c", PathC::new)));
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        try (FDBRecordContext context = database.openContext()) {
-            final PathA a = (PathA) keySpace.path(context, "a", "foo");
-            final PathB b = (PathB) a.add("b", "bar");
-            final PathC c = (PathC) a.add("c", "bax");
-
-            KeySpacePath copy = a.copyWithNewContext(context);
-            assertThat("copy of 'a' is not instanceof PathA", copy, instanceOf(PathA.class));
-            copy = b.copyWithNewContext(context);
-            assertThat("copy of 'b' is not instanceof PathB", copy, instanceOf(PathB.class));
-            assertThat("copy of 'b' parent is not instanceof PathA", copy.getParent(), instanceOf(PathA.class));
-            copy = c.copyWithNewContext(context);
-            assertThat("copy of 'c' is not instanceof PathC", copy, instanceOf(PathC.class));
-            assertThat("copy of 'c' parent is not instanceof PathA", copy.getParent(), instanceOf(PathA.class));
-        }
-    }
-
-    @SuppressWarnings("deprecation")
-    @Test
-    public void deprecatedMixDeprecatedAndNew() throws Exception {
-        KeySpace keySpace = new KeySpace(
-                new KeySpaceDirectory("a", KeyType.LONG, random.nextInt(Integer.MAX_VALUE)).addSubdirectory(
-                        new KeySpaceDirectory("b", KeyType.LONG).addSubdirectory(
-                                new KeySpaceDirectory("c", KeyType.LONG))));
-
-        KeySpacePath path = keySpace.path("a").add("b", 15L);
-
-        // Cannot use a method that requires a context without creating the path with one
-        assertThrows(IllegalStateException.class, path::toTuple);
-        assertThrows(IllegalStateException.class, path::toSubspace);
-        assertThrows(IllegalStateException.class, path::hasData);
-        assertThrows(IllegalStateException.class, () -> {
-            path.deleteAllData();
-            return null;
-        });
-        assertThrows(IllegalStateException.class, () -> path.list("c"));
     }
 
     @Test
@@ -1587,8 +1544,8 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
          * Given a tuple that represents an FDB key that came from this KeySpace, returns the leaf-most path
          * element in which the tuple resides.
          */
-        public KeySpacePath fromKey(FDBRecordContext context, Tuple tuple) {
-            return root.pathFromKey(context, tuple);
+        public ResolvedKeySpacePath fromKey(FDBRecordContext context, Tuple tuple) {
+            return root.resolveFromKey(context, tuple);
         }
     }
 

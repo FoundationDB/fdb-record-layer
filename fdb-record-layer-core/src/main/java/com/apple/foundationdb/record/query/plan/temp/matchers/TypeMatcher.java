@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -228,16 +228,18 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
 
     @Nonnull
     @Override
-    protected CompletableFuture<Optional<KeySpacePath>> pathFromKey(@Nonnull FDBRecordContext context,
-                                                                    @Nullable KeySpacePath parent,
-                                                                    @Nonnull Tuple key,
-                                                                    int keySize,
-                                                                    int keyIndex) {
+    protected CompletableFuture<Optional<ResolvedKeySpacePath>> pathFromKey(@Nonnull FDBRecordContext context,
+                                                                            @Nullable ResolvedKeySpacePath parent,
+                                                                            @Nonnull Tuple key,
+                                                                            int keySize,
+                                                                            int keyIndex) {
         final Object tupleValue = key.get(keyIndex);
         // Only a directory layer value can be reversed into this directory
         if (!(tupleValue instanceof Long)) {
             return DIRECTORY_NOT_FOR_KEY;
         }
+
+        final KeySpacePath parentPath = parent == null ? null : parent.toPath();
 
         return doReverseLookup(context, (Long)tupleValue)
                 .thenCompose(directoryString -> {
@@ -245,16 +247,20 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
                     if (this.value != ANY_VALUE && !(directoryString.equals(this.value))) {
                         return DIRECTORY_NOT_FOR_KEY;
                     }
+
                     return lookupInScope(context, directoryString).thenCompose(directoryResolverResult -> {
                         final int childKeyIndex = keyIndex + 1;
                         final boolean canHaveChild = !subdirs.isEmpty() && childKeyIndex < keySize;
                         final Tuple remainder = canHaveChild || childKeyIndex == key.size()
                                                 ? null
                                                 : TupleHelpers.subTuple(key, childKeyIndex, key.size());
+                        final PathValue pathValue = toPathValue(directoryResolverResult);
 
                         // Make sure that the path is constructed with the text-name from the directory layer.
-                        KeySpacePath myPath = KeySpacePathImpl.newPath(parent, this, context, directoryString, true,
-                                toPathValue(directoryResolverResult), remainder);
+                        ResolvedKeySpacePath myPath = new ResolvedKeySpacePath(parent,
+                                KeySpacePathImpl.newPath(parentPath, this, directoryString,
+                                        true, pathValue, remainder),
+                                pathValue, remainder);
 
                         // We are finished if there are no more subdirectories or no more tuple to consume
                         if (!canHaveChild) {

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;

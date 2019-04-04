@@ -20,18 +20,18 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.layers.interning;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolvedKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.subspace.Subspace;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -54,39 +54,38 @@ public class ScopedInterningLayer extends LocatableResolver {
 
     /**
      * Creates a resolver rooted at the provided <code>KeySpacePath</code>.
-     *
+     * @param context context used to resolve the provided <code>path</code>. This context
+     *   is only used during the construction of this class and at no other point
      * @param path the {@link KeySpacePath} where this resolver is rooted
-     * @deprecated use {@link #ScopedInterningLayer(FDBRecordContext, KeySpacePath)} instead
+     * @deprecated use {@link #ScopedInterningLayer(FDBDatabase, ResolvedKeySpacePath)} instead
      */
     @Deprecated
     @API(API.Status.DEPRECATED)
-    public ScopedInterningLayer(@Nonnull KeySpacePath path) {
-        this(path.getContext(), path);
+    public ScopedInterningLayer(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
+        this(context.getDatabase(), path, path.toResolvedPathAsync(context));
     }
 
     /**
      * Creates a resolver rooted at the provided <code>KeySpacePath</code>.
-     * @param context context used to resolve the provided <code>path</code>. This context
-     *   is only used during the construction of this class and at no other point
-     * @param path the {@link KeySpacePath} where this resolver is rooted
+     * @param database database that will be used when resolving values
+     * @param path the {@link ResolvedKeySpacePath} where this resolver is rooted
      */
-    public ScopedInterningLayer(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
-        this(context.getDatabase(), context, path);
+    public ScopedInterningLayer(@Nonnull FDBDatabase database, @Nonnull ResolvedKeySpacePath path) {
+        this(database, path.toPath(), CompletableFuture.completedFuture(path));
     }
 
     private ScopedInterningLayer(@Nonnull FDBDatabase database,
-                                 @Nullable FDBRecordContext context,
-                                 @Nullable KeySpacePath path) {
-        super(database, path);
+                                 @Nullable KeySpacePath path,
+                                 @Nullable CompletableFuture<ResolvedKeySpacePath> resolvedPath) {
+        super(database, path, resolvedPath);
         boolean isRootLevel;
-        if (path == null) {
+        if (path == null && resolvedPath == null) {
             isRootLevel = true;
             this.baseSubspaceFuture = CompletableFuture.completedFuture(new Subspace());
             this.nodeSubspaceFuture = CompletableFuture.completedFuture(new Subspace(GLOBAL_SCOPE_PREFIX_BYTES));
         } else {
-            Objects.requireNonNull(context, "non null path requires non null context");
             isRootLevel = false;
-            this.baseSubspaceFuture = path.toSubspaceAsync(context);
+            this.baseSubspaceFuture = resolvedPath.thenApply(ResolvedKeySpacePath::toSubspace);
             this.nodeSubspaceFuture = baseSubspaceFuture;
         }
         this.stateSubspaceFuture = nodeSubspaceFuture.thenApply(node -> node.get(STATE_SUBSPACE_KEY_SUFFIX));

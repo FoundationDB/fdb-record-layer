@@ -129,14 +129,14 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
         );
 
         FDBRecordContext context = database.openContext();
-        KeySpacePath path = keySpace.pathFromKey(context, Tuple.from("path", "to", "dirLayer"));
+        ResolvedKeySpacePath path = keySpace.resolveFromKey(context, Tuple.from("path", "to", "dirLayer"));
 
-        LocatableResolver resolver = scopedDirectoryGenerator.apply(context, path);
+        LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path);
         Long value = resolver.resolve(context.getTimer(), "foo").join();
 
         DirectoryLayer directoryLayer = new DirectoryLayer(
-                new Subspace(Bytes.concat(path.toTuple(context).pack(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())),
-                path.toSubspace(context));
+                new Subspace(Bytes.concat(path.toTuple().pack(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())),
+                path.toSubspace());
         context = database.openContext();
         validate(context, resolver, directoryLayer, "foo", value);
 

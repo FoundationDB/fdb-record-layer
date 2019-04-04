@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -63,7 +63,6 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (done) {
             nextResult = RecordCursorResult.exhausted();
@@ -79,6 +78,7 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
+    @Deprecated
     public CompletableFuture<Boolean> onHasNext() {
         if (hasNextFuture == null) {
             hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
@@ -88,6 +88,7 @@ public class FutureCursor<T> implements RecordCursor<T> {
 
     @Nullable
     @Override
+    @Deprecated
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
@@ -97,19 +98,17 @@ public class FutureCursor<T> implements RecordCursor<T> {
         return nextResult.get();
     }
 
-    @Override
-    public void remove() {
-        throw new UnsupportedOperationException();
-    }
-
     @Nullable
     @Override
+    @Deprecated
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
         return nextResult.getContinuation().toBytes();
     }
 
+    @Nonnull
     @Override
+    @Deprecated
     public NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

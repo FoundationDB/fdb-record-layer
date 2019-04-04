@@ -20,14 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.API;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -68,10 +66,8 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
                                                                            @Nonnull EvaluationContext context,
                                                                            @Nullable byte[] continuation,
                                                                            @Nonnull ExecuteProperties executeProperties) {
-        final RecordMetaData metaData = store.getRecordMetaData();
-        final Index index = metaData.getIndex(getIndexName());
         final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
-        return store.fetchIndexRecords(index, entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
+        return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
                 .map(store::queriedRecord);
     }
 }
