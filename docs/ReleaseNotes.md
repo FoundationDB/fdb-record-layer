@@ -46,7 +46,7 @@ The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. U
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Added an optional limit on the number of suppressed exceptions [(Issue #512)](https://github.com/FoundationDB/fdb-record-layer/issues/512)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -69,6 +69,10 @@ The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. U
 
 // end next release
 -->
+
+### 2.5.54.17
+
+* **Bug fix** Added an optional limit on the number of suppressed exceptions [(Issue #512)](https://github.com/FoundationDB/fdb-record-layer/issues/512)
 
 ### 2.5.54.0
 
