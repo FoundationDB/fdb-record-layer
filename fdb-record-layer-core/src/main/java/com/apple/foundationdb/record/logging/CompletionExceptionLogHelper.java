@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.logging;
 
 import com.apple.foundationdb.API;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletionException;
@@ -40,6 +42,7 @@ import java.util.concurrent.ExecutionException;
 public class CompletionExceptionLogHelper {
 
     private static boolean addSuppressed = true;
+    private static int maxSuppressedCount = Integer.MAX_VALUE;
 
     private CompletionExceptionLogHelper() {
     }
@@ -56,6 +59,43 @@ public class CompletionExceptionLogHelper {
     }
 
     /**
+     * Change the maximum number of suppressed exceptions to add to any given exception, if this maximum has not already
+     * been set. Return whether or not the maximum was changed.
+     *
+     * This method only changes behavior when {@link #addSuppressed} is {@code true}.
+     * @param count the new maximum count
+     * @return {@code true} if the count was changed and {@code false} if it was not
+     */
+    public static synchronized boolean setMaxSuppressedCountIfNotSet(int count) {
+        if (count < 0) {
+            throw new RecordCoreArgumentException("tried to set max suppressed count to a negative value");
+        }
+        if (maxSuppressedCount == Integer.MAX_VALUE && count != Integer.MAX_VALUE) {
+            maxSuppressedCount = count;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Change the maximum number of suppressed exceptions to add to any given exception, even if the maximum has already
+     * been set. This should be done with extreme care: {@link #asCauseThrowable(Throwable)} may misbehave if it
+     * handles exceptions before and after this method is called with the same {@code cause}. It should ONLY be used
+     * for testing without restarting the JVM.
+     *
+     * @param count the new maximum count
+     */
+    @VisibleForTesting
+    @API(API.Status.INTERNAL)
+    public static synchronized void forceSetMaxSuppressedCountForTesting(int count) {
+        if (count < 0) {
+            throw new RecordCoreArgumentException("tried to set max suppressed count to a negative value");
+        }
+        maxSuppressedCount = count;
+    }
+
+    /**
      * Return the cause of the given exception and also arrange for the original exception to be in the suppressed chain.
      * @param ex an exception from {@link java.util.concurrent.CompletableFuture#join} or the like
      * @return a throwable suitable for use as the cause of a wrapped exception
@@ -66,6 +106,9 @@ public class CompletionExceptionLogHelper {
 
     /**
      * Return the cause of the given exception and also arrange for the original exception to be in the suppressed chain.
+     * However, if the given exception's cause already has the maximum number of suppressed exceptions specified by
+     * {@link #setMaxSuppressedCountIfNotSet(int)}, then the given exception is not added to the suppressed chain and
+     * the exception counting the number of ignored exceptions is incremented instead.
      * @param ex an exception from {@link java.util.concurrent.CompletableFuture#get} or the like
      * @return a throwable suitable for use as the cause of a wrapped exception
      */
@@ -78,9 +121,57 @@ public class CompletionExceptionLogHelper {
         if (cause == null) {
             return ex;
         }
+
         if (addSuppressed) {
-            cause.addSuppressed(ex);    // Remember the original.
+            synchronized (cause) {
+                Throwable[] suppressedExceptions = cause.getSuppressed();
+                if (suppressedExceptions.length < maxSuppressedCount) {
+                    cause.addSuppressed(ex);
+                } else {
+                    IgnoredSuppressedExceptionCount suppressedCount;
+                    int lastIndex = suppressedExceptions.length - 1;
+                    if (lastIndex >= 0 && suppressedExceptions[lastIndex] instanceof IgnoredSuppressedExceptionCount) {
+                        suppressedCount = (IgnoredSuppressedExceptionCount) suppressedExceptions[lastIndex];
+                    } else {
+                        suppressedCount = new IgnoredSuppressedExceptionCount();
+                        cause.addSuppressed(suppressedCount);
+                    }
+                    suppressedCount.incrementCount();
+                }
+            }
         }
         return cause;
     }
+
+    /**
+     * A special "exception" to record the number of suppressed exceptions that were not recorded due to the
+     * {@link #maxSuppressedCount}.
+     */
+    public static class IgnoredSuppressedExceptionCount extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        private int count;
+
+        private IgnoredSuppressedExceptionCount() {
+            // message is the empty string becuase we override getMessage().
+            // cause is null
+            // enable suppression
+            // disable stack trace collection, since we don't want it
+            super("", null, true, false);
+        }
+
+        public synchronized void incrementCount() {
+            count++;
+        }
+
+        @Override
+        public String getMessage() {
+            return "Ignoring " + count + " suppressed exceptions.";
+        }
+
+        public int getCount() {
+            return count;
+        }
+    }
+
 }
