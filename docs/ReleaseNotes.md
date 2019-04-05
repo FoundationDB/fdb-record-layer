@@ -28,7 +28,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* All changes from the 2.5.54.17 release.
+* All changes from version [2.5.54.17](#255417)
 
 // end template
 -->
