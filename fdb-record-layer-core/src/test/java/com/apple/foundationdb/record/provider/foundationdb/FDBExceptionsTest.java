@@ -20,15 +20,27 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.concurrent.CompletionException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests for {@link FDBExceptions}.
@@ -65,6 +77,74 @@ public class FDBExceptionsTest {
         ));
     }
 
+    @Test
+    public void tooManySuppressedExceptions() {
+        try {
+            CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(2);
+            final Exception base = createRuntimeException();
+            Exception e0 = createCompletionException(base);
+            Exception e1 = createCompletionException(base);
+            assertEquals(base, FDBExceptions.wrapException(e0));
+            assertEquals(base, FDBExceptions.wrapException(e1));
+
+            Throwable[] suppressedExceptions = base.getSuppressed();
+            assertEquals(2, suppressedExceptions.length);
+            assertThat(Arrays.asList(suppressedExceptions), contains(e0, e1));
+
+            Exception e2 = createCompletionException(base);
+            assertEquals(base, FDBExceptions.wrapException(e2));
+            suppressedExceptions = base.getSuppressed();
+            assertEquals(3, suppressedExceptions.length);
+            assertThat(Arrays.asList(suppressedExceptions), hasItems(e0, e1));
+            assertThat(Arrays.asList(suppressedExceptions), not(hasItem(e2)));
+            Throwable countException = suppressedExceptions[2];
+            assertThat(countException, instanceOf(CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount.class));
+            assertEquals(1, ((CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount)countException).getCount());
+
+            Exception e3 = createCompletionException(base);
+            assertEquals(base, FDBExceptions.wrapException(e3));
+            suppressedExceptions = base.getSuppressed();
+            assertEquals(3, suppressedExceptions.length);
+            assertThat(Arrays.asList(suppressedExceptions), hasItems(e0, e1));
+            assertThat(Arrays.asList(suppressedExceptions), not(anyOf(hasItem(e2), hasItem(e3))));
+            countException = suppressedExceptions[2];
+            assertThat(countException, instanceOf(CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount.class));
+            assertEquals(2, ((CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount)countException).getCount());
+        } finally {
+            CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(Integer.MAX_VALUE); //cleanup
+        }
+    }
+
+    @Test
+    public void countSuppressedExceptions() {
+        try {
+            CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(0);
+            final Exception base = createRuntimeException();
+            Exception e0 = createCompletionException(base);
+            Exception e1 = createCompletionException(base);
+            assertEquals(base, FDBExceptions.wrapException(e0));
+            assertEquals(base, FDBExceptions.wrapException(e1));
+            Throwable[] suppressedExceptions = base.getSuppressed();
+            assertEquals(1, suppressedExceptions.length);
+            assertThat(Arrays.asList(suppressedExceptions), not(anyOf(hasItem(e0), hasItem(e1))));
+            Throwable countException = suppressedExceptions[0];
+            assertThat(countException, instanceOf(CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount.class));
+            assertEquals(2, ((CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount)countException).getCount());
+        } finally {
+            CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(Integer.MAX_VALUE); //cleanup
+        }
+    }
+
+    @Test
+    public void negativeSuppressedExceptionLimit() {
+        try {
+            assertThrows(RecordCoreArgumentException.class, () ->
+                    CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(-1));
+        } finally {
+            CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(Integer.MAX_VALUE); //cleanup, just in case
+        }
+    }
+
     private Exception createCompletionException(Exception cause) {
         return new CompletionException(PARENT_EXCEPTION_MESSAGE, cause);
     }
@@ -77,4 +157,14 @@ public class FDBExceptionsTest {
         return new Exception(EXCEPTION_CAUSE_MESSAGE);
     }
 
+    private static class CountingCompletionException extends CompletionException {
+        private static final long serialVersionUID = 1L;
+
+        private final int count;
+
+        public CountingCompletionException(int count, @Nonnull Throwable cause) {
+            super("count: " + count, cause);
+            this.count = count;
+        }
+    }
 }
