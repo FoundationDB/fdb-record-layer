@@ -65,3 +65,9 @@ message ProbableIntersectionContinuation {
     }
     repeated CursorState child_state = 1;
 }
+
+message ConcatContinuation {
+    optional bool second = 1;  //true if the continuation applies to second cursor
+    optional bytes continuation = 3;
+}
+
