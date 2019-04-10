@@ -128,21 +128,25 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
                         )
         );
 
-        FDBRecordContext context = database.openContext();
-        ResolvedKeySpacePath path = keySpace.resolveFromKey(context, Tuple.from("path", "to", "dirLayer"));
+        ResolvedKeySpacePath path;
+        try (FDBRecordContext context = database.openContext()) {
+            path = keySpace.resolveFromKey(context, Tuple.from("path", "to", "dirLayer"));
+        }
 
         LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path);
-        Long value = resolver.resolve(context.getTimer(), "foo").join();
+        Long value = resolver.resolve(null, "foo").join();
 
         DirectoryLayer directoryLayer = new DirectoryLayer(
                 new Subspace(Bytes.concat(path.toTuple().pack(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())),
                 path.toSubspace());
-        context = database.openContext();
-        validate(context, resolver, directoryLayer, "foo", value);
 
-        DirectoryLayer defaultDirectoryLayer = DirectoryLayer.getDefault();
-        List<String> defaultDirectories = defaultDirectoryLayer.list(context.ensureActive()).join();
-        assertThat("entry is not in the default directory layer", defaultDirectories, not(hasItem("foo")));
+        try (FDBRecordContext context = database.openContext()) {
+            validate(context, resolver, directoryLayer, "foo", value);
+
+            DirectoryLayer defaultDirectoryLayer = DirectoryLayer.getDefault();
+            List<String> defaultDirectories = defaultDirectoryLayer.list(context.ensureActive()).join();
+            assertThat("entry is not in the default directory layer", defaultDirectories, not(hasItem("foo")));
+        }
     }
 
     @Test

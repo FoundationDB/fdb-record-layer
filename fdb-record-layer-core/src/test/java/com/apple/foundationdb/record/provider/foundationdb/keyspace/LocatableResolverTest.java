@@ -122,18 +122,19 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     public void testLookupCaching() {
         KeySpace keySpace = new KeySpace(new KeySpaceDirectory("path", KeyType.STRING, "path"));
 
-        FDBRecordContext context = database.openContext();
-        ResolvedKeySpacePath path1 = keySpace.resolveFromKey(context, Tuple.from("path"));
+        ResolvedKeySpacePath path1;
+        try (FDBRecordContext context = database.openContext()) {
+            path1 = keySpace.resolveFromKey(context, Tuple.from("path"));
+        }
         LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path1);
 
-        Long value = resolver.resolve(context.getTimer(), "foo").join();
+        Long value = resolver.resolve(null, "foo").join();
 
-        context = database.openContext();
         for (int i = 0; i < 5; i++) {
-            Long fetched = resolver.resolve(context.getTimer(), "foo").join();
+            Long fetched = resolver.resolve(null, "foo").join();
             assertThat("we should always get the original value", fetched, is(value));
         }
-        CacheStats stats = context.getDatabase().getDirectoryCacheStats();
+        CacheStats stats = database.getDirectoryCacheStats();
         assertThat("subsequent lookups should hit the cache", stats.hitCount(), is(5L));
     }
 
@@ -175,26 +176,27 @@ public abstract class LocatableResolverTest extends FDBTestBase {
                 new KeySpaceDirectory("path2", KeyType.STRING, "path2")
         );
 
-        FDBRecordContext context = database.openContext();
-        final ResolvedKeySpacePath path1 = keySpace.resolveFromKey(context, Tuple.from("path1"));
-        final LocatableResolver resolver1 = scopedDirectoryGenerator.apply(database, path1);
+        try (FDBRecordContext context = database.openContext()) {
+            final ResolvedKeySpacePath path1 = keySpace.resolveFromKey(context, Tuple.from("path1"));
+            final LocatableResolver resolver1 = scopedDirectoryGenerator.apply(database, path1);
 
-        Cache<ScopedValue<String>, Long> cache = CacheBuilder.newBuilder().build();
-        cache.put(resolver1.wrap("stuff"), 1L);
+            Cache<ScopedValue<String>, Long> cache = CacheBuilder.newBuilder().build();
+            cache.put(resolver1.wrap("stuff"), 1L);
 
-        assertThat("values can be read from the cache by scoped string",
-                cache.getIfPresent(resolver1.wrap("stuff")), is(1L));
-        assertThat("cache misses when looking for unknown name in scope",
-                cache.getIfPresent(resolver1.wrap("missing")), equalTo(null));
+            assertThat("values can be read from the cache by scoped string",
+                    cache.getIfPresent(resolver1.wrap("stuff")), is(1L));
+            assertThat("cache misses when looking for unknown name in scope",
+                    cache.getIfPresent(resolver1.wrap("missing")), equalTo(null));
 
-        final ResolvedKeySpacePath path2 = keySpace.resolveFromKey(context, Tuple.from("path2"));
-        final LocatableResolver resolver2 = scopedDirectoryGenerator.apply(database, path2);
-        assertThat("cache misses when string is not in this scope",
-                cache.getIfPresent(resolver2.wrap("stuff")), equalTo(null));
+            final ResolvedKeySpacePath path2 = keySpace.resolveFromKey(context, Tuple.from("path2"));
+            final LocatableResolver resolver2 = scopedDirectoryGenerator.apply(database, path2);
+            assertThat("cache misses when string is not in this scope",
+                    cache.getIfPresent(resolver2.wrap("stuff")), equalTo(null));
 
-        final LocatableResolver newResolver = scopedDirectoryGenerator.apply(database, path1);
-        assertThat("scoping is determined by value of scope directory, not a reference to it",
-                cache.getIfPresent(newResolver.wrap("stuff")), is(1L));
+            final LocatableResolver newResolver = scopedDirectoryGenerator.apply(database, path1);
+            assertThat("scoping is determined by value of scope directory, not a reference to it",
+                    cache.getIfPresent(newResolver.wrap("stuff")), is(1L));
+        }
     }
 
     @Test

@@ -652,8 +652,10 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
     private LocatableResolver createRandomDirectoryScope() {
         final String name = String.format("name-%d", Math.abs(random.nextLong()));
         KeySpace keySpace = new KeySpace(new KeySpaceDirectory(name, KeySpaceDirectory.KeyType.STRING, name));
-        FDBRecordContext context = fdb.openContext();
-        ResolvedKeySpacePath path = keySpace.resolveFromKey(context, Tuple.from(name));
+        ResolvedKeySpacePath path;
+        try (FDBRecordContext context = fdb.openContext()) {
+            path = keySpace.resolveFromKey(context, Tuple.from(name));
+        }
         return new ScopedDirectoryLayer(fdb, path);
     }
 
