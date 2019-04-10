@@ -70,6 +70,7 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeOrBuilder;
 import com.apple.foundationdb.record.metadata.StoreRecordFunction;
+import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
@@ -118,6 +119,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -681,6 +683,39 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else {
             return AsyncUtil.whenAll(futures);
         }
+    }
+
+    /**
+     * Load a {@link FDBSyntheticRecord synthetic record} by loading its stored constituent records and synthesizing it from them.
+     * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
+     * @return a future which completes to the synthesized record
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey) {
+        SyntheticRecordType<?> syntheticRecordType = getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(primaryKey.get(0));
+        int nconstituents = syntheticRecordType.getConstituents().size();
+        if (nconstituents != primaryKey.size() - 1) {
+            throw new RecordCoreException("Primary key does not have correct number of nested keys: " + primaryKey);
+        }
+        final Map<String, FDBStoredRecord<? extends Message>> constituents = new ConcurrentHashMap<>(nconstituents);
+        final CompletableFuture<?>[] futures = new CompletableFuture<?>[nconstituents];
+        for (int i = 0; i < nconstituents; i++) {
+            final SyntheticRecordType.Constituent constituent = syntheticRecordType.getConstituents().get(i);
+            final Tuple constituentKey = primaryKey.getNestedTuple(i + 1);
+            if (constituentKey == null) {
+                futures[i] = AsyncUtil.DONE;
+            } else {
+                futures[i] = loadRecordAsync(constituentKey).thenApply(record -> {
+                    if (record == null) {
+                        throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
+                    }
+                    constituents.put(constituent.getName(), record);
+                    return null;
+                });
+            }
+        }
+        return CompletableFuture.allOf(futures).thenApply(vignore -> FDBSyntheticRecord.of(syntheticRecordType, constituents));
     }
 
     @Nonnull

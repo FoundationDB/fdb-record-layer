@@ -37,7 +37,8 @@ message MySimpleRecord {
 
 message MyOtherRecord {
   required int64 rec_no = 1 [(field).primary_key = true];
-  optional int32 num_value_3 = 2;
+  optional int32 num_value = 2;
+  optional int32 num_value_3 = 3;
 }
 
 message JoiningRecord {

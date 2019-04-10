@@ -189,6 +189,18 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordType;
     }
 
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("squid:S1452")
+    public SyntheticRecordType<?> getSyntheticRecordTypeFromRecordTypeKey(@Nonnull Object recordTypeKey) {
+        for (SyntheticRecordType<?> recordType : getRecordMetaData().getSyntheticRecordTypes().values()) {
+            if (recordType.getRecordTypeKey().equals(recordTypeKey)) {
+                return recordType;
+            }
+        }
+        throw new MetaDataException("Unknown synthetic record type " + recordTypeKey);
+    }
+
     /**
      * Get a record type or synthetic record type by name as used in an index.
      * @param name the name of the record type
