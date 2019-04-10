@@ -468,10 +468,10 @@ public class FDBDatabase {
         return factory.getExecutor();
     }
 
-    public Transaction createTransaction(Executor executor, boolean transactionIsTraced) {
+    public Transaction createTransaction(Executor executor, @Nullable Map<String, String> mdcContext, boolean transactionIsTraced) {
         Transaction transaction = database.createTransaction(executor);
         if (transactionIsTraced) {
-            return new TracedTransaction(transaction);
+            return new TracedTransaction(transaction, mdcContext);
         } else {
             return transaction;
         }

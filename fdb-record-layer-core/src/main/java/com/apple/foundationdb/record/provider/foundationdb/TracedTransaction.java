@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.KeySelector;
@@ -31,10 +30,13 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionOptions;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -50,15 +52,25 @@ public class TracedTransaction implements Transaction {
 
     protected Transaction transaction;
 
-    TracedTransaction(Transaction transaction) {
+    @Nullable
+    private final Map<String, String> mdcContext;
+
+    TracedTransaction(Transaction transaction, @Nullable Map<String, String> mdcContext) {
         this.transaction = transaction;
+        this.mdcContext = mdcContext;
     }
 
     @SuppressWarnings({"NoFinalizer", "squid:ObjectFinalizeOverridenCheck", "PMD.FinalizeDoesNotCallSuperFinalize", "deprecation"})
     @Override
     protected void finalize() {
         if (transaction != null) {
+            if (mdcContext != null) {
+                FDBRecordContext.restoreMdc(mdcContext);
+            }
             LOGGER.warn("did not close context", stack);
+            if (mdcContext != null) {
+                FDBRecordContext.clearMdc(mdcContext);
+            }
         }
     }
 
