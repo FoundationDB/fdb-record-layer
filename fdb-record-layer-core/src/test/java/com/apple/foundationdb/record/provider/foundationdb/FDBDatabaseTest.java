@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -226,6 +227,41 @@ public class FDBDatabaseTest extends FDBTestBase {
         FDBDatabase database = factory.getDatabase();
         TestHelpers.assertDidNotLog(FDBDatabase.class, FDBDatabase.BLOCKING_RETURNING_ASYNC_MESSAGE,
                 () -> returnAnAsync(database, CompletableFuture.completedFuture(10L)));
+    }
+
+    @Test
+    public void testGetReadVersionLatencyInjection() throws Exception {
+        testLatencyInjection(FDBLatencySource.GET_READ_VERSION, 300L, context -> {
+            context.getDatabase().getReadVersion(context).join();
+        });
+    }
+
+    @Test
+    public void testCommitLatencyInjection() throws Exception {
+        testLatencyInjection(FDBLatencySource.COMMIT_ASYNC, 300L, context -> {
+            final Transaction tr = context.ensureActive();
+            tr.clear(new byte[] { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef });
+            context.commit();
+        });
+    }
+
+    public void testLatencyInjection(FDBLatencySource latencySource, long expectedLatency, Consumer<FDBRecordContext> thingToDo) throws Exception {
+        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+
+        // Databases only pick up the latency injector upon creation, so clear out any cached database
+        factory.clear();
+        factory.setLatencyInjector(
+                requestedLatency -> requestedLatency == latencySource ? expectedLatency : 0L);
+
+        FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        try (FDBRecordContext context = database.openContext()) {
+            long grvStart = System.currentTimeMillis();
+            thingToDo.accept(context);
+            assertTrue(System.currentTimeMillis() - grvStart >= expectedLatency, "latency not injected");
+        } finally {
+            factory.clearLatencyInjector();
+            factory.clear();
+        }
     }
 
     private CompletableFuture<Long> returnAnAsync(FDBDatabase database, CompletableFuture<?> toComplete) {

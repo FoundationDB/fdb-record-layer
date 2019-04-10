@@ -28,6 +28,7 @@ import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.AsyncLoadingCache;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.ResolverStateProto;
@@ -138,6 +139,9 @@ public class FDBDatabase {
     @Nonnull
     private final Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier;
 
+    @Nonnull
+    private final Function<FDBLatencySource, Long> latencyInjector;
+
     private String datacenterId;
 
     @Nonnull
@@ -163,6 +167,7 @@ public class FDBDatabase {
                 .recordStats()
                 .build();
         this.resolverStateCache = new AsyncLoadingCache<>(factory.getStateRefreshTimeMillis());
+        this.latencyInjector = factory.getLatencyInjector();
     }
 
     /**
@@ -353,7 +358,8 @@ public class FDBDatabase {
      * @return a future that will be completed with the read version of the current transaction
      */
     public CompletableFuture<Long> getReadVersion(@Nonnull FDBRecordContext context) {
-        CompletableFuture<Long> readVersionFuture = context.ensureActive().getReadVersion();
+        CompletableFuture<Long> readVersionFuture = injectLatency(FDBLatencySource.GET_READ_VERSION).thenCompose(ignore ->
+                context.ensureActive().getReadVersion());
         if (!isTrackLastSeenVersionOnRead()) {
             return readVersionFuture;
         }
@@ -790,6 +796,21 @@ public class FDBDatabase {
     @API(API.Status.INTERNAL)
     public BlockingInAsyncDetection getBlockingInAsyncDetection() {
         return blockingInAsyncDetectionSupplier.get();
+    }
+
+    /**
+     * Given a specific FDB API call, a future is returned that is delayed by the number of milliseconds
+     * that was computed by the installed latency injector ({@link FDBDatabaseFactory#setLatencyInjector(Function)}).
+     *
+     * @param fdbLatencySource the call for which the latency is to be computed
+     * @return a future that will be delayed by the configured injection millis
+     */
+    protected CompletableFuture<Void> injectLatency(FDBLatencySource fdbLatencySource) {
+        long latencyMillis = latencyInjector.apply(fdbLatencySource);
+        if (latencyMillis <= 0L) {
+            return AsyncUtil.DONE;
+        }
+        return MoreAsyncUtil.delayedFuture(latencyMillis, TimeUnit.MILLISECONDS);
     }
 
     private void checkIfBlockingInFuture(CompletableFuture<?> future) {
