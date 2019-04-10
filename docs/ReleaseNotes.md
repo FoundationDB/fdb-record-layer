@@ -72,7 +72,7 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Ability to inject latency into transactions [(Issue #521)](https://github.com/FoundationDB/fdb-record-layer/issues/521)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -85,6 +85,10 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 
 // end next release
 -->
+
+### 2.6.58.0
+
+* **Feature** Ability to inject latency into transactions [(Issue #521)](https://github.com/FoundationDB/fdb-record-layer/issues/521)
 
 ### 2.6.57.0
 
