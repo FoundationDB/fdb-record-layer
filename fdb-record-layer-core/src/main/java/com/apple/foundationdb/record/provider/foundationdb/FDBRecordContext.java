@@ -158,8 +158,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         CompletableFuture<byte[]> versionFuture = transaction.getVersionstamp();
         long beforeCommitTimeMillis = System.currentTimeMillis();
         CompletableFuture<Void> commit = MoreAsyncUtil.isCompletedNormally(checks) ?
-                                         transaction.commit() :
-                                         checks.thenCompose(vignore -> transaction.commit());
+                                         delayedCommit() :
+                                         checks.thenCompose(vignore -> delayedCommit());
         commit = commit.thenCompose(vignore -> {
             // The committed version will be -1 if the transaction is read-only,
             // in which case versionFuture has completed exceptionally with
@@ -194,6 +194,13 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 }
             }
         });
+    }
+
+    /**
+     * Returns a commit that may be delayed due to latency injection.
+     */
+    private CompletableFuture<Void> delayedCommit() {
+        return database.injectLatency(FDBLatencySource.COMMIT_ASYNC).thenCompose(vignore -> transaction.commit());
     }
 
     @Override

@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -44,6 +45,8 @@ import java.util.function.Supplier;
 @API(API.Status.STABLE)
 public class FDBDatabaseFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
+
+    protected static final Function<FDBLatencySource, Long> DEFAULT_LATENCY_INJECTOR = api -> 0L;
 
     /**
      * The default number of entries that is to be cached, per database, from
@@ -84,8 +87,13 @@ public class FDBDatabaseFactory {
      * The default is a log-based predicate, which can also be used to enable tracing on a more granular level
      * (such as by request) using {@link #setTransactionIsTracedSupplier(Supplier)}.
      */
+    @Nonnull
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
+    @Nonnull
     private Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = () -> BlockingInAsyncDetection.DISABLED;
+
+    @Nonnull
+    private Function<FDBLatencySource, Long> latencyInjector = DEFAULT_LATENCY_INJECTOR;
 
     private final Map<String, FDBDatabase> databases = new HashMap<>();
 
@@ -388,6 +396,37 @@ public class FDBDatabaseFactory {
     @Nonnull
     protected Supplier<BlockingInAsyncDetection> getBlockingInAsyncDetectionSupplier() {
         return this.blockingInAsyncDetectionSupplier;
+    }
+
+    /**
+     * Provides a function that computes a latency that should be injected into a specific FDB operation.  The
+     * provided function takes a {@link FDBLatencySource} as input and returns the number of milliseconds delay that should
+     * be injected before the operation completes.  Returning a value of zero or less indicates that no delay should
+     * be injected.
+     *
+     * <p>Latency injection can be useful for simulating environments in which FDB is under stress or in a
+     * configuration in which latency is inherent in its operation.
+     *
+     * @param latencyInjector a function computing the latency to be injected into an operation
+     */
+    public void setLatencyInjector(@Nonnull Function<FDBLatencySource, Long> latencyInjector) {
+        this.latencyInjector = latencyInjector;
+    }
+
+    /**
+     * Returns the current latency injector.
+     *
+     * @return the current latency injector
+     */
+    public Function<FDBLatencySource, Long> getLatencyInjector() {
+        return latencyInjector;
+    }
+
+    /**
+     * Removes any previously installed latency injector.
+     */
+    public void clearLatencyInjector() {
+        this.latencyInjector = DEFAULT_LATENCY_INJECTOR;
     }
 
     public long getStateRefreshTimeMillis() {
