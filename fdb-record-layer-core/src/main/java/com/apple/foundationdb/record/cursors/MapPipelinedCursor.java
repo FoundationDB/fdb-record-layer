@@ -222,11 +222,14 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private RecordCursorContinuation cancelPendingFutures() {
         Iterator<CompletableFuture<RecordCursorResult<V>>> iter = pipeline.iterator();
-        // the earliest continuation we could need to start with is the one from the last result returned
+        // The earliest continuation we could need to start with is the one from the last returned result.
+        // We may, however, return more results if they are already completed.
         RecordCursorContinuation continuation = nextResult.getContinuation();
         while (iter.hasNext()) {
             CompletableFuture<RecordCursorResult<V>> pendingEntry = iter.next();
             if (!pendingEntry.isDone()) {
+                // Once we have found an entry that is not done, cancel that and all remaining
+                // futures, remove them from the pipeline, and do *not* update the continuation.
                 while (true) {
                     iter.remove();
                     pendingEntry.cancel(false);
@@ -236,7 +239,8 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
                     pendingEntry = iter.next();
                 }
             } else {
-                // Entry is done, record continuation
+                // Entry is done, so this cursor will return this result. Keep the entry
+                // in the pipeline, and update the continuation.
                 continuation = pendingEntry.join().getContinuation();
             }
         }

@@ -52,6 +52,7 @@ import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
@@ -67,6 +68,7 @@ import java.util.stream.IntStream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isOneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -579,6 +581,220 @@ public class RecordCursorTest {
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursor.getNoNextReason());
         assertNull(cursor.getContinuation());
+    }
+
+    @Test
+    public void flatMapPipelineErrorPropagation() throws ExecutionException, InterruptedException {
+        FirableCursor<String> firableCursor1 = new FirableCursor<>(RecordCursor.fromList(Collections.singletonList("hello")));
+        FirableCursor<String> firableCursor2 = new FirableCursor<>(new BrokenCursor());
+        List<FirableCursor<String>> firableCursors = Arrays.asList(firableCursor1, firableCursor2);
+        FirableCursor<Integer> outerCursor = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)));
+        RecordCursor<String> cursor = outerCursor.flatMapPipelined(firableCursors::get, 10);
+        outerCursor.fire();
+        firableCursor1.fire();
+        RecordCursorResult<String> cursorResult = cursor.onNext().get();
+        assertTrue(cursorResult.hasNext());
+        assertEquals("hello", cursorResult.get());
+        CompletableFuture<RecordCursorResult<String>> nextResultFuture = cursor.onNext();
+        firableCursor1.fire();
+        assertFalse(nextResultFuture.isDone());
+        outerCursor.fire();
+        firableCursor2.fire();
+        ExecutionException e = assertThrows(ExecutionException.class, nextResultFuture::get);
+        assertNotNull(e.getCause());
+        assertThat(e.getCause(), instanceOf(RuntimeException.class));
+        assertEquals("sorry", e.getCause().getMessage());
+
+        RecordCursor<Integer> outerCursorError = new BrokenCursor().flatMapPipelined((String s) -> RecordCursor.fromList(Collections.singletonList(s.length())), 10);
+        e = assertThrows(ExecutionException.class, () -> outerCursorError.onNext().get());
+        assertNotNull(e.getCause());
+        assertThat(e.getCause(), instanceOf(RuntimeException.class));
+        assertEquals("sorry", e.getCause().getMessage());
+    }
+
+    /**
+     * Test that when the outer cursor and an inner future complete "at the same time" (as close as we can) that the
+     * error is propagated.
+     *
+     * @throws ExecutionException from futures joined in the test
+     * @throws InterruptedException from futures joined in the test
+     */
+    @Test
+    public void mapPipelinedErrorAtConcurrentCompletion() throws ExecutionException, InterruptedException {
+        final RuntimeException runtimeEx = new RuntimeException("some random exception");
+
+        List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
+        FirableCursor<Integer> firableCursor = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1, 2)));
+        RecordCursor<Integer> cursor = firableCursor.mapPipelined(futures::get, 2);
+        CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+        assertFalse(resultFuture.isDone());
+        firableCursor.fire();
+        assertFalse(resultFuture.isDone());
+        futures.get(0).complete(1066);
+        RecordCursorResult<Integer> result = resultFuture.get();
+        assertTrue(result.hasNext());
+        assertEquals(1066, (int)result.get());
+
+        // The (non-exceptional) firable cursor completes at "the same time" as the exceptional inner result.
+        CompletableFuture<RecordCursorResult<Integer>> secondResultFuture = cursor.onNext();
+        assertFalse(secondResultFuture.isDone());
+        firableCursor.fire();
+        assertFalse(secondResultFuture.isDone());
+        firableCursor.fire();
+        futures.get(1).completeExceptionally(runtimeEx);
+        ExecutionException executionEx = assertThrows(ExecutionException.class, secondResultFuture::get);
+        assertNotNull(executionEx.getCause());
+        assertEquals(runtimeEx, executionEx.getCause());
+
+        // Should get the same exception again
+        executionEx = assertThrows(ExecutionException.class, () -> cursor.onNext().get());
+        assertEquals(runtimeEx, executionEx.getCause());
+    }
+
+    /**
+     * Test that when an exceptional future gets put in the pipeline of a {@code MapPipelinedCursor} that the
+     * error is (eventually) propagated.
+     *
+     * @throws ExecutionException from futures joined in the test
+     * @throws InterruptedException from futures joined in the test
+     */
+    @Test
+    public void mapPipelinedErrorPropagationInPipeline() throws ExecutionException, InterruptedException {
+        final RuntimeException runtimeEx = new RuntimeException("some random exception");
+        List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
+        RecordCursor<Integer> cursor = RecordCursor.fromList(Arrays.asList(0, 1, 2)).mapPipelined(futures::get, 2);
+        CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+        assertFalse(resultFuture.isDone());
+        futures.get(1).completeExceptionally(runtimeEx);
+        assertFalse(resultFuture.isDone());
+        futures.get(0).complete(1066);
+        RecordCursorResult<Integer> result = resultFuture.get();
+        assertTrue(result.hasNext());
+        assertEquals(1066, (int)result.get());
+
+        CompletableFuture<RecordCursorResult<Integer>> secondResultFuture = cursor.onNext();
+        ExecutionException executionEx = assertThrows(ExecutionException.class, secondResultFuture::get);
+        assertNotNull(executionEx.getCause());
+        assertEquals(runtimeEx, executionEx.getCause());
+
+        // Should get the same exception again
+        executionEx = assertThrows(ExecutionException.class, () -> cursor.onNext().get());
+        assertEquals(runtimeEx, executionEx.getCause());
+    }
+
+    /**
+     * Check the continuation returned when there is a time limit encountered while filling the pipeline of a
+     * map pipelined cursor. Here, make sure that if the first future to be returned after the limit limit is reached,
+     * then "time limit reached" is returned immediately and the continuation matches the last returned result.
+     *
+     * @throws ExecutionException from futures joined in the test
+     * @throws InterruptedException from futures joined in the test
+     */
+    @Test
+    public void mapPipelinedContinuationWithTimeLimit() throws ExecutionException, InterruptedException {
+        List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
+        RecordCursor<Integer> cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(0, 1, 2, 3)), 3).mapPipelined(futures::get, 3);
+        futures.get(2).complete(1415); // complete a future that is not immediately returned
+        CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+        assertFalse(resultFuture.isDone());
+        futures.get(0).complete(1066);
+        RecordCursorResult<Integer> result = resultFuture.get();
+        assertTrue(result.hasNext());
+        assertEquals(1066, (int)result.get());
+        final RecordCursorContinuation lastContinuation = result.getContinuation();
+
+        // When the time limit is reached, we are still waiting on futures[1], so we don't get any more results.
+        resultFuture = cursor.onNext();
+        assertTrue(resultFuture.isDone());
+        result = resultFuture.get();
+        assertFalse(result.hasNext());
+        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, result.getNoNextReason());
+        assertEquals(lastContinuation, result.getContinuation());
+
+        assertEquals(1, (int)RecordCursor.fromList(Arrays.asList(0, 1, 2, 3), lastContinuation.toBytes()).onNext().get().get());
+    }
+
+    /**
+     * Check the continuation returned when there is a time limit encountered while filling the pipeline of a
+     * map pipelined cursor. Here, make sure that if the first result to be returned after the time limit is reached
+     * is ready that we get that result back, but all future results (including any that were already ready) are not
+     * returned. Verify that the continuation matches the last <em>returned</em> result, which is different from the
+     * last result before the time limit is reached.
+     *
+     * @throws ExecutionException from futures joined in the test
+     * @throws InterruptedException from futures joined in the test
+     */
+    @Test
+    public void mapPipelinedContinuationWithTimeLimitWithMoreToReturn() throws ExecutionException, InterruptedException {
+        List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
+        RecordCursor<Integer> cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(0, 1, 2, 3, 4)), 4).mapPipelined(futures::get, 4);
+        futures.get(1).complete(1415);
+        futures.get(3).complete(1807);
+        CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+        assertFalse(resultFuture.isDone());
+        futures.get(0).complete(1066);
+        RecordCursorResult<Integer> result = resultFuture.get();
+        assertTrue(result.hasNext());
+        assertEquals(1066, (int)result.get());
+
+        // The time limit should be reached now by the pipelined cursor. As the second future has already completed,
+        // it will be returned. However, the fourth future, despite also being completed, should *not* be returned
+        // as there is an incomplete future in the middle.
+        resultFuture = cursor.onNext();
+        assertTrue(resultFuture.isDone());
+        result = resultFuture.get();
+        assertEquals(1415, (int)result.get());
+        final RecordCursorContinuation lastContinuation = result.getContinuation();
+
+        resultFuture = cursor.onNext();
+        assertTrue(resultFuture.isDone());
+        result = resultFuture.get();
+        assertFalse(result.hasNext());
+        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, result.getNoNextReason());
+        assertEquals(lastContinuation, result.getContinuation());
+
+        assertEquals(2, (int)RecordCursor.fromList(Arrays.asList(0, 1, 2, 3, 4), lastContinuation.toBytes()).onNext().get().get());
+    }
+
+
+    /**
+     * Check the continuation returned when there is a time limit encountered while filling the pipeline of a
+     * map pipelined cursor. Here, make sure that if the time limit is reached on the very first element that we
+     * wait for the first future nonetheless (essentially to get a meaningful continuation). Validate that the
+     * continuation we get back is from the last returned result.
+     *
+     * @throws ExecutionException from futures joined in the test
+     * @throws InterruptedException from futures joined in the test
+     */
+    @Test
+    public void mapPipelinedContinuationWithTimeLimitBeforeFirstEntry() throws ExecutionException, InterruptedException {
+        List<CompletableFuture<Integer>> futures = Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>(), new CompletableFuture<>());
+        futures.get(1).complete(1415);
+        RecordCursor<Integer> cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(0, 1, 2)), 2).mapPipelined(futures::get, 3);
+        CompletableFuture<RecordCursorResult<Integer>> resultFuture = cursor.onNext();
+        assertFalse(resultFuture.isDone());
+        futures.get(0).complete(1066);
+        RecordCursorResult<Integer> result = resultFuture.get();
+        assertTrue(result.hasNext());
+        assertEquals(1066, (int)result.get());
+
+        // The time limit has been reached, but futures[1] should already be in the pipeline so is returned
+        resultFuture = cursor.onNext();
+        assertTrue(resultFuture.isDone());
+        result = resultFuture.get();
+        assertTrue(result.hasNext());
+        assertEquals(1415, (int)result.get());
+        final RecordCursorContinuation lastContinuation = result.getContinuation();
+
+        // This should be the time limit being reached
+        resultFuture = cursor.onNext();
+        assertTrue(resultFuture.isDone());
+        result = resultFuture.get();
+        assertFalse(result.hasNext());
+        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, result.getNoNextReason());
+        assertEquals(lastContinuation, result.getContinuation());
+
+        assertEquals(2, (int)RecordCursor.fromList(Arrays.asList(0, 1, 2), lastContinuation.toBytes()).onNext().get().get());
     }
 
     @Test
