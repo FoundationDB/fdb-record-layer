@@ -67,7 +67,7 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* Traced transactions restore MDC context [(Issue #529)](https://github.com/FoundationDB/fdb-record-layer/issues/529)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -76,7 +76,7 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Automatically add a default union to the record meta-data if missing [(Issue #204)](https://github.com/FoundationDB/fdb-record-layer/issues/204)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -85,6 +85,11 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 
 // end next release
 -->
+
+### 2.6.59.0
+
+* Traced transactions restore MDC context [(Issue #529)](https://github.com/FoundationDB/fdb-record-layer/issues/529)
+* **Feature** Automatically add a default union to the record meta-data if missing [(Issue #204)](https://github.com/FoundationDB/fdb-record-layer/issues/204)
 
 ### 2.6.58.0
 
