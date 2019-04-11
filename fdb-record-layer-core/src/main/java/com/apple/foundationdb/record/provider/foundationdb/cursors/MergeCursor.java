@@ -101,22 +101,25 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
     @SuppressWarnings("squid:S1452")
     @Nonnull
     static <T, S extends MergeCursorState<T>> CompletableFuture<?> whenAny(@Nonnull List<S> cursorStates) {
-        List<S> nonExhausted = new ArrayList<>(cursorStates.size());
+        List<S> nonDoneCursors = new ArrayList<>(cursorStates.size());
         for (S cursorState : cursorStates) {
-            if (!cursorState.isExhausted()) {
+            if (cursorState.mightHaveNext()) {
                 if (MoreAsyncUtil.isCompletedNormally(cursorState.getOnNextFuture())) {
                     // Short-circuit and return immediately if we find a state that is already done.
                     return AsyncUtil.DONE;
                 } else {
-                    nonExhausted.add(cursorState);
+                    // The cursor might have a next element but its onNext future has either not completed or has
+                    // completed exceptionally. Add it to the list of cursors to wait on so that either its value
+                    // completes the returned future when ready or its error is propagated.
+                    nonDoneCursors.add(cursorState);
                 }
             }
         }
-        if (nonExhausted.isEmpty()) {
-            // Everything is exhausted. Can return immediately.
+        if (nonDoneCursors.isEmpty()) {
+            // No cursor will return any more elements, so we can return immediately.
             return AsyncUtil.DONE;
         } else {
-            return CompletableFuture.anyOf(getOnNextFutures(nonExhausted));
+            return CompletableFuture.anyOf(getOnNextFutures(nonDoneCursors));
         }
     }
 
