@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -55,9 +56,13 @@ import java.util.stream.Stream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests of the {@link ProbableIntersectionCursor} class. This class is somewhat difficult to test because of its
@@ -322,5 +327,59 @@ public class ProbableIntersectionCursorTest {
                 null,
                 null);
         verifyResults(cursor, RecordCursor.NoNextReason.SOURCE_EXHAUSTED, 3, 7, 4, 1);
+    }
+
+    @Test
+    public void errorInChild() {
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        RecordCursor<Integer> cursor = ProbableIntersectionCursor.create(Collections::singletonList, Arrays.asList(
+                continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation),
+                continuation -> RecordCursor.fromFuture(future)
+        ), null, null);
+
+        CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
+        final RecordCoreException ex = new RecordCoreException("something bad happened!");
+        future.completeExceptionally(ex);
+        ExecutionException executionException = assertThrows(ExecutionException.class, cursorResultFuture::get);
+        assertNotNull(executionException.getCause());
+        assertSame(ex, executionException.getCause());
+    }
+
+    @Test
+    public void errorAndLimitInChild() {
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        RecordCursor<Integer> cursor = ProbableIntersectionCursor.create(Collections::singletonList, Arrays.asList(
+                continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation).limitRowsTo(1),
+                continuation -> RecordCursor.fromFuture(future)
+        ), null, null);
+
+        CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
+        final RecordCoreException ex = new RecordCoreException("something bad happened!");
+        future.completeExceptionally(ex);
+        ExecutionException executionException = assertThrows(ExecutionException.class, cursorResultFuture::get);
+        assertNotNull(executionException.getCause());
+        assertSame(ex, executionException.getCause());
+    }
+
+    @Test
+    public void loopIterationWithLimit() throws ExecutionException, InterruptedException {
+        FDBStoreTimer timer = new FDBStoreTimer();
+        FirableCursor<Integer> secondCursor = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(2, 1)));
+        RecordCursor<Integer> cursor = ProbableIntersectionCursor.create(Collections::singletonList, Arrays.asList(
+                continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation).limitRowsTo(1),
+                continuation -> secondCursor
+        ), null, timer);
+
+        CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
+        secondCursor.fire();
+        assertFalse(cursorResultFuture.isDone());
+        secondCursor.fire();
+        RecordCursorResult<Integer> cursorResult = cursorResultFuture.get();
+        assertEquals(1, (int)cursorResult.get());
+
+        secondCursor.fire();
+        cursorResult = cursor.onNext().get();
+        assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursorResult.getNoNextReason());
+        assertThat(timer.getCount(FDBStoreTimer.Events.QUERY_INTERSECTION), lessThanOrEqualTo(5));
     }
 }

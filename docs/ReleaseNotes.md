@@ -46,7 +46,7 @@ The `asyncToSync` method of the `OnlineIndexer` has been marked as `INTERNAL`. U
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** `ProbableIntersectionCursor`s and `UnorderedUnionCursor`s should no longer get stuck in a loop when one child completes exceptionally and another with a limit [(Issue #526)](https://github.com/FoundationDB/fdb-record-layer/issues/526)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
