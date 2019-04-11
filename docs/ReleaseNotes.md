@@ -68,7 +68,7 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** `OnlineIndexer` inherits `WeakReadSemantics` [(Issue #519)](https://github.com/FoundationDB/fdb-record-layer/issues/519)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -92,7 +92,7 @@ While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundati
 
 ### 2.6.59.0
 
-* Traced transactions restore MDC context [(Issue #529)](https://github.com/FoundationDB/fdb-record-layer/issues/529)
+* **Performance** Traced transactions restore MDC context [(Issue #529)](https://github.com/FoundationDB/fdb-record-layer/issues/529)
 * **Feature** Automatically add a default union to the record meta-data if missing [(Issue #204)](https://github.com/FoundationDB/fdb-record-layer/issues/204)
 
 ### 2.6.58.0
