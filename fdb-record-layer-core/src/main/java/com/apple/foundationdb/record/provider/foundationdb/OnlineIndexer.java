@@ -1195,9 +1195,7 @@ public class OnlineIndexer implements AutoCloseable {
         public Builder setRecordStoreBuilder(@Nonnull FDBRecordStore.Builder recordStoreBuilder) {
             this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setContext(null);
             if (runner == null && recordStoreBuilder.getContext() != null) {
-                runner = recordStoreBuilder.getContext().getDatabase().newRunner();
-                runner.setTimer(recordStoreBuilder.getContext().getTimer());
-                runner.setMdcContext(recordStoreBuilder.getContext().getMdcContext());
+                runner = recordStoreBuilder.getContext().newRunner();
             }
             return this;
         }
@@ -1210,9 +1208,7 @@ public class OnlineIndexer implements AutoCloseable {
         public Builder setRecordStore(@Nonnull FDBRecordStore recordStore) {
             recordStoreBuilder = recordStore.asBuilder().setContext(null);
             if (runner == null) {
-                runner = recordStore.getRecordContext().getDatabase().newRunner();
-                runner.setTimer(recordStore.getTimer());
-                runner.setMdcContext(recordStore.getRecordContext().getMdcContext());
+                runner = recordStore.getRecordContext().newRunner();
             }
             return this;
         }

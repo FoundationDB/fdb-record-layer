@@ -531,6 +531,25 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
+     * Get a new {@link FDBDatabaseRunner} that will run contexts similar to this one.
+     * <ul>
+     * <li>Same {@linkplain FDBDatabase database}</li>
+     * <li>Same {@linkplain FDBStoreTimer timer}</li>
+     * <li>Same {@linkplain #getMdcContext() MDC context}</li>
+     * <li>Same {@linkplain FDBDatabase.WeakReadSemantics weak read semantics}</li>
+     * </ul>
+     * @return a new database runner based on this context
+     */
+    @Nonnull
+    public FDBDatabaseRunner newRunner() {
+        FDBDatabaseRunner runner = database.newRunner();
+        runner.setTimer(timer);
+        runner.setMdcContext(getMdcContext());
+        runner.setWeakReadSemantics(weakReadSemantics);
+        return runner;
+    }
+
+    /**
      * Claims a local version that is unique within a single transaction.
      * This means that any two calls to this method will return a different
      * value. If the ordering of these calls is deterministic, then it
