@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorTest;
 import com.apple.foundationdb.record.cursors.FirableCursor;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
@@ -37,13 +40,19 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests for the {@link UnorderedUnionCursor} class. This cursor is somewhat unique in that it
@@ -244,5 +253,78 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
         }
         assertEquals(elems.stream().mapToInt(List::size).sum(), results.size());
         assertEquals(elems.stream().flatMap(List::stream).collect(Collectors.toSet()), new HashSet<>(results));
+    }
+
+    @Test
+    public void errorInChild() throws ExecutionException, InterruptedException {
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        RecordCursor<Integer> cursor = UnorderedUnionCursor.create(Arrays.asList(
+                continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation),
+                continuation -> RecordCursor.fromFuture(future)
+        ), null, null);
+
+        RecordCursorResult<Integer> cursorResult = cursor.onNext().get();
+        assertEquals(1, (int)cursorResult.get());
+        cursorResult = cursor.onNext().get();
+        assertEquals(2, (int)cursorResult.get());
+
+        CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
+        final RecordCoreException ex = new RecordCoreException("something bad happened!");
+        future.completeExceptionally(ex);
+        ExecutionException executionException = assertThrows(ExecutionException.class, cursorResultFuture::get);
+        assertNotNull(executionException.getCause());
+        assertSame(ex, executionException.getCause());
+    }
+
+    @Test
+    public void errorAndLimitInChild() throws ExecutionException, InterruptedException {
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        RecordCursor<Integer> cursor = UnorderedUnionCursor.create(Arrays.asList(
+                continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation).limitRowsTo(1),
+                continuation -> RecordCursor.fromFuture(future)
+        ), null, null);
+
+        RecordCursorResult<Integer> cursorResult = cursor.onNext().get();
+        assertEquals(1, (int)cursorResult.get());
+
+        CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
+        final RecordCoreException ex = new RecordCoreException("something bad happened!");
+        future.completeExceptionally(ex);
+        ExecutionException executionException = assertThrows(ExecutionException.class, cursorResultFuture::get);
+        assertNotNull(executionException.getCause());
+        assertSame(ex, executionException.getCause());
+    }
+
+    @Test
+    public void loopIterationWithLimit() throws ExecutionException, InterruptedException {
+        FDBStoreTimer timer = new FDBStoreTimer();
+        FirableCursor<Integer> secondCursor = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)));
+        RecordCursor<Integer> cursor = UnorderedUnionCursor.create(Arrays.asList(
+                continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation).limitRowsTo(1),
+                continuation -> secondCursor
+        ), null, timer);
+
+        RecordCursorResult<Integer> cursorResult = cursor.onNext().get();
+        assertEquals(1, (int)cursorResult.get());
+
+        CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
+        assertFalse(cursorResultFuture.isDone());
+        secondCursor.fire();
+        cursorResult = cursorResultFuture.get();
+        assertEquals(3, (int)cursorResult.get());
+
+        cursorResultFuture = cursor.onNext();
+        assertFalse(cursorResultFuture.isDone());
+        secondCursor.fire();
+        cursorResult = cursorResultFuture.get();
+        assertEquals(4, (int)cursorResult.get());
+
+        cursorResultFuture = cursor.onNext();
+        assertFalse(cursorResultFuture.isDone());
+        secondCursor.fire();
+        cursorResult = cursorResultFuture.get();
+        assertFalse(cursorResult.hasNext());
+        assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursorResult.getNoNextReason());
+        assertThat(timer.getCount(FDBStoreTimer.Events.QUERY_INTERSECTION), lessThanOrEqualTo(5));
     }
 }

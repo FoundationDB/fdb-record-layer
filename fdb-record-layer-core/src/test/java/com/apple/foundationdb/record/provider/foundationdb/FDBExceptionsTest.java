@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -106,7 +107,7 @@ public class FDBExceptionsTest {
             suppressedExceptions = base.getSuppressed();
             assertEquals(3, suppressedExceptions.length);
             assertThat(Arrays.asList(suppressedExceptions), hasItems(e0, e1));
-            assertThat(Arrays.asList(suppressedExceptions), not(anyOf(hasItem(e2), hasItem(e3))));
+            assertThat(Arrays.asList(suppressedExceptions), not(anyOf(Matchers.<Throwable>hasItem(e2), hasItem(e3))));
             countException = suppressedExceptions[2];
             assertThat(countException, instanceOf(CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount.class));
             assertEquals(2, ((CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount)countException).getCount());
@@ -126,7 +127,7 @@ public class FDBExceptionsTest {
             assertEquals(base, FDBExceptions.wrapException(e1));
             Throwable[] suppressedExceptions = base.getSuppressed();
             assertEquals(1, suppressedExceptions.length);
-            assertThat(Arrays.asList(suppressedExceptions), not(anyOf(hasItem(e0), hasItem(e1))));
+            assertThat(Arrays.asList(suppressedExceptions), not(anyOf(Matchers.<Throwable>hasItem(e0), hasItem(e1))));
             Throwable countException = suppressedExceptions[0];
             assertThat(countException, instanceOf(CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount.class));
             assertEquals(2, ((CompletionExceptionLogHelper.IgnoredSuppressedExceptionCount)countException).getCount());
