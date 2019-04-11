@@ -95,7 +95,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
                                boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
-        super(fdb, fdb.createTransaction(initExecutor(fdb, mdcContext), transactionIsTraced));
+        super(fdb, fdb.createTransaction(initExecutor(fdb, mdcContext), mdcContext, transactionIsTraced));
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>();

@@ -306,7 +306,9 @@ public class FDBDatabaseTest extends FDBTestBase {
 
     private long getReadVersion(FDBDatabase database, Long minVersion, Long stalenessBoundMillis) {
         FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
-        return database.getReadVersion(database.openContext(Collections.emptyMap(), null, weakReadSemantics)).join();
+        try (FDBRecordContext context = database.openContext(Collections.emptyMap(), null, weakReadSemantics)) {
+            return database.getReadVersion(context).join();
+        }
     }
 
     public static void testStoreAndRetrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData) {
