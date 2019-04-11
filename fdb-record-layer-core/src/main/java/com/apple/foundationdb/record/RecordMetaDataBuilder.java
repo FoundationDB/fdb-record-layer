@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
@@ -91,7 +92,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nullable
     private Descriptors.Descriptor unionDescriptor;
     @Nullable
-    private Descriptors.Descriptor localUnionDescriptor;
+    private Descriptors.FileDescriptor localFileDescriptor;
     @Nonnull
     private final Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields;
     @Nonnull
@@ -326,10 +327,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private Descriptors.Descriptor initRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor, boolean processExtensionOptions) {
         Descriptors.Descriptor unionDescriptor = fetchUnionDescriptor(fileDescriptor);
         validateRecords(fileDescriptor, unionDescriptor);
-        if (localUnionDescriptor != null) {
+        Descriptors.Descriptor localUnionDescriptor = fetchLocalUnionDescriptor(unionDescriptor);
+        if (localFileDescriptor != null) {
             evolutionValidator.validateUnion(unionDescriptor, localUnionDescriptor);
         }
-        fillUnionFields(unionDescriptor, processExtensionOptions);
+        fillUnionFields(unionDescriptor, localUnionDescriptor, processExtensionOptions);
         return localUnionDescriptor == null ? unionDescriptor : localUnionDescriptor;
     }
 
@@ -452,7 +454,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records already set.");
         }
-        if (localUnionDescriptor != null) {
+        if (localFileDescriptor != null) {
             throw new MetaDataException("Cannot set records from file descriptor when local descriptor is specified.");
         }
         if (!explicitDependencies.isEmpty()) {
@@ -506,7 +508,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (this.recordsDescriptor == null) {
             throw new MetaDataException("Records descriptor is not set yet");
         }
-        if (localUnionDescriptor != null) {
+        if (localFileDescriptor != null) {
             throw new MetaDataException("Updating the records descriptor is not allowed when the local file descriptor is set");
         }
         this.recordsDescriptor = recordsDescriptor;
@@ -547,9 +549,33 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records already set.");
         }
-        this.localUnionDescriptor = fetchUnionDescriptor(localFileDescriptor);
-        validateRecords(localFileDescriptor, this.localUnionDescriptor);
+        this.localFileDescriptor = localFileDescriptor;
         return this;
+    }
+
+    @Nonnull
+    private Descriptors.Descriptor buildSyntheticUnion(@Nonnull Descriptors.FileDescriptor parentFileDescriptor, @Nonnull Descriptors.Descriptor unionDescriptor) {
+        DescriptorProtos.FileDescriptorProto.Builder builder = DescriptorProtos.FileDescriptorProto.newBuilder();
+        builder.setName("_synthetic_" + parentFileDescriptor.getName());
+        builder.addMessageType(MetaDataProtoEditor.createSyntheticUnion(parentFileDescriptor, unionDescriptor));
+        builder.addDependency(parentFileDescriptor.getName());
+        return fetchUnionDescriptor(buildFileDescriptor(builder.build(), new Descriptors.FileDescriptor[]{parentFileDescriptor}));
+    }
+
+    @Nullable
+    private Descriptors.Descriptor fetchLocalUnionDescriptor(@Nonnull Descriptors.Descriptor unionDescriptor) {
+        if (localFileDescriptor == null) {
+            return null;
+        }
+        Descriptors.Descriptor localUnionDescriptor;
+        if (MetaDataProtoEditor.hasUnion(localFileDescriptor)) {
+            localUnionDescriptor = fetchUnionDescriptor(localFileDescriptor);
+        } else {
+            // The local file descriptor does not have a union. Synthesize it.
+            localUnionDescriptor = buildSyntheticUnion(localFileDescriptor, unionDescriptor);
+        }
+        validateRecords(localFileDescriptor, localUnionDescriptor);
+        return localUnionDescriptor;
     }
 
     /**
@@ -760,9 +786,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private void fillUnionFields(@Nonnull Descriptors.Descriptor union, boolean processExtensionOptions) {
+    private void fillUnionFields(@Nonnull Descriptors.Descriptor union, @Nullable Descriptors.Descriptor localUnionDescriptor, boolean processExtensionOptions) {
         for (Descriptors.FieldDescriptor unionField : union.getFields()) {
-            Descriptors.FieldDescriptor adjustedUnionField = adjustUnionField(unionField);
+            Descriptors.FieldDescriptor adjustedUnionField = adjustUnionField(unionField, localUnionDescriptor);
             Descriptors.Descriptor descriptor = adjustedUnionField.getMessageType();
             if (!unionFields.containsKey(descriptor)) {
                 processRecordType(adjustedUnionField, processExtensionOptions);
@@ -800,7 +826,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    private Descriptors.FieldDescriptor adjustUnionField(@Nonnull Descriptors.FieldDescriptor unionField) {
+    private Descriptors.FieldDescriptor adjustUnionField(@Nonnull Descriptors.FieldDescriptor unionField, @Nullable Descriptors.Descriptor localUnionDescriptor) {
         if (localUnionDescriptor == null) {
             return unionField;
         }
