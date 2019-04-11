@@ -258,6 +258,7 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 
 ### 2.6.57.0
 
+* **Feature** The new `ConcatCursor` allows clients to chain the results of two cursors together [(Issue #13)](https://github.com/FoundationDB/fdb-record-layer/issues/13)
 
 ### 2.6.56.0
 
