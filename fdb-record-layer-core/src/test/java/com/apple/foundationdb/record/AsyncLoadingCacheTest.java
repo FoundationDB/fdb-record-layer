@@ -30,19 +30,24 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.TestHelpers.ExceptionMessageMatcher.hasMessageContaining;
-import static com.apple.foundationdb.record.TestHelpers.assertThrows;
 import static com.apple.foundationdb.record.TestHelpers.consistently;
 import static com.apple.foundationdb.record.TestHelpers.eventually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class AsyncLoadingCacheTest {
@@ -219,5 +224,49 @@ class AsyncLoadingCacheTest {
         }
 
         assertThat("we get the value before the deadline", cachedResult.orElseGet("a-key", onTimeSupplier).join(), is(3));
+    }
+
+    @Test
+    public void testMultiplePiggyBacking() throws ExecutionException, InterruptedException {
+        AsyncLoadingCache<String, Integer> cache = new AsyncLoadingCache<>(100, 100);
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        CompletableFuture<Integer> firstCacheFuture = cache.orElseGet("key", () -> future);
+        CompletableFuture<Integer> secondCacheFuture = cache.orElseGet("key", () -> { throw new RuntimeException("uh oh!"); });
+        CompletableFuture<Integer> thirdCacheFuture = cache.orElseGet("key", () -> { throw new RuntimeException("uh oh!"); });
+        assertSame(secondCacheFuture, thirdCacheFuture);
+
+        future.complete(1066);
+        assertEquals(1066, (int)firstCacheFuture.get());
+        assertEquals(1066, (int)secondCacheFuture.get());
+        assertEquals(1066, (int)thirdCacheFuture.get());
+
+        // Validate that the successfully completed future is still cached after the first future completes.
+        CompletableFuture<Integer> fourthCacheFuture = cache.orElseGet("key", () -> { throw new RuntimeException("uh oh!"); });
+        assertSame(secondCacheFuture, fourthCacheFuture);
+    }
+
+    @Test
+    public void testMultiplePiggyBackingWithError() {
+        AsyncLoadingCache<String, Integer> cache = new AsyncLoadingCache<>(100, 100);
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        CompletableFuture<Integer> firstCacheFuture = cache.orElseGet("key", () -> future);
+        CompletableFuture<Integer> secondCacheFuture = cache.orElseGet("key", () -> { throw new RuntimeException("uh oh!"); });
+        CompletableFuture<Integer> thirdCacheFuture = cache.orElseGet("key", () -> { throw new RuntimeException("uh oh!"); });
+        assertSame(secondCacheFuture, thirdCacheFuture);
+
+        final RecordCoreException ex = new RecordCoreException("something bad happened!");
+        future.completeExceptionally(ex);
+        final ExecutionException e1 = assertThrows(ExecutionException.class, firstCacheFuture::get);
+        assertSame(ex, e1.getCause());
+        final ExecutionException e2 = assertThrows(ExecutionException.class, secondCacheFuture::get);
+        assertSame(ex, e2.getCause());
+        final ExecutionException e3 = assertThrows(ExecutionException.class, thirdCacheFuture::get);
+        assertSame(ex, e3.getCause());
+
+        // Validate that the erroneously completed future is removed from the cache.
+        CompletableFuture<Integer> nextFuture = new CompletableFuture<>();
+        CompletableFuture<Integer> fourthCacheFuture = cache.orElseGet("key", () -> nextFuture);
+        assertNotSame(secondCacheFuture, fourthCacheFuture);
+        assertFalse(fourthCacheFuture.isDone());
     }
 }

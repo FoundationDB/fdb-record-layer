@@ -63,13 +63,25 @@ public class AsyncLoadingCache<K, V> {
      *
      * @return a future containing either the cached value or the result from the supplier
      */
+    @Nonnull
     public CompletableFuture<V> orElseGet(@Nonnull K key, @Nonnull Supplier<CompletableFuture<V>> supplier) {
         try {
-            return cache.get(key, () -> MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, supplier)).whenComplete((ignored, e) -> {
-                if (e != null) {
-                    cache.invalidate(key);
+            CompletableFuture<V> future = cache.getIfPresent(key);
+            if (future == null) {
+                // If the future is missing, create a new one and add it to the cache. However, add a callback to the
+                // future to avoid caching exceptional values.
+                CompletableFuture<V> cachedFuture = cache.get(key, () -> MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, supplier));
+                if (!MoreAsyncUtil.isCompletedNormally(cachedFuture)) {
+                    cachedFuture = cachedFuture.whenComplete((ignored, e) -> {
+                        if (e != null) {
+                            cache.invalidate(key);
+                        }
+                    });
                 }
-            });
+                return cachedFuture;
+            } else {
+                return future;
+            }
         } catch (Exception e) {
             throw new RecordCoreException("failed getting value", e).addLogInfo("cacheKey", key);
         }
