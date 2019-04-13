@@ -315,7 +315,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public RecordStoreState getRecordStoreState() {
         if (recordStoreState == null) {
             recordStoreState = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE,
-                    preloadSubspaceAsync().thenCompose(vignore -> loadRecordStoreStateAsync(context, getSubspace())));
+                    preloadSubspaceAsync().thenCompose(vignore -> loadRecordStoreStateAsync(context)));
         }
         return recordStoreState;
     }
@@ -1924,7 +1924,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @API(API.Status.INTERNAL)
     protected CompletableFuture<Void> preloadRecordStoreStateAsync() {
-        return loadRecordStoreStateAsync(context, getSubspace()).thenAccept(state -> this.recordStoreState = state);
+        return loadRecordStoreStateAsync(context).thenAccept(state -> this.recordStoreState = state);
     }
 
     /**
@@ -1942,6 +1942,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param subspace the subspace of the record store
      * @return a future that will contain the state of the record state located at the given subspace
      */
+    @Deprecated
     @Nonnull
     public static CompletableFuture<MutableRecordStoreState> loadRecordStoreStateAsync(@Nonnull FDBRecordContext context,
                                                                                        @Nonnull Subspace subspace) {
@@ -1957,6 +1958,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param isolationLevel the isolation level to use when reading
      * @return a future that will contain the state of the record store located at the given subspace
      */
+    @Deprecated
     @Nonnull
     public static CompletableFuture<MutableRecordStoreState> loadRecordStoreStateAsync(@Nonnull FDBRecordContext context,
                                                                                        @Nonnull Subspace subspace,
@@ -1995,6 +1997,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             result = timer.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, result, context.getExecutor());
         }
         return result;
+    }
+
+    /**
+     * Loads the current state of the record store asynchronously.
+     * @param context the record context in which to retrieve the record store state
+     * @return a future that will contain the state of the record store located at the given subspace
+     */
+    @Nonnull
+    @SuppressWarnings("deprecation")
+    @API(API.Status.UNSTABLE)
+    CompletableFuture<MutableRecordStoreState> loadRecordStoreStateAsync(@Nonnull FDBRecordContext context) {
+        return loadRecordStoreStateAsync(context, getSubspace(), IsolationLevel.SNAPSHOT);
     }
 
     // add a read conflict key so that the transaction will fail if the index

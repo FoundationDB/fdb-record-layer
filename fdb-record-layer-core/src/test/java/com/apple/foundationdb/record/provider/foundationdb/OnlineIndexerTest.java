@@ -2086,7 +2086,7 @@ public class OnlineIndexerTest extends FDBTestBase {
         }
 
         try (FDBRecordContext context = fdb.openContext()) {
-            assertEquals(RecordStoreState.EMPTY, FDBRecordStore.loadRecordStoreStateAsync(context, subspace).join());
+            assertEquals(RecordStoreState.EMPTY, recordStore.loadRecordStoreStateAsync(context).join());
         }
     }
 
