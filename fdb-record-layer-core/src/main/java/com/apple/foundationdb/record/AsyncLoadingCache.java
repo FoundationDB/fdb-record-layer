@@ -42,15 +42,26 @@ public class AsyncLoadingCache<K, V> {
     private final Cache<K, Optional<V>> cache;
     private final long refreshTimeMillis;
     private final long deadlineTimeMillis;
+    private final long maxSize;
 
     public AsyncLoadingCache(long refreshTimeMillis) {
         this(refreshTimeMillis, 5000L);
     }
 
     public AsyncLoadingCache(long refreshTimeMillis, long deadlineTimeMillis) {
+        this(refreshTimeMillis, deadlineTimeMillis, Long.MAX_VALUE);
+    }
+
+    public AsyncLoadingCache(long refreshTimeMillis, long deadlineTimeMillis, long maxSize) {
         this.refreshTimeMillis = refreshTimeMillis;
         this.deadlineTimeMillis = deadlineTimeMillis;
-        cache = CacheBuilder.newBuilder().expireAfterWrite(this.refreshTimeMillis, TimeUnit.MILLISECONDS).build();
+        this.maxSize = maxSize;
+        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
+                .expireAfterWrite(this.refreshTimeMillis, TimeUnit.MILLISECONDS);
+        if (maxSize < Long.MAX_VALUE) {
+            cacheBuilder.maximumSize(maxSize);
+        }
+        cache = cacheBuilder.build();
     }
 
     /**
@@ -88,6 +99,16 @@ public class AsyncLoadingCache<K, V> {
 
     public long getRefreshTimeSeconds() {
         return TimeUnit.MILLISECONDS.toSeconds(refreshTimeMillis);
+    }
+
+    /**
+     * Get the maximum number of elements stored by the cache. This will return {@link Long#MAX_VALUE} if there
+     * is no maximum size enforced by this cache.
+     *
+     * @return the maximum number of elements stored by the cache
+     */
+    public long getMaxSize() {
+        return maxSize;
     }
 
     public void clear() {

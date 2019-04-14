@@ -92,6 +92,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final Queue<CommitCheckAsync> commitChecks = new ArrayDeque<>();
     @Nonnull
     private final Queue<AfterCommit> afterCommits = new ArrayDeque<>();
+    private boolean dirtyStoreState;
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
                                boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
@@ -114,6 +115,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
 
         this.weakReadSemantics = weakReadSemantics;
+        this.dirtyStoreState = false;
     }
 
     public boolean isClosed() {
@@ -231,6 +233,28 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     public long getTransactionCreateTime() {
         return transactionCreateTime;
+    }
+
+    void setDirtyStoreState(boolean dirtyStoreState) {
+        this.dirtyStoreState = dirtyStoreState;
+    }
+
+    /**
+     * Return whether any record store opened with this context has had its cache-able store state modified.
+     * This is then used to avoid using the cached there have been modifications to the cached data within the
+     * course of this transaction. Note that if multiple record stores are opened within a single transaction
+     * and one (but not all of them) update this state, then the other record stores will also eschew the
+     * cache.
+     *
+     * <p>
+     * This method is internal to the Record Layer and should not be used by external consumers.
+     * </p>
+     *
+     * @return whether the record store's state has been modified in the course of this transaction
+     */
+    @API(API.Status.INTERNAL)
+    public boolean hasDirtyStoreState() {
+        return dirtyStoreState;
     }
 
     /**

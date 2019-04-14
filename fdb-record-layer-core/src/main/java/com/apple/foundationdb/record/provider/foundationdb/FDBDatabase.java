@@ -37,6 +37,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.PassThroughRecordStoreStateCache;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -127,6 +129,8 @@ public class FDBDatabase {
     private volatile FDBReverseDirectoryCache reverseDirectoryCache;
     private final int reverseDirectoryMaxRowsPerTransaction;
     private final long reverseDirectoryMaxMillisPerTransaction;
+    @Nonnull
+    private FDBRecordStoreStateCache storeStateCache = PassThroughRecordStoreStateCache.instance();
     private final Supplier<Boolean> transactionIsTracedSupplier;
     /// The number of cache entries to maintain in memory
     public static final int DEFAULT_MAX_REVERSE_CACHE_ENTRIES = 5000;
@@ -168,6 +172,7 @@ public class FDBDatabase {
                 .build();
         this.resolverStateCache = new AsyncLoadingCache<>(factory.getStateRefreshTimeMillis());
         this.latencyInjector = factory.getLatencyInjector();
+        this.datacenterId = factory.getDatacenterId();
     }
 
     /**
@@ -444,12 +449,37 @@ public class FDBDatabase {
         }
     }
 
+    /**
+     * Get the store state cache for this database. This cache will be used when initializing record stores associated
+     * with this database.
+     *
+     * @return the store state cache for this database
+     * @see FDBRecordStoreStateCache
+     */
+    @Nonnull
+    public FDBRecordStoreStateCache getStoreStateCache() {
+        return storeStateCache;
+    }
+
+    /**
+     * Set the store state cache for this database. The provided cache will be used when initializing record stores
+     * with this database. Note that the store state cache should <em>not</em> be set with a store state cache
+     * that is used by a different database.
+     *
+     * @param storeStateCache the store state cache
+     */
+    public void setStoreStateCache(@Nonnull FDBRecordStoreStateCache storeStateCache) {
+        storeStateCache.validateDatabase(this);
+        this.storeStateCache = storeStateCache;
+    }
+
     @VisibleForTesting
     @API(API.Status.INTERNAL)
     public void clearCaches() {
         resolverStateCache.clear();
         clearForwardDirectoryCache();
         clearReverseDirectoryCache();
+        storeStateCache.clear();
     }
 
     public synchronized void close() {

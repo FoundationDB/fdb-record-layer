@@ -48,10 +48,12 @@ public class FDBStoreTimer extends StoreTimer {
         SAVE_META_DATA("save meta-data"),
         /** The amount of time taken loading meta-data from a {@link FDBMetaDataStore}. */
         LOAD_META_DATA("load meta-data"),
-        /** The amount of time taken loading a record store's {@code DataStoreInfo} header. */
-        LOAD_RECORD_STORE_INFO("load record store info"),
-        /** The amount of time taken loading a record store's {@link com.apple.foundationdb.record.RecordStoreState} listing inactive indexes. */
+        /** The amount of time taken loading a record store's {@link com.apple.foundationdb.record.RecordStoreState} listing store-specific information. */
         LOAD_RECORD_STORE_STATE("load record store state"),
+        /** The amount of time taken loading a record store's {@code DataStoreInfo} header.*/
+        LOAD_RECORD_STORE_INFO("load record store info"),
+        /** The amount of time taken loading a record store's index meta-data. */
+        LOAD_RECORD_STORE_INDEX_META_DATA("load record store index meta-data"),
         /** The amount of time taken getting the current version from a {@link MetaDataCache}. */
         GET_META_DATA_CACHE_VERSION("get meta-data cache version"),
         /** The amount of time taken getting cached meta-data from a {@link MetaDataCache}. */
@@ -82,7 +84,7 @@ public class FDBStoreTimer extends StoreTimer {
          * for later committing.
          */
         DELETE_RECORD("delete record"),
-        // TODO: Are these index maintanenace related ones really DetailEvents?
+        // TODO: Are these index maintenance related ones really DetailEvents?
         /** The amount of time spent maintaining an index when the entire record is skipped by the {@link IndexMaintenanceFilter}. */
         SKIP_INDEX_RECORD("skip index record"),
         /** The amount of time spent maintaining an index when an entry is skipped by the {@link IndexMaintenanceFilter}. */
@@ -310,6 +312,10 @@ public class FDBStoreTimer extends StoreTimer {
         CLOSE_CONTEXT("open record context", false),
         /** The number of times a record store is created in the database. */
         CREATE_RECORD_STORE("create record store", false),
+        /** The number of times the store state cache returned a cached result. */
+        STORE_STATE_CACHE_HIT("store info cache hit", false),
+        /** The number of times the store state cache was unable to return a cached result. */
+        STORE_STATE_CACHE_MISS("store info cache miss", false),
         /** The number of record key-value pairs saved. */
         SAVE_RECORD_KEY("number of record keys saved", false),
         /** The size of keys for record key-value pairs saved. */

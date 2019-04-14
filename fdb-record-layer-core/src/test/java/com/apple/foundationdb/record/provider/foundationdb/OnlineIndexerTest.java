@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -2061,6 +2060,7 @@ public class OnlineIndexerTest extends FDBTestBase {
         }
     }
 
+    @SuppressWarnings("try")
     @Test
     public void readableAtEnd() {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 50).mapToObj(val ->
@@ -2085,8 +2085,8 @@ public class OnlineIndexerTest extends FDBTestBase {
             indexBuilder.buildIndex();
         }
 
-        try (FDBRecordContext context = fdb.openContext()) {
-            assertEquals(RecordStoreState.EMPTY, recordStore.loadRecordStoreStateAsync(context).join());
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
         }
     }
 

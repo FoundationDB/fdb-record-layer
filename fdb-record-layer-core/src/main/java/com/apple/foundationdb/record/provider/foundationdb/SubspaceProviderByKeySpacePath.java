@@ -95,4 +95,19 @@ public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
         return keySpacePath.toString();
     }
 
+    @Override
+    public int hashCode() {
+        return keySpacePath.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        } else if (other == null || !this.getClass().equals(other.getClass())) {
+            return false;
+        }
+        SubspaceProviderByKeySpacePath that = (SubspaceProviderByKeySpacePath) other;
+        return keySpacePath.equals(that.keySpacePath);
+    }
 }

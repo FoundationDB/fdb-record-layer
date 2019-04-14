@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
+import javax.annotation.Nonnull;
+
 /**
  * Unique integers used as the first tuple item within a record store's subspace.
  */
@@ -40,6 +42,7 @@ public enum FDBRecordStoreKeyspace {
     ;
 
     private long id;
+    @Nonnull
     private Object key;
 
     FDBRecordStoreKeyspace(long id) {
@@ -51,6 +54,7 @@ public enum FDBRecordStoreKeyspace {
         return id;
     }
 
+    @Nonnull
     public Object key() {
         return key;
     }

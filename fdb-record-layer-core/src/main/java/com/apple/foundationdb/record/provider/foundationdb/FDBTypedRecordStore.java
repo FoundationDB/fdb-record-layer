@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.provider.common.MessageBuilderRecordSeriali
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TypedRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -97,7 +98,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         return untypedStore.getRecordMetaData();
     }
 
-    @Nullable
+    @Nonnull
     @Override
     public FDBRecordContext getContext() {
         return untypedStore.getContext();
@@ -417,6 +418,19 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         @Override
         public Builder<M> setPipelineSizer(@Nonnull PipelineSizer pipelineSizer) {
             untypedStoreBuilder.setPipelineSizer(pipelineSizer);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        public FDBRecordStoreStateCache getStoreStateCache() {
+            return untypedStoreBuilder.getStoreStateCache();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setStoreStateCache(@Nonnull FDBRecordStoreStateCache storeStateCache) {
+            untypedStoreBuilder.setStoreStateCache(storeStateCache);
             return this;
         }
 
