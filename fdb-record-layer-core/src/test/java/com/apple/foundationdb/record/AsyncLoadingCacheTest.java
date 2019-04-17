@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil.DeadlineExceededException;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +44,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class AsyncLoadingCacheTest {
@@ -184,9 +186,10 @@ class AsyncLoadingCacheTest {
     public void testParallelGets() {
         AsyncLoadingCache<String, Boolean> cachedResult = new AsyncLoadingCache<>(100);
         final AtomicInteger counter = new AtomicInteger();
+        CompletableFuture<Void> signal = new CompletableFuture<>();
         final Supplier<CompletableFuture<Boolean>> supplier = () -> {
             counter.incrementAndGet();
-            return MoreAsyncUtil.delayedFuture(200 + random.nextInt(1000), TimeUnit.MICROSECONDS).thenApply(ignored -> true);
+            return signal.thenApply(ignored -> true);
         };
 
         List<String> keys = ImmutableList.of("key-1", "key-2", "key-3");
@@ -197,8 +200,24 @@ class AsyncLoadingCacheTest {
             }
         }
 
-        CompletableFuture.allOf(parallelOperations.toArray(new CompletableFuture<?>[0])).join();
-        assertThat("supplier is only called once per key", counter.get(), is(keys.size()));
+        signal.complete(null);
+        List<Boolean> values = AsyncUtil.getAll(parallelOperations).join();
+        for (Boolean value : values) {
+            assertTrue(value);
+        }
+
+        // Don't increment after futures have already completed
+        List<CompletableFuture<Boolean>> afterCompleteOperations = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            for (String key : keys) {
+                afterCompleteOperations.add(cachedResult.orElseGet(key, supplier));
+            }
+        }
+        values = AsyncUtil.getAll(afterCompleteOperations).join();
+        for (Boolean value : values) {
+            assertTrue(value);
+        }
+        assertThat("supplier is called once per incomplete access", counter.get(), is(parallelOperations.size()));
     }
 
     @Test

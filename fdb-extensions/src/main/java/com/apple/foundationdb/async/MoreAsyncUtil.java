@@ -810,7 +810,9 @@ public class MoreAsyncUtil {
 
     /**
      * Get a completable future that will either complete within the specified deadline time or complete exceptionally
-     * with {@link DeadlineExceededException}.
+     * with {@link DeadlineExceededException}. If {@code deadlineTimeMillis} is set to {@link Long#MAX_VALUE}, then
+     * no deadline is imposed on the future.
+     *
      * @param deadlineTimeMillis the maximum time to wait for the asynchronous operation to complete, specified in milliseconds
      * @param supplier the {@link Supplier} of the asynchronous result
      * @param <T> the return type for the get operation
@@ -821,7 +823,9 @@ public class MoreAsyncUtil {
     public static <T> CompletableFuture<T> getWithDeadline(long deadlineTimeMillis,
                                                            @Nonnull Supplier<CompletableFuture<T>> supplier) {
         final CompletableFuture<T> valueFuture = supplier.get();
-
+        if (deadlineTimeMillis == Long.MAX_VALUE) {
+            return valueFuture;
+        }
         return CompletableFuture.anyOf(MoreAsyncUtil.delayedFuture(deadlineTimeMillis, TimeUnit.MILLISECONDS), valueFuture)
                 .thenCompose(ignore -> {
                     if (!valueFuture.isDone()) {
