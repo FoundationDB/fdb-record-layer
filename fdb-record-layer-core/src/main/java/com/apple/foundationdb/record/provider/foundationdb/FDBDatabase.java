@@ -20,12 +20,11 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
-import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -149,6 +148,9 @@ public class FDBDatabase {
     private String datacenterId;
 
     @Nonnull
+    private FDBLocalityProvider localityProvider;
+
+    @Nonnull
     private static ImmutablePair<Long, Long> initialVersionPair = new ImmutablePair<>(null, null);
     @Nonnull
     private AtomicReference<ImmutablePair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
@@ -173,6 +175,7 @@ public class FDBDatabase {
         this.resolverStateCache = new AsyncLoadingCache<>(factory.getStateRefreshTimeMillis());
         this.latencyInjector = factory.getLatencyInjector();
         this.datacenterId = factory.getDatacenterId();
+        this.localityProvider = factory.getLocalityProvider();
     }
 
     /**
@@ -217,6 +220,15 @@ public class FDBDatabase {
 
     public synchronized String getDatacenterId() {
         return datacenterId;
+    }
+
+    /**
+     * Get the locality provider that is used to discover the server location of the keys.
+     * @return the locality provider
+     */
+    @Nonnull
+    public synchronized FDBLocalityProvider getLocalityProvider() {
+        return localityProvider;
     }
 
     public synchronized void setTrackLastSeenVersionOnRead(boolean trackLastSeenVersion) {
@@ -924,8 +936,8 @@ public class FDBDatabase {
     public CompletableFuture<List<Tuple>> computeBoundaryKeys(@Nonnull FDBTransactionContext context, Tuple prefix,
                                                                int size, int count) {
         byte[] prefixBytes = prefix.pack();
-        CloseableAsyncIterator<byte[]> iter = LocalityUtil.getBoundaryKeys(context.ensureActive(),
-                                                                           prefixBytes, ByteArrayUtil.strinc(prefixBytes));
+        CloseableAsyncIterator<byte[]> iter = localityProvider.getBoundaryKeys(context.ensureActive(),
+                                                                               prefixBytes, ByteArrayUtil.strinc(prefixBytes));
         List<Tuple> tuples = new ArrayList<>();
         CompletableFuture<List<Tuple>> result = AsyncUtil.whileTrue(() -> iter.onHasNext().thenApply(hasNext -> {
             if (hasNext) {

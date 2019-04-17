@@ -20,13 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -2899,7 +2898,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final Transaction transaction = ensureContextActive();
         byte[] rangeStart = recordsSubspace().pack(low);
         byte[] rangeEnd = recordsSubspace().pack(high);
-        CloseableAsyncIterator<byte[]> cursor = LocalityUtil.getBoundaryKeys(transaction, rangeStart, rangeEnd);
+        CloseableAsyncIterator<byte[]> cursor = context.getDatabase().getLocalityProvider().getBoundaryKeys(transaction, rangeStart, rangeEnd);
         final boolean hasSplitRecordSuffix = hasSplitRecordSuffix();
         DistinctFilterCursorClosure closure = new DistinctFilterCursorClosure();
         return RecordCursor.fromIterator(getExecutor(), cursor)
