@@ -474,6 +474,16 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void preloadNonExisting() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            // Make sure pre-loading a non-existing record doesn't fail
+            recordStore.preloadRecordAsync(Tuple.from(1L, 2L, 3L, 4L));
+        }
+    }
+
+    @Test
     public void longRecords() throws Exception {
         Random rand = new Random();
         byte[] bytes;
