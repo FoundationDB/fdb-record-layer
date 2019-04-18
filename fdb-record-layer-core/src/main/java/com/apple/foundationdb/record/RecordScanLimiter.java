@@ -57,6 +57,16 @@ public class RecordScanLimiter {
         return allowedRecordScansRemaining.getAndDecrement() > 0;
     }
 
+    /**
+     * Get the record scan limit. In particular, this will return the target
+     * number of records that this limiter is being used to enforce.
+     *
+     * @return the record scan limit being enforced
+     */
+    public int getLimit() {
+        return originalLimit;
+    }
+
     @Override
     public String toString() {
         return String.format("RecordScanLimiter(%d limit, %d left)", originalLimit, allowedRecordScansRemaining.get());

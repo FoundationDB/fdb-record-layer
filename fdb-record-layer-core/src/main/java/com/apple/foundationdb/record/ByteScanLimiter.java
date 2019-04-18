@@ -66,6 +66,16 @@ public class ByteScanLimiter {
         bytesRemaining.addAndGet(-bytes);
     }
 
+    /**
+     * Get the byte scan limit. In particular, this will return the target
+     * number of bytes that this limiter is being used to enforce.
+     *
+     * @return the byte scan limit being enforced
+     */
+    public long getLimit() {
+        return originalLimit;
+    }
+
     @Override
     public String toString() {
         return String.format("ByteScanLimiter(%d limit, %d left)", originalLimit, bytesRemaining.get());
