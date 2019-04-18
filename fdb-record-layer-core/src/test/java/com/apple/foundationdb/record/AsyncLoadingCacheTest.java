@@ -44,6 +44,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -218,6 +220,28 @@ class AsyncLoadingCacheTest {
             assertTrue(value);
         }
         assertThat("supplier is called once per incomplete access", counter.get(), is(parallelOperations.size()));
+    }
+
+    @Test
+    public void cacheNulls() {
+        AsyncLoadingCache<String, String> cache = new AsyncLoadingCache<>(100);
+        final AtomicInteger counter = new AtomicInteger();
+        CompletableFuture<Void> signal = new CompletableFuture<>();
+        final Supplier<CompletableFuture<String>> supplier = () -> {
+            counter.incrementAndGet();
+            return signal.thenApply(ignored -> null);
+        };
+
+        CompletableFuture<String> future = cache.orElseGet("key", supplier);
+        assertEquals(1, counter.get());
+        signal.complete(null);
+        String value = future.join();
+        assertNull(value);
+
+        CompletableFuture<String> cachedFuture = cache.orElseGet("key", supplier);
+        assertEquals(1, counter.get()); // supplier should not need to run
+        value = cachedFuture.join();
+        assertNull(value);
     }
 
     @Test

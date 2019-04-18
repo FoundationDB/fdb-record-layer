@@ -26,6 +26,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -38,7 +39,7 @@ import java.util.function.Supplier;
 @API(API.Status.UNSTABLE)
 public class AsyncLoadingCache<K, V> {
     @Nonnull
-    private final Cache<K, V> cache;
+    private final Cache<K, Optional<V>> cache;
     private final long refreshTimeMillis;
     private final long deadlineTimeMillis;
 
@@ -65,19 +66,20 @@ public class AsyncLoadingCache<K, V> {
      *
      * @return a future containing either the cached value or the result from the supplier
      */
+    @SuppressWarnings("squid:S2789") // comparison of null and optional used to differentiate absence of key and presence of null
     @Nonnull
     public CompletableFuture<V> orElseGet(@Nonnull K key, @Nonnull Supplier<CompletableFuture<V>> supplier) {
         try {
-            V cachedValue = cache.getIfPresent(key);
+            Optional<V> cachedValue = cache.getIfPresent(key);
             if (cachedValue == null) {
                 return MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, supplier).thenApply(value -> {
                     // Only insert the computed value into the cache if a concurrent caller hasn't.
                     // Return the value that wound up in the cache.
-                    final V existingValue = cache.asMap().putIfAbsent(key, value);
-                    return existingValue == null ? value : existingValue;
+                    final Optional<V> existingValue = cache.asMap().putIfAbsent(key, Optional.ofNullable(value));
+                    return existingValue == null ? value : existingValue.orElse(null);
                 });
             } else {
-                return CompletableFuture.completedFuture(cachedValue);
+                return CompletableFuture.completedFuture(cachedValue.orElse(null));
             }
         } catch (Exception e) {
             throw new RecordCoreException("failed getting value", e).addLogInfo("cacheKey", key);
