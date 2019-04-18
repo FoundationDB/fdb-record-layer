@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.Transaction;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -70,5 +72,37 @@ public class ExecutePropertiesTest {
         }
         // verify that the record scan limit really is RECORD_SCAN_LIMIT + 1
         assertFalse(merge3.getState().getRecordScanLimiter().tryRecordScan());
+    }
+
+    /**
+     * Validate the values returned by an {@link ExecuteProperties} object when no limit is imposed.
+     * These are helpfully a mix of 0 and the maximum value for their return type.
+     */
+    @Test
+    public void testGetNoLimits() {
+        assertEquals(ExecuteProperties.UNLIMITED_TIME, ExecuteProperties.SERIAL_EXECUTE.getTimeLimit());
+        assertEquals(Integer.MAX_VALUE, ExecuteProperties.SERIAL_EXECUTE.getScannedRecordsLimit());
+        assertNull(ExecuteProperties.SERIAL_EXECUTE.getState().getRecordScanLimiter());
+        assertEquals(Long.MAX_VALUE, ExecuteProperties.SERIAL_EXECUTE.getScannedBytesLimit());
+        assertNull(ExecuteProperties.SERIAL_EXECUTE.getState().getByteScanLimiter());
+        assertEquals(Transaction.ROW_LIMIT_UNLIMITED, ExecuteProperties.SERIAL_EXECUTE.getReturnedRowLimit());
+        assertEquals(Integer.MAX_VALUE, ExecuteProperties.SERIAL_EXECUTE.getReturnedRowLimitOrMax());
+    }
+
+    /**
+     * Validate that getting the limits set on an {@link ExecuteProperties} can then be retrieved back.
+     */
+    @Test
+    public void testGetLimits() {
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setTimeLimit(100L)
+                .setScannedBytesLimit(1000L)
+                .setScannedRecordsLimit(1000)
+                .setReturnedRowLimit(200)
+                .build();
+        assertEquals(100L, executeProperties.getTimeLimit());
+        assertEquals(1000L, executeProperties.getScannedBytesLimit());
+        assertEquals(1000, executeProperties.getScannedRecordsLimit());
+        assertEquals(200, executeProperties.getReturnedRowLimit());
     }
 }
