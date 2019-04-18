@@ -29,7 +29,11 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.cursors.EmptyCursor;
 import com.apple.foundationdb.record.cursors.IllegalContinuationAccessChecker;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,6 +42,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -50,6 +55,12 @@ import java.util.stream.Collectors;
  * </ul>
  */
 abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements RecordCursor<U> {
+    // Maximum amount of time to wait before bailing on getting the next state.
+    // Added to investigate: https://github.com/FoundationDB/fdb-record-layer/issues/546
+    // This is not particularly pretty, but it is meant for some rough debugging.
+    private static final long MAX_NEXT_STATE_MILLIS = TimeUnit.SECONDS.toMillis(15);
+    @Nonnull
+    private static final Logger LOGGER = LoggerFactory.getLogger(UnorderedUnionCursor.class);
     @Nonnull
     private final List<S> cursorStates;
     @Nullable
@@ -120,6 +131,28 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
             return AsyncUtil.DONE;
         } else {
             return CompletableFuture.anyOf(getOnNextFutures(nonDoneCursors));
+        }
+    }
+
+    void checkNextStateTimeout(long startTime) {
+        long checkStateTime = System.currentTimeMillis();
+        if (checkStateTime - startTime > MAX_NEXT_STATE_MILLIS) {
+            KeyValueLogMessage logMessage = KeyValueLogMessage.build("time computing next state exceeded",
+                    "time_started", startTime * 1.0e-3,
+                    "time_ended", checkStateTime * 1.0e-3,
+                    "duration_millis", checkStateTime - startTime,
+                    LogMessageKeys.CHILD_COUNT, cursorStates.size());
+            if (LOGGER.isDebugEnabled()) {
+                logMessage.addKeyAndValue("child_states", cursorStates.stream()
+                        .map(cursorState -> "(future=" + cursorState.getOnNextFuture() +
+                                            ", result=" + (cursorState.getResult() == null ? "null" : cursorState.getResult().hasNext()) +
+                                            ", cursorClass=" + cursorState.getCursor().getClass().getName() + ")"
+                        )
+                        .collect(Collectors.toList())
+                );
+            }
+            LOGGER.warn(logMessage.toString());
+            throw new RecordCoreException("time computing next state exceeded");
         }
     }
 
