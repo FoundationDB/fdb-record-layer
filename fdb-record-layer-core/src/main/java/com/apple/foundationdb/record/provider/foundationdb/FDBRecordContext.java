@@ -241,9 +241,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Return whether any record store opened with this context has had its cache-able store state modified.
-     * This is then used to avoid using the cached there have been modifications to the cached data within the
-     * course of this transaction. Note that if multiple record stores are opened within a single transaction
-     * and one (but not all of them) update this state, then the other record stores will also eschew the
+     * This is then used to avoid using the cached state when there have been modifications to the cached state
+     * within this transaction. Note that if multiple record stores are opened within a single transaction
+     * and one (but not all of them) updates its state, then the other record stores will also eschew the
      * cache.
      *
      * <p>

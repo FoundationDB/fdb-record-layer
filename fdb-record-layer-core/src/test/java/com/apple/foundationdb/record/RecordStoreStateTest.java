@@ -53,7 +53,7 @@ public class RecordStoreStateTest {
             IndexState indexState = (IndexState)values[i + 1];
             indexStateMap.put(indexName, indexState);
         }
-        return new RecordStoreState(indexStateMap, null);
+        return new RecordStoreState(null, indexStateMap);
     }
 
     @Nonnull

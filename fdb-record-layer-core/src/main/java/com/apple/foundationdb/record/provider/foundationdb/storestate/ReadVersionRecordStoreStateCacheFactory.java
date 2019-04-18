@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.storestate;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.AsyncLoadingCache;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 
 import javax.annotation.Nonnull;
@@ -30,18 +31,35 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ReadVersionRecordStoreStateCacheFactory implements FDBRecordStoreStateCacheFactory {
-    private long refreshTimeMillis;
-    private long deadlineTimeMillis;
-    private long maxSize;
+    /**
+     * Default refresh time for cache entries (in milliseconds). By default, this is set to 5 seconds, which
+     * is equal to the FoundationDB
+     * <a href="https://apple.github.io/foundationdb/known-limitations.html#long-running-transactions">global transaction time limit</a>.
+     */
+    public static final long DEFAULT_REFRESH_TIME_MILLIS = 5000L;
+    /**
+     * Default deadline time to load entries into this cache. This is set to the same default
+     * as the {@link AsyncLoadingCache}'s default deadline time.
+     *
+     * @see AsyncLoadingCache#DEFAULT_DEADLINE_TIME_MILLIS
+     */
+    public static final long DEFAULT_DEADLINE_TIME_MILLIS = AsyncLoadingCache.DEFAULT_DEADLINE_TIME_MILLIS;
+    /**
+     * Default maximum number of elements to cache.
+     */
+    public static final long DEFAULT_MAX_SIZE = 1000L;
+
+    private long refreshTimeMillis = DEFAULT_REFRESH_TIME_MILLIS;
+    private long deadlineTimeMillis = DEFAULT_DEADLINE_TIME_MILLIS;
+    private long maxSize = DEFAULT_MAX_SIZE;
 
     private ReadVersionRecordStoreStateCacheFactory() {
-        this.refreshTimeMillis = 5000;
-        this.deadlineTimeMillis = 5000;
-        this.maxSize = 1000;
     }
 
     /**
-     * Set the maximum amount of time to keep an entry in the cache.
+     * Set the maximum amount of time to keep an entry in the cache. Note that as read versions are only
+     * valid for a limited time in FoundationDB, it makes little sense to set this value to something
+     * above the <a href="https://apple.github.io/foundationdb/known-limitations.html#long-running-transactions">global transaction time limit</a>.
      *
      * @param refreshTimeMillis the maximum amount of time to keep an entry in milliseconds
      * @return this factory

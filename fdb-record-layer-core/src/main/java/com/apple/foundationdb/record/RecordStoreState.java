@@ -46,14 +46,14 @@ import java.util.stream.Collectors;
  * </p>
  * <ul>
  *     <li>
- *         Index state information. This includes whether each index is currently readable, disabled,
- *         or write-only. This information is used by the planner when selecting indexes and by the
- *         store when choosing which indexes to update upon record insertion.
- *     </li>
- *     <li>
  *         The store header. The header is a Protobuf message including information such as the
  *         store's format and meta-data version. This is used at store initialization time to validate
  *         the meta-data being used and take appropriate action on meta-data changes.
+ *     </li>
+ *     <li>
+ *         Index state information. This includes whether each index is currently readable, disabled,
+ *         or write-only. This information is used by the planner when selecting indexes and by the
+ *         store when choosing which indexes to update upon record insertion.
  *     </li>
  * </ul>
  */
@@ -78,27 +78,27 @@ public class RecordStoreState {
     public static final RecordStoreState EMPTY = new RecordStoreState();
 
     @Nonnull
-    protected final AtomicReference<Map<String, IndexState>> indexStateMap;
-    @Nonnull
     protected final AtomicReference<RecordMetaDataProto.DataStoreInfo> storeHeader;
+    @Nonnull
+    protected final AtomicReference<Map<String, IndexState>> indexStateMap;
 
     /**
      * Creates a <code>RecordStoreState</code> with the given index states.
      * Only indexes that are not in the default state ({@link IndexState#READABLE IndexState.READABLE})
      * need to be included in the map.
-     * @param indexStateMap mapping from index name to index state
      * @param storeHeader header information for the given store
+     * @param indexStateMap mapping from index name to index state
      */
     @API(API.Status.INTERNAL)
-    public RecordStoreState(@Nullable Map<String, IndexState> indexStateMap, @Nullable RecordMetaDataProto.DataStoreInfo storeHeader) {
+    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
         final Map<String, IndexState> copy;
         if (indexStateMap == null || indexStateMap.isEmpty()) {
             copy = Collections.emptyMap();
         } else {
             copy = ImmutableMap.copyOf(indexStateMap);
         }
-        this.indexStateMap = new AtomicReference<>(copy);
         this.storeHeader = new AtomicReference<>(storeHeader == null ? RecordMetaDataProto.DataStoreInfo.getDefaultInstance() : storeHeader);
+        this.indexStateMap = new AtomicReference<>(copy);
     }
 
     /**
@@ -113,7 +113,7 @@ public class RecordStoreState {
      */
     @Deprecated
     public RecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
-        this(indexStateMap, null);
+        this(null, indexStateMap);
     }
 
     /**
@@ -308,7 +308,7 @@ public class RecordStoreState {
         } else {
             indexNames.forEach(indexName -> indexStateMapBuilder.put(indexName, state));
         }
-        return new RecordStoreState(ImmutableMap.copyOf(indexStateMapBuilder), storeHeader.get());
+        return new RecordStoreState(storeHeader.get(), ImmutableMap.copyOf(indexStateMapBuilder));
     }
 
     /**
@@ -320,7 +320,7 @@ public class RecordStoreState {
      */
     @Nonnull
     public RecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new RecordStoreState(writeOnlyMap(writeOnlyIndexNames), storeHeader.get());
+        return new RecordStoreState(storeHeader.get(), writeOnlyMap(writeOnlyIndexNames));
     }
 
     @Nonnull
@@ -367,7 +367,7 @@ public class RecordStoreState {
             return false;
         } else {
             RecordStoreState other = (RecordStoreState)o;
-            return indexStateMap.get().equals(other.indexStateMap.get()) && storeHeader.get().equals(other.storeHeader.get());
+            return storeHeader.get().equals(other.storeHeader.get()) && indexStateMap.get().equals(other.indexStateMap.get());
         }
     }
 

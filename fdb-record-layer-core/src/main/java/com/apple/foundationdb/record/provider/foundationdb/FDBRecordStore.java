@@ -1515,7 +1515,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                       @Nullable UserVersionChecker userVersionChecker,
                                                       @Nonnull StoreExistenceCheck existenceCheck) {
         CompletableFuture<Boolean> result = firstKeyFuture.thenCompose(keyValue -> {
-            RecordMetaDataProto.DataStoreInfo info = parseDataStoreInfo(keyValue, getContext(), subspaceProvider, getSubspace(), existenceCheck);
+            RecordMetaDataProto.DataStoreInfo info = checkAndParseDataStoreInfo(keyValue, getContext(), subspaceProvider, getSubspace(), existenceCheck);
             return checkVersion(info, userVersionChecker);
         });
         return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result);
@@ -1580,11 +1580,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private static RecordMetaDataProto.DataStoreInfo parseDataStoreInfo(@Nullable KeyValue keyValue, @Nonnull FDBRecordContext context,
-                                                                        @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
-                                                                        @Nonnull StoreExistenceCheck existenceCheck) {
+    private static RecordMetaDataProto.DataStoreInfo checkAndParseDataStoreInfo(@Nullable KeyValue firstKeyValue,
+                                                                                @Nonnull FDBRecordContext context,
+                                                                                @Nonnull SubspaceProvider subspaceProvider,
+                                                                                @Nonnull Subspace subspace,
+                                                                                @Nonnull StoreExistenceCheck existenceCheck) {
         RecordMetaDataProto.DataStoreInfo info;
-        if (keyValue == null) {
+        if (firstKeyValue == null) {
             if (existenceCheck == StoreExistenceCheck.ERROR_IF_NOT_EXISTS) {
                 throw new RecordStoreDoesNotExistException("Record store does not exist",
                         subspaceProvider.logKey(), subspaceProvider.toString(context));
@@ -1594,22 +1596,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else if (existenceCheck == StoreExistenceCheck.ERROR_IF_EXISTS) {
             throw new RecordStoreAlreadyExistsException("Record store already exists",
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
-        } else if (!subspace.unpack(keyValue.getKey()).equals(Tuple.from(STORE_INFO_KEY))) {
+        } else if (!subspace.unpack(firstKeyValue.getKey()).equals(Tuple.from(STORE_INFO_KEY))) {
             if (existenceCheck != StoreExistenceCheck.NONE) {
                 throw new RecordStoreNoInfoAndNotEmptyException("Record store has no info but is not empty",
                         subspaceProvider.logKey(), subspaceProvider.toString(context),
-                        LogMessageKeys.KEY, subspace.unpack(keyValue.getKey()));
+                        LogMessageKeys.KEY, subspace.unpack(firstKeyValue.getKey()));
             } else {
                 LOGGER.warn(KeyValueLogMessage.of("Record store has no info but is not empty",
                         subspaceProvider.logKey(), subspaceProvider.toString(context),
-                        LogMessageKeys.KEY, subspace.unpack(keyValue.getKey())));
+                        LogMessageKeys.KEY, subspace.unpack(firstKeyValue.getKey())));
                 // Treat as brand new, although there is no way to be sure that what was written is compatible
                 // with the current default versions.
                 info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
             }
         } else {
             try {
-                info = RecordMetaDataProto.DataStoreInfo.parseFrom(keyValue.getValue());
+                info = RecordMetaDataProto.DataStoreInfo.parseFrom(firstKeyValue.getValue());
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreStorageException("Error reading version", ex);
             }
@@ -1628,7 +1630,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                              @Nonnull StoreExistenceCheck existenceCheck,
                                                                                              @Nonnull IsolationLevel isolationLevel) {
         return readStoreFirstKey(context, subspace, isolationLevel).thenApply(keyValue ->
-                parseDataStoreInfo(keyValue, context, subspaceProvider, subspace, existenceCheck));
+                checkAndParseDataStoreInfo(keyValue, context, subspaceProvider, subspace, existenceCheck));
     }
 
     private void saveStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
@@ -1685,7 +1687,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
-    // Actually (1) writes the index to the database and (2) updates the cached state with the new state
+    // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
         // This is generally called by someone who should already have a write lock, but adding them here
         // defensively shouldn't cause problems.
@@ -2073,9 +2075,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                          @Nonnull IsolationLevel storeHeaderIsolationLevel,
                                                                                          @Nonnull IsolationLevel indexStateIsolationLevel) {
         // TODO: Can become non-static once the static variants of loadRecordStoreStateAsync are removed
-        CompletableFuture<RecordMetaDataProto.DataStoreInfo> dataStoreInfoFuture = FDBRecordStore.loadStoreHeaderAsync(context, subspaceProvider, subspace, existenceCheck, storeHeaderIsolationLevel);
+        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = FDBRecordStore.loadStoreHeaderAsync(context, subspaceProvider, subspace, existenceCheck, storeHeaderIsolationLevel);
         CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(context, subspace, indexStateIsolationLevel);
-        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, loadIndexStates.thenCombine(dataStoreInfoFuture, RecordStoreState::new));
+        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, RecordStoreState::new));
     }
 
     @Nonnull

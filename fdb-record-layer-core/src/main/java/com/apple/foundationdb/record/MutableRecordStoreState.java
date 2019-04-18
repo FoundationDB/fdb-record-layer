@@ -42,13 +42,13 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     private final AtomicLong users = new AtomicLong();
 
-    public MutableRecordStoreState(@Nullable Map<String, IndexState> indexStateMap, @Nullable RecordMetaDataProto.DataStoreInfo storeHeader) {
-        super(indexStateMap, storeHeader);
+    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
+        super(storeHeader, indexStateMap);
     }
 
     // Copy constructor
     MutableRecordStoreState(@Nonnull RecordStoreState recordStoreState) {
-        this(recordStoreState.getIndexStates(), recordStoreState.getStoreHeader());
+        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexStates());
     }
 
     @Deprecated
@@ -127,7 +127,7 @@ public class MutableRecordStoreState extends RecordStoreState {
     }
 
     /**
-     * Modify the state of an index in this map. The caller should also modify the database to match.
+     * Modify the state of an index in this map. The caller should modify the database to match.
      *
      * @param indexName the index name
      * @param state the new state for the given index
@@ -148,7 +148,7 @@ public class MutableRecordStoreState extends RecordStoreState {
     @Nonnull
     @Override
     public MutableRecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new MutableRecordStoreState(writeOnlyMap(writeOnlyIndexNames), getStoreHeader());
+        return new MutableRecordStoreState(getStoreHeader(), writeOnlyMap(writeOnlyIndexNames));
     }
 
     /**
@@ -180,6 +180,6 @@ public class MutableRecordStoreState extends RecordStoreState {
     @Nonnull
     @Override
     public RecordStoreState toImmutable() {
-        return new RecordStoreState(indexStateMap.get(), storeHeader.get());
+        return new RecordStoreState(storeHeader.get(), indexStateMap.get());
     }
 }
