@@ -875,7 +875,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     @Nonnull
     public CompletableFuture<Void> preloadRecordAsync(@Nonnull final Tuple primaryKey) {
-        return loadRawRecordAsync(primaryKey, null, false).thenAccept(fdbRawRecord -> preloadCache.put(primaryKey, fdbRawRecord));
+        return loadRawRecordAsync(primaryKey, null, false).thenAccept(fdbRawRecord -> {
+            if (fdbRawRecord != null) {
+                preloadCache.put(primaryKey, fdbRawRecord);
+            }
+        });
     }
 
     @Override
