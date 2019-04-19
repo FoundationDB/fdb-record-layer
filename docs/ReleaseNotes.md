@@ -64,24 +64,22 @@ The static `loadRecordStoreStateAsync` methods on `FDBRecordStore` have been dep
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** `preloadRecordAsync` gets NPE if key doesn't exist [(Issue #541)](https://github.com/FoundationDB/fdb-record-layer/issues/541)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** `OnlineIndexer` inherits `WeakReadSemantics` [(Issue #519)](https://github.com/FoundationDB/fdb-record-layer/issues/519)
+* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Values are cached by the `AsyncLoadingCache` instead of futures to avoid futures sharing errors or timeouts [(Issue #538)](https://github.com/FoundationDB/fdb-record-layer/issues/538)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** `ProbableIntersectionCursor`s and `UnorderedUnionCursor`s now throw an error if they take longer than 15 seconds to find a next state as a temporary debugging measure [(Issue #546)](https://github.com/FoundationDB/fdb-record-layer/issues/546)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The bytes and record scanned query limits can now be retrieved through the `ExecuteProperties` object [(Issue #544)](https://github.com/FoundationDB/fdb-record-layer/issues/544)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Deprecate the static `loadRecordStoreStateAsync` methods from `FDBRecordStore` [(Issue #534)](https://github.com/FoundationDB/fdb-record-layer/issues/534)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -89,6 +87,15 @@ The static `loadRecordStoreStateAsync` methods on `FDBRecordStore` have been dep
 
 // end next release
 -->
+
+### 2.6.61.0
+
+* **Bug fix** `preloadRecordAsync` gets NPE if key doesn't exist [(Issue #541)](https://github.com/FoundationDB/fdb-record-layer/issues/541)
+* **Performance** `OnlineIndexer` inherits `WeakReadSemantics` [(Issue #519)](https://github.com/FoundationDB/fdb-record-layer/issues/519)
+* **Performance** Values are cached by the `AsyncLoadingCache` instead of futures to avoid futures sharing errors or timeouts [(Issue #538)](https://github.com/FoundationDB/fdb-record-layer/issues/538)
+* **Performance** `ProbableIntersectionCursor`s and `UnorderedUnionCursor`s now throw an error if they take longer than 15 seconds to find a next state as a temporary debugging measure [(Issue #546)](https://github.com/FoundationDB/fdb-record-layer/issues/546)
+* **Feature** The bytes and record scanned query limits can now be retrieved through the `ExecuteProperties` object [(Issue #544)](https://github.com/FoundationDB/fdb-record-layer/issues/544)
+* **Breaking change** Deprecate the static `loadRecordStoreStateAsync` methods from `FDBRecordStore` [(Issue #534)](https://github.com/FoundationDB/fdb-record-layer/issues/534)
 
 ### 2.6.60.0
 
