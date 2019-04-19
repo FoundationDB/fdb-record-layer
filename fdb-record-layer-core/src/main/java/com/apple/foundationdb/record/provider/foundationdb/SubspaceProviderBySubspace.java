@@ -36,7 +36,8 @@ public class SubspaceProviderBySubspace implements SubspaceProvider {
     @Nonnull
     private Subspace subspace;
 
-    SubspaceProviderBySubspace(@Nonnull Subspace subspace) {
+    @API(API.Status.INTERNAL)
+    public SubspaceProviderBySubspace(@Nonnull Subspace subspace) {
         this.subspace = subspace;
     }
 
