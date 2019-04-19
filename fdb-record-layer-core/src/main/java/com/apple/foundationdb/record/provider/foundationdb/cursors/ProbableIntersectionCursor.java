@@ -119,8 +119,10 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
     @Override
     @Nonnull
     CompletableFuture<List<ProbableIntersectionCursorState<T>>> computeNextResultStates() {
+        final long startComputingStateTime = System.currentTimeMillis();
         final AtomicReference<ProbableIntersectionCursorState<T>> resultStateRef = new AtomicReference<>();
         return AsyncUtil.whileTrue(() -> whenAny(getCursorStates()).thenApply(vignore -> {
+            checkNextStateTimeout(startComputingStateTime);
             final long startTime = System.nanoTime();
             final List<ProbableIntersectionCursorState<T>> cursorStates = getCursorStates();
             boolean allDone = true;
