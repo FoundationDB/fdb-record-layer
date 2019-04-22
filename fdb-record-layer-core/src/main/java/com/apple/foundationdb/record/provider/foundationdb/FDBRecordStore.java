@@ -111,6 +111,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -2200,6 +2201,29 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public List<Index> getEnabledUniversalIndexes() {
         return sanitizeIndexes(getRecordMetaData().getUniversalIndexes(), index -> !isIndexDisabled(index));
+    }
+
+    /**
+     * Gets a map from {@link Index} to {@link IndexState} for all the indexes in the metadata.
+     * This method will not perform any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     * @return a map of all the index states.
+     */
+    @Nonnull
+    public Map<Index, IndexState> getAllIndexStates() {
+        final RecordStoreState localRecordStoreState = getRecordStoreState();
+        localRecordStoreState.beginRead();
+        try {
+            return getRecordMetaData().getAllIndexes().stream()
+                    .collect(Collectors.toMap(Function.identity(), index -> {
+                        addIndexStateReadConflict(index.getName());
+                        return localRecordStoreState.getState(index);
+                    }));
+        } finally {
+            localRecordStoreState.endRead();
+        }
     }
 
     @Nonnull
