@@ -1686,7 +1686,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-
+    @Test
     public void invalidIndexField() throws Exception {
         assertThrows(KeyExpression.InvalidExpressionException.class, () ->
                 testInvalidIndex(new Index("broken", field("no_such_field"))));
