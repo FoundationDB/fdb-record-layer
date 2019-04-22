@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
-import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
@@ -279,12 +278,9 @@ public class LeaderboardIndexTest extends FDBTestBase {
         }
 
         public Collection<Tuple> trim(Collection<Key.Evaluated> untrimmed) {
-            Index index = metaData.getIndex("LeaderboardIndex");
-            List<IndexEntry> untrimmedEntries = untrimmed.stream().map(key -> new IndexEntry(index, key)).collect(Collectors.toList());
+            List<Tuple> untrimmedKeys = untrimmed.stream().map(Key.Evaluated::toTuple).collect(Collectors.toList());
             return ((TimeWindowLeaderboardScoreTrimResult)recordStore.performIndexOperation("LeaderboardIndex",
-                    new TimeWindowLeaderboardScoreTrim(untrimmedEntries, true))).getScores().stream()
-                    .map(IndexEntry::getKey)
-                    .collect(Collectors.toList());
+                    new TimeWindowLeaderboardScoreTrim(untrimmedKeys, true))).getScores();
         }
     }
 

@@ -648,13 +648,14 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         }
     }
 
-    protected Collection<IndexEntry> trimScores(@Nullable TimeWindowLeaderboardDirectory directory,
-                                                @Nonnull Collection<IndexEntry> scores, boolean includesGroup) {
+    protected Collection<Tuple> trimScores(@Nullable TimeWindowLeaderboardDirectory directory,
+                                                @Nonnull Collection<Tuple> scores, boolean includesGroup) {
         if (directory == null) {
             return scores;
         }
+        final List<IndexEntry> indexEntries = scores.stream().map(score -> new IndexEntry(state.index, score, TupleHelpers.EMPTY)).collect(Collectors.toList());
         final Map<Tuple, Collection<OrderedScoreIndexKey>> groupedScores =
-                groupOrderedScoreIndexKeys(scores, directory.isHighScoreFirst(), includesGroup);
+                groupOrderedScoreIndexKeys(indexEntries, directory.isHighScoreFirst(), includesGroup);
         final Set<OrderedScoreIndexKey> trimmed = new TreeSet<>();
         for (Iterable<TimeWindowLeaderboard> directoryEntry : directory.getLeaderboards().values()) {
             for (TimeWindowLeaderboard leaderboard : directoryEntry) {
@@ -666,7 +667,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 }
             }
         }
-        return trimmed.stream().map(OrderedScoreIndexKey::getIndexEntry).collect(Collectors.toList());
+        return trimmed.stream().map(indexKey -> indexKey.getIndexEntry().getKey()).collect(Collectors.toList());
     }
 
     /**
