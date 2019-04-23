@@ -2204,7 +2204,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Gets a map from {@link Index} to {@link IndexState} for all the indexes in the metadata.
+     * Gets a map from {@link Index} to {@link IndexState} for all the indexes in the meta-data.
      * This method will not perform any queries to the underlying database and instead satisfies the answer based on the
      * in-memory cache of store state. However, if another operation in a different transaction
      * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
