@@ -84,6 +84,7 @@ import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -2016,8 +2017,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return loadRecordStoreStateAsync(context, getSubspace(), IsolationLevel.SNAPSHOT);
     }
 
-    // add a read conflict key so that the transaction will fail if the index
-    // state has changed
+    /**
+     * Add a read conflict key so that the transaction will fail if the index state has changed.
+     * @param indexName the index to conflict on, if it's state changes
+     */
     private void addIndexStateReadConflict(@Nonnull String indexName) {
         if (!getRecordMetaData().hasIndex(indexName)) {
             throw new MetaDataException("Index " + indexName + " does not exist in meta-data.");
@@ -2025,6 +2028,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Transaction tr = ensureContextActive();
         byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, indexName));
         tr.addReadConflictKey(indexStateKey);
+    }
+
+    /**
+     * Add a read conflict key for the whole record store state.
+     */
+    private void addStoreStateReadConflict() {
+        Transaction tr = ensureContextActive();
+        byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY));
+        tr.addReadConflictRange(indexStateKey, ByteArrayUtil.strinc(indexStateKey));
     }
 
     private boolean checkIndexState(@Nonnull String indexName, @Nonnull IndexState indexState) {
@@ -2216,11 +2228,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final RecordStoreState localRecordStoreState = getRecordStoreState();
         localRecordStoreState.beginRead();
         try {
+            addStoreStateReadConflict();
             return getRecordMetaData().getAllIndexes().stream()
-                    .collect(Collectors.toMap(Function.identity(), index -> {
-                        addIndexStateReadConflict(index.getName());
-                        return localRecordStoreState.getState(index);
-                    }));
+                    .collect(Collectors.toMap(Function.identity(), localRecordStoreState::getState));
         } finally {
             localRecordStoreState.endRead();
         }

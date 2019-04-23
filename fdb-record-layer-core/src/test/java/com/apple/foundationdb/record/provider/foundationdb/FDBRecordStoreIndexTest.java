@@ -1315,9 +1315,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             final Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.getAllIndexStates(), hasEntry(index, IndexState.WRITE_ONLY));
-            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+            recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
                     .setRecNo(2)
-                    .setNumValueUnique(1)
                     .build()); // so that it will conflict on commit
             try (FDBRecordContext context2 = openContext()) {
                 openSimpleRecordStore(context2);
