@@ -100,6 +100,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isOneOf;
@@ -1289,6 +1290,44 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void getIndexStates() throws Exception {
+        final String indexName = "MySimpleRecord$str_value_indexed";
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            assertThat(recordStore.getAllIndexStates(), hasEntry(index, IndexState.READABLE));
+            recordStore.markIndexWriteOnly(indexName).get();
+            assertThat(recordStore.getAllIndexStates(), hasEntry(index, IndexState.WRITE_ONLY));
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            assertThat(recordStore.getAllIndexStates(), hasEntry(index, IndexState.WRITE_ONLY));
+            recordStore.markIndexDisabled(indexName).get();
+            assertThat(recordStore.getAllIndexStates(), hasEntry(index, IndexState.DISABLED));
+            // does not commit
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            assertThat(recordStore.getAllIndexStates(), hasEntry(index, IndexState.WRITE_ONLY));
+            recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
+                    .setRecNo(2)
+                    .build()); // so that it will conflict on commit
+            try (FDBRecordContext context2 = openContext()) {
+                openSimpleRecordStore(context2);
+                recordStore.markIndexReadable(indexName).get();
+                context2.commit();
+            }
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context::commit);
+        }
+    }
+
+    @Test
     public void failUpdateConcurrentWithStateChange() throws Exception {
         final String indexName = "MySimpleRecord$str_value_indexed";
 
@@ -1686,7 +1725,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-
+    @Test
     public void invalidIndexField() throws Exception {
         assertThrows(KeyExpression.InvalidExpressionException.class, () ->
                 testInvalidIndex(new Index("broken", field("no_such_field"))));

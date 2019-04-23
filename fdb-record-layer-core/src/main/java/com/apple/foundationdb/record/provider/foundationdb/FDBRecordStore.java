@@ -84,6 +84,7 @@ import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -111,6 +112,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -2015,8 +2017,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return loadRecordStoreStateAsync(context, getSubspace(), IsolationLevel.SNAPSHOT);
     }
 
-    // add a read conflict key so that the transaction will fail if the index
-    // state has changed
+    /**
+     * Add a read conflict key so that the transaction will fail if the index state has changed.
+     * @param indexName the index to conflict on, if it's state changes
+     */
     private void addIndexStateReadConflict(@Nonnull String indexName) {
         if (!getRecordMetaData().hasIndex(indexName)) {
             throw new MetaDataException("Index " + indexName + " does not exist in meta-data.");
@@ -2024,6 +2028,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Transaction tr = ensureContextActive();
         byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, indexName));
         tr.addReadConflictKey(indexStateKey);
+    }
+
+    /**
+     * Add a read conflict key for the whole record store state.
+     */
+    private void addStoreStateReadConflict() {
+        Transaction tr = ensureContextActive();
+        byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY));
+        tr.addReadConflictRange(indexStateKey, ByteArrayUtil.strinc(indexStateKey));
     }
 
     private boolean checkIndexState(@Nonnull String indexName, @Nonnull IndexState indexState) {
@@ -2200,6 +2213,27 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public List<Index> getEnabledUniversalIndexes() {
         return sanitizeIndexes(getRecordMetaData().getUniversalIndexes(), index -> !isIndexDisabled(index));
+    }
+
+    /**
+     * Gets a map from {@link Index} to {@link IndexState} for all the indexes in the meta-data.
+     * This method will not perform any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     * @return a map of all the index states.
+     */
+    @Nonnull
+    public Map<Index, IndexState> getAllIndexStates() {
+        final RecordStoreState localRecordStoreState = getRecordStoreState();
+        localRecordStoreState.beginRead();
+        try {
+            addStoreStateReadConflict();
+            return getRecordMetaData().getAllIndexes().stream()
+                    .collect(Collectors.toMap(Function.identity(), localRecordStoreState::getState));
+        } finally {
+            localRecordStoreState.endRead();
+        }
     }
 
     @Nonnull
