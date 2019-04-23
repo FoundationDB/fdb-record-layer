@@ -75,7 +75,7 @@ The static `loadRecordStoreStateAsync` methods on `FDBRecordStore` have been dep
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add `FDBRecordStore.getAllIndexStates` [(Issue #552)](https://github.com/FoundationDB/fdb-record-layer/issues/552)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -87,6 +87,10 @@ The static `loadRecordStoreStateAsync` methods on `FDBRecordStore` have been dep
 
 // end next release
 -->
+
+### 2.6.62.0
+
+* **Feature** Add `FDBRecordStore.getAllIndexStates` [(Issue #552)](https://github.com/FoundationDB/fdb-record-layer/issues/552)
 
 ### 2.6.61.0
 
