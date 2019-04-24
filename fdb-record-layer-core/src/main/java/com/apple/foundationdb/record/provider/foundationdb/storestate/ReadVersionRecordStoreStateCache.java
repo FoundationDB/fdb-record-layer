@@ -88,14 +88,7 @@ public class ReadVersionRecordStoreStateCache implements FDBRecordStoreStateCach
                     }
                     context.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS);
                     return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck);
-                }).whenComplete((storeState, eignore) -> {
-                    if (storeState != null) {
-                        // If the state was loaded from cache, then it won't have the right read conflicts for this transaction
-                        // If it wasn't loaded from cache, then it may already have the conflict ranges needed, but adding
-                        // them again is fine.
-                        storeState.addReadConflicts(context);
-                    }
-                });
+                }).thenCompose(storeState -> storeState.handleCachedState(context, existenceCheck).thenApply(vignore -> storeState));
 
                 if (context.getTimer() != null && MoreAsyncUtil.isCompletedNormally(storeStateFuture)) {
                     context.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT);

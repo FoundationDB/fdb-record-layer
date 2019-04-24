@@ -235,7 +235,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return transactionCreateTime;
     }
 
-    void setDirtyStoreState(boolean dirtyStoreState) {
+    @API(API.Status.INTERNAL)
+    public void setDirtyStoreState(boolean dirtyStoreState) {
         this.dirtyStoreState = dirtyStoreState;
     }
 

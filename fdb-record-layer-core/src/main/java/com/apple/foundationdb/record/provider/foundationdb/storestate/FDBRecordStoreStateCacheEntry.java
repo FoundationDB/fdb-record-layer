@@ -25,6 +25,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.subspace.Subspace;
@@ -81,9 +82,11 @@ public class FDBRecordStoreStateCacheEntry {
         return recordStoreState;
     }
 
-    void addReadConflicts(@Nonnull FDBRecordContext context) {
+    @Nonnull
+    CompletableFuture<Void> handleCachedState(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final Transaction tr = context.ensureActive();
         tr.addReadConflictKey(subspace.pack(FDBRecordStoreKeyspace.STORE_INFO.key()));
+        return FDBRecordStore.checkStoreHeader(recordStoreState.getStoreHeader(), context, subspaceProvider, subspace, existenceCheck);
     }
 
     @Nonnull
