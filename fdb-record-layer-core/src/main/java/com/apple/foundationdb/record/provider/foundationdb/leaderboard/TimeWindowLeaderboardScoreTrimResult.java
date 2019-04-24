@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
+import com.apple.foundationdb.tuple.Tuple;
 
 import java.util.Collection;
 
@@ -31,13 +31,13 @@ import java.util.Collection;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardScoreTrimResult extends IndexOperationResult {
-    private final Collection<IndexEntry> scores;
+    private final Collection<Tuple> scores;
 
-    public TimeWindowLeaderboardScoreTrimResult(Collection<IndexEntry> scores) {
+    public TimeWindowLeaderboardScoreTrimResult(Collection<Tuple> scores) {
         this.scores = scores;
     }
 
-    public Collection<IndexEntry> getScores() {
+    public Collection<Tuple> getScores() {
         return scores;
     }
 }
