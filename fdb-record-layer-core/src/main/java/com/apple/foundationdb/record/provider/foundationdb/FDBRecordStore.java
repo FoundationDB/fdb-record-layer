@@ -1500,6 +1500,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
                                                     @Nonnull StoreExistenceCheck existenceCheck,
                                                     @Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
+        CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck).thenApply(storeInfo -> {
             recordStoreState = storeInfo.getRecordStoreState().toMutable();
             return recordStoreState.getStoreHeader();
@@ -1507,18 +1508,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (!MoreAsyncUtil.isCompletedNormally(metaDataPreloadFuture)) {
             storeHeaderFuture = metaDataPreloadFuture.thenCombine(storeHeaderFuture, (vignore, storeHeader) -> storeHeader);
         }
+        if (!MoreAsyncUtil.isCompletedNormally(subspacePreloadFuture)) {
+            storeHeaderFuture = subspacePreloadFuture.thenCombine(storeHeaderFuture, (vignore, storeHeader) -> storeHeader);
+        }
         CompletableFuture<Boolean> result = storeHeaderFuture.thenCompose(storeHeader -> checkVersion(storeHeader, userVersionChecker));
-        return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result);
-    }
-
-    @Nonnull
-    protected CompletableFuture<Boolean> checkVersion(@Nonnull CompletableFuture<KeyValue> firstKeyFuture,
-                                                      @Nullable UserVersionChecker userVersionChecker,
-                                                      @Nonnull StoreExistenceCheck existenceCheck) {
-        CompletableFuture<Boolean> result = firstKeyFuture.thenCompose(keyValue -> {
-            RecordMetaDataProto.DataStoreInfo info = checkAndParseStoreHeader(keyValue, getContext(), subspaceProvider, getSubspace(), existenceCheck);
-            return checkVersion(info, userVersionChecker);
-        });
         return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result);
     }
 
