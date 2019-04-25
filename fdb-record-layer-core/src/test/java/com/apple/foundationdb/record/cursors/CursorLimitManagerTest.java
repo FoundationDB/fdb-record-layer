@@ -22,12 +22,15 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordScanLimiter;
+import com.apple.foundationdb.record.ScanLimitReachedException;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TimeScanLimiter;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link CursorLimitManager}.
@@ -56,9 +59,14 @@ public class CursorLimitManagerTest {
 
     @Test
     public void testRecordScanLimiter() {
+        testRecordScanLimiterBase(false);
+        testRecordScanLimiterBase(true);
+    }
+
+    public void testRecordScanLimiterBase(boolean failOnLimitReached) {
         final int numberOfScans = 12;
         final RecordScanLimiter recordScanLimiter = new RecordScanLimiter(numberOfScans);
-        final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, false, null, null);
+        final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, failOnLimitReached, null, null);
 
         for (int i = 0; i < numberOfScans; i++) {
             assertTrue(manager.tryRecordScan());
@@ -66,16 +74,30 @@ public class CursorLimitManagerTest {
             assertFalse(manager.getStoppedReason().isPresent());
         }
 
-        assertFalse(manager.tryRecordScan());
-        assertTrue(manager.isStopped());
-        assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, manager.getStoppedReason().get());
+        if (failOnLimitReached) {
+            try {
+                TestHelpers.assertThrows("limit on number of key-values scanned per transaction reached", ScanLimitReachedException.class, manager::tryRecordScan, "no_next_reason", RecordCursor.NoNextReason.SCAN_LIMIT_REACHED.toString());
+            } catch (Exception e) {
+                fail("Unexpected ScanLimitReachedException.");
+            }
+
+        } else {
+            assertFalse(manager.tryRecordScan());
+            assertTrue(manager.isStopped());
+            assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, manager.getStoppedReason().get());
+        }
     }
 
     @Test
     public void testTimeLimiter() {
+        testTimeLimiterBase(false);
+        testTimeLimiterBase(true);
+    }
+
+    public void testTimeLimiterBase(boolean failOnLimitReached) {
         final int untilTimeout = 7;
         final FakeTimeLimiter fakeTimeLimiter = new FakeTimeLimiter();
-        final CursorLimitManager manager = new CursorLimitManager(null, false, null, fakeTimeLimiter);
+        final CursorLimitManager manager = new CursorLimitManager(null, failOnLimitReached, null, fakeTimeLimiter);
 
         for (int i = 0; i < untilTimeout; i++) {
             assertTrue(manager.tryRecordScan());
@@ -84,9 +106,18 @@ public class CursorLimitManagerTest {
         }
 
         fakeTimeLimiter.timeOut();
-        assertFalse(manager.tryRecordScan());
-        assertTrue(manager.isStopped());
-        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, manager.getStoppedReason().get());
+
+        if (failOnLimitReached) {
+            try {
+                TestHelpers.assertThrows("limit on number of key-values scanned per transaction reached", ScanLimitReachedException.class, manager::tryRecordScan, "no_next_reason", RecordCursor.NoNextReason.TIME_LIMIT_REACHED.toString());
+            } catch (Exception e) {
+                fail("Unexpected ScanLimitReachedException.");
+            }
+        } else {
+            assertFalse(manager.tryRecordScan());
+            assertTrue(manager.isStopped());
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, manager.getStoppedReason().get());
+        }
     }
 
     @Test
