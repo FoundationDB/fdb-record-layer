@@ -42,6 +42,16 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     private final AtomicLong users = new AtomicLong();
 
+    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
+        super(storeHeader, indexStateMap);
+    }
+
+    // Copy constructor
+    MutableRecordStoreState(@Nonnull RecordStoreState recordStoreState) {
+        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexStates());
+    }
+
+    @Deprecated
     public MutableRecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
         super(indexStateMap);
     }
@@ -60,6 +70,12 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     private static long writeDecrement(long u) {
         return (u & READ_MASK) | (((u & WRITE_MASK) - 1) & WRITE_MASK);
+    }
+
+    private void verifyWritable() {
+        if ((users.get() & WRITE_MASK) == 0) {
+            throw new RecordCoreException("record store state is not enabled for modification");
+        }
     }
 
     /**
@@ -111,17 +127,15 @@ public class MutableRecordStoreState extends RecordStoreState {
     }
 
     /**
-     * Modify the state of an index in this map.
-     * Caller should also modify the database to match.
+     * Modify the state of an index in this map. The caller should modify the database to match.
+     *
      * @param indexName the index name
      * @param state the new state for the given index
      * @return the previous state of the given index
      */
     @Nonnull
     public IndexState setState(@Nonnull String indexName, @Nonnull IndexState state) {
-        if ((users.get() & WRITE_MASK) == 0) {
-            throw new RecordCoreException("record store state is not enabled for modification");
-        }
+        verifyWritable();
         IndexState previous;
         if (state == IndexState.READABLE) {
             previous = indexStateMap.get().remove(indexName);
@@ -134,7 +148,20 @@ public class MutableRecordStoreState extends RecordStoreState {
     @Nonnull
     @Override
     public MutableRecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new MutableRecordStoreState(writeOnlyMap(writeOnlyIndexNames));
+        return new MutableRecordStoreState(getStoreHeader(), writeOnlyMap(writeOnlyIndexNames));
+    }
+
+    /**
+     * Update the store header in this record store state. The caller should modify the state in the database
+     * to match.
+     *
+     * @param storeHeader the updated store header
+     * @return the previous store header value
+     */
+    @Nonnull
+    public RecordMetaDataProto.DataStoreInfo setStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
+        verifyWritable();
+        return this.storeHeader.getAndSet(storeHeader);
     }
 
     // NOTE: Does not actually implement own equals. Is equal to immutable one, too.
@@ -148,5 +175,11 @@ public class MutableRecordStoreState extends RecordStoreState {
     @SuppressWarnings("PMD.UselessOverridingMethod")
     public int hashCode() {
         return super.hashCode();
+    }
+
+    @Nonnull
+    @Override
+    public RecordStoreState toImmutable() {
+        return new RecordStoreState(storeHeader.get(), indexStateMap.get());
     }
 }

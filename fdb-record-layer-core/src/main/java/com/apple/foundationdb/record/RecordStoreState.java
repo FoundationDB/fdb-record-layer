@@ -31,52 +31,101 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
- * The <code>RecordStoreState</code> interface handles information
- * that might differ between otherwise identical record stores. In particular,
- * it handles the data that might be different between two different
- * record stores that have the same metadata. As a result, even though
- * the {@link RecordMetaData} class contains an instance of this class,
- * it is not serialized with the rest of the metadata and must be retrieved
- * from the store.
+ * The <code>RecordStoreState</code> interface handles information that might differ between otherwise identical
+ * record stores. In particular, it handles the data that might be different between two different record stores
+ * that have the same meta-data.
+ *
+ * <p>
+ * At the moment, this class tracks two pieces of store-specific meta-data:
+ * </p>
+ * <ul>
+ *     <li>
+ *         The store header. The header is a Protobuf message including information such as the
+ *         store's format and meta-data version. This is used at store initialization time to validate
+ *         the meta-data being used and take appropriate action on meta-data changes.
+ *     </li>
+ *     <li>
+ *         Index state information. This includes whether each index is currently readable, disabled,
+ *         or write-only. This information is used by the planner when selecting indexes and by the
+ *         store when choosing which indexes to update upon record insertion.
+ *     </li>
+ * </ul>
  */
 @API(API.Status.MAINTAINED)
 public class RecordStoreState {
     /**
-     * Empty <code>RecordStoreState</code>. This is the state of an empty
-     * record store that has not yet been used. Calling the argument-less
-     * constructor of this class will produce the same code, but having
-     * this code around avoids having to instantiate this class unnecessarily.
+     * Empty <code>RecordStoreState</code>. This is the state of an empty record store that has not yet been
+     * used. Calling the argument-less constructor of this class will produce a logically-equivalent object,
+     * but having this code around avoids having to instantiate this class unnecessarily.
+     *
+     * <p>
+     * When this object was initially introduced, the only information included in the record store state
+     * was index readability information. This was the common case, and therefore sharing the same object
+     * for most record stores was desirable. However, the store header information is not likely to be
+     * the same for multiple record stores, so using this record store state is usually not recommended.
+     * </p>
+     *
+     * @deprecated as this object usually has the wrong store header
      */
-    @Nonnull public static final RecordStoreState EMPTY = new RecordStoreState();
+    @Deprecated
+    @Nonnull
+    public static final RecordStoreState EMPTY = new RecordStoreState();
 
-    @Nonnull protected final AtomicReference<Map<String, IndexState>> indexStateMap;
+    @Nonnull
+    protected final AtomicReference<RecordMetaDataProto.DataStoreInfo> storeHeader;
+    @Nonnull
+    protected final AtomicReference<Map<String, IndexState>> indexStateMap;
 
     /**
      * Creates a <code>RecordStoreState</code> with the given index states.
      * Only indexes that are not in the default state ({@link IndexState#READABLE IndexState.READABLE})
      * need to be included in the map.
+     * @param storeHeader header information for the given store
      * @param indexStateMap mapping from index name to index state
      */
-    public RecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
+    @API(API.Status.INTERNAL)
+    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
         final Map<String, IndexState> copy;
         if (indexStateMap == null || indexStateMap.isEmpty()) {
             copy = Collections.emptyMap();
         } else {
             copy = ImmutableMap.copyOf(indexStateMap);
         }
+        this.storeHeader = new AtomicReference<>(storeHeader == null ? RecordMetaDataProto.DataStoreInfo.getDefaultInstance() : storeHeader);
         this.indexStateMap = new AtomicReference<>(copy);
     }
 
     /**
-     * Creates an empty <code>RecordStoreState</code> instance. This is the
-     * state that an empty {@link FDBRecordStoreBase} would be expected to be in.
-     * All indexes are assumed to be readable with this constructor.
+     * Creates a <code>RecordStoreState</code> with the given index states.
+     * Only indexes that are not in the default state ({@link IndexState#READABLE IndexState.READABLE})
+     * need to be included in the map. This initializes the record store state with a default store header, which
+     * is not the expected state for most record stores. As a result, this constructor has been deprecated in favor
+     * of the constructor where a store header must be provided.
+     *
+     * @param indexStateMap mapping from index name to index state
+     * @deprecated as the default store header is incorrect for most record stores
      */
+    @Deprecated
+    public RecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
+        this(null, indexStateMap);
+    }
+
+    /**
+     * Creates an empty <code>RecordStoreState</code> instance. This is the state that an empty {@link FDBRecordStoreBase}
+     * would be expected to be in. All indexes are assumed to be readable with this constructor. This also
+     * initializes the record store state with the default store header, which is not the expected state for
+     * most record stores. As a result, this constructor has been deprecated in favor of the constructor where
+     * a store header must be provided.
+     *
+     * @deprecated as the default store header is incorrect for most record stores
+     */
+    @Deprecated
     public RecordStoreState() {
         this(null);
     }
@@ -192,15 +241,6 @@ public class RecordStoreState {
      */
     @Nonnull
     public IndexState getState(@Nonnull String indexName) {
-        /*
-        if (isWriteOnly(indexName)) {
-            return IndexState.WRITE_ONLY;
-        } else if (isDisabled(indexName)) {
-            return IndexState.DISABLED;
-        } else {
-            return IndexState.READABLE;
-        }
-        */
         return indexStateMap.get().getOrDefault(indexName, IndexState.READABLE);
     }
 
@@ -211,7 +251,6 @@ public class RecordStoreState {
      */
     public boolean allIndexesReadable() {
         return indexStateMap.get().isEmpty() || indexStateMap.get().values().stream().allMatch(state -> state.equals(IndexState.READABLE));
-        //return writeOnlyIndexNames.isEmpty() && disabledIndexNames.isEmpty();
     }
 
     /**
@@ -229,7 +268,6 @@ public class RecordStoreState {
             boolean readableInOther = other.getState(entry.getKey()).equals(IndexState.READABLE);
             return entry.getValue().equals(IndexState.READABLE) == readableInOther;
         });
-        //return getWriteOnlyIndexNames().stream().noneMatch(other::isReadable) && getDisabledIndexNames().stream().noneMatch(other::isReadable);
     }
 
     /**
@@ -239,7 +277,7 @@ public class RecordStoreState {
     public Set<String> getWriteOnlyIndexNames() {
         return indexStateMap.get().entrySet().stream()
                 .filter(entry -> entry.getValue() == IndexState.WRITE_ONLY)
-                .map(entry -> entry.getKey())
+                .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
 
@@ -250,7 +288,7 @@ public class RecordStoreState {
     public Set<String> getDisabledIndexNames() {
         return indexStateMap.get().entrySet().stream()
                 .filter(entry -> entry.getValue() == IndexState.DISABLED)
-                .map(entry -> entry.getKey())
+                .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
 
@@ -266,22 +304,23 @@ public class RecordStoreState {
                                                @Nonnull IndexState state) {
         HashMap<String, IndexState> indexStateMapBuilder = new HashMap<>(getIndexStates());
         if (state == IndexState.READABLE) {
-            indexNames.forEach(indexName -> indexStateMapBuilder.remove(indexName));
+            indexNames.forEach(indexStateMapBuilder::remove);
         } else {
             indexNames.forEach(indexName -> indexStateMapBuilder.put(indexName, state));
         }
-        return new RecordStoreState(ImmutableMap.copyOf(indexStateMapBuilder));
+        return new RecordStoreState(storeHeader.get(), ImmutableMap.copyOf(indexStateMapBuilder));
     }
 
     /**
-     * Create a new version of this RecordStoreState, but with additional WRITE_ONLY indexes.
+     * Create a new version of this {@code RecordStoreState}, but with additional {@link IndexState#WRITE_ONLY} indexes.
+     *
      * @param writeOnlyIndexNames the indexes to be marked as WRITE_ONLY. If the index is already DISABLED, it will
      * stay disabled, but will otherwise be set to WRITE_ONLY.
      * @return a new version of this RecordStoreState, but with additional WRITE_ONLY indexes.
      */
     @Nonnull
     public RecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new RecordStoreState(writeOnlyMap(writeOnlyIndexNames));
+        return new RecordStoreState(storeHeader.get(), writeOnlyMap(writeOnlyIndexNames));
     }
 
     @Nonnull
@@ -297,6 +336,17 @@ public class RecordStoreState {
                     }
                 }));
         return map;
+    }
+
+    /**
+     * Get the store header associated with this record store state. This contains information like the
+     * format version and meta-data version of the record store.
+     *
+     * @return the store header associated with the record store
+     */
+    @Nonnull
+    public RecordMetaDataProto.DataStoreInfo getStoreHeader() {
+        return storeHeader.get();
     }
 
     /**
@@ -317,7 +367,7 @@ public class RecordStoreState {
             return false;
         } else {
             RecordStoreState other = (RecordStoreState)o;
-            return indexStateMap.get().equals(other.indexStateMap.get());
+            return storeHeader.get().equals(other.storeHeader.get()) && indexStateMap.get().equals(other.indexStateMap.get());
         }
     }
 
@@ -327,7 +377,7 @@ public class RecordStoreState {
      */
     @Override
     public int hashCode() {
-        return indexStateMap.get().hashCode();
+        return Objects.hash(indexStateMap.get(), storeHeader.get());
     }
 
     /**
@@ -338,5 +388,29 @@ public class RecordStoreState {
     @Override
     public String toString() {
         return "RecordStoreState(" + indexStateMap.toString() + ")";
+    }
+
+    /**
+     * Create an immutable version of this {@code RecordStoreState}. If the state object is already immutable,
+     * this will return {@code this}. This version of the record store state is safe to cache as none of
+     * its members can be mutated.
+     *
+     * @return an immutable version of this {@code RecordStoreState}
+     */
+    @Nonnull
+    public RecordStoreState toImmutable() {
+        return this;
+    }
+
+    /**
+     * Create a mutable copy of this {@code RecordStoreState}. The returned object will contain the same information
+     * as this record store state, but it will be mutable and will not share any mutable objects with this
+     * object.
+     *
+     * @return a mutable copy of this {@code RecordStoreState}
+     */
+    @Nonnull
+    public MutableRecordStoreState toMutable() {
+        return new MutableRecordStoreState(this);
     }
 }

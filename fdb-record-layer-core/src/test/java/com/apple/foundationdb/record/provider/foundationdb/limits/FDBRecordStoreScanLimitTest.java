@@ -272,7 +272,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     public void unorderedIntersectionWithScanLimit(TestHelpers.BooleanEnum failEnum) throws Exception {
         // TODO: When there is an UnorderedIntersectionPlan (or whatever) add that to the unordered plans stream
         final boolean fail = failEnum.toBoolean();
-        RecordQueryPlanner planner = new RecordQueryPlanner(simpleMetaData(NO_HOOK), RecordStoreState.EMPTY);
+        RecordQueryPlanner planner = new RecordQueryPlanner(simpleMetaData(NO_HOOK), new RecordStoreState(null, null));
         RecordQueryPlan leftPlan = planner.plan(RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").startsWith("ev"))

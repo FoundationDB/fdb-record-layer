@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -42,6 +42,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class RecordStoreStateTest {
 
+    @Nonnull
+    private static RecordStoreState stateOf(@Nonnull Object... values) {
+        if (values.length % 2 != 0) {
+            throw new RecordCoreArgumentException("odd number of values given to create record store state");
+        }
+        Map<String, IndexState> indexStateMap = Maps.newHashMapWithExpectedSize(values.length / 2);
+        for (int i = 0; i < values.length; i += 2) {
+            String indexName = (String)values[i];
+            IndexState indexState = (IndexState)values[i + 1];
+            indexStateMap.put(indexName, indexState);
+        }
+        return new RecordStoreState(null, indexStateMap);
+    }
+
+    @Nonnull
     private Set<String> indexNamesWithState(@Nonnull RecordStoreState storeState, @Nonnull IndexState indexState) {
         return storeState.getIndexStates().entrySet().stream()
                 .filter(entry -> entry.getValue().equals(indexState))
@@ -51,7 +66,7 @@ public class RecordStoreStateTest {
 
     @Test
     public void emptyState() {
-        RecordStoreState storeState = RecordStoreState.EMPTY;
+        RecordStoreState storeState = stateOf();
         assertFalse(storeState.isDisabled("asdf"));
         assertFalse(storeState.isWriteOnly("asdf"));
         assertTrue(storeState.isReadable("asdf"));
@@ -61,7 +76,7 @@ public class RecordStoreStateTest {
 
     @Test
     public void oneWriteOnly() {
-        RecordStoreState storeState = new RecordStoreState(Collections.singletonMap("asdf", IndexState.WRITE_ONLY));
+        RecordStoreState storeState = stateOf("asdf", IndexState.WRITE_ONLY);
         assertFalse(storeState.isDisabled("asdf"));
         assertTrue(storeState.isWriteOnly("asdf"));
         assertFalse(storeState.isReadable("asdf"));
@@ -72,7 +87,7 @@ public class RecordStoreStateTest {
 
     @Test
     public void oneDisabled() {
-        RecordStoreState storeState = new RecordStoreState(Collections.singletonMap("asdf", IndexState.DISABLED));
+        RecordStoreState storeState = stateOf("asdf", IndexState.DISABLED);
         assertTrue(storeState.isDisabled("asdf"));
         assertFalse(storeState.isWriteOnly("asdf"));
         assertFalse(storeState.isReadable("asdf"));
@@ -83,7 +98,7 @@ public class RecordStoreStateTest {
 
     @Test
     public void oneReadable() {
-        RecordStoreState storeState = new RecordStoreState(Collections.singletonMap("asdf", IndexState.READABLE));
+        RecordStoreState storeState = stateOf("asdf", IndexState.READABLE);
         assertFalse(storeState.isDisabled("asdf"));
         assertFalse(storeState.isWriteOnly("asdf"));
         assertTrue(storeState.isReadable("asdf"));
@@ -94,10 +109,10 @@ public class RecordStoreStateTest {
 
     @Test
     public void compatibleWith() {
-        final RecordStoreState empty = RecordStoreState.EMPTY;
-        final RecordStoreState oneWriteOnly = new RecordStoreState(Collections.singletonMap("one", IndexState.WRITE_ONLY));
-        final RecordStoreState oneDisabled = new RecordStoreState(Collections.singletonMap("one", IndexState.DISABLED));
-        final RecordStoreState hasBoth = new RecordStoreState(ImmutableMap.<String, IndexState>builder().put("one", IndexState.WRITE_ONLY).put("two", IndexState.DISABLED).build());
+        final RecordStoreState empty = stateOf();
+        final RecordStoreState oneWriteOnly = stateOf("one", IndexState.WRITE_ONLY);
+        final RecordStoreState oneDisabled = stateOf("one", IndexState.DISABLED);
+        final RecordStoreState hasBoth = stateOf("one", IndexState.WRITE_ONLY, "two", IndexState.DISABLED);
 
         assertTrue(empty.compatibleWith(oneWriteOnly));
         assertFalse(oneWriteOnly.compatibleWith(empty));
@@ -125,10 +140,10 @@ public class RecordStoreStateTest {
         final String disabled = "Disabled";
         final String writeOnly = "Write only";
         final String newWriteOnly = "New write only";
-        RecordStoreState state = new RecordStoreState(ImmutableMap.of(
+        RecordStoreState state = stateOf(
                 explicitlyReadable, IndexState.READABLE,
                 disabled, IndexState.DISABLED,
-                writeOnly, IndexState.WRITE_ONLY));
+                writeOnly, IndexState.WRITE_ONLY);
         assertEquals(IndexState.READABLE, state.getState(implicitlyReadable));
         assertEquals(IndexState.READABLE, state.getState(explicitlyReadable));
         assertEquals(IndexState.DISABLED, state.getState(disabled));
@@ -157,7 +172,7 @@ public class RecordStoreStateTest {
 
     @Test
     public void testReadWriteExclusion() {
-        MutableRecordStoreState state = new MutableRecordStoreState(Collections.emptyMap());
+        MutableRecordStoreState state = stateOf().toMutable();
         state.beginRead();
         state.beginRead();
         state.endRead();
@@ -165,11 +180,11 @@ public class RecordStoreStateTest {
         state.beginWrite();
         state.beginWrite();
         state.endWrite();
-        Exception ex = assertThrows(RecordCoreException.class, () -> state.beginRead());
+        Exception ex = assertThrows(RecordCoreException.class, state::beginRead);
         assertThat(ex.getMessage(), containsString("record store state is being modified"));
         state.endWrite();
         state.beginRead();
-        ex = assertThrows(RecordCoreException.class, () -> state.beginWrite());
+        ex = assertThrows(RecordCoreException.class, state::beginWrite);
         assertThat(ex.getMessage(), containsString("record store state is being used for queries"));
     }
 }

@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
@@ -132,7 +133,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Get the record context (transaction) to use for the record store.
      * @return context the record context / transaction to use
      */
-    @Nullable
+    @Nonnull
     FDBRecordContext getContext();
 
     @Nonnull
@@ -1792,6 +1793,29 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          */
         @Nonnull
         BaseBuilder<M, R> setPipelineSizer(@Nonnull PipelineSizer pipelineSizer);
+
+        /**
+         * Get the store state cache to be used by the record store. If the builder returns {@code null}, the produced
+         * record store will use the default store state cache provided by the {@link FDBDatabase} when initializing
+         * the record store state.
+         *
+         * @return the store state cached used by this record store of {@code null} if it uses the database default
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @Nullable
+        FDBRecordStoreStateCache getStoreStateCache();
+
+        /**
+         * Set the store state cache to be used by the record store. If {@code null} is provided or if this method
+         * is never called, the produced record store will use the default store state cache provided by the
+         * {@link FDBDatabase}.
+         *
+         * @param storeStateCache the store state cache to used by this record store or {@code null} to specify that this should use the database default
+         * @return this builder
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @Nonnull
+        BaseBuilder<M, R> setStoreStateCache(@Nonnull FDBRecordStoreStateCache storeStateCache);
 
         /**
          * Make a copy of this builder.

@@ -26,6 +26,8 @@ import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheFactory;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.PassThroughRecordStoreStateCacheFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,6 +93,8 @@ public class FDBDatabaseFactory {
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
     @Nonnull
     private Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = () -> BlockingInAsyncDetection.DISABLED;
+    @Nonnull
+    private FDBRecordStoreStateCacheFactory storeStateCacheFactory = PassThroughRecordStoreStateCacheFactory.instance();
 
     @Nonnull
     private Function<FDBLatencySource, Long> latencyInjector = DEFAULT_LATENCY_INJECTOR;
@@ -442,6 +446,34 @@ public class FDBDatabaseFactory {
         this.stateRefreshTimeMillis = stateRefreshTimeMillis;
     }
 
+    /**
+     * Get the store state cache factory. Each {@link FDBDatabase} produced by this {@code FDBDatabaseFactory} will be
+     * initialized with an {@link com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache FDBRecordStoreStateCache}
+     * from this cache factory. By default, the factory is a {@link PassThroughRecordStoreStateCacheFactory} which means
+     * that the record store state information is never cached.
+     *
+     * @return the factory of {@link com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache FDBRecordStoreStateCache}s
+     *      used when initializing {@link FDBDatabase}s
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public FDBRecordStoreStateCacheFactory getStoreStateCacheFactory() {
+        return storeStateCacheFactory;
+    }
+
+    /**
+     * Set the store state cache factory. Each {@link FDBDatabase} produced by this {@code FDBDatabaseFactory} will be
+     * initialized with an {@link com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache FDBRecordStoreStateCache}
+     * from the cache factory provided.
+     *
+     * @param storeStateCacheFactory a factory of {@link com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache FDBRecordStoreStateCache}s
+     *      to use when initializing {@link FDBDatabase}s
+     * @see com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public void setStoreStateCacheFactory(@Nonnull FDBRecordStoreStateCacheFactory storeStateCacheFactory) {
+        this.storeStateCacheFactory = storeStateCacheFactory;
+    }
 
     @Nonnull
     public synchronized FDBDatabase getDatabase(@Nullable String clusterFile) {
@@ -452,6 +484,7 @@ public class FDBDatabaseFactory {
             database.setTrackLastSeenVersion(getTrackLastSeenVersion());
             database.setResolverStateRefreshTimeMillis(getStateRefreshTimeMillis());
             database.setDatacenterId(getDatacenterId());
+            database.setStoreStateCache(storeStateCacheFactory.getCache(database));
             databases.put(clusterFile, database);
         }
         return database;

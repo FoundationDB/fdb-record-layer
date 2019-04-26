@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 public class SubspaceProviderBySubspace implements SubspaceProvider {
     @Nonnull
     private Subspace subspace;
+    private int memoizedHashCode = 0;
 
     SubspaceProviderBySubspace(@Nonnull Subspace subspace) {
         this.subspace = subspace;
@@ -66,5 +67,24 @@ public class SubspaceProviderBySubspace implements SubspaceProvider {
     @Override
     public String toString() {
         return ByteArrayUtil2.loggable(subspace.pack());
+    }
+
+    @Override
+    public int hashCode() {
+        if (memoizedHashCode == 0) {
+            memoizedHashCode = subspace.hashCode();
+        }
+        return memoizedHashCode;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        } else if (other == null || !this.getClass().equals(other.getClass())) {
+            return false;
+        }
+        SubspaceProviderBySubspace that = (SubspaceProviderBySubspace) other;
+        return subspace.equals(that.subspace);
     }
 }

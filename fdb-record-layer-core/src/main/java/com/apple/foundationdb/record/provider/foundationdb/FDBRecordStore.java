@@ -75,6 +75,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
@@ -222,8 +223,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected final PipelineSizer pipelineSizer;
 
     @Nullable
+    protected final FDBRecordStoreStateCache storeStateCache;
+
+    @Nullable
     private Subspace cachedRecordsSubspace;
 
+    @Nonnull
     private final Cache<Tuple, FDBRawRecord> preloadCache;
 
     @SuppressWarnings("squid:S00107")
@@ -234,7 +239,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull RecordSerializer<Message> serializer,
                              @Nonnull IndexMaintainerRegistry indexMaintainerRegistry,
                              @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
-                             @Nonnull PipelineSizer pipelineSizer) {
+                             @Nonnull PipelineSizer pipelineSizer,
+                             @Nullable FDBRecordStoreStateCache storeStateCache) {
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
         this.metaDataProvider = metaDataProvider;
@@ -242,8 +248,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.indexMaintainerRegistry = indexMaintainerRegistry;
         this.indexMaintenanceFilter = indexMaintenanceFilter;
         this.pipelineSizer = pipelineSizer;
+        this.storeStateCache = storeStateCache;
         this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
-        this.preloadCache = CacheBuilder.<Tuple,FDBRawRecord>newBuilder().maximumSize(PRELOAD_CACHE_SIZE).build();
+        this.preloadCache = CacheBuilder.newBuilder().maximumSize(PRELOAD_CACHE_SIZE).build();
     }
 
     @Override
@@ -251,7 +258,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return this;
     }
 
-    @Nullable
+    @Nonnull
     @Override
     public FDBRecordContext getContext() {
         return context;
@@ -317,7 +324,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public RecordStoreState getRecordStoreState() {
         if (recordStoreState == null) {
             recordStoreState = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE,
-                    preloadSubspaceAsync().thenCompose(vignore -> loadRecordStoreStateAsync(context)));
+                    preloadSubspaceAsync().thenCompose(vignore -> loadRecordStoreStateAsync(StoreExistenceCheck.NONE).thenApply(RecordStoreState::toMutable)));
         }
         return recordStoreState;
     }
@@ -1104,6 +1111,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public static void deleteStore(FDBRecordContext context, Subspace subspace) {
         final Transaction transaction = context.ensureActive();
         transaction.clear(subspace.range());
+        context.setDirtyStoreState(true);
     }
 
     @Override
@@ -1333,6 +1341,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return pipelineSizer;
     }
 
+    @Nonnull
+    private FDBRecordStoreStateCache getStoreStateCache() {
+        return storeStateCache == null ? context.getDatabase().getStoreStateCache() : storeStateCache;
+    }
+
     @Override
     public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
         if (getRecordMetaData().getRecordCountKey() != null) {
@@ -1480,80 +1493,49 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
                                                    @Nonnull StoreExistenceCheck existenceCheck) {
-        CompletableFuture<Void> subspaceFuture = preloadSubspaceAsync();
-        CompletableFuture<KeyValue> firstKeyFuture = subspaceFuture.thenCompose(vignore -> readStoreFirstKey());
-        if (recordStoreState == null) {
-            firstKeyFuture = subspaceFuture.thenCompose(vignore -> preloadRecordStoreStateAsync())
-                    .thenCombine(firstKeyFuture, (v, kv) -> kv);
-        }
-        return checkVersion(firstKeyFuture, userVersionChecker, existenceCheck);
+        return checkVersion(userVersionChecker, existenceCheck, AsyncUtil.DONE);
     }
 
     @Nonnull
-    protected CompletableFuture<Boolean> checkVersion(@Nonnull CompletableFuture<KeyValue> firstKeyFuture,
-                                                      @Nullable UserVersionChecker userVersionChecker,
-                                                      @Nonnull StoreExistenceCheck existenceCheck) {
-        CompletableFuture<Boolean> result = firstKeyFuture.thenCompose(keyValue -> {
-            RecordMetaDataProto.DataStoreInfo.Builder info = RecordMetaDataProto.DataStoreInfo.newBuilder();
-            final int oldMetaDataVersion;
-            final int oldUserVersion;
-            if (keyValue == null) {
-                if (existenceCheck == StoreExistenceCheck.ERROR_IF_NOT_EXISTS) {
-                    throw new RecordStoreDoesNotExistException("Record store does not exist",
-                            subspaceProvider.logKey(), subspaceProvider.toString(context));
-                }
-                oldMetaDataVersion = oldUserVersion = -1;
-                if (getTimer() != null) {
-                    getTimer().increment(FDBStoreTimer.Counts.CREATE_RECORD_STORE);
-                }
-            } else if (existenceCheck == StoreExistenceCheck.ERROR_IF_EXISTS) {
-                throw new RecordStoreAlreadyExistsException("Record store already exists",
-                        subspaceProvider.logKey(), subspaceProvider.toString(context));
-            } else if (!getSubspace().unpack(keyValue.getKey()).equals(Tuple.from(STORE_INFO_KEY))) {
-                if (existenceCheck != StoreExistenceCheck.NONE) {
-                    throw new RecordStoreNoInfoAndNotEmptyException("Record store has no info but is not empty",
-                            subspaceProvider.logKey(), subspaceProvider.toString(context),
-                            LogMessageKeys.KEY, getSubspace().unpack(keyValue.getKey()));
-                } else {
-                    LOGGER.warn(KeyValueLogMessage.of("Record store has no info but is not empty",
-                            subspaceProvider.logKey(), subspaceProvider.toString(context),
-                            LogMessageKeys.KEY, getSubspace().unpack(keyValue.getKey())));
-                    // Treat as brand new, although there is no way to be sure that what was written is compatible
-                    // with the current default versions.
-                    oldMetaDataVersion = oldUserVersion = -1;
-                }
-            } else {
-                try {
-                    info.mergeFrom(keyValue.getValue());
-                } catch (InvalidProtocolBufferException ex) {
-                    throw new RecordCoreStorageException("Error reading version", ex);
-                }
-                if (info.getFormatVersion() < MIN_FORMAT_VERSION || info.getFormatVersion() > MAX_SUPPORTED_FORMAT_VERSION) {
-                    throw new UnsupportedFormatVersionException("Unsupported format version " + info.getFormatVersion(),
-                            subspaceProvider.logKey(), subspaceProvider.toString(context));
-                }
-                oldMetaDataVersion = info.getMetaDataversion();
-                oldUserVersion = info.getUserVersion();
-            }
-            if (info.hasFormatVersion() && info.getFormatVersion() >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
-                // If the store is already using a format version greater than or equal to the version
-                // where the unsplit records are now written with an extra suffix, use the value for
-                // that stored from the database. (Note that this depends on the property that calling "get"
-                // on an unset boolean field results in getting back "false".)
-                omitUnsplitRecordSuffix = info.getOmitUnsplitRecordSuffix();
-            }
-            final boolean[] dirty = new boolean[1];
-            final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, oldUserVersion, oldMetaDataVersion, info, dirty);
-            final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
-            return checkedRebuild.thenApply(vignore -> {
-                if (dirty[0]) {
-                    info.setLastUpdateTime(System.currentTimeMillis());
-                    ensureContextActive().set(getSubspace().pack(STORE_INFO_KEY), info.build().toByteArray());
-                }
-                return dirty[0];
-            });
+    private CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
+                                                    @Nonnull StoreExistenceCheck existenceCheck,
+                                                    @Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
+        CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
+        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck).thenApply(storeInfo -> {
+            recordStoreState = storeInfo.getRecordStoreState().toMutable();
+            return recordStoreState.getStoreHeader();
         });
+        if (!MoreAsyncUtil.isCompletedNormally(metaDataPreloadFuture)) {
+            storeHeaderFuture = metaDataPreloadFuture.thenCombine(storeHeaderFuture, (vignore, storeHeader) -> storeHeader);
+        }
+        if (!MoreAsyncUtil.isCompletedNormally(subspacePreloadFuture)) {
+            storeHeaderFuture = subspacePreloadFuture.thenCombine(storeHeaderFuture, (vignore, storeHeader) -> storeHeader);
+        }
+        CompletableFuture<Boolean> result = storeHeaderFuture.thenCompose(storeHeader -> checkVersion(storeHeader, userVersionChecker));
         return context.instrument(FDBStoreTimer.Events.CHECK_VERSION, result);
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> checkVersion(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable UserVersionChecker userVersionChecker) {
+        RecordMetaDataProto.DataStoreInfo.Builder info = storeHeader.toBuilder();
+        final int oldMetaDataVersion = info.hasMetaDataversion() ? info.getMetaDataversion() : -1;
+        final int oldUserVersion = info.hasUserVersion() ? info.getUserVersion() : -1;
+        if (info.hasFormatVersion() && info.getFormatVersion() >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
+            // If the store is already using a format version greater than or equal to the version
+            // where the unsplit records are now written with an extra suffix, use the value for
+            // that stored from the database. (Note that this depends on the property that calling "get"
+            // on an unset boolean field results in getting back "false".)
+            omitUnsplitRecordSuffix = info.getOmitUnsplitRecordSuffix();
+        }
+        final boolean[] dirty = new boolean[1];
+        final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, oldUserVersion, oldMetaDataVersion, info, dirty);
+        final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
+        return checkedRebuild.thenApply(vignore -> {
+            if (dirty[0]) {
+                saveStoreHeader(info.build());
+            }
+            return dirty[0];
+        });
     }
 
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker, int oldUserVersion, int oldMetaDataVersion,
@@ -1592,9 +1574,131 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
+    private static RecordMetaDataProto.DataStoreInfo checkAndParseStoreHeader(@Nullable KeyValue firstKeyValue,
+                                                                              @Nonnull FDBRecordContext context,
+                                                                              @Nonnull SubspaceProvider subspaceProvider,
+                                                                              @Nonnull Subspace subspace,
+                                                                              @Nonnull StoreExistenceCheck existenceCheck) {
+        RecordMetaDataProto.DataStoreInfo info;
+        if (firstKeyValue == null) {
+            info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
+        } else if (!checkFirstKeyIsHeader(firstKeyValue, context, subspaceProvider, subspace, existenceCheck)) {
+            // Treat as brand new, although there is no way to be sure that what was written is compatible
+            // with the current default versions.
+            info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
+        } else {
+            try {
+                info = RecordMetaDataProto.DataStoreInfo.parseFrom(firstKeyValue.getValue());
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreStorageException("Error reading version", ex);
+            }
+        }
+        checkStoreHeaderInternal(info, context, subspaceProvider, existenceCheck);
+        return info;
+    }
+
     @API(API.Status.INTERNAL)
-    protected CompletableFuture<KeyValue> readStoreFirstKey() {
-        final AsyncIterator<KeyValue> iterator = context.ensureActive().getRange(getSubspace().range(), 1).iterator();
+    @Nonnull
+    public static CompletableFuture<Void> checkStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+                                                           @Nonnull FDBRecordContext context,
+                                                           @Nonnull SubspaceProvider subspaceProvider,
+                                                           @Nonnull Subspace subspace,
+                                                           @Nonnull StoreExistenceCheck existenceCheck) {
+        if (storeHeader == RecordMetaDataProto.DataStoreInfo.getDefaultInstance()) {
+            // Validate that the store is empty
+            return readStoreFirstKey(context, subspace, IsolationLevel.SNAPSHOT).thenAccept(firstKeyValue -> {
+                if (firstKeyValue != null && checkFirstKeyIsHeader(firstKeyValue, context, subspaceProvider, subspace, existenceCheck)) {
+                    // Somehow, we had a default store header, which indicates that this was an uninitialized store,
+                    // but when we read the first key, it was a store header.
+                    throw new RecordCoreException("Record store with no header had header in database",
+                            subspaceProvider.logKey(), subspaceProvider.toString(context));
+                }
+                // We have relied on the value of the store header key itself. We performed the read at SNAPSHOT,
+                // though, to avoid conflicts on the first key if the store isn't empty.
+                context.ensureActive().addReadConflictKey(subspace.pack(STORE_INFO_KEY));
+                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck);
+            });
+        } else {
+            try {
+                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck);
+                return AsyncUtil.DONE;
+            } catch (RecordCoreException e) {
+                CompletableFuture<Void> future = new CompletableFuture<>();
+                future.completeExceptionally(e);
+                return future;
+            }
+        }
+    }
+
+    private static boolean checkFirstKeyIsHeader(@Nonnull KeyValue firstKeyValue,
+                                                 @Nonnull FDBRecordContext context,
+                                                 @Nonnull SubspaceProvider subspaceProvider,
+                                                 @Nonnull Subspace subspace,
+                                                 @Nonnull StoreExistenceCheck existenceCheck) {
+        if (TupleHelpers.equals(subspace.unpack(firstKeyValue.getKey()), Tuple.from(STORE_INFO_KEY))) {
+            return true;
+        } else if (existenceCheck == StoreExistenceCheck.NONE) {
+            LOGGER.warn(KeyValueLogMessage.of("Record store has no info but is not empty",
+                    subspaceProvider.logKey(), subspaceProvider.toString(context),
+                    LogMessageKeys.KEY, subspace.unpack(firstKeyValue.getKey())));
+            return false;
+        } else {
+            throw new RecordStoreNoInfoAndNotEmptyException("Record store has no info but is not empty",
+                    subspaceProvider.logKey(), subspaceProvider.toString(context),
+                    LogMessageKeys.KEY, subspace.unpack(firstKeyValue.getKey()));
+        }
+    }
+
+    private static void checkStoreHeaderInternal(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+                                                 @Nonnull FDBRecordContext context,
+                                                 @Nonnull SubspaceProvider subspaceProvider,
+                                                 @Nonnull StoreExistenceCheck existenceCheck) {
+        if (storeHeader == RecordMetaDataProto.DataStoreInfo.getDefaultInstance()) {
+            if (existenceCheck == StoreExistenceCheck.ERROR_IF_NOT_EXISTS) {
+                throw new RecordStoreDoesNotExistException("Record store does not exist",
+                        subspaceProvider.logKey(), subspaceProvider.toString(context));
+            }
+            context.increment(FDBStoreTimer.Counts.CREATE_RECORD_STORE);
+        } else if (existenceCheck == StoreExistenceCheck.ERROR_IF_EXISTS) {
+            throw new RecordStoreAlreadyExistsException("Record store already exists",
+                    subspaceProvider.logKey(), subspaceProvider.toString(context));
+        } else {
+            if (storeHeader.getFormatVersion() < MIN_FORMAT_VERSION || storeHeader.getFormatVersion() > MAX_SUPPORTED_FORMAT_VERSION) {
+                throw new UnsupportedFormatVersionException("Unsupported format version " + storeHeader.getFormatVersion(),
+                        subspaceProvider.logKey(), subspaceProvider);
+            }
+        }
+    }
+
+    @Nonnull
+    private static CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(@Nonnull FDBRecordContext context,
+                                                                                             @Nonnull SubspaceProvider subspaceProvider,
+                                                                                             @Nonnull Subspace subspace,
+                                                                                             @Nonnull StoreExistenceCheck existenceCheck,
+                                                                                             @Nonnull IsolationLevel isolationLevel) {
+        return readStoreFirstKey(context, subspace, isolationLevel).thenApply(keyValue ->
+                checkAndParseStoreHeader(keyValue, context, subspaceProvider, subspace, existenceCheck));
+    }
+
+    private void saveStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
+        if (recordStoreState == null) {
+            throw new RecordCoreException("cannot update store header with a null record store state");
+        }
+        recordStoreState.beginWrite();
+        try {
+            context.setDirtyStoreState(true);
+            synchronized (recordStoreState) {
+                recordStoreState.setStoreHeader(storeHeader);
+                ensureContextActive().set(getSubspace().pack(STORE_INFO_KEY), storeHeader.toByteArray());
+            }
+        } finally {
+            recordStoreState.endWrite();
+        }
+    }
+
+    @Nonnull
+    private static CompletableFuture<KeyValue> readStoreFirstKey(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace, @Nonnull IsolationLevel isolationLevel) {
+        final AsyncIterator<KeyValue> iterator = context.readTransaction(isolationLevel.isSnapshot()).getRange(subspace.range(), 1).iterator();
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_INFO,
                 iterator.onHasNext().thenApply(hasNext -> hasNext ? iterator.next() : null));
     }
@@ -1630,6 +1734,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
+    // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
+    private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
+        // This is generally called by someone who should already have a write lock, but adding them here
+        // defensively shouldn't cause problems.
+        recordStoreState.beginWrite();
+        try {
+            context.setDirtyStoreState(true);
+            Transaction tr = context.ensureActive();
+            if (IndexState.READABLE.equals(indexState)) {
+                tr.clear(indexKey);
+            } else {
+                tr.set(indexKey, Tuple.from(indexState.code()).pack());
+            }
+            recordStoreState.setState(indexName, indexState);
+        } finally {
+            recordStoreState.endWrite();
+        }
+    }
+
     @Nonnull
     private CompletableFuture<Boolean> markIndexNotReadable(@Nonnull String indexName, @Nonnull IndexState indexState) {
         if (recordStoreState == null) {
@@ -1647,8 +1770,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             Transaction tr = context.ensureActive();
             CompletableFuture<Boolean> future = tr.get(indexKey).thenApply(previous -> {
                 if (previous == null || !Tuple.fromBytes(previous).get(0).equals(indexState.code())) {
-                    tr.set(indexKey, Tuple.from(indexState.code()).pack());
-                    recordStoreState.setState(indexName, indexState);
+                    updateIndexState(indexName, indexKey, indexState);
                     return true;
                 } else {
                     return false;
@@ -1834,8 +1956,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                     subspaceProvider.logKey(), subspaceProvider.toString(context));
                             throw wrapped;
                         } else {
-                            tr.clear(indexKey);
-                            recordStoreState.setState(index.getName(), IndexState.READABLE);
+                            updateIndexState(index.getName(), indexKey, IndexState.READABLE);
                             return true;
                         }
                     });
@@ -1897,8 +2018,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             byte[] indexKey = indexStateSubspace().pack(indexName);
             CompletableFuture<Boolean> future = tr.get(indexKey).thenApply(previous -> {
                 if (previous != null) {
-                    tr.clear(indexKey);
-                    recordStoreState.setState(indexName, IndexState.READABLE);
+                    updateIndexState(indexName, indexKey, IndexState.READABLE);
                     return true;
                 } else {
                     return false;
@@ -1930,7 +2050,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @API(API.Status.INTERNAL)
     protected CompletableFuture<Void> preloadRecordStoreStateAsync() {
-        return loadRecordStoreStateAsync(context).thenAccept(state -> this.recordStoreState = state);
+        return loadRecordStoreStateAsync(StoreExistenceCheck.NONE, IsolationLevel.SNAPSHOT, IsolationLevel.SNAPSHOT)
+                .thenAccept(state -> this.recordStoreState = state.toMutable());
     }
 
     /**
@@ -1947,6 +2068,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param context the record context in which the retrieve the record store state
      * @param subspace the subspace of the record store
      * @return a future that will contain the state of the record state located at the given subspace
+     * @deprecated in favor of {@link #getRecordStoreState()}
      */
     @Deprecated
     @Nonnull
@@ -1963,12 +2085,53 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param subspace the subspace of the record store
      * @param isolationLevel the isolation level to use when reading
      * @return a future that will contain the state of the record store located at the given subspace
+     * @deprecated in favor of {@link #getRecordStoreState()}
      */
     @Deprecated
     @Nonnull
     public static CompletableFuture<MutableRecordStoreState> loadRecordStoreStateAsync(@Nonnull FDBRecordContext context,
                                                                                        @Nonnull Subspace subspace,
                                                                                        @Nonnull IsolationLevel isolationLevel) {
+        // In theory, the default existence check should be ERROR_IF_INFO_AND_NOT_EMPTY. This will change the behavior on
+        // record stores that have not called checkVersion...which maybe is fine?
+        return loadRecordStoreStateInternalAsync(context, new SubspaceProviderBySubspace(subspace), subspace, StoreExistenceCheck.NONE, isolationLevel, isolationLevel)
+                .thenApply(RecordStoreState::toMutable);
+    }
+
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck) {
+        return loadRecordStoreStateAsync(existenceCheck, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT);
+    }
+
+    @Nonnull
+    private CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
+                                                                          @Nonnull IsolationLevel storeHeaderIsolationLevel,
+                                                                          @Nonnull IsolationLevel indexStateIsolationLevel) {
+        // Don't rely on the subspace being loaded as this is called as part of store initialization
+        return getSubspaceAsync().thenCompose(subspace ->
+                loadRecordStoreStateInternalAsync(getContext(), getSubspaceProvider(), subspace, existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
+        );
+    }
+
+    @Nonnull
+    private static CompletableFuture<RecordStoreState> loadRecordStoreStateInternalAsync(@Nonnull FDBRecordContext context,
+                                                                                         @Nonnull SubspaceProvider subspaceProvider,
+                                                                                         @Nonnull Subspace subspace,
+                                                                                         @Nonnull StoreExistenceCheck existenceCheck,
+                                                                                         @Nonnull IsolationLevel storeHeaderIsolationLevel,
+                                                                                         @Nonnull IsolationLevel indexStateIsolationLevel) {
+        // TODO: Can become non-static once the static variants of loadRecordStoreStateAsync are removed
+        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = FDBRecordStore.loadStoreHeaderAsync(context, subspaceProvider, subspace, existenceCheck, storeHeaderIsolationLevel);
+        CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(context, subspace, indexStateIsolationLevel);
+        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, RecordStoreState::new));
+    }
+
+    @Nonnull
+    private static CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull FDBRecordContext context,
+                                                                                   @Nonnull Subspace subspace,
+                                                                                   @Nonnull IsolationLevel isolationLevel) {
+        // TODO: Can become non-static once the static variants of loadRecordStoreStateAsync are removed
         Subspace isSubspace = subspace.subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
         KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
                 .setContext(context)
@@ -1977,7 +2140,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setIsolationLevel(isolationLevel).build()))
                 .build();
         FDBStoreTimer timer = context.getTimer();
-        CompletableFuture<MutableRecordStoreState> result = cursor.asList().thenApply(list -> {
+        CompletableFuture<Map<String, IndexState>> result = cursor.asList().thenApply(list -> {
             Map<String, IndexState> indexStateMap;
             if (list.isEmpty()) {
                 indexStateMap = Collections.emptyMap();
@@ -1997,24 +2160,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
                 indexStateMap = indexStateMapBuilder.build();
             }
-            return new MutableRecordStoreState(indexStateMap);
+            return indexStateMap;
         });
         if (timer != null) {
-            result = timer.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, result, context.getExecutor());
+            result = timer.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_INDEX_META_DATA, result, context.getExecutor());
         }
         return result;
-    }
-
-    /**
-     * Loads the current state of the record store asynchronously.
-     * @param context the record context in which to retrieve the record store state
-     * @return a future that will contain the state of the record store located at the given subspace
-     */
-    @Nonnull
-    @SuppressWarnings("deprecation")
-    @API(API.Status.UNSTABLE)
-    CompletableFuture<MutableRecordStoreState> loadRecordStoreStateAsync(@Nonnull FDBRecordContext context) {
-        return loadRecordStoreStateAsync(context, getSubspace(), IsolationLevel.SNAPSHOT);
     }
 
     /**
@@ -2893,6 +3044,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nullable
         protected SubspaceProvider subspaceProvider = null;
 
+        @Nullable
+        private FDBRecordStoreStateCache storeStateCache = null;
+
         protected Builder() {
         }
 
@@ -2919,6 +3073,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.indexMaintainerRegistry = other.indexMaintainerRegistry;
             this.indexMaintenanceFilter = other.indexMaintenanceFilter;
             this.pipelineSizer = other.pipelineSizer;
+            this.storeStateCache = other.storeStateCache;
         }
 
         /**
@@ -2934,6 +3089,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.indexMaintainerRegistry = store.indexMaintainerRegistry;
             this.indexMaintenanceFilter = store.indexMaintenanceFilter;
             this.pipelineSizer = store.pipelineSizer;
+            this.storeStateCache = store.storeStateCache;
         }
 
         @Override
@@ -3087,6 +3243,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
+        @Nullable
+        public FDBRecordStoreStateCache getStoreStateCache() {
+            return storeStateCache;
+        }
+
+        @Override
+        @Nonnull
+        public Builder setStoreStateCache(@Nullable FDBRecordStoreStateCache storeStateCache) {
+            this.storeStateCache = storeStateCache;
+            return this;
+        }
+
+        @Override
         @Nonnull
         public Builder copyBuilder() {
             return new Builder(this);
@@ -3107,7 +3276,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 throw new RecordCoreException("serializer must be supplied");
             }
             return new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
-                    serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer);
+                    serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache);
         }
 
         @Override
@@ -3127,11 +3296,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // Try to do them as much in parallel as possible.
             final CompletableFuture<Void> preloadMetaData = preloadMetaData();
             FDBRecordStore recordStore = build();
-            final CompletableFuture<Void> subspaceFuture = recordStore.preloadSubspaceAsync();
-            final CompletableFuture<Void> loadStoreState = subspaceFuture.thenCompose(vignore -> recordStore.preloadRecordStoreStateAsync());
-            final CompletableFuture<KeyValue> loadStoreInfo = subspaceFuture.thenCompose(vignore -> recordStore.readStoreFirstKey());
-            final CompletableFuture<KeyValue> combinedFuture = CompletableFuture.allOf(preloadMetaData, loadStoreState).thenCombine(loadStoreInfo, (v, kv) -> kv);
-            final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(combinedFuture, userVersionChecker, existenceCheck);
+            final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(userVersionChecker, existenceCheck, preloadMetaData);
             return checkVersion.thenApply(vignore -> recordStore);
         }
 

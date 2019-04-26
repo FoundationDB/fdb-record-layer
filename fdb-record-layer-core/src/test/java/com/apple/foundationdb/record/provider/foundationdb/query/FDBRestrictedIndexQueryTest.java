@@ -128,7 +128,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Override state to read the write-only index.
             RecordQueryPlanner planner = new RecordQueryPlanner(
-                    recordStore.getRecordMetaData(), RecordStoreState.EMPTY, recordStore.getTimer());
+                    recordStore.getRecordMetaData(), new RecordStoreState(null, null), recordStore.getTimer());
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                     bounds(hasTupleString("[[5],>")))));

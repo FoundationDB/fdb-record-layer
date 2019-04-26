@@ -1129,7 +1129,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             RecordStoreState storeState = recordStore.getRecordStoreState();
-            assertEquals(new RecordStoreState(Collections.singletonMap(indexName, IndexState.DISABLED)), storeState);
             assertEquals(IndexState.DISABLED, storeState.getState(indexName));
         }
     }
@@ -1196,9 +1195,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             metaData = recordStore.getRecordMetaData();
+            assertTrue(recordStore.isIndexWriteOnly(indexName));
         }
-
-        assertEquals(new RecordStoreState(Collections.singletonMap(indexName, IndexState.WRITE_ONLY)), recordStore.getRecordStoreState());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -1209,8 +1207,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
-            assertEquals(RecordStoreState.EMPTY, recordStore.getRecordStoreState());
+            assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertTrue(recordStore.getRecordStoreState().compatibleWith(recordStore.getRecordStoreState()));
         }
     }

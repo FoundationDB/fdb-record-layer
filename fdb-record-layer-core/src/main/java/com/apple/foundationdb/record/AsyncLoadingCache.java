@@ -38,19 +38,42 @@ import java.util.function.Supplier;
  */
 @API(API.Status.UNSTABLE)
 public class AsyncLoadingCache<K, V> {
+    /**
+     * The default deadline to impose on loading elements.
+     */
+    public static final long DEFAULT_DEADLINE_TIME_MILLIS = 5000L;
+    /**
+     * A constant to indicate that an operation should not have a limit. For example, this can be provided
+     * to the cache as the deadline time or the max size to indicate that no deadline should be imposed
+     * on futures loading entries into the cache or that there should not be a maximum number of cached
+     * elements.
+     */
+    public static final long UNLIMITED = Long.MAX_VALUE;
+
     @Nonnull
     private final Cache<K, Optional<V>> cache;
     private final long refreshTimeMillis;
     private final long deadlineTimeMillis;
+    private final long maxSize;
 
     public AsyncLoadingCache(long refreshTimeMillis) {
-        this(refreshTimeMillis, 5000L);
+        this(refreshTimeMillis, DEFAULT_DEADLINE_TIME_MILLIS);
     }
 
     public AsyncLoadingCache(long refreshTimeMillis, long deadlineTimeMillis) {
+        this(refreshTimeMillis, deadlineTimeMillis, UNLIMITED);
+    }
+
+    public AsyncLoadingCache(long refreshTimeMillis, long deadlineTimeMillis, long maxSize) {
         this.refreshTimeMillis = refreshTimeMillis;
         this.deadlineTimeMillis = deadlineTimeMillis;
-        cache = CacheBuilder.newBuilder().expireAfterWrite(this.refreshTimeMillis, TimeUnit.MILLISECONDS).build();
+        this.maxSize = maxSize;
+        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
+                .expireAfterWrite(this.refreshTimeMillis, TimeUnit.MILLISECONDS);
+        if (maxSize != UNLIMITED) {
+            cacheBuilder.maximumSize(maxSize);
+        }
+        cache = cacheBuilder.build();
     }
 
     /**
@@ -88,6 +111,16 @@ public class AsyncLoadingCache<K, V> {
 
     public long getRefreshTimeSeconds() {
         return TimeUnit.MILLISECONDS.toSeconds(refreshTimeMillis);
+    }
+
+    /**
+     * Get the maximum number of elements stored by the cache. This will return {@link Long#MAX_VALUE} if there
+     * is no maximum size enforced by this cache.
+     *
+     * @return the maximum number of elements stored by the cache
+     */
+    public long getMaxSize() {
+        return maxSize;
     }
 
     public void clear() {
