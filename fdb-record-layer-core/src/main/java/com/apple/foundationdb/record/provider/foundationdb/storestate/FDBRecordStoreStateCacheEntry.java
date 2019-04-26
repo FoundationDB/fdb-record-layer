@@ -62,20 +62,10 @@ public class FDBRecordStoreStateCacheEntry {
         this.recordStoreState = recordStoreState;
     }
 
-    @Nonnull
-    SubspaceProvider getSubspaceProvider() {
-        return subspaceProvider;
-    }
-
-    @Nonnull
-    Subspace getSubspace() {
-        return subspace;
-    }
-
     /**
      * Get the {@link RecordStoreState} contained within this entry.
      *
-     * @return the {@link RecordStoreState} contaiend within this entry
+     * @return the {@link RecordStoreState} contained within this entry
      */
     @Nonnull
     public RecordStoreState getRecordStoreState() {
