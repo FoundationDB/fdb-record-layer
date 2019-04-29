@@ -67,7 +67,20 @@ message ProbableIntersectionContinuation {
 }
 
 message ConcatContinuation {
-    optional bool second = 1;  //true if the continuation applies to second cursor
+    optional bool second = 1; //true if the continuation applies to second cursor
     optional bytes continuation = 3;
 }
 
+message SizeStatisticsContinuation {
+    optional bytes continuation = 1;
+    optional SizeStatisticsPartialResults partialResults = 2;
+}
+
+message SizeStatisticsPartialResults {
+    optional uint64 keyCount = 1;
+    optional uint64 keySize = 2;
+    optional uint64 maxKeySize = 3;
+    optional uint64 valueSize = 4;
+    optional uint64 maxValueSize = 5;
+    repeated uint64 sizeBuckets = 6 [packed = true];
+}

@@ -31,9 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
-import com.apple.foundationdb.record.provider.foundationdb.SizeStatisticsCollector;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.util.TriFunction;
@@ -50,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static java.lang.Thread.sleep;
 import static java.util.stream.Collectors.toList;
@@ -121,41 +118,6 @@ public class ConcatCursorTest {
             scanProperties = new ScanProperties(ep);
             concatTimeLimitTest(scanProperties, timeLimit);
         }
-    }
-
-    @Test
-    public void sizeStatsCollectorTest() {
-        setupBaseData();
-        Subspace indexesSubspace = subspace.subspace(Tuple.from(FDBRecordStoreKeyspace.INDEX_SECONDARY_SPACE.key()));
-        SizeStatisticsCollector sc = SizeStatisticsCollector.ofSubspace(indexesSubspace);
-        long timeLimit = 1000;
-        ExecuteProperties ep = ExecuteProperties.newBuilder().setTimeLimit(timeLimit).build();
-
-        //create a list to append the totalSizeFuture too
-        List<Long> longs = Arrays.asList(1L, 2L, 3L);
-        ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
-        TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<Long>> f1 = (c, s, b) -> {
-            List<Long> l = (longs.stream().collect(toList()));
-            if (s.isReverse()) {
-                Collections.reverse(l);
-            }
-            return RecordCursor.fromList(l, b);
-        };
-
-        // start the stats collection for the current index subspace in this fdb database
-        // create a lazy map cursor that attaches a callback for accessing the stats structure
-        CompletableFuture<Long> totalSizeFuture = fdb.runAsync(c -> sc.collectAsync(c, ep)).thenApply(b -> b ? sc.getTotalSize() : 0L);
-
-        TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<Long>> f2 = (c, s, b) -> {
-            return RecordCursor.fromFuture(totalSizeFuture);
-        };
-
-        //concat the list with the total size of the indexes and increase all the results an ordered of magnitude
-        ConcatCursor<Long> concatCursor = new ConcatCursor<>(context, scanProperties, f1, f2, null);
-        MapCursor<Long, Long> mapCursor = new MapCursor<>(concatCursor, l -> l * 10);
-        List<Long> result = mapCursor.asList().join();
-        Assertions.assertEquals(result.size(), longs.size() + 1);
-        Assertions.assertNotEquals(result.get(3), 0L);
     }
 
     public void concatListCursorTests(ScanProperties scanProperties) {

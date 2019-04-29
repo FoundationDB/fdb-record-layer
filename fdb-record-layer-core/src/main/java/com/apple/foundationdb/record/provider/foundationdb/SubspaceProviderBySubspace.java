@@ -37,7 +37,8 @@ public class SubspaceProviderBySubspace implements SubspaceProvider {
     private Subspace subspace;
     private int memoizedHashCode = 0;
 
-    SubspaceProviderBySubspace(@Nonnull Subspace subspace) {
+    @API(API.Status.INTERNAL)
+    public SubspaceProviderBySubspace(@Nonnull Subspace subspace) {
         this.subspace = subspace;
     }
 
