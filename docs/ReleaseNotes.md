@@ -79,7 +79,6 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The `FDBRecordStoreStateCache` allows for users to initialize a record store from a cached state. [(Issue #410)](https://github.com/FoundationDB/fdb-record-layer/issues/410)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -90,6 +89,10 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 
 // end next release
 -->
+
+### 2.6.64.0
+
+* **Feature** The `FDBRecordStoreStateCache` allows for users to initialize a record store from a cached state. [(Issue #410)](https://github.com/FoundationDB/fdb-record-layer/issues/410)
 
 ### 2.6.63.0
 
