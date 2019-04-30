@@ -165,6 +165,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordType;
     }
 
+    /**
+     * Fetch an index by its name.
+     * @param indexName the name of the index
+     * @return the index
+     */
     @Nonnull
     public Index getIndex(@Nonnull String indexName) {
         Index index = indexes.get(indexName);
@@ -172,6 +177,21 @@ public class RecordMetaData implements RecordMetaDataProvider {
             throw new MetaDataException("Index " + indexName + " not defined");
         }
         return index;
+    }
+
+    /**
+     * Fetch an index by its subspace tuple key.
+     * @param indexSubspaceTupleKey the subspace tuple key of the index
+     * @return the index
+     */
+    @Nonnull
+    public Index getIndex(@Nonnull Object indexSubspaceTupleKey) throws MetaDataException {
+        for (Index index : indexes.values()) {
+            if (index.getSubspaceTupleKey().equals(indexSubspaceTupleKey)) {
+                return index;
+            }
+        }
+        throw new MetaDataException("Index not defined");
     }
 
     public boolean hasIndex(@Nonnull String indexName) {

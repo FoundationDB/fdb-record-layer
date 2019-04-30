@@ -42,13 +42,17 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     private final AtomicLong users = new AtomicLong();
 
+    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap, @Nullable Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap) {
+        super(storeHeader, indexStateMap, indexMetaDataMap);
+    }
+
     public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
-        super(storeHeader, indexStateMap);
+        this(storeHeader, indexStateMap, null);
     }
 
     // Copy constructor
     MutableRecordStoreState(@Nonnull RecordStoreState recordStoreState) {
-        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexStates());
+        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexStates(), recordStoreState.getIndexMetaData());
     }
 
     @Deprecated
@@ -106,9 +110,14 @@ public class MutableRecordStoreState extends RecordStoreState {
      */
     public void beginWrite() {
         // One-time transition to mutable map inside.
-        Map<String, IndexState> current = indexStateMap.get();
-        if (!(current instanceof ConcurrentHashMap<?, ?>)) {
-            indexStateMap.compareAndSet(current, new ConcurrentHashMap<>(current));
+        Map<String, IndexState> currentIndexStateMap = indexStateMap.get();
+        if (!(currentIndexStateMap instanceof ConcurrentHashMap<?, ?>)) {
+            indexStateMap.compareAndSet(currentIndexStateMap, new ConcurrentHashMap<>(currentIndexStateMap));
+        }
+
+        Map<String, IndexMetaDataProto.IndexMetaData> currentIndexMetaDataMap = indexMetaDataMap.get();
+        if (!(currentIndexMetaDataMap instanceof ConcurrentHashMap<?, ?>)) {
+            indexMetaDataMap.compareAndSet(currentIndexMetaDataMap, new ConcurrentHashMap<>(currentIndexMetaDataMap));
         }
 
         long inuse = users.updateAndGet(MutableRecordStoreState::writeIncrement);
@@ -145,10 +154,22 @@ public class MutableRecordStoreState extends RecordStoreState {
         return previous == null ? IndexState.READABLE : previous;
     }
 
+    /**
+     * Modify the meta-data of an index in this map. The caller should modify the database to match.
+     *
+     * @param indexName the index name
+     * @param indexMetaData the new state meta-data for the given index
+     */
+    @Nonnull
+    public void setIndexMetaData(@Nonnull String indexName, @Nonnull IndexMetaDataProto.IndexMetaData indexMetaData) {
+        verifyWritable();
+        indexMetaDataMap.get().put(indexName, indexMetaData);
+    }
+
     @Nonnull
     @Override
     public MutableRecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new MutableRecordStoreState(getStoreHeader(), writeOnlyMap(writeOnlyIndexNames));
+        return new MutableRecordStoreState(getStoreHeader(), writeOnlyMap(writeOnlyIndexNames), writeOnlyIndexMetaDataMap(writeOnlyIndexNames));
     }
 
     /**

@@ -52,6 +52,8 @@ public class FDBStoreTimer extends StoreTimer {
         LOAD_RECORD_STORE_STATE("load record store state"),
         /** The amount of time taken loading a record store's {@code DataStoreInfo} header.*/
         LOAD_RECORD_STORE_INFO("load record store info"),
+        /** The amount of time taken loading a record store's index states. */
+        LOAD_RECORD_STORE_INDEX_STATE("load record store index states"),
         /** The amount of time taken loading a record store's index meta-data. */
         LOAD_RECORD_STORE_INDEX_META_DATA("load record store index meta-data"),
         /** The amount of time taken getting the current version from a {@link MetaDataCache}. */
