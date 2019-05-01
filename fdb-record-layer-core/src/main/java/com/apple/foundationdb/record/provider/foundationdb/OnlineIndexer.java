@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -66,7 +66,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -309,10 +308,10 @@ public class OnlineIndexer implements AutoCloseable {
     <R> CompletableFuture<R> runAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                       @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
                                       @Nullable List<Object> additionalLogMessageKeyValues) {
-        List<Object> onlineIndexerLogMessageKeyValues = Arrays.asList(
+        List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.INDEX_NAME, index.getName(),
                 LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                "online_indexer_id", onlineIndexerId);
+                "online_indexer_id", onlineIndexerId));
         if (additionalLogMessageKeyValues != null) {
             onlineIndexerLogMessageKeyValues.addAll(additionalLogMessageKeyValues);
         }
