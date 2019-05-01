@@ -1574,15 +1574,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private static RecordMetaDataProto.DataStoreInfo checkAndParseStoreHeader(@Nullable KeyValue firstKeyValue,
-                                                                              @Nonnull FDBRecordContext context,
-                                                                              @Nonnull SubspaceProvider subspaceProvider,
-                                                                              @Nonnull Subspace subspace,
-                                                                              @Nonnull StoreExistenceCheck existenceCheck) {
+    private RecordMetaDataProto.DataStoreInfo checkAndParseStoreHeader(@Nullable KeyValue firstKeyValue,
+                                                                       @Nonnull StoreExistenceCheck existenceCheck) {
         RecordMetaDataProto.DataStoreInfo info;
         if (firstKeyValue == null) {
             info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
-        } else if (!checkFirstKeyIsHeader(firstKeyValue, context, subspaceProvider, subspace, existenceCheck)) {
+        } else if (!checkFirstKeyIsHeader(firstKeyValue, getContext(), getSubspaceProvider(), getSubspace(), existenceCheck)) {
             // Treat as brand new, although there is no way to be sure that what was written is compatible
             // with the current default versions.
             info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
@@ -1593,7 +1590,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 throw new RecordCoreStorageException("Error reading version", ex);
             }
         }
-        checkStoreHeaderInternal(info, context, subspaceProvider, existenceCheck);
+        checkStoreHeaderInternal(info, getContext(), getSubspaceProvider(), existenceCheck);
         return info;
     }
 
@@ -1671,13 +1668,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private static CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(@Nonnull FDBRecordContext context,
-                                                                                             @Nonnull SubspaceProvider subspaceProvider,
-                                                                                             @Nonnull Subspace subspace,
-                                                                                             @Nonnull StoreExistenceCheck existenceCheck,
-                                                                                             @Nonnull IsolationLevel isolationLevel) {
-        return readStoreFirstKey(context, subspace, isolationLevel).thenApply(keyValue ->
-                checkAndParseStoreHeader(keyValue, context, subspaceProvider, subspace, existenceCheck));
+    private CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(@Nonnull StoreExistenceCheck existenceCheck, @Nonnull IsolationLevel isolationLevel) {
+        return readStoreFirstKey(context, getSubspace(), isolationLevel).thenApply(keyValue -> checkAndParseStoreHeader(keyValue, existenceCheck));
     }
 
     private void saveStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
@@ -2056,48 +2048,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Loads the current state of the record store within the given subspace asynchronously.
-     * This behaves exactly like the three-parameter version of
-     * {@link #loadRecordStoreStateAsync(FDBRecordContext, Subspace, IsolationLevel) loadRecordStoreStateAsync()},
-     * but this fixes the {@link IsolationLevel} to {@link IsolationLevel#SNAPSHOT SNAPSHOT}. This is
-     * because most operations will not depend on the entirety of the record store state but instead
-     * only on the state of the indexes used. For this reason, to decrease conflicts, in the normal
-     * case, the record store state should be loaded with the <code>SNAPSHOT</code> isolation level and
-     * then consistency is maintained by only adding read conflicts for indexes whose state is actually
-     * used.
      *
-     * @param context the record context in which the retrieve the record store state
-     * @param subspace the subspace of the record store
+     * @param existenceCheck the action to be taken when the record store already exists (or does not exist yet)
      * @return a future that will contain the state of the record state located at the given subspace
-     * @deprecated in favor of {@link #getRecordStoreState()}
      */
-    @Deprecated
-    @Nonnull
-    public static CompletableFuture<MutableRecordStoreState> loadRecordStoreStateAsync(@Nonnull FDBRecordContext context,
-                                                                                       @Nonnull Subspace subspace) {
-        return loadRecordStoreStateAsync(context, subspace, IsolationLevel.SNAPSHOT);
-    }
-
-    /**
-     * Loads the current state of the record store within the given subspace asynchronously.
-     * This method is static so that one can load the record store state before instantiating
-     * the instance. This method is called for the user by the various static <code>open</code> methods.
-     * @param context the record context in which to retrieve the record store state
-     * @param subspace the subspace of the record store
-     * @param isolationLevel the isolation level to use when reading
-     * @return a future that will contain the state of the record store located at the given subspace
-     * @deprecated in favor of {@link #getRecordStoreState()}
-     */
-    @Deprecated
-    @Nonnull
-    public static CompletableFuture<MutableRecordStoreState> loadRecordStoreStateAsync(@Nonnull FDBRecordContext context,
-                                                                                       @Nonnull Subspace subspace,
-                                                                                       @Nonnull IsolationLevel isolationLevel) {
-        // In theory, the default existence check should be ERROR_IF_INFO_AND_NOT_EMPTY. This will change the behavior on
-        // record stores that have not called checkVersion...which maybe is fine?
-        return loadRecordStoreStateInternalAsync(context, new SubspaceProviderBySubspace(subspace), subspace, StoreExistenceCheck.NONE, isolationLevel, isolationLevel)
-                .thenApply(RecordStoreState::toMutable);
-    }
-
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck) {
@@ -2110,36 +2064,29 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                           @Nonnull IsolationLevel indexStateIsolationLevel) {
         // Don't rely on the subspace being loaded as this is called as part of store initialization
         return getSubspaceAsync().thenCompose(subspace ->
-                loadRecordStoreStateInternalAsync(getContext(), getSubspaceProvider(), subspace, existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
+                loadRecordStoreStateInternalAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
         );
     }
 
     @Nonnull
-    private static CompletableFuture<RecordStoreState> loadRecordStoreStateInternalAsync(@Nonnull FDBRecordContext context,
-                                                                                         @Nonnull SubspaceProvider subspaceProvider,
-                                                                                         @Nonnull Subspace subspace,
-                                                                                         @Nonnull StoreExistenceCheck existenceCheck,
-                                                                                         @Nonnull IsolationLevel storeHeaderIsolationLevel,
-                                                                                         @Nonnull IsolationLevel indexStateIsolationLevel) {
-        // TODO: Can become non-static once the static variants of loadRecordStoreStateAsync are removed
-        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = FDBRecordStore.loadStoreHeaderAsync(context, subspaceProvider, subspace, existenceCheck, storeHeaderIsolationLevel);
-        CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(context, subspace, indexStateIsolationLevel);
+    private CompletableFuture<RecordStoreState> loadRecordStoreStateInternalAsync(@Nonnull StoreExistenceCheck existenceCheck,
+                                                                                  @Nonnull IsolationLevel storeHeaderIsolationLevel,
+                                                                                  @Nonnull IsolationLevel indexStateIsolationLevel) {
+        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel);
+        CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(indexStateIsolationLevel);
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, RecordStoreState::new));
     }
 
     @Nonnull
-    private static CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull FDBRecordContext context,
-                                                                                   @Nonnull Subspace subspace,
-                                                                                   @Nonnull IsolationLevel isolationLevel) {
-        // TODO: Can become non-static once the static variants of loadRecordStoreStateAsync are removed
-        Subspace isSubspace = subspace.subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
+    private CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull IsolationLevel isolationLevel) {
+        Subspace isSubspace = getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
         KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
-                .setContext(context)
+                .setContext(getContext())
                 .setRange(TupleRange.ALL)
                 .setContinuation(null)
                 .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setIsolationLevel(isolationLevel).build()))
                 .build();
-        FDBStoreTimer timer = context.getTimer();
+        FDBStoreTimer timer = getTimer();
         CompletableFuture<Map<String, IndexState>> result = cursor.asList().thenApply(list -> {
             Map<String, IndexState> indexStateMap;
             if (list.isEmpty()) {
