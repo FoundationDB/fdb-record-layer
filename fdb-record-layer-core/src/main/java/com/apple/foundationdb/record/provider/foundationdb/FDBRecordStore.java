@@ -1518,8 +1518,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private CompletableFuture<Boolean> checkVersion(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable UserVersionChecker userVersionChecker) {
         RecordMetaDataProto.DataStoreInfo.Builder info = storeHeader.toBuilder();
-        final int oldMetaDataVersion = info.hasMetaDataversion() ? info.getMetaDataversion() : -1;
-        final int oldUserVersion = info.hasUserVersion() ? info.getUserVersion() : -1;
+        final boolean newStore = info.getFormatVersion() == 0;
+        final int oldMetaDataVersion = newStore ? -1 : info.getMetaDataversion();
+        final int oldUserVersion = newStore ? -1 : info.getUserVersion();
         if (info.hasFormatVersion() && info.getFormatVersion() >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
             // If the store is already using a format version greater than or equal to the version
             // where the unsplit records are now written with an extra suffix, use the value for
@@ -2464,7 +2465,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final boolean formatVersionChanged = oldFormatVersion != newFormatVersion;
         formatVersion = newFormatVersion;
 
-        final int oldMetaDataVersion = info.getMetaDataversion();
+        final boolean newStore = oldFormatVersion == 0;
+        final int oldMetaDataVersion = newStore ? -1 : info.getMetaDataversion();
         final RecordMetaData metaData = getRecordMetaData();
         final int newMetaDataVersion = metaData.getVersion();
         if (oldMetaDataVersion > newMetaDataVersion) {
@@ -2482,7 +2484,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         if (LOGGER.isInfoEnabled()) {
-            final boolean newStore = oldFormatVersion == 0;
             if (newStore) {
                 LOGGER.info(KeyValueLogMessage.of("new record store",
                         LogMessageKeys.FORMAT_VERSION, newFormatVersion,
@@ -2505,13 +2506,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         dirty[0] = true;
-        return checkRebuild(userVersionChecker, info, oldFormatVersion, metaData, oldMetaDataVersion);
+        return checkRebuild(userVersionChecker, info, metaData);
     }
 
-    private CompletableFuture<Void> checkRebuild(@Nullable UserVersionChecker userVersionChecker, @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
-                                                 int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion) {
+    private CompletableFuture<Void> checkRebuild(@Nullable UserVersionChecker userVersionChecker,
+                                                 @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
+                                                 @Nonnull RecordMetaData metaData) {
         final List<CompletableFuture<Void>> work = new LinkedList<>();
 
+        final int oldFormatVersion = info.getFormatVersion();
         if (oldFormatVersion != formatVersion) {
             info.setFormatVersion(formatVersion);
             // We must check whether we have to save unsplit records without a suffix before
@@ -2541,6 +2544,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
 
+        final boolean newStore = oldFormatVersion == 0;
+        final int oldMetaDataVersion = newStore ? -1 : info.getMetaDataversion();
         final int newMetaDataVersion = metaData.getVersion();
         final boolean metaDataVersionChanged = oldMetaDataVersion != newMetaDataVersion;
         if (metaDataVersionChanged) {
