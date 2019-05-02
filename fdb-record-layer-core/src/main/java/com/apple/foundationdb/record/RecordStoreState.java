@@ -84,8 +84,7 @@ public class RecordStoreState {
 
     /**
      * Creates a <code>RecordStoreState</code> with the given index states.
-     * Only indexes that are not in the default state ({@link IndexState#READABLE IndexState.READABLE})
-     * need to be included in the map.
+     * The missing indexes are in the default state ({@link IndexState#READABLE IndexState.READABLE}).
      * @param storeHeader header information for the given store
      * @param indexStateMap mapping from index name to index state
      */
@@ -103,10 +102,10 @@ public class RecordStoreState {
 
     /**
      * Creates a <code>RecordStoreState</code> with the given index states.
-     * Only indexes that are not in the default state ({@link IndexState#READABLE IndexState.READABLE})
-     * need to be included in the map. This initializes the record store state with a default store header, which
+     * This initializes the record store state with a default store header, which
      * is not the expected state for most record stores. As a result, this constructor has been deprecated in favor
      * of the constructor where a store header must be provided.
+     * The missing indexes are in the default state ({@link IndexState#READABLE IndexState.READABLE}).
      *
      * @param indexStateMap mapping from index name to index state
      * @deprecated as the default store header is incorrect for most record stores

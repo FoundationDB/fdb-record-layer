@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -1733,12 +1733,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         recordStoreState.beginWrite();
         try {
             context.setDirtyStoreState(true);
-            Transaction tr = context.ensureActive();
-            if (IndexState.READABLE.equals(indexState)) {
-                tr.clear(indexKey);
-            } else {
-                tr.set(indexKey, Tuple.from(indexState.code()).pack());
-            }
+            context.ensureActive().set(indexKey, Tuple.from(indexState.code()).pack());
             recordStoreState.setState(indexName, indexState);
         } finally {
             recordStoreState.endWrite();
@@ -1814,7 +1809,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * one does a rebuild between the time it is marked disabled and the
      * time it is marked readable, marking an index as disabled will also clear
      * the store of all data associated with that index. This will return <code>true</code>
-     * if the store had to be modified to mark the index as diabled (i.e., the
+     * if the store had to be modified to mark the index as disabled (i.e., the
      * index was not already disabled) and <code>false</code> otherwise.
      *
      * @param indexName the name of the index to mark as disabled
@@ -1847,7 +1842,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Returns the first unbuilt range of an index that is currently being bulit.
+     * Returns the first unbuilt range of an index that is currently being built.
      * If there is no range that is currently unbuilt, it will return an
      * empty {@link Optional}. If there is one, it will return an {@link Optional}
      * set to the first unbuilt range it finds.
@@ -1927,7 +1922,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             Transaction tr = ensureContextActive();
             byte[] indexKey = indexStateSubspace().pack(index.getName());
             CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
-                if (previous != null) {
+                if (previous == null || !Tuple.fromBytes(previous).get(0).equals(IndexState.READABLE.code())) {
                     CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
                     CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = scanUniquenessViolations(index, 1).first();
                     return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
@@ -1966,14 +1961,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Marks the index with the given name as readable. More correctly, it removes if from the write-only list,
-     * so future queries (assuming that they reload the {@link RecordStoreState}) will
-     * be able to use that index. This will check to make sure that the index is actually
+     * Marks the index with the given name as readable.
+     *
+     * <p>
+     * This will check to make sure that the index is actually
      * built and ready to go before making it readable. If it is not, the future
      * will complete exceptionally with an {@link IndexNotBuiltException}. If the
      * store is modified when marking the index as readable (i.e., if it was previously
      * write-only), then this will return <code>true</code>. Otherwise, it will
      * return <code>false</code>.
+     * </p>
      *
      * @param indexName the name of the index to mark readable
      * @return a future that will either complete exceptionally if the index can not
@@ -2009,7 +2006,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             Transaction tr = ensureContextActive();
             byte[] indexKey = indexStateSubspace().pack(indexName);
             CompletableFuture<Boolean> future = tr.get(indexKey).thenApply(previous -> {
-                if (previous != null) {
+                if (previous == null || !Tuple.fromBytes(previous).get(0).equals(IndexState.READABLE.code())) {
                     updateIndexState(indexName, indexKey, IndexState.READABLE);
                     return true;
                 } else {
