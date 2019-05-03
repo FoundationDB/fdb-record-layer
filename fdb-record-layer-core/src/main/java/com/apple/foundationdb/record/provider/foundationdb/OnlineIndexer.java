@@ -405,8 +405,8 @@ public class OnlineIndexer implements AutoCloseable {
 
     private void increaseLimit() {
         limit = Math.min(maxLimit, Math.max(limit + 1, (4 * limit) / 3));
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug(KeyValueLogMessage.of("Re-increasing limit of online index build",
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("Re-increasing limit of online index build",
                     "indexName", index.getName(),
                     "indexVersion", index.getLastModifiedVersion(),
                     "limit", limit));
