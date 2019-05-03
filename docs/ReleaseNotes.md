@@ -66,7 +66,7 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** A new store with `metaDataVersion` of `0` would not set that field, confusing a later load [(Issue #565)](https://github.com/FoundationDB/fdb-record-layer/issues/565)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
