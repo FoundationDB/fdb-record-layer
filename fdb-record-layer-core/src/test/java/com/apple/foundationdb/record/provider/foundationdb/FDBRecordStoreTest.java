@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.TestNoIndexesProto;
 import com.apple.foundationdb.record.TestNoUnionProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedAgainProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
@@ -2989,4 +2990,45 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(messageBuilder.build());
         }
     }
+
+    @Test
+    public void metaDataVersionZero() throws Exception {
+        final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
+        metaData.setVersion(0);
+
+        FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
+                .setKeySpacePath(path)
+                .setMetaDataProvider(metaData);
+
+        final FDBRecordStoreBase.UserVersionChecker newStore = new FDBRecordStoreBase.UserVersionChecker() {
+            @Override
+            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+                assertEquals(-1, oldUserVersion);
+                assertEquals(-1, oldMetaDataVersion);
+                return CompletableFuture.completedFuture(0);
+            }
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = builder.setContext(context).setUserVersionChecker(newStore).create();
+            assertTrue(recordStore.getRecordStoreState().getStoreHeader().hasMetaDataversion());
+            assertTrue(recordStore.getRecordStoreState().getStoreHeader().hasUserVersion());
+            commit(context);
+        }
+
+        final FDBRecordStoreBase.UserVersionChecker oldStore = new FDBRecordStoreBase.UserVersionChecker() {
+            @Override
+            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+                assertEquals(0, oldUserVersion);
+                assertEquals(0, oldMetaDataVersion);
+                return CompletableFuture.completedFuture(0);
+            }
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = builder.setContext(context).setUserVersionChecker(oldStore).open();
+            commit(context);
+        }
+    }
+
 }
