@@ -23,7 +23,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Remove the `loadRecordStoreStateAsync` static methods [(Issue #559)](https://github.com/FoundationDB/fdb-record-layer/issues/559)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -58,7 +58,7 @@ Methods for retrieving a record from a record store based on an index entry gene
 
 While not deprecated, the [`MetaDataCache`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/MetaDataCache.html) interface's stability has been lessened from [`MAINTAINED`](https://javadoc.io/page/org.foundationdb/fdb-extensions/latest/com/apple/foundationdb/annotation/API.Status.html#MAINTAINED) to [`EXPERIMENTAL`](https://javadoc.io/page/org.foundationdb/fdb-extensions/latest/com/apple/foundationdb/annotation/API.Status.html#EXPERIMENTAL). That interface may undergo further changes as work progresses on [Issue #280](https://github.com/FoundationDB/fdb-record-layer/issues/280). Clients are discouraged from using that interface until work evolving that API has progressed.
 
-The static `loadRecordStoreStateAsync` methods on `FDBRecordStore` have been deprecated. Users are encouraged to use `getRecordStoreState` instead. The deprecated methods will be removed soon.
+The static `loadRecordStoreStateAsync` methods on `FDBRecordStore` were deprecated in 2.6.61.0 and removed in 2.6.66.0. Users are encouraged to use `getRecordStoreState` instead.
 
 The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](https://javadoc.io/page/org.foundationdb/fdb-extensions/latest/com/apple/foundationdb/annotation/API.Status.html#INTERNAL) as part of the work adding store state caching ([Issue #410](https://github.com/FoundationDB/fdb-record-layer/issues/410)). They are likely to be further updated as more meta-data is added to the information stored on indexes within each record store ([Issue #506](https://github.com/FoundationDB/fdb-record-layer/issues/506)).
 
@@ -81,7 +81,7 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Remove the `loadRecordStoreStateAsync` static methods [(Issue #559)](https://github.com/FoundationDB/fdb-record-layer/issues/559)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -93,6 +93,7 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 ### 2.6.66.0
 
 * **Bug fix** A new store with `metaDataVersion` of `0` would not set that field, confusing a later load [(Issue #565)](https://github.com/FoundationDB/fdb-record-layer/issues/565)
+* **Breaking change** Remove the `loadRecordStoreStateAsync` static methods [(Issue #559)](https://github.com/FoundationDB/fdb-record-layer/issues/559)
 
 ### 2.6.64.0
 
