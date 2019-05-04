@@ -155,7 +155,7 @@ public class ResolverMappingReplicator implements AutoCloseable {
                 .whenComplete((vignore, eignore) -> cursor.close())
                 .thenApply(vignore -> Objects.nonNull(continuation.get()));
             });
-        });
+        }, runner.getExecutor());
     }
 
     @Override
