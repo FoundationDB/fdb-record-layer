@@ -69,7 +69,7 @@ public class FilterCursor<T> implements RecordCursor<T> {
             nextResult = innerResult;
             hasNext = innerResult.hasNext() && (Boolean.TRUE.equals(pred.apply(innerResult.get()))); // relies on short circuiting
             return innerResult.hasNext() && !hasNext; // keep looping only if we might find more records and we filtered a record out
-        })).thenApply(vignore -> {
+        }), getExecutor()).thenApply(vignore -> {
             mayGetContinuation = !hasNext;
             return nextResult;
         });
