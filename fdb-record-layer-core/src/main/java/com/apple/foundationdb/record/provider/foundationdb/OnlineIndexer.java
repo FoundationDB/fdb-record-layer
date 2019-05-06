@@ -164,11 +164,11 @@ public class OnlineIndexer implements AutoCloseable {
     private final int increaseLimitAfter;
     /**
      * The current number of records to process in a single transaction, this may go up or down when using
-     * {@link #runAsync(Function)}, but never above {@link #maxRetries}.
+     * {@link #runAsync(Function, BiFunction, ExceptionHandler, List)}, but never above {@link #maxRetries}.
      */
     private int limit;
     /**
-     * The number of successful transactions in a row as called by {@link #runAsync(Function)}.
+     * The number of successful transactions in a row as called by {@link #runAsync(Function, BiFunction, ExceptionHandler, List)}.
      */
     private int successCount;
     private long timeOfLastProgressLogMillis;
@@ -215,7 +215,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Get the current number of records to process in one transaction.
-     * This may go up or down while {@link #runAsync(Function)} is running, if there are failures committing or
+     * This may go up or down while {@link #runAsync(Function, BiFunction, ExceptionHandler, List)} is running, if there are failures committing or
      * repeated successes.
      * @return the current number of records to process in one transaction
      */
@@ -290,15 +290,6 @@ public class OnlineIndexer implements AutoCloseable {
         runner.close();
     }
 
-    // Just like runAsync that takes a handler, except recordsScanned will always be 0
-    @Nonnull
-    @VisibleForTesting
-    <R> CompletableFuture<R> runAsync(@Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
-        return runAsync(function,
-                (result, exception) -> runAsyncPostTransaction(result, exception, null),
-                null);
-    }
-
     // This retry loop runs an operation on a record store. The reason that this retry loop exists
     // (despite the fact that FDBDatabase.runAsync exists and is (in fact) used by the logic here)
     // is that this will adjust the value of limit in the case that we encounter errors like transaction_too_large
@@ -309,6 +300,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     <R> CompletableFuture<R> runAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                       @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
+                                      @Nullable ExceptionHandler<R> exceptionHandler,
                                       @Nullable List<Object> additionalLogMessageKeyValues) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.INDEX_NAME, index.getName(),
@@ -341,26 +333,10 @@ public class OnlineIndexer implements AutoCloseable {
                         return AsyncUtil.READY_FALSE;
                     } else {
                         int currTries = tries.getAndIncrement();
-                        if (currTries >= maxRetries) {
-                            ret.completeExceptionally(runner.getDatabase().mapAsyncToSyncException(e));
-                            return AsyncUtil.READY_FALSE;
+                        if (exceptionHandler == null || currTries >= maxRetries) {
+                            return completeExceptionally(ret, e);
                         }
-
-                        FDBException fdbE = getFDBException(e);
-                        if (fdbE == null) {
-                            ret.completeExceptionally(runner.getDatabase().mapAsyncToSyncException(e));
-                            return AsyncUtil.READY_FALSE;
-                        } else {
-                            if (lessenWorkCodes.contains(fdbE.getCode())) {
-                                decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues);
-                                long delay = (long)(Math.random() * toWait.get());
-                                toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
-                                return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
-                            } else {
-                                ret.completeExceptionally(runner.getDatabase().mapAsyncToSyncException(e));
-                                return AsyncUtil.READY_FALSE;
-                            }
-                        }
+                        return exceptionHandler.apply(ret, toWait, e, onlineIndexerLogMessageKeyValues);
                     }
                 }).thenCompose(Function.identity()), runner.getExecutor())
                 .whenComplete((vignore, e) -> {
@@ -372,30 +348,56 @@ public class OnlineIndexer implements AutoCloseable {
         return ret;
     }
 
-    /**
-     * Run after a single transactional call within runAsync.
-     */
+    @FunctionalInterface
     @VisibleForTesting
-    <R> Pair<R, Throwable> runAsyncPostTransaction(@Nullable R result, @Nullable Throwable exception,
-                                                   @Nullable AtomicLong recordsScanned) {
-        if (increaseLimitAfter > 0) {
-            if (exception == null) {
-                successCount++;
-                if (successCount >= increaseLimitAfter && limit < maxLimit) {
-                    increaseLimit();
-                }
+    interface ExceptionHandler<R> {
+        CompletableFuture<Boolean> apply(CompletableFuture<R> ret, AtomicLong toWait, Throwable e, @Nullable List<Object> additionalLogMessageKeyValues);
+    }
+
+    private <R> CompletableFuture<Boolean> completeExceptionally(CompletableFuture<R> ret, Throwable e) {
+        ret.completeExceptionally(runner.getDatabase().mapAsyncToSyncException(e));
+        return AsyncUtil.READY_FALSE;
+    }
+
+    @VisibleForTesting
+    <R> CompletableFuture<R> buildAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
+                                        boolean limitControl,
+                                        @Nullable List<Object> additionalLogMessageKeyValues) {
+        AtomicLong recordsScanned = new AtomicLong(0);
+        return runAsync(store -> buildFunction.apply(store, recordsScanned),
+                // Run after a single transactional call within runAsync.
+                (result, exception) -> {
+                    if (limitControl) {
+                        tryToIncreaseLimit(exception);
+                    }
+                    // Update records scanned.
+                    if (exception == null) {
+                        totalRecordsScanned.addAndGet(recordsScanned.get());
+                    } else {
+                        recordsScanned.set(0);
+                    }
+                    return Pair.of(result, exception);
+                },
+                limitControl ? this::tryToDecreaseLimit : null,
+                additionalLogMessageKeyValues
+        );
+    }
+
+    @VisibleForTesting
+    <R> CompletableFuture<Boolean> tryToDecreaseLimit(CompletableFuture<R> ret, AtomicLong toWait, Throwable e, @Nullable List<Object> additionalLogMessageKeyValues) {
+        FDBException fdbE = getFDBException(e);
+        if (fdbE == null) {
+            return completeExceptionally(ret, e);
+        } else {
+            if (lessenWorkCodes.contains(fdbE.getCode())) {
+                decreaseLimit(fdbE, additionalLogMessageKeyValues);
+                long delay = (long)(Math.random() * toWait.get());
+                toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
+                return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
             } else {
-                successCount = 0;
+                return completeExceptionally(ret, e);
             }
         }
-        if (recordsScanned != null) {
-            if (exception == null) {
-                totalRecordsScanned.addAndGet(recordsScanned.get());
-            } else {
-                recordsScanned.set(0);
-            }
-        }
-        return Pair.of(result, exception);
     }
 
     private void decreaseLimit(@Nonnull FDBException fdbException,
@@ -411,6 +413,19 @@ public class OnlineIndexer implements AutoCloseable {
             }
             LOGGER.info(message.toString(),
                     fdbException);
+        }
+    }
+
+    private void tryToIncreaseLimit(@Nullable Throwable exception) {
+        if (increaseLimitAfter > 0) {
+            if (exception == null) {
+                successCount++;
+                if (successCount >= increaseLimitAfter && limit < maxLimit) {
+                    increaseLimit();
+                }
+            } else {
+                successCount = 0;
+            }
         }
     }
 
@@ -748,26 +763,22 @@ public class OnlineIndexer implements AutoCloseable {
     // Helper function with the same behavior as buildUnbuiltRange, but it works on tuples instead of primary keys.
     @Nonnull
     private CompletableFuture<Tuple> buildUnbuiltRange(@Nullable Tuple start, @Nullable Tuple end) {
-        AtomicLong recordsScanned = new AtomicLong(0);
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
-        return runAsync(store -> buildUnbuiltRange(store, start, end, recordsScanned),
-                (result, exception) -> runAsyncPostTransaction(
-                        result, exception, recordsScanned),
+        return buildAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
+                true,
                 additionalLogMessageKeyValues);
     }
 
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        AtomicLong recordsScanned = new AtomicLong(0);
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
-        return runAsync(store -> buildUnbuiltRange(store, start, end, recordsScanned),
-                (result, exception) -> runAsyncPostTransaction(
-                        result, exception, recordsScanned),
+        return buildAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
+                true,
                 additionalLogMessageKeyValues);
     }
 
@@ -912,12 +923,8 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<TupleRange> buildEndpoints() {
-        AtomicLong recordsScanned = new AtomicLong(0);
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildEndpoints");
-        return runAsync(store -> buildEndpoints(store, recordsScanned),
-                (result, exception) -> runAsyncPostTransaction(
-                        result, exception, recordsScanned),
-                additionalLogMessageKeyValues);
+        return buildAsync(this::buildEndpoints, false, additionalLogMessageKeyValues);
     }
 
     /**
