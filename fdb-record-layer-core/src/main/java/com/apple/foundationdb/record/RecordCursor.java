@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.cursors.MapPipelinedCursor;
 import com.apple.foundationdb.record.cursors.OrElseCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.cursors.SkipCursor;
-import com.apple.foundationdb.record.cursors.TimeLimitedCursor;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -529,39 +528,6 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
 
         if (limit > 0 && limit < Integer.MAX_VALUE) {
             return new RowLimitedCursor<>(this, limit);
-        } else {
-            return this;
-        }
-    }
-
-    /**
-     * Get a new cursor that will only return records up to the specified time limit (in milliseconds).
-     * @param timeLimit the maximum number of milliseconds to run
-     * @return a new cursor that stops early if {@code timeLimit} is exceeded
-     * @deprecated in favor of a {@link TimeScanLimiter} as part of every {@link com.apple.foundationdb.record.cursors.BaseCursor}
-     */
-    @Deprecated
-    @Nonnull
-    default RecordCursor<T> limitTimeTo(long timeLimit) {
-        return limitTimeTo(System.currentTimeMillis(), timeLimit);
-    }
-
-    /**
-     * Get a new cursor that will only return records up to the specified time limit (in milliseconds).
-     * @param timeStartingFrom the starting time from which to measure the time limit
-     * @param timeLimit the maximum number of milliseconds to run 
-     * @return a new cursor that stops early when {@code timeLimit} after {@code timeStartingFrom} is reached
-     * @deprecated in favor of a {@link TimeScanLimiter} as part of every {@link com.apple.foundationdb.record.cursors.BaseCursor}
-     */
-    @Deprecated
-    @Nonnull
-    default RecordCursor<T> limitTimeTo(long timeStartingFrom, long timeLimit) {
-        if (timeLimit < 0L) {
-            throw new RecordCoreException("Invalid time limit: " + timeLimit);
-        }
-
-        if (timeLimit > 0L && timeLimit < Long.MAX_VALUE) {
-            return new TimeLimitedCursor<>(this, timeStartingFrom, timeLimit);
         } else {
             return this;
         }
