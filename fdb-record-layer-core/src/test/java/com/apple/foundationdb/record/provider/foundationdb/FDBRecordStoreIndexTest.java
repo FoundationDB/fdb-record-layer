@@ -114,6 +114,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Tests for indexes in {@link FDBRecordStore}.
@@ -2326,7 +2327,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
 
         int boundaryPrimaryKeysSize = boundaryPrimaryKeys.size();
-        assertTrue(boundaryPrimaryKeysSize > 2,
+        assumeTrue(boundaryPrimaryKeysSize > 2,
                 "the test is meaningless if the records are not across boundaries");
         assertThat( boundaryPrimaryKeys.get(0), greaterThanOrEqualTo(Tuple.from(-25L * 39)));
         assertThat( boundaryPrimaryKeys.get(boundaryPrimaryKeysSize - 1), lessThanOrEqualTo(Tuple.from(24L * 39)));
