@@ -67,6 +67,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Description;
@@ -78,6 +79,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -115,7 +117,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Tests for indexes in {@link FDBRecordStore}.
@@ -2289,7 +2290,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void boundaryPrimaryKeys() throws Exception {
         final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.clear();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
         FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
 
@@ -2302,10 +2302,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         ArrayList<byte[]> keys = new ArrayList<>();
         String bigOlString = Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE + 2);
-        for (int i = -25; i < 25; i++) {
-            // Sparsify the primary keys so the records can be saved across boundaries.
-            saveAndSplitSimpleRecord(i * 39, bigOlString, i);
-            keys.add(recordStore.recordsSubspace().pack(i * 39));
+        for (int i = 0; i < 50; i++) {
+            saveAndSplitSimpleRecord(i, bigOlString, i);
+            keys.add(recordStore.recordsSubspace().pack(i));
         }
 
         OnlineIndexer indexer;
@@ -2336,7 +2335,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
 
         int boundaryPrimaryKeysSize = boundaryPrimaryKeys.size();
-        assumeTrue(boundaryPrimaryKeysSize > 2,
+        assertTrue(boundaryPrimaryKeysSize > 2,
                 "the test is meaningless if the records are not across boundaries");
         assertThat( boundaryPrimaryKeys.get(0), greaterThanOrEqualTo(Tuple.from(-25L * 39)));
         assertThat( boundaryPrimaryKeys.get(boundaryPrimaryKeysSize - 1), lessThanOrEqualTo(Tuple.from(24L * 39)));
@@ -2364,7 +2363,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void noBoundaryPrimaryKeys() throws Exception {
         final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.clear();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
         FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
 
@@ -2451,5 +2449,35 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             commit(context);
         }
+    }
+
+    @Test
+    public void testMockedLocalityUtil() throws Exception {
+        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        factory.setLocalityProvider(MockedLocalityUtil.instance());
+        FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+
+        try (FDBRecordContext context = database.openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+            ArrayList<byte[]> keys = new ArrayList<>();
+            for (int i = 0; i < 50; i++) {
+                keys.add(recordStore.recordsSubspace().pack(i));
+            }
+
+            testRangeCount(context, keys, 0);
+            testRangeCount(context, keys, 1);
+            testRangeCount(context, keys, new Random().nextInt(keys.size() + 1));
+            testRangeCount(context, keys, keys.size() - 1);
+            testRangeCount(context, keys, keys.size());
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> testRangeCount(context, keys, keys.size() + 5));
+            assertEquals(ex.getMessage(), "rangeCount must be less than (or equal) the size of keys");
+
+            commit(context);
+        }
+    }
+
+    private void testRangeCount(@Nonnull FDBRecordContext context, @Nonnull ArrayList<byte[]> keys, int rangeCount) {
+        MockedLocalityUtil.init(keys, rangeCount);
+        assertEquals(rangeCount, Iterators.size(MockedLocalityUtil.instance().getBoundaryKeys(context.ensureActive(), keys.get(0), keys.get(keys.size() - 1))));
     }
 }

@@ -68,16 +68,6 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
     }
 
     /**
-     * Initialize the {@code MockedLocalityUtil}'s singleton using a random number of ranges.
-     * @param keys a sorted list of keys
-     * @see #init(List, int)
-     */
-    @Nonnull
-    public static void init(@Nonnull List<byte[]> keys) {
-        init(keys, new Random().nextInt(keys.size()) + 1);
-    }
-
-    /**
      * Initialize the {@code MockedLocalityUtil}'s singleton.
      *
      * <p>
@@ -91,6 +81,9 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
      */
     @Nonnull
     public static void init(@Nonnull List<byte[]> keys, int rangeCount) {
+        if (keys.size() < rangeCount) {
+            throw new IllegalArgumentException("rangeCount must be less than (or equal) the size of keys");
+        }
         INSTANCE.ranges = new ArrayList<>(rangeCount);
         INSTANCE.keyRanges = new ArrayList<>(keys.size());
 
@@ -146,7 +139,6 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
             int rangeIndex = -1;
             for (KeyRange keyRange : keyRanges) {
                 if (beginTuple.compareTo(keyRange.tuple) <= 0) {
-                    this.ranges.add(keyRange.key);
                     rangeIndex = keyRange.rangeIndex;
                     break;
                 }

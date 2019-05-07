@@ -504,7 +504,7 @@ public class FDBDatabaseFactory {
      */
     @Nonnull
     public FDBLocalityProvider getLocalityProvider() {
-        return this.localityProvider;
+        return localityProvider;
     }
 
     /**
