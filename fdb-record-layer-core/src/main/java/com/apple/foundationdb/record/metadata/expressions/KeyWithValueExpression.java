@@ -96,14 +96,15 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     }
 
     @Nonnull
+    @Override
+    protected KeyExpression getSubKeyImpl(int start, int end) {
+        return getInnerKey().getSubKey(start, end);
+    }
+
+    @Nonnull
     public KeyExpression getKeyExpression() {
         if (keyExpression == null) {
-            List<KeyExpression> allKeys = normalizeKeyForPositions();
-            if (splitPoint == 1) {
-                keyExpression = allKeys.get(0);
-            } else {
-                keyExpression = new ThenKeyExpression(allKeys, 0, splitPoint);
-            }
+            return getInnerKey().getSubKey(0, splitPoint);
         }
         return keyExpression;
     }
@@ -178,7 +179,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     @Nonnull
     @Override
     public KeyExpression getChild() {
-        return getInnerKey();
+        return getKeyExpression();
     }
 
     /**
@@ -205,7 +206,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
 
     @Override
     public String toString() {
-        return "covering(" + innerKey.toString() + " split " + splitPoint + ")";
+        return "covering(" + getInnerKey().toString() + " split " + splitPoint + ")";
     }
 
     @Override

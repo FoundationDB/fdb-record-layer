@@ -66,6 +66,10 @@ public enum LogMessageKeys {
     ACTUAL_COLUMN_SIZE("actual_column_size"),
     KEY_EXPRESSION("key_expression"),
     KEY_EVALUATED("key_evaluated"),
+    // manipulating subkeys of key expressions
+    REQUESTED_START("requested_start"),
+    REQUESTED_END("requested_end"),
+    COLUMN_SIZE("column_size"),
     // query components
     FILTER("filter"),
     PARENT_FILTER("parent_filter"),

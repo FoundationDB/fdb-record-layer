@@ -42,6 +42,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,6 +52,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin.NULL;
 import static com.apple.foundationdb.record.metadata.Key.Evaluated.concatenate;
@@ -57,6 +61,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression.EMPTY;
 import static com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression.VERSION;
@@ -725,103 +730,136 @@ public class KeyExpressionTest {
                 evaluate(splitConcat, numbers));
     }
 
-    @Test
-    public void testIsPrefixKey() {
-        final Object[][] tests = {
-                {field("a"),
-                        concat(field("a"), field("b"), field("c")),
-                        true},
-                {field("x"),
-                        concat(field("a"), field("b"), field("c")),
-                        false},
-                {concat(concat(field("a"), EMPTY), EMPTY),
-                        field("a"),
-                        true},
-                {field("a"),
-                        concat(concat(field("a"), EMPTY), EMPTY),
-                        true},
-                {concat(field("a"), field("b")),
-                        concat(field("a"), concat(field("b"), field("c"))),
-                        true},
-                {concat(field("a").nest("b"), field("c")),
-                        concat(field("a").nest("b"), concat(field("c"), field("d"))),
-                        true},
-                {field("a").nest("b"),
-                        concat(field("a").nest("b"), field("a").nest("c")),
-                        true},
-                {field("a").nest("b"),
-                        field("a").nest(concat(field("b"), field("c"))),
-                        true},
-                {concat(field("a"), field("b")),
-                        concat(field("a"), new GroupingKeyExpression(concat(field("b"), field("c")), 1)),
-                        true},
-                {concat(field("a"), field("b"), field("c")),
-                        new GroupingKeyExpression(concat(field("a"), field("b"), field("c")), 1),
-                        false},
-                {new GroupingKeyExpression(concat(field("a"), field("b")),1),
-                        new GroupingKeyExpression(concat(field("a"), field("b")), 1),
-                        true}, // a grouping should not be a prefix, unless both prefix and key are identical
-                {new GroupingKeyExpression(concat(field("a"), field("b")),1),
-                        new GroupingKeyExpression(concat(field("a"), field("b"), field("c")), 1),
-                        false}, // a grouping should not be a prefix, unless both prefix and key are identical
-                {field("a"),
-                        field("a"),
-                        true},
-                {field("a", FanType.FanOut),
-                        field("a", FanType.FanOut),
-                        true},
-                {field("a", FanType.Concatenate),
-                        field("a", FanType.Concatenate),
-                        true},
-                {field("a", FanType.FanOut),
-                        field("a", FanType.Concatenate),
-                        false},
-                {field("a", FanType.FanOut),
-                        field("a", FanType.None),
-                        false},
-                {field("a", FanType.Concatenate),
-                        field("a", FanType.FanOut),
-                        false},
-                {field("a", FanType.Concatenate),
-                        field("a", FanType.None),
-                        false},
-                {field("a", FanType.None),
-                        field("a", FanType.Concatenate),
-                        false},
-                {field("a", FanType.None),
-                        field("a", FanType.FanOut),
-                        false},
-                {field("a", FanType.FanOut).nest("b"),
-                        field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
-                        true},
-                {field("a", FanType.FanOut).nest("b"),
-                        concat(field("a", FanType.FanOut).nest("b"), field("a", FanType.FanOut).nest("c")),
-                        true},
-                {field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
-                        concat(field("a", FanType.FanOut).nest("b"), field("a", FanType.FanOut).nest("c")),
-                        false},
-                {concat(field("a"), VERSION),
-                        concat(field("a"), field("b")),
-                        false},
-                {concat(field("a"), VERSION),
-                        concat(field("a"), VERSION),
-                        true},
-                {field("a").split(3),
-                        concat(field("a").split(3), field("b"), field("c")),
-                        true},
-                {field("a").split(2),
-                        field("a").split(3),
-                        false},
-                {field("a").split(3),
-                        field("a").split(2),
-                        false}
-        };
+    public static Stream<Arguments> getPrefixKeyComparisons() {
+        final KeyExpression nestedKeyWithValue = keyWithValue(field("a", FanType.FanOut).nest(
+                        concat(field("b"), field("c"), field("d"))), 2);
 
-        for (Object[] test : tests) {
-            assertEquals(test[2],
-                    ((KeyExpression) test[0]).isPrefixKey((KeyExpression) test[1]),
-                    "\nPrefix: " + test[0] + "\nKey: " + test[1]);
-        }
+        return Stream.of(
+                Arguments.of(field("a"),
+                        concat(field("a"), field("b"), field("c")),
+                        true),
+                Arguments.of(field("x"),
+                        concat(field("a"), field("b"), field("c")),
+                        false),
+                Arguments.of(concat(concat(field("a"), EMPTY), EMPTY),
+                        field("a"),
+                        true),
+                Arguments.of(field("a"),
+                        concat(concat(field("a"), EMPTY), EMPTY),
+                        true),
+                Arguments.of(concat(field("a"), field("b")),
+                        concat(field("a"), concat(field("b"), field("c"))),
+                        true),
+                Arguments.of(concat(field("a").nest("b"), field("c")),
+                        concat(field("a").nest("b"), concat(field("c"), field("d"))),
+                        true),
+                Arguments.of(field("a").nest("b"),
+                        concat(field("a").nest("b"), field("a").nest("c")),
+                        true),
+                Arguments.of(field("a").nest("b"),
+                        field("a").nest(concat(field("b"), field("c"))),
+                        true),
+                Arguments.of(concat(field("a"), field("b")),
+                        concat(field("a"), new GroupingKeyExpression(concat(field("b"), field("c")), 1)),
+                        true),
+                Arguments.of(concat(field("a"), field("b"), field("c")),
+                        new GroupingKeyExpression(concat(field("a"), field("b"), field("c")), 1),
+                        false),
+                Arguments.of(new GroupingKeyExpression(concat(field("a"), field("b")), 1),
+                        new GroupingKeyExpression(concat(field("a"), field("b")), 1),
+                        true), // a grouping should not be a prefix, unless both prefix and key are identical
+                Arguments.of(new GroupingKeyExpression(concat(field("a"), field("b")), 1),
+                        new GroupingKeyExpression(concat(field("a"), field("b"), field("c")), 1),
+                        false), // a grouping should not be a prefix, unless both prefix and key are identical
+                Arguments.of(field("a"),
+                        field("a"),
+                        true),
+                Arguments.of(field("a", FanType.FanOut),
+                        field("a", FanType.FanOut),
+                        true),
+                Arguments.of(field("a", FanType.Concatenate),
+                        field("a", FanType.Concatenate),
+                        true),
+                Arguments.of(field("a", FanType.FanOut),
+                        field("a", FanType.Concatenate),
+                        false),
+                Arguments.of(field("a", FanType.FanOut),
+                        field("a", FanType.None),
+                        false),
+                Arguments.of(field("a", FanType.Concatenate),
+                        field("a", FanType.FanOut),
+                        false),
+                Arguments.of(field("a", FanType.Concatenate),
+                        field("a", FanType.None),
+                        false),
+                Arguments.of(field("a", FanType.None),
+                        field("a", FanType.Concatenate),
+                        false),
+                Arguments.of(field("a", FanType.None),
+                        field("a", FanType.FanOut),
+                        false),
+                Arguments.of(field("a", FanType.FanOut).nest("b"),
+                        field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
+                        true),
+                Arguments.of(field("a", FanType.FanOut).nest("b"),
+                        concat(field("a", FanType.FanOut).nest("b"), field("a", FanType.FanOut).nest("c")),
+                        true),
+                Arguments.of(field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
+                        concat(field("a", FanType.FanOut).nest("b"), field("a", FanType.FanOut).nest("c")),
+                        false),
+                Arguments.of(concat(field("a"), VERSION),
+                        concat(field("a"), field("b")),
+                        false),
+                Arguments.of(concat(field("a"), VERSION),
+                        concat(field("a"), VERSION),
+                        true),
+                Arguments.of(field("a").split(3),
+                        concat(field("a").split(3), field("b"), field("c")),
+                        true),
+                Arguments.of(field("a").split(2),
+                        field("a").split(3),
+                        false),
+                Arguments.of(field("a").split(3),
+                        field("a").split(2),
+                        false),
+                Arguments.of(keyWithValue(concat(field("a"), field("b")), 1),
+                        concat(field("a"), field("c")),
+                        true),
+                Arguments.of(keyWithValue(concat(field("a"), field("b")), 1),
+                        field("a"),
+                        true),
+                Arguments.of(keyWithValue(concat(field("a"), field("b"), field("c")), 2),
+                        concat(field("a"), field("c")), false),
+                Arguments.of(concat(field("a"), field("b")),
+                        keyWithValue(concat(field("a"), field("b"), field("c")), 2),
+                        true),
+                Arguments.of(concat(field("a"), field("b")),
+                        keyWithValue(concat(field("a"), field("b")), 1),
+                        false),
+                Arguments.of(field("a", FanType.FanOut).nest(field("b")),
+                        nestedKeyWithValue,
+                        true),
+                Arguments.of(field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
+                        nestedKeyWithValue,
+                        true),
+                Arguments.of(field("a", FanType.FanOut).nest(
+                        concat(field("b"), field("c"), field("d"))),
+                        nestedKeyWithValue,
+                        false),
+                Arguments.of(concat(field("a", FanType.FanOut).nest(
+                        field("b")), field("a", FanType.FanOut).nest("b")),
+                        nestedKeyWithValue,
+                        false),
+                Arguments.of(concat(field("a", FanType.FanOut).nest(
+                        field("b")), field("a", FanType.FanOut).nest("c")),
+                        nestedKeyWithValue,
+                        false));
+    }
+
+    @ParameterizedTest
+    @MethodSource("getPrefixKeyComparisons")
+    public void testIsPrefixKey(@Nonnull KeyExpression prefix, @Nonnull KeyExpression key, boolean shouldBePrefix) {
+        assertEquals(shouldBePrefix, prefix.isPrefixKey(key));
     }
 
     /**

@@ -39,9 +39,13 @@ public abstract class BaseKeyExpression implements KeyExpression {
     @Override
     @Nonnull
     public final KeyExpression getSubKey(int start, int end) {
+        final int columnSize = getColumnSize();
+        if (start < 0 || end > columnSize || start > end) {
+            throw new IllegalSubKeyException(start, end, columnSize);
+        }
         if (start == end) {
             return EmptyKeyExpression.EMPTY;
-        } else if ((start == 0) && (end == getColumnSize())) {
+        } else if ((start == 0) && (end == columnSize)) {
             return this;
         }
         return getSubKeyImpl(start, end);
@@ -49,7 +53,7 @@ public abstract class BaseKeyExpression implements KeyExpression {
 
     @Nonnull
     protected KeyExpression getSubKeyImpl(int start, int end) {
-        throw new RecordCoreException("Cannot split " + this);
+        throw new UnsplittableKeyExpressionException(this);
     }
 
     void validateColumnCounts(List<Key.Evaluated> results) {
@@ -128,4 +132,28 @@ public abstract class BaseKeyExpression implements KeyExpression {
         }
     }
 
+    /**
+     * An exception indicating that the key expression is not splittable.
+     */
+    public static class UnsplittableKeyExpressionException extends RecordCoreException {
+        public static final long serialVersionUID = 1L;
+
+        public UnsplittableKeyExpressionException(@Nonnull BaseKeyExpression keyExpression) {
+            super("Cannot split " + keyExpression);
+        }
+    }
+
+    /**
+     * An exception that is thrown when {@link #getSubKey(int, int)} is used incorrectly.
+     */
+    public static class IllegalSubKeyException extends RecordCoreException {
+        public static final long serialVersionUID = 1L;
+
+        public IllegalSubKeyException(int start, int end, int columnSize) {
+            super("requested subkey is invalid");
+            addLogInfo(LogMessageKeys.REQUESTED_START, start);
+            addLogInfo(LogMessageKeys.REQUESTED_END, end);
+            addLogInfo(LogMessageKeys.COLUMN_SIZE, columnSize);
+        }
+    }
 }
