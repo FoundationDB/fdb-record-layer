@@ -139,7 +139,7 @@ public class ProbableIntersectionCursorTest {
                 assertNull(result.getContinuation().toBytes());
             }
             return result.hasNext();
-        })).join();
+        }), intersectionCursor.getExecutor()).join();
 
         assertThat(falsePositives.get(), lessThan(5));
         assertEquals(50 + falsePositives.get(), timer.getCount(FDBStoreTimer.Counts.QUERY_INTERSECTION_PLAN_MATCHES));
@@ -227,7 +227,7 @@ public class ProbableIntersectionCursorTest {
                         found.add(value);
                     }
                     return result.hasNext();
-                })).join();
+                }), intersectionCursor.getExecutor()).join();
                 RecordCursorResult<Integer> result = intersectionCursor.getNext();
                 assertThat(result.hasNext(), is(false));
                 if (result.getNoNextReason().isSourceExhausted()) {
