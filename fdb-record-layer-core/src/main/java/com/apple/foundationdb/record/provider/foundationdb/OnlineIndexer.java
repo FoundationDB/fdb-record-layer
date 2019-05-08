@@ -799,6 +799,7 @@ public class OnlineIndexer implements AutoCloseable {
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
         Transaction tr = store.ensureContextActive();
         store.clearIndexData(index);
+        store.setIndexLatestBuildStartTime(index.getName());
 
         // Clear the associated range set and make it instead equal to
         // the complete range. This isn't super necessary, but it is done
@@ -820,7 +821,10 @@ public class OnlineIndexer implements AutoCloseable {
                     }
                 }), store.getExecutor());
 
-        return CompletableFuture.allOf(rangeFuture, buildFuture);
+        return CompletableFuture.allOf(rangeFuture, buildFuture).thenApply(vignore -> {
+            store.setIndexLastBuildTime(index.getName());
+            return null;
+        });
     }
 
     /**

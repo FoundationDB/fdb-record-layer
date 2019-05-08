@@ -1783,9 +1783,26 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return rebuildIndexes(getRecordMetaData().getIndexesSince(-1), Collections.emptyMap(), work, RebuildIndexReason.REBUILD_ALL, null);
     }
 
+    /**
+     * Prepare an index for rebuilding by clearing any existing data and marking the index as write-only.
+     * @param indexName the name of the index to build
+     * @return a future that completes when the index has been cleared and marked write-only for building
+     */
     @Nonnull
+    @Deprecated
     public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull String indexName) {
-        return clearAndMarkIndexWriteOnly(metaDataProvider.getRecordMetaData().getIndex(indexName));
+        return clearAndMarkIndexWriteOnly(indexName, RebuildIndexReason.UNKNOWN);
+    }
+
+    /**
+     * Prepare an index for rebuilding by clearing any existing data and marking the index as write-only.
+     * @param indexName the name of the index to build
+     * @param reason the reason that the index is rebuilding
+     * @return a future that completes when the index has been cleared and marked write-only for building
+     */
+    @Nonnull
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull String indexName, @Nonnull RebuildIndexReason reason) {
+        return clearAndMarkIndexWriteOnly(metaDataProvider.getRecordMetaData().getIndex(indexName), reason);
     }
 
     /**
@@ -1794,8 +1811,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that completes when the index has been cleared and marked write-only for building
      */
     @Nonnull
+    @Deprecated
     public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index) {
-        return markIndexWriteOnly(index).thenApply(changed -> {
+        return clearAndMarkIndexWriteOnly(index, RebuildIndexReason.UNKNOWN);
+    }
+
+    /**
+     * Prepare an index for rebuilding by clearing any existing data and marking the index as write-only.
+     * @param index the index to build
+     * @param reason the reason for why the index is marked write-only
+     * @return a future that completes when the index has been cleared and marked write-only for building
+     */
+    @Nonnull
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index, @Nonnull RebuildIndexReason reason) {
+        return markIndexWriteOnly(index, reason).thenApply(changed -> {
             clearIndexData(index);
             return null;
         });
@@ -1822,13 +1851,84 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
                 // Update index meta-data
                 IndexMetaDataProto.IndexMetaData indexMetaData = state.getIndexMetaData(index.getName());
-                if (indexMetaData == null) {
-                    indexMetaData = IndexMetaDataProto.IndexMetaData.newBuilder().setState(indexState.ordinal()).build();
-                } else {
-                    indexMetaData = indexMetaData.toBuilder().setState(indexState.ordinal()).build();
+                if (indexMetaData == null || indexState.ordinal() != indexMetaData.getState()) {
+                    IndexMetaDataProto.IndexMetaData.Builder indexMetaDataBuilder = indexMetaData == null ? IndexMetaDataProto.IndexMetaData.newBuilder() : indexMetaData.toBuilder();
+                    indexMetaData = indexMetaDataBuilder.setState(indexState.ordinal()).setStateChangeTime(System.nanoTime()).build();
+                    tr.set(indexMetaDataSubspace().pack(index.getSubspaceTupleKey()), Tuple.from(indexMetaData.toByteArray()).pack());
+                    state.setIndexMetaData(index.getName(), indexMetaData);
                 }
-                tr.set(indexMetaDataSubspace().pack(index.getSubspaceTupleKey()), Tuple.from(indexMetaData.toByteArray()).pack());
-                state.setIndexMetaData(index.getName(), indexMetaData);
+                return state;
+            });
+        } finally {
+            endRecordStoreStateWrite();
+        }
+    }
+
+    private void setIndexRebuildReason(String indexName, RebuildIndexReason reason) {
+        beginRecordStoreStateWrite();
+        try {
+            context.setDirtyStoreState(true);
+            Transaction tr = context.ensureActive();
+
+            recordStoreStateRef.updateAndGet(state -> {
+                IndexMetaDataProto.IndexMetaData oldIndexMetaData = state.getIndexMetaData(indexName);
+                IndexMetaDataProto.IndexMetaData updatedIndexMetaData = oldIndexMetaData.toBuilder().setRebuildReason(reason.ordinal()).build();
+
+                tr.set(indexMetaDataSubspace().pack(getRecordMetaData().getIndex(indexName).getSubspaceTupleKey()), Tuple.from(updatedIndexMetaData.toByteArray()).pack());
+                state.setIndexMetaData(indexName, updatedIndexMetaData);
+                return state;
+            });
+        } finally {
+            endRecordStoreStateWrite();
+        }
+    }
+
+    @API(API.Status.INTERNAL)
+    public void setIndexLatestBuildStartTime(String indexName) {
+        beginRecordStoreStateWrite();
+        try {
+            context.setDirtyStoreState(true);
+            Transaction tr = context.ensureActive();
+
+            recordStoreStateRef.updateAndGet(state -> {
+                IndexMetaDataProto.IndexMetaData oldIndexMetaData = state.getIndexMetaData(indexName);
+                IndexMetaDataProto.IndexMetaData updatedIndexMetaData;
+                if (oldIndexMetaData == null) {
+                    updatedIndexMetaData = IndexMetaDataProto.IndexMetaData.newBuilder()
+                            .setState(IndexState.WRITE_ONLY.ordinal())
+                            .setStateChangeTime(System.nanoTime())
+                            .setBuildAttemptsCount(1)
+                            .setLatestBuildStartTime(System.nanoTime())
+                            .build();
+                } else {
+                    updatedIndexMetaData = oldIndexMetaData.toBuilder()
+                            .setBuildAttemptsCount(oldIndexMetaData.getBuildAttemptsCount() + 1)
+                            .setLatestBuildStartTime(System.nanoTime())
+                            .build();
+
+                }
+                tr.set(indexMetaDataSubspace().pack(getRecordMetaData().getIndex(indexName).getSubspaceTupleKey()), Tuple.from(updatedIndexMetaData.toByteArray()).pack());
+                state.setIndexMetaData(indexName, updatedIndexMetaData);
+                return state;
+            });
+        } finally {
+            endRecordStoreStateWrite();
+        }
+    }
+
+    @API(API.Status.INTERNAL)
+    public void setIndexLastBuildTime(String indexName) {
+        beginRecordStoreStateWrite();
+        try {
+            context.setDirtyStoreState(true);
+            Transaction tr = context.ensureActive();
+
+            recordStoreStateRef.updateAndGet(state -> {
+                IndexMetaDataProto.IndexMetaData oldIndexMetaData = state.getIndexMetaData(indexName);
+                IndexMetaDataProto.IndexMetaData updatedIndexMetaData = oldIndexMetaData.toBuilder().setLastBuildTime(System.nanoTime()).build();
+
+                tr.set(indexMetaDataSubspace().pack(getRecordMetaData().getIndex(indexName).getSubspaceTupleKey()), Tuple.from(updatedIndexMetaData.toByteArray()).pack());
+                state.setIndexMetaData(indexName, updatedIndexMetaData);
                 return state;
             });
         } finally {
@@ -1881,7 +1981,28 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull String indexName) {
-        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY);
+        return markIndexWriteOnly(indexName, RebuildIndexReason.UNKNOWN);
+    }
+
+    /**
+     * Adds the index of the given name to the list of write-only indexes stored within the store.
+     * This will update the list stored within database.
+     * This will return <code>true</code> if the store had to
+     * be modified in order to mark the index as write only (i.e., the index
+     * was not already write-only) and <code>false</code> otherwise.
+     *
+     * @param indexName the name of the index to mark as write-only
+     * @param reason the reason that the index is marked write-only
+     * @return a future that will contain <code>true</code> if the store was modified and <code>false</code>
+     * otherwise
+     * @throws IllegalArgumentException if the index is not present in the meta-data
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull String indexName, @Nonnull RebuildIndexReason reason) {
+        return markIndexNotReadable(indexName, IndexState.WRITE_ONLY).thenApply(vignore -> {
+            setIndexRebuildReason(indexName, reason);
+            return true;
+        });
     }
 
     /**
@@ -1895,7 +2016,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull Index index) {
-        return markIndexWriteOnly(index.getName());
+        return markIndexWriteOnly(index, RebuildIndexReason.UNKNOWN);
+    }
+
+    /**
+     * Adds the given index to the list of write-only indexes stored within the store.
+     * See the version of {@link #markIndexWriteOnly(String) markIndexWriteOnly()}
+     * that takes a {@link String} for more details.
+     *
+     * @param index the index to mark as write only
+     * @param reason the reason that the index is marked write-only
+     * @return a future that will contain <code>true</code> if the store was modified and
+     * <code>false</code> otherwise
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull Index index, @Nonnull RebuildIndexReason reason) {
+        return markIndexWriteOnly(index.getName(), reason);
     }
 
     /**
@@ -2540,7 +2676,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Reason that an index is being rebuilt now.
      */
     public enum RebuildIndexReason {
-        NEW_STORE, FEW_RECORDS, COUNTS_UNKNOWN, REBUILD_ALL, EXPLICIT, TEST
+        NEW_STORE, FEW_RECORDS, COUNTS_UNKNOWN, REBUILD_ALL, EXPLICIT, TEST, UNKNOWN
     }
 
     private boolean areAllRecordTypesSince(@Nullable Collection<RecordType> recordTypes, @Nullable Integer oldMetaDataVersion) {
@@ -2560,7 +2696,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         switch (indexState) {
             case WRITE_ONLY:
-                return clearAndMarkIndexWriteOnly(index).thenApply(b -> null);
+                return clearAndMarkIndexWriteOnly(index, reason).thenApply(b -> null);
             case DISABLED:
                 return markIndexDisabled(index).thenApply(b -> null);
             case READABLE:
@@ -2632,15 +2768,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         long startTime = System.nanoTime();
         OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index).setRecordTypes(recordTypes).build();
         CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this)
-                .thenCompose(vignore -> markIndexReadable(index)
-                        .handle((b, t) -> {
-                            // Only call method that builds in the current transaction, so never any pending work,
-                            // so it would work to close before returning future, which would look better to SonarQube.
-                            // But this is better if close ever does more.
-                            indexBuilder.close();
-                            return null;
-                        }));
-
+                .thenCompose(vignore -> {
+                    return markIndexReadable(index)
+                            .handle((b, t) -> {
+                                // Only call method that builds in the current transaction, so never any pending work,
+                                // so it would work to close before returning future, which would look better to SonarQube.
+                                // But this is better if close ever does more.
+                                indexBuilder.close();
+                                return null;
+                            });
+                });
         return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX, future, startTime);
     }
 

@@ -2388,7 +2388,7 @@ public class OnlineIndexerTest extends FDBTestBase {
 
         try (FDBRecordContext context = openContext()) {
             // OnlineIndexer.runAsync checks that the index is not readable
-            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            recordStore.clearAndMarkIndexWriteOnly(index, FDBRecordStore.RebuildIndexReason.TEST).join();
             context.commit();
         }
         return index;
@@ -2463,7 +2463,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i).build();
                 recordStore.saveRecord(record);
             }
-            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            recordStore.clearAndMarkIndexWriteOnly(index, FDBRecordStore.RebuildIndexReason.TEST).join();
             context.commit();
         }
 
@@ -2500,7 +2500,8 @@ public class OnlineIndexerTest extends FDBTestBase {
 
         try (FDBRecordContext context = openContext()) {
             // OnlineIndexer.runAsync checks that the index is not readable
-            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            recordStore.clearAndMarkIndexWriteOnly(index, FDBRecordStore.RebuildIndexReason.TEST).join();
+            assertEquals(FDBRecordStore.RebuildIndexReason.TEST.ordinal(), recordStore.getRecordStoreState().getIndexMetaData(index.getName()).getRebuildReason());
             context.commit();
         }
 

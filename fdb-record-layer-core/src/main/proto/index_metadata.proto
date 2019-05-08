@@ -25,6 +25,11 @@ import "google/protobuf/descriptor.proto";
 option java_outer_classname = "IndexMetaDataProto";
 
 message IndexMetaData {
-    optional int32 state = 1; // represents the state of an index (READABLE = 0, WRITE_ONLY = 1, DISABLED = 2)
+    optional int32 state = 1;                // Represents the state of an index (READABLE = 0, WRITE_ONLY = 1, DISABLED = 2)
+    optional int32 rebuildReason = 2;        // The rebuild reason of an index (See RebuildIndexReason enum).
+    optional int64 stateChangeTime = 3;      // The time at which the index was set to this state.
+    optional int32 buildAttemptsCount = 4;   // Total number of times the index was rebuilt.
+    optional int64 latestBuildStartTime = 5; // The latest build start time.
+    optional int64 lastBuildTime = 6;        // The last build time.
 }
 

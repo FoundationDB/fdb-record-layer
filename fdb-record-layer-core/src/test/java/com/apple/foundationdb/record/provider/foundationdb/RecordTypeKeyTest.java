@@ -443,7 +443,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
 
             assertTrue(recordStore.isIndexReadable("newIndex"));
 
-            recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
+            recordStore.clearAndMarkIndexWriteOnly("newIndex", FDBRecordStore.RebuildIndexReason.TEST).join();
             context.commit();
         }
 
