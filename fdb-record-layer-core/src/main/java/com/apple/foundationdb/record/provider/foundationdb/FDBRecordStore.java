@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -96,6 +96,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -2117,6 +2118,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Add a read conflict key for all records.
+     */
+    private void addRecordsReadConflict() {
+        Transaction tr = ensureContextActive();
+        byte[] recordKey = getSubspace().pack(Tuple.from(RECORD_KEY));
+        tr.addReadConflictRange(recordKey, ByteArrayUtil.strinc(recordKey));
+    }
+
+    /**
      * Add a read conflict key so that the transaction will fail if the index state has changed.
      * @param indexName the index to conflict on, if it's state changes
      */
@@ -2578,15 +2588,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final boolean newStore = oldFormatVersion == 0;
         final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
         if (!indexes.isEmpty()) {
-            CompletableFuture<Long> recordCountFuture = getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts, indexes);
-            return recordCountFuture.thenCompose(recordCount -> {
-                if (recordCount == 0) {
+            // Can only determine overall emptiness (without an additional read) if got count for all record types.
+            Pair<CompletableFuture<Long>, Boolean> counterAndIsAllTypes = getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts, indexes);
+            return counterAndIsAllTypes.getLeft().thenCompose(recordCount -> {
+                if (recordCount == 0 && counterAndIsAllTypes.getRight() &&
+                        formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION && omitUnsplitRecordSuffix) {
                     // There are no records. Don't use the legacy split format.
-                    if (formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION
-                            && omitUnsplitRecordSuffix
-                            && (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled())) {
+                    if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
                         KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
-                                "recordCount", recordCount,
                                 "newFormatVersion", formatVersion,
                                 subspaceProvider.logKey(), subspaceProvider.toString(context));
                         if (newStore) {
@@ -2597,6 +2606,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     }
                     omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
                     info.clearOmitUnsplitRecordSuffix();
+                    addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
                 }
                 Map<Index, IndexState> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, recordCount, newStore, rebuildRecordCounts, oldMetaDataVersion, oldFormatVersion);
                 return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion);
@@ -2606,13 +2616,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    /**
+     * Get count of records to pass to checker to decide whether to build right away.
+     * @param newStore {@code true} if this is a brand new store
+     * @param rebuildRecordCounts {@code true} if there is a record count key that needs to be rebuilt
+     * @param indexes indexes that need to be built
+     * @return a pair of a future that completes to the record count for the version checker
+     * and a flag that is {@code true} if this count is in fact for all record types
+     */
     @Nonnull
     @SuppressWarnings("PMD.EmptyCatchBlock")
-    protected CompletableFuture<Long> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
-                                                                      @Nonnull Map<Index, List<RecordType>> indexes) {
-        if (recordStoreState == null) {
-            return preloadRecordStoreStateAsync().thenCompose(vignore -> getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts, indexes));
-        }
+    protected Pair<CompletableFuture<Long>, Boolean> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
+                                                                                     @Nonnull Map<Index, List<RecordType>> indexes) {
         // Do this with the new indexes in write-only mode to avoid using one of them
         // when evaluating the snapshot record count.
         MutableRecordStoreState writeOnlyState = recordStoreState.withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
@@ -2623,7 +2638,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             MutableRecordStoreState saveState = recordStoreState;
             try {
                 recordStoreState = writeOnlyState;
-                return getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName());
+                return Pair.of(getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName()), false);
             } catch (RecordCoreException ex) {
                 // No such index; have to use total record count.
             } finally {
@@ -2635,7 +2650,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             try {
                 recordStoreState = writeOnlyState;
                 // TODO: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
-                return getSnapshotRecordCount();
+                return Pair.of(getSnapshotRecordCount(), true);
             } catch (RecordCoreException ex) {
                 // Probably this was from the lack of appropriate index on count; treat like rebuildRecordCounts = true.
             } finally {
@@ -2654,7 +2669,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else {
             records = scanRecords(TupleRange.allOf(singleRecordTypeWithPrefixKey.getRecordTypeKeyTuple()), null, scanProperties);
         }
-        return records.onNext().thenApply(result -> {
+        final CompletableFuture<Long> zeroOrInfinity = records.onNext().thenApply(result -> {
             if (result.hasNext()) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(KeyValueLogMessage.of("version check scan found non-empty store",
@@ -2674,6 +2689,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return 0L;
             }
         });
+        return Pair.of(zeroOrInfinity, singleRecordTypeWithPrefixKey == null);
     }
 
     @Nullable

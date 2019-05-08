@@ -74,6 +74,8 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -3031,4 +3033,140 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
+    /**
+     * Test mode for {@link #clearOmitUnsplitRecordSuffix(ClearOmitUnsplitRecordSuffixMode)}.
+     */
+    public enum ClearOmitUnsplitRecordSuffixMode {
+        EMPTY, SAVE, DELETE
+    }
+
+    @EnumSource(ClearOmitUnsplitRecordSuffixMode.class)
+    @ParameterizedTest(name = "clearOmitUnsplitRecordSuffix [mode = {0}]")
+    public void clearOmitUnsplitRecordSuffix(ClearOmitUnsplitRecordSuffixMode mode) throws Exception {
+        final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+
+        FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
+                .setKeySpacePath(path)
+                .setMetaDataProvider(metaData)
+                .setFormatVersion(FDBRecordStore.FORMAT_CONTROL_FORMAT_VERSION);
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = builder.setContext(context).create();
+            if (mode != ClearOmitUnsplitRecordSuffixMode.EMPTY) {
+                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(1L)
+                        .setStrValueIndexed("abc")
+                        .build();
+                recordStore.saveRecord(record);
+            }
+            commit(context);
+        }
+
+        if (mode == ClearOmitUnsplitRecordSuffixMode.DELETE) {
+            try (FDBRecordContext context = openContext()) {
+                recordStore = builder.setContext(context).open();
+                recordStore.deleteRecord(Tuple.from(1L));
+                commit(context);
+            }
+        }
+
+        metaData.addIndex("MySimpleRecord", "num_value_2");
+        builder.setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = builder.setContext(context).open();
+            assertEquals(mode == ClearOmitUnsplitRecordSuffixMode.SAVE,
+                    recordStore.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix());
+        }
+    }
+
+    @Test
+    public void clearOmitUnsplitRecordSuffixTyped() throws Exception {
+        final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final KeyExpression pkey = concat(Key.Expressions.recordType(), field("rec_no"));
+        metaData.getRecordType("MySimpleRecord").setPrimaryKey(pkey);
+        metaData.getRecordType("MyOtherRecord").setPrimaryKey(pkey);
+
+        FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
+                .setKeySpacePath(path)
+                .setMetaDataProvider(metaData)
+                .setFormatVersion(FDBRecordStore.FORMAT_CONTROL_FORMAT_VERSION);
+
+        final FDBStoredRecord<Message> saved;
+        try (FDBRecordContext context = openContext()) {
+            recordStore = builder.setContext(context).create();
+            TestRecords1Proto.MyOtherRecord record = TestRecords1Proto.MyOtherRecord.newBuilder()
+                        .setRecNo(1L)
+                        .build();
+            saved = recordStore.saveRecord(record);
+            commit(context);
+        }
+
+        metaData.addIndex("MySimpleRecord", "num_value_2");
+        builder.setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = builder.setContext(context).open();
+            FDBStoredRecord<Message> loaded = recordStore.loadRecord(saved.getPrimaryKey());
+            assertNotNull(loaded);
+            assertEquals(saved.getRecord(), loaded.getRecord());
+            assertTrue(recordStore.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix());
+        }
+    }
+
+    @Test
+    public void clearOmitUnsplitRecordSuffixOverlapping() throws Exception {
+        final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+
+        FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
+                .setKeySpacePath(path)
+                .setMetaDataProvider(metaData)
+                .setFormatVersion(FDBRecordStore.FORMAT_CONTROL_FORMAT_VERSION);
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = builder.setContext(context).create();
+            commit(context);
+        }
+
+        FDBRecordContext context1 = openContext();
+        FDBRecordStore recordStore = builder.setContext(context1).open();
+        TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(1L)
+                .setStrValueIndexed("abc")
+                .build();
+        FDBStoredRecord<Message> saved = recordStore.saveRecord(record);
+
+        metaData.addIndex("MySimpleRecord", "num_value_2");
+        builder.setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+
+        // If we did build, we'd create a read confict on the new index.
+        // We want to test that a conflict comes from the clearing itself.
+        final FDBRecordStoreBase.UserVersionChecker dontBuild = new FDBRecordStoreBase.UserVersionChecker() {
+            @Override
+            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+                return CompletableFuture.completedFuture(0);
+            }
+
+            @Override
+            public IndexState needRebuildIndex(Index index, long recordCount, boolean indexOnNewRecordTypes) {
+                return IndexState.DISABLED;
+            }
+        };
+        builder.setUserVersionChecker(dontBuild);
+
+        FDBRecordContext context2 = openContext();
+        FDBRecordStore recordStore2 = builder.setContext(context2).open();
+        assertFalse(recordStore2.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix());
+
+        commit(context1);
+        assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(context2));
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = builder.setContext(context).open();
+            FDBStoredRecord<Message> loaded = recordStore.loadRecord(saved.getPrimaryKey());
+            assertNotNull(loaded);
+            assertEquals(saved.getRecord(), loaded.getRecord());
+            assertTrue(recordStore.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix());
+        }
+    }
 }

@@ -67,7 +67,7 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 ### NEXT_RELEASE
 
 * **Bug fix** `FilterCursor`s now schedule all asychronous work using the cursor's executor [(Issue #573)](https://github.com/FoundationDB/fdb-record-layer/issues/573)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** `FDBRecordStore.checkRebuildIndexes` now uses the count of all records to determine overall emptiness [(Issue #577)](https://github.com/FoundationDB/fdb-record-layer/issues/577)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
