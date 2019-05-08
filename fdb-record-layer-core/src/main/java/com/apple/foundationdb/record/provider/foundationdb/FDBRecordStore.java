@@ -2588,10 +2588,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final boolean newStore = oldFormatVersion == 0;
         final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
         if (!indexes.isEmpty()) {
-            boolean checkUpgrade = formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION && omitUnsplitRecordSuffix;
-            CompletableFuture<Pair<Long, Boolean>> recordCountFuture = getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts, indexes, checkUpgrade);
-            return recordCountFuture.thenCompose(countAndEmpty -> {
-                if (checkUpgrade && countAndEmpty.getRight()) {
+            // Can only determine overall emptiness (without an additional read) if got count for all record types.
+            Pair<CompletableFuture<Long>, Boolean> counterAndIsAllTypes = getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts, indexes);
+            return counterAndIsAllTypes.getLeft().thenCompose(recordCount -> {
+                if (recordCount == 0 && counterAndIsAllTypes.getRight() &&
+                        formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION && omitUnsplitRecordSuffix) {
                     // There are no records. Don't use the legacy split format.
                     if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
                         KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
@@ -2607,7 +2608,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     info.clearOmitUnsplitRecordSuffix();
                     addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
                 }
-                Map<Index, IndexState> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, countAndEmpty.getLeft(), newStore, rebuildRecordCounts, oldMetaDataVersion, oldFormatVersion);
+                Map<Index, IndexState> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, recordCount, newStore, rebuildRecordCounts, oldMetaDataVersion, oldFormatVersion);
                 return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion);
             });
         } else {
@@ -2617,55 +2618,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Get count of records to pass to checker to decide whether to build right away.
-     * Also optionally get whether the store is in fact empty right now.
      * @param newStore {@code true} if this is a brand new store
      * @param rebuildRecordCounts {@code true} if there is a record count key that needs to be rebuilt
      * @param indexes indexes that need to be built
-     * @param needEmpty {@code true} if the second return value needs to be accurate
-     * @return a pair of the count of records for the indexes that need to be built
-     * and a flag that is {@code true} if the store is empty
-     */
-    @Nonnull
-    protected CompletableFuture<Pair<Long, Boolean>> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
-                                                                                     @Nonnull Map<Index, List<RecordType>> indexes,
-                                                                                     boolean needEmpty) {
-        // Do this with the new indexes in write-only mode to avoid using one of them
-        // when evaluating the snapshot record count.
-        MutableRecordStoreState writeOnlyState = recordStoreState.withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
-        // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
-        RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);
-        Pair<CompletableFuture<Long>, Boolean> counterAndIsAllTypes = getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts,
-                writeOnlyState, singleRecordTypeWithPrefixKey);
-        if (!needEmpty) {
-            return counterAndIsAllTypes.getLeft().thenApply(count -> Pair.of(count, null));
-        } else if (counterAndIsAllTypes.getRight()) {
-            return counterAndIsAllTypes.getLeft().thenApply(count -> Pair.of(count, count == 0));
-        } else {
-            return counterAndIsAllTypes.getLeft().thenCompose(count -> {
-                if (count > 0) {
-                    return CompletableFuture.completedFuture(Pair.of(count, false));
-                } else {
-                    return getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts, writeOnlyState, null)
-                            .getLeft() .thenApply(allCount -> Pair.of(count, allCount == 0));
-                }
-            });
-        }
-    }
-
-    /**
-     * Get the count of records in the store or for a specific record type.
-     * @param newStore {@code true} if this is a brand new store
-     * @param rebuildRecordCounts {@code true} if there is a record count key that needs to be rebuilt
-     * @param writeOnlyState a copy of the record state with new indexes marked as write-only
-     * @param singleRecordTypeWithPrefixKey a record type to try to restrict count to or {@code null} for all types
      * @return a pair of a future that completes to the record count for the version checker
      * and a flag that is {@code true} if this count is in fact for all record types
      */
     @Nonnull
     @SuppressWarnings("PMD.EmptyCatchBlock")
     protected Pair<CompletableFuture<Long>, Boolean> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
-                                                                                     @Nonnull MutableRecordStoreState writeOnlyState,
-                                                                                     @Nullable RecordType singleRecordTypeWithPrefixKey) {
+                                                                                     @Nonnull Map<Index, List<RecordType>> indexes) {
+        // Do this with the new indexes in write-only mode to avoid using one of them
+        // when evaluating the snapshot record count.
+        MutableRecordStoreState writeOnlyState = recordStoreState.withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
+        // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
+        RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);
         if (singleRecordTypeWithPrefixKey != null) {
             // Get a count for just those records, either from a COUNT index on just that type or from a universal COUNT index grouped by record type.
             MutableRecordStoreState saveState = recordStoreState;
