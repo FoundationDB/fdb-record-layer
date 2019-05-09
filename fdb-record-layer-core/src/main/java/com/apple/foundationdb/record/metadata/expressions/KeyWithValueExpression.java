@@ -95,6 +95,11 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
         return getSplitPoint();
     }
 
+    @Override
+    public boolean isFixedColumnSize() {
+        return getKeyExpression().isFixedColumnSize();
+    }
+
     @Nonnull
     @Override
     protected KeyExpression getSubKeyImpl(int start, int end) {
@@ -104,7 +109,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     @Nonnull
     public KeyExpression getKeyExpression() {
         if (keyExpression == null) {
-            return getInnerKey().getSubKey(0, splitPoint);
+            keyExpression = getInnerKey().getSubKey(0, splitPoint);
         }
         return keyExpression;
     }

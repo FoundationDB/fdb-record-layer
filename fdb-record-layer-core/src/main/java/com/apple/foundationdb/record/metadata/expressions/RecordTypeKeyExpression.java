@@ -85,6 +85,11 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
     }
 
     @Override
+    public boolean isFixedColumnSize() {
+        return true;
+    }
+
+    @Override
     public boolean hasRecordTypeKey() {
         return true;
     }

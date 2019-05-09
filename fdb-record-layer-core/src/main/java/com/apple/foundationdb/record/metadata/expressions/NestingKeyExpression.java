@@ -97,6 +97,11 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         return getChild().getColumnSize();
     }
 
+    @Override
+    public boolean isFixedColumnSize() {
+        return getChild().isFixedColumnSize();
+    }
+
     @Nonnull
     @Override
     public RecordMetaDataProto.Nesting toProto() throws SerializationException {

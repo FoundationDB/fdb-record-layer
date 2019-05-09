@@ -51,6 +51,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     private final List<ExpressionRef<KeyExpression>> children;
 
+    private int cachedColumnSize = -1;
+
     public ThenKeyExpression(@Nonnull List<KeyExpression> exprs) {
         this(exprs, 0, exprs.size());
     }
@@ -139,11 +141,25 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Override
     public int getColumnSize() {
-        int columnSize = 0;
-        for (ExpressionRef<KeyExpression> child : children) {
-            columnSize += child.get().getColumnSize();
+        if (cachedColumnSize >= 0) {
+            return cachedColumnSize;
         }
-        return columnSize;
+
+        cachedColumnSize = 0;
+        for (ExpressionRef<KeyExpression> child : children) {
+            cachedColumnSize += child.get().getColumnSize();
+        }
+        return cachedColumnSize;
+    }
+
+    @Override
+    public boolean isFixedColumnSize() {
+        for (ExpressionRef<KeyExpression> child : children) {
+            if (!child.get().isFixedColumnSize()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

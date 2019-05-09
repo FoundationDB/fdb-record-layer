@@ -119,12 +119,22 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
     List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor);
 
     /**
-     * Returns the number of items in each KeyValue that will be returned.
-     * When we support concatenate, this will the count of non-nested lists, i.e.
-     * this will be value of evaluate(r).get(i).toList().size() for any i or r.
+     * Returns the number of items in each KeyValue that will be returned. For key expressions that support
+     * {@link FanType#Concatenate}, this will the count of non-nested lists, i.e. this will be value of
+     * evaluate(r).get(i).toList().size() for any i or r.
+     *
      * @return the number of elements that will be produced for every key
      */
     int getColumnSize();
+
+    /**
+     * Returns whether or not the number of columns produced by the evaluation of a key expression can
+     * vary based upon data in the record itself.  Specifically, this will return {@code false} for
+     * expressions involving {@link FanType#Concatenate}.
+     *
+     * @return whether or not the column count is fixed or may vary based upon the data in the record
+     */
+    boolean isFixedColumnSize();
 
     /**
      * How should repeated fields be handled.

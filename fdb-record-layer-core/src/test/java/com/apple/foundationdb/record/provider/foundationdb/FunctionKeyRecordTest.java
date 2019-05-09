@@ -505,5 +505,10 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         public int getColumnSize() {
             return types.size();
         }
+
+        @Override
+        public boolean isFixedColumnSize() {
+            return true;
+        }
     }
 }

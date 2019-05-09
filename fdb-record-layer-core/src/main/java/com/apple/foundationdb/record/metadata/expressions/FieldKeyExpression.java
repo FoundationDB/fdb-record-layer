@@ -182,6 +182,11 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return 1;
     }
 
+    @Override
+    public boolean isFixedColumnSize() {
+        return fanType != FanType.Concatenate;
+    }
+
     @Nonnull
     @Override
     public RecordMetaDataProto.Field toProto() throws SerializationException {

@@ -93,6 +93,11 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getWholeKey().getColumnSize();
     }
 
+    @Override
+    public boolean isFixedColumnSize() {
+        return getWholeKey().isFixedColumnSize();
+    }
+
     @Nonnull
     @Override
     public RecordMetaDataProto.Grouping toProto() throws SerializationException {

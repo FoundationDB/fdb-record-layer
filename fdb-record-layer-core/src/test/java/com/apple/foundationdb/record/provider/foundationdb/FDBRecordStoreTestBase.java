@@ -70,7 +70,15 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     protected FDBStoreTimer timer = new FDBStoreTimer();
     protected boolean useRewritePlanner = false;
     protected QueryPlanner planner;
-    protected final KeySpacePath path = TestKeySpace.getKeyspacePath(PATH_OBJECTS);
+    protected final KeySpacePath path;
+
+    public FDBRecordStoreTestBase() {
+        this(PATH_OBJECTS);
+    }
+
+    public FDBRecordStoreTestBase(Object[] path) {
+        this.path = TestKeySpace.getKeyspacePath(path);
+    }
 
     /**
      * Meta data setup hook, used for testing.

@@ -70,6 +70,11 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
         return 0;
     }
 
+    @Override
+    public boolean isFixedColumnSize() {
+        return true;
+    }
+
     @Nonnull
     @Override
     public RecordMetaDataProto.Empty toProto() throws SerializationException {

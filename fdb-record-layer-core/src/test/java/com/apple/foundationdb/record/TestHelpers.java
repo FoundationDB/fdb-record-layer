@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -169,6 +170,9 @@ public class TestHelpers {
             message = message.isEmpty() ? "" : (message + ": ");
             fail(message + "Expected Exception of type " + expectedType + " but none was thrown");
         } catch (Exception e) {
+            if (e instanceof ExecutionException && e.getCause() instanceof Exception) {
+                e = (Exception) e.getCause();
+            }
             if (!e.getClass().equals(expectedType)) {
                 throw e;
             }

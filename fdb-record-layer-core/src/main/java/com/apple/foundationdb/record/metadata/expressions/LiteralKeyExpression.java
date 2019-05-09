@@ -89,6 +89,11 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         return 1;
     }
 
+    @Override
+    public boolean isFixedColumnSize() {
+        return true;
+    }
+
     @Nonnull
     @Override
     public RecordMetaDataProto.Value toProto() throws SerializationException {

@@ -206,6 +206,11 @@ public class VersionIndexTest extends FDBTestBase {
         }
 
         @Override
+        public boolean isFixedColumnSize() {
+            return true;
+        }
+
+        @Override
         public int versionColumns() {
             return 1;
         }

@@ -687,5 +687,10 @@ public class QueryToKeyMatcherTest {
         public int getColumnSize() {
             return getArguments().getColumnSize();
         }
+
+        @Override
+        public boolean isFixedColumnSize() {
+            return getArguments().isFixedColumnSize();
+        }
     }
 }
