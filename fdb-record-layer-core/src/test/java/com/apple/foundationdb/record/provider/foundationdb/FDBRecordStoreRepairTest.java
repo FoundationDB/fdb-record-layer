@@ -71,6 +71,15 @@ public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
 
     @Test
     public void repairMissingUnsplitSuffixes() throws Exception {
+        doRepairMissingUnsplitSuffixes(false);
+    }
+
+    @Test
+    public void repairMissingUnsplitSuffixesDryRun() throws Exception {
+        doRepairMissingUnsplitSuffixes(true);
+    }
+
+    public void doRepairMissingUnsplitSuffixes(boolean isDryRun) throws Exception {
         List<Message> records = createRecordsToCorrupt(10);
 
         // Validate that there are no problem entries
@@ -93,10 +102,18 @@ public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
             return null;
         });
 
-        doKeyRepair(5, 0, 0);
+        doKeyRepair(5, 0, 0, isDryRun);
 
-        validateRecords(records);
+        if (isDryRun) {
+            TestHelpers.assertThrows(RecordCoreException.class, () -> {
+                validateRecords(records);
+                return null;
+            });
+        } else {
+            validateRecords(records);
+        }
     }
+
 
     @Test
     public void identifyLongKeys() throws Exception {
@@ -235,14 +252,26 @@ public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
         expectedRecords.stream().forEach(message -> assertTrue(readRecords.contains(message), () -> "Failed to read " + message));
     }
 
+
     private void doKeyRepair(int repairedKeys, int invalidKeyLengths, int invalidSplitSuffixes) throws Exception {
-        doKeyRepair(repairedKeys, invalidKeyLengths, invalidSplitSuffixes, null);
+        doKeyRepair(repairedKeys, invalidKeyLengths, invalidSplitSuffixes, null, false);
     }
 
-    private void doKeyRepair(int repairedKeys, int invalidKeyLengths, int invalidSplitSuffixes, RecordMetaDataHook hook) throws Exception {
+    private void doKeyRepair(int repairedKeys, int invalidKeyLengths, int invalidSplitSuffixes, boolean isDryRun) throws Exception {
+        doKeyRepair(repairedKeys, invalidKeyLengths, invalidSplitSuffixes, null, isDryRun);
+    }
+
+    private void doKeyRepair(int repairedKeys, int invalidKeyLengths, int invalidSplitSuffixes,
+                             RecordMetaDataHook hook) throws Exception {
+        doKeyRepair(repairedKeys, invalidKeyLengths, invalidSplitSuffixes, hook, false);
+    }
+
+    private void doKeyRepair(int repairedKeys, int invalidKeyLengths, int invalidSplitSuffixes,
+                             RecordMetaDataHook hook,
+                             boolean isDryRun) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnsplitRecordStore(context, hook);
-            assertNull(recordStore.repairRecordKeys(null, ScanProperties.FORWARD_SCAN).get(),
+            assertNull(recordStore.repairRecordKeys(null, ScanProperties.FORWARD_SCAN, isDryRun).get(),
                     "Did not expect a continuation!");
 
             assertEquals(repairedKeys, context.getTimer().getCount(FDBStoreTimer.Counts.REPAIR_RECORD_KEY));

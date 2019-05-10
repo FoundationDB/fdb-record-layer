@@ -3042,6 +3042,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 LOGGER.debug(KeyValueLogMessage.of("Repairing primary key",
                         LogMessageKeys.RECORD_TYPE, recordType.getName(),
                         subspaceProvider.logKey(), subspaceProvider.toString(context),
+                        "dry_run", isDryRun,
                         "orig_primary_key", recordKey,
                         "new_primary_key", newPrimaryKey));
             }
