@@ -34,6 +34,10 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 2.7
 
+# Breaking Changes
+
+The Guava version has been updated to version 27. Users of the [shaded variants](Shaded.html#Variants) of the Record Layer dependencies should not be affected by this change. Users of the unshaded variant using an older version of Guava as part of their own project may find that their own Guava dependency is updated automatically by their dependency manager.
+
 <!--
 // begin next release
 ### NEXT_RELEASE
@@ -55,7 +59,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** The deprecated `TimeLimitedCursor` and `RecordCursor.limitTimeTo()` methods have been removed [(Issue #582)](https://github.com/FoundationDB/fdb-record-layer/issues/582)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The Guava dependency has been upgraded to version 27.0.1 [(Issue #216)](https://github.com/FoundationDB/fdb-record-layer/issues/216)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
