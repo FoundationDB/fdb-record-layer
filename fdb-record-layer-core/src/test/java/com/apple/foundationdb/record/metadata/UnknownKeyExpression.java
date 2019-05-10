@@ -71,11 +71,6 @@ public class UnknownKeyExpression extends BaseKeyExpression {
         return 1;
     }
 
-    @Override
-    public boolean isFixedColumnSize() {
-        return true;
-    }
-
     @Nonnull
     @Override
     public Message toProto() throws SerializationException {

@@ -102,11 +102,6 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return splitSize;
     }
 
-    @Override
-    public boolean isFixedColumnSize() {
-        return getJoined().isFixedColumnSize();
-    }
-
     @Nonnull
     @Override
     public RecordMetaDataProto.Split toProto() throws SerializationException {

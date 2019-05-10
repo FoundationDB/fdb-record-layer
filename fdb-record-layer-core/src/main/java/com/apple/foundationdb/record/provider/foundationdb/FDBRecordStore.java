@@ -2957,6 +2957,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         validator.validate();
     }
 
+    @Nonnull
+    public CompletableFuture<byte[]> repairRecordKeys(@Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        return repairRecordKeys(continuation, scanProperties, false);
+    }
+
     /**
      * Validate and repair known potential issues with record keys. Currently, this method is capable of identifying
      * and repairing the following scenarios:
@@ -2973,9 +2978,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param continuation continuation from a previous repair attempt or {@code null} to start from the beginning
      * @param scanProperties properties to provide scan limits on the repair process
      *   record keys should be logged
-     * @return a continuation or {@code null} if the repair has been completed
+     * @param isDryRun if true, no repairs are made, however counters involving irregular keys or keys that would
+     *   would have been repaired are incremented
+     * @return a future that completes to a continuation or {@code null} if the repair has been completed
      */
-    public CompletableFuture<byte[]> repairRecordKeys(@Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    @Nonnull
+    public CompletableFuture<byte[]> repairRecordKeys(@Nullable byte[] continuation,
+                                                      @Nonnull ScanProperties scanProperties,
+                                                      final boolean isDryRun) {
         // If the records aren't split to begin with, then there is nothing to do.
         if (getRecordMetaData().isSplitLongRecords()) {
             return CompletableFuture.completedFuture(null);
@@ -3004,12 +3014,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         return false;
                     }
 
-                    repairRecordKeyIfNecessary(context, recordSubspace, result.get());
+                    repairRecordKeyIfNecessary(context, recordSubspace, result.get(), isDryRun);
                     return true;
                 })).thenApply(ignored -> nextContinuation.get());
     }
 
-    private void repairRecordKeyIfNecessary(@Nonnull FDBRecordContext context, @Nonnull Subspace recordSubspace, @Nonnull KeyValue keyValue) {
+    private void repairRecordKeyIfNecessary(@Nonnull FDBRecordContext context, @Nonnull Subspace recordSubspace,
+                                            @Nonnull KeyValue keyValue, final boolean isDryRun) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Tuple recordKey = recordSubspace.unpack(keyValue.getKey());
 
@@ -3022,13 +3033,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final RecordType recordType = metaData.getRecordTypeForDescriptor(record.getDescriptorForType());
 
         final KeyExpression primaryKeyExpression = recordType.getPrimaryKey();
-        if (!primaryKeyExpression.isFixedColumnSize()) {
-            throw new RecordCoreException("Cannot repair records with variable length primary keys")
-                    .addLogInfo(
-                            subspaceProvider.logKey(), subspaceProvider.toString(context),
-                            LogMessageKeys.RECORD_TYPE, recordType.getName(),
-                            LogMessageKeys.KEY_EXPRESSION, primaryKeyExpression);
-        }
 
         if (recordKey.size() == primaryKeyExpression.getColumnSize()) {
             context.increment(FDBStoreTimer.Counts.REPAIR_RECORD_KEY);
@@ -3042,9 +3046,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         "new_primary_key", newPrimaryKey));
             }
 
-            final Transaction tr = context.ensureActive();
-            tr.clear(keyValue.getKey());
-            tr.set(recordSubspace.pack(newPrimaryKey), keyValue.getValue());
+            if (!isDryRun) {
+                final Transaction tr = context.ensureActive();
+                tr.clear(keyValue.getKey());
+                tr.set(recordSubspace.pack(newPrimaryKey), keyValue.getValue());
+            }
         } else if (recordKey.size() == primaryKeyExpression.getColumnSize() + 1) {
             Object suffix = recordKey.get(recordKey.size() - 1);
             if (!(suffix instanceof Long) || !(((Long) suffix) == SplitHelper.UNSPLIT_RECORD)) {
@@ -3056,7 +3062,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             LogMessageKeys.PRIMARY_KEY, recordKey));
                 }
             }
-        } else if (recordKey.size() > primaryKeyExpression.getColumnSize() + 1) {
+        } else  {
             context.increment(FDBStoreTimer.Counts.INVALID_KEY_LENGTH);
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.of("Invalid key length",

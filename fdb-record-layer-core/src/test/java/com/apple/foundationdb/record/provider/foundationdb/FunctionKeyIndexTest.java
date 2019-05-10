@@ -409,10 +409,5 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         public int getColumnSize() {
             return 3;
         }
-
-        @Override
-        public boolean isFixedColumnSize() {
-            return true;
-        }
     }
 }

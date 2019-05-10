@@ -152,16 +152,6 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         return cachedColumnSize;
     }
 
-    @Override
-    public boolean isFixedColumnSize() {
-        for (ExpressionRef<KeyExpression> child : children) {
-            if (!child.get().isFixedColumnSize()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     /**
      * Get this entire concatenation as a group without any grouping keys.
      * @return this concatenation without any grouping keys

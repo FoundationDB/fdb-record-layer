@@ -128,15 +128,6 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
     int getColumnSize();
 
     /**
-     * Returns whether or not the number of columns produced by the evaluation of a key expression can
-     * vary based upon data in the record itself.  Specifically, this will return {@code false} for
-     * expressions involving {@link FanType#Concatenate}.
-     *
-     * @return whether or not the column count is fixed or may vary based upon the data in the record
-     */
-    boolean isFixedColumnSize();
-
-    /**
      * How should repeated fields be handled.
      * These names don't technically meet our naming convention but changing them is a lot of work because of all of
      * the string constants.

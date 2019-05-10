@@ -911,11 +911,6 @@ public class KeyExpressionTest {
         public int getColumnSize() {
             return 1;
         }
-
-        @Override
-        public boolean isFixedColumnSize() {
-            return true;
-        }
     }
 
     /**
@@ -961,11 +956,6 @@ public class KeyExpressionTest {
         @Override
         public int getColumnSize() {
             return 1;
-        }
-
-        @Override
-        public boolean isFixedColumnSize() {
-            return true;
         }
     }
 }

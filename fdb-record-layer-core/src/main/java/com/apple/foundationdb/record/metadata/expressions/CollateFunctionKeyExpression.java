@@ -171,11 +171,6 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
         return 1;
     }
 
-    @Override
-    public boolean isFixedColumnSize() {
-        return getArguments().isFixedColumnSize();
-    }
-
     @Nullable
     @Override
     public Function<Object, Object> getComparandConversionFunction() {
