@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -146,6 +147,8 @@ public class OnlineIndexer implements AutoCloseable {
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
     private static final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(1004, 1007, 1020, 1031, 2002, 2101));
+
+    @Nonnull private UUID onlineIndexerId = UUID.randomUUID();
 
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final FDBRecordStore.Builder recordStoreBuilder;
@@ -305,6 +308,14 @@ public class OnlineIndexer implements AutoCloseable {
     <R> CompletableFuture<R> runAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                       @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
                                       @Nullable List<Object> additionalLogMessageKeyValues) {
+        List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
+                LogMessageKeys.INDEX_NAME, index.getName(),
+                LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                "online_indexer_id", onlineIndexerId));
+        if (additionalLogMessageKeyValues != null) {
+            onlineIndexerLogMessageKeyValues.addAll(additionalLogMessageKeyValues);
+        }
+
         AtomicInteger tries = new AtomicInteger(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
         AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
@@ -322,7 +333,7 @@ public class OnlineIndexer implements AutoCloseable {
                         }
                         return function.apply(store);
                     });
-                }, handlePostTransaction, additionalLogMessageKeyValues).handle((value, e) -> {
+                }, handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
                     if (e == null) {
                         ret.complete(value);
                         return AsyncUtil.READY_FALSE;
@@ -339,7 +350,7 @@ public class OnlineIndexer implements AutoCloseable {
                             return AsyncUtil.READY_FALSE;
                         } else {
                             if (lessenWorkCodes.contains(fdbE.getCode())) {
-                                decreaseLimit(fdbE, additionalLogMessageKeyValues);
+                                decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues);
                                 long delay = (long)(Math.random() * toWait.get());
                                 toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
                                 return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
@@ -390,8 +401,6 @@ public class OnlineIndexer implements AutoCloseable {
         limit = Math.max(1, (3 * limit) / 4);
         if (LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
-                    "indexName", index.getName(),
-                    "indexVersion", index.getLastModifiedVersion(),
                     "error", fdbException.getMessage(),
                     "errorCode", fdbException.getCode(),
                     "limit", limit);

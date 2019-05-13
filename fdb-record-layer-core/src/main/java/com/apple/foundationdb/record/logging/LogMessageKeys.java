@@ -86,6 +86,7 @@ public enum LogMessageKeys {
     INDEX_OPERATION("operation"),
     INITIAL_PREFIX("initial_prefix"),
     SECOND_PREFIX("second_prefix"),
+    INDEX_VERSION("index_version"),
     // comparisons
     COMPARISON_VALUE("comparison_value"),
     // functional index keys
