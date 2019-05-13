@@ -2172,7 +2172,7 @@ public class OnlineIndexerTest extends FDBTestBase {
     }
 
     private <R> CompletableFuture<R> runAndHandleLessenWorkCodes(OnlineIndexer indexBuilder, @Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
-        return indexBuilder.runAsync(function, Pair::of, indexBuilder::tryToDecreaseLimit , null);
+        return indexBuilder.runAsync(function, Pair::of, indexBuilder::decreaseLimit, null);
     }
 
     @Test
