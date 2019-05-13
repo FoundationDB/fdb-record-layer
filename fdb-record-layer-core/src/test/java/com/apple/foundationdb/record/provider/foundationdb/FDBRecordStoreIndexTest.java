@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
@@ -72,6 +73,7 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -124,6 +126,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreIndexTest.class);
+
+    @BeforeEach
+    public void init() {
+        // Clear the cached databases.
+        FDBDatabaseFactory.instance().clear();
+    }
 
     @Test
     public void uniqueness() throws Exception {
@@ -2358,6 +2366,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, Integer.MAX_VALUE, oneRangePerSplit, indexer); // to test that integer overflow isn't a problem
 
         indexer.close();
+        factory.unsetLocalityProvider();
+        database.close();
     }
 
     @Test
@@ -2407,6 +2417,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         assertEquals(1, indexer.splitIndexBuildRange(Integer.MAX_VALUE, Integer.MAX_VALUE).size());
 
         indexer.close();
+        factory.unsetLocalityProvider();
+        database.close();
     }
 
     private List<Pair<Tuple, Tuple>> getOneRangePerSplit(TupleRange tupleRange, List<Tuple> boundaries) {
@@ -2463,21 +2475,31 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 50; i++) {
                 keys.add(recordStore.recordsSubspace().pack(i));
             }
+            byte[] upperBound = recordStore.recordsSubspace().pack(50);
 
-            testRangeCount(context, keys, 0);
-            testRangeCount(context, keys, 1);
-            testRangeCount(context, keys, new Random().nextInt(keys.size() + 1));
-            testRangeCount(context, keys, keys.size() - 1);
-            testRangeCount(context, keys, keys.size());
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> testRangeCount(context, keys, keys.size() + 5));
+            testRangeCount(context, keys, upperBound, 0);
+            testRangeCount(context, keys, upperBound, 1);
+            testRangeCount(context, keys, upperBound, new Random().nextInt(keys.size()) + 1);
+            testRangeCount(context, keys, upperBound, keys.size() - 1);
+            testRangeCount(context, keys, upperBound, keys.size());
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> testRangeCount(context, keys, upperBound, keys.size() + 5));
             assertEquals(ex.getMessage(), "rangeCount must be less than (or equal) the size of keys");
 
+            testRangeCount(context, keys, keys.get(keys.size() - 1), 0);
+            testRangeCount(context, keys, keys.get(keys.size() - 1), 1);
+            testRangeCount(context, keys, keys.get(keys.size() - 1), new Random().nextInt(keys.size()) + 1);
+            testRangeCount(context, keys, keys.get(keys.size() - 1), keys.size() - 1);
+            testRangeCount(context, keys, keys.get(keys.size() - 1), keys.size());
             commit(context);
         }
+        factory.unsetLocalityProvider();
+        database.close();
     }
 
-    private void testRangeCount(@Nonnull FDBRecordContext context, @Nonnull ArrayList<byte[]> keys, int rangeCount) {
+    private void testRangeCount(@Nonnull FDBRecordContext context, @Nonnull ArrayList<byte[]> keys, byte[] upperBound, int rangeCount) {
         MockedLocalityUtil.init(keys, rangeCount);
-        assertEquals(rangeCount, Iterators.size(MockedLocalityUtil.instance().getBoundaryKeys(context.ensureActive(), keys.get(0), keys.get(keys.size() - 1))));
+        CloseableAsyncIterator<byte[]> cursor = MockedLocalityUtil.instance().getBoundaryKeys(context.ensureActive(), keys.get(0), upperBound);
+        assertTrue(rangeCount == Iterators.size(cursor) || MockedLocalityUtil.getLastRange().equals(upperBound));
+        cursor.close();
     }
 }

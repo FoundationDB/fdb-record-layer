@@ -68,6 +68,14 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
     }
 
     /**
+     * Get the key of the last range.
+     * @return the key of the last range
+     */
+    public static byte[] getLastRange() {
+        return INSTANCE.keyRanges.get(MockedLocalityUtil.instance().ranges.get(MockedLocalityUtil.instance().ranges.size() - 1)).key;
+    }
+
+    /**
      * Initialize the {@code MockedLocalityUtil}'s singleton.
      *
      * <p>
