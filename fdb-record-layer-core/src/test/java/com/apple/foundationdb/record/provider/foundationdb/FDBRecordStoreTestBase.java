@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.temp.RewritePlanner;
-import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -107,8 +106,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     public void clearAndInitialize() {
         getFDB();
         fdb.run(timer, null, context -> {
-            Subspace subspace = path.toSubspace(context);
-            FDBRecordStore.deleteStore(context, subspace);
+            path.deleteAllData(context);
             return null;
         });
     }
