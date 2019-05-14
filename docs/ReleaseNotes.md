@@ -66,17 +66,17 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** OnlineIndexer re-increasing limit log changed to info [(Issue #570)](https://github.com/FoundationDB/fdb-record-layer/issues/570)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Updating the store header now updates the `last_update_time` field with the current time [(Issue #593)](https://github.com/FoundationDB/fdb-record-layer/issues/593)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Include index information and UUID in OnlineIndexer logs [(Issue #510)](https://github.com/FoundationDB/fdb-record-layer/issues/510)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -89,6 +89,12 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 
 // end next release
 -->
+
+### 2.6.68.0
+
+* **Bug fix** OnlineIndexer re-increasing limit log changed to info [(Issue #570)](https://github.com/FoundationDB/fdb-record-layer/issues/570)
+* **Bug fix** Updating the store header now updates the `last_update_time` field with the current time [(Issue #593)](https://github.com/FoundationDB/fdb-record-layer/issues/593)
+* **Feature** Include index information and UUID in OnlineIndexer logs [(Issue #510)](https://github.com/FoundationDB/fdb-record-layer/issues/510)
 
 ### 2.6.67.0
 
