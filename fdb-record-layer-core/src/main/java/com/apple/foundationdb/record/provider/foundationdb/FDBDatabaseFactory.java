@@ -515,12 +515,4 @@ public class FDBDatabaseFactory {
     public void setLocalityProvider(@Nonnull FDBLocalityProvider localityProvider) {
         this.localityProvider = localityProvider;
     }
-
-    /**
-     * Unset the installed locality provider back to default ({@link FDBLocalityUtil}). The locality provider is used to discover the server location of the keys.
-     * @see FDBLocalityUtil
-     */
-    public void unsetLocalityProvider() {
-        this.localityProvider = FDBLocalityUtil.instance();
-    }
 }

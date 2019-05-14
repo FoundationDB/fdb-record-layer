@@ -2296,7 +2296,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void boundaryPrimaryKeys() throws Exception {
+    public void testBoundaryPrimaryKeys() {
+        runLocalityTest(() -> testBoundaryPrimaryKeysImpl());
+    }
+
+    public void testBoundaryPrimaryKeysImpl() {
         final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
         FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
@@ -2304,7 +2308,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         final String indexName = "MySimpleRecord$num_value_unique";
         try (FDBRecordContext context = database.openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            recordStore.markIndexWriteOnly(indexName).get();
+            recordStore.markIndexWriteOnly(indexName).join();
             commit(context);
         }
 
@@ -2366,12 +2370,15 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, Integer.MAX_VALUE, oneRangePerSplit, indexer); // to test that integer overflow isn't a problem
 
         indexer.close();
-        factory.unsetLocalityProvider();
         database.close();
     }
 
     @Test
-    public void noBoundaryPrimaryKeys() throws Exception {
+    public void testNoBoundaryPrimaryKeys() {
+        runLocalityTest(() -> testNoBoundaryPrimaryKeysImpl());
+    }
+
+    public void testNoBoundaryPrimaryKeysImpl() {
         final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
         FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
@@ -2379,7 +2386,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         final String indexName = "MySimpleRecord$num_value_unique";
         try (FDBRecordContext context = database.openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            recordStore.markIndexWriteOnly(indexName).get();
+            recordStore.markIndexWriteOnly(indexName).join();
             commit(context);
         }
 
@@ -2417,7 +2424,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         assertEquals(1, indexer.splitIndexBuildRange(Integer.MAX_VALUE, Integer.MAX_VALUE).size());
 
         indexer.close();
-        factory.unsetLocalityProvider();
         database.close();
     }
 
@@ -2439,7 +2445,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     private void checkSplitIndexBuildRange(int minSplit, int maxSplit,
                                            @Nullable List<Pair<Tuple, Tuple>> expectedSplitRanges,
-                                           OnlineIndexer indexer) throws Exception {
+                                           OnlineIndexer indexer) {
         List<Pair<Tuple, Tuple>> splitRanges = indexer.splitIndexBuildRange(minSplit, maxSplit);
 
         if (expectedSplitRanges != null) {
@@ -2464,9 +2470,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testMockedLocalityUtil() throws Exception {
-        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setLocalityProvider(MockedLocalityUtil.instance());
+    public void testMockedLocalityUtil() {
+        runLocalityTest(() -> testMockedLocalityUtilImpl());
+    }
+
+    public void testMockedLocalityUtilImpl() {
         FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
 
         try (FDBRecordContext context = database.openContext()) {
@@ -2492,7 +2500,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             testRangeCount(context, keys, keys.get(keys.size() - 1), keys.size());
             commit(context);
         }
-        factory.unsetLocalityProvider();
         database.close();
     }
 
@@ -2501,5 +2508,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         CloseableAsyncIterator<byte[]> cursor = MockedLocalityUtil.instance().getBoundaryKeys(context.ensureActive(), keys.get(0), upperBound);
         assertTrue(rangeCount == Iterators.size(cursor) || MockedLocalityUtil.getLastRange().equals(upperBound));
         cursor.close();
+    }
+
+    private void runLocalityTest(Runnable test) {
+        final FDBLocalityProvider origProvider = FDBDatabaseFactory.instance().getLocalityProvider();
+        try {
+            test.run();
+        } finally {
+            FDBDatabaseFactory.instance().setLocalityProvider(origProvider);
+        }
     }
 }
