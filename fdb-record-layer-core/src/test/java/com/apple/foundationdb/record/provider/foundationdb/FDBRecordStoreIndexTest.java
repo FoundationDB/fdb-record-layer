@@ -970,6 +970,48 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void deleteAllRecordsPreservesIndexStates() throws Exception {
+        final String disabledIndex = "MySimpleRecord$num_value_3_indexed";
+        final String writeOnlyIndex = "MySimpleRecord$str_value_indexed";
+        TestRecords1Proto.MySimpleRecord testRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(1066L)
+                .setNumValue3Indexed(42)
+                .setStrValueIndexed("forty-two")
+                .build();
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.markIndexDisabled(disabledIndex).get();
+            recordStore.markIndexWriteOnly(writeOnlyIndex).get();
+            recordStore.saveRecord(testRecord);
+            commit(context);
+        }
+
+        // Ensure that the index states are preserved as visible from within the
+        // uncommitted transaction.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertTrue(recordStore.isIndexDisabled(disabledIndex));
+            assertTrue(recordStore.isIndexWriteOnly(writeOnlyIndex));
+            assertTrue(recordStore.recordExists(Tuple.from(1066L)));
+
+            recordStore.deleteAllRecords();
+            assertTrue(recordStore.isIndexDisabled(disabledIndex));
+            assertTrue(recordStore.isIndexWriteOnly(writeOnlyIndex));
+            assertFalse(recordStore.recordExists(Tuple.from(1066L)));
+            commit(context);
+        }
+
+        // Ensure that this is still true after the transaction commits.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertTrue(recordStore.isIndexDisabled(disabledIndex));
+            assertTrue(recordStore.isIndexWriteOnly(writeOnlyIndex));
+            assertFalse(recordStore.recordExists(Tuple.from(1066L)));
+        }
+    }
+
+    @Test
     public void insertTerrible() throws Exception {
         RecordMetaDataHook hook = metaDataBuilder -> {
             metaDataBuilder.addIndex("MySimpleRecord", new Index("value3$terrible", field("num_value_3_indexed"), "terrible"));

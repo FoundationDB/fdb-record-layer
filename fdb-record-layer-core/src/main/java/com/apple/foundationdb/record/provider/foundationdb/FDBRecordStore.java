@@ -1121,8 +1121,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public void deleteAllRecords() {
         preloadCache.invalidateAll();
         Transaction tr = ensureContextActive();
-        tr.clear(recordsSubspace().getKey(),
-                 getSubspace().range().end);
+
+        // Clear out all data except for the store header key and the index state space.
+        // Those two subspaces are determined by the configuration of the record store rather then
+        // the records.
+        Range indexStateRange = indexStateSubspace().range();
+        tr.clear(recordsSubspace().getKey(), indexStateRange.begin);
+        tr.clear(indexStateRange.end, getSubspace().range().end);
     }
 
     @Override

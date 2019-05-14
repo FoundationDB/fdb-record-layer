@@ -1254,7 +1254,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Delete all the data in the record store.
      * <p>
-     * Everything except the store header is cleared from the database.
+     * Everything except the store header and index state information is cleared from the database.
      * This is an efficient operation, since all the data is contiguous.
      */
     void deleteAllRecords();
