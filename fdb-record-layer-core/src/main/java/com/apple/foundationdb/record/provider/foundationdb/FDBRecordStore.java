@@ -1534,6 +1534,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
         return checkedRebuild.thenApply(vignore -> {
             if (dirty[0]) {
+                info.setLastUpdateTime(System.currentTimeMillis());
                 saveStoreHeader(info.build());
             }
             return dirty[0];

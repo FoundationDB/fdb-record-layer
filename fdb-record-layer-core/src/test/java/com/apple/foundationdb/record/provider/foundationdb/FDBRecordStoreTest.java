@@ -105,6 +105,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.startsWith;
@@ -117,6 +118,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Basic tests for {@link FDBRecordStore}.
@@ -3029,6 +3031,32 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             recordStore = builder.setContext(context).setUserVersionChecker(oldStore).open();
+            commit(context);
+        }
+    }
+
+    @Test
+    public void updateLastUpdatedTime() throws Exception {
+        RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", "num_value_2");
+
+        long firstUpdateTime;
+        int metaDataVersion;
+        try (FDBRecordContext context = openContext()) {
+            final long beforeOpenTime = System.currentTimeMillis();
+            openSimpleRecordStore(context);
+            metaDataVersion = recordStore.getRecordMetaData().getVersion();
+            firstUpdateTime = recordStore.getRecordStoreState().getStoreHeader().getLastUpdateTime();
+            assertThat(firstUpdateTime, greaterThanOrEqualTo(beforeOpenTime));
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final long beforeOpenTime = System.currentTimeMillis();
+            assumeTrue(firstUpdateTime < beforeOpenTime, "time has not advanced since first update");
+            openSimpleRecordStore(context, hook);
+            assertEquals(metaDataVersion + 1, recordStore.getRecordMetaData().getVersion());
+            long secondUpdateTime = recordStore.getRecordStoreState().getStoreHeader().getLastUpdateTime();
+            assertThat(secondUpdateTime, greaterThan(firstUpdateTime));
             commit(context);
         }
     }
