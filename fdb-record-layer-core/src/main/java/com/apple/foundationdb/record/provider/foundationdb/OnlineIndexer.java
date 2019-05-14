@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -219,6 +220,7 @@ public class OnlineIndexer implements AutoCloseable {
         return limit;
     }
 
+    @Nonnull
     private TupleRange computeRecordsRange() {
         Tuple low = null;
         Tuple high = null;
@@ -808,7 +810,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @see #buildIndex
      */
     public void rebuildIndex(@Nonnull FDBRecordStore store) {
-        asyncToSync(rebuildIndexAsync(store));
+        asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, rebuildIndexAsync(store));
     }
 
     /**
@@ -959,7 +961,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public void buildIndex(boolean markReadable) {
-        asyncToSync(buildIndexAsync(markReadable));
+        asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexAsync(markReadable));
     }
 
     /**
@@ -968,7 +970,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public void buildIndex() {
-        asyncToSync(buildIndexAsync());
+        asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexAsync());
     }
 
 
@@ -1087,22 +1089,34 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Wait for asynchronous index build to complete.
+     * Wait for an index build to complete. This method has been deprecated in favor
+     * of {@link #asyncToSync(StoreTimer.Wait, CompletableFuture)} which gives the user more
+     * control over which {@link StoreTimer.Wait} to instrument.
      *
-     * <p>
-     * This method was marked {@link API.Status#INTERNAL INTERNAL} in a 2.5 release of the Record Layer, and it may be
-     * removed in version 2.7. Outside users of the Record Layer should use the {@code asyncToSync} methods of {@link FDBRecordContext},
-     * {@link FDBDatabase}, or {@link FDBDatabaseRunner} instead. See
-     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/473">Issue #473</a> for more details.
-     * </p>
+     * @param buildIndexFuture a task to build an index
+     * @param <T> the return type of the asynchronous task
+     * @return the result of {@code buildIndexFuture} when it completes
+     * @deprecated in favor of {@link #asyncToSync(StoreTimer.Wait, CompletableFuture)}
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
+    public <T> T asyncToSync(@Nonnull CompletableFuture<T> buildIndexFuture) {
+        return asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);
+    }
+
+    /**
+     * Wait for an asynchronous task to complete. This returns the result from the future or propagates
+     * the error if the future completes exceptionally.
      *
-     * @param buildIndexFuture the result of {@link #buildIndexAsync}
-     * @param <T> return type of function to run
-     * @return future that will contain the result of {@code buildIndexFuture} after successful run and commit
+     * @param event the event being waited on (for instrumentation purposes)
+     * @param async the asynchronous task to wait on
+     * @param <T> the task's return type
+     * @return the result of the asynchronous task
+     *
      */
     @API(API.Status.INTERNAL)
-    public <T> T asyncToSync(@Nonnull CompletableFuture<T> buildIndexFuture) {
-        return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);
+    public <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+        return runner.asyncToSync(event, async);
     }
 
     @API(API.Status.INTERNAL)
@@ -1674,6 +1688,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Create an online indexer builder.
      * @return a new online indexer builder
      */
+    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
@@ -1684,6 +1699,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @param index name of index to build
      * @return a new online indexer
      */
+    @Nonnull
     public static OnlineIndexer forRecordStoreAndIndex(@Nonnull FDBRecordStore recordStore, @Nonnull String index) {
         return newBuilder().setRecordStore(recordStore).setIndex(index).build();
     }

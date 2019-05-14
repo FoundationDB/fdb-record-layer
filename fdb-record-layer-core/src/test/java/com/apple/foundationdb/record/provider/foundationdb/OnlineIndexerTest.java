@@ -2494,14 +2494,14 @@ public class OnlineIndexerTest extends FDBTestBase {
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             // No need to build range because there is no record.
-            indexer.asyncToSync(indexer.buildEndpoints());
+            indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.buildEndpoints());
 
             // Do mark the the index as readable.
-            assertTrue(indexer.asyncToSync(indexer.markReadableIfBuilt()));
+            assertTrue(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt()));
 
             // When the index is readable:
-            assertFalse(indexer.asyncToSync(indexer.markReadable())); // The status is not modified by markReadable.
-            assertTrue(indexer.asyncToSync(indexer.markReadableIfBuilt()));
+            assertFalse(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadable())); // The status is not modified by markReadable.
+            assertTrue(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt()));
         }
     }
 }
