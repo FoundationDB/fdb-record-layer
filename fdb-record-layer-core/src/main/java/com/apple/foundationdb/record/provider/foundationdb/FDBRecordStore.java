@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.MutableRecordStoreState;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -114,6 +115,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -2953,6 +2955,128 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public void validateMetaData() {
         final MetaDataValidator validator = new MetaDataValidator(metaDataProvider, indexMaintainerRegistry);
         validator.validate();
+    }
+
+    @Nonnull
+    public CompletableFuture<byte[]> repairRecordKeys(@Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        return repairRecordKeys(continuation, scanProperties, false);
+    }
+
+    /**
+     * Validate and repair known potential issues with record keys. Currently, this method is capable of identifying
+     * and repairing the following scenarios:
+     * <ul>
+     *     <li>For record stores in which record splitting is disabled but the {@code omitUnsplitRecordSuffix} flag
+     *         is {@code true}, keys found missing the {@link SplitHelper#UNSPLIT_RECORD} suffix will be repaired.</li>
+     *     <li>For record stores in which record splitting is disabled, but the record key suffix is found to be
+     *         a value other than {@link SplitHelper#UNSPLIT_RECORD}, the {@link FDBStoreTimer.Counts#INVALID_SPLIT_SUFFIX}
+     *         counter will be incremented.
+     *     <li>For record stores in which record splitting is disabled, but the record key is longer than expected,
+     *         the {@link FDBStoreTimer.Counts#INVALID_KEY_LENGTH} counter will be incremented.
+     * </ul>
+     *
+     * @param continuation continuation from a previous repair attempt or {@code null} to start from the beginning
+     * @param scanProperties properties to provide scan limits on the repair process
+     *   record keys should be logged
+     * @param isDryRun if true, no repairs are made, however counters involving irregular keys or keys that would
+     *   would have been repaired are incremented
+     * @return a future that completes to a continuation or {@code null} if the repair has been completed
+     */
+    @Nonnull
+    public CompletableFuture<byte[]> repairRecordKeys(@Nullable byte[] continuation,
+                                                      @Nonnull ScanProperties scanProperties,
+                                                      final boolean isDryRun) {
+        // If the records aren't split to begin with, then there is nothing to do.
+        if (getRecordMetaData().isSplitLongRecords()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        if (scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot()) {
+            throw new RecordCoreArgumentException("Cannot repair record key split markers at SNAPSHOT isolation level")
+                    .addLogInfo(LogMessageKeys.SCAN_PROPERTIES, scanProperties);
+        }
+
+        final Subspace recordSubspace = recordsSubspace();
+        KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(recordSubspace)
+                .setContext(getRecordContext())
+                .setContinuation(continuation)
+                .setScanProperties(scanProperties)
+                .build();
+
+        final AtomicReference<byte[]> nextContinuation = new AtomicReference<>();
+        final FDBRecordContext context = getContext();
+        return AsyncUtil.whileTrue( () ->
+                cursor.onNext().thenApply( result -> {
+                    if (!result.hasNext()) {
+                        if (result.hasStoppedBeforeEnd()) {
+                            nextContinuation.set(result.getContinuation().toBytes());
+                        }
+                        return false;
+                    }
+
+                    repairRecordKeyIfNecessary(context, recordSubspace, result.get(), isDryRun);
+                    return true;
+                })).thenApply(ignored -> nextContinuation.get());
+    }
+
+    private void repairRecordKeyIfNecessary(@Nonnull FDBRecordContext context, @Nonnull Subspace recordSubspace,
+                                            @Nonnull KeyValue keyValue, final boolean isDryRun) {
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+        final Tuple recordKey = recordSubspace.unpack(keyValue.getKey());
+
+        // Ignore version key
+        if (metaData.isStoreRecordVersions() && isMaybeVersion(recordKey)) {
+            return;
+        }
+
+        final Message record = serializer.deserialize(metaData, recordKey, keyValue.getValue(), getTimer());
+        final RecordType recordType = metaData.getRecordTypeForDescriptor(record.getDescriptorForType());
+
+        final KeyExpression primaryKeyExpression = recordType.getPrimaryKey();
+
+        if (recordKey.size() == primaryKeyExpression.getColumnSize()) {
+            context.increment(FDBStoreTimer.Counts.REPAIR_RECORD_KEY);
+
+            final Tuple newPrimaryKey = recordKey.add(SplitHelper.UNSPLIT_RECORD);
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(KeyValueLogMessage.of("Repairing primary key",
+                        LogMessageKeys.RECORD_TYPE, recordType.getName(),
+                        subspaceProvider.logKey(), subspaceProvider.toString(context),
+                        "dry_run", isDryRun,
+                        "orig_primary_key", recordKey,
+                        "new_primary_key", newPrimaryKey));
+            }
+
+            if (!isDryRun) {
+                final Transaction tr = context.ensureActive();
+                tr.clear(keyValue.getKey());
+                tr.set(recordSubspace.pack(newPrimaryKey), keyValue.getValue());
+            }
+        } else if (recordKey.size() == primaryKeyExpression.getColumnSize() + 1) {
+            Object suffix = recordKey.get(recordKey.size() - 1);
+            if (!(suffix instanceof Long) || !(((Long) suffix) == SplitHelper.UNSPLIT_RECORD)) {
+                context.increment(FDBStoreTimer.Counts.INVALID_SPLIT_SUFFIX);
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(KeyValueLogMessage.of("Invalid split suffix",
+                            subspaceProvider.logKey(), subspaceProvider.toString(context),
+                            LogMessageKeys.RECORD_TYPE, recordType.getName(),
+                            LogMessageKeys.PRIMARY_KEY, recordKey));
+                }
+            }
+        } else  {
+            context.increment(FDBStoreTimer.Counts.INVALID_KEY_LENGTH);
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(KeyValueLogMessage.of("Invalid key length",
+                        subspaceProvider.logKey(), subspaceProvider.toString(context),
+                        LogMessageKeys.RECORD_TYPE, recordType.getName(),
+                        LogMessageKeys.PRIMARY_KEY, recordKey));
+            }
+        }
+    }
+
+    private boolean isMaybeVersion(Tuple recordKey) {
+        Object suffix = recordKey.get(recordKey.size() - 1);
+        return suffix instanceof Long && (((Long) suffix) == SplitHelper.RECORD_VERSION);
     }
 
     @Nonnull

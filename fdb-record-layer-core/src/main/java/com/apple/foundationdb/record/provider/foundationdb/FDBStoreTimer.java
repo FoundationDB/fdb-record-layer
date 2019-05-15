@@ -446,6 +446,12 @@ public class FDBStoreTimer extends StoreTimer {
         TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED("number of leaderboard conditional rebuilds", false),
         /** The number of times that an index entry does not point to a valid record. */
         BAD_INDEX_ENTRY("number of occurrences of bad index entries", false),
+        /** The number of record keys repaired by {@link FDBRecordStore#repairRecordKeys(byte[], com.apple.foundationdb.record.ScanProperties)}. */
+        REPAIR_RECORD_KEY("repair record key", false),
+        /** The number of record keys with an invalid split suffix found by {@link FDBRecordStore#repairRecordKeys(byte[], com.apple.foundationdb.record.ScanProperties)}. */
+        INVALID_SPLIT_SUFFIX("invalid split suffix", false),
+        /** The number of record keys with an incorrect length found by {@link FDBRecordStore#repairRecordKeys(byte[], com.apple.foundationdb.record.ScanProperties)}. */
+        INVALID_KEY_LENGTH("invalid record key", false),
         ;
 
         private final String title;

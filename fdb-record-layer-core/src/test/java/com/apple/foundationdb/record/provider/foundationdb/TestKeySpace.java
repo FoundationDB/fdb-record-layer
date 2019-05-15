@@ -35,6 +35,7 @@ public class TestKeySpace {
             new DirectoryLayerDirectory("record-test", "record-test")
                     .addSubdirectory(new DirectoryLayerDirectory("unit", "unit")
                             .addSubdirectory(new DirectoryLayerDirectory("recordStore", "recordStore"))
+                            .addSubdirectory(new DirectoryLayerDirectory("corruptRecordStore", "corruptRecordStore"))
                             .addSubdirectory(new DirectoryLayerDirectory("multiRecordStore", "multiRecordStore")
                                     .addSubdirectory(new DirectoryLayerDirectory("storePath"))
                             )
@@ -67,5 +68,4 @@ public class TestKeySpace {
         }
         return path;
     }
-
 }

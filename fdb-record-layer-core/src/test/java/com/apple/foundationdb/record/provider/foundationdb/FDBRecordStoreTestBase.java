@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.temp.RewritePlanner;
-import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -70,7 +69,15 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     protected FDBStoreTimer timer = new FDBStoreTimer();
     protected boolean useRewritePlanner = false;
     protected QueryPlanner planner;
-    protected final KeySpacePath path = TestKeySpace.getKeyspacePath(PATH_OBJECTS);
+    protected final KeySpacePath path;
+
+    public FDBRecordStoreTestBase() {
+        this(PATH_OBJECTS);
+    }
+
+    public FDBRecordStoreTestBase(Object[] path) {
+        this.path = TestKeySpace.getKeyspacePath(path);
+    }
 
     /**
      * Meta data setup hook, used for testing.
@@ -99,8 +106,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     public void clearAndInitialize() {
         getFDB();
         fdb.run(timer, null, context -> {
-            Subspace subspace = path.toSubspace(context);
-            FDBRecordStore.deleteStore(context, subspace);
+            path.deleteAllData(context);
             return null;
         });
     }

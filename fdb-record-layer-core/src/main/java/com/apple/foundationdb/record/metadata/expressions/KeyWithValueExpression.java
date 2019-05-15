@@ -104,7 +104,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     @Nonnull
     public KeyExpression getKeyExpression() {
         if (keyExpression == null) {
-            return getInnerKey().getSubKey(0, splitPoint);
+            keyExpression = getInnerKey().getSubKey(0, splitPoint);
         }
         return keyExpression;
     }
