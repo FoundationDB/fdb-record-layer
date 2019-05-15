@@ -67,8 +67,8 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Deleting all records no longer resets all index states to `READABLE` [(Issue #399)](https://github.com/FoundationDB/fdb-record-layer/issues/399)
-* **Bug fix** Rebuilding all indexes with `FDBRecordStore::rebuildAllIndexes` now updates the local cache of index states [(Issue #597)](https://github.com/FoundationDB/fdb-record-layer/issues/597)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -76,11 +76,11 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Include index information and UUID in OnlineIndexer logs [(Issue #510)](https://github.com/FoundationDB/fdb-record-layer/issues/510)
-* **Feature** Ability to repair records missing the unsplit record suffix [(Issue #588)](https://github.com/FoundationDB/fdb-record-layer/issues/588)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Provide a way for `FDBDatabase` to use a non-standard locality API  [(Issue #504)](https://github.com/FoundationDB/fdb-record-layer/issues/504)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -89,6 +89,14 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 
 // end next release
 -->
+
+### 2.6.69.0
+
+* **Bug fix** Deleting all records no longer resets all index states to `READABLE` [(Issue #399)](https://github.com/FoundationDB/fdb-record-layer/issues/399)
+* **Bug fix** Rebuilding all indexes with `FDBRecordStore::rebuildAllIndexes` now updates the local cache of index states [(Issue #597)](https://github.com/FoundationDB/fdb-record-layer/issues/597)
+* **Feature** Include index information and UUID in OnlineIndexer logs [(Issue #510)](https://github.com/FoundationDB/fdb-record-layer/issues/510)
+* **Feature** Ability to repair records missing the unsplit record suffix [(Issue #588)](https://github.com/FoundationDB/fdb-record-layer/issues/588)
+* **Feature** Provide a way for `FDBDatabase` to use a non-standard locality API  [(Issue #504)](https://github.com/FoundationDB/fdb-record-layer/issues/504)
 
 ### 2.6.68.0
 
