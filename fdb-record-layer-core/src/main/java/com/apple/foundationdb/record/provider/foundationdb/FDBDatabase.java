@@ -20,14 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
-import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.AsyncLoadingCache;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
@@ -39,9 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResu
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.PassThroughRecordStoreStateCache;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -53,9 +49,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -149,6 +142,9 @@ public class FDBDatabase {
     private String datacenterId;
 
     @Nonnull
+    private FDBLocalityProvider localityProvider;
+
+    @Nonnull
     private static ImmutablePair<Long, Long> initialVersionPair = new ImmutablePair<>(null, null);
     @Nonnull
     private AtomicReference<ImmutablePair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
@@ -173,6 +169,7 @@ public class FDBDatabase {
         this.resolverStateCache = new AsyncLoadingCache<>(factory.getStateRefreshTimeMillis());
         this.latencyInjector = factory.getLatencyInjector();
         this.datacenterId = factory.getDatacenterId();
+        this.localityProvider = factory.getLocalityProvider();
     }
 
     /**
@@ -217,6 +214,15 @@ public class FDBDatabase {
 
     public synchronized String getDatacenterId() {
         return datacenterId;
+    }
+
+    /**
+     * Get the locality provider that is used to discover the server location of the keys.
+     * @return the locality provider
+     */
+    @Nonnull
+    public synchronized FDBLocalityProvider getLocalityProvider() {
+        return localityProvider;
     }
 
     public synchronized void setTrackLastSeenVersionOnRead(boolean trackLastSeenVersion) {
@@ -907,71 +913,6 @@ public class FDBDatabase {
                     LogMessageKeys.CALLING_LINE, stackElement.getLineNumber()),
                     exception);
         }
-    }
-
-    /**
-     * Get key tuples that are more or less evenly distributed in the key-value space.
-     * This keys can be used to store multiple copies of a value that does not change very
-     * often but is accessed so frequently that it would overload the single FDB storage
-     * server that has the authoritative value. For example, {@link MetaDataCache#setCurrentVersion}.
-     * @param context context to use for reading the database
-     * @param prefix prefix key tuple beneath which keys spread out reasonably well
-     * @param size number of items needed in a tuple to get the spread
-     * @param count maximum number of keys to return
-     * @return future for list of boundary key tuples
-     */
-    @API(API.Status.INTERNAL)
-    public CompletableFuture<List<Tuple>> computeBoundaryKeys(@Nonnull FDBTransactionContext context, Tuple prefix,
-                                                               int size, int count) {
-        byte[] prefixBytes = prefix.pack();
-        CloseableAsyncIterator<byte[]> iter = LocalityUtil.getBoundaryKeys(context.ensureActive(),
-                                                                           prefixBytes, ByteArrayUtil.strinc(prefixBytes));
-        List<Tuple> tuples = new ArrayList<>();
-        CompletableFuture<List<Tuple>> result = AsyncUtil.whileTrue(() -> iter.onHasNext().thenApply(hasNext -> {
-            if (hasNext) {
-                byte[] key = iter.next();
-                Tuple item = tryGetNextBoundaryTuple(key, prefixBytes.length, size);
-                if (item != null && (tuples.isEmpty() || !item.equals(tuples.get(tuples.size() - 1)))) {
-                    tuples.add(item);
-                }
-            } else {
-                iter.close();
-            }
-            return hasNext;
-        }), getExecutor()).thenApply(vignore -> {
-            if (count >= tuples.size()) {
-                if (tuples.isEmpty()) {
-                    return Collections.singletonList(TupleHelpers.EMPTY);
-                } else {
-                    return tuples;
-                }
-            } else {
-                List<Tuple> selected = new ArrayList<>(count);
-                for (int i = 1; i < count + 1; i++) {
-                    selected.add(tuples.get(((tuples.size() + 1) * i) / (count + 1) - 1));
-                }
-                return selected;
-            }
-        });
-        return context.instrument(FDBStoreTimer.Events.COMPUTE_BOUNDARY_KEYS, result);
-    }
-
-    @SuppressWarnings("PMD.EmptyCatchBlock")
-    private static Tuple tryGetNextBoundaryTuple(byte[] key, int offset, int size) {
-        // A boundary may occasionally be in the middle of a tuple item, so back off until parse successfully.
-        // TODO: It is hard to do this without try/catch the way the Tuple[2] code is currently structured.
-        for (int limit = key.length; limit > offset; limit--) {
-            try {
-                Tuple t = Tuple.fromBytes(key, offset, limit);
-                if (t.size() < size) {
-                    return null;
-                }
-                return Tuple.fromList(t.getItems().subList(0, size));
-            } catch (Exception ex) {
-                // Keep trying.
-            }
-        }
-        return null;
     }
 
     public CompletableFuture<Tuple> loadBoundaryKeys(@Nonnull FDBTransactionContext context, Tuple key) {

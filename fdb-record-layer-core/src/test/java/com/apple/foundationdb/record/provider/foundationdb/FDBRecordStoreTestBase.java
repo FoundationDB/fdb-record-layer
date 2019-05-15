@@ -144,7 +144,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         }
     }
 
-    public void commit(FDBRecordContext context) throws Exception {
+    public void commit(FDBRecordContext context) {
         try {
             context.commit();
             if (logger.isInfoEnabled()) {
@@ -169,7 +169,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         openSimpleRecordStore(context, NO_HOOK);
     }
 
-    public void openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
+    public void openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) {
         createOrOpenRecordStore(context, simpleMetaData(hook));
     }
 
@@ -296,7 +296,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         return recBuilder.build();
     }
 
-    protected FDBStoredRecord<Message> saveAndSplitSimpleRecord(long recno, String strValue, int numValue) throws Exception {
+    protected FDBStoredRecord<Message> saveAndSplitSimpleRecord(long recno, String strValue, int numValue) {
         FDBStoredRecord<Message> savedRecord;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);

@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.NetworkOptions;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -59,6 +59,9 @@ public class FDBDatabaseFactory {
 
     @Nonnull
     private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactory();
+
+    @Nonnull
+    private FDBLocalityProvider localityProvider = FDBLocalityUtil.instance();
 
     /* Next few null until initFDB is called */
 
@@ -493,5 +496,23 @@ public class FDBDatabaseFactory {
     @Nonnull
     public synchronized FDBDatabase getDatabase() {
         return getDatabase(null);
+    }
+
+    /**
+     * Get the locality provider that is used to discover the server location of the keys.
+     * @return the installed locality provider
+     */
+    @Nonnull
+    public FDBLocalityProvider getLocalityProvider() {
+        return localityProvider;
+    }
+
+    /**
+     * Set the locality provider that is used to discover the server location of the keys.
+     * @param localityProvider the locality provider
+     * @see FDBLocalityUtil
+     */
+    public void setLocalityProvider(@Nonnull FDBLocalityProvider localityProvider) {
+        this.localityProvider = localityProvider;
     }
 }
