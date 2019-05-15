@@ -67,8 +67,8 @@ The `RecordStoreState` constructors have been deprecated or marked [`INTERNAL`](
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Deleting all records no longer resets all index states to `READABLE` [(Issue #399)](https://github.com/FoundationDB/fdb-record-layer/issues/399)
+* **Bug fix** Rebuilding all indexes with `FDBRecordStore::rebuildAllIndexes` now updates the local cache of index states [(Issue #597)](https://github.com/FoundationDB/fdb-record-layer/issues/597)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

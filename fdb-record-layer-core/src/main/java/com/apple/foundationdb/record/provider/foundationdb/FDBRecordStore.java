@@ -1121,8 +1121,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public void deleteAllRecords() {
         preloadCache.invalidateAll();
         Transaction tr = ensureContextActive();
-        tr.clear(recordsSubspace().getKey(),
-                 getSubspace().range().end);
+
+        // Clear out all data except for the store header key and the index state space.
+        // Those two subspaces are determined by the configuration of the record store rather then
+        // the records.
+        Range indexStateRange = indexStateSubspace().range();
+        tr.clear(recordsSubspace().getKey(), indexStateRange.begin);
+        tr.clear(indexStateRange.end, getSubspace().range().end);
     }
 
     @Override
@@ -1700,13 +1705,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 iterator.onHasNext().thenApply(hasNext -> hasNext ? iterator.next() : null));
     }
 
+    /**
+     * Rebuild all of this store's indexes. All indexes will then be marked as {@linkplain IndexState#READABLE readable}
+     * when this function completes. Note that this will attempt to read all of the records within
+     * this store in a single transaction, so for large record stores, this can run up against transaction
+     * time and size limits. For larger stores, one should use the {@link OnlineIndexer} to build
+     * each index instead.
+     *
+     * @return a future that will complete when all of the indexes are built
+     */
     @Nonnull
     public CompletableFuture<Void> rebuildAllIndexes() {
         Transaction tr = ensureContextActive();
+        // Note that index states are *not* cleared, as rebuilding the indexes resets each state
         tr.clear(getSubspace().range(Tuple.from(INDEX_KEY)));
         tr.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY)));
         tr.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY)));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_STATE_SPACE_KEY)));
         tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY)));
         List<CompletableFuture<Void>> work = new LinkedList<>();
         addRebuildRecordCountsJob(work);
@@ -2433,6 +2447,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return markIndexReadable(index).thenApply(b -> null);
     }
 
+    /**
+     * Rebuild an index. This clears the index and attempts to build it within a single transaction. Upon
+     * successful completion, the index is marked as {@linkplain IndexState#READABLE readable} and can
+     * be used to satisfy queries.
+     *
+     * <p>
+     * Because the operations all occur within a single transaction, for larger record stores,
+     * this operation can run into transaction size and time limits. (See:
+     * <a href="https://apple.github.io/foundationdb/known-limitations.html">FoundationDB Known Limitations</a>.)
+     * To build an index on such a record store, the user should use the {@link OnlineIndexer}, which
+     * breaks up work across multiple transactions to avoid those limits.
+     * </p>
+     *
+     * @param index the index to rebuild
+     * @return a future that will complete when the index build has finished
+     * @see OnlineIndexer
+     */
+    @Nonnull
     public CompletableFuture<Void> rebuildIndex(@Nonnull Index index) {
         return rebuildIndex(index, getRecordMetaData().recordTypesForIndex(index), RebuildIndexReason.EXPLICIT);
     }
