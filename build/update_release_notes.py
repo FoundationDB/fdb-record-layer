@@ -39,6 +39,30 @@ import argparse
 import sys
 
 
+template = '''### NEXT_RELEASE
+
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+'''
+
 def extract_endpoints(lines, name):
     '''Find the beginning and ending line numbers of the section with the given name'''
     start = 0
@@ -51,12 +75,6 @@ def extract_endpoints(lines, name):
         i += 1
     end = i
     return start, end
-
-
-def extract_template(lines):
-    '''Get the contents of the release notes template.'''
-    start, end = extract_endpoints(lines, 'template')
-    return lines[start:end]
 
 
 def get_next_release_endpoints(lines):
@@ -80,13 +98,12 @@ def get_new_contents(filename, new_version):
     '''Given the name of the release notes file and the new version, generate the new contents of the file.'''
     with open(filename, 'r') as fin:
         lines = fin.read().split('\n')
-    template = extract_template(lines)
     next_release_start, next_release_end = get_next_release_endpoints(lines)
     updated_next_release_notes = update_next_release_lines(lines[next_release_start:next_release_end], new_version)
 
     return '\n'.join(lines[:next_release_start-2]
         + ['<!--', '// begin next release']
-        + template
+        + [template]
         + ['// end next release', '-->', '']
         + updated_next_release_notes
         + lines[next_release_end+3:])
