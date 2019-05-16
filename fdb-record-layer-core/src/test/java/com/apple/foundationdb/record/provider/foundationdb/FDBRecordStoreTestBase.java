@@ -62,7 +62,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreTestBase.class);
 
-    private static final Object[] PATH_OBJECTS = new Object[]{"record-test", "unit", "recordStore"};
+    protected static final Object[] PATH_OBJECTS = new Object[]{"record-test", "unit", "recordStore"};
 
     protected FDBDatabase fdb;
     protected FDBRecordStore recordStore;

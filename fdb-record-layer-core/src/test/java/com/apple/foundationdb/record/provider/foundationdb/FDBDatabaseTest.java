@@ -58,8 +58,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class FDBDatabaseTest extends FDBTestBase {
 
-    private static final Object[] PATH_OBJECTS = {"record-test", "unit"};
-
     @Test
     public void cachedVersionMaintenanceOnReadsTest() throws Exception {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
@@ -330,7 +328,7 @@ public class FDBDatabaseTest extends FDBTestBase {
 
         database.run(context -> {
             FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                    .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
+                    .setKeySpacePath(TestKeySpace.getKeyspacePath(FDBRecordStoreTestBase.PATH_OBJECTS))
                     .build();
             store.deleteAllRecords();
             store.saveRecord(simpleRecord);
@@ -343,7 +341,7 @@ public class FDBDatabaseTest extends FDBTestBase {
         // Tests to make sure the database operations are run and committed.
         TestRecords1Proto.MySimpleRecord retrieved = database.run(context -> {
             FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                    .setKeySpacePath(TestKeySpace.getKeyspacePath(PATH_OBJECTS))
+                    .setKeySpacePath(TestKeySpace.getKeyspacePath(FDBRecordStoreTestBase.PATH_OBJECTS))
                     .build();
             TestRecords1Proto.MySimpleRecord.Builder builder = TestRecords1Proto.MySimpleRecord.newBuilder();
             FDBStoredRecord<Message> rec = store.loadRecord(Tuple.from(recordNumber));
