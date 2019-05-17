@@ -452,6 +452,8 @@ public class FDBStoreTimer extends StoreTimer {
         INVALID_SPLIT_SUFFIX("invalid split suffix", false),
         /** The number of record keys with an incorrect length found by {@link FDBRecordStore#repairRecordKeys(byte[], com.apple.foundationdb.record.ScanProperties)}. */
         INVALID_KEY_LENGTH("invalid record key", false),
+        /** The number of indexes that need to be rebuilt in the record store. */
+        INDEXES_NEED_REBUILDING("indexes need rebuilding", false),
         ;
 
         private final String title;
