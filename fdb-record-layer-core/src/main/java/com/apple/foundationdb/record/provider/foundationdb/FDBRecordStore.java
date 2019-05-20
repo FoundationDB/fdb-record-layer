@@ -2797,7 +2797,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             newStates.put(index, state);
         }
-        if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
+        if (LOGGER.isDebugEnabled()) {
             KeyValueLogMessage msg = KeyValueLogMessage.build("indexes need rebuilding",
                     "recordCount", recordCount == Long.MAX_VALUE ? "unknown" : Long.toString(recordCount),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
@@ -2817,11 +2817,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             msg.addKeysAndValues(stateNames);
             if (newStore) {
                 msg.addKeyAndValue("newStore", "true");
-                LOGGER.debug(msg.toString());
-            } else {
-                LOGGER.info(msg.toString());
             }
+            LOGGER.debug(msg.toString());
         }
+        context.increment(FDBStoreTimer.Counts.INDEXES_NEED_REBUILDING, newStates.entrySet().size());
         return newStates;
     }
 
