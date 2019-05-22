@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -423,28 +424,16 @@ public class KeyValueCursorTest extends FDBTestBase {
 
     @Test
     public void buildWithoutRequiredProperties() {
-        try {
-            RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
-                                                .build();
-            // Program flow should not reach here.
-            assertTrue(false);
-        } catch (RecordCoreException ex) {
-            assertTrue(true);
-        }
+        assertThrows(RecordCoreException.class, () -> KeyValueCursor.Builder.withSubspace(subspace)
+                                                        .build());
     }
 
     @Test
     public void buildWithoutScanProperties() {
         fdb.run(context -> {
-            try {
-                RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
-                                                    .setContext(context)
-                                                    .build();
-                // Program flow should not reach here.
-                assertTrue(false);
-            } catch (RecordCoreException ex) {
-                assertTrue(true);
-            }
+            assertThrows(RecordCoreException.class, () -> KeyValueCursor.Builder.withSubspace(subspace)
+                                                            .setContext(context)
+                                                            .build());
 
             return null;
         });
