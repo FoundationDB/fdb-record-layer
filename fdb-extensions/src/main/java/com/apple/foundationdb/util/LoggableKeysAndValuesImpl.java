@@ -1,9 +1,9 @@
 /*
- * LoggableException.java
+ * LoggableKeysAndValuesImpl.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,41 +24,31 @@ import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Exception type with support for adding keys and values to its log info. This can then
- * be logged in a way that better supports searching later.
+ * Provides a default implementation of {@link LoggableKeysAndValues}.
  */
 @SuppressWarnings("serial")
 @API(API.Status.MAINTAINED)
-public class LoggableException extends RuntimeException implements LoggableKeysAndValues<LoggableException> {
-    @Nonnull private final LoggableKeysAndValuesImpl loggableKeysAndValuesImpl = new LoggableKeysAndValuesImpl();
+public class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<LoggableKeysAndValuesImpl> {
+    private static final Object[] EMPTY_LOG_INFO = new Object[0];
+    @Nullable private Map<String, Object> logInfo;
 
     /**
-     * Create an exception with the given message a the sequence of key-value pairs.
+     * Create an instance with the given message and a sequence of key-value pairs.
      * This will throw an {@link IllegalArgumentException} if <code>keyValues</code>
      * contains an odd number of elements.
      *
-     * @param msg error message
      * @param keyValues list
      * @see #addLogInfo(Object...)
      */
-    public LoggableException(@Nonnull String msg, @Nullable Object ... keyValues) {
-        super(msg);
-        this.loggableKeysAndValuesImpl.addLogInfo(keyValues);
-    }
-
-    public LoggableException(Throwable cause) {
-        super(cause);
-    }
-
-    public LoggableException(@Nonnull String msg, @Nullable Throwable cause) {
-        super(msg, cause);
-    }
-
-    public LoggableException(@Nonnull String msg) {
-        super(msg);
+    public LoggableKeysAndValuesImpl(@Nullable Object ... keyValues) {
+        if (keyValues != null) {
+            addLogInfo(keyValues);
+        }
     }
 
     /**
@@ -69,7 +59,10 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
     @Nonnull
     @Override
     public Map<String, Object> getLogInfo() {
-        return loggableKeysAndValuesImpl.getLogInfo();
+        if (logInfo == null) {
+            return Collections.emptyMap();
+        }
+        return Collections.unmodifiableMap(logInfo);
     }
 
     /**
@@ -82,8 +75,11 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      */
     @Nonnull
     @Override
-    public LoggableException addLogInfo(@Nonnull String description, Object object) {
-        loggableKeysAndValuesImpl.addLogInfo(description, object);
+    public LoggableKeysAndValuesImpl addLogInfo(@Nonnull String description, Object object) {
+        if (logInfo == null) {
+            logInfo = new HashMap<>();
+        }
+        logInfo.put(description, object);
         return this;
     }
 
@@ -102,8 +98,14 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      */
     @Nonnull
     @Override
-    public LoggableException addLogInfo(@Nonnull Object ... keyValue) {
-        loggableKeysAndValuesImpl.addLogInfo(keyValue);
+    public LoggableKeysAndValuesImpl addLogInfo(@Nonnull Object ... keyValue) {
+        if ((keyValue.length % 2) != 0) {
+            throw new IllegalArgumentException("Unbalanced key/value logging info");
+        }
+
+        for (int i = 0; i < keyValue.length; i += 2) {
+            addLogInfo(String.valueOf(keyValue[i]), keyValue[i + 1]);
+        }
         return this;
     }
 
@@ -112,14 +114,23 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * be returned by {@link #getLogInfo()} into an array where every even element is a key
      * within the map and every odd element is the value associated with the key before it. So,
      * for example, <code>{"k0:"v0", "k1":"v1"}</code> would be flattened into
-     * <code>["k0", "v0", "k1", "v1"]</code>. Note that this is the same format that is
-     * accepted by {@link #addLogInfo(Object...)} and by {@link #LoggableException(String, Object...)}.
+     * <code>["k0", "v0", "k1", "v1"]</code>.
      *
      * @return a flattened map of key-value pairs
      */
     @Nonnull
     @Override
     public Object[] exportLogInfo() {
-        return loggableKeysAndValuesImpl.exportLogInfo();
+        if (logInfo == null) {
+            return EMPTY_LOG_INFO;
+        }
+        Object[] exportedInfo = new Object[2 * logInfo.size()];
+        int i = 0;
+        for (Map.Entry<String,Object> entry : logInfo.entrySet()) {
+            exportedInfo[i] = entry.getKey();
+            exportedInfo[i + 1] = entry.getValue();
+            i += 2;
+        }
+        return exportedInfo;
     }
 }
