@@ -91,7 +91,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -2104,7 +2103,7 @@ public class OnlineIndexerTest extends FDBTestBase {
 
             // Non-FDB error
             attempts.set(0);
-            indexBuilder.runAsync(store -> {
+            runAndHandleLessenWorkCodes(indexBuilder, store -> {
                 attempts.incrementAndGet();
                 throw new IllegalStateException("illegal state");
             }).handle((val, e) -> {
@@ -2119,7 +2118,7 @@ public class OnlineIndexerTest extends FDBTestBase {
 
             // Retriable error that is not in lessen work codes.
             attempts.set(0);
-            indexBuilder.runAsync(store -> {
+            runAndHandleLessenWorkCodes(indexBuilder, store -> {
                 attempts.incrementAndGet();
                 throw new RecordCoreRetriableTransactionException("Retriable", new FDBException("commit_unknown_result", 1021));
             }).handle((val, e) -> {
@@ -2136,7 +2135,7 @@ public class OnlineIndexerTest extends FDBTestBase {
 
             // Non-retriable error that is in lessen work codes.
             attempts.set(0);
-            indexBuilder.runAsync(store -> {
+            runAndHandleLessenWorkCodes(indexBuilder, store -> {
                 attempts.incrementAndGet();
                 throw new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
             }).handle((val, e) -> {
@@ -2154,7 +2153,7 @@ public class OnlineIndexerTest extends FDBTestBase {
 
             // Retriable error that is in lessen work codes.
             attempts.set(0);
-            indexBuilder.runAsync(store -> {
+            runAndHandleLessenWorkCodes(indexBuilder, store -> {
                 attempts.incrementAndGet();
                 throw new RecordCoreRetriableTransactionException("Retriable and lessener", new FDBException("not_committed", 1020));
             }).handle((val, e) -> {
@@ -2172,6 +2171,10 @@ public class OnlineIndexerTest extends FDBTestBase {
         }
     }
 
+    private <R> CompletableFuture<R> runAndHandleLessenWorkCodes(OnlineIndexer indexBuilder, @Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
+        return indexBuilder.runAsync(function, Pair::of, indexBuilder::decreaseLimit, null);
+    }
+
     @Test
     public void lessenLimits() {
         Index index = runAsyncSetup();
@@ -2187,11 +2190,11 @@ public class OnlineIndexerTest extends FDBTestBase {
 
             // Non-retriable error that is in lessen work codes.
             attempts.set(0);
-            indexBuilder.runAsync(store -> {
+            indexBuilder.buildAsync((store, recordsScanned) -> {
                 assertEquals(attempts.getAndIncrement(), indexBuilder.getLimit(),
                         limit.getAndUpdate(x -> Math.max(x, (3 * x) / 4)));
                 throw new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
-            }).handle((val, e) -> {
+            }, true, null).handle((val, e) -> {
                 assertNotNull(e);
                 assertThat(e, instanceOf(RecordCoreException.class));
                 assertEquals("Non-retriable", e.getMessage());
@@ -2291,7 +2294,7 @@ public class OnlineIndexerTest extends FDBTestBase {
             AtomicInteger attempts = new AtomicInteger();
             attempts.set(0);
             AsyncUtil.whileTrue(() ->
-                    indexBuilder.runAsync(store -> {
+                    indexBuilder.buildAsync((store, recordsScanned) -> {
                         Pair<Integer, Supplier<RuntimeException>> behavior = queue.poll();
                         if (behavior == null) {
                             return AsyncUtil.READY_FALSE;
@@ -2304,7 +2307,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                             }
                             return AsyncUtil.READY_TRUE;
                         }
-                    })).join();
+                    }, true, null)).join();
             assertNull(queue.poll());
         }
     }
@@ -2342,27 +2345,25 @@ public class OnlineIndexerTest extends FDBTestBase {
 
             AtomicInteger attempts = new AtomicInteger();
             attempts.set(0);
-            AsyncUtil.whileTrue(() -> {
-                AtomicLong recordsScanned = new AtomicLong(0);
-                return indexBuilder.runAsync(
-                        store -> {
-                            Pair<Long, Supplier<RuntimeException>> behavior = queue.poll();
-                            if (behavior == null) {
-                                return AsyncUtil.READY_FALSE;
-                            } else {
-                                int currentAttempt = attempts.getAndIncrement();
-                                assertEquals(1, recordsScanned.incrementAndGet());
-                                assertEquals(behavior.getLeft().longValue(), indexBuilder.getTotalRecordsScanned(),
-                                        "Attempt " + currentAttempt);
-                                if (behavior.getRight() != null) {
-                                    throw behavior.getRight().get();
-                                }
-                                return AsyncUtil.READY_TRUE;
+            AsyncUtil.whileTrue(() -> indexBuilder.buildAsync(
+                    (store, recordsScanned) -> {
+                        Pair<Long, Supplier<RuntimeException>> behavior = queue.poll();
+                        if (behavior == null) {
+                            return AsyncUtil.READY_FALSE;
+                        } else {
+                            int currentAttempt = attempts.getAndIncrement();
+                            assertEquals(1, recordsScanned.incrementAndGet());
+                            assertEquals(behavior.getLeft().longValue(), indexBuilder.getTotalRecordsScanned(),
+                                    "Attempt " + currentAttempt);
+                            if (behavior.getRight() != null) {
+                                throw behavior.getRight().get();
                             }
-                        },
-                        (result, exception) -> indexBuilder.runAsyncPostTransaction(result, exception, recordsScanned),
-                        Arrays.asList(LogMessageKeys.CALLING_METHOD, "OnlineIndexerTest.recordsScanned"));
-            }).join();
+                            return AsyncUtil.READY_TRUE;
+                        }
+                    },
+                    true,
+                    Arrays.asList(LogMessageKeys.CALLING_METHOD, "OnlineIndexerTest.recordsScanned"))
+            ).join();
             assertNull(queue.poll());
             assertEquals(5L, indexBuilder.getTotalRecordsScanned());
         }
