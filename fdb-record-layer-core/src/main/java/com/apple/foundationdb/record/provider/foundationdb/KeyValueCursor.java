@@ -192,7 +192,15 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             return new Builder(subspace);
         }
 
-        public KeyValueCursor build() {
+        public KeyValueCursor build() throws RecordCoreException {
+            if (subspace == null) {
+                throw new RecordCoreException("record subspace must be supplied");
+            }
+
+            if (context == null) {
+                throw new RecordCoreException("record context must be supplied");
+            }
+
             if (lowBytes == null) {
                 lowBytes = subspace.pack();
             }
