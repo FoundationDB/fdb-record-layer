@@ -201,6 +201,10 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
                 throw new RecordCoreException("record context must be supplied");
             }
 
+            if (scanProperties == null) {
+                throw new RecordCoreException("record scanProperties must be supplied");
+            }
+
             if (lowBytes == null) {
                 lowBytes = subspace.pack();
             }

@@ -24,6 +24,7 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -419,4 +420,52 @@ public class KeyValueCursorTest extends FDBTestBase {
             return null;
         });
     }
+
+    @Test
+    public void buildWithoutRequiredProperties() {
+        try {
+            RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
+                                                .build();
+            // Program flow should not reach here.
+            assertTrue(false);
+        } catch (RecordCoreException ex) {
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void buildWithoutScanProperties() {
+        fdb.run(context -> {
+            try {
+                RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
+                                                    .setContext(context)
+                                                    .build();
+                // Program flow should not reach here.
+                assertTrue(false);
+            } catch (RecordCoreException ex) {
+                assertTrue(true);
+            }
+
+            return null;
+        });
+    }
+
+    @Test
+    public void buildWitRequiredProperties() {
+        fdb.run(context -> {
+            try {
+                RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
+                                                    .setContext(context)
+                                                    .setScanProperties(ScanProperties.FORWARD_SCAN)
+                                                    .build();
+                assertTrue(true);
+            } catch (RecordCoreException ex) {
+                // Program flow should not reach here.
+                assertTrue(false);
+            }
+
+            return null;
+        });
+    }
+
 }
