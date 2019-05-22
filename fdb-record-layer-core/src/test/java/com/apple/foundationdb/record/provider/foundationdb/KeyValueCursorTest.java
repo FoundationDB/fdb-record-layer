@@ -440,7 +440,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     }
 
     @Test
-    public void buildWitRequiredProperties() {
+    public void buildWithRequiredProperties() {
         fdb.run(context -> {
             try {
                 RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
