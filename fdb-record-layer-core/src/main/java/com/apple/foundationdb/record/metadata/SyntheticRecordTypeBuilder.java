@@ -167,7 +167,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
                     .setName(constituent.getName())
                     .setNumber(++fieldNumber)
                     .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
-                    .setTypeName(constituent.getRecordType().getDescriptor().getFullName());
+                    .setTypeName("." + constituent.getRecordType().getDescriptor().getFullName());
         }
     }
 
