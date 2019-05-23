@@ -369,7 +369,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
         try {
             ThreadContext.clearAll();
             ThreadContext.put("outer", "Echidna");
-            Map<String, String> outer = ThreadContext.getContext();
+            final Map<String, String> outer = ThreadContext.getContext();
             final ImmutableMap<String, String> restored = ImmutableMap.of("restored", "Platypus");
 
             FDBDatabaseFactory.instance().setExecutor(new FDBRecordContext.ContextRestoringExecutor(
@@ -382,9 +382,13 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             final String runnerRunAsyncName = "runner runAsync";
             final String supplyAsyncName = "supplyAsync";
             final String handleName = "handle";
-            assertNull(runner.runAsync(recordContext -> {
+
+            // Delay starting the future until all callbacks have been set up so that the handle lambda
+            // runs in the context-restoring executor.
+            CompletableFuture<Void> signal = new CompletableFuture<>();
+            CompletableFuture<?> task = runner.runAsync(recordContext -> {
                 saveThreadContext.accept(runnerRunAsyncName);
-                return CompletableFuture.supplyAsync(() -> {
+                return signal.thenCompose(vignore -> CompletableFuture.supplyAsync(() -> {
                     saveThreadContext.accept(supplyAsyncName);
                     if (attempts.getAndIncrement() == 0) {
                         throw new RecordCoreRetriableTransactionException("Retriable and lessener",
@@ -392,11 +396,14 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
                     } else {
                         return null;
                     }
-                }, recordContext.getExecutor());
+                }, recordContext.getExecutor()));
             }).handle((result, exception) -> {
                 saveThreadContext.accept(handleName);
                 return exception;
-            }).join());
+
+            });
+            signal.complete(null);
+            assertNull(task.join());
             List<Map<String, String>> expected = ImmutableList.of(
                     // first attempt:
                     // it is known behavior that the first will be run in the current context
