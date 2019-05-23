@@ -191,7 +191,7 @@ public class FDBDatabase {
         if (!opened) {
             final FDB fdb = factory.initFDB();
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(KeyValueLogMessage.of("Opening FDB", "cluster", clusterFile));
+                LOGGER.debug(KeyValueLogMessage.of("Opening FDB", LogMessageKeys.CLUSTER, clusterFile));
             }
             database = fdb.open(clusterFile);
             setDirectoryCacheSize(factory.getDirectoryCacheSize());

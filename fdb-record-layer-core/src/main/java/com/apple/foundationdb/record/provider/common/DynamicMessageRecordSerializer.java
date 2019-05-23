@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.common;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
@@ -161,9 +162,9 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         if (!message.getUnknownFields().asMap().isEmpty()) {
             if (LOGGER.isWarnEnabled()) {
                 LOGGER.warn(KeyValueLogMessage.of("Deserialized message has unknown fields",
-                        "primaryKey", primaryKey,
-                        "recordType", message.getDescriptorForType().getName(),
-                        "unknownFields", message.getUnknownFields().asMap().keySet()));
+                        LogMessageKeys.PRIMARY_KEY_C  , primaryKey,
+                        LogMessageKeys.RECORD_TYPE_C  , message.getDescriptorForType().getName(),
+                        LogMessageKeys.UNKNOWN_FIELDS , message.getUnknownFields().asMap().keySet()));
             }
         }
         return new ImmutablePair<>(entry.getKey(), message);

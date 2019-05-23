@@ -406,9 +406,9 @@ public class OnlineIndexer implements AutoCloseable {
         limit = Math.max(1, (3 * limit) / 4);
         if (LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
-                    "error", fdbException.getMessage(),
-                    "errorCode", fdbException.getCode(),
-                    "limit", limit);
+                                                LogMessageKeys.ERROR         , fdbException.getMessage(),
+                                                LogMessageKeys.ERROR_CODE    , fdbException.getCode(),
+                                                LogMessageKeys.LIMIT         , limit);
             if (additionalLogMessageKeyValues != null) {
                 message.addKeysAndValues(additionalLogMessageKeyValues);
             }
@@ -434,9 +434,9 @@ public class OnlineIndexer implements AutoCloseable {
         limit = Math.min(maxLimit, Math.max(limit + 1, (4 * limit) / 3));
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("Re-increasing limit of online index build",
-                    "indexName", index.getName(),
-                    "indexVersion", index.getLastModifiedVersion(),
-                    "limit", limit));
+                            LogMessageKeys.INDEX_NAME    , index.getName(),
+                            LogMessageKeys.INDEX_VERSION , index.getLastModifiedVersion(),
+                            LogMessageKeys.LIMIT         , limit));
         }
     }
 
@@ -683,13 +683,13 @@ public class OnlineIndexer implements AutoCloseable {
                     && System.currentTimeMillis() - timeOfLastProgressLogMillis > progressLogIntervalMillis)
                 || progressLogIntervalMillis == 0) {
             LOGGER.info(KeyValueLogMessage.of("Built Range",
-                    LogMessageKeys.INDEX_NAME, index.getName(),
-                    "indexVersion", index.getLastModifiedVersion(),
-                    subspaceProvider.logKey(), subspaceProvider,
-                    "startTuple", startTuple,
-                    "endTuple", endTuple,
-                    "realEnd", realEnd,
-                    "recordsScanned", totalRecordsScanned.get()));
+                            LogMessageKeys.INDEX_NAME      , index.getName(),
+                            LogMessageKeys.INDEX_VERSION   , index.getLastModifiedVersion(),
+                            subspaceProvider.logKey()      , subspaceProvider,
+                            LogMessageKeys.START_TUPLE     , startTuple,
+                            LogMessageKeys.END_TUPLE       , endTuple,
+                            LogMessageKeys.REAL_END        , realEnd,
+                            LogMessageKeys.RECORDS_SCANNED , totalRecordsScanned.get()));
             timeOfLastProgressLogMillis = System.currentTimeMillis();
         }
     }
@@ -1039,9 +1039,9 @@ public class OnlineIndexer implements AutoCloseable {
 
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("split index build range",
-                    "indexName", index.getName(),
-                    "originalRange", originalRange,
-                    "splitRanges", splitRanges));
+                            LogMessageKeys.INDEX_NAME_C   , index.getName(),
+                            LogMessageKeys.ORIGINAL_RANGE , originalRange,
+                            LogMessageKeys.SPLIT_RANGES   , splitRanges));
         }
 
         return splitRanges;
