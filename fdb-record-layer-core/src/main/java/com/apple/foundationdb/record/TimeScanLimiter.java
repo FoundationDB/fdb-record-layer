@@ -51,8 +51,8 @@ public class TimeScanLimiter {
             if ((now - startTime) >= timeLimitMillis) {
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(KeyValueLogMessage.of("Cursor time limit exceeded",
-                                    LogMessageKeys.CURSOR_ELAPSED_MILLIS    , (now - startTime),
-                                    LogMessageKeys.CURSOR_TIME_LIMIT_MILLIS , timeLimitMillis));
+                                    LogMessageKeys.CURSOR_ELAPSED_MILLIS, (now - startTime),
+                                    LogMessageKeys.CURSOR_TIME_LIMIT_MILLIS, timeLimitMillis));
                 }
                 isTimedOut = true;
             }

@@ -209,9 +209,9 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     public void testPlans(String description, boolean fail, RecordQueryPlan plan) throws Exception {
         // include a scanLimit of 0, in which case all progress happens via the first "free" key-value scan.
         LOGGER.info(KeyValueLogMessage.of("running plan to check scan limit failures",
-                        LogMessageKeys.DESCRIPTION , description,
-                        LogMessageKeys.PLAN        , plan,
-                        LogMessageKeys.FAIL        , fail));
+                        LogMessageKeys.DESCRIPTION, description,
+                        LogMessageKeys.PLAN, plan,
+                        LogMessageKeys.FAIL, fail));
         int maximumToScan = getMaximumToScan(plan);
         for (int limit = 0; limit <= maximumToScan * 2; limit = limit * 2 + 1) {
             assertNumberOfRecordsScanned(limit, plan,

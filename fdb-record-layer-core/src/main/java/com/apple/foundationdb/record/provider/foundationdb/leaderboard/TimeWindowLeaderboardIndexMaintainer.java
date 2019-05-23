@@ -615,9 +615,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                         if (latestEntryTimestamp >= earliestAddedStartTimestamp) {
                             rebuild = true;
                             LOGGER.info(KeyValueLogMessage.of("rebuilding leaderboard index due to overlapping existing record",
-                                            LogMessageKeys.LATEST_ENTRY_TIMESTAMP         , latestEntryTimestamp,
-                                            LogMessageKeys.EARLIEST_ADDED_START_TIMESTAMP , earliestAddedStartTimestamp,
-                                            LogMessageKeys.SUBSPACE                       , ByteArrayUtil2.loggable(state.indexSubspace.pack())));
+                                            LogMessageKeys.LATEST_ENTRY_TIMESTAMP, latestEntryTimestamp,
+                                            LogMessageKeys.EARLIEST_ADDED_START_TIMESTAMP, earliestAddedStartTimestamp,
+                                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
                             if (getTimer() != null) {
                                 getTimer().increment(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED);
                             }

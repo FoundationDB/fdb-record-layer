@@ -262,10 +262,10 @@ public abstract class LocatableResolver {
                 .thenCombine(getResolverState(null), (readState, cachedState) -> {
                     if (!readState.equals(cachedState)) {
                         LOGGER.warn(KeyValueLogMessage.of("cached state and read stated differ",
-                                        LogMessageKeys.RESOLVER_KEY  , key,
-                                        LogMessageKeys.RESOLVER_PATH , location,
-                                        LogMessageKeys.CACHED_STATE  , cachedState,
-                                        LogMessageKeys.READ_STATE    , readState));
+                                        LogMessageKeys.RESOLVER_KEY, key,
+                                        LogMessageKeys.RESOLVER_PATH, location,
+                                        LogMessageKeys.CACHED_STATE, cachedState,
+                                        LogMessageKeys.READ_STATE, readState));
                     }
                     return readState;
                 })

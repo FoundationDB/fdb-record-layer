@@ -162,9 +162,9 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         if (!message.getUnknownFields().asMap().isEmpty()) {
             if (LOGGER.isWarnEnabled()) {
                 LOGGER.warn(KeyValueLogMessage.of("Deserialized message has unknown fields",
-                        LogMessageKeys.PRIMARY_KEY_C  , primaryKey,
-                        LogMessageKeys.RECORD_TYPE_C  , message.getDescriptorForType().getName(),
-                        LogMessageKeys.UNKNOWN_FIELDS , message.getUnknownFields().asMap().keySet()));
+                        LogMessageKeys.PRIMARY_KEY_C, primaryKey,
+                        LogMessageKeys.RECORD_TYPE_C, message.getDescriptorForType().getName(),
+                        LogMessageKeys.UNKNOWN_FIELDS, message.getUnknownFields().asMap().keySet()));
             }
         }
         return new ImmutablePair<>(entry.getKey(), message);

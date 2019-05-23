@@ -228,8 +228,8 @@ public class FDBReverseDirectoryCache {
                     }
 
                     LOGGER.warn(KeyValueLogMessage.of("Value not found in reverse directory cache, need to scan",
-                                    LogMessageKeys.PROVIDED_KEY , scopedReverseDirectoryKey,
-                                    LogMessageKeys.SUBSPACE     , context.join(reverseCacheSubspaceFuture)));
+                                    LogMessageKeys.PROVIDED_KEY, scopedReverseDirectoryKey,
+                                    LogMessageKeys.SUBSPACE, context.join(reverseCacheSubspaceFuture)));
                     final CompletableFuture<Subspace> subdirsFuture = scopedReverseDirectoryKey.getScope().getMappingSubspaceAsync();
 
                     return context.instrument(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN,
@@ -386,8 +386,8 @@ public class FDBReverseDirectoryCache {
                         .thenApply(value -> {
                             if (LOGGER.isDebugEnabled()) {
                                 LOGGER.debug(KeyValueLogMessage.of("Adding value to reverse directory cache",
-                                                LogMessageKeys.KEY   , pathKey,
-                                                LogMessageKeys.VALUE , value));
+                                                LogMessageKeys.KEY, pathKey,
+                                                LogMessageKeys.VALUE, value));
                             }
                             context.ensureActive().set(reverseCacheSubspace.pack(value), Tuple.from(pathKey.getData()).pack());
                             return null;

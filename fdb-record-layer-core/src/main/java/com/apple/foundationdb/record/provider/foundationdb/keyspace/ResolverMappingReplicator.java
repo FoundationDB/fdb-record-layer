@@ -147,8 +147,8 @@ public class ResolverMappingReplicator implements AutoCloseable {
                     byte[] nextContinuationBytes = lastResult.getContinuation().toBytes();
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("committing batch",
-                                        LogMessageKeys.SCANNED_SO_FAR    , counter.get(),
-                                        LogMessageKeys.NEXT_CONTINUATION , ByteArrayUtil2.loggable(nextContinuationBytes)));
+                                        LogMessageKeys.SCANNED_SO_FAR, counter.get(),
+                                        LogMessageKeys.NEXT_CONTINUATION, ByteArrayUtil2.loggable(nextContinuationBytes)));
                     }
                     continuation.set(nextContinuationBytes);
                 }))

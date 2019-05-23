@@ -199,8 +199,8 @@ public class ProbableIntersectionCursorTest {
         for (int itr = 0; itr < 50; itr++) {
             long seed = r.nextLong();
             LOGGER.info(KeyValueLogMessage.of("running intersection with large lists",
-                            LogMessageKeys.SEED      , seed,
-                            LogMessageKeys.ITERATION , itr));
+                            LogMessageKeys.SEED, seed,
+                            LogMessageKeys.ITERATION, itr));
             r.setSeed(seed);
 
             final List<List<Integer>> lists = Stream.generate(

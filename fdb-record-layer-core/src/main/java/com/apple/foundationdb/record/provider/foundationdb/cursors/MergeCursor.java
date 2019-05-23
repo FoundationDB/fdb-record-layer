@@ -138,10 +138,10 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
         long checkStateTime = System.currentTimeMillis();
         if (checkStateTime - startTime > MAX_NEXT_STATE_MILLIS) {
             KeyValueLogMessage logMessage = KeyValueLogMessage.build("time computing next state exceeded",
-                                                LogMessageKeys.TIME_STARTED    , startTime * 1.0e-3,
-                                                LogMessageKeys.TIME_ENDED      , checkStateTime * 1.0e-3,
-                                                LogMessageKeys.DURATION_MILLIS , checkStateTime - startTime,
-                                                LogMessageKeys.CHILD_COUNT     , cursorStates.size());
+                                                LogMessageKeys.TIME_STARTED, startTime * 1.0e-3,
+                                                LogMessageKeys.TIME_ENDED, checkStateTime * 1.0e-3,
+                                                LogMessageKeys.DURATION_MILLIS, checkStateTime - startTime,
+                                                LogMessageKeys.CHILD_COUNT, cursorStates.size());
             if (LOGGER.isDebugEnabled()) {
                 logMessage.addKeyAndValue("child_states", cursorStates.stream()
                         .map(cursorState -> "(future=" + cursorState.getOnNextFuture() +

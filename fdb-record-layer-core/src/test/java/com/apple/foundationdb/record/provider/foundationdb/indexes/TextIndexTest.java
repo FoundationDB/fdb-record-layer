@@ -1267,14 +1267,14 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         final RecordQuery query = queryBuilder.build();
         final RecordQueryPlan plan = planner.plan(query);
         LOGGER.info(KeyValueLogMessage.of("planned query",
-                        LogMessageKeys.QUERY     , query,
-                        LogMessageKeys.PLAN      , plan,
-                        LogMessageKeys.PLAN_HASH , plan.planHash()));
+                        LogMessageKeys.QUERY, query,
+                        LogMessageKeys.PLAN, plan,
+                        LogMessageKeys.PLAN_HASH, plan.planHash()));
         assertThat(plan, planMatcher);
         if (planHash == 0) {
             LOGGER.warn(KeyValueLogMessage.of("unset plan hash",
-                            LogMessageKeys.PLAN_HASH , plan.planHash(),
-                            LogMessageKeys.FILTER    , filter));
+                            LogMessageKeys.PLAN_HASH, plan.planHash(),
+                            LogMessageKeys.FILTER, filter));
         } else {
             assertEquals(planHash, plan.planHash(), "Mismatched hash for: " + filter);
         }
@@ -2594,8 +2594,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 filter = Query.field("text").text(tokenizer.getName()).containsPrefix(firstToken.substring(0, prefixEnd));
             }
             LOGGER.info(KeyValueLogMessage.of("generated random filter",
-                            LogMessageKeys.ITERATION , i,
-                            LogMessageKeys.FILTER    , filter));
+                            LogMessageKeys.ITERATION, i,
+                            LogMessageKeys.FILTER, filter));
 
             // Manual scan all of the records
             long startTime = System.nanoTime();
@@ -2617,11 +2617,11 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 Set<Long> onlyQuery = new HashSet<>(queryRecordIds);
                 onlyManual.removeAll(manualRecordIds);
                 LOGGER.warn(KeyValueLogMessage.of("results did not match",
-                        LogMessageKeys.FILTER              , filter,
-                        LogMessageKeys.MANUAL_RESULT_COUNT , manualRecordIds.size(),
-                        LogMessageKeys.QUERY_RESULT_COUNT  , queryRecordIds.size(),
-                        LogMessageKeys.ONLY_MANUAL_COUNT   , onlyManual.size(),
-                        LogMessageKeys.ONLY_QUERY_COUNT    , onlyQuery.size()));
+                        LogMessageKeys.FILTER, filter,
+                        LogMessageKeys.MANUAL_RESULT_COUNT, manualRecordIds.size(),
+                        LogMessageKeys.QUERY_RESULT_COUNT, queryRecordIds.size(),
+                        LogMessageKeys.ONLY_MANUAL_COUNT, onlyManual.size(),
+                        LogMessageKeys.ONLY_QUERY_COUNT, onlyQuery.size()));
             }
             assertEquals(manualRecordIds, queryRecordIds);
             LOGGER.info(KeyValueLogMessage.of("results matched", LogMessageKeys.FILTER, filter, LogMessageKeys.RESULT_COUNT, manualRecordIds.size()));
@@ -2629,9 +2629,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
 
         LOGGER.info(KeyValueLogMessage.of("test completed",
-                        LogMessageKeys.TOTAL_SCAN_MILLIS  , TimeUnit.MILLISECONDS.convert(totalScanningTime , TimeUnit.NANOSECONDS),
-                        LogMessageKeys.TOTAL_QUERY_MILLIS , TimeUnit.MILLISECONDS.convert(totalQueryingTime , TimeUnit.NANOSECONDS),
-                        LogMessageKeys.TOTAL_RESULT_COUNT , totalResults));
+                        LogMessageKeys.TOTAL_SCAN_MILLIS, TimeUnit.MILLISECONDS.convert(totalScanningTime, TimeUnit.NANOSECONDS),
+                        LogMessageKeys.TOTAL_QUERY_MILLIS, TimeUnit.MILLISECONDS.convert(totalQueryingTime, TimeUnit.NANOSECONDS),
+                        LogMessageKeys.TOTAL_RESULT_COUNT, totalResults));
     }
 
     @Test

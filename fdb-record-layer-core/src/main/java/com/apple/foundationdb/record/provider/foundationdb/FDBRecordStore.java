@@ -1558,9 +1558,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     if (newUserVersion != oldUserVersion) {
                         if (oldUserVersion > newUserVersion) {
                             LOGGER.error(KeyValueLogMessage.of("stale user version",
-                                            LogMessageKeys.STORED_VERSION , oldUserVersion,
-                                            LogMessageKeys.LOCAL_VERSION  , newUserVersion,
-                                            subspaceProvider.logKey()     , subspaceProvider.toString(context)));
+                                            LogMessageKeys.STORED_VERSION, oldUserVersion,
+                                            LogMessageKeys.LOCAL_VERSION, newUserVersion,
+                                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
                             throw new RecordStoreStaleUserVersionException("Stale user version with local version " + newUserVersion + " and stored version " + oldUserVersion);
                         }
                         info.setUserVersion(newUserVersion);
@@ -2431,11 +2431,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index with no record",
-                                            LogMessageKeys.INDEX_NAME    , index.getName(),
-                                            LogMessageKeys.INDEX_VERSION , index.getLastModifiedVersion(),
-                                            LogMessageKeys.REASON        , reason.name(),
-                                            subspaceProvider.logKey()    , subspaceProvider.toString(context),
-                                            LogMessageKeys.SUBSPACE_KEY  , index.getSubspaceKey());
+                                            LogMessageKeys.INDEX_NAME, index.getName(),
+                                            LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                                            LogMessageKeys.REASON, reason.name(),
+                                            subspaceProvider.logKey(), subspaceProvider.toString(context),
+                                            LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
             if (newStore) {
                 LOGGER.debug(msg.toString());
             } else {
@@ -2474,11 +2474,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index",
-                                            LogMessageKeys.INDEX_NAME    , index.getName(),
-                                            LogMessageKeys.INDEX_VERSION , index.getLastModifiedVersion(),
-                                            LogMessageKeys.REASON        , reason.name(),
-                                            subspaceProvider.logKey()    , subspaceProvider.toString(context),
-                                            LogMessageKeys.SUBSPACE_KEY  , index.getSubspaceKey());
+                                            LogMessageKeys.INDEX_NAME, index.getName(),
+                                            LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                                            LogMessageKeys.REASON, reason.name(),
+                                            subspaceProvider.logKey(), subspaceProvider.toString(context),
+                                            LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
             if (newStore) {
                 LOGGER.debug(msg.toString());
             } else {
@@ -2516,9 +2516,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (oldMetaDataVersion > newMetaDataVersion) {
             CompletableFuture<Void> ret = new CompletableFuture<>();
             ret.completeExceptionally(new RecordStoreStaleMetaDataVersionException("Local meta-data has stale version",
-                                        LogMessageKeys.LOCAL_VERSION  , newMetaDataVersion,
-                                        LogMessageKeys.STORED_VERSION , oldMetaDataVersion,
-                                        subspaceProvider.logKey()     , subspaceProvider.toString(context)));
+                                        LogMessageKeys.LOCAL_VERSION, newMetaDataVersion,
+                                        LogMessageKeys.STORED_VERSION, oldMetaDataVersion,
+                                        subspaceProvider.logKey(), subspaceProvider.toString(context)));
             return ret;
         }
         final boolean metaDataVersionChanged = oldMetaDataVersion != newMetaDataVersion;
@@ -2630,8 +2630,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     // There are no records. Don't use the legacy split format.
                     if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
                         KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
-                                                    LogMessageKeys.NEW_FORMAT_VERSION , formatVersion,
-                                                    subspaceProvider.logKey()         , subspaceProvider.toString(context));
+                                                    LogMessageKeys.NEW_FORMAT_VERSION, formatVersion,
+                                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
                         if (newStore) {
                             LOGGER.debug(msg.toString());
                         } else {
@@ -2799,8 +2799,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         if (LOGGER.isDebugEnabled()) {
             KeyValueLogMessage msg = KeyValueLogMessage.build("indexes need rebuilding",
-                                        LogMessageKeys.RECORD_COUNT , recordCount == Long.MAX_VALUE ? "unknown" : Long.toString(recordCount), 
-                                        subspaceProvider.logKey()   , subspaceProvider.toString(context));
+                                        LogMessageKeys.RECORD_COUNT, recordCount == Long.MAX_VALUE ? "unknown" : Long.toString(recordCount), 
+                                        subspaceProvider.logKey(), subspaceProvider.toString(context));
             if (rebuildRecordCounts) {
                 msg.addKeyAndValue(LogMessageKeys.REBUILD_RECORD_COUNTS, "true");
             }

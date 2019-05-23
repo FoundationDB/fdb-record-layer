@@ -268,12 +268,12 @@ public class OnlineIndexerTest extends FDBTestBase {
                                int agents, boolean overlap, boolean splitLongRecords,
                                @Nonnull Index index, @Nonnull Runnable beforeBuild, @Nonnull Runnable afterBuild, @Nonnull Runnable afterReadable) {
         LOGGER.info(KeyValueLogMessage.of("beginning rebuild test",
-                        LogMessageKeys.RECORDS                , records.size(),
-                        LogMessageKeys.RECORDS_WHILE_BUILDING , recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
-                        LogMessageKeys.AGENTS                 , agents,
-                        LogMessageKeys.OVERLAP                , overlap,
-                        LogMessageKeys.SPLIT_LONG_RECORDS     , splitLongRecords,
-                        LogMessageKeys.INDEX                  , index)
+                        LogMessageKeys.RECORDS, records.size(),
+                        LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
+                        LogMessageKeys.AGENTS, agents,
+                        LogMessageKeys.OVERLAP, overlap,
+                        LogMessageKeys.SPLIT_LONG_RECORDS, splitLongRecords,
+                        LogMessageKeys.INDEX, index)
         );
 
         final RecordMetaDataHook onlySplitHook = metaDataBuilder -> {
@@ -312,11 +312,11 @@ public class OnlineIndexerTest extends FDBTestBase {
             context.commit();
         }
         LOGGER.info(KeyValueLogMessage.of("creating online index builder",
-                        LogMessageKeys.INDEX              , index,
-                        LogMessageKeys.RECORD_TYPES       , metaData.recordTypesForIndex(index),
-                        LogMessageKeys.SUBSPACE           , ByteArrayUtil2.loggable(subspace.pack()),
-                        LogMessageKeys.LIMIT              , 20,
-                        LogMessageKeys.RECORDS_PER_SECOND , OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
+                        LogMessageKeys.INDEX, index,
+                        LogMessageKeys.RECORD_TYPES, metaData.recordTypesForIndex(index),
+                        LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
+                        LogMessageKeys.LIMIT, 20,
+                        LogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
         final OnlineIndexer.Builder builder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setLimit(20).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
@@ -330,10 +330,10 @@ public class OnlineIndexerTest extends FDBTestBase {
         try (OnlineIndexer indexBuilder = builder.build()) {
             CompletableFuture<Void> buildFuture;
             LOGGER.info(KeyValueLogMessage.of("building index",
-                            LogMessageKeys.INDEX                  , index,
-                            LogMessageKeys.INDEX                  , agents,
-                            LogMessageKeys.RECORDS_WHILE_BUILDING , recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
-                            LogMessageKeys.OVERLAP                , overlap));
+                            LogMessageKeys.INDEX, index,
+                            LogMessageKeys.INDEX, agents,
+                            LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
+                            LogMessageKeys.OVERLAP, overlap));
             if (agents == 1) {
                 buildFuture = indexBuilder.buildIndexAsync(false);
             } else {
@@ -354,10 +354,10 @@ public class OnlineIndexerTest extends FDBTestBase {
                                 long itrStart = start + (end - start) / agents * i;
                                 long itrEnd = (i == agents - 1) ? end : start + (end - start) / agents * (i + 1);
                                 LOGGER.info(KeyValueLogMessage.of("building range",
-                                                LogMessageKeys.INDEX , index,
-                                                LogMessageKeys.AGENT , i,
-                                                LogMessageKeys.BEGIN , itrStart,
-                                                LogMessageKeys.END   , itrEnd));
+                                                LogMessageKeys.INDEX, index,
+                                                LogMessageKeys.AGENT, i,
+                                                LogMessageKeys.BEGIN, itrStart,
+                                                LogMessageKeys.END, itrEnd));
                                 futures[i] = indexBuilder.buildRange(
                                         Key.Evaluated.scalar(itrStart),
                                         Key.Evaluated.scalar(itrEnd));
@@ -418,12 +418,12 @@ public class OnlineIndexerTest extends FDBTestBase {
         afterReadable.run();
 
         LOGGER.info(KeyValueLogMessage.of("ending rebuild test",
-                        LogMessageKeys.RECORDS                , records.size(),
-                        LogMessageKeys.RECORDS_WHILE_BUILDING , recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
-                        LogMessageKeys.AGENTS                 , agents,
-                        LogMessageKeys.OVERLAP                , overlap,
-                        LogMessageKeys.SPLIT_LONG_RECORDS     , splitLongRecords,
-                        LogMessageKeys.INDEX                  , index)
+                        LogMessageKeys.RECORDS, records.size(),
+                        LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
+                        LogMessageKeys.AGENTS, agents,
+                        LogMessageKeys.OVERLAP, overlap,
+                        LogMessageKeys.SPLIT_LONG_RECORDS, splitLongRecords,
+                        LogMessageKeys.INDEX, index)
         );
     }
 

@@ -260,9 +260,9 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                 }
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(KeyValueLogMessage.of("Cached serialized meta-data is out-of-date",
-                                    subspaceProvider.logKey()     , subspaceProvider.toString(context),
-                                    LogMessageKeys.VERSION        , currentVersion,
-                                    LogMessageKeys.CACHED_VERSION , cachedSerializedVersion));
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context),
+                                    LogMessageKeys.VERSION, currentVersion,
+                                    LogMessageKeys.CACHED_VERSION, cachedSerializedVersion));
                 }
             } else {
                 cachedSerializedVersion = 0;
@@ -380,9 +380,9 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                 int oldVersion = oldProto.getVersion();
                 if (metaDataProto.getVersion() <= oldVersion) {
                     LOGGER.warn(KeyValueLogMessage.of("Meta-data version did not increase",
-                                    subspaceProvider.logKey() , subspaceProvider.toString(context),
-                                    LogMessageKeys.OLD        , oldVersion,
-                                    LogMessageKeys.NEW        , metaDataProto.getVersion()));
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context),
+                                    LogMessageKeys.OLD, oldVersion,
+                                    LogMessageKeys.NEW, metaDataProto.getVersion()));
                     throw new MetaDataException("meta-data version must increase");
                 }
                 // Build the meta-data, but don't use the local file descriptor as this should validate the original descriptors
@@ -439,9 +439,9 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                             }
                             if (LOGGER.isDebugEnabled()) {
                                 LOGGER.debug(KeyValueLogMessage.of("Cached meta-data is out-of-date",
-                                                subspaceProvider.logKey()     , subspaceProvider.toString(context),
-                                                LogMessageKeys.VERSION        , currentVersion,
-                                                LogMessageKeys.CACHED_VERSION , recordMetaData.getVersion()));
+                                                subspaceProvider.logKey(), subspaceProvider.toString(context),
+                                                LogMessageKeys.VERSION, currentVersion,
+                                                LogMessageKeys.CACHED_VERSION, recordMetaData.getVersion()));
                             }
                             recordMetaData = null;
                         }

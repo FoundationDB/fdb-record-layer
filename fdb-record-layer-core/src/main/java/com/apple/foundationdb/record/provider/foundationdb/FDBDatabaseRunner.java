@@ -350,8 +350,8 @@ public class FDBDatabaseRunner implements AutoCloseable {
                 if (tries + 1 < getMaxAttempts() && retry) {
                     if (LOGGER.isWarnEnabled()) {
                         final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying FDB Exception",
-                                                                LogMessageKeys.MESSAGE      , fdbMessage,
-                                                                LogMessageKeys.CODE         , code);
+                                                                LogMessageKeys.MESSAGE, fdbMessage,
+                                                                LogMessageKeys.CODE, code);
                         if (additionalLogMessageKeyValues != null) {
                             message.addKeysAndValues(additionalLogMessageKeyValues);
                         }

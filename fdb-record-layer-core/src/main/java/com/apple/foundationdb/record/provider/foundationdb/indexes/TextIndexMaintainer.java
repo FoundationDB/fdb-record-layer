@@ -293,23 +293,23 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         final FDBStoreTimer.Event indexUpdateEvent = remove ? FDBStoreTimer.Events.DELETE_INDEX_ENTRY : FDBStoreTimer.Events.SAVE_INDEX_ENTRY;
         if (LOGGER.isDebugEnabled()) {
             KeyValueLogMessage msg = KeyValueLogMessage.build("performed text tokenization",
-                                        LogMessageKeys.REMOVE                                   , remove,
-                                        LogMessageKeys.TEXT_SIZE                                , text.length(),
-                                        LogMessageKeys.UNIQUE_TOKENS                            , positionMap.size(),
-                                        LogMessageKeys.AVG_TOKEN_SIZE                           , positionMap.keySet().stream().mapToInt(String::length).sum() * 1.0 / positionMap.size(),
-                                        LogMessageKeys.MAX_TOKEN_SIZE                           , positionMap.keySet().stream().mapToInt(String::length).max().orElse(0),
-                                        LogMessageKeys.AVG_POSITIONS                            , positionMap.values().stream().mapToInt(List::size).sum() * 1.0 / positionMap.size(),
-                                        LogMessageKeys.MAX_POSITIONS                            , positionMap.values().stream().mapToInt(List::size).max().orElse(0),
-                                        LogMessageKeys.TEXT_KEY_SIZE                            , estimatedSize.getKey(),
-                                        LogMessageKeys.TEXT_VALUE_SIZE                          , estimatedSize.getValue(),
-                                        LogMessageKeys.TEXT_INDEX_SIZE_AMORTIZED                , estimatedSize.getKey() / 10 + estimatedSize.getValue(),
-                                        IndexOptions.TEXT_TOKENIZER_NAME_OPTION                 , tokenizer.getName(),
-                                        IndexOptions.TEXT_TOKENIZER_VERSION_OPTION              , recordTokenizerVersion,
-                                        IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION , addAggressiveConflictRanges,
-                                        LogMessageKeys.PRIMARY_KEY_C                            , savedRecord.getPrimaryKey(),
-                                        LogMessageKeys.SUBSPACE                                 , ByteArrayUtil2.loggable(state.store.getSubspace().getKey()),
-                                        LogMessageKeys.INDEX_SUBSPACE                           , ByteArrayUtil2.loggable(state.indexSubspace.getKey()),
-                                        LogMessageKeys.WROTE_INDEX                              , true);
+                                        LogMessageKeys.REMOVE, remove,
+                                        LogMessageKeys.TEXT_SIZE, text.length(),
+                                        LogMessageKeys.UNIQUE_TOKENS, positionMap.size(),
+                                        LogMessageKeys.AVG_TOKEN_SIZE, positionMap.keySet().stream().mapToInt(String::length).sum() * 1.0 / positionMap.size(),
+                                        LogMessageKeys.MAX_TOKEN_SIZE, positionMap.keySet().stream().mapToInt(String::length).max().orElse(0),
+                                        LogMessageKeys.AVG_POSITIONS, positionMap.values().stream().mapToInt(List::size).sum() * 1.0 / positionMap.size(),
+                                        LogMessageKeys.MAX_POSITIONS, positionMap.values().stream().mapToInt(List::size).max().orElse(0),
+                                        LogMessageKeys.TEXT_KEY_SIZE, estimatedSize.getKey(),
+                                        LogMessageKeys.TEXT_VALUE_SIZE, estimatedSize.getValue(),
+                                        LogMessageKeys.TEXT_INDEX_SIZE_AMORTIZED, estimatedSize.getKey() / 10 + estimatedSize.getValue(),
+                                        IndexOptions.TEXT_TOKENIZER_NAME_OPTION, tokenizer.getName(),
+                                        IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, recordTokenizerVersion,
+                                        IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, addAggressiveConflictRanges,
+                                        LogMessageKeys.PRIMARY_KEY_C, savedRecord.getPrimaryKey(),
+                                        LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.store.getSubspace().getKey()),
+                                        LogMessageKeys.INDEX_SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.getKey()),
+                                        LogMessageKeys.WROTE_INDEX, true);
             LOGGER.debug(msg.toString());
         }
         if (positionMap.isEmpty()) {
