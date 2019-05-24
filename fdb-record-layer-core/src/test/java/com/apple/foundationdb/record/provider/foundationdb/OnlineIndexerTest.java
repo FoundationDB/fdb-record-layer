@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.logging.TestLogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -268,12 +269,12 @@ public class OnlineIndexerTest extends FDBTestBase {
                                int agents, boolean overlap, boolean splitLongRecords,
                                @Nonnull Index index, @Nonnull Runnable beforeBuild, @Nonnull Runnable afterBuild, @Nonnull Runnable afterReadable) {
         LOGGER.info(KeyValueLogMessage.of("beginning rebuild test",
-                        LogMessageKeys.RECORDS, records.size(),
+                        TestLogMessageKeys.RECORDS, records.size(),
                         LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
-                        LogMessageKeys.AGENTS, agents,
-                        LogMessageKeys.OVERLAP, overlap,
-                        LogMessageKeys.SPLIT_LONG_RECORDS, splitLongRecords,
-                        LogMessageKeys.INDEX, index)
+                        TestLogMessageKeys.AGENTS, agents,
+                        TestLogMessageKeys.OVERLAP, overlap,
+                        TestLogMessageKeys.SPLIT_LONG_RECORDS, splitLongRecords,
+                        TestLogMessageKeys.INDEX, index)
         );
 
         final RecordMetaDataHook onlySplitHook = metaDataBuilder -> {
@@ -288,7 +289,7 @@ public class OnlineIndexerTest extends FDBTestBase {
         };
 
         LOGGER.info(KeyValueLogMessage.of("inserting elements prior to test",
-                        LogMessageKeys.RECORDS, records.size()));
+                        TestLogMessageKeys.RECORDS, records.size()));
 
         openSimpleMetaData(onlySplitHook);
         try (FDBRecordContext context = openContext()) {
@@ -305,18 +306,18 @@ public class OnlineIndexerTest extends FDBTestBase {
         LOGGER.info(KeyValueLogMessage.of("running before build for test"));
         beforeBuild.run();
 
-        LOGGER.info(KeyValueLogMessage.of("adding index and marking write-only", LogMessageKeys.INDEX, index));
+        LOGGER.info(KeyValueLogMessage.of("adding index and marking write-only", TestLogMessageKeys.INDEX, index));
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             recordStore.markIndexWriteOnly(index).join();
             context.commit();
         }
         LOGGER.info(KeyValueLogMessage.of("creating online index builder",
-                        LogMessageKeys.INDEX, index,
-                        LogMessageKeys.RECORD_TYPES, metaData.recordTypesForIndex(index),
+                        TestLogMessageKeys.INDEX, index,
+                        TestLogMessageKeys.RECORD_TYPES, metaData.recordTypesForIndex(index),
                         LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
                         LogMessageKeys.LIMIT, 20,
-                        LogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
+                        TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
         final OnlineIndexer.Builder builder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setLimit(20).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
@@ -330,10 +331,10 @@ public class OnlineIndexerTest extends FDBTestBase {
         try (OnlineIndexer indexBuilder = builder.build()) {
             CompletableFuture<Void> buildFuture;
             LOGGER.info(KeyValueLogMessage.of("building index",
-                            LogMessageKeys.INDEX, index,
-                            LogMessageKeys.INDEX, agents,
+                            TestLogMessageKeys.INDEX, index,
+                            TestLogMessageKeys.INDEX, agents,
                             LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
-                            LogMessageKeys.OVERLAP, overlap));
+                            TestLogMessageKeys.OVERLAP, overlap));
             if (agents == 1) {
                 buildFuture = indexBuilder.buildIndexAsync(false);
             } else {
@@ -354,10 +355,10 @@ public class OnlineIndexerTest extends FDBTestBase {
                                 long itrStart = start + (end - start) / agents * i;
                                 long itrEnd = (i == agents - 1) ? end : start + (end - start) / agents * (i + 1);
                                 LOGGER.info(KeyValueLogMessage.of("building range",
-                                                LogMessageKeys.INDEX, index,
-                                                LogMessageKeys.AGENT, i,
-                                                LogMessageKeys.BEGIN, itrStart,
-                                                LogMessageKeys.END, itrEnd));
+                                                TestLogMessageKeys.INDEX, index,
+                                                TestLogMessageKeys.AGENT, i,
+                                                TestLogMessageKeys.BEGIN, itrStart,
+                                                TestLogMessageKeys.END, itrEnd));
                                 futures[i] = indexBuilder.buildRange(
                                         Key.Evaluated.scalar(itrStart),
                                         Key.Evaluated.scalar(itrEnd));
@@ -397,12 +398,12 @@ public class OnlineIndexerTest extends FDBTestBase {
                             lessThanOrEqualTo((long)records.size() + additionalScans)
                     ));
         }
-        LOGGER.info(KeyValueLogMessage.of("building index - completed", LogMessageKeys.INDEX, index));
+        LOGGER.info(KeyValueLogMessage.of("building index - completed", TestLogMessageKeys.INDEX, index));
 
-        LOGGER.info(KeyValueLogMessage.of("running post build checks", LogMessageKeys.INDEX, index));
+        LOGGER.info(KeyValueLogMessage.of("running post build checks", TestLogMessageKeys.INDEX, index));
         afterBuild.run();
 
-        LOGGER.info(KeyValueLogMessage.of("verifying range set emptiness", LogMessageKeys.INDEX, index));
+        LOGGER.info(KeyValueLogMessage.of("verifying range set emptiness", TestLogMessageKeys.INDEX, index));
         try (FDBRecordContext context = openContext()) {
             RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(metaData.getIndex(index.getName())));
             System.out.println("Range set for " + records.size() + " records:\n" + rangeSet.rep(context.ensureActive()).join());
@@ -410,7 +411,7 @@ public class OnlineIndexerTest extends FDBTestBase {
             context.commit();
         }
 
-        LOGGER.info(KeyValueLogMessage.of("marking index readable", LogMessageKeys.INDEX, index));
+        LOGGER.info(KeyValueLogMessage.of("marking index readable", TestLogMessageKeys.INDEX, index));
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.markIndexReadable(index).join());
             context.commit();
@@ -418,12 +419,12 @@ public class OnlineIndexerTest extends FDBTestBase {
         afterReadable.run();
 
         LOGGER.info(KeyValueLogMessage.of("ending rebuild test",
-                        LogMessageKeys.RECORDS, records.size(),
+                        TestLogMessageKeys.RECORDS, records.size(),
                         LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
-                        LogMessageKeys.AGENTS, agents,
-                        LogMessageKeys.OVERLAP, overlap,
-                        LogMessageKeys.SPLIT_LONG_RECORDS, splitLongRecords,
-                        LogMessageKeys.INDEX, index)
+                        TestLogMessageKeys.AGENTS, agents,
+                        TestLogMessageKeys.OVERLAP, overlap,
+                        TestLogMessageKeys.SPLIT_LONG_RECORDS, splitLongRecords,
+                        TestLogMessageKeys.INDEX, index)
         );
     }
 

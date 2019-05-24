@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.logging.TestLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -211,7 +212,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
         LOGGER.info(KeyValueLogMessage.of("running plan to check scan limit failures",
                         LogMessageKeys.DESCRIPTION, description,
                         LogMessageKeys.PLAN, plan,
-                        LogMessageKeys.FAIL, fail));
+                        TestLogMessageKeys.FAIL, fail));
         int maximumToScan = getMaximumToScan(plan);
         for (int limit = 0; limit <= maximumToScan * 2; limit = limit * 2 + 1) {
             assertNumberOfRecordsScanned(limit, plan,

@@ -1039,7 +1039,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("split index build range",
-                            LogMessageKeys.INDEX_NAME_C, index.getName(),
+                            LogMessageKeys.INDEX_NAME, index.getName(),
                             LogMessageKeys.ORIGINAL_RANGE, originalRange,
                             LogMessageKeys.SPLIT_RANGES, splitRanges));
         }

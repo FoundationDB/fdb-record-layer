@@ -306,7 +306,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                                         IndexOptions.TEXT_TOKENIZER_NAME_OPTION, tokenizer.getName(),
                                         IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, recordTokenizerVersion,
                                         IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, addAggressiveConflictRanges,
-                                        LogMessageKeys.PRIMARY_KEY_C, savedRecord.getPrimaryKey(),
+                                        LogMessageKeys.PRIMARY_KEY, savedRecord.getPrimaryKey(),
                                         LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.store.getSubspace().getKey()),
                                         LogMessageKeys.INDEX_SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.getKey()),
                                         LogMessageKeys.WROTE_INDEX, true);
