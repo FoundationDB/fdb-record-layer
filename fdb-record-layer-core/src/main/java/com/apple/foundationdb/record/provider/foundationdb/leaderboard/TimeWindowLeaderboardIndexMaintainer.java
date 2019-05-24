@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -614,9 +615,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                         if (latestEntryTimestamp >= earliestAddedStartTimestamp) {
                             rebuild = true;
                             LOGGER.info(KeyValueLogMessage.of("rebuilding leaderboard index due to overlapping existing record",
-                                    "latestEntryTimestamp", latestEntryTimestamp,
-                                    "earliestAddedStartTimestamp", earliestAddedStartTimestamp,
-                                    "subspace", ByteArrayUtil2.loggable(state.indexSubspace.pack())));
+                                            LogMessageKeys.LATEST_ENTRY_TIMESTAMP, latestEntryTimestamp,
+                                            LogMessageKeys.EARLIEST_ADDED_START_TIMESTAMP, earliestAddedStartTimestamp,
+                                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
                             if (getTimer() != null) {
                                 getTimer().increment(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED);
                             }

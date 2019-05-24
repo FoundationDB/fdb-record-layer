@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -80,7 +82,7 @@ public class Main {
         List<String> names = new ArrayList<>();
         FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
         RecordQueryPlan plan = store.planQuery(query);
-        LOGGER.info("plan: {}", plan);  // The plan string works like a basic "explain" function
+        LOGGER.info(KeyValueLogMessage.of("Query planned", LogMessageKeys.PLAN, plan));  // The plan string works like a basic "explain" function
         try (RecordCursor<FDBQueriedRecord<Message>> cursor = store.executeQuery(plan)) {
             RecordCursorResult<FDBQueriedRecord<Message>> result;
             do {

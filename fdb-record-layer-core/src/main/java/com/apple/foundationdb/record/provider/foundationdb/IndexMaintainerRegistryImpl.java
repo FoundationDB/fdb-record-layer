@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -58,7 +59,7 @@ public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
             for (String type : factory.getIndexTypes()) {
                 if (registry.containsKey(type)) {
                     if (LOGGER.isWarnEnabled()) {
-                        LOGGER.warn(KeyValueLogMessage.of("duplicate index maintainer", "indexType", type));
+                        LOGGER.warn(KeyValueLogMessage.of("duplicate index maintainer", LogMessageKeys.INDEX_TYPE, type));
                     }
                 } else {
                     registry.put(type, factory);

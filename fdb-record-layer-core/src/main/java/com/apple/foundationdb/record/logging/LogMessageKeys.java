@@ -32,14 +32,25 @@ import javax.annotation.Nonnull;
 public enum LogMessageKeys {
     // general keys
     TITLE("ttl"),
+    CLUSTER("cluster"),
     SUBSPACE("subspace"),
     SUBSPACE_KEY("subspace_key"),
+    INDEX_SUBSPACE("index_subspace"),
     CALLING_CLASS("calling_class"),
     CALLING_METHOD("calling_method"),
     CALLING_LINE("calling_line"),
     FUTURE_COMPLETED("future_completed"),
     SCAN_PROPERTIES("scan_properties"),
     READ_VERSION("read_version"),
+    OLD("old"),
+    NEW("new"),
+    MESSAGE("message"),
+    CODE("code"),
+    DESCRIPTION("description"),
+    UNKNOWN_FIELDS("unknown_fields"),
+    TRIES("tries"),
+    MAX_ATTEMPTS("max_attempts"),
+    DELAY("delay"),
     // record splitting/unsplitting
     KEY("key"),
     KEY_TUPLE("key_tuple"),
@@ -54,6 +65,7 @@ public enum LogMessageKeys {
     DIR_NAME("dir_name"),
     DIR_TYPE("dir_type"),
     DIR_VALUE("dir_value"),
+    PROVIDED_KEY("provided_key"),
     PROVIDED_VALUE("provided_value"),
     LIST_FROM("list_from"),
     SUBDIR_NAME("subdir_name"),
@@ -87,6 +99,30 @@ public enum LogMessageKeys {
     INITIAL_PREFIX("initial_prefix"),
     SECOND_PREFIX("second_prefix"),
     INDEX_VERSION("index_version"),
+    START_TUPLE("start_tuple"),
+    END_TUPLE("end_tuple"),
+    REAL_END("real_end"),
+    RECORDS_SCANNED("records_scanned"),
+    ORIGINAL_RANGE("original_range"),
+    SPLIT_RANGES("split_ranges"),
+    REASON("reason"),
+    LATEST_ENTRY_TIMESTAMP("latest_entry_timestamp"),
+    EARLIEST_ADDED_START_TIMESTAMP("earliest_added_start_timestamp"),
+    REMOVE("remove"),
+    TEXT_SIZE("text_size"),
+    UNIQUE_TOKENS("unique_tokens"),
+    AVG_TOKEN_SIZE("avg_token_size"),
+    MAX_TOKEN_SIZE("max_token_size"),
+    AVG_POSITIONS("avg_positions"),
+    MAX_POSITIONS("max_positions"),
+    TEXT_KEY_SIZE("text_key_size"),
+    TEXT_VALUE_SIZE("text_value_size"),
+    TEXT_INDEX_SIZE_AMORTIZED("text_index_size_amortized"),
+    WROTE_INDEX("wrote_index"),
+    NEW_STORE("new_store"),
+    RECORDS_WHILE_BUILDING("records_while_building"),
+    DOCUMENT("document"),
+
     // comparisons
     COMPARISON_VALUE("comparison_value"),
     // functional index keys
@@ -103,18 +139,27 @@ public enum LogMessageKeys {
     CHILD_COUNT("child_count"),
     EXPECTED_CHILD_COUNT("expected_child_count"),
     READ_CHILD_COUNT("read_child_count"),
+    TIME_STARTED("time_started"),
+    TIME_ENDED("time_ended"),
+    DURATION_MILLIS("duration_millis"),
+    CURSOR_ELAPSED_MILLIS("cursor_elapsed_millis"),
+    CURSOR_TIME_LIMIT_MILLIS("cursor_time_limit_millis"),
     // upgrading
     VERSION("version"),
     OLD_VERSION("old_version"),
     NEW_VERSION("new_version"),
-    META_DATA_VERSION("metaDataVersion"),
+    META_DATA_VERSION("meta_data_version"),
     FORMAT_VERSION("format_version"),
+    LOCAL_VERSION("local_version"),
+    STORED_VERSION("stored_version"),
+    NEW_FORMAT_VERSION("new_format_version"),
+    CACHED_VERSION("cached_version"),
     // tuple range
-    LOW_BYTES("lowBytes"),
-    HIGH_BYTES("highBytes"),
-    RANGE_BYTES("rangeBytes"),
-    RANGE_START("rangeStart"),
-    RANGE_END("rangeEnd"),
+    LOW_BYTES("low_bytes"),
+    HIGH_BYTES("high_bytes"),
+    RANGE_BYTES("range_bytes"),
+    RANGE_START("range_start"),
+    RANGE_END("range_end"),
     // meta-data evolution
     FIELD_NAME("field_name"),
     OLD_FIELD_NAME("old_field_name"),
@@ -133,10 +178,26 @@ public enum LogMessageKeys {
     INDEX_OPTION("index_option"),
     OLD_OPTION("old_option"),
     NEW_OPTION("new_option"),
-
+    INDEX_TYPE("index_type"),
     // resolver
-    RESOLVER_KEY("resolverKey"),
-    RESOLVER_PATH("resolverPath"),
+    RESOLVER_KEY("resolver_key"),
+    RESOLVER_PATH("resolver_path"),
+    CACHED_STATE("cached_state"),
+    READ_STATE("read_state"),
+
+    // query plan
+    PLAN("plan"),
+
+    // error
+    ERROR("error"),
+    ERROR_CODE("error_code"),
+
+    // record count limits for reading/indexing
+    LIMIT("limit"),
+    RECORD_COUNT("record_count"),
+    REBUILD_RECORD_COUNTS("rebuild_record_counts"),
+    SCANNED_SO_FAR("scanned_so_far"),
+    NEXT_CONTINUATION("next_continuation"),
 
     // Log the name of the tokenizer used
     TOKENIZER_NAME("tokenizer_name");

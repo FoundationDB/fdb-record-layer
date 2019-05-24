@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.subspace.Subspace;
@@ -227,8 +228,8 @@ public class FDBReverseDirectoryCache {
                     }
 
                     LOGGER.warn(KeyValueLogMessage.of("Value not found in reverse directory cache, need to scan",
-                            "provided_key", scopedReverseDirectoryKey,
-                            "subspace", context.join(reverseCacheSubspaceFuture)));
+                                    LogMessageKeys.PROVIDED_KEY, scopedReverseDirectoryKey,
+                                    LogMessageKeys.SUBSPACE, context.join(reverseCacheSubspaceFuture)));
                     final CompletableFuture<Subspace> subdirsFuture = scopedReverseDirectoryKey.getScope().getMappingSubspaceAsync();
 
                     return context.instrument(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN,
@@ -385,8 +386,8 @@ public class FDBReverseDirectoryCache {
                         .thenApply(value -> {
                             if (LOGGER.isDebugEnabled()) {
                                 LOGGER.debug(KeyValueLogMessage.of("Adding value to reverse directory cache",
-                                        "key", pathKey,
-                                        "value", value));
+                                                LogMessageKeys.KEY, pathKey,
+                                                LogMessageKeys.VALUE, value));
                             }
                             context.ensureActive().set(reverseCacheSubspace.pack(value), Tuple.from(pathKey.getData()).pack());
                             return null;

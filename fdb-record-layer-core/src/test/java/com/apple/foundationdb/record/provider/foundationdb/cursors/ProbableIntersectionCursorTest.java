@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCursorTest;
 import com.apple.foundationdb.record.cursors.FirableCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.TestLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.google.common.collect.Iterators;
 import com.google.common.hash.BloomFilter;
@@ -197,7 +198,9 @@ public class ProbableIntersectionCursorTest {
 
         for (int itr = 0; itr < 50; itr++) {
             long seed = r.nextLong();
-            LOGGER.info(KeyValueLogMessage.of("running intersection with large lists", "seed", seed, "iteration", itr));
+            LOGGER.info(KeyValueLogMessage.of("running intersection with large lists",
+                            TestLogMessageKeys.SEED, seed,
+                            TestLogMessageKeys.ITERATION, itr));
             r.setSeed(seed);
 
             final List<List<Integer>> lists = Stream.generate(

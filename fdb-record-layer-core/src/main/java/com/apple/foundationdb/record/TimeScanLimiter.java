@@ -22,6 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,8 +51,8 @@ public class TimeScanLimiter {
             if ((now - startTime) >= timeLimitMillis) {
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(KeyValueLogMessage.of("Cursor time limit exceeded",
-                            "cursorElapsedMillis", (now - startTime),
-                            "cursorTimeLimitMillis", timeLimitMillis));
+                                    LogMessageKeys.CURSOR_ELAPSED_MILLIS, (now - startTime),
+                                    LogMessageKeys.CURSOR_TIME_LIMIT_MILLIS, timeLimitMillis));
                 }
                 isTimedOut = true;
             }

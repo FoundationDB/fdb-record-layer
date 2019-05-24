@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -146,9 +147,8 @@ public class ResolverMappingReplicator implements AutoCloseable {
                     byte[] nextContinuationBytes = lastResult.getContinuation().toBytes();
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("committing batch",
-                                "scannedSoFar", counter.get(),
-                                "nextContinuation", ByteArrayUtil2.loggable(nextContinuationBytes)
-                        ));
+                                        LogMessageKeys.SCANNED_SO_FAR, counter.get(),
+                                        LogMessageKeys.NEXT_CONTINUATION, ByteArrayUtil2.loggable(nextContinuationBytes)));
                     }
                     continuation.set(nextContinuationBytes);
                 }))

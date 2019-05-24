@@ -29,6 +29,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -467,7 +468,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             CompletableFuture<Void> future = instrument(FDBStoreTimer.Events.READ_SAMPLE_KEY, ensureActive().get(key))
                     .handle((bytes, ex) -> {
                         if (ex != null) {
-                            LOGGER.warn(KeyValueLogMessage.of("error reading sample key", "key", ByteArrayUtil2.loggable(key)),
+                            LOGGER.warn(KeyValueLogMessage.of("error reading sample key",
+                                            LogMessageKeys.KEY, ByteArrayUtil2.loggable(key)),
                                     ex);
                         }
                         return null;
