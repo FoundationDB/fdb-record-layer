@@ -25,6 +25,9 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.EnumDescriptor;
@@ -94,6 +97,7 @@ public class MetaDataEvolutionValidator {
     private final boolean allowMissingFormerIndexNames;
     private final boolean allowOlderFormerIndexAddedVersions;
     private final boolean allowUnsplitToSplit;
+    private final boolean disallowTypeRenames;
 
     private MetaDataEvolutionValidator() {
         this.indexMaintainerRegistry = IndexMaintainerRegistryImpl.instance();
@@ -103,6 +107,7 @@ public class MetaDataEvolutionValidator {
         this.allowMissingFormerIndexNames = false;
         this.allowOlderFormerIndexAddedVersions = false;
         this.allowUnsplitToSplit = false;
+        this.disallowTypeRenames = false;
     }
 
     private MetaDataEvolutionValidator(@Nonnull Builder builder) {
@@ -113,6 +118,7 @@ public class MetaDataEvolutionValidator {
         this.allowMissingFormerIndexNames = builder.allowMissingFormerIndexNames;
         this.allowOlderFormerIndexAddedVersions = builder.allowOlderFormerIndexAddedVersions;
         this.allowUnsplitToSplit = builder.allowUnsplitToSplit;
+        this.disallowTypeRenames = builder.disallowTypeRenames;
     }
 
     /**
@@ -131,8 +137,9 @@ public class MetaDataEvolutionValidator {
         }
         validateSchemaOptions(oldMetaData, newMetaData);
         validateUnion(oldMetaData.getUnionDescriptor(), newMetaData.getUnionDescriptor());
-        validateRecordTypes(oldMetaData, newMetaData);
-        validateCurrentAndFormerIndexes(oldMetaData, newMetaData);
+        Map<String, String> typeRenames = getTypeRenames(oldMetaData.getUnionDescriptor(), newMetaData.getUnionDescriptor());
+        validateRecordTypes(oldMetaData, newMetaData, typeRenames);
+        validateCurrentAndFormerIndexes(oldMetaData, newMetaData, typeRenames);
     }
 
     private void validateSchemaOptions(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
@@ -162,45 +169,47 @@ public class MetaDataEvolutionValidator {
             // Don't bother validating the record types if they are all the same.
             return;
         }
-        final Map<Integer, FieldDescriptor> oldFieldMap = getFieldNumberToDescriptorMap(oldUnionDescriptor);
-        final Map<Integer, FieldDescriptor> newFieldMap = getFieldNumberToDescriptorMap(newUnionDescriptor);
+        final BiMap<Descriptor, Descriptor> updatedDescriptors = HashBiMap.create(oldUnionDescriptor.getFields().size());
         final Set<Pair<Descriptor, Descriptor>> seenDescriptors = new HashSet<>();
-        final Map<String, Integer> firstFieldMap = new HashMap<>();
 
-        for (Map.Entry<Integer, FieldDescriptor> oldUnionField : oldFieldMap.entrySet()) {
-            int fieldNumber = oldUnionField.getKey();
-            FieldDescriptor oldField = oldUnionField.getValue();
-            FieldDescriptor newField = newFieldMap.get(fieldNumber);
-            if (!oldField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
-                throw new MetaDataException("field in union is not a message type", LogMessageKeys.FIELD_NAME, oldField.getName());
+        for (FieldDescriptor oldUnionField : oldUnionDescriptor.getFields()) {
+            if (!oldUnionField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
+                throw new MetaDataException("field in union is not a message type", LogMessageKeys.FIELD_NAME, oldUnionField.getName());
             }
-            if (newField != null) {
-                if (!newField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
-                    throw new MetaDataException("field in new union is not a message type", LogMessageKeys.FIELD_NAME, newField.getName());
+            int fieldNumber = oldUnionField.getNumber();
+            FieldDescriptor newUnionField = newUnionDescriptor.findFieldByNumber(fieldNumber);
+            if (newUnionField != null) {
+                if (!newUnionField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
+                    throw new MetaDataException("field in new union is not a message type", LogMessageKeys.FIELD_NAME, newUnionField.getName());
                 }
-                Descriptor oldRecordType = oldField.getMessageType();
-                Descriptor newRecordType = newField.getMessageType();
-                if (!oldRecordType.getName().equals(newRecordType.getName())) {
-                    // TODO: Record type name changes could be allowed if first checked that there were no referencing indexes
-                    throw new MetaDataException("record type changed name",
-                            LogMessageKeys.OLD_RECORD_TYPE, oldRecordType.getName(),
-                            LogMessageKeys.NEW_RECORD_TYPE, newRecordType.getName());
-                }
-                validateMessage(oldRecordType, newRecordType, seenDescriptors);
+                Descriptor oldRecord = oldUnionField.getMessageType();
+                Descriptor newRecord = newUnionField.getMessageType();
 
-                // Keep track of the minimum number associated with a record. This is needed to ensure that the default
-                // record type key for this record is stable.
-                firstFieldMap.merge(oldRecordType.getName(), fieldNumber, Math::min);
+                // Verify that all fields of the same type in the old union are also of the same type
+                // in the new union (i.e., that there are no "splits" or "merges" of record types).
+                Descriptor alreadySeenNewRecord = updatedDescriptors.get(oldRecord);
+                if (alreadySeenNewRecord != null) {
+                    if (alreadySeenNewRecord != newRecord) {
+                        // A "split" -- the same type in the old union points to two different types in the new union
+                        throw new MetaDataException("record type corresponds to multiple types in new meta-data",
+                                LogMessageKeys.OLD_RECORD_TYPE, oldRecord.getName(),
+                                LogMessageKeys.NEW_RECORD_TYPE, newRecord.getName() + " & " + alreadySeenNewRecord.getName());
+                    }
+                } else {
+                    if (updatedDescriptors.containsValue(newRecord)) {
+                        // A "merge" -- two different types in the old union point to the same type in the new union
+                        final Descriptor alreadySeenOldRecord = updatedDescriptors.inverse().get(newRecord);
+                        throw new MetaDataException("record type corresponds to multiple types in old meta-data",
+                                LogMessageKeys.OLD_RECORD_TYPE, oldRecord.getName() + " & " + alreadySeenOldRecord.getName(),
+                                LogMessageKeys.NEW_RECORD_TYPE, newRecord.getName());
+                    }
+                }
+                updatedDescriptors.put(oldRecord, newRecord);
+
+                // Validate the form of the old and new record types
+                validateMessage(oldRecord, newRecord, seenDescriptors);
             } else {
-                throw new MetaDataException("record type removed from union", LogMessageKeys.RECORD_TYPE, oldField.getMessageType());
-            }
-        }
-        for (FieldDescriptor newField : newUnionDescriptor.getFields()) {
-            Descriptor newRecordType = newField.getMessageType();
-            Integer oldFirstField = firstFieldMap.get(newRecordType.getName());
-            if (oldFirstField != null && newField.getNumber() < oldFirstField) {
-                throw new MetaDataException("first occurrence of record type in union descriptor changed",
-                        LogMessageKeys.RECORD_TYPE, newRecordType.getName());
+                throw new MetaDataException("record type removed from union", LogMessageKeys.RECORD_TYPE, oldUnionField.getMessageType());
             }
         }
     }
@@ -214,24 +223,20 @@ public class MetaDataEvolutionValidator {
         }
         if (!seenDescriptors.add(Pair.of(oldDescriptor, newDescriptor))) {
             // Note that because messages can contain fields that are of the same type as the containing
-            // message, if the check to make sure the pair hadn't already been validated weren't present,
-            // this might recurse infinitely on some input.
+            // message, if this check to make sure the pair hadn't already been validated weren't present,
+            // this might recurse infinitely on some inputs.
             return;
         }
-        // Validate that the syntax of the two descriptors is the same.
+        // Validate that the syntax (i.e., proto2 or proto3) of the two descriptors is the same.
         MetaDataEvolutionProtoSyntaxValidator.validateProtoSyntax(oldDescriptor, newDescriptor);
 
         // Validate the form--the schema, if you will--of the two descriptors. That means making sure that the
-        // two fields are compatible. Note that the name of the descriptor isn't checked. This can't be done
-        // for top-level record types, but it is actually fine for nested message types, which this is supposed to also handle.
-        final Map<Integer, FieldDescriptor> oldFieldMap = getFieldNumberToDescriptorMap(oldDescriptor);
-        final Map<Integer, FieldDescriptor> newFieldMap = getFieldNumberToDescriptorMap(newDescriptor);
+        // two fields are compatible. Note that the name of the descriptor isn't checked.
 
         // Validate that every field in the old descriptor is still in the new descriptor
-        for (Map.Entry<Integer, FieldDescriptor> oldFieldEntry : oldFieldMap.entrySet()) {
-            int fieldNumber = oldFieldEntry.getKey();
-            FieldDescriptor oldField = oldFieldEntry.getValue();
-            FieldDescriptor newField = newFieldMap.get(fieldNumber);
+        for (FieldDescriptor oldField : oldDescriptor.getFields()) {
+            int fieldNumber = oldField.getNumber();
+            FieldDescriptor newField = newDescriptor.findFieldByNumber(fieldNumber);
             if (newField != null) {
                 validateField(oldField, newField, seenDescriptors);
             } else {
@@ -239,27 +244,11 @@ public class MetaDataEvolutionValidator {
             }
         }
         // Validate that none of the new fields are "required", which would make reading back any existing record impossible
-        for (Map.Entry<Integer, FieldDescriptor> newNumberToDescriptorEntry : newFieldMap.entrySet()) {
-            if (!oldFieldMap.containsKey(newNumberToDescriptorEntry.getKey())) {
-                final FieldDescriptor newFieldDescriptor = newNumberToDescriptorEntry.getValue();
-                if (newFieldDescriptor.isRequired()) {
-                    throw new MetaDataException("required field added to record type", LogMessageKeys.FIELD_NAME, newFieldDescriptor.getName());
-                }
+        for (FieldDescriptor newField : newDescriptor.getFields()) {
+            if (oldDescriptor.findFieldByNumber(newField.getNumber()) == null && newField.isRequired()) {
+                throw new MetaDataException("required field added to record type", LogMessageKeys.FIELD_NAME, newField.getName());
             }
         }
-    }
-
-    @Nonnull
-    private Map<Integer, FieldDescriptor> getFieldNumberToDescriptorMap(@Nonnull Descriptor descriptor) {
-        final List<FieldDescriptor> fieldDescriptors = descriptor.getFields();
-        if (fieldDescriptors.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        final Map<Integer, FieldDescriptor> numberToDescriptorMap = new HashMap<>(fieldDescriptors.size() * 2);
-        for (FieldDescriptor fieldDescriptor : fieldDescriptors) {
-            numberToDescriptorMap.put(fieldDescriptor.getNumber(), fieldDescriptor);
-        }
-        return numberToDescriptorMap;
     }
 
     private void validateField(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor,
@@ -317,39 +306,73 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    private void validateRecordTypes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @Nonnull
+    private Map<String, String> getTypeRenames(@Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
+        if (oldUnionDescriptor == newUnionDescriptor) {
+            return Collections.emptyMap();
+        }
+
+        final Map<String, String> renames = disallowTypeRenames ? Collections.emptyMap() : new HashMap<>();
+        for (FieldDescriptor oldField : oldUnionDescriptor.getFields()) {
+            Descriptor oldRecord = oldField.getMessageType();
+            Descriptor newRecord = newUnionDescriptor.findFieldByNumber(oldField.getNumber()).getMessageType();
+            if (!oldRecord.getName().equals(newRecord.getName())) {
+                if (disallowTypeRenames) {
+                    throw new MetaDataException("record type name changed",
+                            LogMessageKeys.OLD_RECORD_TYPE, oldRecord.getName(),
+                            LogMessageKeys.NEW_RECORD_TYPE, newRecord.getName());
+                }
+                String existingName = renames.putIfAbsent(oldRecord.getName(), newRecord.getName());
+                if (existingName != null && !existingName.equals(newRecord.getName())) {
+                    // This shouldn't be possible because of the validation done in validateUnion, but it's easy enough to check here.
+                    throw new MetaDataException("record type corresponds to multiple types in new meta-data",
+                            LogMessageKeys.OLD_RECORD_TYPE, oldRecord.getName(),
+                            LogMessageKeys.NEW_RECORD_TYPE, newRecord.getName() + " & " + existingName);
+                }
+            }
+        }
+        return renames;
+    }
+
+    private void validateRecordTypes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData,
+                                     @Nonnull Map<String, String> typeRenames) {
         final Map<String, RecordType> oldRecordTypes = oldMetaData.getRecordTypes();
         final Map<String, RecordType> newRecordTypes = newMetaData.getRecordTypes();
         // Validate that all of the old record types are still in the new map
         for (Map.Entry<String, RecordType> oldRecordTypeEntry : oldRecordTypes.entrySet()) {
-            final String recordTypeName = oldRecordTypeEntry.getKey();
-            if (!newRecordTypes.containsKey(recordTypeName)) {
+            final String oldRecordTypeName = oldRecordTypeEntry.getKey();
+            final String newRecordTypeName = typeRenames.getOrDefault(oldRecordTypeName, oldRecordTypeName);
+            if (!newRecordTypes.containsKey(newRecordTypeName)) {
                 throw new MetaDataException("record type removed from meta-data",
-                        LogMessageKeys.RECORD_TYPE, recordTypeName);
+                        LogMessageKeys.OLD_RECORD_TYPE, oldRecordTypeName,
+                        LogMessageKeys.NEW_RECORD_TYPE, newRecordTypeName);
             }
             final RecordType oldRecordType = oldRecordTypeEntry.getValue();
-            final RecordType newRecordType = newRecordTypes.get(recordTypeName);
+            final RecordType newRecordType = newRecordTypes.get(newRecordTypeName);
             if (!Objects.equals(oldRecordType.getSinceVersion(), newRecordType.getSinceVersion())) {
                 throw new MetaDataException("record type since version changed",
-                        LogMessageKeys.RECORD_TYPE, recordTypeName,
+                        LogMessageKeys.RECORD_TYPE, newRecordTypeName,
                         LogMessageKeys.OLD_VERSION, oldRecordType.getSinceVersion(),
                         LogMessageKeys.NEW_VERSION, newRecordType.getSinceVersion());
             }
             if (!oldRecordType.getPrimaryKey().equals(newRecordType.getPrimaryKey())) {
                 throw new MetaDataException("record type primary key changed",
-                        LogMessageKeys.RECORD_TYPE, recordTypeName,
+                        LogMessageKeys.RECORD_TYPE, newRecordTypeName,
                         LogMessageKeys.OLD_KEY_EXPRESSION, oldRecordType.getPrimaryKey(),
                         LogMessageKeys.NEW_KEY_EXPRESSION, newRecordType.getPrimaryKey());
             }
             if (!oldRecordType.getRecordTypeKey().equals(newRecordType.getRecordTypeKey())) {
                 throw new MetaDataException("record type key changed",
-                        LogMessageKeys.RECORD_TYPE, recordTypeName);
+                        LogMessageKeys.RECORD_TYPE, newRecordTypeName);
             }
         }
         // Validate that any new type sets its since version
+        Set<String> olderRecordTypeNames = Sets.newHashSetWithExpectedSize(oldRecordTypes.size());
+        oldRecordTypes.forEach((typeName, ignore) -> olderRecordTypeNames.add(typeRenames.getOrDefault(typeName, typeName)));
         for (Map.Entry<String, RecordType> newRecordTypeEntry : newRecordTypes.entrySet()) {
             final String recordTypeName = newRecordTypeEntry.getKey();
-            if (!oldRecordTypes.containsKey(recordTypeName)) {
+            if (!olderRecordTypeNames.contains(recordTypeName)) {
                 final RecordType newRecordType = newRecordTypeEntry.getValue();
                 final Integer newSinceVersion = newRecordType.getSinceVersion();
                 if (newSinceVersion == null) {
@@ -395,7 +418,8 @@ public class MetaDataEvolutionValidator {
         return indexMap;
     }
 
-    private void validateCurrentAndFormerIndexes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+    private void validateCurrentAndFormerIndexes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData,
+                                                 @Nonnull Map<String, String> typeRenames) {
         final Map<Object, FormerIndex> oldFormerIndexMap = getFormerIndexMap(oldMetaData);
         final Map<Object, Index> oldIndexMap = getIndexMap(oldMetaData);
         final Map<Object, FormerIndex> newFormerIndexMap = getFormerIndexMap(newMetaData);
@@ -462,7 +486,7 @@ public class MetaDataEvolutionValidator {
             final Index newIndex = newIndexEntry.getValue();
             if (oldIndexMap.containsKey(subspaceKey)) {
                 final Index oldIndex = oldIndexMap.get(subspaceKey);
-                validateIndex(oldMetaData, oldIndex, newMetaData, newIndex);
+                validateIndex(oldMetaData, oldIndex, newMetaData, newIndex, typeRenames);
             } else {
                 if (newIndex.getLastModifiedVersion() <= oldMetaData.getVersion()) {
                     throw new MetaDataException("new index has version that is not newer than the old meta-data version",
@@ -543,7 +567,8 @@ public class MetaDataEvolutionValidator {
     }
 
     private void validateIndex(@Nonnull RecordMetaData oldMetaData, @Nonnull Index oldIndex,
-                               @Nonnull RecordMetaData newMetaData, @Nonnull Index newIndex) {
+                               @Nonnull RecordMetaData newMetaData, @Nonnull Index newIndex,
+                               @Nonnull Map<String, String> typeRenames) {
         if (!oldIndex.getName().equals(newIndex.getName())) {
             // The index name is stored durably as part of the record store state.
             // If that were to use the subspace key, this check would probably be unnecessary.
@@ -589,8 +614,12 @@ public class MetaDataEvolutionValidator {
         }
         // The new index must be defined on all record types that the old index was defined on. It may be defined
         // on additional types, but to avoid a rebuild, these record types must be newer than the old meta-data.
-        Set<String> oldRecordTypeNames = oldMetaData.recordTypesForIndex(oldIndex).stream().map(RecordType::getName).collect(Collectors.toSet());
-        Set<String> newRecordTypeNames = newMetaData.recordTypesForIndex(newIndex).stream().map(RecordType::getName).collect(Collectors.toSet());
+        Set<String> oldRecordTypeNames = oldMetaData.recordTypesForIndex(oldIndex).stream()
+                .map(recordType -> typeRenames.getOrDefault(recordType.getName(), recordType.getName()))
+                .collect(Collectors.toSet());
+        Set<String> newRecordTypeNames = newMetaData.recordTypesForIndex(newIndex).stream()
+                .map(RecordType::getName)
+                .collect(Collectors.toSet());
         for (String oldRecordTypeName : oldRecordTypeNames) {
             if (!newRecordTypeNames.contains(oldRecordTypeName)) {
                 throw new MetaDataException("new index removes record type",
@@ -735,6 +764,20 @@ public class MetaDataEvolutionValidator {
     }
 
     /**
+     * Whether this validator disallows record types from being renamed. The record type name is not
+     * persisted to the database with any record, so renaming a record type is generally possible
+     * as long as one also updates the record type's name in the any referencing index. Note, however,
+     * that renaming a record type also requires that the user modify any existing queries that are
+     * restricted to that record type. As a result, the user may elect to disallow renaming record types
+     * to avoid needing to audit and update any references to the changed record type name.
+     *
+     * @return whether this validator disallows record types from being renamed
+     */
+    public boolean disallowsTypeRenames() {
+        return disallowTypeRenames;
+    }
+
+    /**
      * Convert this validator into a builder. This will copy over any options that have been set into the
      * builder.
      *
@@ -779,6 +822,7 @@ public class MetaDataEvolutionValidator {
         private boolean allowMissingFormerIndexNames;
         private boolean allowOlderFormerIndexAddedVersions;
         private boolean allowUnsplitToSplit;
+        private boolean disallowTypeRenames;
 
         private Builder(@Nonnull MetaDataEvolutionValidator validator) {
             this.indexMaintainerRegistry = validator.indexMaintainerRegistry;
@@ -788,6 +832,7 @@ public class MetaDataEvolutionValidator {
             this.allowMissingFormerIndexNames = validator.allowMissingFormerIndexNames;
             this.allowOlderFormerIndexAddedVersions = validator.allowOlderFormerIndexAddedVersions;
             this.allowUnsplitToSplit = validator.allowUnsplitToSplit;
+            this.disallowTypeRenames = validator.disallowTypeRenames;
         }
 
         /**
@@ -928,9 +973,9 @@ public class MetaDataEvolutionValidator {
         }
 
         /**
-         * Set whether this validator allows the meta-data to begin to split long records.
+         * Set whether the validator will allow the meta-data to begin to split long records.
          *
-         * @param allowUnsplitToSplit whether this validator allows the meta-data to begin to split long records.
+         * @param allowUnsplitToSplit whether the validator will allow the meta-data to begin to split long records.
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsUnsplitToSplit()
          */
@@ -941,13 +986,36 @@ public class MetaDataEvolutionValidator {
         }
 
         /**
-         * Get Whether this validator allows the meta-data to begin to split long records.
+         * Get whether the validator will allow the meta-data to begin to split long records.
          *
-         * @return whether this validator allows the meta-data to begin to split long records.
+         * @return whether this validator will allow the meta-data to begin to split long records.
          * @see MetaDataEvolutionValidator#allowsUnsplitToSplit()
          */
         public boolean allowsUnsplitToSplit() {
             return allowUnsplitToSplit;
+        }
+
+        /**
+         * Set whether the validator will disallow record types from being renamed.
+         *
+         * @param disallowTypeRenames whether the validator will disallow record types from being renamed
+         * @return this builder
+         * @see MetaDataEvolutionValidator#disallowsTypeRenames()
+         */
+        @Nonnull
+        public Builder setDisallowTypeRenames(boolean disallowTypeRenames) {
+            this.disallowTypeRenames = disallowTypeRenames;
+            return this;
+        }
+
+        /**
+         * Get whether this validator will disallow record types from being renamed.
+         *
+         * @return whether this validator disallow record types from being renamed
+         * @see MetaDataEvolutionValidator#disallowsTypeRenames()
+         */
+        public boolean disallowsTypeRenames() {
+            return disallowTypeRenames;
         }
 
         /**

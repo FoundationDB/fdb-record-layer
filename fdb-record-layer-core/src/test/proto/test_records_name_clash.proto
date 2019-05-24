@@ -1,9 +1,9 @@
 /*
- * test_records_import.proto
+ * test_records_name_clash.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,21 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.import;
+package com.apple.foundationdb.record.nameclash;
 
 option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecordsImportProto";
+option java_outer_classname = "TestRecordsNameClashProto";
 
 import "record_metadata_options.proto";
 import "test_records_1.proto";
-import "test_records_2.proto";
+
+option (schema).store_record_versions = true;
+
+message MySimpleRecord {
+    optional int64 rec_no = 1 [(field).primary_key = true];
+}
 
 message RecordTypeUnion {
-  option (com.apple.foundationdb.record.record).usage = UNION;
-  optional test1.MySimpleRecord _MySimpleRecord = 1;
-  optional test2.MyLongRecord _MyLongRecord = 2;
+    optional nameclash.MySimpleRecord _MySimpleRecord = 1;
+    optional test1.MySimpleRecord _MyImportedSimpleRecord = 2;
 }

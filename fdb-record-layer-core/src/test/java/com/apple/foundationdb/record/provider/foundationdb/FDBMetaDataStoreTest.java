@@ -39,7 +39,11 @@ import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecordsImplicitUsageNoUnionProto;
 import com.apple.foundationdb.record.TestRecordsImplicitUsageProto;
+import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
+import com.apple.foundationdb.record.TestRecordsImportProto;
+import com.apple.foundationdb.record.TestRecordsImportedAndNewProto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
+import com.apple.foundationdb.record.TestRecordsNestedAsRecord;
 import com.apple.foundationdb.record.TestRecordsOneOfProto;
 import com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -49,9 +53,11 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataProtoTest;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
@@ -62,17 +68,27 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -529,6 +545,79 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         }
     }
 
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest(name = "updateRecordsWithNewUnionField [reorderFields = {0}]")
+    public void updateRecordsWithNewUnionField(TestHelpers.BooleanEnum reorderFieldsEnum) {
+        final boolean reorderFields = reorderFieldsEnum.toBoolean();
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData oldMetaData = metaDataStore.getRecordMetaData();
+            metaDataStore.mutateMetaData(metaDataProtoBuilder -> {
+                final DescriptorProtos.FileDescriptorProto.Builder records = metaDataProtoBuilder.getRecordsBuilder();
+                records.getMessageTypeBuilderList().stream()
+                        .filter(message -> message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME))
+                        .forEach(unionMessage -> {
+                            unionMessage.getFieldBuilderList().stream()
+                                    .filter(field -> field.getName().equals("_MySimpleRecord"))
+                                    .forEach(field -> field.setName("_MySimpleRecord_old"));
+
+                            int newFieldNumber = unionMessage.getFieldBuilderList().stream()
+                                    .mapToInt(DescriptorProtos.FieldDescriptorProto.Builder::getNumber)
+                                    .max()
+                                    .orElse(0) + 1;
+                            DescriptorProtos.FieldDescriptorProto newField = DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                    .setTypeName("." + TestRecords1Proto.MySimpleRecord.getDescriptor().getFullName())
+                                    .setName("_MySimpleRecord_new")
+                                    .setNumber(newFieldNumber)
+                                    .build();
+                            if (reorderFields) {
+                                List<DescriptorProtos.FieldDescriptorProto> fieldList = new ArrayList<>(unionMessage.getFieldBuilderList().size() + 1);
+                                fieldList.add(newField);
+                                fieldList.addAll(unionMessage.getFieldList());
+                                unionMessage.clearField();
+                                unionMessage.addAllField(fieldList);
+                            } else {
+                                unionMessage.addField(newField);
+                            }
+                        });
+            });
+            RecordMetaData newMetaData = metaDataStore.getRecordMetaData();
+            RecordType oldSimpleRecord = oldMetaData.getRecordType("MySimpleRecord");
+            assertEquals(TestRecords1EvolvedProto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER,
+                    oldMetaData.getUnionFieldForRecordType(oldSimpleRecord).getNumber());
+            RecordType newSimpleRecord = newMetaData.getRecordType("MySimpleRecord");
+            assertSame(newMetaData.getUnionDescriptor().findFieldByName("_MySimpleRecord_new"),
+                    newMetaData.getUnionFieldForRecordType(newSimpleRecord));
+            assertThat(oldMetaData.getUnionFieldForRecordType(oldSimpleRecord).getNumber(),
+                    lessThan(newMetaData.getUnionFieldForRecordType(newSimpleRecord).getNumber()));
+            assertEquals(oldSimpleRecord.getSinceVersion(), newSimpleRecord.getSinceVersion());
+
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            RecordType simpleRecord = metaData.getRecordType("MySimpleRecord");
+            assertEquals("_MySimpleRecord_new", metaData.getUnionFieldForRecordType(simpleRecord).getName());
+            int newFieldNumber = TestRecords1Proto.RecordTypeUnion.getDescriptor().getFields().stream()
+                    .mapToInt(Descriptors.FieldDescriptor::getNumber)
+                    .max()
+                    .orElse(0) + 1;
+            assertEquals(newFieldNumber, metaData.getUnionFieldForRecordType(simpleRecord).getNumber());
+        }
+    }
+
     @Test
     public void updateRecordsWithExtensionOption() throws Descriptors.DescriptorValidationException {
         try (FDBRecordContext context = fdb.openContext()) {
@@ -726,6 +815,15 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         metaDataStore.mutateMetaData((metaDataProto) -> MetaDataProtoEditor.deprecateField(metaDataProto, recordType, fieldName));
     }
 
+    private void renameRecordType(@Nonnull String recordType, @Nonnull String newRecordTypeName) {
+        metaDataStore.mutateMetaData((metaDataProto) -> MetaDataProtoEditor.renameRecordType(metaDataProto, recordType, newRecordTypeName));
+    }
+
+    private static void assertDeprecated(@Nonnull RecordMetaData metaData, @Nonnull String recordType) {
+        RecordType recordTypeObj = metaData.getRecordType(recordType);
+        assertTrue(metaData.getUnionFieldForRecordType(recordTypeObj).getOptions().getDeprecated());
+    }
+
     @Test
     public void recordTypes() {
         int version;
@@ -822,11 +920,11 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             deprecateRecordType("MyNewRecord");
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
-            assertTrue(metaDataStore.getRecordMetaData().getRecordsDescriptor().findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MyNewRecord").getOptions().getDeprecated());
+            assertDeprecated(metaDataStore.getRecordMetaData(), "MyNewRecord");
             assertEquals(version + 4, metaDataStore.getRecordMetaData().getVersion());
             deprecateRecordType("MyNewRecordWithIndex");
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex"));
-            assertTrue(metaDataStore.getRecordMetaData().getRecordsDescriptor().findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MyNewRecordWithIndex").getOptions().getDeprecated());
+            assertDeprecated(metaDataStore.getRecordMetaData(), "MyNewRecordWithIndex");
             assertEquals(version + 5, metaDataStore.getRecordMetaData().getVersion());
             context.commit();
         }
@@ -836,9 +934,9 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             openMetaDataStore(context);
             assertEquals(version + 5, metaDataStore.getRecordMetaData().getVersion());
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
-            deprecateRecordType(".com.apple.foundationdb.record.test1.MySimpleRecord"); // Record type needs to be fully qualified.
+            deprecateRecordType("MySimpleRecord");
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
-            assertTrue(metaDataStore.getRecordMetaData().getRecordsDescriptor().findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MySimpleRecord").getOptions().getDeprecated());
+            assertDeprecated(metaDataStore.getRecordMetaData(), "MySimpleRecord");
             assertEquals(version + 6, metaDataStore.getRecordMetaData().getVersion());
             context.commit();
         }
@@ -848,11 +946,69 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             openMetaDataStore(context);
             assertEquals(version + 6, metaDataStore.getRecordMetaData().getVersion());
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+            assertDeprecated(metaDataStore.getRecordMetaData(), "MySimpleRecord");
             MetaDataException e = assertThrows(MetaDataException.class, () -> deprecateRecordType("MyNonExistentRecord"));
             assertEquals(e.getMessage(), "Record type MyNonExistentRecord not found");
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertEquals(version + 6, metaDataStore.getRecordMetaData().getVersion());
             context.commit();
+        }
+    }
+
+    @Test
+    public void deprecateImportedRecordType() {
+        int version;
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsImportProto.getDescriptor());
+            version = metaData.getVersion();
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
+        }
+
+        // Deprecate the record type
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(version, metaData.getVersion());
+            assertNotNull(metaData.getRecordType("MySimpleRecord"));
+            assertNotNull(metaData.getRecordType("MyLongRecord"));
+            MetaDataException e = assertThrows(MetaDataException.class, () -> deprecateRecordType("MySimpleRecord"));
+            assertEquals("Record type MySimpleRecord not found", e.getMessage());
+        }
+    }
+
+    @Test
+    public void deprecateWithNestedRecordType() {
+        int version;
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsNestedAsRecord.getDescriptor());
+            version = metaData.getVersion();
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+
+        // Deprecate OuterRecord
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(version, metaData.getVersion());
+            deprecateRecordType("OuterRecord");
+            RecordMetaData newMetaData = metaDataStore.getRecordMetaData();
+            assertThat(newMetaData.getVersion(), greaterThan(version));
+            assertDeprecated(newMetaData, "OuterRecord");
+            assertDeprecated(newMetaData, "InnerRecord");
+            context.commit();
+        }
+
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertThat(metaData.getVersion(), greaterThan(version));
+            assertDeprecated(metaData, "OuterRecord");
+            assertDeprecated(metaData, "InnerRecord");
         }
     }
 
@@ -937,7 +1093,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyHierarchicalRecord"));
         }
 
-        // Add a record type with default union name to a record meta-data that has a non-default union name.
+        // Add a record type with the default union name to a record meta-data that has a non-default union name.
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyHierarchicalRecord"));
@@ -1017,7 +1173,19 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             openMetaDataStore(context);
             assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyHierarchicalRecord"));
-            deprecateRecordType(".com.apple.foundationdb.record.test3.MyHierarchicalRecord"); // Record type needs to be fully qualified.
+            deprecateRecordType("MyHierarchicalRecord");
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyHierarchicalRecord"));
+            assertTrue(metaDataStore.getRecordMetaData().getRecordsDescriptor().findMessageTypeByName("UnionDescriptor").findFieldByName("_MyHierarchicalRecord").getOptions().getDeprecated());
+            assertEquals(version + 2, metaDataStore.getRecordMetaData().getVersion());
+            // do not commit
+        }
+
+        // Validate that deprecation can happen when the type is fully qualified
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
+            assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyHierarchicalRecord"));
+            deprecateRecordType(".com.apple.foundationdb.record.test3.MyHierarchicalRecord");
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyHierarchicalRecord"));
             assertTrue(metaDataStore.getRecordMetaData().getRecordsDescriptor().findMessageTypeByName("UnionDescriptor").findFieldByName("_MyHierarchicalRecord").getOptions().getDeprecated());
             assertEquals(version + 2, metaDataStore.getRecordMetaData().getVersion());
@@ -1509,6 +1677,686 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             assertEquals("_MySimpleRecord", deprecatedField.getName());
             assertTrue(deprecatedField.getOptions().getDeprecated());
             context.commit();
+        }
+    }
+
+    /**
+     * A basic test to verify that basic renaming works.
+     */
+    @Test
+    public void renameSimpleRecordType() {
+        List<Index> simpleRecordIndexes;
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            simpleRecordIndexes = metaData.getRecordType("MySimpleRecord").getIndexes();
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType("MySimpleRecord", "MyNewSimpleRecord");
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            Descriptors.FieldDescriptor simpleField = metaData.getUnionDescriptor().findFieldByNumber(TestRecords1Proto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER);
+            assertSame(metaData.getRecordType("MyNewSimpleRecord").getDescriptor(), simpleField.getMessageType());
+            assertEquals("MyNewSimpleRecord", simpleField.getMessageType().getName());
+            assertEquals("_MyNewSimpleRecord", simpleField.getName());
+            assertEquals(ImmutableSet.of("MyNewSimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaData.getRecordType("MySimpleRecord"));
+            assertEquals("Unknown record type MySimpleRecord", e.getMessage());
+            assertEquals(simpleRecordIndexes.stream().map(Index::getName).collect(Collectors.toSet()),
+                    metaData.getRecordType("MyNewSimpleRecord").getAllIndexes().stream().map(Index::getName).collect(Collectors.toSet()));
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            Descriptors.FieldDescriptor simpleField = metaData.getUnionDescriptor().findFieldByNumber(TestRecords1Proto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER);
+            assertSame(metaData.getRecordType("MyNewSimpleRecord").getDescriptor(), simpleField.getMessageType());
+            assertEquals("MyNewSimpleRecord", simpleField.getMessageType().getName());
+            assertEquals("_MyNewSimpleRecord", simpleField.getName());
+            assertEquals(ImmutableSet.of("MyNewSimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaData.getRecordType("MySimpleRecord"));
+            assertEquals("Unknown record type MySimpleRecord", e.getMessage());
+            assertEquals(simpleRecordIndexes.stream().map(Index::getName).collect(Collectors.toSet()),
+                    metaData.getRecordType("MyNewSimpleRecord").getAllIndexes().stream().map(Index::getName).collect(Collectors.toSet()));
+            context.commit();
+        }
+    }
+
+    /**
+     * Test whether fully qualifying a record type name works.
+     */
+    @Test
+    public void renameFullyQualifiedSimpleRecordType() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            // In theory, fully qualifying the name could work, but it doesn't as implemented.
+            MetaDataException e = assertThrows(MetaDataException.class, () -> renameRecordType(".com.apple.foundationdb.record.test1.MySimpleRecord", "MyNewSimpleRecord"));
+            assertThat(e.getMessage(), containsString("No record type found"));
+        }
+    }
+
+    /**
+     * Verify that if a record appears multiple times in the union that (1) all of the appearances are changed to the new
+     * type and that (2) only one type is renamed.
+     */
+    @Test
+    public void renameSimpleWithMultipleUnionAppearances() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            metaDataStore.mutateMetaData(metaDataProtoBuilder ->
+                    metaDataProtoBuilder.getRecordsBuilder().getMessageTypeBuilderList().forEach(messageType -> {
+                        if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                            // Rename the current _MySimpleRecord field
+                            messageType.getFieldBuilderList().forEach(field -> {
+                                if (field.getName().equals("_MySimpleRecord")) {
+                                    field.setName("_MySimpleRecord_v1");
+                                }
+                            });
+                            messageType.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                    .setTypeName("." + TestRecords1Proto.MySimpleRecord.getDescriptor().getFullName())
+                                    .setName("_MySimpleRecord")
+                                    .setNumber(messageType.getFieldBuilderList().stream().mapToInt(DescriptorProtos.FieldDescriptorProtoOrBuilder::getNumber).max().orElse(0) + 1)
+                                    .build());
+                        }
+                    })
+            );
+            metaData = metaDataStore.getRecordMetaData();
+            assertEquals(TestRecords1Proto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER,
+                    metaData.getUnionDescriptor().findFieldByName("_MySimpleRecord_v1").getNumber());
+            assertEquals(metaData.getUnionFieldForRecordType(metaData.getRecordType("MySimpleRecord")).getNumber(),
+                    metaData.getUnionDescriptor().findFieldByName("_MySimpleRecord").getNumber());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType("MySimpleRecord", "MyNewSimpleRecord");
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(ImmutableSet.of("MyNewSimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertEquals(ImmutableSet.of("_MyNewSimpleRecord", "_MySimpleRecord_v1", "_MyOtherRecord"),
+                    metaData.getUnionDescriptor().getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(ImmutableSet.of("MyNewSimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertEquals(ImmutableSet.of("_MyNewSimpleRecord", "_MySimpleRecord_v1", "_MyOtherRecord"),
+                    metaData.getUnionDescriptor().getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
+            context.commit();
+        }
+    }
+
+    /**
+     * This is somewhat of a weird case, but validate that if there is a union field for the new record type name that
+     * looks like _NewRecordTypeName (for whatever reason), <em>don't</em> rename the union field to that because getting
+     * the name looking right isn't worth throwing an error.
+     */
+    @Test
+    public void renameSimpleWhereUnionFieldIsAlreadyTaken() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            metaDataStore.mutateMetaData(metaDataProtoBuilder ->
+                    metaDataProtoBuilder.getRecordsBuilder().getMessageTypeBuilderList().forEach(messageType -> {
+                        if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                            // Rename the current _MySimpleRecord field
+                            messageType.getFieldBuilderList().forEach(field -> {
+                                if (field.getName().equals("_MyOtherRecord")) {
+                                    field.setName("_MyNewSimpleRecord");
+                                }
+                            });
+                        }
+                    })
+            );
+            metaData = metaDataStore.getRecordMetaData();
+            assertEquals(TestRecords1Proto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER,
+                    metaData.getUnionDescriptor().findFieldByName("_MySimpleRecord").getNumber());
+            assertEquals(TestRecords1Proto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER,
+                    metaData.getUnionFieldForRecordType(metaData.getRecordType("MySimpleRecord")).getNumber());
+            assertEquals(TestRecords1Proto.RecordTypeUnion._MYOTHERRECORD_FIELD_NUMBER,
+                    metaData.getUnionDescriptor().findFieldByName("_MyNewSimpleRecord").getNumber());
+            assertEquals(TestRecords1Proto.RecordTypeUnion._MYOTHERRECORD_FIELD_NUMBER,
+                    metaData.getUnionFieldForRecordType(metaData.getRecordType("MyOtherRecord")).getNumber());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType("MySimpleRecord", "MyNewSimpleRecord");
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(ImmutableSet.of("MyNewSimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertEquals(ImmutableSet.of("_MySimpleRecord", "_MyNewSimpleRecord"), metaData.getUnionDescriptor().getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
+            assertEquals("_MySimpleRecord", metaData.getUnionFieldForRecordType(metaData.getRecordType("MyNewSimpleRecord")).getName());
+            assertEquals("_MyNewSimpleRecord", metaData.getUnionFieldForRecordType(metaData.getRecordType("MyOtherRecord")).getName());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(ImmutableSet.of("MyNewSimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertEquals(ImmutableSet.of("_MySimpleRecord", "_MyNewSimpleRecord"), metaData.getUnionDescriptor().getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
+            assertEquals("_MySimpleRecord", metaData.getUnionFieldForRecordType(metaData.getRecordType("MyNewSimpleRecord")).getName());
+            assertEquals("_MyNewSimpleRecord", metaData.getUnionFieldForRecordType(metaData.getRecordType("MyOtherRecord")).getName());
+            context.commit();
+        }
+    }
+
+    /**
+     * Rename a {@code NESTED} record type.
+     */
+    @Test
+    public void renameNestedRecordType() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords4Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        // Rename a type that is marked as NESTED
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType("RestaurantTag", "RestoTag");
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            Descriptors.FileDescriptor recordsDescriptor = metaData.getRecordsDescriptor();
+            assertEquals(ImmutableSet.of("RestaurantReviewer", "ReviewerStats", "RestaurantReview", "RestoTag", "RestaurantRecord", "UnionDescriptor"),
+                    recordsDescriptor.getMessageTypes().stream().map(Descriptors.Descriptor::getName).collect(Collectors.toSet()));
+            Descriptors.FieldDescriptor tagsField = metaData.getRecordType("RestaurantRecord").getDescriptor().findFieldByName("tags");
+            assertEquals("RestoTag", tagsField.getMessageType().getName());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            Descriptors.FileDescriptor recordsDescriptor = metaData.getRecordsDescriptor();
+            assertEquals(ImmutableSet.of("RestaurantReviewer", "ReviewerStats", "RestaurantReview", "RestoTag", "RestaurantRecord", "UnionDescriptor"),
+                    recordsDescriptor.getMessageTypes().stream().map(Descriptors.Descriptor::getName).collect(Collectors.toSet()));
+            Descriptors.FieldDescriptor tagsField = metaData.getRecordType("RestaurantRecord").getDescriptor().findFieldByName("tags");
+            assertEquals("RestoTag", tagsField.getMessageType().getName());
+        }
+        // Rename a nested type that doesn't have any explicit (record).usage
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType("ReviewerStats", "ReviewerStatistics");
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            Descriptors.FileDescriptor recordsDescriptor = metaData.getRecordsDescriptor();
+            assertEquals(ImmutableSet.of("RestaurantReviewer", "ReviewerStatistics", "RestaurantReview", "RestoTag", "RestaurantRecord", "UnionDescriptor"),
+                    recordsDescriptor.getMessageTypes().stream().map(Descriptors.Descriptor::getName).collect(Collectors.toSet()));
+            Descriptors.FieldDescriptor stats = metaData.getRecordType("RestaurantReviewer").getDescriptor().findFieldByName("stats");
+            assertEquals("ReviewerStatistics", stats.getMessageType().getName());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            Descriptors.FileDescriptor recordsDescriptor = metaData.getRecordsDescriptor();
+            assertEquals(ImmutableSet.of("RestaurantReviewer", "ReviewerStatistics", "RestaurantReview", "RestoTag", "RestaurantRecord", "UnionDescriptor"),
+                    recordsDescriptor.getMessageTypes().stream().map(Descriptors.Descriptor::getName).collect(Collectors.toSet()));
+            Descriptors.FieldDescriptor stats = metaData.getRecordType("RestaurantReviewer").getDescriptor().findFieldByName("stats");
+            assertEquals("ReviewerStatistics", stats.getMessageType().getName());
+        }
+    }
+
+    /**
+     * Validate that the union can be renamed.
+     */
+    @Test
+    public void renameUnion() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        // Switch it from the default name to something else
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, "RecordsOneUnion");
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals("RecordsOneUnion", metaData.getUnionDescriptor().getName());
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals("RecordsOneUnion", metaData.getUnionDescriptor().getName());
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+        }
+        // Switch it back to the default name
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType("RecordsOneUnion", RecordMetaDataBuilder.DEFAULT_UNION_NAME);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(RecordMetaDataBuilder.DEFAULT_UNION_NAME, metaData.getUnionDescriptor().getName());
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(RecordMetaDataBuilder.DEFAULT_UNION_NAME, metaData.getUnionDescriptor().getName());
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+        }
+    }
+
+    private void unqualify(@Nonnull String packageName, @Nonnull String newPackage, @Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder) {
+        for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : messageTypeBuilder.getFieldBuilderList()) {
+            if (fieldBuilder.hasTypeName()) {
+                String withoutPrefix;
+                if (fieldBuilder.getTypeName().startsWith("." + packageName + ".")) {
+                    withoutPrefix = fieldBuilder.getTypeName().substring(2 + packageName.length());
+                } else if (fieldBuilder.getTypeName().startsWith(packageName + ".")) {
+                    withoutPrefix = fieldBuilder.getTypeName().substring(1 + packageName.length());
+                } else {
+                    withoutPrefix = "";
+                }
+                if (!withoutPrefix.isEmpty()) {
+                    String newTypeName;
+                    if (newPackage.isEmpty()) {
+                        newTypeName = withoutPrefix;
+                    } else  {
+                        newTypeName = newPackage + "." + withoutPrefix;
+                    }
+                    fieldBuilder.setTypeName(newTypeName);
+                }
+            }
+        }
+        for (DescriptorProtos.DescriptorProto.Builder nestedTypeBuilder : messageTypeBuilder.getNestedTypeBuilderList()) {
+            unqualify(packageName, newPackage, nestedTypeBuilder);
+        }
+    }
+
+    private void unqualify(@Nonnull String newPackage, @Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder) {
+        for (DescriptorProtos.DescriptorProto.Builder messageTypeBuilder : fileBuilder.getMessageTypeBuilderList()) {
+            unqualify(fileBuilder.getPackage(), newPackage, messageTypeBuilder);
+        }
+    }
+
+    @Test
+    public void ambiguousTypes() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsDoubleNestedProto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            MetaDataProtoEditor.AmbiguousTypeNameException e = assertThrows(MetaDataProtoEditor.AmbiguousTypeNameException.class, () -> metaDataStore.mutateMetaData(protoBuilder -> {
+                final DescriptorProtos.FileDescriptorProto.Builder fileBuilder = protoBuilder.getRecordsBuilder();
+                unqualify("", fileBuilder);
+                MetaDataProtoEditor.renameRecordType(protoBuilder, "OtherRecord", "OtterRecord");
+            }));
+            assertThat(e.getMessage(), containsString("might be of type .com.apple.foundationdb.record.test.doublenested.OtherRecord"));
+            e = assertThrows(MetaDataProtoEditor.AmbiguousTypeNameException.class, () -> metaDataStore.mutateMetaData(protoBuilder -> {
+                final DescriptorProtos.FileDescriptorProto.Builder fileBuilder = protoBuilder.getRecordsBuilder();
+                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                    if (message.getName().equals("OtherRecord")) {
+                        unqualify(fileBuilder.getPackage(), "", message);
+                    }
+                });
+                Optional<?> changedField = fileBuilder.getMessageTypeBuilderList().stream()
+                        .filter(message -> message.getName().equals("OtherRecord"))
+                        .flatMap(message -> message.getFieldBuilderList().stream())
+                        .filter(field -> field.getTypeName().equals("OuterRecord"))
+                        .findAny();
+                assertTrue(changedField.isPresent());
+                MetaDataProtoEditor.renameRecordType(protoBuilder, "OuterRecord", "OtterRecord");
+            }));
+            assertEquals("Field outer in message .com.apple.foundationdb.record.test.doublenested.OtherRecord of type OuterRecord might be of type .com.apple.foundationdb.record.test.doublenested.OuterRecord", e.getMessage());
+        }
+    }
+
+    /**
+     * Make sure the type rename can go all the way down.
+     */
+    @Test
+    public void renameRecordTypeUsageInNested() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsDoubleNestedProto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType("OuterRecord", "OtterRecord");
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(ImmutableSet.of("OtterRecord", "MiddleRecord"), metaData.getRecordTypes().keySet());
+            final Descriptors.Descriptor otterDescriptor = metaData.getRecordsDescriptor().findMessageTypeByName("OtterRecord");
+            assertSame(otterDescriptor, metaData.getRecordType("OtterRecord").getDescriptor());
+            assertSame(otterDescriptor, metaData.getRecordType("OtterRecord").getDescriptor()
+                    .findNestedTypeByName("MiddleRecord")
+                    .findNestedTypeByName("InnerRecord")
+                    .findFieldByName("outer")
+                    .getMessageType());
+            assertSame(otterDescriptor, metaData.getRecordsDescriptor()
+                    .findMessageTypeByName("OtherRecord")
+                    .findFieldByName("outer")
+                    .getMessageType());
+            context.commit();
+        }
+    }
+
+    /**
+     * If there are nested types with a similar name, do not rename the other nested types.
+     */
+    @Test
+    public void doNotRenameSimilarNestedType() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsDoubleNestedProto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.mutateMetaData(protoBuilder -> {
+                // Unqualify the OtterRecord.MiddleRecord references in a way where they can be distinguished from globally-scoped MiddleRecords
+                final DescriptorProtos.FileDescriptorProto.Builder fileBuilder = protoBuilder.getRecordsBuilder();
+                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                    if (!message.getName().equals("MiddleRecord")) {
+                        message.getFieldBuilderList().forEach(field -> {
+                            if (field.getTypeName().equals(".com.apple.foundationdb.record.test.doublenested.OuterRecord.MiddleRecord")) {
+                                field.setTypeName("doublenested.OuterRecord.MiddleRecord");
+                            }
+                        });
+                    }
+                });
+                // Verify that at least two fields are changed
+                assertThat(fileBuilder.getMessageTypeBuilderList().stream()
+                        .flatMap(message -> message.getFieldBuilderList().stream())
+                        .filter(field -> field.getTypeName().equals("doublenested.OuterRecord.MiddleRecord"))
+                        .count(),
+                        greaterThanOrEqualTo(1L));
+
+                MetaDataProtoEditor.renameRecordType(protoBuilder, "MiddleRecord", "MuddledRecord");
+            });
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertNotNull(metaData.getRecordsDescriptor().findMessageTypeByName("MuddledRecord"));
+            assertEquals("MiddleRecord", metaData.getRecordsDescriptor().findMessageTypeByName("MuddledRecord").findFieldByName("other_middle").getMessageType().getName());
+            assertEquals("MiddleRecord", metaData.getRecordType("OuterRecord").getDescriptor().findFieldByName("middle").getMessageType().getName());
+        }
+    }
+
+    /**
+     * Validate that a message type cannot be specified using "." syntax.
+     */
+    @Test
+    public void nestedRecordDefinition() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsDoubleNestedProto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            MetaDataException e = assertThrows(MetaDataException.class, () -> renameRecordType("OuterRecord.MiddleRecord", "OuterRecord.MiddlingRecord"));
+            assertEquals("No record type found with name OuterRecord.MiddleRecord", e.getMessage());
+        }
+    }
+
+    /**
+     * Validate that a message type cannot be renamed to something with a "." in it.
+     */
+    @Test
+    public void newNameSuggestsNestedType() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsDoubleNestedProto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            MetaDataException e = assertThrows(MetaDataException.class, () -> renameRecordType("OuterRecord", "OuterRecord.SomeNestedRecord"));
+            // We rely on underlying Protobuf validation for this case
+            assertEquals("Error converting from protobuf", e.getMessage());
+        }
+    }
+
+    /**
+     * Validate that the identity rename works and changes nothing (except the meta-data version).
+     */
+    @Test
+    public void identityRename() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaDataProto.MetaData metaDataProto = metaDataStore.getRecordMetaData().toProto();
+            renameRecordType("MySimpleRecord", "MySimpleRecord");
+            assertThat(metaDataProto.getVersion(), lessThan(metaDataStore.getRecordMetaData().getVersion()));
+            RecordMetaDataProto.MetaData mutatedMetaDataProto = metaDataStore.getRecordMetaData().toProto().toBuilder().setVersion(metaDataProto.getVersion()).build();
+            assertEquals(metaDataProto, mutatedMetaDataProto);
+            MetaDataException e = assertThrows(MetaDataException.class, () -> renameRecordType("MyNonExistentRecord", "MyNonExistentRecord"));
+            assertEquals("No record type found with name MyNonExistentRecord", e.getMessage());
+            context.commit();
+        }
+    }
+
+    /**
+     * Validate that if a {@code NESTED} record with the same name as an imported record type
+     * has its name changed, then the indexes do not change their record type.
+     */
+    @Test
+    public void dontRenameRecordTypeInIndexesWhenClashingWithImported() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsImportedAndNewProto.getDescriptor());
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertSame(metaData.getRecordType("MySimpleRecord").getDescriptor(), TestRecords1Proto.MySimpleRecord.getDescriptor());
+            assertNotSame(metaData.getRecordType("MySimpleRecord").getDescriptor(), TestRecordsImportedAndNewProto.MySimpleRecord.getDescriptor());
+            assertSame(metaData.getRecordType("MyOtherRecord").getDescriptor(), TestRecordsImportedAndNewProto.MyOtherRecord.getDescriptor());
+            assertNotSame(metaData.getRecordType("MyOtherRecord").getDescriptor(), TestRecords1Proto.MyOtherRecord.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.mutateMetaData(metaDataProtoBuilder -> {
+                MetaDataProtoEditor.renameRecordType(metaDataProtoBuilder, "MySimpleRecord", "MyNewSimpleRecord");
+                assertThat(metaDataProtoBuilder.getRecordTypesList().stream().map(RecordMetaDataProto.RecordType::getName).collect(Collectors.toList()), hasItem("MySimpleRecord"));
+                for (RecordMetaDataProto.Index index : metaDataProtoBuilder.getIndexesList()) {
+                    assertThat(index.getRecordTypeList(), not(hasItem("MyNewSimpleRecord")));
+                }
+            });
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertEquals("MyNewSimpleRecord", metaData.getRecordsDescriptor()
+                    .findMessageTypeByName("MyOtherRecord")
+                    .findFieldByName("simple")
+                    .getMessageType()
+                    .getName());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertEquals("MyNewSimpleRecord", metaData.getRecordsDescriptor()
+                    .findMessageTypeByName("MyOtherRecord")
+                    .findFieldByName("simple")
+                    .getMessageType()
+                    .getName());
+        }
+    }
+
+    /**
+     * Validate that if a {@code NESTED} record with the same name as an imported record type has its
+     * name changed, then the record type in the record type list does not change.
+     */
+    @Test
+    public void dontRenameRecordTypeWhenClashingWithImported() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsImportedAndNewProto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            renameRecordType("MySimpleRecord", "MyLocalSimpleRecord"); // rename the nested record
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            MetaDataException e = assertThrows(MetaDataException.class, () -> renameRecordType("MyOtherRecord", "MySimpleRecord"));
+            assertEquals("Cannot rename record type to MySimpleRecord as an imported record type of that name already exists", e.getMessage());
+        }
+    }
+
+    private static void validateInnerRecordsInRightPlaces(@Nonnull RecordMetaData metaData) {
+        Descriptors.FileDescriptor recordsDescriptor = metaData.getRecordsDescriptor();
+        Descriptors.Descriptor innerRecord = recordsDescriptor.findMessageTypeByName("InnerRecord");
+        assertNotNull(innerRecord);
+        Descriptors.Descriptor outerRecord = recordsDescriptor.findMessageTypeByName("OuterRecord");
+        assertNotNull(outerRecord);
+        Descriptors.Descriptor middleRecord = outerRecord.findNestedTypeByName("MiddleRecord");
+        assertNotNull(middleRecord);
+        Descriptors.Descriptor nestedInnerRecord = middleRecord.findNestedTypeByName("InnerRecord");
+        assertNotNull(nestedInnerRecord);
+        Descriptors.FieldDescriptor innerField = outerRecord.findFieldByName("inner");
+        assertSame(nestedInnerRecord, innerField.getMessageType());
+        assertNotSame(innerRecord, innerField.getMessageType());
+        Descriptors.FieldDescriptor nestedInnerField = outerRecord.findFieldByName("inner");
+        assertSame(nestedInnerRecord, nestedInnerField.getMessageType());
+        assertNotSame(innerRecord, nestedInnerField.getMessageType());
+    }
+
+    /**
+     * Verify that if there is a nested type defined in a message, then changing a top-level record type
+     * to that name won't cause any fields in that type to start pointing to the new type.
+     */
+    @Test
+    public void renameRecordTypeWithClashingNested() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsDoubleNestedProto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType("OtherRecord", "InnerRecord");
+            validateInnerRecordsInRightPlaces(metaDataStore.getRecordMetaData());
+
+            // Unqualify the inner record's field type name
+            metaDataStore.mutateMetaData(metaDataProtoBuilder -> {
+                DescriptorProtos.FileDescriptorProto.Builder fileBuilder = metaDataProtoBuilder.getRecordsBuilder();
+                DescriptorProtos.DescriptorProto.Builder outerBuilder = fileBuilder.getMessageTypeBuilderList().stream()
+                        .filter(messageBuilder -> messageBuilder.getName().equals("OuterRecord"))
+                        .findFirst()
+                        .get();
+                outerBuilder.getFieldBuilderList().stream()
+                        .filter(fieldBuilder -> fieldBuilder.getName().equals("inner"))
+                        .forEach(fieldBuilder -> fieldBuilder.setTypeName("MiddleRecord.InnerRecord"));
+                outerBuilder.getNestedTypeBuilderList().stream()
+                        .filter(messageBuilder -> messageBuilder.getName().equals("MiddleRecord"))
+                        .flatMap(messageBuilder -> messageBuilder.getFieldBuilderList().stream())
+                        .filter(fieldBuilder -> fieldBuilder.getName().equals("inner"))
+                        .forEach(fieldBuilder -> fieldBuilder.setTypeName("InnerRecord"));
+            });
+
+            validateInnerRecordsInRightPlaces(metaDataStore.getRecordMetaData());
+
+            // do not commit
+        }
+
+        // Validate that this won't update a field of type OuterRecord.InnerRecord even if the field type
+        // isn't fully qualified.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            metaDataStore.mutateMetaData(metaDataProtoBuilder -> {
+                DescriptorProtos.FileDescriptorProto.Builder fileBuilder = metaDataProtoBuilder.getRecordsBuilder();
+                DescriptorProtos.DescriptorProto.Builder outerBuilder = fileBuilder.getMessageTypeBuilderList().stream()
+                        .filter(messageBuilder -> messageBuilder.getName().equals("OuterRecord"))
+                        .findFirst()
+                        .get();
+                outerBuilder.getFieldBuilderList().stream()
+                        .filter(fieldBuilder -> fieldBuilder.getName().equals("inner"))
+                        .forEach(fieldBuilder -> fieldBuilder.setTypeName("MiddleRecord.InnerRecord"));
+                outerBuilder.getNestedTypeBuilderList().stream()
+                        .filter(messageBuilder -> messageBuilder.getName().equals("MiddleRecord"))
+                        .flatMap(messageBuilder -> messageBuilder.getFieldBuilderList().stream())
+                        .filter(fieldBuilder -> fieldBuilder.getName().equals("inner"))
+                        .forEach(fieldBuilder -> fieldBuilder.setTypeName("InnerRecord"));
+            });
+            renameRecordType("OtherRecord", "InnerRecord");
+            validateInnerRecordsInRightPlaces(metaDataStore.getRecordMetaData());
+
+            // do not commit
+        }
+
+        // Validate that if the field were unqualified in a way that introducing a new InnerRecord as a top-level record
+        // would change the type that the Protobuf would not have built.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            MetaDataException e = assertThrows(MetaDataException.class, () -> metaDataStore.mutateMetaData(metaDataProtoBuilder -> {
+                DescriptorProtos.FileDescriptorProto.Builder fileBuilder = metaDataProtoBuilder.getRecordsBuilder();
+                fileBuilder.getMessageTypeBuilderList().stream()
+                        .filter(messageBuilder -> messageBuilder.getName().equals("OuterRecord"))
+                        .flatMap(messageBuilder -> messageBuilder.getFieldBuilderList().stream())
+                        .filter(fieldBuilder -> fieldBuilder.getName().equals("inner"))
+                        .forEach(fieldBuilder -> fieldBuilder.setTypeName("InnerRecord"));
+            }));
+            assertEquals("Error converting from protobuf", e.getMessage());
+            assertNotNull(e.getCause());
+            assertThat(e.getCause(), instanceOf(Descriptors.DescriptorValidationException.class));
+            assertThat(e.getCause().getMessage(), containsString("\"InnerRecord\" is not defined."));
+
+            // do not commit
+        }
+    }
+
+    /**
+     * Verify that renaming a regular record type to the default union name throws an error.
+     */
+    @Test
+    public void dontRenameNonUnionToUnion() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, "RecordOneUnion"); // to avoid conflicts
+            MetaDataException e = assertThrows(MetaDataException.class, () -> renameRecordType("MySimpleRecord", RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+            assertEquals("Cannot rename record type to the default union name", e.getMessage());
+        }
+    }
+
+    /**
+     * Verify that renaming a non-existent record doesn't work.
+     */
+    @Test
+    public void tryRenameNonExistentRecord() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            MetaDataException e = assertThrows(MetaDataException.class, () -> renameRecordType("MyNonExistentRecord", "SomethingElse"));
+            assertEquals("No record type found with name MyNonExistentRecord", e.getMessage());
         }
     }
 }

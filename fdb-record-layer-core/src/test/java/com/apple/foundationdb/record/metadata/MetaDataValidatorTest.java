@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
+import com.apple.foundationdb.record.TestRecordsNameClashProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -68,6 +69,17 @@ public class MetaDataValidatorTest {
     public void noRecordTypes() {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestNoRecordTypesProto.getDescriptor());
         assertInvalid("No record types defined in meta-data", metaData);
+    }
+
+    /**
+     * Validate that different record types that have the same name (because of imports) throw an error. In theory,
+     * this should allow the user to, say, specify the fully qualified type, but it is better to throw an error
+     * than to override the existing record type.
+     */
+    @Test
+    public void duplicateRecordTypeNames() {
+        MetaDataException e = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().setRecords(TestRecordsNameClashProto.getDescriptor()));
+        assertThat(e.getMessage(), containsString("There is already a record type named MySimpleRecord"));
     }
 
     @Test

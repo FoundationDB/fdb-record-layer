@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords7Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
+import com.apple.foundationdb.record.TestRecordsDuplicateUnionFields;
 import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
@@ -59,6 +60,7 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.RecordSerializationException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -2643,6 +2645,78 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             scannedRec2 = cursor.next();
             assertEquals(storedRec2, scannedRec2);
             assertFalse(cursor.hasNext());
+
+            commit(context);
+        }
+    }
+
+    @Test
+    public void unionFieldUpdateCompatibility() throws Exception {
+        final TestRecords1Proto.MySimpleRecord record1 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(1066L)
+                .setNumValue2(42)
+                .build();
+        final TestRecords1Proto.MySimpleRecord record2 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(1415L)
+                .setStrValueIndexed("second_record")
+                .build();
+        final TestRecords1Proto.MySimpleRecord record3 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(800L)
+                .setNumValue2(14)
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            RecordMetaData metaData = recordStore.getRecordMetaData();
+            assertSame(TestRecords1Proto.RecordTypeUnion.getDescriptor().findFieldByName("_MySimpleRecord"),
+                    metaData.getUnionFieldForRecordType(metaData.getRecordType("MySimpleRecord")));
+
+            // Save a record using the field using the old meta-data
+            recordStore.saveRecord(record1);
+
+            // Save a record using the new union descriptor but in the old location
+            context.ensureActive().set(
+                    recordStore.recordsSubspace().pack(Tuple.from(record2.getRecNo(), SplitHelper.UNSPLIT_RECORD)),
+                    TestRecordsDuplicateUnionFields.RecordTypeUnion.newBuilder()
+                        .setMySimpleRecordOld(record2)
+                        .build()
+                        .toByteArray()
+            );
+
+            // Save a record using the new union descriptor in the new location
+            context.ensureActive().set(
+                    recordStore.recordsSubspace().pack(Tuple.from(record3.getRecNo(), SplitHelper.UNSPLIT_RECORD)),
+                    TestRecordsDuplicateUnionFields.RecordTypeUnion.newBuilder()
+                            .setMySimpleRecordNew(record3)
+                            .build()
+                            .toByteArray()
+            );
+
+            assertEquals(record1, recordStore.loadRecord(Tuple.from(record1.getRecNo())).getRecord());
+            assertEquals(record2, recordStore.loadRecord(Tuple.from(record2.getRecNo())).getRecord());
+
+            RecordCoreException e = assertThrows(RecordCoreException.class,
+                    () -> recordStore.loadRecord(Tuple.from(record3.getRecNo())).getRecord());
+            assertNotNull(e.getCause());
+            assertThat(e.getCause(), instanceOf(RecordSerializationException.class));
+            assertThat(e.getCause().getMessage(), containsString("because there are unknown fields"));
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.updateRecords(TestRecordsDuplicateUnionFields.getDescriptor());
+            });
+            RecordMetaData metaData = recordStore.getRecordMetaData();
+            assertSame(TestRecordsDuplicateUnionFields.RecordTypeUnion.getDescriptor().findFieldByName("_MySimpleRecord_new"),
+                    metaData.getUnionFieldForRecordType(metaData.getRecordType("MySimpleRecord")));
+
+            // All three records should be readable even though written by the previous store
+            for (TestRecords1Proto.MySimpleRecord record : Arrays.asList(record1, record2, record3)) {
+                FDBStoredRecord<Message> storedRecord = recordStore.loadRecord(Tuple.from(record.getRecNo()));
+                assertNotNull(storedRecord);
+                assertSame(metaData.getRecordType("MySimpleRecord"), storedRecord.getRecordType());
+                assertEquals(record, storedRecord.getRecord());
+            }
 
             commit(context);
         }
