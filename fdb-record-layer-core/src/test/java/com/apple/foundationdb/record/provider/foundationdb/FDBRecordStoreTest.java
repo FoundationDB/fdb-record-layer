@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
@@ -1887,8 +1888,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
             final FDBRecordStore.Builder staleBuilder = recordStore.asBuilder().setMetaDataProvider(staleMetaData);
             TestHelpers.assertThrows(RecordStoreStaleMetaDataVersionException.class, staleBuilder::createOrOpen,
-                    "localVersion", version + 1,
-                    "storedVersion", version + 2);
+                    LogMessageKeys.LOCAL_VERSION.toString(), version + 1,
+                    LogMessageKeys.STORED_VERSION.toString(), version + 2);
         }
 
         // Test open with a MetaDataStore
@@ -1947,8 +1948,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
                     .setMetaDataStore(staleMetaDataStore);
             TestHelpers.assertThrows(RecordStoreStaleMetaDataVersionException.class, storeBuilder::createOrOpen,
-                    "localVersion", version + 1,
-                    "storedVersion", version + 2);
+                    LogMessageKeys.LOCAL_VERSION.toString(), version + 1,
+                    LogMessageKeys.STORED_VERSION.toString(), version + 2);
         }
 
         // Test uncheckedOpen without a MetaDataStore
