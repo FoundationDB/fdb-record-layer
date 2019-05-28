@@ -348,16 +348,20 @@ public class FDBDatabaseRunner implements AutoCloseable {
                 }
 
                 if (tries + 1 < getMaxAttempts() && retry) {
+                    long delay = (long)(Math.random() * currDelay);
+
                     if (LOGGER.isWarnEnabled()) {
                         final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying FDB Exception",
                                                                 LogMessageKeys.MESSAGE, fdbMessage,
-                                                                LogMessageKeys.CODE, code);
+                                                                LogMessageKeys.CODE, code,
+                                                                LogMessageKeys.TRIES, tries,
+                                                                LogMessageKeys.MAX_ATTEMPTS, getMaxAttempts(),
+                                                                LogMessageKeys.DELAY, delay);
                         if (additionalLogMessageKeyValues != null) {
                             message.addKeysAndValues(additionalLogMessageKeyValues);
                         }
                         LOGGER.warn(message.toString(), e);
                     }
-                    long delay = (long)(Math.random() * currDelay);
                     CompletableFuture<Void> future = MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS);
                     addFutureToCompleteExceptionally(future);
                     return future.thenApply(vignore -> {
