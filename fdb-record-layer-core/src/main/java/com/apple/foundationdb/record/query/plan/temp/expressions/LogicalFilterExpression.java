@@ -78,6 +78,11 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     }
 
     @Override
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof LogicalFilterExpression;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

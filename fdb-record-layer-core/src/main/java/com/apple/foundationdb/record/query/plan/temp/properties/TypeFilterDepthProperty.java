@@ -1,5 +1,5 @@
 /*
- * FieldWithComparisonCountProperty.java
+ * TypeFilterDepthProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,30 +20,28 @@
 
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
-import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
 import java.util.List;
 
 /**
- * A property that counts the number of {@link FieldWithComparison}s that appear in a planner expression tree.
- * This property is used as the number of "unsatisfied filters" when picking between query plans that scan different
- * indexes.
+ * A property representing the minimum depth of a type filter in a relational planner expression: that is, the smallest
+ * integer such that there is a {@link RecordQueryTypeFilterPlan} or {@link LogicalTypeFilterExpression} exactly that
+ * many relational planner expressions away from the root expression.
  */
-@API(API.Status.EXPERIMENTAL)
-public class FieldWithComparisonCountProperty implements PlannerProperty<Integer> {
-    private static final FieldWithComparisonCountProperty INSTANCE = new FieldWithComparisonCountProperty();
+public class TypeFilterDepthProperty implements PlannerProperty<Integer> {
+    private static final TypeFilterDepthProperty INSTANCE = new TypeFilterDepthProperty();
 
     @Override
     public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression ||
-               expression instanceof QueryComponent;
+        return expression instanceof RelationalPlannerExpression;
     }
 
     @Override
@@ -54,36 +52,27 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
-        int total = expression instanceof FieldWithComparison ? 1 : 0;
-        for (Integer childCount : childResults) {
-            if (childCount != null) {
-                total += childCount;
+        if (expression instanceof RecordQueryTypeFilterPlan ||
+                expression instanceof LogicalTypeFilterExpression) {
+            return 0;
+        }
+        int min = Integer.MAX_VALUE;
+        for (Integer result : childResults) {
+            if (result != null && result < min) {
+                min = result;
             }
         }
-        return total;
+        return min == Integer.MAX_VALUE ? Integer.MAX_VALUE : min + 1;
     }
 
     @Nonnull
     @Override
     public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<Integer> memberResults) {
-        int min = Integer.MAX_VALUE;
-        for (int memberResult : memberResults) {
-            if (memberResult < min) {
-                min = memberResult;
-            }
-        }
-        return min;
-    }
-
-    public static int evaluate(ExpressionRef<? extends PlannerExpression> ref) {
-        return ref.acceptPropertyVisitor(INSTANCE);
+        return Collections.min(memberResults);
     }
 
     public static int evaluate(@Nonnull PlannerExpression expression) {
-        Integer result = expression.acceptPropertyVisitor(INSTANCE);
-        if (result == null) {
-            return Integer.MAX_VALUE;
-        }
-        return result;
+        return expression.acceptPropertyVisitor(INSTANCE);
     }
+
 }

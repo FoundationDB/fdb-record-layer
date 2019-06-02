@@ -129,6 +129,16 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex {
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        if (!(otherExpression instanceof RecordQueryTextIndexPlan)) {
+            return false;
+        }
+        final RecordQueryTextIndexPlan other = (RecordQueryTextIndexPlan) otherExpression;
+        return reverse == other.reverse && indexName.equals(other.indexName) && textScan.equals(other.textScan);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

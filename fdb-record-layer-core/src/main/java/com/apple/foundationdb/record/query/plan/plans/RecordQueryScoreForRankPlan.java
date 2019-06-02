@@ -160,6 +160,13 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof RecordQueryScoreForRankPlan &&
+               ranks.equals(((RecordQueryScoreForRankPlan) otherExpression).ranks);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

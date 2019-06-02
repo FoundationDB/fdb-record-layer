@@ -197,6 +197,17 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        if (!(otherExpression instanceof RecordQueryIntersectionPlan)) {
+            return false;
+        }
+        final RecordQueryIntersectionPlan other = (RecordQueryIntersectionPlan) otherExpression;
+        return reverse == other.reverse &&
+               comparisonKey.equals(other.comparisonKey);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

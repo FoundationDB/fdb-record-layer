@@ -131,6 +131,12 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof RecordQueryLoadByKeysPlan;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

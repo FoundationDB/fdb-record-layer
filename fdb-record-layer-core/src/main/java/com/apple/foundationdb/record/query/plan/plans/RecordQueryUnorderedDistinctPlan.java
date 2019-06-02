@@ -140,6 +140,13 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof RecordQueryUnorderedDistinctPlan &&
+               comparisonKey.equals(((RecordQueryUnorderedDistinctPlan)otherExpression).comparisonKey);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

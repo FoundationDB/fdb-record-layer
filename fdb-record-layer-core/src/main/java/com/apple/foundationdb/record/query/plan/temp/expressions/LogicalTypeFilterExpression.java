@@ -76,4 +76,10 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
     public RelationalPlannerExpression getInner() {
         return inner.get();
     }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof LogicalTypeFilterExpression &&
+               ((LogicalTypeFilterExpression)otherExpression).getRecordTypes().equals(getRecordTypes());
+    }
 }

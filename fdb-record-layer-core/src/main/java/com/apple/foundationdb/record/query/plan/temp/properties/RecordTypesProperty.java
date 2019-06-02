@@ -150,4 +150,8 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
         return ref.acceptPropertyVisitor(new RecordTypesProperty(context));
     }
 
+    @Nonnull
+    public static Set<String> evaluate(@Nonnull PlanContext context, @Nonnull PlannerExpression ref) {
+        return ref.acceptPropertyVisitor(new RecordTypesProperty(context));
+    }
 }

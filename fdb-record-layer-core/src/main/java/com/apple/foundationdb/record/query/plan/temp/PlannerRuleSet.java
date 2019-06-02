@@ -88,7 +88,8 @@ public class PlannerRuleSet {
     @Nonnull
     private final List<PlannerRule<? extends PlannerExpression>> alwaysRules = new ArrayList<>();
 
-    private PlannerRuleSet(@Nonnull List<PlannerRule<? extends PlannerExpression>> rules) {
+    @VisibleForTesting
+    PlannerRuleSet(@Nonnull List<PlannerRule<? extends PlannerExpression>> rules) {
         for (PlannerRule<? extends PlannerExpression> rule : rules) {
             Optional<Class<? extends PlannerExpression>> root = rule.getRootOperator();
             if (root.isPresent()) {

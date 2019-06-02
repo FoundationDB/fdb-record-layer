@@ -105,6 +105,27 @@ public class KeyExpressionComparisons {
         return builder.build();
     }
 
+    public int getUnmatchedFieldCount() {
+        return root.getUnmatchedFieldCount();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        KeyExpressionComparisons that = (KeyExpressionComparisons)o;
+        return Objects.equals(root, that.root);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(root);
+    }
+
     private enum MatchedComparisonType {
         NOT_MATCHED,
         MATCHED,
@@ -320,7 +341,18 @@ public class KeyExpressionComparisons {
                 children.get(0).addToScanComparisonsBuilder(builder);
             } else if (keyExpression instanceof KeyWithValueExpression) {
                 children.get(0).addToScanComparisonsBuilder(builder);
+
+        public int getUnmatchedFieldCount() {
+            if (keyExpression instanceof FieldKeyExpression ||
+                    keyExpression instanceof RecordTypeKeyExpression ||
+                    keyExpression instanceof VersionKeyExpression) {
+                return getMatchedComparisonType().equals(MatchedComparisonType.NOT_MATCHED) ? 1 : 0;
             }
+
+            if (keyExpression instanceof KeyExpressionWithChildren) {
+                return children.stream().mapToInt(KeyExpressionWithComparison::getUnmatchedFieldCount).sum();
+            }
+            return 0;
         }
 
         public static KeyExpressionWithComparison from(@Nonnull KeyExpressionComparisons root, @Nonnull KeyExpression keyExpression) {
@@ -339,6 +371,25 @@ public class KeyExpressionComparisons {
             } else {
                 throw new RecordCoreException("found key expression that does not implement proper interfaces");
             }
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            KeyExpressionWithComparison that = (KeyExpressionWithComparison)o;
+            return Objects.equals(keyExpression, that.keyExpression) &&
+                   Objects.equals(children, that.children) &&
+                   Objects.equals(comparison, that.comparison);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(keyExpression, children, comparison);
         }
     }
 }

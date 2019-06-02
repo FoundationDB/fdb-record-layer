@@ -25,24 +25,22 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
+import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
-import com.apple.foundationdb.record.query.plan.temp.RewriteRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -62,11 +60,10 @@ public class PushFieldWithComparisonIntoExistingIndexScanRuleTest {
                 concatIndexEntrySource.getEmptyComparisons(), false);
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
                 Query.field("aField").equalsValue(5), inner));
-        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root).findFirst();
-        assertTrue(possibleMatch.isPresent());
-        rule.onMatch(possibleMatch.get());
-        assertTrue(root.get() instanceof LogicalIndexScanExpression);
-        LogicalIndexScanExpression result = (LogicalIndexScanExpression) root.get();
+        TestRuleExecution execution = TestRuleExecution.applyRule(context, rule, root);
+        assertTrue(execution.isRuleMatched());
+        IndexEntrySourceScanExpression result = execution.getResultMemberWithClass(IndexEntrySourceScanExpression.class);
+        assertNotNull(result);
         assertEquals(singleFieldIndex.getName(), result.getIndexName());
         assertEquals(IndexScanType.BY_VALUE, result.getScanType());
         assertEquals(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)), result.getComparisons().toScanComparisons());
@@ -80,11 +77,9 @@ public class PushFieldWithComparisonIntoExistingIndexScanRuleTest {
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
                 Query.field("aField").equalsValue(5), inner));
 
-        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root).findFirst();
-        assertTrue(possibleMatch.isPresent());
-        rule.onMatch(possibleMatch.get());
-        assertTrue(root.get() instanceof LogicalIndexScanExpression);
-        LogicalIndexScanExpression result = (LogicalIndexScanExpression) root.get();
+        TestRuleExecution execution = TestRuleExecution.applyRule(context, rule, root);
+        IndexEntrySourceScanExpression result = execution.getResultMemberWithClass(IndexEntrySourceScanExpression.class);
+        assertNotNull(result);
         assertEquals(singleFieldIndex.getName(), result.getIndexName());
         assertEquals(IndexScanType.BY_VALUE, result.getScanType());
         assertEquals(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 5)), result.getComparisons().toScanComparisons());
@@ -97,9 +92,7 @@ public class PushFieldWithComparisonIntoExistingIndexScanRuleTest {
                 singleFieldIndexEntrySource.getEmptyComparisons(), false);
         PlannerExpression original = new LogicalFilterExpression(Query.field("anotherField").equalsValue(5), inner);
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(original);
-        Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root).findFirst();
-        assertTrue(possibleMatch.isPresent()); // the matcher should match, since the structure is right
-        rule.onMatch(possibleMatch.get());
+        assertTrue(TestRuleExecution.applyRule(context, rule, root).isRuleMatched());
         assertEquals(original, root.get());
     }
 }

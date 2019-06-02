@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
@@ -40,7 +41,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class, AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
     private static final ExpressionMatcher<ExpressionRef<QueryComponent>> filterMatcher = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
             filterMatcher, innerMatcher);
@@ -52,10 +53,10 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
     @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
-        final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
+        final RecordQueryPlan inner = call.get(innerMatcher);
         final ExpressionRef<QueryComponent> filter = call.get(filterMatcher);
 
-        call.yield(SingleExpressionRef.of(new RecordQueryFilterPlan(inner, filter)));
+        call.yield(SingleExpressionRef.of(new RecordQueryFilterPlan(call.ref(inner), filter)));
         return ChangesMade.MADE_CHANGES;
     }
 }

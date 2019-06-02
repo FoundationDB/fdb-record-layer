@@ -23,16 +23,19 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesProperty;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 /**
  * A rule that implements a logical type filter on an (already implemented) {@link RecordQueryPlan} as a
@@ -40,7 +43,8 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static ExpressionMatcher<ExpressionRef<RecordQueryPlan>> childMatcher = ReferenceMatcher.anyRef();
+    private static ExpressionMatcher<RecordQueryPlan> childMatcher = TypeMatcher.of(RecordQueryPlan.class,
+            AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
     private static ExpressionMatcher<LogicalTypeFilterExpression> root = TypeMatcher.of(LogicalTypeFilterExpression.class, childMatcher);
 
     public ImplementTypeFilterRule() {
@@ -51,9 +55,18 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalTypeFilterExpression typeFilter = call.get(root);
-        final ExpressionRef<RecordQueryPlan> child = call.get(childMatcher);
+        final RecordQueryPlan child = call.get(childMatcher);
 
-        call.yield(SingleExpressionRef.of(new RecordQueryTypeFilterPlan(child, typeFilter.getRecordTypes())));
+        Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), child);
+        Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
+        if (filterRecordTypes.containsAll(childRecordTypes)) {
+            // type filter is completely redundant, so remove it entirely
+            call.yield(call.ref(child));
+        } else {
+            // otherwise, keep a filter on record types which the child might produce and are included in the filter
+            Set<String> unsatisfiedTypeFilters = Sets.intersection(filterRecordTypes, childRecordTypes);
+            call.yield(SingleExpressionRef.of(new RecordQueryTypeFilterPlan(child, unsatisfiedTypeFilters)));
+        }
         return ChangesMade.MADE_CHANGES;
     }
 }

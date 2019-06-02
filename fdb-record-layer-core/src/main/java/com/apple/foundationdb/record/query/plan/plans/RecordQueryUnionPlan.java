@@ -131,6 +131,17 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        if (!(otherExpression instanceof RecordQueryUnionPlan)) {
+            return false;
+        }
+        final RecordQueryUnionPlan other = (RecordQueryUnionPlan) otherExpression;
+        return comparisonKey.equals(other.comparisonKey) &&
+               isReverse() == other.isReverse();
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

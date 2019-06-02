@@ -53,6 +53,11 @@ public class LogicalUnorderedUnionExpression implements RelationalExpressionWith
     }
 
     @Override
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof LogicalUnorderedUnionExpression;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (o == this) {
             return true;

@@ -48,6 +48,8 @@ public interface PlanContext {
     @Nullable
     KeyExpression getCommonPrimaryKey();
 
+    int getGreatestPrimaryKeyWidth();
+
     @Nonnull
     RecordMetaData getMetaData();
 }

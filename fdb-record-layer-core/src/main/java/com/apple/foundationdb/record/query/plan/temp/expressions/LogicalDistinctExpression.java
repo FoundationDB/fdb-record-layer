@@ -61,6 +61,11 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     }
 
     @Override
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof LogicalDistinctExpression;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

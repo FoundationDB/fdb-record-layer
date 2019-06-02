@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -130,10 +131,14 @@ public class ComparisonRange {
             return Optional.of(this);
         } else if (isInequality() &&
                 ScanComparisons.getComparisonType(comparison).equals(ScanComparisons.ComparisonType.INEQUALITY)) {
-            return Optional.of(new ComparisonRange(ImmutableList.<Comparisons.Comparison>builder()
-                    .addAll(inequalityComparisons)
-                    .add(comparison)
-                    .build()));
+            if (inequalityComparisons.contains(comparison)) {
+                return Optional.of(this);
+            } else {
+                return Optional.of(new ComparisonRange(ImmutableList.<Comparisons.Comparison>builder()
+                        .addAll(inequalityComparisons)
+                        .add(comparison)
+                        .build()));
+            }
         }
         // TODO there are some subtle cases to handle. For example, != 3 and >= 3 is the same as > 3.
         return Optional.empty();
@@ -149,6 +154,24 @@ public class ComparisonRange {
         } else {
             return "[]";
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ComparisonRange that = (ComparisonRange)o;
+        return Objects.equals(equalityComparison, that.equalityComparison) &&
+               Objects.equals(inequalityComparisons, that.inequalityComparisons);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(equalityComparison, inequalityComparisons);
     }
 
     @Nonnull

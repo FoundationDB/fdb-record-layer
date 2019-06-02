@@ -84,6 +84,16 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        if (!(otherExpression instanceof LogicalSortExpression)) {
+            return false;
+        }
+        final LogicalSortExpression other = (LogicalSortExpression) otherExpression;
+        return sort.equals(other.sort) && reverse == other.reverse;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

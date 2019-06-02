@@ -143,6 +143,18 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        if (!(otherExpression instanceof RecordQueryInJoinPlan)) {
+            return false;
+        }
+        final RecordQueryInJoinPlan other = (RecordQueryInJoinPlan) otherExpression;
+        return bindingName.equals(other.bindingName) &&
+               sortValuesNeeded == other.sortValuesNeeded &&
+               sortReverse == other.sortReverse;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

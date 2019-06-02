@@ -87,6 +87,11 @@ public class FakePlanContext implements PlanContext {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public int getGreatestPrimaryKeyWidth() {
+        return 0;
+    }
+
     @Nonnull
     @Override
     public RecordMetaData getMetaData() {

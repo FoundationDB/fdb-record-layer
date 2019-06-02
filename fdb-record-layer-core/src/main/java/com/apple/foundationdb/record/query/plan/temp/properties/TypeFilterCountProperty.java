@@ -1,5 +1,5 @@
 /*
- * FieldWithComparisonCountProperty.java
+ * TypeFilterCountProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,41 +20,45 @@
 
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
-import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A property that counts the number of {@link FieldWithComparison}s that appear in a planner expression tree.
- * This property is used as the number of "unsatisfied filters" when picking between query plans that scan different
- * indexes.
+ * A property that determines the sum, over all elements of a {@code PlannerExpression} tree, of the number of record
+ * types that are passed by type filters in the tree. Records that are filtered for on more than one type filter are
+ * not de-duplicated. For example, Maybe "if there are two {@link TypeFilterExpression}s, one that filters for records
+ * of types {@code Type1} or {@code Type2} and one that filters for records of type {@code Type1}, then this property
+ * would evaluate to 3.
+ *
+ * <p>
+ * This property provides some heuristic sense of how much work is being done by type filters, since unnecessary ones
+ * are aggressively pruned by the planner.
+ * </p>
  */
-@API(API.Status.EXPERIMENTAL)
-public class FieldWithComparisonCountProperty implements PlannerProperty<Integer> {
-    private static final FieldWithComparisonCountProperty INSTANCE = new FieldWithComparisonCountProperty();
-
-    @Override
-    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression ||
-               expression instanceof QueryComponent;
-    }
+public class TypeFilterCountProperty implements PlannerProperty<Integer> {
+    private static final TypeFilterCountProperty INSTANCE = new TypeFilterCountProperty();
 
     @Override
     public boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
         return true;
     }
 
+    @Override
+    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
+        return expression instanceof RelationalPlannerExpression;
+    }
+
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
-        int total = expression instanceof FieldWithComparison ? 1 : 0;
+        int total = expression instanceof TypeFilterExpression ?
+                    ((TypeFilterExpression)expression).getRecordTypes().size() : 0;
         for (Integer childCount : childResults) {
             if (childCount != null) {
                 total += childCount;
@@ -75,14 +79,10 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
         return min;
     }
 
-    public static int evaluate(ExpressionRef<? extends PlannerExpression> ref) {
-        return ref.acceptPropertyVisitor(INSTANCE);
-    }
-
     public static int evaluate(@Nonnull PlannerExpression expression) {
         Integer result = expression.acceptPropertyVisitor(INSTANCE);
         if (result == null) {
-            return Integer.MAX_VALUE;
+            return 0;
         }
         return result;
     }

@@ -58,6 +58,7 @@ public class MetaDataPlanContext implements PlanContext {
     private final ImmutableSet<IndexEntrySource> indexEntrySources;
     @Nullable
     private final KeyExpression commonPrimaryKey;
+    private final int greatestPrimaryKeyWidth;
 
     public MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull RecordQuery query) {
         this.metaData = metaData;
@@ -70,8 +71,10 @@ public class MetaDataPlanContext implements PlanContext {
         try {
             if (query.getRecordTypes().isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
+                greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(metaData.getRecordTypes().values());
             } else {
                 final List<RecordType> recordTypes = query.getRecordTypes().stream().map(metaData::getRecordType).collect(Collectors.toList());
+                greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(recordTypes);
                 if (recordTypes.size() == 1) {
                     final RecordType recordType = recordTypes.get(0);
                     indexList.addAll(readableOf(recordType.getIndexes()));
@@ -111,13 +114,14 @@ public class MetaDataPlanContext implements PlanContext {
 
     private MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState,
                                 @Nonnull BiMap<Index, String> indexes, @Nonnull ImmutableSet<IndexEntrySource> indexEntrySources,
-                                @Nonnull KeyExpression commonPrimaryKey) {
+                                @Nonnull KeyExpression commonPrimaryKey, int greatestPrimaryKeyWidth) {
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
         this.indexes = indexes;
         this.indexesByName = indexes.inverse();
         this.indexEntrySources = indexEntrySources;
         this.commonPrimaryKey = commonPrimaryKey;
+        this.greatestPrimaryKeyWidth = greatestPrimaryKeyWidth;
     }
 
     @Nullable
@@ -134,6 +138,16 @@ public class MetaDataPlanContext implements PlanContext {
         }
         return common;
     }
+
+    private static int getGreatestPrimaryKeyWidth(@Nonnull Collection<RecordType> recordTypes) {
+        return recordTypes.stream().mapToInt(recordType -> recordType.getPrimaryKey().getColumnSize()).max().orElse(0);
+    }
+
+    @Override
+    public int getGreatestPrimaryKeyWidth() {
+        return greatestPrimaryKeyWidth;
+    }
+
 
     @Override
     @Nonnull

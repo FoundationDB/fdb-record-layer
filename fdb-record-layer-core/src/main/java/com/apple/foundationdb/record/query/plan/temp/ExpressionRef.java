@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**
@@ -77,6 +79,19 @@ public interface ExpressionRef<T extends PlannerExpression> extends Bindable {
      */
     @Nonnull
     Stream<PlannerBindings> bindWithin(@Nonnull ExpressionMatcher<? extends Bindable> matcher);
+
+    @Nonnull
+    <U extends PlannerExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func);
+
+    @Nullable
+    <U extends PlannerExpression> ExpressionRef<U> flatMapNullable(@Nonnull Function<T, ExpressionRef<U>> nullableFunc);
+
+    @Nonnull
+    ExpressionRef<T> getNewRefWith(@Nonnull T expression);
+
+    boolean containsAllInMemo(@Nonnull ExpressionRef<? extends PlannerExpression> otherRef);
+
+    PlannerExpressionPointerSet<T> getMembers();
 
     /**
      * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.

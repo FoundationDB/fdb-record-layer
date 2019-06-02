@@ -130,6 +130,13 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof RecordQueryTypeFilterPlan &&
+               recordTypes.equals(((RecordQueryTypeFilterPlan)otherExpression).recordTypes);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

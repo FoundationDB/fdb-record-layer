@@ -1,5 +1,5 @@
 /*
- * FieldWithComparisonCountProperty.java
+ * PredicateHeightProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,30 +20,29 @@
 
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
-import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A property that counts the number of {@link FieldWithComparison}s that appear in a planner expression tree.
- * This property is used as the number of "unsatisfied filters" when picking between query plans that scan different
- * indexes.
+ * A property representing the maximum height of any of the {@link QueryComponent} trees in the given expression.
+ *
+ * <p>
+ * For a {@link com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression}, this is the
+ * maximum among all {@code QueryComponent}s present in the tree rooted at this expression. For a {@code QueryComponent},
+ * this is the maximum among all {@code QueryComponent} trees rooted at this expression.
+ * </p>
  */
-@API(API.Status.EXPERIMENTAL)
-public class FieldWithComparisonCountProperty implements PlannerProperty<Integer> {
-    private static final FieldWithComparisonCountProperty INSTANCE = new FieldWithComparisonCountProperty();
+public class PredicateHeightProperty implements PlannerProperty<Integer> {
+    private static final PredicateHeightProperty INSTANCE = new PredicateHeightProperty();
 
     @Override
     public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression ||
-               expression instanceof QueryComponent;
+        return true;
     }
 
     @Override
@@ -54,35 +53,31 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
-        int total = expression instanceof FieldWithComparison ? 1 : 0;
-        for (Integer childCount : childResults) {
-            if (childCount != null) {
-                total += childCount;
+        int maxChildDepth = 0;
+        for (Integer childDepth : childResults) {
+            if (childDepth != null && childDepth > maxChildDepth) {
+                maxChildDepth = childDepth;
             }
         }
-        return total;
+        return maxChildDepth + (expression instanceof QueryComponent ? 1 : 0);
     }
 
     @Nonnull
     @Override
     public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<Integer> memberResults) {
-        int min = Integer.MAX_VALUE;
-        for (int memberResult : memberResults) {
-            if (memberResult < min) {
-                min = memberResult;
+        int maxResultDepth = 0;
+        for (Integer memberDepth : memberResults) {
+            if (memberDepth != null && memberDepth > maxResultDepth) {
+                maxResultDepth = memberDepth;
             }
         }
-        return min;
-    }
-
-    public static int evaluate(ExpressionRef<? extends PlannerExpression> ref) {
-        return ref.acceptPropertyVisitor(INSTANCE);
+        return maxResultDepth;
     }
 
     public static int evaluate(@Nonnull PlannerExpression expression) {
         Integer result = expression.acceptPropertyVisitor(INSTANCE);
         if (result == null) {
-            return Integer.MAX_VALUE;
+            return 0;
         }
         return result;
     }

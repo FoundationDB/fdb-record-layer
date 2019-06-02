@@ -86,6 +86,8 @@ public interface PlannerExpression extends Bindable {
     @Nonnull
     Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren();
 
+    boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression);
+
     /**
      * Apply the given property visitor to this planner expression and its children. Returns {@code null} if
      * {@link PlannerProperty#shouldVisit(PlannerExpression)} called on this expression returns {@code false}.

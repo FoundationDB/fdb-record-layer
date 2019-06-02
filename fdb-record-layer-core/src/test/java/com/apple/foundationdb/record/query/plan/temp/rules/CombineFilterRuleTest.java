@@ -30,15 +30,12 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
-import com.apple.foundationdb.record.query.plan.temp.RewriteRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,10 +57,10 @@ public class CombineFilterRuleTest {
             QueryComponent filter2 = Query.field("testField2").equalsValue(10);
             SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
                     new LogicalFilterExpression(filter1, new LogicalFilterExpression(filter2, basePlan)));
-            Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(blankContext, rule, root).findFirst();
-            assertTrue(possibleMatch.isPresent());
-            rule.onMatch(possibleMatch.get());
-            assertEquals(root.get(), new LogicalFilterExpression(Query.and(filter1, filter2), basePlan));
+            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root);
+            assertTrue(execution.isRuleMatched());
+            assertTrue(execution.getResult().containsInMemo(
+                    new LogicalFilterExpression(Query.and(filter1, filter2), basePlan)));
         }
     }
 
@@ -73,11 +70,11 @@ public class CombineFilterRuleTest {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
                     new LogicalFilterExpression(filter1, new LogicalFilterExpression(filter1, basePlan)));
-            Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(blankContext, rule, root).findFirst();
-            assertTrue(possibleMatch.isPresent());
-            rule.onMatch(possibleMatch.get());
+            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root);
+            assertTrue(execution.isRuleMatched());
             // this rule should not try to coalesce the two filters
-            assertEquals(root.get(), new LogicalFilterExpression(Query.and(filter1, filter1), basePlan));
+            assertTrue(root.containsInMemo(new LogicalFilterExpression(Query.and(filter1, filter1), basePlan)));
+            assertFalse(root.containsInMemo(new LogicalFilterExpression(filter1, basePlan)));
         }
     }
 
@@ -87,8 +84,8 @@ public class CombineFilterRuleTest {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
                     new LogicalFilterExpression(filter1, basePlan));
-            Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(blankContext, rule, root).findFirst();
-            assertFalse(possibleMatch.isPresent());
+            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root);
+            assertFalse(execution.isRuleMatched());
         }
     }
 }

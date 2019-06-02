@@ -107,6 +107,13 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof OneOfThemWithComponent &&
+               ((OneOfThemWithComponent)otherExpression).getFieldName().equals(getFieldName());
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

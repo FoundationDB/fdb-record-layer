@@ -95,6 +95,11 @@ public class QueryExpressionTest {
         public int planHash() {
             return 0;
         }
+
+        @Override
+        public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+            return false;
+        }
     }
 
     private static final QueryComponent TRUE = new TestMessageComponent() {
