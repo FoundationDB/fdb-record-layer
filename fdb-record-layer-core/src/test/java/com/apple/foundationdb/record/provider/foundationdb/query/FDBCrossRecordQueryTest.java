@@ -185,7 +185,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             RecordQueryPlan plan = planner.plan(query);
             MatcherAssert.assertThat(plan, typeFilter(contains("MySimpleRecord2"), indexScan(allOf(indexName("partial_versions"), bounds(hasTupleString("[[7],[7]]"))))));
-            assertEquals(-1724404598, plan.planHash());
+            assertEquals(-1724404567, plan.planHash());
             names.clear();
             etags.clear();
             try (FDBRecordContext context = openContext()) {
@@ -209,7 +209,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             RecordQueryPlan plan = planner.plan(query);
             MatcherAssert.assertThat(plan, typeFilter(contains("MySimpleRecord3"), indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[7],[7]]"))))));
-            assertEquals(-1908726899, plan.planHash());
+            assertEquals(-1908726868, plan.planHash());
             names.clear();
             etags.clear();
             try (FDBRecordContext context = openContext()) {

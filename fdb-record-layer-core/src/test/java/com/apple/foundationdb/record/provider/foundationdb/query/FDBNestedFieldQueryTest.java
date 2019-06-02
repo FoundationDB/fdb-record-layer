@@ -369,7 +369,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([Newt A. Robot, 100],[Newt A. Robot, 2000])")))));
-        assertEquals(-518945616, plan.planHash());
+        assertEquals(1355996214, plan.planHash());
         assertEquals(Collections.singletonList(2L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 ctx -> openNestedRecordStore(ctx, hook),
                 TestHelpers::assertDiscardedNone));

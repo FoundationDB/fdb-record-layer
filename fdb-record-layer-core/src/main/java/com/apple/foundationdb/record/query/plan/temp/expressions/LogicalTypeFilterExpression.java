@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
@@ -39,17 +39,17 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalTypeFilterExpression implements TypeFilterExpression {
     @Nonnull
-    private final Collection<String> recordTypes;
+    private final Set<String> recordTypes;
     @Nonnull
     private final ExpressionRef<RelationalPlannerExpression> inner;
     @Nonnull
     private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
 
-    public LogicalTypeFilterExpression(@Nonnull Collection<String> recordTypes, @Nonnull RelationalPlannerExpression inner) {
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalPlannerExpression inner) {
         this(recordTypes, SingleExpressionRef.of(inner));
     }
 
-    public LogicalTypeFilterExpression(@Nonnull Collection<String> recordTypes, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
         this.recordTypes = recordTypes;
         this.inner = inner;
         this.expressionChildren = ImmutableList.of(this.inner);
@@ -63,7 +63,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
 
     @Override
     @Nonnull
-    public Collection<String> getRecordTypes() {
+    public Set<String> getRecordTypes() {
         return recordTypes;
     }
 

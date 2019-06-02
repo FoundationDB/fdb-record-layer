@@ -24,7 +24,10 @@ import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * A more stable version of {@link Object#hashCode}.
@@ -47,6 +50,32 @@ public interface PlanHashable {
 
     static int planHash(PlanHashable... hashables) {
         return planHash(Arrays.asList(hashables));
+    }
+
+    static int planHashUnordered(@Nonnull Iterable<? extends PlanHashable> hashables) {
+        final ArrayList<Integer> hashes = new ArrayList<>();
+        for (PlanHashable hashable : hashables) {
+            hashes.add(hashable != null ? hashable.planHash() : 0);
+        }
+        hashes.sort(Comparator.naturalOrder());
+        return combineHashes(hashes);
+    }
+
+    static int stringHashUnordered(@Nonnull Iterable<String> strings) {
+        final ArrayList<Integer> hashes = new ArrayList<>();
+        for (String str : strings) {
+            hashes.add(str != null ? str.hashCode() : 0);
+        }
+        hashes.sort(Comparator.naturalOrder());
+        return combineHashes(hashes);
+    }
+
+    static int combineHashes(@Nonnull List<Integer> hashes) {
+        int result = 1;
+        for (Integer hash : hashes) {
+            result = 31 * result + hash;
+        }
+        return result;
     }
 
     static int objectPlanHash(@Nullable Object obj) {

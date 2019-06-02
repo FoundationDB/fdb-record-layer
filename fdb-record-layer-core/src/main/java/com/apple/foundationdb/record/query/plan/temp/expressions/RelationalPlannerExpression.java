@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 
 import javax.annotation.Nonnull;
+import java.util.HashSet;
 
 /**
  * A relational expression is a {@link PlannerExpression} that represents a stream of records. At all times, the root
@@ -48,7 +49,7 @@ public interface RelationalPlannerExpression extends PlannerExpression {
             expression = new LogicalFilterExpression(query.getFilter(), expression);
         }
         if (!query.getRecordTypes().isEmpty()) {
-            expression = new LogicalTypeFilterExpression(query.getRecordTypes(), expression);
+            expression = new LogicalTypeFilterExpression(new HashSet<>(query.getRecordTypes()), expression);
         }
         if (query.removesDuplicates()) {
             expression = new LogicalDistinctExpression(expression);

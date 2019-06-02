@@ -265,7 +265,7 @@ public class RankComparisons {
             if (groupComparisons.isEmpty()) {
                 return rankComparison;
             } else {
-                return new ScanComparisons(groupComparisons, Collections.emptyList()).append(rankComparison);
+                return new ScanComparisons(groupComparisons, Collections.emptySet()).append(rankComparison);
             }
         }
 

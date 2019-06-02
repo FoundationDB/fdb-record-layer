@@ -64,6 +64,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anyOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -255,7 +256,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
 
             assertEquals(recs.subList(1, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
-            assertThat(plan, scan(bounds(hasTupleString("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"))));
+            assertThat(plan, scan(bounds(anyOf(
+                    hasTupleString("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"),
+                    hasTupleString("[IS MySimpleRecord, [LESS_THAN 500 && GREATER_THAN 200]]")))));
         }
     }
 

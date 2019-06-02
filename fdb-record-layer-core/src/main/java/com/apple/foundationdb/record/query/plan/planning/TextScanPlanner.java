@@ -223,7 +223,7 @@ public class TextScanPlanner {
             if (!groupingMatch.getType().equals(QueryToKeyMatcher.MatchType.EQUALITY)) {
                 return null;
             }
-            groupingComparisons = new ScanComparisons(groupingMatch.getEqualityComparisons(), Collections.emptyList());
+            groupingComparisons = new ScanComparisons(groupingMatch.getEqualityComparisons(), Collections.emptySet());
         } else {
             // Grouping expression not present. Use first column.
             groupedKey = indexExpression;

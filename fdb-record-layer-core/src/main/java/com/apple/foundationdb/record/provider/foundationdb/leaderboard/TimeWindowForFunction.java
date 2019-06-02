@@ -95,7 +95,7 @@ public class TimeWindowForFunction {
         final Comparisons.Comparison timestampComparison = leaderboardTimestampParameter == null ?
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, leaderboardTimestamp) :
                 new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, leaderboardTimestampParameter);
-        return new ScanComparisons(Arrays.asList(typeComparison, timestampComparison), Collections.emptyList())
+        return new ScanComparisons(Arrays.asList(typeComparison, timestampComparison), Collections.emptySet())
                 .append(scanComparisons);
     }
 

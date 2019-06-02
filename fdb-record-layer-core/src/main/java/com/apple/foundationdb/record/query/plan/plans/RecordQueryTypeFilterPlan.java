@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -148,7 +149,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
 
     @Override
     public int planHash() {
-        return getInner().planHash() + recordTypes.hashCode();
+        return getInner().planHash() + PlanHashable.stringHashUnordered(recordTypes);
     }
 
     @Nonnull

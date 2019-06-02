@@ -30,9 +30,15 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
+import com.google.common.collect.Collections2;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
@@ -42,6 +48,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexN
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -111,9 +118,13 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").greaterThan(0)))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
+        List<String> bounds = Arrays.asList("GREATER_THAN_OR_EQUALS 3", "LESS_THAN_OR_EQUALS 4", "GREATER_THAN 0");
+        Collection<List<String>> combinations = Collections2.permutations(bounds);
         assertThat(plan, indexScan(allOf(indexName("multi_index"),
-                bounds(hasTupleString("[EQUALS $str, [GREATER_THAN_OR_EQUALS 3 && LESS_THAN_OR_EQUALS 4 && GREATER_THAN 0]]")))));
-        assertEquals(-459970970, plan.planHash());
+                bounds(anyOf(Collections2.permutations(bounds).stream()
+                        .map(ls -> hasTupleString("[EQUALS $str, [" + String.join(" && ", ls) + "]]"))
+                        .collect(Collectors.toList()))))));
+        assertEquals(241654378, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

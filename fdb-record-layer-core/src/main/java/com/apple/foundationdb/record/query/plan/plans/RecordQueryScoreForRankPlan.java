@@ -110,6 +110,11 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                 (innerContext, innerContinuation) -> getChild().execute(store, innerContext, innerContinuation, executeProperties));
     }
 
+    @Nonnull
+    public List<ScoreForRank> getRanks() {
+        return ranks;
+    }
+
     @Override
     public boolean hasRecordScan() {
         return getChild().hasRecordScan();

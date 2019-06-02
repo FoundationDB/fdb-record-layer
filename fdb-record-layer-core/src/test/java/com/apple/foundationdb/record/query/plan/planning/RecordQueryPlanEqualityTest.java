@@ -59,7 +59,7 @@ public class RecordQueryPlanEqualityTest {
     private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
         return new RecordQueryIndexPlan(indexName, IndexScanType.BY_VALUE,
                 new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
-                        Collections.emptyList()),
+                        Collections.emptySet()),
                 false);
     }
 

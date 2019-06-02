@@ -483,7 +483,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat(plan1, filter(anything(), typeFilter(anything(), scan(unbounded()))));
-        assertEquals(913370492, plan1.planHash());
+        assertEquals(913370523, plan1.planHash());
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")

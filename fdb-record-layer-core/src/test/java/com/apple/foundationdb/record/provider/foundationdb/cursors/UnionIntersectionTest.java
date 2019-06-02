@@ -305,9 +305,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
     public void interleavedIndexScan(int innerLimit) throws Exception {
         final ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(innerLimit).build());
         final ScanComparisons evenComparisons = new ScanComparisons(Collections.singletonList(
-                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "even")), Collections.emptyList());
+                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "even")), Collections.emptySet());
         final ScanComparisons oddComparisons = new ScanComparisons(Collections.singletonList(
-                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "odd")), Collections.emptyList());
+                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "odd")), Collections.emptySet());
         verifyUnionWithInnerLimits(cont -> recordStore.scanIndexRecords("MySimpleRecord$str_value_indexed",
                 IndexScanType.BY_VALUE, evenComparisons.toTupleRange(), cont, scanProperties)
                         .map(rec -> (FDBRecord<Message>) rec),
@@ -322,9 +322,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
     public void unevenInterleavedIndexScan(int innerLimit) throws Exception {
         final ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(innerLimit).build());
         final ScanComparisons zeros = new ScanComparisons(Collections.singletonList(
-                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0)), Collections.emptyList());
+                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0)), Collections.emptySet());
         final ScanComparisons others = new ScanComparisons(Collections.singletonList(
-                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), Collections.emptyList());
+                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), Collections.emptySet());
         verifyUnionWithInnerLimits(cont -> recordStore.scanIndexRecords("MySimpleRecord$num_value_3_indexed",
                 IndexScanType.BY_VALUE, zeros.toTupleRange(), cont, scanProperties)
                         .map(rec -> (FDBRecord<Message>)rec),

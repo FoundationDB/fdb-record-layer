@@ -168,7 +168,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 2],[even, 0, 3]]")))));
-        assertEquals(1838163006, plan.planHash());
+        assertEquals(2137890746, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
