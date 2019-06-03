@@ -14,8 +14,8 @@ The Guava version has been updated to version 27. Users of the [shaded variants]
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** `OnlineIndexer.buildEndpoints` should not decrease the scan limits on conflicts [(Issue #511)](https://github.com/FoundationDB/fdb-record-layer/issues/511)
-* **Bug fix** `KeyValueCursor.Builder.build` now requires `subspace`, `context` and `scanProperties` are specifed, throws RecordCoreException if not [(Issue #418)](https://github.com/FoundationDB/fdb-record-layer/issues/418)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -24,7 +24,7 @@ The Guava version has been updated to version 27. Users of the [shaded variants]
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Added a counter counting indexes that need to be rebuilt and changed related logging to `DEBUG` [(Issue #604)](https://github.com/FoundationDB/fdb-record-layer/issues/604)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,12 @@ The Guava version has been updated to version 27. Users of the [shaded variants]
 
 // end next release
 -->
+
+### 2.7.71.0
+
+* **Bug fix** `OnlineIndexer.buildEndpoints` should not decrease the scan limits on conflicts [(Issue #511)](https://github.com/FoundationDB/fdb-record-layer/issues/511)
+* **Bug fix** `KeyValueCursor.Builder.build` now requires `subspace`, `context` and `scanProperties` are specifed, throws RecordCoreException if not [(Issue #418)](https://github.com/FoundationDB/fdb-record-layer/issues/418)
+* **Feature** Added a counter counting indexes that need to be rebuilt and changed related logging to `DEBUG` [(Issue #604)](https://github.com/FoundationDB/fdb-record-layer/issues/604)
 
 ### 2.7.70.0
 
