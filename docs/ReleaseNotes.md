@@ -66,6 +66,9 @@ The Guava version has been updated to version 27. Users of the [shaded variants]
 // end next release
 -->
 
+### 2.7.70.19
+
+
 ### 2.7.70.0
 
 * **Breaking change** The deprecated `TimeLimitedCursor` and `RecordCursor.limitTimeTo()` methods have been removed [(Issue #582)](https://github.com/FoundationDB/fdb-record-layer/issues/582)
