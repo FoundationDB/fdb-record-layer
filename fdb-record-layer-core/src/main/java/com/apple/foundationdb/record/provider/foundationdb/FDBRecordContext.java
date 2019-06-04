@@ -26,6 +26,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -42,10 +43,12 @@ import org.slf4j.MDC;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -53,6 +56,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -76,6 +80,12 @@ import java.util.stream.Collectors;
 public class FDBRecordContext extends FDBTransactionContext implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordContext.class);
 
+    /**
+     * Internally generated or anonymous commit hooks are prefixed this this value.
+     */
+    private static final String INTERNAL_COMMIT_HOOK_PREFIX = "@__";
+    private static final String AFTER_COMMIT_HOOK_NAME = INTERNAL_COMMIT_HOOK_PREFIX + "afterCommit";
+
     private long committedVersion;
     private long transactionCreateTime;
     @Nullable
@@ -92,7 +102,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     private final Queue<CommitCheckAsync> commitChecks = new ArrayDeque<>();
     @Nonnull
-    private final Queue<AfterCommit> afterCommits = new ArrayDeque<>();
+    private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
     private boolean dirtyStoreState;
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
@@ -188,7 +198,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     } else {
                         event = FDBStoreTimer.Events.COMMIT_READ_ONLY;
                     }
-                    runAfterCommits();
                 }
             } finally {
                 closeTransaction();
@@ -196,7 +205,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     timer.recordSinceNanoTime(event, startTimeNanos);
                 }
             }
-        });
+        }).thenCompose(vignore -> runPostCommits());
     }
 
     /**
@@ -373,19 +382,169 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * A hook to run after commit has completed successfully.
+     * A hook to run after commit has completed successfully. Multiple after-commit hooks may be installed, however
+     * all are executed sequentially in the order in which they were installed, in a single future.  If you need
+     * to perform long-running or potentially concurrent activities post-commit, use {@link PostCommit} instead.
      */
     public interface AfterCommit {
         void run();
     }
 
-    public synchronized void addAfterCommit(@Nonnull AfterCommit afterCommit) {
-        afterCommits.add(afterCommit);
+    /**
+     * A supplier of a future to be executed after the transaction has been successfully committed. When the transaction
+     * has been successfully committed, the futures returned by each installed {@code PostCommit} hook will be
+     * concurrently invoked.
+     */
+    public interface PostCommit {
+        CompletableFuture<Void> get();
     }
 
-    public synchronized void runAfterCommits() {
-        while (!afterCommits.isEmpty()) {
-            afterCommits.remove().run();
+    /**
+     * Fetches a post-commit hook, creating a new one if it does not already exist.
+     *
+     * @param name name of the post-commit hook
+     * @param ifNotExists if the post-commit hook has not been previously installed, a function that will be
+     *   called to install a new hook by the provided name
+     * @return post commit hook
+     */
+    @Nonnull
+    public PostCommit getOrCreatePostCommit(@Nonnull String name, @Nonnull Function<String, PostCommit> ifNotExists) {
+        checkPostCommitName(name);
+        synchronized (postCommits) {
+            return postCommits.computeIfAbsent(name, ifNotExists);
+        }
+    }
+
+    /**
+     * Fetches a previously installed post-commit hook.
+     *
+     * @param name the name of the post-commit hook
+     * @return the post-commit hook, if it was previously installed or {@code null} if there is no hook by the
+     *   provided {@code name}
+     */
+    @Nullable
+    public PostCommit getPostCommit(@Nonnull String name) {
+        // Callers of the public API cannot "see" anonymous or internal post-commit hooks.
+        if (isInternalCommitHookName(name)) {
+            return null;
+        }
+
+        synchronized (postCommits) {
+            return postCommits.get(name);
+        }
+    }
+
+    /**
+     * Adds a new post-commit hook. This method should only be used in cases in which you will be installing the
+     * post-commit hook exactly once.  That is, due to race conditions, you should not be doing:
+     * <pre>
+     *     if (context.getPostCommit("myPostCommit")) {
+     *         context.addPostCommit("myPostCommit", () -&gt; ..);
+     *     }
+     * </pre>
+     * if you need this behavior use {@link #getOrCreatePostCommit(String, Function)} instead.
+     *
+     * @param name name of the post-commit
+     * @param postCommit the post commit to install
+     */
+    public void addPostCommit(@Nonnull String name, @Nonnull PostCommit postCommit) {
+        checkPostCommitName(name);
+        synchronized (postCommits) {
+            if (postCommits.containsKey(name)) {
+                throw new RecordCoreArgumentException("Post-commit already exists")
+                        .addLogInfo(LogMessageKeys.COMMIT_NAME, name);
+            }
+            postCommits.put(name, postCommit);
+        }
+    }
+
+    /**
+     * Install an anonymous post-commit hook. A post-commit hook installed in this fashion cannot be retrieved
+     * via {@link #getPostCommit(String)}.
+     *
+     * @param postCommit post-commit hook to install
+     */
+    public void addPostCommit(@Nonnull PostCommit postCommit) {
+        synchronized (postCommits) {
+            String name;
+            // Yes, a collision is exceedingly unlikely, but...
+            do {
+                name = INTERNAL_COMMIT_HOOK_PREFIX + "anon-" + (new Random()).nextInt(Integer.MAX_VALUE);
+            } while (postCommits.containsKey(name));
+            postCommits.put(name, postCommit);
+        }
+    }
+
+    /**
+     * Remove a previously installed post-commit hook.
+     * @param name the name of the hook to remove
+     * @return {@code null} if the hook does not exist, otherwise the handle to the previously installed hook
+     */
+    @Nullable
+    public PostCommit removePostCommit(@Nonnull String name) {
+        checkPostCommitName(name);
+        synchronized (postCommits) {
+            return postCommits.remove(name);
+        }
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> runPostCommits() {
+        synchronized (postCommits) {
+            if (postCommits.isEmpty()) {
+                return AsyncUtil.DONE;
+            }
+            List<CompletableFuture<Void>> work = postCommits.values().stream()
+                    .map(PostCommit::get)
+                    .collect(Collectors.toList());
+            postCommits.clear();
+            return AsyncUtil.whenAll(work);
+        }
+    }
+
+    private void checkPostCommitName(@Nonnull String name) {
+        if (isInternalCommitHookName(name)) {
+            throw new RecordCoreArgumentException("Invalid post-commit name")
+                    .addLogInfo(LogMessageKeys.COMMIT_NAME, name);
+        }
+    }
+
+    private boolean isInternalCommitHookName(@Nonnull String name) {
+        return name.startsWith(INTERNAL_COMMIT_HOOK_PREFIX);
+    }
+
+    /**
+     * Adds code to be executed immediately following a successful commit. All after-commit hooks are run serially
+     * within a single future immediately following the completion of the commit future.
+     *
+     * @param afterCommit code to be executed following successful commit
+     */
+    public void addAfterCommit(@Nonnull AfterCommit afterCommit) {
+        synchronized (postCommits) {
+            @Nullable
+            AfterCommitPostCommit adapter = (AfterCommitPostCommit) postCommits.get(AFTER_COMMIT_HOOK_NAME);
+            if (adapter == null) {
+                adapter = new AfterCommitPostCommit();
+                postCommits.put(AFTER_COMMIT_HOOK_NAME, adapter);
+            }
+            adapter.addAfterCommit(afterCommit);
+        }
+    }
+
+    /**
+     * Run all of the after commit hooks.
+     *
+     * @deprecated this method probably should never have been public
+     */
+    @Deprecated
+    @API(API.Status.DEPRECATED)
+    public void runAfterCommits() {
+        synchronized (postCommits) {
+            @Nullable
+            AfterCommitPostCommit adapter = (AfterCommitPostCommit) postCommits.get(AFTER_COMMIT_HOOK_NAME);
+            if (adapter != null) {
+                adapter.run();
+            }
         }
     }
 
@@ -687,5 +846,29 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     public boolean hasHookForAsyncToSync() {
         return hookForAsyncToSync != null;
+    }
+
+    /**
+     * Adapter class for accumulating the deprecated "after-commit" hook methods into the new
+     * post-commit API's.
+     */
+    private static class AfterCommitPostCommit implements PostCommit {
+        @Nonnull
+        private final Queue<AfterCommit> afterCommits = new ArrayDeque<>();
+
+        public synchronized void addAfterCommit(@Nonnull AfterCommit afterCommit) {
+            afterCommits.add(afterCommit);
+        }
+
+        @Override
+        public CompletableFuture<Void> get() {
+            return CompletableFuture.runAsync(this::run);
+        }
+
+        public synchronized void run() {
+            while (!afterCommits.isEmpty()) {
+                afterCommits.remove().run();
+            }
+        }
     }
 }
