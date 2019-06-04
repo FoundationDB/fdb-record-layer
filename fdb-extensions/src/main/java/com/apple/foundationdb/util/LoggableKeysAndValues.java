@@ -1,9 +1,9 @@
 /*
- * LoggableException.java
+ * LoggableKeysAndValues.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,57 +20,32 @@
 
 package com.apple.foundationdb.util;
 
-import com.apple.foundationdb.annotation.API;
-
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 
 /**
- * Exception type with support for adding keys and values to its log info. This can then
- * be logged in a way that better supports searching later.
+ * Associates loggable information with an object as a map.
+ * Record layer log messages are (relatively) well formed. They are
+ * comprised of a static "title" of the message along with a set of
+ * keys and values that provide context about the "title" of the message.
+ * For example a "File not found" log entry may include keys and values
+ * like filename="foo" and directory="/bar". This makes the logs easy
+ * to generally search for all such errors, later extracting the set of
+ * files and directories that couldn't be found. This interface defines
+ * the methods that all objects that wish to provide such logging details
+ * must implement.
+ *
+ * @typeparam T type of object to associate loggable information with
  */
-@SuppressWarnings("serial")
-@API(API.Status.MAINTAINED)
-public class LoggableException extends RuntimeException implements LoggableKeysAndValues<LoggableException> {
-    @Nonnull private final LoggableKeysAndValuesImpl loggableKeysAndValuesImpl = new LoggableKeysAndValuesImpl();
+interface LoggableKeysAndValues<T extends LoggableKeysAndValues<T>> {
 
     /**
-     * Create an exception with the given message a the sequence of key-value pairs.
-     * This will throw an {@link IllegalArgumentException} if <code>keyValues</code>
-     * contains an odd number of elements.
-     *
-     * @param msg error message
-     * @param keyValues list
-     * @see #addLogInfo(Object...)
-     */
-    public LoggableException(@Nonnull String msg, @Nullable Object ... keyValues) {
-        super(msg);
-        this.loggableKeysAndValuesImpl.addLogInfo(keyValues);
-    }
-
-    public LoggableException(Throwable cause) {
-        super(cause);
-    }
-
-    public LoggableException(@Nonnull String msg, @Nullable Throwable cause) {
-        super(msg, cause);
-    }
-
-    public LoggableException(@Nonnull String msg) {
-        super(msg);
-    }
-
-    /**
-     * Get the log information associated with this exception as a map.
+     * Get the log information associated with object as a map.
      *
      * @return a single map with all log information
      */
     @Nonnull
-    @Override
-    public Map<String, Object> getLogInfo() {
-        return loggableKeysAndValuesImpl.getLogInfo();
-    }
+    Map<String, Object> getLogInfo();
 
     /**
      * Add a key/value pair to the log information. This will use the description
@@ -81,11 +56,7 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * @return this <code>LoggableException</code>
      */
     @Nonnull
-    @Override
-    public LoggableException addLogInfo(@Nonnull String description, Object object) {
-        loggableKeysAndValuesImpl.addLogInfo(description, object);
-        return this;
-    }
+    T addLogInfo(@Nonnull String description, Object object);
 
     /**
      * Add a list of key/value pairs to the log information. This will treat the
@@ -97,15 +68,11 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * this is the same format that is exported by {@link #exportLogInfo()}.
      *
      * @param keyValue flattened map of key-value pairs
-     * @return this <code>LoggableException</code>
+     * @return this <code>T</code>
      * @throws IllegalArgumentException if <code>keyValue</code> has odd length
      */
     @Nonnull
-    @Override
-    public LoggableException addLogInfo(@Nonnull Object ... keyValue) {
-        loggableKeysAndValuesImpl.addLogInfo(keyValue);
-        return this;
-    }
+    T addLogInfo(@Nonnull Object ... keyValue);
 
     /**
      * Export the log information to a flattened array. This will flatten the map that would
@@ -113,13 +80,11 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * within the map and every odd element is the value associated with the key before it. So,
      * for example, <code>{"k0:"v0", "k1":"v1"}</code> would be flattened into
      * <code>["k0", "v0", "k1", "v1"]</code>. Note that this is the same format that is
-     * accepted by {@link #addLogInfo(Object...)} and by {@link #LoggableException(String, Object...)}.
+     * accepted by {@link #addLogInfo(Object...)}.
      *
      * @return a flattened map of key-value pairs
      */
     @Nonnull
-    @Override
-    public Object[] exportLogInfo() {
-        return loggableKeysAndValuesImpl.exportLogInfo();
-    }
+    Object[] exportLogInfo();
+
 }
