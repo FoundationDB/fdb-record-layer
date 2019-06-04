@@ -134,10 +134,10 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
                 //resultKV.hasNext() is false and so determine whether this is because of in-band reason or a continuable out-of-band reason
                 if (resultKv.getNoNextReason() == NoNextReason.SOURCE_EXHAUSTED) {
                     finalResultsEmitted = true; //the continuation computation is using this so set it here
-                    nextStatsResult = RecordCursorResult.withNextValue(sizeStatisticsResults, new SizeStatisticsCollectorCursorContinuation(resultKv, sizeStatisticsResults));
+                    nextStatsResult = RecordCursorResult.withNextValue(sizeStatisticsResults, new SizeStatisticsCollectorCursorContinuation(resultKv, sizeStatisticsResults, finalResultsEmitted));
                 } else {
                     //the underlying cursor did not produce a row but there are more, return a continuation and propagate the underlying no next reason
-                    nextStatsResult = RecordCursorResult.withoutNextValue(new SizeStatisticsCollectorCursorContinuation(resultKv, sizeStatisticsResults), resultKv.getNoNextReason());
+                    nextStatsResult = RecordCursorResult.withoutNextValue(new SizeStatisticsCollectorCursorContinuation(resultKv, sizeStatisticsResults, finalResultsEmitted), resultKv.getNoNextReason());
                     kvCursorContinuation = resultKv.getContinuation().toBytes(); //not strictly needed because we prevent advancing cursor if nextStatsResult is not null
                 }
                 return nextStatsResult;
@@ -194,7 +194,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
     }
 
     //form a continuation that allows us to restart statistics aggregation from where we left off
-    private class SizeStatisticsCollectorCursorContinuation implements RecordCursorContinuation {
+    private static class SizeStatisticsCollectorCursorContinuation implements RecordCursorContinuation {
         @Nonnull
         private final RecordCursorResult<KeyValue> currentKvResult;
         @Nonnull
@@ -203,15 +203,17 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         private final SizeStatisticsResults sizeStatisticsResults;
         @Nullable
         private byte[] cachedBytes;
+        private boolean finalResultsEmitted;
 
-        private SizeStatisticsCollectorCursorContinuation(RecordCursorResult<KeyValue> currentKvResult, SizeStatisticsResults sizeStatisticsResults) {
+        private SizeStatisticsCollectorCursorContinuation(RecordCursorResult<KeyValue> currentKvResult, SizeStatisticsResults sizeStatisticsResults, boolean finalResultsEmitted) {
             this.cachedBytes = null;
             this.currentKvResult = currentKvResult;
             this.sizeStatisticsResults = sizeStatisticsResults.copy(); //cache an immutable snapshot of the partial aggregate state
+            this.finalResultsEmitted = finalResultsEmitted;
 
             //defer forming bytes until requested
             continuationFunction = b -> {
-                if (finalResultsEmitted == false) {
+                if (this.finalResultsEmitted == false) {
                     return RecordCursorProto.SizeStatisticsContinuation.newBuilder().setPartialResults(this.sizeStatisticsResults.toProto()).setContinuation(ByteString.copyFrom(b)).build();
                 } else {
                     //nothing more to aggregate
