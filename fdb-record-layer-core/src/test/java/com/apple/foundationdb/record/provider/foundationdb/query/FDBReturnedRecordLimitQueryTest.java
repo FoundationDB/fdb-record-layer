@@ -77,7 +77,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(equalTo(query.getFilter()),
-                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(unbounded())))));
+                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
         assertTrue(plan.isReverse());
         assertEquals(-384998859, plan.planHash());
 
@@ -111,7 +111,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 .setFilter(Query.field("num_value_2").equalsValue(0))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, descendant(scan(bounds(unbounded()))));
+        assertThat(plan, descendant(scan(unbounded())));
         assertEquals(913370491, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
@@ -140,7 +140,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded()))));
+        assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
         assertEquals(1623132305, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
@@ -169,7 +169,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder().setRecordTypes(Arrays.asList("MySimpleRecord", "MyOtherRecord")).build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, scan(bounds(unbounded())));
+        assertThat(plan, scan(unbounded()));
         assertEquals(2, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {

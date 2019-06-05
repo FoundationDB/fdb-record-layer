@@ -141,7 +141,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .setSort(field("num_value_unique"))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(unbounded()))));
+        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), unbounded())));
         assertEquals(-1130465929, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
@@ -210,7 +210,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         setupPlanner(indexTypes);
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(equalTo(query.getFilter()),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(unbounded())))));
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         assertEquals(-799849347, plan.planHash());
 
         AtomicInteger lastNumValue3 = new AtomicInteger(Integer.MIN_VALUE);
@@ -245,7 +245,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         setupPlanner(indexTypes);
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(equalTo(query.getFilter()),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(unbounded())))));
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         assertEquals(735933204, plan.planHash());
 
         AtomicInteger lastNumValue3 = new AtomicInteger(Integer.MIN_VALUE);
@@ -275,7 +275,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .setSort(field("rec_no"), reverse.toBoolean())
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded()))));
+        assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
 
         AtomicLong lastId = new AtomicLong(reverse.toBoolean() ? 99L : 0L);
         int returned = querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
@@ -326,7 +326,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 planHash,
                 expectedReturn,
                 100 - expectedReturn,
-                filter(equalTo(filter), typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded())))),
+                filter(equalTo(filter), typeFilter(contains("MySimpleRecord"), scan(unbounded()))),
                 checkRecord
         );
     }
@@ -441,7 +441,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .setSort(field("num_value_unique"))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(unbounded()))));
+        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), unbounded())));
         assertEquals(-1130465929, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
@@ -473,7 +473,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .setSort(field("num_value_unique"), true)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(unbounded()))));
+        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), unbounded())));
         assertTrue(plan.isReverse(), "plan should have reversal");
         assertEquals(-1130465928, plan.planHash());
 
@@ -509,7 +509,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(equalTo(query.getFilter()),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(unbounded())))));
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         assertEquals(-1429997503, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
@@ -541,7 +541,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .setSort(field("str_value_indexed"), true)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(unbounded()))));
+        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded())));
         assertTrue(plan.isReverse(), "plan is reversed");
         assertEquals(324762955, plan.planHash());
 
@@ -592,7 +592,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                         .setSort(field("header").nest("num"))
                         .build();
                 RecordQueryPlan plan = planner.plan(query);
-                assertThat(plan, indexScan(allOf(indexName("MyRecord$header_num"), bounds(unbounded()))));
+                assertThat(plan, indexScan(allOf(indexName("MyRecord$header_num"), unbounded())));
                 assertEquals(-1173952475, plan.planHash());
 
                 int i = 0;
@@ -672,7 +672,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                         .build();
                 RecordQueryPlan plan = planner.plan(query);
                 assertThat(plan, filter(equalTo(query.getFilter()),
-                        indexScan(allOf(indexName("MyRecord$header_num"), bounds(unbounded())))));
+                        indexScan(allOf(indexName("MyRecord$header_num"), unbounded()))));
                 assertEquals(1936972136, plan.planHash());
 
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {

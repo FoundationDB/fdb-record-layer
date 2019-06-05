@@ -93,16 +93,16 @@ public class PlanMatchers {
         return new IndexMatcher.BoundsMatcher(boundsMatcher);
     }
 
+    public static Matcher<RecordQueryPlanWithComparisons> unbounded() {
+        return new IndexMatcher.BoundsMatcher(new ScanComparisonsEmptyMatcher());
+    }
+
     public static Matcher<ScanComparisons> hasTupleString(@Nonnull Matcher<String> stringMatcher) {
         return new ScanComparisonsStringMatcher(stringMatcher);
     }
 
     public static Matcher<ScanComparisons> hasTupleString(@Nonnull String string) {
         return hasTupleString(equalTo(string));
-    }
-
-    public static Matcher<ScanComparisons> unbounded() {
-        return new ScanComparisonsEmptyMatcher();
     }
 
     public static Matcher<RecordQueryPlan> coveringIndexScan(@Nonnull Matcher<? super RecordQueryPlan> childMatcher) {

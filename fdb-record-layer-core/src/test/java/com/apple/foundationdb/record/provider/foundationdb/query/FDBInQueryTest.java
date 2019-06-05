@@ -102,7 +102,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").in(asList(0, 2)))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(bounds(unbounded())))));
+        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
         assertEquals(-1139367309, plan.planHash());
         assertEquals(67, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), anyOf(is(0), is(2))),
@@ -120,7 +120,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").in("valuesThree"))    // num_value_2 is i%3
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(bounds(unbounded())))));
+        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
         assertEquals(-1677754243, plan.planHash());
         assertEquals(33, querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valuesThree", asList(1, 3)),
@@ -207,7 +207,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.not(Query.field("num_value_3_indexed").in("valueThrees")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(bounds(unbounded())))));
+        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
         assertEquals(1667070459, plan.planHash());
         assertEquals(100, querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valueThrees", Collections.emptyList()),
@@ -254,7 +254,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         // IN join is cancelled on account of incompatible sorting.
-        assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(unbounded())))));
+        assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
         assertEquals(1775865786, plan.planHash());
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
@@ -771,7 +771,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").in(ls))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(bounds(unbounded())))));
+        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
         assertEquals(-1139440926, plan.planHash());
         assertEquals(0, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty, (rec) -> {
         }));
