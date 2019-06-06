@@ -586,7 +586,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, union(
-                indexScan(indexName("MySimpleRecord$num_value_unique")),
+                indexScan("MySimpleRecord$num_value_unique"),
                 inValues(equalTo(Arrays.asList(901, 903, 905)),
                         indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("[EQUALS $__in_num_value_unique__0]"))))),
                 equalTo(concat(field("num_value_unique"), primaryKey("MySimpleRecord")))));
@@ -738,7 +738,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         TestRecordsEnumProto.MyShapeRecord.Color.BLUE)))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, descendant(indexScan(indexName("color"))));
+        assertThat(plan, descendant(indexScan("color")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(-520431454, plan.planHash());
 

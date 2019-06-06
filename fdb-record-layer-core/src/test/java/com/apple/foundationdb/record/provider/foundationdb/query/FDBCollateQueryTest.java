@@ -183,7 +183,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         final List<String> expected = Arrays.asList("Ørsted", "Ångström");
         assertEquals(expected, actual);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(indexName("collated_name")));
+        assertThat(plan, indexScan("collated_name"));
     }
 
     @Test
@@ -206,7 +206,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         final List<String> expected = Arrays.asList("Ampère");
         assertEquals(expected, actual);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(indexName("collated_name"))));
+        assertThat(plan, coveringIndexScan(indexScan("collated_name")));
     }
 
     @Test

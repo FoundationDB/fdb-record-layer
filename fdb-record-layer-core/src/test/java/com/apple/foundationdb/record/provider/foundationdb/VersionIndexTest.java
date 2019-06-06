@@ -1183,7 +1183,7 @@ public class VersionIndexTest extends FDBTestBase {
             assertEquals(version1, loadedRecord.getVersion());
 
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, indexScan(indexName("globalVersion")));
+            assertThat(plan, indexScan("globalVersion"));
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(1, records.size());
             FDBQueriedRecord<Message> queriedRecord = records.get(0);
@@ -1229,7 +1229,7 @@ public class VersionIndexTest extends FDBTestBase {
             assertEquals(version3, loadedRecord3.getVersion());
 
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, indexScan(indexName("globalVersion2")));
+            assertThat(plan, indexScan("globalVersion2"));
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(3, records.size());
 

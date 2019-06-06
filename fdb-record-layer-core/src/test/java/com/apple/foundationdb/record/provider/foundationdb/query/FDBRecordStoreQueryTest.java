@@ -454,7 +454,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(indexName("color")));
+        assertThat(plan, indexScan("color"));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(1393755963, plan.planHash());
 

@@ -57,6 +57,10 @@ public class PlanMatchers {
         return new IndexMatcher(planMatcher);
     }
 
+    public static Matcher<RecordQueryPlan> indexScan(@Nonnull final String indexName) {
+        return indexScan(indexName(indexName));
+    }
+
     public static Matcher<RecordQueryPlan> textIndexScan(@Nonnull Matcher<? super RecordQueryTextIndexPlan> planMatcher) {
         return new TextIndexMatcher(planMatcher);
     }
