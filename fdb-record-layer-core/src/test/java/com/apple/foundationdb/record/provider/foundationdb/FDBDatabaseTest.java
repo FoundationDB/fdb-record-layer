@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestHelpers;
@@ -40,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -49,6 +51,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -260,6 +263,30 @@ public class FDBDatabaseTest extends FDBTestBase {
             factory.clearLatencyInjector();
             factory.clear();
         }
+    }
+
+    @Test
+    public void testPostCommitHooks() throws Exception {
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        final AtomicInteger counter = new AtomicInteger(0);
+
+        try (FDBRecordContext context = database.openContext()) {
+            FDBRecordContext.PostCommit incrementPostCommit = context.getOrCreatePostCommit("foo",
+                    name -> () -> CompletableFuture.runAsync(counter::incrementAndGet));
+
+            // Cannot add a commit by the same name
+            assertThrows(RecordCoreArgumentException.class, () -> {
+                context.addPostCommit("foo", incrementPostCommit);
+            });
+
+            // We can fetch the post-commit by name
+            assertTrue(context.getPostCommit("foo") == incrementPostCommit, "Failed to fetch post-commit");
+            assertNull(context.getPostCommit("bar"));
+
+            context.addPostCommit(incrementPostCommit);
+            context.commit();
+        }
+        assertEquals(2, counter.get());
     }
 
     private CompletableFuture<Long> returnAnAsync(FDBDatabase database, CompletableFuture<?> toComplete) {
