@@ -390,7 +390,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("str_value_indexed").equalsValue("abc"))
                 .build();
         RecordQueryPlan plan1 = planner.plan(query1);
-        assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan(indexName("limited_str_value_index"))));
+        assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("limited_str_value_index")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
         assertEquals(-223683769, plan1.planHash());
 
@@ -413,7 +413,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setAllowedIndex("limited_str_value_index")
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
-        assertThat("explicitly use prohibited index", plan2, descendant(indexScan(indexName("limited_str_value_index"))));
+        assertThat("explicitly use prohibited index", plan2, descendant(indexScan("limited_str_value_index")));
         assertFalse(plan2.hasRecordScan(), "should not use record scan");
         assertEquals(-1573180774, plan2.planHash());
 
@@ -451,7 +451,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(123))
                 .build();
         RecordQueryPlan plan1 = planner.plan(query1);
-        assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan(indexName("universal_num_value_2"))));
+        assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("universal_num_value_2")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
         assertEquals(-709761689, plan1.planHash());
 
@@ -460,7 +460,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setAllowedIndex("universal_num_value_2")
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
-        assertThat("explicitly use prohibited index", plan2, descendant(indexScan(indexName("universal_num_value_2"))));
+        assertThat("explicitly use prohibited index", plan2, descendant(indexScan("universal_num_value_2")));
         assertFalse(plan2.hasRecordScan(), "should not use record scan");
         assertEquals(-1692774119, plan2.planHash());
     }

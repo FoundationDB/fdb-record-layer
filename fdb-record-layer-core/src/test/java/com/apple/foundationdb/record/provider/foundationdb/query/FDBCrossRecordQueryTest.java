@@ -87,7 +87,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                 .setSort(field("etag"))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), bounds(unbounded()))));
+        MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), unbounded())));
         assertEquals(1555932709, plan.planHash());
 
         List<String> names = new ArrayList<>();

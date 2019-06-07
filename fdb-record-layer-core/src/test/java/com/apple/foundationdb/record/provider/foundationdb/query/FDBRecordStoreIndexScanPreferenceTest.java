@@ -29,7 +29,6 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
@@ -58,7 +57,7 @@ public class FDBRecordStoreIndexScanPreferenceTest extends FDBRecordStoreQueryTe
         for (QueryPlanner.IndexScanPreference indexScanPreference : QueryPlanner.IndexScanPreference.values()) {
             planner.setIndexScanPreference(indexScanPreference);
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, scan(bounds(unbounded())));
+            assertThat(plan, scan(unbounded()));
         }
     }
 
@@ -76,8 +75,8 @@ public class FDBRecordStoreIndexScanPreferenceTest extends FDBRecordStoreQueryTe
             planner.setIndexScanPreference(indexScanPreference);
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScanPreference == QueryPlanner.IndexScanPreference.PREFER_INDEX ?
-                             indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(unbounded()))) :
-                             typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded()))));
+                             indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded())) :
+                             typeFilter(contains("MySimpleRecord"), scan(unbounded())));
         }
     }
 
@@ -97,8 +96,8 @@ public class FDBRecordStoreIndexScanPreferenceTest extends FDBRecordStoreQueryTe
             planner.setIndexScanPreference(indexScanPreference);
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScanPreference == QueryPlanner.IndexScanPreference.PREFER_SCAN ?
-                             typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded()))) :
-                             indexScan(allOf(indexName("pkey"), bounds(unbounded()))));
+                             typeFilter(contains("MySimpleRecord"), scan(unbounded())) :
+                             indexScan(allOf(indexName("pkey"), unbounded())));
         }
     }
 

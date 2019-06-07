@@ -120,7 +120,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRequiredResults(Collections.singletonList(field("num_value_3_indexed")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(unbounded())))));
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         assertEquals(413789395, plan.planHash());
     }
 

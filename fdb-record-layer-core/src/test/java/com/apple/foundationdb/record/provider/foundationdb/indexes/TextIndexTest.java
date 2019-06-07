@@ -1285,7 +1285,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private List<Long> querySimpleDocumentsWithScan(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(SIMPLE_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
-                    filter(equalTo(BooleanNormalizer.getDefaultInstance().normalize(filter)), typeFilter(contains(SIMPLE_DOC), PlanMatchers.scan(bounds(unbounded())))))
+                    filter(equalTo(BooleanNormalizer.getDefaultInstance().normalize(filter)), typeFilter(contains(SIMPLE_DOC), PlanMatchers.scan(unbounded()))))
                 .map(t -> t.getLong(0))
                 .asList()
                 .get();
@@ -2264,7 +2264,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private List<Long> queryMapDocumentsWithScan(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(MAP_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
-                filter(equalTo(filter), typeFilter(equalTo(Collections.singleton(MAP_DOC)), PlanMatchers.scan(bounds(unbounded())))))
+                filter(equalTo(filter), typeFilter(equalTo(Collections.singleton(MAP_DOC)), PlanMatchers.scan(unbounded()))))
                 .map(t -> t.getLong(0))
                 .asList()
                 .get();

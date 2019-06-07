@@ -263,7 +263,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         planner.setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_SCAN);
         RecordQueryPlan plan = planner.plan(query);
         // Would get Intersection didn't have identical continuations if it did
-        assertThat("Should not use grouped index", plan, hasNoDescendant(indexScan(indexName("grouped_index"))));
+        assertThat("Should not use grouped index", plan, hasNoDescendant(indexScan("grouped_index")));
         assertEquals(622816289, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
@@ -387,7 +387,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").lessThanOrEquals(3)))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat("should have range scan in " + plan, plan, descendant(indexScan(indexName("index_2_3"))));
+        assertThat("should have range scan in " + plan, plan, descendant(indexScan("index_2_3")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(1840965325, plan.planHash());
     }

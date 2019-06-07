@@ -221,7 +221,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
             RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(bounds(unbounded()))));
+            assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
             assertEquals(1623132305, plan.planHash());
             byte[] continuation = null;
             List<TestRecords1Proto.MySimpleRecord> retrieved = new ArrayList<>(100);
@@ -283,7 +283,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("num_value_2").equalsValue(0))
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, filter(equalTo(query.getFilter()), typeFilter(anything(), scan(bounds(unbounded())))));
+            assertThat(plan, filter(equalTo(query.getFilter()), typeFilter(anything(), scan(unbounded()))));
             assertEquals(913370491, plan.planHash());
             continuation = null;
             retrieved = new ArrayList<>(50);
@@ -454,7 +454,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(indexName("color")));
+        assertThat(plan, indexScan("color"));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(1393755963, plan.planHash());
 
@@ -601,7 +601,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, filter(equalTo(query.getFilter()),
-                    typeFilter(containsInAnyOrder("MultiRecordTwo", "MultiRecordThree"), scan(bounds(unbounded())))));
+                    typeFilter(containsInAnyOrder("MultiRecordTwo", "MultiRecordThree"), scan(unbounded()))));
             assertEquals(1808059644, plan.planHash());
             assertEquals(Arrays.asList(800L, 1776L),
                     recordStore.executeQuery(plan)
@@ -617,7 +617,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             plan = planner.plan(query);
             assertThat(plan, filter(equalTo(query.getFilter()),
-                    typeFilter(containsInAnyOrder("MultiRecordOne", "MultiRecordTwo"), scan(bounds(unbounded())))));
+                    typeFilter(containsInAnyOrder("MultiRecordOne", "MultiRecordTwo"), scan(unbounded()))));
             assertEquals(-663593392, plan.planHash());
             assertEquals(Arrays.asList(948L, 1066L, 1776L),
                     recordStore.executeQuery(plan)

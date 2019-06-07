@@ -215,7 +215,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
 
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
-            assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(unbounded()))));
+            assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded())));
         }
     }
 
