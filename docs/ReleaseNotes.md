@@ -14,7 +14,7 @@ The Guava version has been updated to version 27. Users of the [shaded variants]
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** `NullStandin` should be set in `FieldKeyExpression::toProto` [(Issue #626)](https://github.com/FoundationDB/fdb-record-layer/issues/626)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -24,7 +24,7 @@ The Guava version has been updated to version 27. Users of the [shaded variants]
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Added support for named, asynchronous post-commit hooks [(Issue #622)](https://github.com/FoundationDB/fdb-record-layer/issues/622)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,11 @@ The Guava version has been updated to version 27. Users of the [shaded variants]
 
 // end next release
 -->
+
+### 2.7.72.0
+
+* **Bug fix** `NullStandin` should be set in `FieldKeyExpression::toProto` [(Issue #626)](https://github.com/FoundationDB/fdb-record-layer/issues/626)
+* **Feature** Added support for named, asynchronous post-commit hooks [(Issue #622)](https://github.com/FoundationDB/fdb-record-layer/issues/622)
 
 ### 2.7.71.0
 
