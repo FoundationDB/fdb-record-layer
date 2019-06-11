@@ -4,11 +4,7 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the master release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 2.7
-
-# Breaking Changes
-
-The Guava version has been updated to version 27. Users of the [shaded variants](Shaded.html#Variants) of the Record Layer dependencies should not be affected by this change. Users of the unshaded variant using an older version of Guava as part of their own project may find that their own Guava dependency is updated automatically by their dependency manager.
+## 2.8
 
 <!--
 // begin next release
@@ -37,6 +33,12 @@ The Guava version has been updated to version 27. Users of the [shaded variants]
 
 // end next release
 -->
+
+## 2.7
+
+# Breaking Changes
+
+The Guava version has been updated to version 27. Users of the [shaded variants](Shaded.html#Variants) of the Record Layer dependencies should not be affected by this change. Users of the unshaded variant using an older version of Guava as part of their own project may find that their own Guava dependency is updated automatically by their dependency manager.
 
 ### 2.7.72.0
 
