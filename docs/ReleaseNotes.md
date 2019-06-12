@@ -6,7 +6,17 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 2.8
 
+### Features
+
+The `FDBRecordStore` can now use the global meta-data key that was added to FoundationDB in version 6.1 to cache state that otherwise must be read from the database at store initialization time. When opening any record store, the user can supply an instance of the new `MetaDataVersionStampStoreStateCache` class. (Alternatively, the `FDBDatabase` can be configured with a `MetaDataVersionStampStoreStateCache` that will be shared by all record stores opened using that database.) This class uses the value of the cluster's global meta-data key to detect if cache entries are stale, and it will invalidate older entries whenever the value of that key changes.
+
+This cache invalidation strategy is safe as record stores can now be configured to update the global meta-data version key whenever any of the cached information is changed. To do so, the user must configure their record store to have cacheable meta-data by calling `setStoreStateCacheability(true)`. The record store will then update the global meta-data key whenever the cached state changes. If the record store has not been so configured, then the `MetaDataVersionStampStoreStateCache` will *not* cache the store initialization information in memory, so opening the store will require re-reading this information from the database each time the store is opened.
+
+If the client is only accessing a small number of record stores on each cluster, then using the `MetaDataVersionStampStoreStateCache` can speed up record store initialization time as most record stores should now be able to be opened without reading anything from the database. Additionally, enabling this feature can help with users facing scalability problems on large record stores if loading this information at store creation time becomes a performance bottleneck. However, note that if there are many record stores coexisting on the same cluster, enabling this feature on all record stores may cause the meta-data key to change with high frequency, and it can degrage the effectiveness of the cache. Users are therefore encouraged to consider carefully which record stores require this feature and which ones do not before enabling it.
+
 ### Breaking Changes
+
+A new format version, [`CACHEABLE_STATE_FORMAT_VERSION`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/FDBRecordStore.html#CACHEABLE_STATE_FORMAT_VERSION), was introduced in this version of the Record Layer. Users who wish to experience zero downtime when upgrading from earlier versions should initialize all record stores to the previous maximum format version, [`SAVE_VERSION_WITH_RECORD_FORMAT_VERSION`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/FDBRecordStore.html#SAVE_VERSION_WITH_RECORD_FORMAT_VERSION), until all clients have been upgraded to version 2.8. If the update is done without this measure, then older clients running 2.7 or older will not be able to read from any record stores written using version 2.8. The new format version is also required to use the new `MetaDataVersionStampStoreStateCache` class to cache a record store's initialization state.
 
 This version of the Record Layer requires a FoundationDB server version of at least version 6.1. Attempting to connect to older versions may result in the client hanging when attempting to connect to the database.
 
@@ -24,7 +34,7 @@ This version of the Record Layer requires a FoundationDB server version of at le
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Store state information can now be cached using the meta-data key added in FoundationDB 6.1 [(Issue #537)](https://github.com/FoundationDB/fdb-record-layer/issues/537)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

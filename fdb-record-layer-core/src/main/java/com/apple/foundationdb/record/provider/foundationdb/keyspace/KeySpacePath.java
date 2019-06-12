@@ -260,6 +260,13 @@ public interface KeySpacePath {
     /**
      * Delete all data from this path. Use with care.
      *
+     * <p>
+     * Note that as it is possible that one or more record stores saved underneath this path
+     * might have cacheable meta-data, this method will reset the database's
+     * {@linkplain FDBRecordContext#getMetaDataVersionStampAsync(com.apple.foundationdb.record.IsolationLevel)}  meta-data version-stamp}.
+     * This can result in clients which are caching store state having to invalidate their caches.
+     * </p>
+     *
      * @param context the context in which the path is resolved and the delete operation takes place
      * @return a future that will delete all data underneath of this path
      */

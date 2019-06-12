@@ -255,6 +255,7 @@ class KeySpacePathImpl implements KeySpacePath {
     @Override
     public CompletableFuture<Void> deleteAllDataAsync(@Nonnull FDBRecordContext context) {
         context.setDirtyStoreState(true);
+        context.setMetaDataVersionStamp();
         return toTupleAsync(context).thenApply( tuple -> {
             final byte[] rangeStart = tuple.pack();
             final byte[] rangeEnd = ByteArrayUtil.strinc(rangeStart);

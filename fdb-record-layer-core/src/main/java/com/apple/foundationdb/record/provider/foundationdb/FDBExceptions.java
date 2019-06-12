@@ -188,4 +188,16 @@ public class FDBExceptions {
         }
         return false;
     }
+
+    @Nullable
+    public static FDBException getFDBCause(@Nullable Throwable ex) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof FDBException) {
+                return (FDBException)current;
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
 }

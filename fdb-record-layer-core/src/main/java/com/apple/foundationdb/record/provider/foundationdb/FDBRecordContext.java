@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
@@ -27,6 +28,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -44,6 +46,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -79,6 +82,12 @@ import java.util.stream.Collectors;
 @API(API.Status.STABLE)
 public class FDBRecordContext extends FDBTransactionContext implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordContext.class);
+    private static final byte[] META_DATA_VERSION_STAMP_KEY = new byte[]{(byte)0xff, '/', 'm', 'e', 't', 'a', 'd', 'a', 't', 'a', 'V', 'e', 'r', 's', 'i', 'o', 'n'};
+    private static final byte[] META_DATA_VERSION_STAMP_VALUE = new byte[FDBRecordVersion.GLOBAL_VERSION_LENGTH + Integer.BYTES];
+
+    static {
+        Arrays.fill(META_DATA_VERSION_STAMP_VALUE, (byte)0x00);
+    }
 
     /**
      * Internally generated or anonymous commit hooks are prefixed this this value.
@@ -104,6 +113,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
     private boolean dirtyStoreState;
+    private boolean dirtyMetaDataVersionStamp;
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
                                boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
@@ -585,6 +595,80 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             throw new RecordCoreStorageException("Transaction has not been committed yet.");
         }
         return versionStamp;
+    }
+
+    /**
+     * Get the database's meta-data version-stamp. This key is somewhat different from other keys in the
+     * database in that its value is returned to the client at the same time that the client receives its
+     * {@linkplain Transaction#getReadVersion() read version}. This means that reading this key does not
+     * require querying any storage server, so the client can use this key as a kind of "cache invalidation" key
+     * without needing to worry about the extra reads to this key overloading the backing storage servers (which
+     * would be the case for other keys).
+     *
+     * <p>
+     * This key can only be updated by calling {@link #setMetaDataVersionStamp()}, which will set the key
+     * to the transaction's {@linkplain #getVersionStamp() version-stamp} when the transaction is committed.
+     * If the key is set within the context of this transaction, this method will return {@code null}.
+     * </p>
+     *
+     * @param isolationLevel the isolation level at which to read the key
+     * @return a future that will complete with the current value of the meta-data version stamp or {@code null} if it is
+     *      unset or has been updated during the course of this transaction
+     */
+    @Nonnull
+    public CompletableFuture<byte[]> getMetaDataVersionStampAsync(@Nonnull IsolationLevel isolationLevel) {
+        if (dirtyMetaDataVersionStamp) {
+            // Ensure the transaction is active before returning so that if the transaction has been committed, but that
+            // transaction also updates the store state of some transaction, the user still gets an error.
+            ensureActive();
+            return CompletableFuture.completedFuture(null);
+        }
+        return readTransaction(isolationLevel.isSnapshot()).get(META_DATA_VERSION_STAMP_KEY).handle((val, err) -> {
+            if (err == null) {
+                return val;
+            } else {
+                FDBException fdbCause = FDBExceptions.getFDBCause(err);
+                if (fdbCause != null && fdbCause.getCode() == 1036) {
+                    // This is the error code that results from reading a key written with a versionstamp,
+                    // and in this case, it indicates that the meta-data version key was written prior to the
+                    // read being done. This means the store state might be dirty, so return null.
+                    dirtyMetaDataVersionStamp = true;
+                    return null;
+                } else {
+                    throw database.mapAsyncToSyncException(err);
+                }
+            }
+        });
+    }
+
+    /**
+     * A blocking version of {@link #getMetaDataVersionStampAsync(IsolationLevel)}.
+     *
+     * @param isolationLevel the isolation level at which to read the key
+     * @return the current value of the meta-data version stamp or {@code null} if it is unset or has been updated during the course of this transaction
+     * @see #getMetaDataVersionStampAsync(IsolationLevel)
+     */
+    @Nullable
+    public byte[] getMetaDataVersionStamp(@Nonnull IsolationLevel isolationLevel) {
+        return asyncToSync(FDBStoreTimer.Waits.WAIT_META_DATA_VERSION_STAMP, getMetaDataVersionStampAsync(isolationLevel));
+    }
+
+    /**
+     * Update the meta-data version-stamp. At commit time, the database will write to this key
+     * the commit version-stamp of this transaction. After this has been committed, any subsequent
+     * transaction will see an updated value when calling {@link #getMetaDataVersionStamp(IsolationLevel)},
+     * and those transactions may use that value to invalidate any stale cache entries using the
+     * meta-data version-stamp key. After this method has been called, any calls to {@code getMetaDataVersionStamp()}
+     * will return {@code null}. After this context has been committed, one may call {@link #getVersionStamp()}
+     * to get the value that this transaction wrote to the database.
+     *
+     * @see #getMetaDataVersionStampAsync(IsolationLevel)
+     * @see #getVersionStamp()
+     */
+    public void setMetaDataVersionStamp() {
+        ensureActive();
+        dirtyMetaDataVersionStamp = true;
+        transaction.mutate(MutationType.SET_VERSIONSTAMPED_VALUE, META_DATA_VERSION_STAMP_KEY, META_DATA_VERSION_STAMP_VALUE);
     }
 
     @Nullable
