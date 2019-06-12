@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.storestate;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.subspace.Subspace;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -53,13 +55,17 @@ public class FDBRecordStoreStateCacheEntry {
     private final Subspace subspace;
     @Nonnull
     private final RecordStoreState recordStoreState;
+    @Nullable
+    private final byte[] metaDataVersionStamp;
 
     private FDBRecordStoreStateCacheEntry(@Nonnull SubspaceProvider subspaceProvider,
                                           @Nonnull Subspace subspace,
-                                          @Nonnull RecordStoreState recordStoreState) {
+                                          @Nonnull RecordStoreState recordStoreState,
+                                          @Nullable byte[] metaDataVersionStamp) {
         this.subspaceProvider = subspaceProvider;
         this.subspace = subspace;
         this.recordStoreState = recordStoreState;
+        this.metaDataVersionStamp = metaDataVersionStamp;
     }
 
     /**
@@ -72,6 +78,11 @@ public class FDBRecordStoreStateCacheEntry {
         return recordStoreState;
     }
 
+    @Nullable
+    byte[] getMetaDataVersionStamp() {
+        return metaDataVersionStamp;
+    }
+
     @Nonnull
     CompletableFuture<Void> handleCachedState(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final Transaction tr = context.ensureActive();
@@ -82,7 +93,9 @@ public class FDBRecordStoreStateCacheEntry {
     @Nonnull
     static CompletableFuture<FDBRecordStoreStateCacheEntry> load(@Nonnull FDBRecordStore recordStore,
                                                                  @Nonnull FDBRecordStore.StoreExistenceCheck existenceCheck) {
+        final CompletableFuture<byte[]> metaDataVersionStampFuture = recordStore.getContext().getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT);
         return recordStore.loadRecordStoreStateAsync(existenceCheck)
-                .thenApply(recordStoreState -> new FDBRecordStoreStateCacheEntry(recordStore.getSubspaceProvider(), recordStore.getSubspace(), recordStoreState.toImmutable()));
+                .thenCombine(metaDataVersionStampFuture, (recordStoreState, metaDataVersionStamp) ->
+                        new FDBRecordStoreStateCacheEntry(recordStore.getSubspaceProvider(), recordStore.getSubspace(), recordStoreState.toImmutable(), metaDataVersionStamp));
     }
 }

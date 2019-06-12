@@ -269,6 +269,8 @@ public class FDBStoreTimer extends StoreTimer {
          * This future should normally be completed already, so this is mainly for error checking.
          */
         WAIT_VERSION_STAMP("wait for version stamp"),
+        /** Wait to load the the cluster's meta-data version stamp. */
+        WAIT_META_DATA_VERSION_STAMP("wait for meta-data version stamp"),
         /** Wait for a synchronous {@link com.apple.foundationdb.record.RecordCursor#next}. */
         WAIT_ADVANCE_CURSOR("wait for advance cursor"),
         /** Wait for scanning a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace} to see whether it has data.*/
@@ -289,6 +291,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_COLLECT_STATISTICS("wait for statistics to be collected of a record store or index"),
         /** Wait for getting boundaries. */
         WAIT_GET_BOUNDARY("wait for boundary result from locality api"),
+        /** Wait for setting the store state cacheability. */
+        WAIT_SET_STATE_CACHEABILITY("wait to set state cacheability"),
         ;
 
         private final String title;

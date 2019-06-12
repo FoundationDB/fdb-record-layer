@@ -93,13 +93,28 @@ public class TracedTransaction implements Transaction {
     }
 
     @Override
+    public boolean isSnapshot() {
+        return transaction.isSnapshot();
+    }
+
+    @Override
     public void addReadConflictRange(byte[] keyBegin, byte[] keyEnd) {
         transaction.addReadConflictRange(keyBegin, keyEnd);
     }
 
     @Override
+    public boolean addReadConflictRangeIfNotSnapshot(byte[] keyBegin, byte[] keyEnd) {
+        return transaction.addReadConflictRangeIfNotSnapshot(keyBegin, keyEnd);
+    }
+
+    @Override
     public void addReadConflictKey(byte[] key) {
         transaction.addReadConflictKey(key);
+    }
+
+    @Override
+    public boolean addReadConflictKeyIfNotSnapshot(byte[] key) {
+        return transaction.addReadConflictKeyIfNotSnapshot(key);
     }
 
     @Override

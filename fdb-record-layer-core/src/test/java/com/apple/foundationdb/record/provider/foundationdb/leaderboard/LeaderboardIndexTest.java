@@ -1160,13 +1160,15 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
         FDBRecordContext context1 = openContext();
         if (TRACE) {
-            context1.ensureActive().options().setTransactionLoggingEnable("tr1");
+            context1.ensureActive().options().setDebugTransactionIdentifier("tr1");
+            context1.ensureActive().options().setLogTransaction();
         }
         Leaderboards leaderboards1 = new FlatLeaderboards();
         leaderboards1.recordStore = leaderboards.recordStore.asBuilder().setContext(context1).build();
         FDBRecordContext context2 = openContext();
         if (TRACE) {
-            context2.ensureActive().options().setTransactionLoggingEnable("tr2");
+            context2.ensureActive().options().setDebugTransactionIdentifier("tr2");
+            context2.ensureActive().options().setLogTransaction();
         }
         Leaderboards leaderboards2 = new FlatLeaderboards();
         leaderboards2.recordStore = leaderboards.recordStore.asBuilder().setContext(context2).build();
@@ -1218,7 +1220,8 @@ public class LeaderboardIndexTest extends FDBTestBase {
                 int score = r.nextInt(1000000);
                 int pass = i;
                 fdb.run(metrics, null, context -> {
-                    context.ensureActive().options().setTransactionLoggingEnable(String.format("t-%d-%d", n, pass));
+                    context.ensureActive().options().setDebugTransactionIdentifier(String.format("t-%d-%d", n, pass));
+                    context.ensureActive().options().setLogTransaction();
                     privateLeaderboards.recordStore = builder.setContext(context).build();
                     privateLeaderboards.addScores(player, "game-1", score, 10100, 0);
                     return null;
