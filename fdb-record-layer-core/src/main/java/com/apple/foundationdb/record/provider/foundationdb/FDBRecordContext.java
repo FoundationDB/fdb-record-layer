@@ -116,7 +116,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         if (transactionIsTraced) {
             final String uuid = mdcContext == null ? null : mdcContext.get("uuid");
             if (uuid != null) {
-                transaction.options().setTransactionLoggingEnable(uuid);
+                transaction.options().setDebugTransactionIdentifier(uuid);
+                transaction.options().setLogTransaction();
             }
         }
 
