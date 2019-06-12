@@ -55,6 +55,7 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
@@ -248,14 +249,142 @@ public class MetaDataEvolutionValidatorTest {
                     }
                 })
         );
+        // The two record types do not have the same form, so swapping them should fail.
+        // However, the exact way they fail isn't super important.
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedDescriptor);
-        assertInvalid("record type changed name", metaData1, metaData2);
+        assertInvalid("", metaData1, metaData2);
+    }
+
+    /**
+     * Validate that changes to the union descriptor that equate two previously differentiated
+     * types--even if they have the same form--are disallowed. In theory, this could be allowed if
+     * the machinery to handle indexes were sophisticated enough. It would require that every index
+     * either be dropped or that all indexes were previously defined on both records and are now
+     * defined on the combined record. It also requires that any indexes on record type be dropped.
+     */
+    @Test
+    public void mergeTypes() {
+        // Build a descriptor with two copies of MyOtherRecord (essentially).
+        FileDescriptor updatedDescriptor = mutateFile(fileBuilder -> {
+            DescriptorProtos.DescriptorProto newMessageType = fileBuilder.getMessageTypeList().stream()
+                    .filter(message -> message.getName().equals("MyOtherRecord"))
+                    .findFirst()
+                    .get()
+                    .toBuilder()
+                    .setName("MyOtherOtherRecord")
+                    .build();
+            fileBuilder.addMessageType(newMessageType);
+            fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName("MyOtherOtherRecord")
+                            .setName("_MyOtherOtherRecord")
+                            .setNumber(message.getFieldList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto::getNumber).max().orElse(0) + 1)
+                    );
+                }
+            });
+        });
+
+        assertThat(updatedDescriptor.getMessageTypes().stream().map(Descriptor::getName).collect(Collectors.toSet()),
+                containsInAnyOrder("MySimpleRecord", "MyOtherRecord", "MyOtherOtherRecord", RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+        RecordMetaData metaData1 = RecordMetaData.build(updatedDescriptor);
+        assertThat(metaData1.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord", "MyOtherOtherRecord"));
+
+        FileDescriptor secondDescriptor = mutateFile(updatedDescriptor, fileBuilder -> {
+            DescriptorProtos.DescriptorProto.Builder myOtherOtherDescriptor = fileBuilder.getMessageTypeBuilderList().stream()
+                    .filter(message -> message.getName().equals("MyOtherOtherRecord"))
+                    .findFirst()
+                    .get();
+            int index = fileBuilder.getMessageTypeBuilderList().indexOf(myOtherOtherDescriptor);
+            fileBuilder.removeMessageType(index);
+            fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    message.getFieldBuilderList().forEach(field -> {
+                        if (field.getTypeName().equals("MyOtherOtherRecord")) {
+                            field.setTypeName("MyOtherRecord");
+                        }
+                    });
+                }
+            });
+        });
+
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, secondDescriptor, metaDataProtoBuilder -> {
+            RecordMetaDataProto.RecordType.Builder myOtherOtherRecord = metaDataProtoBuilder.getRecordTypesBuilderList().stream()
+                    .filter(recordType -> recordType.getName().equals("MyOtherOtherRecord"))
+                    .findFirst()
+                    .get();
+            int index = metaDataProtoBuilder.getRecordTypesBuilderList().indexOf(myOtherOtherRecord);
+            metaDataProtoBuilder.removeRecordTypes(index);
+        });
+        assertThat(metaData2.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord"));
+        assertInvalid("record type corresponds to multiple types in old meta-data", metaData1, metaData2);
+    }
+
+    /**
+     * Validate that changes to the union descriptor that differentiate two previously equivalent
+     * types--even if they have the same form--are disallowed. In theory, this could be allowed if
+     * the machinery to handle indexes were sophisticated enough. It would require that every index
+     * either be dropped or that all indexes that were previously defined on the combined record type
+     * are now defined on both types. It also requires that any indexes on record type be dropped.
+     */
+    @Test
+    public void splitTypes() {
+        // Add a second "MyOtherRecord" to the union descriptor
+        FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
+                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                        message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setTypeName("MyOtherRecord")
+                                .setName("_MyOtherOtherRecord")
+                                .setNumber(message.getFieldList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto::getNumber).max().orElse(0) + 1));
+                    }
+                })
+        );
+        RecordMetaData metaData1 = RecordMetaData.build(updatedDescriptor);
+        assertThat(metaData1.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord"));
+
+        FileDescriptor secondDescriptor = mutateFile(updatedDescriptor, fileBuilder -> {
+            DescriptorProtos.DescriptorProto newMessageType = fileBuilder.getMessageTypeList().stream()
+                    .filter(message -> message.getName().equals("MyOtherRecord"))
+                    .findFirst()
+                    .get()
+                    .toBuilder()
+                    .setName("MyOtherOtherRecord")
+                    .build();
+            fileBuilder.addMessageType(newMessageType);
+            fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    message.getFieldBuilderList().forEach(field -> {
+                        if (field.getName().equals("_MyOtherOtherRecord")) {
+                            field.setTypeName("MyOtherOtherRecord");
+                        }
+                    });
+                }
+            });
+        });
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, secondDescriptor, metaDataProtoBuilder ->
+                metaDataProtoBuilder.addRecordTypes(RecordMetaDataProto.RecordType.newBuilder()
+                        .setName("MyOtherOtherRecord")
+                        .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression())
+                )
+        );
+        assertThat(metaData2.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord", "MyOtherOtherRecord"));
+        assertInvalid("record type corresponds to multiple types in new meta-data", metaData1, metaData2);
     }
 
     @Test
     public void changeRecordTypeName() {
-        FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
+        final MetaDataEvolutionValidator renameDisallowingValidator = MetaDataEvolutionValidator.newBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+
+        // Update the record type name, but don't update any references in indexes
+        FileDescriptor updatedFile = mutateFile(fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
                     if (messageType.getName().equals("MyOtherRecord")) {
                         messageType.setName("MyOtherOtherRecord");
@@ -269,13 +398,26 @@ public class MetaDataEvolutionValidatorTest {
                     }
                 })
         );
-        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        MetaDataException e = assertThrows(MetaDataException.class, () -> replaceRecordsDescriptor(metaData1, updatedDescriptor));
-        assertThat(e.getMessage(), containsString("Unknown record type MyOtherRecord"));
-        assertInvalid("record type changed name", metaData1.getUnionDescriptor(), updatedDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.addIndex("MyOtherRecord", "num_value_3_indexed");
+        RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
 
-        // This "should" be allowed in that it replaces all index definitions with the new record type as well, but it is disallowed
-        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedDescriptor, protoBuilder -> {
+        MetaDataException e = assertThrows(MetaDataException.class, () -> replaceRecordsDescriptor(metaData1, updatedFile));
+        assertThat(e.getMessage(), containsString("Unknown record type MyOtherRecord"));
+        validator.validateUnion(metaData1.getUnionDescriptor(), updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+
+        // Changes the record type definition but not the indexes
+        e = assertThrows(MetaDataException.class, () -> replaceRecordsDescriptor(metaData1, updatedFile, protoBuilder ->
+                protoBuilder.getRecordTypesBuilderList().forEach(recordType -> {
+                    if (recordType.getName().equals("MyOtherRecord")) {
+                        recordType.setName("MyOtherOtherRecord");
+                    }
+                })
+        ));
+        assertThat(e.getMessage(), containsString("Unknown record type MyOtherRecord"));
+
+        // This should be allowed because it replaces all index definitions with the new record type as well
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile, protoBuilder -> {
             protoBuilder.getRecordTypesBuilderList().forEach(recordType -> {
                 if (recordType.getName().equals("MyOtherRecord")) {
                     recordType.setName("MyOtherOtherRecord");
@@ -288,7 +430,206 @@ public class MetaDataEvolutionValidatorTest {
                 index.addAllRecordType(recordTypes);
             });
         });
-        assertInvalid("record type changed name", metaData1, metaData3);
+        assertEquals(Collections.singletonList(metaData3.getRecordType("MyOtherOtherRecord")),
+                metaData3.recordTypesForIndex(metaData3.getIndex("MyOtherRecord$num_value_3_indexed")));
+        validator.validate(metaData1, metaData3);
+        assertInvalid("record type name changed", renameDisallowingValidator, metaData1, metaData3);
+
+        // Validate that calling update records with the new file descriptor produces a valid evolution
+        RecordMetaDataBuilder metaDataBuilder4 = RecordMetaData.newBuilder().setRecords(metaData1.toProto());
+        metaDataBuilder4.updateRecords(updatedFile);
+        RecordMetaData metaData4 = metaDataBuilder4.getRecordMetaData();
+        assertEquals(Collections.singletonList(metaData4.getRecordType("MyOtherOtherRecord")),
+                metaData4.recordTypesForIndex(metaData4.getIndex("MyOtherRecord$num_value_3_indexed")));
+        validator.validate(metaData1, metaData4);
+        assertInvalid("record type name changed", renameDisallowingValidator, metaData1, metaData4);
+    }
+
+    @Test
+    public void swapRecordTypes() {
+        FileDescriptor updatedFile = mutateFile(fileBuilder -> {
+            // Update the field of the union descriptor.
+            fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
+                if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    messageType.getFieldBuilderList().forEach(field -> {
+                        if (field.getName().equals("_MyOtherRecord")) {
+                            field.setTypeName("MySimpleRecord");
+                        }
+                        if (field.getName().equals("_MySimpleRecord")) {
+                            field.setTypeName("MyOtherRecord");
+                        }
+                    });
+                }
+            });
+        });
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.addIndex("MyOtherRecord", "num_value_3_indexed");
+        RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+
+        // Swap is noticed as the two records are not of compatible forms
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
+        assertInvalid("", metaData1, metaData2);
+    }
+
+    @Test
+    public void swapIsomorphicRecordTypesWithIndexes() {
+        FileDescriptor updatedFile = mutateFile(fileBuilder -> {
+            DescriptorProtos.DescriptorProto newMessageType = fileBuilder.getMessageTypeList().stream()
+                    .filter(messageType -> messageType.getName().equals("MyOtherRecord"))
+                    .findFirst()
+                    .get()
+                    .toBuilder()
+                    .setName("MyOtherOtherRecord")
+                    .build();
+            fileBuilder.addMessageType(newMessageType);
+            fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
+                if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    messageType.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName("MyOtherOtherRecord")
+                            .setName("_MyOtherOtherRecord")
+                            .setNumber(messageType.getFieldList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto::getNumber).max().orElse(0) + 1));
+                }
+            });
+        });
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(updatedFile);
+        metaDataBuilder.addIndex("MyOtherRecord", "num_value_3_indexed");
+        metaDataBuilder.addIndex("MyOtherOtherRecord", "num_value_3_indexed");
+        RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+        assertThat(metaData1.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord", "MyOtherOtherRecord"));
+        assertEquals(Collections.singletonList(metaData1.getRecordType("MyOtherRecord")),
+                metaData1.recordTypesForIndex(metaData1.getIndex("MyOtherRecord$num_value_3_indexed")));
+        assertEquals(Collections.singletonList(metaData1.getRecordType("MyOtherOtherRecord")),
+                metaData1.recordTypesForIndex(metaData1.getIndex("MyOtherOtherRecord$num_value_3_indexed")));
+
+        // Swap the two record types in the union descriptor.
+        FileDescriptor secondFile = mutateFile(updatedFile, fileBuilder ->
+                fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
+                    if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                        messageType.getFieldBuilderList().forEach(field -> {
+                            if (field.getName().equals("_MyOtherRecord")) {
+                                field.setTypeName("MyOtherOtherRecord");
+                            }
+                            if (field.getName().equals("_MyOtherOtherRecord")) {
+                                field.setTypeName("MyOtherRecord");
+                            }
+                        });
+                    }
+                })
+        );
+        // Doesn't update the record types for the index which effectively swaps the definitions
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, secondFile);
+        assertThat(metaData2.getRecordTypes().keySet(), containsInAnyOrder("MySimpleRecord", "MyOtherRecord", "MyOtherOtherRecord"));
+        assertEquals(Collections.singletonList(metaData2.getRecordType("MyOtherRecord")),
+                metaData2.recordTypesForIndex(metaData2.getIndex("MyOtherRecord$num_value_3_indexed")));
+        assertEquals(Collections.singletonList(metaData2.getRecordType("MyOtherOtherRecord")),
+                metaData2.recordTypesForIndex(metaData2.getIndex("MyOtherOtherRecord$num_value_3_indexed")));
+        assertInvalid("new index removes record type", metaData1, metaData2);
+
+        // Replace the record types in the indexes with the new names
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData2, secondFile, metaDataProtoBuilder ->
+                metaDataProtoBuilder.getIndexesBuilderList().forEach(index -> {
+                    List<String> recordTypes = new ArrayList<>(index.getRecordTypeList());
+                    recordTypes.replaceAll(recordType -> {
+                        if (recordType.equals("MyOtherRecord")) {
+                            return "MyOtherOtherRecord";
+                        } else if (recordType.equals("MyOtherOtherRecord")) {
+                            return "MyOtherRecord";
+                        } else {
+                            return recordType;
+                        }
+                    });
+                    index.clearRecordType();
+                    index.addAllRecordType(recordTypes);
+                })
+        );
+        assertEquals(Collections.singletonList(metaData3.getRecordType("MyOtherOtherRecord")),
+                metaData3.recordTypesForIndex(metaData3.getIndex("MyOtherRecord$num_value_3_indexed")));
+        assertEquals(Collections.singletonList(metaData3.getRecordType("MyOtherRecord")),
+                metaData3.recordTypesForIndex(metaData3.getIndex("MyOtherOtherRecord$num_value_3_indexed")));
+        validator.validate(metaData1, metaData3);
+
+        // Verify that using "update records" updates the index definitions
+        RecordMetaDataBuilder metaDataBuilder4 = RecordMetaData.newBuilder().setRecords(metaData1.toProto());
+        metaDataBuilder4.updateRecords(secondFile);
+        RecordMetaData metaData4 = metaDataBuilder4.getRecordMetaData();
+        assertEquals(Collections.singletonList(metaData4.getRecordType("MyOtherOtherRecord")),
+                metaData4.recordTypesForIndex(metaData4.getIndex("MyOtherRecord$num_value_3_indexed")));
+        assertEquals(Collections.singletonList(metaData4.getRecordType("MyOtherRecord")),
+                metaData4.recordTypesForIndex(metaData4.getIndex("MyOtherOtherRecord$num_value_3_indexed")));
+        validator.validate(metaData1, metaData4);
+    }
+
+    @Test
+    public void swapIsomorphicRecordTypesWithExplicitKeys() {
+        FileDescriptor updatedFile = mutateFile(fileBuilder -> {
+            DescriptorProtos.DescriptorProto newMessageType = fileBuilder.getMessageTypeList().stream()
+                    .filter(messageType -> messageType.getName().equals("MyOtherRecord"))
+                    .findFirst()
+                    .get()
+                    .toBuilder()
+                    .setName("MyOtherOtherRecord")
+                    .build();
+            fileBuilder.addMessageType(newMessageType);
+            fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
+                if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    messageType.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName("MyOtherOtherRecord")
+                            .setName("_MyOtherOtherRecord")
+                            .setNumber(messageType.getFieldList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto::getNumber).max().orElse(0) + 1));
+                }
+            });
+        });
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(updatedFile);
+        metaDataBuilder.getRecordType("MyOtherRecord").setRecordTypeKey("other");
+        metaDataBuilder.getRecordType("MyOtherOtherRecord").setRecordTypeKey("other_other");
+        RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+        assertEquals("other", metaData1.getRecordType("MyOtherRecord").getRecordTypeKey());
+        assertEquals("other_other", metaData1.getRecordType("MyOtherOtherRecord").getRecordTypeKey());
+
+        // Swap the definitions in the union descriptor
+        FileDescriptor secondFile = mutateFile(updatedFile, fileBuilder ->
+                fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
+                    if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                        messageType.getFieldBuilderList().forEach(field -> {
+                            if (field.getName().equals("_MyOtherRecord")) {
+                                field.setTypeName("MyOtherOtherRecord");
+                            } else if (field.getName().equals("_MyOtherOtherRecord")) {
+                                field.setTypeName("MyOtherRecord");
+                            }
+                        });
+                    }
+                })
+        );
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, secondFile);
+        assertEquals("other", metaData2.getRecordType("MyOtherRecord").getRecordTypeKey());
+        assertEquals("other_other", metaData2.getRecordType("MyOtherOtherRecord").getRecordTypeKey());
+        assertInvalid("record type key changed", metaData1, metaData2);
+
+        // Swap the definitions in the record type descriptor list
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, secondFile, metaDataProtoBuilder ->
+                metaDataProtoBuilder.getRecordTypesBuilderList().forEach(recordType -> {
+                    if (recordType.getName().equals("MyOtherRecord")) {
+                        recordType.setName("MyOtherOtherRecord");
+                    } else if (recordType.getName().equals("MyOtherOtherRecord")) {
+                        recordType.setName("MyOtherRecord");
+                    }
+                })
+        );
+        assertEquals("other", metaData3.getRecordType("MyOtherOtherRecord").getRecordTypeKey());
+        assertEquals("other_other", metaData3.getRecordType("MyOtherRecord").getRecordTypeKey());
+        validator.validate(metaData1, metaData3);
+
+        // Verify that using "update records" updates the record type keys
+        RecordMetaDataBuilder metaDataBuilder4 = RecordMetaData.newBuilder().setRecords(metaData1.toProto());
+        metaDataBuilder4.updateRecords(secondFile);
+        RecordMetaData metaData4 = metaDataBuilder4.getRecordMetaData();
+        assertEquals("other", metaData4.getRecordType("MyOtherOtherRecord").getRecordTypeKey());
+        assertEquals("other_other", metaData4.getRecordType("MyOtherRecord").getRecordTypeKey());
+        validator.validate(metaData1, metaData4);
     }
 
     @Test
@@ -625,7 +966,7 @@ public class MetaDataEvolutionValidatorTest {
         RecordType recordType4 = metaData4.getRecordType("MySimpleRecord");
         assertEquals(1066, metaData4.getUnionFieldForRecordType(recordType4).getNumber());
         assertEquals(800L, recordType4.getRecordTypeKey());
-        assertInvalid("first occurrence of record type in union descriptor changed", metaData3, metaData4);
+        assertInvalid("record type key changed", metaData3, metaData4);
     }
 
     // Record types tests

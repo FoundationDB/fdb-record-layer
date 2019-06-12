@@ -77,6 +77,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final boolean usesSubspaceKeyCounter;
     @Nullable
     private final KeyExpression recordCountKey;
+    private final boolean usesLocalRecordsDescriptor;
 
     private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = new Descriptors.FileDescriptor[] {
             RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
@@ -95,7 +96,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              int version,
                              long subspaceKeyCounter,
                              boolean usesSubspaceKeyCounter,
-                             @Nullable KeyExpression recordCountKey) {
+                             @Nullable KeyExpression recordCountKey,
+                             boolean usesLocalRecordsDescriptor) {
         this.recordsDescriptor = recordsDescriptor;
         this.unionDescriptor = unionDescriptor;
         this.unionFields = unionFields;
@@ -109,6 +111,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.subspaceKeyCounter = subspaceKeyCounter;
         this.usesSubspaceKeyCounter = usesSubspaceKeyCounter;
         this.recordCountKey = recordCountKey;
+        this.usesLocalRecordsDescriptor = usesLocalRecordsDescriptor;
     }
 
     /**
@@ -344,25 +347,48 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     /**
-     * Serializes the record meta-data to a <code>MetaData</code> proto message. By default, it includes all of the
-     * dependencies except <code>TupleFieldsProto</code>, <code>RecordMetaDataOptionsProto</code> and <code>RecordMetaDataProto</code>.
+     * Serializes the record meta-data to a {@code MetaData} proto message. By default, it includes all of the
+     * dependencies except {@code TupleFieldsProto}, {@code RecordMetaDataOptionsProto} and {@code RecordMetaDataProto}.
+     *
+     * <p>
+     * Note that if this record meta-data object was created with a
+     * {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor},
+     * then serializing the meta-data to a proto message is disallowed. This is because setting a local file descriptor
+     * can change the meta-data in ways that would change its serialization, but it also will not update the meta-data
+     * version. This means that if the meta-data were then saved to disk, existing clients would not be informed that
+     * the meta-data had been updated.
+     * </p>
+     *
+     * @throws KeyExpression.SerializationException on any serialization failures
+     * @throws MetaDataException if this {@code RecordMetaData} was initialized with a
+     *      {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor}
      * @return the serialized <code>MetaData</code> proto message
      */
     @Nonnull
     public RecordMetaDataProto.MetaData toProto() {
-        return this.toProto(defaultExcludedDependencies);
+        return toProto(defaultExcludedDependencies);
     }
 
     /**
-     * Serializes the record meta-data to a <code>MetaData</code> proto message.
+     * Serializes the record meta-data to a <code>MetaData</code> proto message. This operates like
+     * {@link #toProto()} except that any dependency in the excluded list is not included in the
+     * serialized proto message. If the list is set to {@code null}, then all dependencies will be serialized
+     * to the proto message including those that are execluded by default.
+     *
      * @param excludedDependencies a list of dependencies not to include in the serialized proto
      * @return the serialized <code>MetaData</code> proto message
      * @throws KeyExpression.SerializationException on any serialization failures
+     * @throws MetaDataException if this {@code RecordMetaData} was initialized with a
+     *      {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor}
+     * @see #toProto()
      */
     @Nonnull
     @SuppressWarnings("deprecation")
     public RecordMetaDataProto.MetaData toProto(@Nullable Descriptors.FileDescriptor[] excludedDependencies)
             throws KeyExpression.SerializationException {
+        if (usesLocalRecordsDescriptor) {
+            throw new MetaDataException("cannot serialize meta-data with a local records descriptor to proto");
+        }
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
 
         // Set the root records.

@@ -1,9 +1,9 @@
 /*
- * test_records_import.proto
+ * test_records_nested_as_record.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,27 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.import;
+package com.apple.foundationdb.record.nestedasrecord;
 
 option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecordsImportProto";
+option java_outer_classname = "TestRecordsNestedAsRecord";
 
 import "record_metadata_options.proto";
-import "test_records_1.proto";
-import "test_records_2.proto";
+
+message OuterRecord {
+    message InnerRecord {
+        optional int64 rec_no = 1 [(field).primary_key = true];
+    }
+    optional int64 rec_no = 1 [(field).primary_key = true];
+    optional InnerRecord inner = 2;
+}
+
+message OtherRecord {
+    optional int64 rec_no = 1 [(field).primary_key = true];
+}
 
 message RecordTypeUnion {
-  option (com.apple.foundationdb.record.record).usage = UNION;
-  optional test1.MySimpleRecord _MySimpleRecord = 1;
-  optional test2.MyLongRecord _MyLongRecord = 2;
+    optional OuterRecord.InnerRecord _InnerRecord = 1;
+    optional OuterRecord _OuterRecord = 2;
+    optional OtherRecord _OutherRecord = 3;
 }

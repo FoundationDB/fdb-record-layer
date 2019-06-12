@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
@@ -297,9 +298,17 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                                boolean processExtensionOptions) {
         recordsDescriptor = buildFileDescriptor(metaDataProto.getRecords(), dependencies);
         loadSubspaceKeySettingsFromProto(metaDataProto);
-        unionDescriptor = initRecordTypes(recordsDescriptor, processExtensionOptions);
+        initRecordTypesAndUnion(processExtensionOptions);
         loadProtoExceptRecords(metaDataProto);
         processSchemaOptions(processExtensionOptions);
+
+        // If a local file descriptor has been set, update records types (etc.) to use the local descriptor.
+        if (localFileDescriptor != null) {
+            Descriptors.Descriptor localUnionDescriptor = fetchLocalUnionDescriptor();
+            evolutionValidator.validateUnion(unionDescriptor, localUnionDescriptor);
+            updateUnionFieldsAndRecordTypesFromLocal(localUnionDescriptor);
+            unionDescriptor = localUnionDescriptor;
+        }
     }
 
     private void loadSubspaceKeySettingsFromProto(RecordMetaDataProto.MetaData metaDataProto) {
@@ -319,34 +328,22 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private void loadFromFileDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor,
                                         boolean processExtensionOptions) {
         recordsDescriptor = fileDescriptor;
-        unionDescriptor = initRecordTypes(fileDescriptor, processExtensionOptions);
+        initRecordTypesAndUnion(processExtensionOptions);
         processSchemaOptions(processExtensionOptions);
     }
 
-    @Nonnull
-    private Descriptors.Descriptor initRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor, boolean processExtensionOptions) {
-        Descriptors.Descriptor unionDescriptor = fetchUnionDescriptor(fileDescriptor);
-        validateRecords(fileDescriptor, unionDescriptor);
-        Descriptors.Descriptor localUnionDescriptor = fetchLocalUnionDescriptor(unionDescriptor);
-        if (localFileDescriptor != null) {
-            evolutionValidator.validateUnion(unionDescriptor, localUnionDescriptor);
+    private void initRecordTypesAndUnion(boolean processExtensionOptions) {
+        if (recordsDescriptor == null) {
+            // Should not happen as this method should only be called when a file descriptor has been set.
+            throw new RecordCoreException("cannot initiate records from null file descriptor");
         }
-        fillUnionFields(unionDescriptor, localUnionDescriptor, processExtensionOptions);
-        return localUnionDescriptor == null ? unionDescriptor : localUnionDescriptor;
+        unionDescriptor = fetchUnionDescriptor(recordsDescriptor);
+        validateRecords(recordsDescriptor, unionDescriptor);
+        fillUnionFields(processExtensionOptions);
     }
 
     @Nonnull
-    private Descriptors.Descriptor updateRecordTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor, boolean processExtensionOptions) {
-        Descriptors.Descriptor unionDescriptor = fetchUnionDescriptor(fileDescriptor);
-        validateRecords(fileDescriptor, unionDescriptor);
-        evolutionValidator.validateUnion(this.unionDescriptor, unionDescriptor);
-        version++; // Bump the meta-data version
-        updateUnionFields(unionDescriptor, processExtensionOptions);
-        return unionDescriptor;
-    }
-
-    @Nonnull
-    private Descriptors.Descriptor fetchUnionDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    private static Descriptors.Descriptor fetchUnionDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
         @Nullable Descriptors.Descriptor union = null;
         for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
             RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
@@ -385,7 +382,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    private Map<String, Descriptors.FileDescriptor> initGeneratedDependencies(@Nonnull Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies) {
+    private static Map<String, Descriptors.FileDescriptor> initGeneratedDependencies(@Nonnull Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies) {
         Map<String, Descriptors.FileDescriptor> generatedDependencies = new TreeMap<>();
         if (!protoDependencies.containsKey(TupleFieldsProto.getDescriptor().getName())) {
             generatedDependencies.put(TupleFieldsProto.getDescriptor().getName(), TupleFieldsProto.getDescriptor());
@@ -501,18 +498,26 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * {@link #setStoreRecordVersions(boolean)}.
      * </p>
      *
-     * @param recordsDescriptor the new record descriptor
+     * @param newRecordsDescriptor the new record descriptor
      * @param processExtensionOptions whether to add primary keys and indexes using the extensions in the protobuf (only for the new record types)
      */
-    public void updateRecords(@Nonnull Descriptors.FileDescriptor recordsDescriptor, boolean processExtensionOptions) {
-        if (this.recordsDescriptor == null) {
+    public void updateRecords(@Nonnull Descriptors.FileDescriptor newRecordsDescriptor, boolean processExtensionOptions) {
+        if (recordsDescriptor == null) {
             throw new MetaDataException("Records descriptor is not set yet");
         }
         if (localFileDescriptor != null) {
             throw new MetaDataException("Updating the records descriptor is not allowed when the local file descriptor is set");
         }
-        this.recordsDescriptor = recordsDescriptor;
-        unionDescriptor = updateRecordTypes(this.recordsDescriptor, processExtensionOptions);
+        if (unionDescriptor == null) {
+            throw new RecordCoreException("cannot update record types as no previous union descriptor has been set");
+        }
+        Descriptors.Descriptor newUnionDescriptor = fetchUnionDescriptor(newRecordsDescriptor);
+        validateRecords(newRecordsDescriptor, newUnionDescriptor);
+        evolutionValidator.validateUnion(unionDescriptor, newUnionDescriptor);
+        version++; // Bump the meta-data version
+        updateUnionFieldsAndRecordTypes(newUnionDescriptor, processExtensionOptions);
+        recordsDescriptor = newRecordsDescriptor;
+        unionDescriptor = newUnionDescriptor;
     }
 
     /**
@@ -529,9 +534,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * </p>
      *
      * <p>
-     * This should only be used when the records descriptor is set through a meta-data proto (i.e, it is followed by a call
+     * This should only be used when the records descriptor is set through a meta-data Protobuf message (i.e, it is followed by a call
      * to {@link #setRecords(RecordMetaDataProto.MetaData)} or {@link #setRecords(RecordMetaDataProto.MetaData, boolean)}).
-     * This will not work if the records are set using a file descriptor.
+     * This will not work if the records are set using a file descriptor. Note also that once the local file descriptor is
+     * set, the {@link RecordMetaData} object that is produced from this builder may differ from the original Protobuf definition
+     * in ways that make serializing the meta-data back to Protobuf unsafe. As a result, calling {@link RecordMetaData#toProto() toProto()}
+     * on the produced {@code RecordMetaData} is disallowed.
      * </p>
      *
      * <p>
@@ -554,7 +562,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    private Descriptors.Descriptor buildSyntheticUnion(@Nonnull Descriptors.FileDescriptor parentFileDescriptor, @Nonnull Descriptors.Descriptor unionDescriptor) {
+    private Descriptors.Descriptor buildSyntheticUnion(@Nonnull Descriptors.FileDescriptor parentFileDescriptor) {
+        if (unionDescriptor == null) {
+            throw new RecordCoreException("cannot build a synthetic union descriptor as no prior existing union descriptor has been set");
+        }
         DescriptorProtos.FileDescriptorProto.Builder builder = DescriptorProtos.FileDescriptorProto.newBuilder();
         builder.setName("_synthetic_" + parentFileDescriptor.getName());
         builder.addMessageType(MetaDataProtoEditor.createSyntheticUnion(parentFileDescriptor, unionDescriptor));
@@ -562,17 +573,18 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return fetchUnionDescriptor(buildFileDescriptor(builder.build(), new Descriptors.FileDescriptor[]{parentFileDescriptor}));
     }
 
-    @Nullable
-    private Descriptors.Descriptor fetchLocalUnionDescriptor(@Nonnull Descriptors.Descriptor unionDescriptor) {
+    @Nonnull
+    private Descriptors.Descriptor fetchLocalUnionDescriptor() {
         if (localFileDescriptor == null) {
-            return null;
+            // Should not be reached as caller should guard this call on checking for the local file descriptor
+            throw new RecordCoreException("cannot fetch local union descriptor as no local file is set");
         }
         Descriptors.Descriptor localUnionDescriptor;
         if (MetaDataProtoEditor.hasUnion(localFileDescriptor)) {
             localUnionDescriptor = fetchUnionDescriptor(localFileDescriptor);
         } else {
             // The local file descriptor does not have a union. Synthesize it.
-            localUnionDescriptor = buildSyntheticUnion(localFileDescriptor, unionDescriptor);
+            localUnionDescriptor = buildSyntheticUnion(localFileDescriptor);
         }
         validateRecords(localFileDescriptor, localUnionDescriptor);
         return localUnionDescriptor;
@@ -755,10 +767,22 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return unionDescriptor.getFields().stream().anyMatch(field -> descriptor == field.getMessageType());
     }
 
-    private void updateUnionFields(@Nonnull Descriptors.Descriptor union, boolean processExtensionOptions) {
+
+    private void updateUnionFieldsAndRecordTypes(@Nonnull Descriptors.Descriptor union, boolean processExtensionOptions) {
+        final Map<String, RecordTypeBuilder> oldRecordTypes = ImmutableMap.copyOf(recordTypes);
+        recordTypes.clear();
+        unionFields.clear();
         for (Descriptors.FieldDescriptor unionField : union.getFields()) {
-            Descriptors.Descriptor descriptor = unionField.getMessageType();
-            if (!unionFields.containsKey(descriptor) && !recordTypes.containsKey(descriptor.getName())) {
+            Descriptors.Descriptor newDescriptor = unionField.getMessageType();
+            Descriptors.Descriptor oldDescriptor = findOldDescriptor(unionField, union);
+            if (unionFields.containsKey(newDescriptor)) {
+                if (!recordTypes.containsKey(newDescriptor.getName())) {
+                    // Union field was seen before but the record type is unknown? This must not happen.
+                    throw new MetaDataException("Unknown record type for union field " + unionField.getName());
+                }
+                // For existing record types, the preferred field is the last one, except if there is one whose name matches.
+                remapUnionField(newDescriptor, unionField);
+            } else if (oldDescriptor == null) {
                 // New field and record type.
                 RecordTypeBuilder recordType = processRecordType(unionField, processExtensionOptions);
                 if (recordType.getSinceVersion() != null && recordType.getSinceVersion() != version) {
@@ -767,41 +791,114 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 } else {
                     recordType.setSinceVersion(version);
                 }
-                unionFields.put(descriptor, unionField);
-            } else if (unionFields.containsKey(descriptor)) {
-                if (!recordTypes.containsKey(descriptor.getName())) {
-                    // Union field was seen before but the record type is unknown? This must not happen.
-                    throw new MetaDataException("Unknown record type for union field " + unionField.getName());
-                }
-                // A new record type. The preferred field is the last one, except if there is one whose name matches.
-                remapUnionField(descriptor, unionField);
+                unionFields.put(newDescriptor, unionField);
             } else {
-                // Update the record type.
-                RecordTypeBuilder oldRecordType = recordTypes.get(descriptor.getName());
-                RecordTypeBuilder newRecordType = new RecordTypeBuilder(descriptor, oldRecordType);
-                recordTypes.put(newRecordType.getName(), newRecordType); // update the record type builder
-                unionFields.remove(oldRecordType.getDescriptor());
-                unionFields.put(descriptor, unionField);
+                updateRecordType(oldRecordTypes, oldDescriptor, newDescriptor);
+                unionFields.put(newDescriptor, unionField);
             }
         }
     }
 
-    private void fillUnionFields(@Nonnull Descriptors.Descriptor union, @Nullable Descriptors.Descriptor localUnionDescriptor, boolean processExtensionOptions) {
+    private void updateUnionFieldsAndRecordTypesFromLocal(@Nonnull Descriptors.Descriptor union) {
+        final Map<String, RecordTypeBuilder> oldRecordTypes = ImmutableMap.copyOf(recordTypes);
+        final Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> oldUnionFields = ImmutableMap.copyOf(unionFields);
+        recordTypes.clear();
+        unionFields.clear();
         for (Descriptors.FieldDescriptor unionField : union.getFields()) {
-            Descriptors.FieldDescriptor adjustedUnionField = adjustUnionField(unionField, localUnionDescriptor);
-            Descriptors.Descriptor descriptor = adjustedUnionField.getMessageType();
+            Descriptors.Descriptor newDescriptor = unionField.getMessageType();
+            Descriptors.Descriptor oldDescriptor = findOldDescriptor(unionField, union);
+            if (oldDescriptor == null) {
+                // If updating from a local union descriptor, do not process any new types.
+                continue;
+            }
+            if (unionFields.containsKey(newDescriptor)) {
+                if (!recordTypes.containsKey(newDescriptor.getName())) {
+                    // Union field was seen before but the record type is unknown? This must not happen.
+                    throw new MetaDataException("Unknown record type for union field " + unionField.getName());
+                }
+                // When pulling from a local file descriptor, the preferred field is the one that has the same
+                // position as the field in the old union descriptor (so that the byte representation is the same).
+                Descriptors.FieldDescriptor oldUnionField = oldUnionFields.get(oldDescriptor);
+                if (unionField.getNumber() == oldUnionField.getNumber()) {
+                    unionFields.put(newDescriptor, unionField);
+                }
+            } else {
+                updateRecordType(oldRecordTypes, oldDescriptor, newDescriptor);
+                unionFields.put(newDescriptor, unionField);
+            }
+        }
+    }
+
+    @Nullable
+    private static Descriptors.Descriptor getCorrespondingFieldType(@Nonnull Descriptors.Descriptor descriptor, @Nonnull Descriptors.FieldDescriptor field) {
+        Descriptors.FieldDescriptor correspondingField = descriptor.findFieldByNumber(field.getNumber());
+        if (correspondingField != null) {
+            return correspondingField.getMessageType();
+        }
+        return null;
+    }
+
+    @Nullable
+    private Descriptors.Descriptor findOldDescriptor(@Nonnull Descriptors.FieldDescriptor newUnionField, @Nonnull Descriptors.Descriptor newUnion) {
+        if (unionDescriptor == null) {
+            throw new RecordCoreException("cannot get field from union as it has not been set");
+        }
+        // If there is a corresponding field in the old union, use that field.
+        Descriptors.Descriptor correspondingFieldType = getCorrespondingFieldType(unionDescriptor, newUnionField);
+        if (correspondingFieldType != null) {
+            return correspondingFieldType;
+        }
+        // Look for a field in the new union of the same type as this one and look for a matching field in the old union
+        final Descriptors.Descriptor newDescriptor = newUnionField.getMessageType();
+        for (Descriptors.FieldDescriptor otherNewUnionField : newUnion.getFields()) {
+            if (otherNewUnionField.getMessageType() == newDescriptor) {
+                final Descriptors.Descriptor otherCorrespondingFieldType = getCorrespondingFieldType(unionDescriptor, otherNewUnionField);
+                if (otherCorrespondingFieldType != null) {
+                    return otherCorrespondingFieldType;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void updateRecordType(@Nonnull Map<String, RecordTypeBuilder> oldRecordTypes,
+                                  @Nonnull Descriptors.Descriptor oldDescriptor,
+                                  @Nonnull Descriptors.Descriptor newDescriptor) {
+        // Create a new record type based off the old one
+        RecordTypeBuilder oldRecordType = oldRecordTypes.get(oldDescriptor.getName());
+        RecordTypeBuilder newRecordType = new RecordTypeBuilder(newDescriptor, oldRecordType);
+        recordTypes.put(newRecordType.getName(), newRecordType); // update the record type builder
+    }
+
+    private void fillUnionFields(boolean processExtensionOptions) {
+        if (unionDescriptor == null) {
+            throw new RecordCoreException("cannot fill union fiends as no union descriptor has been set");
+        }
+        if (!unionFields.isEmpty()) {
+            throw new RecordCoreException("cannot set union fields twice");
+        }
+        for (Descriptors.FieldDescriptor unionField : unionDescriptor.getFields()) {
+            Descriptors.Descriptor descriptor = unionField.getMessageType();
             if (!unionFields.containsKey(descriptor)) {
-                processRecordType(adjustedUnionField, processExtensionOptions);
-                unionFields.put(descriptor, adjustedUnionField);
+                processRecordType(unionField, processExtensionOptions);
+                unionFields.put(descriptor, unionField);
             } else {
                 // The preferred field is the last one, except if there is one whose name matches.
-                remapUnionField(descriptor, adjustedUnionField);
+                remapUnionField(descriptor, unionField);
             }
         }
     }
 
     private void remapUnionField(@Nonnull Descriptors.Descriptor descriptor, @Nonnull Descriptors.FieldDescriptor unionField) {
-        unionFields.compute(descriptor, (d, f) -> f != null && f.getName().equals("_" + d.getName()) ? f : unionField);
+        unionFields.compute(descriptor, (d, f) -> {
+            // Prefer the field that has the name in the right format or, if neither do, the one with the larger field number.
+            final String canonicalName = "_" + d.getName();
+            if (f == null || unionField.getName().equals(canonicalName) || !f.getName().equals(canonicalName) && unionField.getNumber() > f.getNumber()) {
+                return unionField;
+            } else {
+                return f;
+            }
+        });
     }
 
     @Nonnull
@@ -823,14 +920,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             protoFieldOptions(recordType);
         }
         return recordType;
-    }
-
-    @Nonnull
-    private Descriptors.FieldDescriptor adjustUnionField(@Nonnull Descriptors.FieldDescriptor unionField, @Nullable Descriptors.Descriptor localUnionDescriptor) {
-        if (localUnionDescriptor == null) {
-            return unionField;
-        }
-        return localUnionDescriptor.findFieldByNumber(unionField.getNumber());
     }
 
     private void protoFieldOptions(RecordTypeBuilder recordType) {
@@ -1282,7 +1371,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<String, RecordType> recordTypeBuilders = new HashMap<>();
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, unionDescriptor, unionFields, recordTypeBuilders,
                 indexes, universalIndexes, formerIndexes,
-                splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey);
+                splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : this.recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();
             if (primaryKey != null) {

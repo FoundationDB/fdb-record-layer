@@ -72,7 +72,7 @@ public class RecordTypeBuilder implements RecordTypeOrBuilder {
      */
     public RecordTypeBuilder(@Nonnull Descriptors.Descriptor descriptor, @Nonnull RecordTypeBuilder other) {
         this.descriptor = descriptor;
-        this.name = other.name;
+        this.name = descriptor.getName();
         this.indexes = other.indexes;
         this.multiTypeIndexes = other.multiTypeIndexes;
         this.primaryKey = other.primaryKey;

@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecordsBadUnion1Proto;
 import com.apple.foundationdb.record.TestRecordsBadUnion2Proto;
 import com.apple.foundationdb.record.TestRecordsChained1Proto;
+import com.apple.foundationdb.record.TestRecordsDuplicateUnionFields;
+import com.apple.foundationdb.record.TestRecordsDuplicateUnionFieldsReordered;
 import com.apple.foundationdb.record.TestRecordsImportFlatProto;
 import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsMarkedUnmarkedProto;
@@ -46,6 +48,7 @@ import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestTwoUnionsProto;
 import com.apple.foundationdb.record.TestUnionDefaultNameProto;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
@@ -56,15 +59,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -309,7 +316,7 @@ public class RecordMetaDataBuilderTest {
     }
 
     @Test
-    public void localMetaData() {
+    public void localMetaData() throws Descriptors.DescriptorValidationException {
         // Record type moved from being imported to being present in the local descriptor
         RecordMetaDataProto.MetaData previouslyImportedMetaData = RecordMetaData.build(TestRecordsImportProto.getDescriptor()).toProto(null);
         RecordMetaDataBuilder nowFlatMetaData = RecordMetaData.newBuilder()
@@ -342,6 +349,69 @@ public class RecordMetaDataBuilderTest {
         MetaDataException e = assertThrows(MetaDataException.class, () -> evolvedMetaDataBuilder.getRecordType("AnotherRecord"));
         assertEquals("Unknown record type AnotherRecord", e.getMessage());
         assertSame(evolvedMetaDataBuilder.build(true).getUnionDescriptor(), TestRecords1EvolvedProto.RecordTypeUnion.getDescriptor());
+
+        // Add an additional field to the record type union for _MySimpleRecord, and validate that field is *not* used when this is
+        // used with a local file descriptor, but that it is used when the new file is set with updateRecords
+        DescriptorProtos.FileDescriptorProto.Builder evolvedFileBuilder = TestRecords1EvolvedProto.getDescriptor().toProto().toBuilder();
+        evolvedFileBuilder.getMessageTypeBuilderList().forEach(message -> {
+            if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                message.getFieldBuilderList().forEach(field -> {
+                    if (field.getName().equals("_MySimpleRecord")) {
+                        field.setName("_MySimpleRecord_Old");
+                    }
+                });
+                message.addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                        .setTypeName("." + TestRecords1EvolvedProto.getDescriptor().getPackage() + ".MySimpleRecord")
+                        .setName("_MySimpleRecord_New")
+                        .setNumber(message.getFieldBuilderList().stream().mapToInt(DescriptorProtos.FieldDescriptorProto.Builder::getNumber).max().orElse(0) + 1)
+                );
+            }
+        });
+        Descriptors.FileDescriptor evolvedFile2 = Descriptors.FileDescriptor.buildFrom(evolvedFileBuilder.build(), TestRecords1EvolvedProto.getDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]));
+        RecordMetaData metaData2 = RecordMetaData.newBuilder()
+                .setLocalFileDescriptor(evolvedFile2)
+                .setRecords(originalMetaData)
+                .build();
+        assertSame(evolvedFile2.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MySimpleRecord_Old"),
+                metaData2.getUnionFieldForRecordType(metaData2.getRecordType("MySimpleRecord")));
+
+        RecordMetaDataBuilder metaDataBuilder3 = RecordMetaData.newBuilder()
+                .setRecords(originalMetaData);
+        metaDataBuilder3.updateRecords(evolvedFile2);
+        RecordMetaData metaData3 = metaDataBuilder3.build();
+        assertSame(evolvedFile2.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MySimpleRecord_New"),
+                metaData3.getUnionFieldForRecordType(metaData3.getRecordType("MySimpleRecord")));
+    }
+
+    @Test
+    public void localMetaDataWithRenamed() throws Descriptors.DescriptorValidationException {
+        // Rename a record type
+        RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder();
+        MetaDataProtoEditor.renameRecordType(protoBuilder, "MySimpleRecord", "MyNewSimpleRecord");
+        Descriptors.FileDescriptor updatedFile = Descriptors.FileDescriptor.buildFrom(protoBuilder.getRecords(), TestRecords1Proto.getDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]));
+
+        // Validate that the type name change happened
+        assertNull(updatedFile.findMessageTypeByName("MySimpleRecord"));
+        Descriptors.Descriptor newSimpleRecordDescriptor = updatedFile.findMessageTypeByName("MyNewSimpleRecord");
+        assertNotNull(newSimpleRecordDescriptor);
+        assertSame(newSimpleRecordDescriptor, updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MyNewSimpleRecord").getMessageType());
+
+        RecordMetaData metaData2 = RecordMetaData.newBuilder()
+                .setLocalFileDescriptor(updatedFile)
+                .setRecords(metaData.toProto())
+                .build();
+        assertThrows(MetaDataException.class, () -> metaData2.getRecordType("MySimpleRecord"));
+        assertNotNull(metaData2.getRecordType("MyNewSimpleRecord"));
+        assertSame(newSimpleRecordDescriptor, metaData2.getRecordType("MyNewSimpleRecord").getDescriptor());
+        assertEquals(Collections.singletonList(metaData2.getRecordType("MyNewSimpleRecord")),
+                metaData2.recordTypesForIndex(metaData2.getIndex("MySimpleRecord$str_value_indexed")));
+        assertSame(updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME), metaData2.getUnionDescriptor());
+
+        MetaDataException e = assertThrows(MetaDataException.class, metaData2::toProto);
+        assertEquals("cannot serialize meta-data with a local records descriptor to proto", e.getMessage());
     }
 
     @Test
@@ -396,19 +466,15 @@ public class RecordMetaDataBuilderTest {
     public void updateRecords() {
         RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         final int prevVersion = builder.getVersion();
-        assertNotNull(builder.getRecordType("MySimpleRecord"));
         assertSame(builder.getRecordType("MySimpleRecord").getDescriptor().getFile(), TestRecords1Proto.getDescriptor());
-        assertNotNull(builder.getRecordType("MyOtherRecord"));
+        assertSame(builder.getRecordType("MyOtherRecord").getDescriptor().getFile(), TestRecords1Proto.getDescriptor());
         builder.updateRecords(TestRecords1EvolvedProto.getDescriptor(), true);
         RecordMetaData recordMetaData = builder.build(true);
-        assertNotNull(recordMetaData.getRecordType("MySimpleRecord"));
-        assertSame(builder.getRecordType("MySimpleRecord").getDescriptor().getFile(), TestRecords1EvolvedProto.getDescriptor());
-        assertNotNull(recordMetaData.getRecordType("MyOtherRecord"));
-        assertSame(builder.getRecordType("MyOtherRecord").getDescriptor().getFile(), TestRecords1EvolvedProto.getDescriptor());
-        assertNotNull(recordMetaData.getRecordType("AnotherRecord"));
-        assertSame(builder.getRecordType("AnotherRecord").getDescriptor().getFile(), TestRecords1EvolvedProto.getDescriptor());
-        assertEquals(builder.getRecordType("AnotherRecord").getSinceVersion().intValue(), builder.getVersion());
-        assertThat(builder.getRecordType("AnotherRecord").getSinceVersion(), greaterThan(prevVersion));
+        assertSame(TestRecords1EvolvedProto.getDescriptor(), recordMetaData.getRecordType("MySimpleRecord").getDescriptor().getFile());
+        assertSame(TestRecords1EvolvedProto.getDescriptor(), recordMetaData.getRecordType("MyOtherRecord").getDescriptor().getFile());
+        assertSame(TestRecords1EvolvedProto.getDescriptor(), recordMetaData.getRecordType("AnotherRecord").getDescriptor().getFile());
+        assertEquals(recordMetaData.getVersion(), recordMetaData.getRecordType("AnotherRecord").getSinceVersion().intValue());
+        assertThat(recordMetaData.getRecordType("AnotherRecord").getSinceVersion(), greaterThan(prevVersion));
 
         MetaDataException e = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder()
                 .setLocalFileDescriptor(TestRecords1EvolvedProto.getDescriptor())
@@ -419,6 +485,89 @@ public class RecordMetaDataBuilderTest {
         e = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder().updateRecords(TestRecords1EvolvedProto.getDescriptor()));
         assertEquals("Records descriptor is not set yet", e.getMessage());
 
+    }
+
+    @Test
+    public void updateRecordsWithRenamed() throws Descriptors.DescriptorValidationException {
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        assertSame(builder.getRecordType("MySimpleRecord").getDescriptor().getFile(), TestRecords1Proto.getDescriptor());
+        assertSame(builder.getRecordType("MyOtherRecord").getDescriptor().getFile(), TestRecords1Proto.getDescriptor());
+        builder.addIndex("MyOtherRecord", "num_value_3_indexed");
+        RecordMetaData metaData = builder.getRecordMetaData();
+        assertEquals(Collections.singletonList(metaData.getRecordType("MyOtherRecord")),
+                metaData.recordTypesForIndex(metaData.getIndex("MyOtherRecord$num_value_3_indexed")));
+
+        DescriptorProtos.FileDescriptorProto.Builder fileBuilder = TestRecords1Proto.getDescriptor().toProto().toBuilder();
+        fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+            if (message.getName().equals("MyOtherRecord")) {
+                message.setName("MyOtherOtherRecord");
+            } else if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                message.getFieldBuilderList().forEach(field -> {
+                    if (field.getTypeName().endsWith("MyOtherRecord")) {
+                        field.setTypeName("MyOtherOtherRecord");
+                    }
+                });
+            }
+        });
+        Descriptors.FileDescriptor updatedFileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), new Descriptors.FileDescriptor[]{TestRecords1Proto.getDescriptor()});
+        builder.updateRecords(updatedFileDescriptor);
+        assertSame(builder.getRecordType("MySimpleRecord").getDescriptor().getFile(), updatedFileDescriptor);
+        assertThrows(MetaDataException.class, () -> builder.getRecordType("MyOtherRecord"));
+        assertSame(builder.getRecordType("MyOtherOtherRecord").getDescriptor().getFile(), updatedFileDescriptor);
+        metaData = builder.getRecordMetaData();
+        assertEquals(Collections.singletonList(metaData.getRecordType("MyOtherOtherRecord")),
+                metaData.recordTypesForIndex(metaData.getIndex("MyOtherRecord$num_value_3_indexed")));
+        RecordMetaDataProto.MetaData metaDataProto = metaData.toProto();
+        assertThat(metaDataProto.getRecordTypesList().stream().map(RecordMetaDataProto.RecordType::getName).collect(Collectors.toList()),
+                containsInAnyOrder("MySimpleRecord", "MyOtherOtherRecord"));
+        RecordMetaDataProto.Index indexProto = metaDataProto.getIndexesList().stream()
+                .filter(index -> index.getName().equals("MyOtherRecord$num_value_3_indexed"))
+                .findFirst()
+                .get();
+        assertEquals(Collections.singletonList("MyOtherOtherRecord"), indexProto.getRecordTypeList());
+    }
+
+    @Test
+    public void updateRecordsWithRenamedAndNamedToOld() {
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        assertSame(builder.getRecordType("MySimpleRecord").getDescriptor().getFile(), TestRecords1Proto.getDescriptor());
+        assertSame(builder.getRecordType("MyOtherRecord").getDescriptor().getFile(), TestRecords1Proto.getDescriptor());
+        builder.addIndex("MyOtherRecord", "num_value_3_indexed");
+        RecordMetaData metaData = builder.getRecordMetaData();
+        assertEquals(Collections.singletonList(metaData.getRecordType("MyOtherRecord")),
+                metaData.recordTypesForIndex(metaData.getIndex("MyOtherRecord$num_value_3_indexed")));
+    }
+
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    @ParameterizedTest(name = "updateRecordsWithNewUnionField [reorderFields = {0}]")
+    public void updateRecordsWithNewUnionField(TestHelpers.BooleanEnum reorderFieldsEnum) {
+        final boolean reorderFields = reorderFieldsEnum.toBoolean();
+
+        final RecordMetaData oldMetaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        final RecordType oldSimpleRecord = oldMetaData.getRecordType("MySimpleRecord");
+
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        assertSame(builder.getRecordType("MySimpleRecord").getDescriptor().getFile(), TestRecords1Proto.getDescriptor());
+        assertSame(builder.getRecordType("MyOtherRecord").getDescriptor().getFile(), TestRecords1Proto.getDescriptor());
+
+        Descriptors.FileDescriptor updatedFileDescriptor;
+        if (reorderFields) {
+            updatedFileDescriptor = TestRecordsDuplicateUnionFieldsReordered.getDescriptor();
+        } else {
+            updatedFileDescriptor = TestRecordsDuplicateUnionFields.getDescriptor();
+        }
+        builder.updateRecords(updatedFileDescriptor);
+
+        RecordMetaData newMetaData = builder.getRecordMetaData();
+        assertEquals(TestRecords1EvolvedProto.RecordTypeUnion._MYSIMPLERECORD_FIELD_NUMBER,
+                oldMetaData.getUnionFieldForRecordType(oldSimpleRecord).getNumber());
+        RecordType newSimpleRecord = newMetaData.getRecordType("MySimpleRecord");
+        assertSame(newMetaData.getUnionDescriptor().findFieldByName("_MySimpleRecord_new"),
+                newMetaData.getUnionFieldForRecordType(newSimpleRecord));
+        assertThat(oldMetaData.getUnionFieldForRecordType(oldSimpleRecord).getNumber(),
+                lessThan(newMetaData.getUnionFieldForRecordType(newSimpleRecord).getNumber()));
+        assertEquals(oldSimpleRecord.getSinceVersion(), newSimpleRecord.getSinceVersion());
+        MetaDataEvolutionValidator.getDefaultInstance().validate(oldMetaData, newMetaData);
     }
 
     @Test
