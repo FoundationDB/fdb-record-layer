@@ -31,6 +31,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
@@ -793,13 +794,14 @@ public class OnlineIndexer implements AutoCloseable {
      * changing an index to write-only mode while the index is being rebuilt.
      *
      * @param store the record store in which to rebuild the index
+     * @param defaultIndexState the default state of the index if it is not present in the record store state
      * @return a future that will be ready when the build has completed
      */
     @Nonnull
-    public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
+    public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store, @Nonnull IndexState defaultIndexState) {
         Transaction tr = store.ensureContextActive();
         store.clearIndexData(index);
-        store.setIndexLatestBuildStartTime(index.getName());
+        store.setIndexLatestBuildStartTime(index.getName(), defaultIndexState);
 
         // Clear the associated range set and make it instead equal to
         // the complete range. This isn't super necessary, but it is done
@@ -825,6 +827,20 @@ public class OnlineIndexer implements AutoCloseable {
             store.setIndexLastBuildTime(index.getName());
             return null;
         });
+    }
+
+    /**
+     * Transactionally rebuild an entire index. This will (1) delete any data in the index that is
+     * already there and (2) rebuild the entire key range for the given index. It will attempt to
+     * do this within a single transaction, and it may fail if there are too many records, so this
+     * is only safe to do for small record stores.
+     *
+     * @param store the record store in which to rebuild the index
+     * @return a future that will be ready when the build has completed
+     */
+    @Nonnull
+    public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
+        return rebuildIndexAsync(store, IndexState.WRITE_ONLY);
     }
 
     /**

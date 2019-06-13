@@ -42,17 +42,13 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     private final AtomicLong users = new AtomicLong();
 
-    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap, @Nullable Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap) {
-        super(storeHeader, indexStateMap, indexMetaDataMap);
-    }
-
-    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
-        this(storeHeader, indexStateMap, null);
+    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap) {
+        super(storeHeader, indexMetaDataMap);
     }
 
     // Copy constructor
     MutableRecordStoreState(@Nonnull RecordStoreState recordStoreState) {
-        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexStates(), recordStoreState.getIndexMetaData());
+        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexMetaData());
     }
 
     @Deprecated
@@ -110,11 +106,6 @@ public class MutableRecordStoreState extends RecordStoreState {
      */
     public void beginWrite() {
         // One-time transition to mutable map inside.
-        Map<String, IndexState> currentIndexStateMap = indexStateMap.get();
-        if (!(currentIndexStateMap instanceof ConcurrentHashMap<?, ?>)) {
-            indexStateMap.compareAndSet(currentIndexStateMap, new ConcurrentHashMap<>(currentIndexStateMap));
-        }
-
         Map<String, IndexMetaDataProto.IndexMetaData> currentIndexMetaDataMap = indexMetaDataMap.get();
         if (!(currentIndexMetaDataMap instanceof ConcurrentHashMap<?, ?>)) {
             indexMetaDataMap.compareAndSet(currentIndexMetaDataMap, new ConcurrentHashMap<>(currentIndexMetaDataMap));
@@ -146,19 +137,22 @@ public class MutableRecordStoreState extends RecordStoreState {
     public IndexState setState(@Nonnull String indexName, @Nonnull IndexState state) {
         verifyWritable();
         IndexState previous;
-        if (state == IndexState.READABLE) {
-            previous = indexStateMap.get().remove(indexName);
+        if (indexMetaDataMap.get().containsKey(indexName)) {
+            IndexMetaDataProto.IndexMetaData indexMetaData = indexMetaDataMap.get().get(indexName);
+            previous = IndexState.values()[indexMetaData.getState()];
+            setIndexMetaData(indexName, indexMetaData.toBuilder().setStateChangeTime(System.currentTimeMillis()).setState(state.ordinal()).build());
         } else {
-            previous = indexStateMap.get().put(indexName, state);
+            setIndexMetaData(indexName, state.toIndexMetaData());
+            previous = IndexState.READABLE;
         }
-        return previous == null ? IndexState.READABLE : previous;
+        return previous;
     }
 
     /**
-     * Modify the meta-data of an index in this map. The caller should modify the database to match.
+     * Set the meta-data of the given index.
      *
      * @param indexName the index name
-     * @param indexMetaData the new state meta-data for the given index
+     * @param indexMetaData the index meta-data of the given index
      */
     @Nonnull
     public void setIndexMetaData(@Nonnull String indexName, @Nonnull IndexMetaDataProto.IndexMetaData indexMetaData) {
@@ -169,7 +163,7 @@ public class MutableRecordStoreState extends RecordStoreState {
     @Nonnull
     @Override
     public MutableRecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new MutableRecordStoreState(getStoreHeader(), writeOnlyMap(writeOnlyIndexNames), writeOnlyIndexMetaDataMap(writeOnlyIndexNames));
+        return new MutableRecordStoreState(getStoreHeader(), writeOnlyMap(writeOnlyIndexNames));
     }
 
     /**
@@ -201,6 +195,6 @@ public class MutableRecordStoreState extends RecordStoreState {
     @Nonnull
     @Override
     public RecordStoreState toImmutable() {
-        return new RecordStoreState(storeHeader.get(), indexStateMap.get());
+        return new RecordStoreState(storeHeader.get(), indexMetaDataMap.get());
     }
 }

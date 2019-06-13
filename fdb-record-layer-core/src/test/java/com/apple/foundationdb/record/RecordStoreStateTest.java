@@ -47,11 +47,11 @@ public class RecordStoreStateTest {
         if (values.length % 2 != 0) {
             throw new RecordCoreArgumentException("odd number of values given to create record store state");
         }
-        Map<String, IndexState> indexStateMap = Maps.newHashMapWithExpectedSize(values.length / 2);
+        Map<String, IndexMetaDataProto.IndexMetaData> indexStateMap = Maps.newHashMapWithExpectedSize(values.length / 2);
         for (int i = 0; i < values.length; i += 2) {
             String indexName = (String)values[i];
             IndexState indexState = (IndexState)values[i + 1];
-            indexStateMap.put(indexName, indexState);
+            indexStateMap.put(indexName, indexState.toIndexMetaData());
         }
         return new RecordStoreState(null, indexStateMap);
     }

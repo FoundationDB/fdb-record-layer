@@ -91,4 +91,13 @@ public enum IndexState {
         }
         throw new RecordCoreStorageException("No IndexState found matching code " + code);
     }
+
+    /**
+     * Convert {@link IndexState} to {@link com.apple.foundationdb.record.IndexMetaDataProto.IndexMetaData}.
+     *
+     * @return the index meta-data
+     */
+    public IndexMetaDataProto.IndexMetaData toIndexMetaData() {
+        return IndexMetaDataProto.IndexMetaData.newBuilder().setState(ordinal()).setStateChangeTime(System.currentTimeMillis()).build();
+    }
 }

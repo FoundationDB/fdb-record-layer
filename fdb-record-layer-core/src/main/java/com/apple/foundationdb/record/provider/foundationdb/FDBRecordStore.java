@@ -1141,8 +1141,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Those two subspaces are determined by the configuration of the record store rather then
         // the records.
         Range indexStateRange = indexStateSubspace().range();
+        Range indexMetaDataRange = indexMetaDataSubspace().range();
         tr.clear(recordsSubspace().getKey(), indexStateRange.begin);
-        tr.clear(indexStateRange.end, getSubspace().range().end);
+        tr.clear(indexStateRange.end, indexMetaDataRange.begin);
+        tr.clear(indexMetaDataRange.end, getSubspace().range().end);
     }
 
     @Override
@@ -1775,8 +1777,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(getSubspace().range(Tuple.from(INDEX_KEY)));
         tr.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY)));
         tr.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY)));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_STATE_SPACE_KEY)));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_STATE_METADATA_SPACE_KEY)));
         tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY)));
         List<CompletableFuture<Void>> work = new LinkedList<>();
         addRebuildRecordCountsJob(work);
@@ -1787,6 +1787,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Prepare an index for rebuilding by clearing any existing data and marking the index as write-only.
      * @param indexName the name of the index to build
      * @return a future that completes when the index has been cleared and marked write-only for building
+     * @deprecated Use {@link #clearAndMarkIndexWriteOnly(String, RebuildIndexReason)} instead.
      */
     @Nonnull
     @Deprecated
@@ -1809,6 +1810,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Prepare an index for rebuilding by clearing any existing data and marking the index as write-only.
      * @param index the index to build
      * @return a future that completes when the index has been cleared and marked write-only for building
+     * @deprecated Use {@link #clearAndMarkIndexWriteOnly(Index, RebuildIndexReason)} instead.
      */
     @Nonnull
     @Deprecated
@@ -1830,33 +1832,30 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
+    private void persistIndexStateAndMetaData(@Nonnull Index index, @Nonnull IndexMetaDataProto.IndexMetaData indexMetaData) {
+        context.setDirtyStoreState(true);
+        Transaction tr = context.ensureActive();
+
+        // Update index state.
+        if (IndexState.READABLE.ordinal() == indexMetaData.getState()) {
+            tr.clear(indexStateSubspace().pack(index.getName()));
+        } else {
+            tr.set(indexStateSubspace().pack(index.getName()), Tuple.from((long)indexMetaData.getState()).pack());
+        }
+        // Update index meta-data
+        tr.set(indexMetaDataSubspace().pack(index.getSubspaceTupleKey()), Tuple.from(indexMetaData.toByteArray()).pack());
+    }
+
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     private void updateIndexState(@Nonnull Index index, @Nonnull IndexState indexState) {
         // This is generally called by someone who should already have a write lock, but adding them here
         // defensively shouldn't cause problems.
         beginRecordStoreStateWrite();
         try {
-            context.setDirtyStoreState(true);
-            Transaction tr = context.ensureActive();
-
-            // Update index state.
-            if (IndexState.READABLE.equals(indexState)) {
-                tr.clear(indexStateSubspace().pack(index.getName()));
-            } else {
-                tr.set(indexStateSubspace().pack(index.getName()), Tuple.from(indexState.code()).pack());
-            }
             recordStoreStateRef.updateAndGet(state -> {
                 // See beginRecordStoreStateRead() on why setting state is done in updateAndGet().
                 state.setState(index.getName(), indexState);
-
-                // Update index meta-data
-                IndexMetaDataProto.IndexMetaData indexMetaData = state.getIndexMetaData(index.getName());
-                if (indexMetaData == null || indexState.ordinal() != indexMetaData.getState()) {
-                    IndexMetaDataProto.IndexMetaData.Builder indexMetaDataBuilder = indexMetaData == null ? IndexMetaDataProto.IndexMetaData.newBuilder() : indexMetaData.toBuilder();
-                    indexMetaData = indexMetaDataBuilder.setState(indexState.ordinal()).setStateChangeTime(System.nanoTime()).build();
-                    tr.set(indexMetaDataSubspace().pack(index.getSubspaceTupleKey()), Tuple.from(indexMetaData.toByteArray()).pack());
-                    state.setIndexMetaData(index.getName(), indexMetaData);
-                }
+                persistIndexStateAndMetaData(index, state.getIndexMetaData(index.getName()));
                 return state;
             });
         } finally {
@@ -1867,15 +1866,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private void setIndexRebuildReason(String indexName, RebuildIndexReason reason) {
         beginRecordStoreStateWrite();
         try {
-            context.setDirtyStoreState(true);
-            Transaction tr = context.ensureActive();
-
             recordStoreStateRef.updateAndGet(state -> {
-                IndexMetaDataProto.IndexMetaData oldIndexMetaData = state.getIndexMetaData(indexName);
+                IndexMetaDataProto.IndexMetaData oldIndexMetaData = state.getIndexMetaData(indexName, IndexState.WRITE_ONLY);
                 IndexMetaDataProto.IndexMetaData updatedIndexMetaData = oldIndexMetaData.toBuilder().setRebuildReason(reason.ordinal()).build();
-
-                tr.set(indexMetaDataSubspace().pack(getRecordMetaData().getIndex(indexName).getSubspaceTupleKey()), Tuple.from(updatedIndexMetaData.toByteArray()).pack());
                 state.setIndexMetaData(indexName, updatedIndexMetaData);
+                persistIndexStateAndMetaData(getRecordMetaData().getIndex(indexName), updatedIndexMetaData);
                 return state;
             });
         } finally {
@@ -1884,31 +1879,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @API(API.Status.INTERNAL)
-    public void setIndexLatestBuildStartTime(String indexName) {
+    public void setIndexLatestBuildStartTime(String indexName, @Nonnull IndexState defaultIndexState) {
         beginRecordStoreStateWrite();
         try {
-            context.setDirtyStoreState(true);
-            Transaction tr = context.ensureActive();
-
             recordStoreStateRef.updateAndGet(state -> {
-                IndexMetaDataProto.IndexMetaData oldIndexMetaData = state.getIndexMetaData(indexName);
-                IndexMetaDataProto.IndexMetaData updatedIndexMetaData;
-                if (oldIndexMetaData == null) {
-                    updatedIndexMetaData = IndexMetaDataProto.IndexMetaData.newBuilder()
-                            .setState(IndexState.WRITE_ONLY.ordinal())
-                            .setStateChangeTime(System.nanoTime())
-                            .setBuildAttemptsCount(1)
-                            .setLatestBuildStartTime(System.nanoTime())
-                            .build();
-                } else {
-                    updatedIndexMetaData = oldIndexMetaData.toBuilder()
-                            .setBuildAttemptsCount(oldIndexMetaData.getBuildAttemptsCount() + 1)
-                            .setLatestBuildStartTime(System.nanoTime())
-                            .build();
-
-                }
-                tr.set(indexMetaDataSubspace().pack(getRecordMetaData().getIndex(indexName).getSubspaceTupleKey()), Tuple.from(updatedIndexMetaData.toByteArray()).pack());
+                IndexMetaDataProto.IndexMetaData oldIndexMetaData = state.getIndexMetaData(indexName, defaultIndexState);
+                IndexMetaDataProto.IndexMetaData updatedIndexMetaData = oldIndexMetaData.toBuilder()
+                        .setLatestBuildStartTime(System.currentTimeMillis())
+                        .setBuildAttemptsCount(oldIndexMetaData.getBuildAttemptsCount() + 1)
+                        .build();
                 state.setIndexMetaData(indexName, updatedIndexMetaData);
+                persistIndexStateAndMetaData(getRecordMetaData().getIndex(indexName), updatedIndexMetaData);
                 return state;
             });
         } finally {
@@ -1920,15 +1901,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public void setIndexLastBuildTime(String indexName) {
         beginRecordStoreStateWrite();
         try {
-            context.setDirtyStoreState(true);
-            Transaction tr = context.ensureActive();
-
             recordStoreStateRef.updateAndGet(state -> {
-                IndexMetaDataProto.IndexMetaData oldIndexMetaData = state.getIndexMetaData(indexName);
-                IndexMetaDataProto.IndexMetaData updatedIndexMetaData = oldIndexMetaData.toBuilder().setLastBuildTime(System.nanoTime()).build();
-
-                tr.set(indexMetaDataSubspace().pack(getRecordMetaData().getIndex(indexName).getSubspaceTupleKey()), Tuple.from(updatedIndexMetaData.toByteArray()).pack());
+                IndexMetaDataProto.IndexMetaData oldIndexMetaData = state.getIndexMetaData(indexName, IndexState.READABLE);
+                IndexMetaDataProto.IndexMetaData updatedIndexMetaData = oldIndexMetaData.toBuilder().setLastBuildCompleteTime(System.currentTimeMillis()).build();
                 state.setIndexMetaData(indexName, updatedIndexMetaData);
+                persistIndexStateAndMetaData(getRecordMetaData().getIndex(indexName), updatedIndexMetaData);
                 return state;
             });
         } finally {
@@ -1941,29 +1918,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexNotReadable(indexName, indexState));
         }
-
         addIndexStateReadConflict(indexName);
-
-        beginRecordStoreStateWrite();
-        boolean haveFuture = false;
-        try {
-            // A read is done before the write in order to avoid having unnecessary
-            // updates cause spurious not_committed errors.
-            Transaction tr = context.ensureActive();
-            CompletableFuture<Boolean> future = tr.get(indexStateSubspace().pack(indexName)).thenApply(previous -> {
-                if (previous == null || !Tuple.fromBytes(previous).get(0).equals(indexState.code())) {
-                    updateIndexState(getRecordMetaData().getIndex(indexName), indexState);
-                    return true;
-                } else {
-                    return false;
-                }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
-            haveFuture = true;
-            return future;
-        } finally {
-            if (!haveFuture) {
-                endRecordStoreStateWrite();
-            }
+        if (!recordStoreStateRef.get().getState(indexName).equals(indexState)) {
+            // There's a small window that a parallel thread update the state right before the update. But that's fine.
+            // In the worst case, it would make an unnecessary update.
+            updateIndexState(getRecordMetaData().getIndex(indexName), indexState);
+            return AsyncUtil.READY_TRUE;
+        } else {
+            return AsyncUtil.READY_FALSE;
         }
     }
 
@@ -2146,49 +2108,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         addIndexStateReadConflict(index.getName());
-
-        beginRecordStoreStateWrite();
-        boolean haveFuture = false;
-        try {
-            Transaction tr = ensureContextActive();
-            byte[] indexKey = indexStateSubspace().pack(index.getName());
-            CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
-                if (previous != null) {
-                    CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
-                    CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = scanUniquenessViolations(index, 1).first();
-                    return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
-                        Optional<Range> firstUnbuilt = context.join(builtFuture);
-                        Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
-                        if (firstUnbuilt.isPresent()) {
-                            throw new IndexNotBuiltException("Attempted to make unbuilt index readable" , firstUnbuilt.get(),
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
-                                    "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context),
-                                    LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
-                        } else if (uniquenessViolation.isPresent()) {
-                            RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
-                                                                                                        uniquenessViolation.get());
-                            wrapped.addLogInfo(
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                            throw wrapped;
-                        } else {
-                            updateIndexState(index, IndexState.READABLE);
-                            return true;
-                        }
-                    });
+        if (!recordStoreStateRef.get().isReadable(index)) {
+            CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
+            CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = scanUniquenessViolations(index, 1).first();
+            return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
+                Optional<Range> firstUnbuilt = context.join(builtFuture);
+                Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
+                if (firstUnbuilt.isPresent()) {
+                    throw new IndexNotBuiltException("Attempted to make unbuilt index readable", firstUnbuilt.get(),
+                            LogMessageKeys.INDEX_NAME, index.getName(),
+                            "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
+                            "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
+                            subspaceProvider.logKey(), subspaceProvider.toString(context),
+                            LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
+                } else if (uniquenessViolation.isPresent()) {
+                    RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
+                            uniquenessViolation.get());
+                    wrapped.addLogInfo(
+                            LogMessageKeys.INDEX_NAME, index.getName(),
+                            subspaceProvider.logKey(), subspaceProvider.toString(context));
+                    throw wrapped;
                 } else {
-                    return AsyncUtil.READY_FALSE;
+                    updateIndexState(index, IndexState.READABLE);
+                    return true;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
-            haveFuture = true;
-            return future;
-        } finally {
-            if (!haveFuture) {
-                endRecordStoreStateWrite();
-            }
+            });
         }
+        return AsyncUtil.READY_FALSE;
     }
 
     /**
@@ -2228,26 +2174,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         addIndexStateReadConflict(indexName);
-
-        beginRecordStoreStateWrite();
-        boolean haveFuture = false;
-        try {
-            Transaction tr = ensureContextActive();
-            CompletableFuture<Boolean> future = tr.get(indexStateSubspace().pack(indexName)).thenApply(previous -> {
-                if (previous != null) {
-                    updateIndexState(getRecordMetaData().getIndex(indexName), IndexState.READABLE);
-                    return true;
-                } else {
-                    return false;
-                }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
-            haveFuture = true;
-            return future;
-        } finally {
-            if (!haveFuture) {
-                endRecordStoreStateWrite();
-            }
+        if (!recordStoreStateRef.get().isReadable(indexName)) {
+            updateIndexState(getRecordMetaData().getIndex(indexName), IndexState.READABLE);
+            return AsyncUtil.READY_TRUE;
         }
+        return AsyncUtil.READY_FALSE;
     }
 
     /**
@@ -2318,15 +2249,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                   @Nonnull IsolationLevel storeHeaderIsolationLevel,
                                                                                   @Nonnull IsolationLevel indexStateIsolationLevel) {
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel);
-        CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(indexStateIsolationLevel);
-        CompletableFuture<Map<String, IndexMetaDataProto.IndexMetaData>> loadIndexMetaData = loadIndexMetaDataAsync(indexStateIsolationLevel);
+        CompletableFuture<Map<String, IndexMetaDataProto.IndexMetaData>> loadIndexStates = loadIndexMetaDataAsync(indexStateIsolationLevel);
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE,
-                CompletableFuture.allOf(storeHeaderFuture, loadIndexStates, loadIndexMetaData).thenApply(ignoreVoid ->
-                        new RecordStoreState(storeHeaderFuture.join(), loadIndexStates.join(), loadIndexMetaData.join())));
+                CompletableFuture.allOf(storeHeaderFuture, loadIndexStates).thenApply(ignoreVoid ->
+                        new RecordStoreState(storeHeaderFuture.join(), loadIndexStates.join())));
     }
 
     @Nonnull
-    private CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull IsolationLevel isolationLevel) {
+    private CompletableFuture<Map<String, IndexMetaDataProto.IndexMetaData>> loadIndexStatesAsync(@Nonnull IsolationLevel isolationLevel) {
         Subspace isSubspace = indexStateSubspace();
         KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
                 .setContext(getContext())
@@ -2335,17 +2265,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setIsolationLevel(isolationLevel).build()))
                 .build();
         FDBStoreTimer timer = getTimer();
-        CompletableFuture<Map<String, IndexState>> result = cursor.asList().thenApply(list -> {
-            Map<String, IndexState> indexStateMap;
+        CompletableFuture<Map<String, IndexMetaDataProto.IndexMetaData>> result = cursor.asList().thenApply(list -> {
+            Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap;
             if (list.isEmpty()) {
-                indexStateMap = Collections.emptyMap();
+                indexMetaDataMap = Collections.emptyMap();
             } else {
-                ImmutableMap.Builder<String, IndexState> indexStateMapBuilder = ImmutableMap.builder();
+                ImmutableMap.Builder<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMapBuilder = ImmutableMap.builder();
 
                 for (KeyValue kv : list) {
                     String indexName = isSubspace.unpack(kv.getKey()).getString(0);
                     Object code = Tuple.fromBytes(kv.getValue()).get(0);
-                    indexStateMapBuilder.put(indexName, IndexState.fromCode(code));
+                    indexMetaDataMapBuilder.put(indexName, IndexState.fromCode(code).toIndexMetaData());
                     if (timer != null) {
                         timer.increment(FDBStoreTimer.Counts.LOAD_STORE_STATE_KEY);
                         timer.increment(FDBStoreTimer.Counts.LOAD_STORE_STATE_KEY_BYTES, kv.getKey().length);
@@ -2353,9 +2283,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     }
                 }
 
-                indexStateMap = indexStateMapBuilder.build();
+                indexMetaDataMap = indexMetaDataMapBuilder.build();
             }
-            return indexStateMap;
+            return indexMetaDataMap;
         });
         if (timer != null) {
             result = timer.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_INDEX_STATE, result, context.getExecutor());
@@ -2385,12 +2315,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         String indexName = getRecordMetaData().getIndex(indexMetaDataSubspaceSpace.unpack(kv.getKey()).get(0)).getName();
                         indexMetaDataMapBuilder.put(indexName, IndexMetaDataProto.IndexMetaData.parseFrom(Tuple.fromBytes(kv.getValue()).getBytes(0)));
                     } catch (MetaDataException ex) {
-                        // The index is somehow undefined. Just pass.
-                        // throw new RecordCoreStorageException("Loading undefined index ", ex);
-
-                        // TODO: Question for the reviewers: If we throw error (like how I used to do above), we could end up in
-                        //  an unrecoverable situation that the only way out of it is wiping the index meta-data.
-                        //  Shall we just skip this index? Test FDBRecordStore.open() is one example of this case.
+                        // The index is somehow undefined. E.g., it was redefined, and removed from record meta-data. Just pass.
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug(KeyValueLogMessage.of("Index undefined"),
+                                    LogMessageKeys.KEY_TUPLE, indexMetaDataSubspaceSpace.unpack(kv.getKey()).get(0));
+                        }
                         continue;
                     } catch (InvalidProtocolBufferException ex) {
                         throw new RecordCoreStorageException("Error loading index meta-data ", ex);
@@ -2432,6 +2361,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Transaction tr = ensureContextActive();
         byte[] indexStateKey = indexStateSubspace().pack(Tuple.from(indexName));
         tr.addReadConflictKey(indexStateKey);
+        byte[] indexMetaDataKey = indexMetaDataSubspace().pack(Tuple.from(getRecordMetaData().getIndex(indexName).getSubspaceTupleKey()));
+        tr.addReadConflictKey(indexMetaDataKey);
     }
 
     /**
@@ -2441,6 +2372,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Transaction tr = ensureContextActive();
         byte[] indexStateKey = indexStateSubspace().pack();
         tr.addReadConflictRange(indexStateKey, ByteArrayUtil.strinc(indexStateKey));
+        byte[] indexMetaDataKey = indexMetaDataSubspace().pack();
+        tr.addReadConflictRange(indexMetaDataKey, ByteArrayUtil.strinc(indexMetaDataKey));
     }
 
     private boolean checkIndexState(@Nonnull String indexName, @Nonnull IndexState indexState) {
@@ -2701,7 +2634,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return markIndexDisabled(index).thenApply(b -> null);
             case READABLE:
             default:
-                return rebuildIndex(index, recordTypes, reason);
+                return rebuildIndex(index, recordTypes, reason, indexState);
         }
     }
 
@@ -2748,8 +2681,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
+    public CompletableFuture<Void> rebuildIndex(@Nonnull Index index, @Nonnull IndexState indexState) {
+        return rebuildIndex(index, getRecordMetaData().recordTypesForIndex(index), RebuildIndexReason.EXPLICIT, indexState);
+    }
+
+    @Nonnull
     @SuppressWarnings("squid:S2095")    // Resource usage for indexBuilder is too complicated for rule.
     public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nullable final Collection<RecordType> recordTypes, @Nonnull RebuildIndexReason reason) {
+        return rebuildIndex(index, recordTypes, reason, IndexState.WRITE_ONLY);
+    }
+
+    @Nonnull
+    public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nullable final Collection<RecordType> recordTypes, @Nonnull RebuildIndexReason reason, @Nonnull IndexState indexState) {
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index",
@@ -2767,7 +2710,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         long startTime = System.nanoTime();
         OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index).setRecordTypes(recordTypes).build();
-        CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this)
+        CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this, indexState)
                 .thenCompose(vignore -> {
                     return markIndexReadable(index)
                             .handle((b, t) -> {
@@ -3131,6 +3074,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         tr.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         tr.clear(indexStateSubspace().pack(formerIndex.getSubspaceTupleKey()));
+        tr.clear(indexMetaDataSubspace().pack(formerIndex.getSubspaceTupleKey()));
         tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);

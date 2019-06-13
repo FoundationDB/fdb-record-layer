@@ -104,7 +104,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
@@ -1127,7 +1126,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         final String indexName = "MySimpleRecord$str_value_indexed";
 
         try (FDBRecordContext context = openContext()) {
-            final long startTime = System.nanoTime();
+            final long startTime = System.currentTimeMillis();
             uncheckedOpenSimpleRecordStore(context);
             assertThat(recordStore.isIndexWriteOnly(indexName), is(false));
             recordStore.markIndexWriteOnly(indexName).get();
@@ -1138,13 +1137,10 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            final long startTime = System.nanoTime();
             uncheckedOpenSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
             assertEquals(IndexState.WRITE_ONLY.ordinal(), recordStore.getRecordStoreState().getIndexMetaData(indexName).getState());
-            long lastWriteOnlyTime = recordStore.getRecordStoreState().getIndexMetaData(indexName).getStateChangeTime();
-            assertThat(startTime, greaterThan(lastWriteOnlyTime)); // lastWriteOnlyTime was set in the previous transaction.
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index).build()) {
                 // First build attempt
                 indexBuilder.buildRange(recordStore, null, Key.Evaluated.scalar(1066L)).get();
@@ -1275,7 +1271,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         long lastBuildStartTime;
         long lastBuildTime;
         try (FDBRecordContext context = openContext()) {
-            final long startTime = System.nanoTime();
+            final long startTime = System.currentTimeMillis();
             openSimpleRecordStore(context);
             assertFalse(recordStore.isIndexWriteOnly(indexName));
             recordStore.markIndexWriteOnly(indexName).get();
@@ -1283,7 +1279,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertThat(startTime, lessThan(recordStore.getRecordStoreState().getIndexMetaData(indexName).getStateChangeTime()));
             lastBuildStartTime = recordStore.getRecordStoreState().getIndexMetaData(indexName).getLatestBuildStartTime();
             assertThat(startTime, lessThan(lastBuildStartTime));
-            lastBuildTime = recordStore.getRecordStoreState().getIndexMetaData(indexName).getLastBuildTime();
+            lastBuildTime = recordStore.getRecordStoreState().getIndexMetaData(indexName).getLastBuildCompleteTime();
             assertThat(startTime, lessThan(lastBuildTime));
             assertEquals(1, recordStore.getRecordStoreState().getIndexMetaData(indexName).getBuildAttemptsCount());
             context.commit();
@@ -1297,7 +1293,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            final long startTime = System.nanoTime();
+            final long startTime = System.currentTimeMillis();
             openSimpleRecordStore(context);
             assertEquals(1, recordStore.getRecordStoreState().getIndexMetaData(indexName).getBuildAttemptsCount());
             recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), null, FDBRecordStore.RebuildIndexReason.TEST).get();
@@ -1311,9 +1307,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertThat(lastBuildStartTime, lessThan(buildStartTime));
             assertThat(lastBuildTime, lessThan(buildStartTime));
             assertThat(buildStartTime, lessThan(recordStore.getRecordStoreState().getIndexMetaData(indexName).getStateChangeTime()));
-            assertThat(buildStartTime, lessThan(recordStore.getRecordStoreState().getIndexMetaData(indexName).getLastBuildTime()));
-            assertThat(recordStore.getRecordStoreState().getIndexMetaData(indexName).getLastBuildTime(),
-                    lessThan(recordStore.getRecordStoreState().getIndexMetaData(indexName).getStateChangeTime()));
+            assertThat(buildStartTime, lessThan(recordStore.getRecordStoreState().getIndexMetaData(indexName).getLastBuildCompleteTime()));
+            assertThat(recordStore.getRecordStoreState().getIndexMetaData(indexName).getLastBuildCompleteTime(),
+                    lessThanOrEqualTo(recordStore.getRecordStoreState().getIndexMetaData(indexName).getStateChangeTime()));
         }
 
         try (FDBRecordContext context = openContext()) {

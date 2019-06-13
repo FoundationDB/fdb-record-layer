@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -191,7 +192,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 return index;
             }
         }
-        throw new MetaDataException("Index not defined");
+        throw new MetaDataException("Index not defined").addLogInfo(LogMessageKeys.INDEX_KEY, indexSubspaceTupleKey);
     }
 
     public boolean hasIndex(@Nonnull String indexName) {

@@ -84,30 +84,16 @@ public class RecordStoreState {
     @Nonnull
     protected final AtomicReference<RecordMetaDataProto.DataStoreInfo> storeHeader;
     @Nonnull
-    protected final AtomicReference<Map<String, IndexState>> indexStateMap;
-    @Nonnull
     protected final AtomicReference<Map<String, IndexMetaDataProto.IndexMetaData>> indexMetaDataMap;
 
     /**
      * Creates a <code>RecordStoreState</code>.
      *
-     * <p>
-     * While {@code indexStateMap} only includes indexes that are not in the default state ({@link IndexState#READABLE IndexState.READABLE}),
-     * {@code indexStateMap} includes all indexes.
-     * </p>
-     *
      * @param storeHeader header information for the given store
-     * @param indexStateMap mapping from index name to index state
      * @param indexMetaDataMap mapping from index name to index state meta-data
      */
     @API(API.Status.INTERNAL)
-    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap, @Nullable Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap) {
-        final Map<String, IndexState> indexStateMapCopy;
-        if (indexStateMap == null || indexStateMap.isEmpty()) {
-            indexStateMapCopy = Collections.emptyMap();
-        } else {
-            indexStateMapCopy = ImmutableMap.copyOf(indexStateMap);
-        }
+    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap) {
         final Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataCopy;
         if (indexMetaDataMap == null || indexMetaDataMap.isEmpty()) {
             indexMetaDataCopy = Collections.emptyMap();
@@ -115,23 +101,7 @@ public class RecordStoreState {
             indexMetaDataCopy = ImmutableMap.copyOf(indexMetaDataMap);
         }
         this.storeHeader = new AtomicReference<>(storeHeader == null ? RecordMetaDataProto.DataStoreInfo.getDefaultInstance() : storeHeader);
-        this.indexStateMap = new AtomicReference<>(indexStateMapCopy);
         this.indexMetaDataMap = new AtomicReference<>(indexMetaDataCopy);
-    }
-
-    /**
-     * Creates a <code>RecordStoreState</code> with the given store header information and index states.
-     *
-     * <p>
-     * Only indexes that are not in the default state ({@link IndexState#READABLE IndexState.READABLE})
-     * need to be included in {@code indexStateMap}.
-     * </p>
-     * @param storeHeader header information for the given store
-     * @param indexStateMap mapping from index name to index state
-     */
-    @API(API.Status.INTERNAL)
-    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
-        this(storeHeader, indexStateMap, null);
     }
 
     /**
@@ -146,7 +116,7 @@ public class RecordStoreState {
      */
     @Deprecated
     public RecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
-        this(null, indexStateMap);
+        this(null, indexStateMap == null ? null : indexStateMap.entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().toIndexMetaData())));
     }
 
     /**
@@ -183,14 +153,16 @@ public class RecordStoreState {
 
     /**
      * Retrieve the mapping from index names to {@link IndexState} that is
-     * underlying this <code>RecordStoreState</code>. This operation is
-     * constant time as it does not return a copy, but the map that is
-     * returned is immutable.
+     * underlying this <code>RecordStoreState</code>. The list only contains non-READABLE indexes.
      * @return the underlying mapping of index names to their state
      */
     @Nonnull
     public Map<String, IndexState> getIndexStates() {
-        return Collections.unmodifiableMap(indexStateMap.get());
+        return Collections.unmodifiableMap(indexMetaDataMap.get()
+                .entrySet()
+                .stream()
+                .filter(metadata -> metadata.getValue().getState() != IndexState.READABLE.ordinal())
+                .collect(Collectors.toMap(e -> e.getKey(), e -> IndexState.fromCode((long)e.getValue().getState()))));
     }
 
     /**
@@ -268,13 +240,13 @@ public class RecordStoreState {
     /**
      * Determine the state of the index with the given name. Note that all indexes are assumed to be
      * readable unless marked otherwise, i.e., this will return {@link IndexState#READABLE IndexState.READABLE}
-     * if it is given an index name that is not explicitly in its write-only or disabled lists.
+     * if it is given an index name that is not explicitly in the list.
      * @param indexName the name of the index to check
      * @return the state of the given index
      */
     @Nonnull
     public IndexState getState(@Nonnull String indexName) {
-        return indexStateMap.get().getOrDefault(indexName, IndexState.READABLE);
+        return indexMetaDataMap.get().containsKey(indexName) ? IndexState.values()[indexMetaDataMap.get().get(indexName).getState()] : IndexState.READABLE;
     }
 
     /**
@@ -283,7 +255,7 @@ public class RecordStoreState {
      * @return <code>true</code> if all of the indexes are readable and <code>false</code> otherwise
      */
     public boolean allIndexesReadable() {
-        return indexStateMap.get().isEmpty() || indexStateMap.get().values().stream().allMatch(state -> state.equals(IndexState.READABLE));
+        return indexMetaDataMap.get().isEmpty() || indexMetaDataMap.get().values().stream().allMatch(indexMetaData -> indexMetaData.getState() == IndexState.READABLE.ordinal());
     }
 
     /**
@@ -297,9 +269,10 @@ public class RecordStoreState {
      * if the state is actually described by this <code>RecordStoreState</code>
      */
     public boolean compatibleWith(@Nonnull RecordStoreState other) {
-        return indexStateMap.get().entrySet().stream().allMatch(entry -> {
-            boolean readableInOther = other.getState(entry.getKey()).equals(IndexState.READABLE);
-            return entry.getValue().equals(IndexState.READABLE) == readableInOther;
+        return indexMetaDataMap.get().entrySet().stream().allMatch(entry -> {
+            boolean readable = entry.getValue().getState() == IndexState.READABLE.ordinal();
+            boolean readableInOther = other.getIndexMetaData(entry.getKey()) == null || other.getIndexMetaData(entry.getKey()).getState() == IndexState.READABLE.ordinal();
+            return readable == readableInOther;
         });
     }
 
@@ -308,8 +281,8 @@ public class RecordStoreState {
      * @return a set of indexes that are write-only for this store
      */
     public Set<String> getWriteOnlyIndexNames() {
-        return indexStateMap.get().entrySet().stream()
-                .filter(entry -> entry.getValue() == IndexState.WRITE_ONLY)
+        return indexMetaDataMap.get().entrySet().stream()
+                .filter(entry -> entry.getValue().getState() == IndexState.WRITE_ONLY.ordinal())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
@@ -319,8 +292,8 @@ public class RecordStoreState {
      * @return a set of indexes that are disabled for this store
      */
     public Set<String> getDisabledIndexNames() {
-        return indexStateMap.get().entrySet().stream()
-                .filter(entry -> entry.getValue() == IndexState.DISABLED)
+        return indexMetaDataMap.get().entrySet().stream()
+                .filter(entry -> entry.getValue().getState() == IndexState.DISABLED.ordinal())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
@@ -335,12 +308,8 @@ public class RecordStoreState {
     @Nonnull
     public RecordStoreState withIndexesInState(@Nonnull final List<String> indexNames,
                                                @Nonnull IndexState state) {
-        HashMap<String, IndexState> indexStateMapBuilder = new HashMap<>(getIndexStates());
-        if (state == IndexState.READABLE) {
-            indexNames.forEach(indexStateMapBuilder::remove);
-        } else {
-            indexNames.forEach(indexName -> indexStateMapBuilder.put(indexName, state));
-        }
+        HashMap<String, IndexMetaDataProto.IndexMetaData> indexStateMapBuilder = new HashMap<>(getIndexMetaData());
+        indexNames.forEach(indexName -> indexStateMapBuilder.put(indexName, state.toIndexMetaData()));
         return new RecordStoreState(storeHeader.get(), ImmutableMap.copyOf(indexStateMapBuilder));
     }
 
@@ -351,38 +320,21 @@ public class RecordStoreState {
      *  If an index is already {@code DISABLED}, it will stay disabled, but will otherwise be set to WRITE_ONLY.
      * </p>
      *
-     * @param writeOnlyIndexNames the indexes to be marked as WRITE_ONLY.
-     * @return a new version of this RecordStoreState, but with additional WRITE_ONLY indexes.
+     * @param writeOnlyIndexNames the indexes to be marked as WRITE_ONLY
+     * @return a new version of this RecordStoreState, but with additional WRITE_ONLY indexes
      */
     @Nonnull
     public RecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new RecordStoreState(storeHeader.get(), writeOnlyMap(writeOnlyIndexNames), writeOnlyIndexMetaDataMap(writeOnlyIndexNames));
+        return new RecordStoreState(storeHeader.get(), writeOnlyMap(writeOnlyIndexNames));
     }
 
     @Nonnull
-    protected Map<String, IndexState> writeOnlyMap(@Nonnull final List<String> writeOnlyIndexNames) {
-        Map<String, IndexState> map = new HashMap<>(getIndexStates());
-        writeOnlyIndexNames.forEach(indexName ->
-                map.compute(indexName, (name, state) -> {
-                    // state may be null (which implies READABLE)
-                    if (state == IndexState.DISABLED) {
-                        return state;
-                    } else {
-                        return IndexState.WRITE_ONLY;
-                    }
-                }));
-        return map;
-    }
-
-    @Nonnull
-    protected Map<String, IndexMetaDataProto.IndexMetaData> writeOnlyIndexMetaDataMap(@Nonnull final List<String> writeOnlyIndexNames) {
+    protected Map<String, IndexMetaDataProto.IndexMetaData> writeOnlyMap(@Nonnull final List<String> writeOnlyIndexNames) {
         Map<String, IndexMetaDataProto.IndexMetaData> map = new HashMap<>(getIndexMetaData());
         writeOnlyIndexNames.forEach(indexName ->
                 map.compute(indexName, (name, indexMetaData) -> {
-                    if (indexMetaData == null) {
-                        return IndexMetaDataProto.IndexMetaData.newBuilder().setState(IndexState.WRITE_ONLY.ordinal()).build();
-                    } else if (indexMetaData.getState() != IndexState.DISABLED.ordinal()) {
-                        return indexMetaData.toBuilder().setState(IndexState.WRITE_ONLY.ordinal()).build();
+                    if (indexMetaData == null || indexMetaData.getState() != IndexState.DISABLED.ordinal()) {
+                        return IndexState.WRITE_ONLY.toIndexMetaData();
                     } else {
                         return indexMetaData;
                     }
@@ -415,11 +367,23 @@ public class RecordStoreState {
      * Get the state meta-data of the given index.
      *
      * @param indexName the name of the index
-     * @return the state meta-data of the index
+     * @return the meta-data of the index
      */
     @Nullable
     public IndexMetaDataProto.IndexMetaData getIndexMetaData(@Nonnull String indexName) {
         return indexMetaDataMap.get().getOrDefault(indexName, null);
+    }
+
+    /**
+     * Get the state meta-data of the given index.
+     *
+     * @param indexName the name of the index
+     * @param defaultIndexState the default state if the meta-data of this index does not exist yet.
+     * @return the meta-data of the index
+     */
+    @Nullable
+    public IndexMetaDataProto.IndexMetaData getIndexMetaData(@Nonnull String indexName, @Nonnull IndexState defaultIndexState) {
+        return indexMetaDataMap.get().getOrDefault(indexName, defaultIndexState.toIndexMetaData());
     }
 
     /**
@@ -440,7 +404,7 @@ public class RecordStoreState {
             return false;
         } else {
             RecordStoreState other = (RecordStoreState)o;
-            return storeHeader.get().equals(other.storeHeader.get()) && indexStateMap.get().equals(other.indexStateMap.get()) && indexMetaDataMap.get().equals(other.indexMetaDataMap.get());
+            return storeHeader.get().equals(other.storeHeader.get()) && getIndexStates().equals(other.getIndexStates());
         }
     }
 
@@ -450,7 +414,7 @@ public class RecordStoreState {
      */
     @Override
     public int hashCode() {
-        return Objects.hash(storeHeader.get(), indexStateMap.get(), indexMetaDataMap.get());
+        return Objects.hash(storeHeader.get(), getIndexStates());
     }
 
     /**
@@ -460,7 +424,7 @@ public class RecordStoreState {
      */
     @Override
     public String toString() {
-        return "RecordStoreState(" + indexStateMap.toString() + ")";
+        return "RecordStoreState(" + indexMetaDataMap.toString() + ")";
     }
 
     /**

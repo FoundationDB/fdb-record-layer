@@ -30,6 +30,6 @@ message IndexMetaData {
     optional int64 stateChangeTime = 3;      // The time at which the index was set to this state.
     optional int32 buildAttemptsCount = 4;   // Total number of times the index was rebuilt.
     optional int64 latestBuildStartTime = 5; // The latest build start time.
-    optional int64 lastBuildTime = 6;        // The last build time.
+    optional int64 lastBuildCompleteTime = 6;        // The last build complete time.
 }
 
