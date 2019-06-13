@@ -1,5 +1,5 @@
 /*
- * LogicalToPhysicalIndexScanRule.java
+ * FullUnorderedExpressionToScanPlanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,35 +20,31 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
-import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIndexScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
 
 /**
- * A rule that converts a logical index scan expression to a {@link RecordQueryIndexPlan}. This rule simply converts
- * the logical index scan's {@link com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons} to a
- * {@link com.apple.foundationdb.record.query.plan.ScanComparisons} to be used during query execution.
+ * A rule for implementing a {@link FullUnorderedScanExpression} as a {@link RecordQueryScanPlan} of the full primary
+ * key space. This rule is used to generate "fallback" plans in the case that the planner does not find anything better.
  */
-@API(API.Status.EXPERIMENTAL)
-public class LogicalToPhysicalIndexScanRule extends PlannerRule<LogicalIndexScanExpression> {
-    private static final ExpressionMatcher<LogicalIndexScanExpression> root = TypeMatcher.of(LogicalIndexScanExpression.class);
+public class FullUnorderedExpressionToScanPlanRule extends PlannerRule<FullUnorderedScanExpression> {
+    private static ExpressionMatcher<FullUnorderedScanExpression> root = TypeMatcher.of(FullUnorderedScanExpression.class);
 
-    public LogicalToPhysicalIndexScanRule() {
+    public FullUnorderedExpressionToScanPlanRule() {
         super(root);
     }
 
     @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
-        final LogicalIndexScanExpression logical = call.get(root);
-        call.yield(call.ref(new RecordQueryIndexPlan(logical.getIndexName(), logical.getScanType(),
-                logical.getComparisons().toScanComparisons(), logical.isReverse())));
+        call.yield(call.ref(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         return ChangesMade.MADE_CHANGES;
     }
 }

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,14 +51,19 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
-    private final BiMap<Index, String> indexes = HashBiMap.create();
-    private final BiMap<String, Index> indexesByName = indexes.inverse();
+    private final BiMap<Index, String> indexes;
+    @Nonnull
+    private final BiMap<String, Index> indexesByName;
+    @Nonnull
+    private final ImmutableSet<IndexEntrySource> indexEntrySources;
     @Nullable
     private final KeyExpression commonPrimaryKey;
 
     public MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull RecordQuery query) {
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
+        this.indexes = HashBiMap.create();
+        this.indexesByName = indexes.inverse();
 
         recordStoreState.beginRead();
         List<Index> indexList = new ArrayList<>();
@@ -92,9 +98,26 @@ public class MetaDataPlanContext implements PlanContext {
         indexList.removeIf(index -> query.hasAllowedIndexes() && !query.getAllowedIndexes().contains(index.getName()) ||
                     !query.hasAllowedIndexes() && !index.getBooleanOption(IndexOptions.ALLOWED_FOR_QUERY_OPTION, true));
 
+        ImmutableSet.Builder<IndexEntrySource> builder = ImmutableSet.builder();
+        if (commonPrimaryKey != null) {
+            builder.add(IndexEntrySource.fromCommonPrimaryKey(commonPrimaryKey));
+        }
         for (Index index : indexList) {
             indexes.put(index, index.getName());
+            builder.add(IndexEntrySource.fromIndex(index));
         }
+        indexEntrySources = builder.build();
+    }
+
+    private MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState,
+                                @Nonnull BiMap<Index, String> indexes, @Nonnull ImmutableSet<IndexEntrySource> indexEntrySources,
+                                @Nonnull KeyExpression commonPrimaryKey) {
+        this.metaData = metaData;
+        this.recordStoreState = recordStoreState;
+        this.indexes = indexes;
+        this.indexesByName = indexes.inverse();
+        this.indexEntrySources = indexEntrySources;
+        this.commonPrimaryKey = commonPrimaryKey;
     }
 
     @Nullable
@@ -116,6 +139,12 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     public Set<Index> getIndexes() {
         return indexes.keySet();
+    }
+
+    @Override
+    @Nonnull
+    public Set<IndexEntrySource> getIndexEntrySources() {
+        return indexEntrySources;
     }
 
     @Override

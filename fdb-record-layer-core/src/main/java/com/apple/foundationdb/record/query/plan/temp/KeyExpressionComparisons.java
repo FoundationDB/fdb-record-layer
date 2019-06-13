@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.expressions.AtomKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -41,6 +43,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -89,6 +92,10 @@ public class KeyExpressionComparisons {
     @Nonnull
     public Optional<KeyExpressionComparisons> matchWith(@Nonnull ComponentWithComparison component) {
         return root.matchWith(component).map(KeyExpressionComparisons::new);
+    }
+
+    public boolean supportsSortOrder(@Nonnull KeyExpressionComparisons sortExpression) {
+        return root.supportsSortOrder(sortExpression.root);
     }
 
     @Nonnull
@@ -234,6 +241,70 @@ public class KeyExpressionComparisons {
                 return Optional.of(withChildren(newChildren));
             }
             return Optional.empty();
+        }
+
+        public boolean supportsSortOrder(@Nonnull KeyExpressionWithComparison sortExpression) {
+            final KeyExpression sortKeyExpression = sortExpression.keyExpression;
+            if (sortKeyExpression instanceof EmptyKeyExpression ||
+                    sortExpression.getMatchedComparisonType().equals(MatchedComparisonType.MATCHED)) {
+                return true; // sort is trivial
+            }
+            if (sortKeyExpression instanceof GroupingKeyExpression && ((GroupingKeyExpression)sortKeyExpression).getGroupedCount() > 0) {
+                return false; // a grouping can never be a prefix of a different key, so this "sort expression" is not implementable
+            }
+
+            if (getMatchedComparisonType().equals(MatchedComparisonType.MATCHED)) {
+                return false; // this key is completely matched and sortExpression isn't, so we can't support the sort
+            }
+
+            // robustness check to ensure that proper interfaces are implemented
+            // every key expression must implement either Key.ExpressionWithChildren or Key.ExpressionWithoutChildren
+            if (!keyExpression.hasProperInterfaces() || !sortKeyExpression.hasProperInterfaces()) {
+                throw new KeyExpression.InvalidExpressionException("Expression contained Key.Expression implementation that does " +
+                                                                   "not implement Key.ExpressionWithChildren or Key.ExpressionWithoutChildren");
+            }
+
+            if (keyExpression instanceof AtomKeyExpression) {
+                if (sortKeyExpression instanceof AtomKeyExpression &&
+                        (((AtomKeyExpression)sortKeyExpression).equalsAtomic((AtomKeyExpression)keyExpression))) {
+                    return childrenSupportSortChildren(sortExpression.children);
+                }
+                return false;
+            } else if (sortKeyExpression instanceof AtomKeyExpression) {
+                if (children.isEmpty()) {
+                    return false;
+                } else {
+                    return children.get(0).supportsSortOrder(sortExpression);
+                }
+            } else {
+                return childrenSupportSortChildren(sortExpression.children);
+            }
+        }
+
+        private boolean childrenSupportSortChildren(@Nonnull List<KeyExpressionWithComparison> sortExpressionChildren) {
+            Iterator<KeyExpressionWithComparison> sortChildren = sortExpressionChildren.iterator();
+            Iterator<KeyExpressionWithComparison> keyChildren = children.iterator();
+
+            while (sortChildren.hasNext()) {
+                final KeyExpressionWithComparison sortChild = sortChildren.next();
+                if (!sortChild.getMatchedComparisonType().equals(MatchedComparisonType.MATCHED)) {
+                    boolean foundKeyChild = false;
+                    KeyExpressionWithComparison keyChild = null;
+                    while (!foundKeyChild) {
+                        if (!keyChildren.hasNext()) {
+                            return false;
+                        }
+                        keyChild = keyChildren.next();
+                        if (!keyChild.getMatchedComparisonType().equals(MatchedComparisonType.MATCHED)) {
+                            foundKeyChild = true;
+                        }
+                    }
+                    if (!keyChild.supportsSortOrder(sortChild)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
 
         public void addToScanComparisonsBuilder(@Nonnull ScanComparisons.Builder builder) {

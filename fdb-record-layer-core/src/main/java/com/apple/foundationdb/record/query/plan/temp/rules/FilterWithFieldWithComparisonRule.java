@@ -22,16 +22,14 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
@@ -48,7 +46,7 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class);
-    private static final ExpressionMatcher<RecordQueryScanPlan> scanMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
+    private static final ExpressionMatcher<FullUnorderedScanExpression> scanMatcher = TypeMatcher.of(FullUnorderedScanExpression.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, filterMatcher, scanMatcher);
 
     public FilterWithFieldWithComparisonRule() {
@@ -58,37 +56,18 @@ public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilter
     @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
-        if (!call.get(scanMatcher).hasFullRecordScan()) {
-            return ChangesMade.NO_CHANGE; // already has some bounds on the scan
-        }
-
         final FieldWithComparison singleField = call.get(filterMatcher);
         if (ScanComparisons.getComparisonType(singleField.getComparison()).equals(ScanComparisons.ComparisonType.NONE)) {
             // This comparison cannot be accomplished with a single scan.
             return ChangesMade.NO_CHANGE;
         }
 
-
-        final KeyExpression commonPrimaryKey = call.getContext().getCommonPrimaryKey();
-        KeyExpressionComparisons comparisons;
-        Optional<KeyExpressionComparisons> matchedComparisons;
-        if (commonPrimaryKey != null) {
-            comparisons = new KeyExpressionComparisons(commonPrimaryKey);
-            matchedComparisons = comparisons.matchWith(singleField);
+        for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
+            final KeyExpressionComparisons comparisons = indexEntrySource.getEmptyComparisons();
+            Optional<KeyExpressionComparisons> matchedComparisons = comparisons.matchWith(singleField);
             if (matchedComparisons.isPresent()) {
-                // TODO need to properly support partial matching to the primary key.
-                call.yield(SingleExpressionRef.of(new RecordQueryScanPlan(matchedComparisons.get().toScanComparisons(), false)));
-                return ChangesMade.MADE_CHANGES;
-            }
-        }
-
-        for (Index index : call.getContext().getIndexes()) {
-            comparisons = new KeyExpressionComparisons(index.getRootExpression());
-            matchedComparisons = comparisons.matchWith(singleField);
-            if (matchedComparisons.isPresent()) {
-                call.yield(SingleExpressionRef.of(
-                        new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_VALUE,
-                                matchedComparisons.get().toScanComparisons(), false)));
+                call.yield(call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
+                        matchedComparisons.get(), false)));
                 return ChangesMade.MADE_CHANGES;
             }
         }

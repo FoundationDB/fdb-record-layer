@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.Iterators;
@@ -38,7 +39,7 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalSortExpression implements RelationalExpressionWithChildren {
     @Nonnull
-    private final KeyExpression sort;
+    private final KeyExpressionComparisons sort;
     private final boolean reverse;
     @Nonnull
     private final ExpressionRef<RelationalPlannerExpression> inner;
@@ -48,6 +49,10 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     }
 
     public LogicalSortExpression(@Nonnull KeyExpression sort, boolean reverse, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+        this(new KeyExpressionComparisons(sort), reverse, inner);
+    }
+
+    public LogicalSortExpression(@Nonnull KeyExpressionComparisons sort, boolean reverse, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
         this.sort = sort;
         this.reverse = reverse;
         this.inner = inner;
@@ -65,7 +70,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     }
 
     @Nonnull
-    public KeyExpression getSort() {
+    public KeyExpressionComparisons getSort() {
         return sort;
     }
 

@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 
 import javax.annotation.Nonnull;
@@ -41,7 +39,7 @@ import java.util.HashSet;
 public interface RelationalPlannerExpression extends PlannerExpression {
     @Nonnull
     static PlannerExpression fromRecordQuery(@Nonnull RecordQuery query) {
-        RelationalPlannerExpression expression = new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
+        RelationalPlannerExpression expression = new FullUnorderedScanExpression();
         if (query.getSort() != null) {
             expression = new LogicalSortExpression(query.getSort(), query.isSortReverse(), expression);
         }

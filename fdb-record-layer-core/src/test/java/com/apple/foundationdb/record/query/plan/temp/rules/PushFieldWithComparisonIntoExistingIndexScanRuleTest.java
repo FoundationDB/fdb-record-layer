@@ -51,13 +51,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class PushFieldWithComparisonIntoExistingIndexScanRuleTest {
     private static PlannerRule<LogicalFilterExpression> rule = new PushFieldWithComparisonIntoExistingIndexScanRule();
     private static Index singleFieldIndex = new Index("singleField", field("aField"));
+    private static IndexEntrySource singleFieldIndexEntrySource = IndexEntrySource.fromIndex(singleFieldIndex);
     private static Index concatIndex = new Index("concat", concat(field("aField"), field("anotherField")));
+    private static IndexEntrySource concatIndexEntrySource = IndexEntrySource.fromIndex(concatIndex);
     private static PlanContext context = new FakePlanContext(ImmutableList.of(singleFieldIndex, concatIndex));
 
     @Test
     public void pushDownFilterToSingleFieldIndex() {
-        RelationalPlannerExpression inner = new LogicalIndexScanExpression(singleFieldIndex.getName(), IndexScanType.BY_VALUE,
-                new KeyExpressionComparisons(singleFieldIndex.getRootExpression()), false);
+        RelationalPlannerExpression inner = new IndexEntrySourceScanExpression(singleFieldIndexEntrySource, IndexScanType.BY_VALUE,
+                concatIndexEntrySource.getEmptyComparisons(), false);
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
                 Query.field("aField").equalsValue(5), inner));
         Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root).findFirst();
@@ -73,8 +75,8 @@ public class PushFieldWithComparisonIntoExistingIndexScanRuleTest {
 
     @Test
     public void pushDownFilterWithCompatibleIndex() {
-        RelationalPlannerExpression inner = new LogicalIndexScanExpression(singleFieldIndex.getName(), IndexScanType.BY_VALUE,
-                new KeyExpressionComparisons(singleFieldIndex.getRootExpression()), false);
+        RelationalPlannerExpression inner = new IndexEntrySourceScanExpression(singleFieldIndexEntrySource, IndexScanType.BY_VALUE,
+                singleFieldIndexEntrySource.getEmptyComparisons(), false);
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
                 Query.field("aField").equalsValue(5), inner));
 
@@ -91,8 +93,8 @@ public class PushFieldWithComparisonIntoExistingIndexScanRuleTest {
 
     @Test
     public void doesNotPushDownWithIncompatibleIndex() {
-        RelationalPlannerExpression inner = new LogicalIndexScanExpression(singleFieldIndex.getName(), IndexScanType.BY_VALUE,
-                new KeyExpressionComparisons(singleFieldIndex.getRootExpression()), false);
+        RelationalPlannerExpression inner = new IndexEntrySourceScanExpression(singleFieldIndexEntrySource, IndexScanType.BY_VALUE,
+                singleFieldIndexEntrySource.getEmptyComparisons(), false);
         PlannerExpression original = new LogicalFilterExpression(Query.field("anotherField").equalsValue(5), inner);
         SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(original);
         Optional<RewriteRuleCall> possibleMatch = RewriteRuleCall.tryMatchRule(context, rule, root).findFirst();

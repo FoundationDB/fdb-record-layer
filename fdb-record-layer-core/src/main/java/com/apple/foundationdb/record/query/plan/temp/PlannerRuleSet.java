@@ -27,10 +27,11 @@ import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndCompo
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithFieldWithComparisonRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressionToScanPlanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PickFromPossibilitiesRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctFieldWithComparisonIntoExistingIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushFieldWithComparisonIntoExistingIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
@@ -71,7 +72,8 @@ public class PlannerRuleSet {
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
-            new LogicalToPhysicalIndexScanRule(),
+            new LogicalToPhysicalScanRule(),
+            new FullUnorderedExpressionToScanPlanRule(),
             new ImplementUnorderedUnionRule(),
             new ImplementDistinctRule()
     );

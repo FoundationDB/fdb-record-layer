@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
@@ -50,7 +50,7 @@ public class PushConjunctFieldWithComparisonIntoExistingIndexScanRule extends Pl
     private static final ReferenceMatcher<QueryComponent> otherFilterMatchers = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<AndComponent> andMatcher = TypeMatcher.of(AndComponent.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(filterMatcher, otherFilterMatchers));
-    private static final ExpressionMatcher<LogicalIndexScanExpression> indexScanMatcher = TypeMatcher.of(LogicalIndexScanExpression.class);
+    private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, andMatcher, indexScanMatcher);
 
     public PushConjunctFieldWithComparisonIntoExistingIndexScanRule() {
@@ -60,14 +60,14 @@ public class PushConjunctFieldWithComparisonIntoExistingIndexScanRule extends Pl
     @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
-        final LogicalIndexScanExpression indexScan = call.get(indexScanMatcher);
+        final IndexEntrySourceScanExpression indexScan = call.get(indexScanMatcher);
         final FieldWithComparison field = call.get(filterMatcher);
         final List<ExpressionRef<QueryComponent>> residualFields = call.getBindings().getAll(otherFilterMatchers);
 
         final Optional<KeyExpressionComparisons> matchedComparisons = indexScan.getComparisons().matchWith(field);
         if (matchedComparisons.isPresent()) {
-            final LogicalIndexScanExpression newIndexScan = new LogicalIndexScanExpression(indexScan.getIndexName(),
-                    indexScan.getScanType(), matchedComparisons.get(), indexScan.isReverse());
+            final IndexEntrySourceScanExpression newIndexScan = new IndexEntrySourceScanExpression(
+                    indexScan.getIndexEntrySource(), indexScan.getScanType(), matchedComparisons.get(), indexScan.isReverse());
             if (residualFields.isEmpty()) {
                 call.yield(call.ref(newIndexScan));
                 return ChangesMade.MADE_CHANGES;
