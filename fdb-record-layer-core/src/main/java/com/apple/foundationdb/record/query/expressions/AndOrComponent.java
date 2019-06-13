@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -82,5 +84,40 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
     @Override
     public boolean isAsync() {
         return getChildren().stream().anyMatch(QueryComponent::isAsync);
+    }
+
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        // An AndComponent can be placed in a NestedContext if and only if all of its children are nested under the
+        // context's parent.
+        if (nestedContext.isParentFieldRepeated()) {
+            // If the parent field is repeated, then we can only place a single conjunct in the context because
+            //     and(field("p", FanType.FanOut).matches(field("a").equals("foo")),
+            //         field("p", FanType.Fanout).matches(field("b").equals("bar")))
+            // and
+            //     field("p", FanType.FanOut).matches(and(field("a").equals("foo"), field("b").equals("bar")))
+            // are not the same.
+            return null;
+        }
+        ImmutableList.Builder<ExpressionRef<QueryComponent>> operandRefs = ImmutableList.builder();
+        for (ExpressionRef<QueryComponent> operandRef : getChildrenRefs()) {
+            final ExpressionRef<QueryComponent> nestedOperandRef = nestedContext.getNestedQueryComponent(operandRef);
+            if (nestedOperandRef == null) {
+                return null;
+            }
+            operandRefs.add(nestedOperandRef);
+        }
+        return thisRef.getNewRefWith(new AndComponent(operandRefs.build()));
+    }
+
+    @Nonnull
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                        @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return BaseField.unnestedWith(nestedContext, thisRef);
     }
 }

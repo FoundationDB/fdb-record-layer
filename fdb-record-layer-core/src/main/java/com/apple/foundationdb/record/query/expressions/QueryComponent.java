@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -139,4 +141,71 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * @throws Query.InvalidExpressionException if the descriptor is not consistent with this component
      */
     void validate(@Nonnull Descriptors.Descriptor descriptor);
+
+    /**
+     * Produce a version of the {@link PlannerExpression} tree rooted at this {@code QueryComponent} as if all
+     * operations were nested inside the given {@link NestedContext}. That is, transform all predicates, index scans,
+     * and other operations to the form that they would have if they were nested within the field given by the parent
+     * field of the given nested context. If it is not possible to produce such an expression, return null.
+     *
+     * <p>
+     * With {@link #asUnnestedWith(NestedContext, ExpressionRef)}, this method should obey the contract that, for any
+     * {@code expression} and {@code nestedContext},
+     * {@code expression.asNestedWith(nestedContext, ref).asUnnestedWith(nestedContext, ref)} is either equal to
+     * {@code expression} (according to the {@code equals()} comparison) or {@code null}.
+     * </p>
+     *
+     * <p>
+     * For example, if this component is the predicate {@code field("a").matches(field("b).equals(3))} and the
+     * {@code nestedContext} is built around {@code field("a")}, then this method would return a reference containing
+     * the predicate {@code field("b").equals(3)}.
+     * </p>
+     *
+     * <p>
+     * The {@code thisRef} parameter has two uses. For some implementations of {@code asNestedWith()}, the expression
+     * does not need to be changed, and so it is more efficient to return the containing reference than to build a
+     * new one. Additionally, it is used to generate a reference of the appropriate type using the
+     * {@link ExpressionRef#getNewRefWith(PlannerExpression)}.
+     * </p>
+     * @param nestedContext a context describing the field to use for nesting
+     * @param thisRef the reference that contains this query component
+     * @return a nested version of this expression with respect to the given context, or null if no such expression exists
+     */
+    @Nullable
+    @API(API.Status.EXPERIMENTAL)
+    ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
+                                               @Nonnull ExpressionRef<QueryComponent> thisRef);
+
+    /**
+     * Produce a version of the {@link PlannerExpression} tree rooted at this {@code QueryComponent} with all operations
+     * placed inside the field given by the {@link NestedContext}. That is, put all predicates, index scans, and other
+     * operations within the given nested field. If it is not possible to produce such an expression, return null.
+     *
+     * <p>
+     * With {@link #asNestedWith(NestedContext, ExpressionRef)}, this method should obey the contract that, for any
+     * {@code expression} and {@code nestedContext},
+     * {@code expression.asNestedWith(nestedContext, ref).asUnnestedWith(nestedContext, ref)} is either equal to
+     * {@code expression} (according to the {@code equals()} comparison) or {@code null}.
+     * </p>
+     *
+     * <p>
+     * For example, if this component is the predicate {@code field("b).equals(3)} and the {@code nestedContext} is
+     * built around {@code field("a")}, then this method would return a reference containing
+     * the predicate {@code field("a").matches(field("b").equals(3))}.
+     * </p>
+     *
+     * <p>
+     * The {@code thisRef} parameter has two uses. For some implementations of {@code asUnnestedWith()}, the expression
+     * does not need to be changed, and so it is more efficient to return the containing reference than to build a
+     * new one. Additionally, it is used to generate a reference of the appropriate type using the
+     * {@link ExpressionRef#getNewRefWith(PlannerExpression)}.
+     * </p>
+     * @param nestedContext a context describing the field to use for unnesting
+     * @param thisRef the reference that contains this query component
+     * @return a unnested version of this expression with respect to the given context, or null if no such expression exists
+     */
+    @Nullable
+    @API(API.Status.EXPERIMENTAL)
+    ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                 @Nonnull ExpressionRef<QueryComponent> thisRef);
 }

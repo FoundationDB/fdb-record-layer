@@ -22,11 +22,13 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -75,6 +77,28 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
     @Nonnull
     public RelationalPlannerExpression getInner() {
         return inner.get();
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<RelationalPlannerExpression> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                                   @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        final ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);
+        if (nestedInner == null) {
+            return null;
+        }
+        return thisRef.getNewRefWith(new LogicalTypeFilterExpression(recordTypes, nestedInner));
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<RelationalPlannerExpression> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                                     @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        final ExpressionRef<RelationalPlannerExpression> unnestedInner = nestedContext.getUnnestedRelationalPlannerExpression(inner);
+        if (unnestedInner == null) {
+            return null;
+        }
+        return thisRef.getNewRefWith(new LogicalTypeFilterExpression(recordTypes, unnestedInner));
     }
 
     @Override

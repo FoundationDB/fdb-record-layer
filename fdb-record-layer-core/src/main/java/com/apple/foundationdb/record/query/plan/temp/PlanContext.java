@@ -52,4 +52,7 @@ public interface PlanContext {
 
     @Nonnull
     RecordMetaData getMetaData();
+
+    @Nonnull
+    PlanContext asNestedWith(@Nonnull NestedContext nestedContext);
 }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -77,6 +78,19 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
     @Override
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Collections.emptyIterator();
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return null;
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext, @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return BaseField.unnestedWith(nestedContext, thisRef);
     }
 
     @Override

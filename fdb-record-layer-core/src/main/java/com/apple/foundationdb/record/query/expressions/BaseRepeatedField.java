@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 
-class BaseRepeatedField extends BaseField {
+abstract class BaseRepeatedField extends BaseField {
 
     public BaseRepeatedField(@Nonnull String fieldName) {
         super(fieldName);

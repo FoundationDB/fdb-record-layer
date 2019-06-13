@@ -24,11 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.Objects;
 
@@ -62,6 +64,30 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     @Override
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(inner);
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<RelationalPlannerExpression> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                                   @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        final KeyExpressionComparisons nestedSort = sort.asNestedWith(nestedContext);
+        final ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);
+        if (nestedSort == null || nestedInner == null) {
+            return null;
+        }
+        return thisRef.getNewRefWith(new LogicalSortExpression(nestedSort, reverse, nestedInner));
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<RelationalPlannerExpression> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                                     @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        @Nonnull final KeyExpressionComparisons unnestedSort = sort.asUnnestedWith(nestedContext);
+        final ExpressionRef<RelationalPlannerExpression> unnestedInner = nestedContext.getUnnestedRelationalPlannerExpression(inner);
+        if (unnestedInner == null) {
+            return null;
+        }
+        return thisRef.getNewRefWith(new LogicalSortExpression(unnestedSort, reverse, unnestedInner));
     }
 
     @Override

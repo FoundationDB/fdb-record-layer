@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -106,6 +107,22 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Collections.emptyIterator();
+    }
+
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return null;
+    }
+
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                        @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return null;
     }
 
     @Override

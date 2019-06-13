@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.Iterators;
@@ -49,6 +50,10 @@ public class NotComponent implements ComponentWithSingleChild {
 
     public NotComponent(@Nonnull QueryComponent child) {
         this.child = SingleExpressionRef.of(child);
+    }
+
+    public NotComponent(@Nonnull ExpressionRef<QueryComponent> child) {
+        this.child = child;
     }
 
     @Nullable
@@ -136,5 +141,30 @@ public class NotComponent implements ComponentWithSingleChild {
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.child);
+    }
+
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        final ExpressionRef<QueryComponent> nestedChild = nestedContext.getNestedQueryComponent(child);
+        if (nestedChild == null) {
+            return null;
+        }
+        return thisRef.getNewRefWith(new NotComponent(nestedChild));
+    }
+
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                        @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        final ExpressionRef<QueryComponent> unnestedChild = nestedContext.getUnnestedQueryComponent(child);
+        if (unnestedChild == null) {
+            return null;
+        }
+        return thisRef.getNewRefWith(new NotComponent(unnestedChild));
+
     }
 }

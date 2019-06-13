@@ -22,9 +22,12 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
 
@@ -50,6 +53,36 @@ public class LogicalUnorderedUnionExpression implements RelationalExpressionWith
     @Override
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<RelationalPlannerExpression> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                                   @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        final ImmutableList.Builder<ExpressionRef<RelationalPlannerExpression>> nestedChildren = ImmutableList.builder();
+        for (ExpressionRef<RelationalPlannerExpression> child : expressionChildren) {
+            final ExpressionRef<RelationalPlannerExpression> nestedChild = nestedContext.getNestedRelationalPlannerExpression(child);
+            if (nestedChild == null) {
+                return null;
+            }
+            nestedChildren.add(nestedChild);
+        }
+        return thisRef.getNewRefWith(new LogicalUnorderedUnionExpression(nestedChildren.build()));
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<RelationalPlannerExpression> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                                     @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        final ImmutableList.Builder<ExpressionRef<RelationalPlannerExpression>> unnestedChildren = ImmutableList.builder();
+        for (ExpressionRef<RelationalPlannerExpression> child : expressionChildren) {
+            final ExpressionRef<RelationalPlannerExpression> unnestedChild = nestedContext.getUnnestedRelationalPlannerExpression(child);
+            if (unnestedChild == null) {
+                return null;
+            }
+            unnestedChildren.add(unnestedChild);
+        }
+        return thisRef.getNewRefWith(new LogicalUnorderedUnionExpression(unnestedChildren.build()));
     }
 
     @Override

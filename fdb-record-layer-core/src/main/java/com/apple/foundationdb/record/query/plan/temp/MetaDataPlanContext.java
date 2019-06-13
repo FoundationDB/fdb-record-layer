@@ -180,6 +180,22 @@ public class MetaDataPlanContext implements PlanContext {
     }
 
     @Nonnull
+    @Override
+    public PlanContext asNestedWith(@Nonnull NestedContext nestedContext) {
+        // Only adjust the index entry sources.
+        final ImmutableSet.Builder<IndexEntrySource> nestedSources = ImmutableSet.builder();
+        for (IndexEntrySource source : indexEntrySources) {
+            final IndexEntrySource nestedSource = source.asNestedWith(nestedContext);
+            if (nestedSource != null) {
+                nestedSources.add(nestedSource);
+            }
+        }
+        return new MetaDataPlanContext(metaData, recordStoreState, indexes, nestedSources.build(),
+                commonPrimaryKey, greatestPrimaryKeyWidth);
+    }
+
+
+    @Nonnull
     private List<Index> readableOf(@Nonnull List<Index> indexes) {
         if (recordStoreState.allIndexesReadable()) {
             return indexes;

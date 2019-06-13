@@ -27,26 +27,26 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.google.common.collect.Iterators;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
 import java.util.Objects;
 
 /**
  * A {@link QueryComponent} that evaluates a nested component against a {@link com.google.protobuf.Message}-valued field.
  */
 @API(API.Status.MAINTAINED)
-public class NestedField extends BaseField implements ComponentWithSingleChild {
-    @Nonnull
-    private final ExpressionRef<QueryComponent> childComponent;
+public class NestedField extends BaseNestedField {
 
     public NestedField(@Nonnull String fieldName, @Nonnull QueryComponent childComponent) {
-        super(fieldName);
-        this.childComponent = SingleExpressionRef.of(childComponent);
+        this(fieldName, SingleExpressionRef.of(childComponent));
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    public NestedField(@Nonnull String fieldName, @Nonnull ExpressionRef<QueryComponent> childComponent) {
+        super(fieldName, childComponent);
     }
 
     @Override
@@ -77,26 +77,20 @@ public class NestedField extends BaseField implements ComponentWithSingleChild {
     }
 
     @Override
-    @Nonnull
-    public QueryComponent getChild() {
-        return childComponent.get();
-    }
-
-    @Override
     public QueryComponent withOtherChild(QueryComponent newChild) {
         return new NestedField(getFieldName(), newChild);
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.childComponent);
     }
 
     @Override
     public String toString() {
         return getFieldName() + "/{" + getChild() + "}";
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof NestedField &&
+               ((NestedField)otherExpression).getFieldName().equals(getFieldName());
     }
 
     @Override
@@ -124,8 +118,4 @@ public class NestedField extends BaseField implements ComponentWithSingleChild {
         return super.planHash() + getChild().planHash();
     }
 
-    @Override
-    public boolean isAsync() {
-        return getChild().isAsync();
-    }
 }

@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithConjunctNestedToNestingContextRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithNestedToNestingContextRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndComponentRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndComponentRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
@@ -30,14 +32,15 @@ import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithFieldWithCo
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressionToScanPlanRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PickFromPossibilitiesRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctFieldWithComparisonIntoExistingIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushFieldWithComparisonIntoExistingIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushTypeFilterBelowFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.RemoveNestedContextRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveRedundantTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.SortToIndexRule;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
@@ -65,10 +68,12 @@ public class PlannerRuleSet {
             new PushConjunctFieldWithComparisonIntoExistingIndexScanRule(),
             new RemoveRedundantTypeFilterRule(),
             new FindPossibleIndexForAndComponentRule(),
-            new OrToUnorderedUnionRule()
+            new OrToUnorderedUnionRule(),
+            new FilterWithNestedToNestingContextRule(),
+            new FilterWithConjunctNestedToNestingContextRule(),
+            new RemoveNestedContextRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
-            new PickFromPossibilitiesRule(),
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
@@ -77,10 +82,18 @@ public class PlannerRuleSet {
             new ImplementUnorderedUnionRule(),
             new ImplementDistinctRule()
     );
+    private static final List<PlannerRule<? extends PlannerExpression>> EXPLORATION_RULES =
+            ImmutableList.<PlannerRule<? extends PlannerExpression>>builder()
+                    .addAll(NORMALIZATION_RULES)
+                    .addAll(REWRITE_RULES)
+                    .build();
+    private static final List<PlannerRule<? extends PlannerExpression>> ALL_RULES =
+            ImmutableList.<PlannerRule<? extends PlannerExpression>>builder()
+                    .addAll(EXPLORATION_RULES)
+                    .addAll(IMPLEMENTATION_RULES)
+                    .build();
 
-    public static final PlannerRuleSet NORMALIZATION = new PlannerRuleSet(NORMALIZATION_RULES);
-    public static final PlannerRuleSet REWRITE = new PlannerRuleSet(REWRITE_RULES);
-    public static final PlannerRuleSet IMPLEMENTATION = new PlannerRuleSet(IMPLEMENTATION_RULES);
+    public static final PlannerRuleSet ALL = new PlannerRuleSet(ALL_RULES);
 
     @Nonnull
     private final Multimap<Class<? extends PlannerExpression>, PlannerRule<? extends PlannerExpression>> ruleIndex =
