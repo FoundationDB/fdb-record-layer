@@ -45,7 +45,7 @@ import javax.annotation.Nonnull;
  * <em>can</em> produce duplicates. At the moment, none of the rules modify a {@link RecordQueryPlan} once it has
  * been produced, but a future rule that does so may cause errors where plans erroneously produce duplicate records.
  * To address that, the plan is to add a mechanism for enforcing properties (e.g., distinctness or sort order)
- * on the plans produced by the planner, but that work has not yet been completed.
+ * on the plans produced by the planner. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/635">Issue #653</a>.
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
