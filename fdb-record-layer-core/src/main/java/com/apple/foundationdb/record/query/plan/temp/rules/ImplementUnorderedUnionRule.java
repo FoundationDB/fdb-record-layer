@@ -35,8 +35,9 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A rule that implements an unordered union of its (already implemented) children. This will combine the
- * {@link RecordQueryPlan}s corresponding to its children.
+ * A rule that implements an unordered union of its (already implemented) children. This will extract the
+ * {@link RecordQueryPlan} from each child of a {@link LogicalUnorderedUnionExpression} and create a
+ * {@link RecordQueryUnorderedUnionPlan} with those plans as children.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnorderedUnionExpression> {

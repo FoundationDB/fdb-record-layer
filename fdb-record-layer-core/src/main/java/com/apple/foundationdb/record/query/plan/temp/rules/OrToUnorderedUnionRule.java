@@ -41,8 +41,7 @@ import java.util.List;
 
 /**
  * Convert a filter on an {@linkplain OrComponent or} expression into a plan on the union. In particular, this will
- * produce a {@link LogicalUnorderedUnionExpression} with simple filter plans on each child. Those plans can then themselves
- * be planned individually.
+ * produce a {@link LogicalUnorderedUnionExpression} with simple filter plans on each child.
  */
 @API(API.Status.EXPERIMENTAL)
 public class OrToUnorderedUnionRule extends PlannerRule<LogicalFilterExpression> {

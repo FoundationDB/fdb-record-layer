@@ -188,7 +188,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     /**
-     * Construct a new union of two compatibly-ordered plans. The resulting plan will return all results that are
+     * Construct a new union of two or more compatibly-ordered plans. The resulting plan will return all results that are
      * returned by any of the child plans. Each plan should return results in the same order according to the provided
      * {@code comparisonKey}. The children should also either all return results in forward order, or they should all
      * return results in reverse order. (That is, {@link RecordQueryPlan#isReverse()} should return the same value

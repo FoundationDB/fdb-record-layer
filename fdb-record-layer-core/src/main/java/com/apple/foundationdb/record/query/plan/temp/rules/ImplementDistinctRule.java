@@ -44,6 +44,8 @@ import javax.annotation.Nonnull;
  * this rule will then return that plan. This is fine unless the plan is later modified in such a way that it then
  * <em>can</em> produce duplicates. At the moment, none of the rules modify a {@link RecordQueryPlan} once it has
  * been produced, but a future rule that does so may cause errors where plans erroneously produce duplicate records.
+ * To address that, the plan is to add a mechanism for enforcing properties (e.g., distinctness or sort order)
+ * on the plans produced by the planner, but that work has not yet been completed.
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
