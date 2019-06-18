@@ -27,6 +27,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnionCursor;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -43,11 +46,7 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
-    public RecordQueryUnorderedUnionPlan(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
-        super(left, right, reverse);
-    }
-
-    public RecordQueryUnorderedUnionPlan(@Nonnull List<RecordQueryPlan> children, boolean reverse) {
+    private RecordQueryUnorderedUnionPlan(@Nonnull List<ExpressionRef<RecordQueryPlan>> children, boolean reverse) {
         super(children, reverse);
     }
 
@@ -75,5 +74,32 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     @Override
     StoreTimer.Count getPlanCount() {
         return FDBStoreTimer.Counts.PLAN_UNORDERED_UNION;
+    }
+
+    @Nonnull
+    public static RecordQueryUnorderedUnionPlan from(@Nonnull List<RecordQueryPlan> children) {
+        final boolean reverse = children.get(0).isReverse();
+        ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> builder = ImmutableList.builder();
+        for (RecordQueryPlan child : children) {
+            builder.add(SingleExpressionRef.of(child));
+        }
+        return new RecordQueryUnorderedUnionPlan(builder.build(), reverse);
+    }
+
+    @Nonnull
+    public static RecordQueryUnorderedUnionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right) {
+        return new RecordQueryUnorderedUnionPlan(ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right)), left.isReverse());
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public static RecordQueryUnorderedUnionPlan fromRefs(@Nonnull List<ExpressionRef<RecordQueryPlan>> children) {
+        return new RecordQueryUnorderedUnionPlan(children, false);
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public static RecordQueryUnorderedUnionPlan fromRefs(@Nonnull ExpressionRef<RecordQueryPlan> left, @Nonnull ExpressionRef<RecordQueryPlan> right) {
+        return new RecordQueryUnorderedUnionPlan(ImmutableList.of(left, right), false);
     }
 }

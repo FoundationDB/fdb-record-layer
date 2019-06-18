@@ -38,6 +38,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface RelationalPlannerExpression extends PlannerExpression {
+    @Nonnull
     static PlannerExpression fromRecordQuery(@Nonnull RecordQuery query) {
         RelationalPlannerExpression expression = new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
         if (query.getSort() != null) {
@@ -48,6 +49,9 @@ public interface RelationalPlannerExpression extends PlannerExpression {
         }
         if (!query.getRecordTypes().isEmpty()) {
             expression = new LogicalTypeFilterExpression(query.getRecordTypes(), expression);
+        }
+        if (query.removesDuplicates()) {
+            expression = new LogicalDistinctExpression(expression);
         }
         return expression;
     }

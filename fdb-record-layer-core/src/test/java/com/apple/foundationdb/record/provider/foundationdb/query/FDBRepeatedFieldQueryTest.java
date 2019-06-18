@@ -187,7 +187,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             TestRecords4Proto.RestaurantReviewer reviewer = TestRecords4Proto.RestaurantReviewer.newBuilder()
                     .setId(1L)
                     .setName("Javert")
-                    .setEmail("anton@ego.com")
+                    .setEmail("inspecteur@policier.fr")
                     .setStats(TestRecords4Proto.ReviewerStats.newBuilder()
                             .setStartDate(100L)
                             .setHometown("Toulon")

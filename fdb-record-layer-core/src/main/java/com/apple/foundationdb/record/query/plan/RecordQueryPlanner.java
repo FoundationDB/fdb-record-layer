@@ -602,7 +602,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (includedPlans.size() > 1) {
             // Calculating the new score would require more state, not doing, because we currently ignore the score
             // after this call.
-            final RecordQueryPlan intersectionPlan = new RecordQueryIntersectionPlan(includedPlans, comparisonKey, plan.isReverse());
+            final RecordQueryPlan intersectionPlan = RecordQueryIntersectionPlan.from(includedPlans, comparisonKey);
             if (intersectionPlan.getComplexity() > complexityThreshold) {
                 throw new RecordQueryPlanComplexityException(intersectionPlan);
             }
@@ -1223,7 +1223,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             includedRankComparisons = mergeRankComparisons(includedRankComparisons, subplan.includedRankComparisons);
         }
         boolean showComparisonKey = !comparisonKey.equals(planContext.commonPrimaryKey);
-        final RecordQueryPlan unionPlan = new RecordQueryUnionPlan(childPlans, comparisonKey, reverse, showComparisonKey);
+        final RecordQueryPlan unionPlan = RecordQueryUnionPlan.from(childPlans, comparisonKey, showComparisonKey);
         if (unionPlan.getComplexity() > complexityThreshold) {
             throw new RecordQueryPlanComplexityException(unionPlan);
         }
@@ -1242,7 +1242,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             childPlans.add(subplan.plan);
             includedRankComparisons = mergeRankComparisons(includedRankComparisons, subplan.includedRankComparisons);
         }
-        final RecordQueryUnorderedUnionPlan unionPlan = new RecordQueryUnorderedUnionPlan(childPlans, subplans.get(0).plan.isReverse());
+        final RecordQueryUnorderedUnionPlan unionPlan = RecordQueryUnorderedUnionPlan.from(childPlans);
         if (unionPlan.getComplexity() > complexityThreshold) {
             throw new RecordQueryPlanComplexityException(unionPlan);
         }

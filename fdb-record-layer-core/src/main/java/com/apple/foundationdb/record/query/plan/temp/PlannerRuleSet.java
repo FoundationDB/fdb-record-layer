@@ -24,9 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndComponentRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndComponentRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithFieldWithComparisonRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalIndexScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PickFromPossibilitiesRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctFieldWithComparisonIntoExistingIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushFieldWithComparisonIntoExistingIndexScanRule;
@@ -60,14 +63,17 @@ public class PlannerRuleSet {
             new PushFieldWithComparisonIntoExistingIndexScanRule(),
             new PushConjunctFieldWithComparisonIntoExistingIndexScanRule(),
             new RemoveRedundantTypeFilterRule(),
-            new FindPossibleIndexForAndComponentRule()
+            new FindPossibleIndexForAndComponentRule(),
+            new OrToUnorderedUnionRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
             new PickFromPossibilitiesRule(),
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
-            new LogicalToPhysicalIndexScanRule()
+            new LogicalToPhysicalIndexScanRule(),
+            new ImplementUnorderedUnionRule(),
+            new ImplementDistinctRule()
     );
 
     public static final PlannerRuleSet NORMALIZATION = new PlannerRuleSet(NORMALIZATION_RULES);

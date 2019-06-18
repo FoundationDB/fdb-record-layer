@@ -122,12 +122,12 @@ public class ExpressionMatcherTest {
         ExpressionMatcher<RecordQueryScanPlan> childMatcher2 = TypeMatcher.of(RecordQueryScanPlan.class);
         ExpressionMatcher<RecordQueryUnionPlan> parentMatcher = TypeMatcher.of(RecordQueryUnionPlan.class,
                 childMatcher1, childMatcher2, ReferenceMatcher.anyRef());
-        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false);
+        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
 
         // check matches if the children are in the right order
-        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new RecordQueryUnionPlan( // union with arbitrary comparison key
-                child1, child2, EmptyKeyExpression.EMPTY, false, false));
+        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child1, child2, EmptyKeyExpression.EMPTY, false));
         Optional<PlannerBindings> possibleBindings = root.bindTo(parentMatcher).findFirst();
         assertTrue(possibleBindings.isPresent());
         PlannerBindings allBindings = possibleBindings.get().mergedWith(getExistingBindings());
@@ -137,8 +137,8 @@ public class ExpressionMatcherTest {
         assertEquals(child2, allBindings.get(childMatcher2));
 
         // check that we fail to match if the children are in the wrong order
-        root = SingleExpressionRef.of(new RecordQueryUnionPlan( // union with arbitrary comparison key
-                child2, child1, EmptyKeyExpression.EMPTY, false, false));
+        root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child2, child1, EmptyKeyExpression.EMPTY, false));
         assertFalse(root.bindTo(parentMatcher).findFirst().isPresent());
     }
 
@@ -147,10 +147,10 @@ public class ExpressionMatcherTest {
         ExpressionMatcher<RecordQueryUnionPlan> parentMatcher = TypeMatcher.of(RecordQueryUnionPlan.class,
                 // types are wrong based on ordering of children in getPlannerExpressionChildren()
                 TypeMatcher.of(KeyExpression.class), TypeMatcher.of(RecordQueryIndexPlan.class, TypeMatcher.of(RecordQueryScanPlan.class)));
-        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false);
+        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
-        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new RecordQueryUnionPlan( // union with arbitrary comparison key
-                child1, child2, EmptyKeyExpression.EMPTY, false, false));
+        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child1, child2, EmptyKeyExpression.EMPTY, false));
         assertFalse(root.bindTo(parentMatcher).findFirst().isPresent());
     }
 
@@ -161,10 +161,10 @@ public class ExpressionMatcherTest {
         ExpressionMatcher<ExpressionRef<KeyExpression>> comparisonKeyMatcher = ReferenceMatcher.anyRef();
         ExpressionMatcher<RecordQueryUnionPlan> matcher = TypeMatcher.of(RecordQueryUnionPlan.class,
                 childMatcher1, childMatcher2, comparisonKeyMatcher);
-        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false);
+        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
-        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new RecordQueryUnionPlan( // union with arbitrary comparison key
-                child1, child2, EmptyKeyExpression.EMPTY, false, false));
+        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child1, child2, EmptyKeyExpression.EMPTY, false));
 
         Optional<PlannerBindings> possibleBindings = root.bindTo(matcher).findFirst();
         assertTrue(possibleBindings.isPresent());
@@ -194,11 +194,11 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         RecordQueryFilterPlan filterPlan = new RecordQueryFilterPlan(
-                new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true),
                 Query.and(andBranch1, andBranch2));
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
-                new RecordQueryUnionPlan(filterPlan, scanPlan, EmptyKeyExpression.EMPTY, false, false));
+                RecordQueryUnionPlan.from(filterPlan, scanPlan, EmptyKeyExpression.EMPTY, false));
 
         // try to bind
         Optional<PlannerBindings> possibleBindings = root.bindTo(matcher).findFirst();

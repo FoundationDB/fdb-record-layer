@@ -104,10 +104,10 @@ public class QueryPlanStructuralInstrumentationTest {
 
     @Test
     public void unionSameIndex() {
-        final RecordQueryPlan plan = new RecordQueryUnionPlan(
+        final RecordQueryPlan plan = RecordQueryUnionPlan.from(
                 indexPlanEquals("index_1", 2),
                 indexPlanEquals("index_1", 4),
-                EmptyKeyExpression.EMPTY, false, false);
+                EmptyKeyExpression.EMPTY, false);
 
         assertUsesIndexes(plan, Lists.newArrayList("index_1"));
 
@@ -119,10 +119,10 @@ public class QueryPlanStructuralInstrumentationTest {
 
     @Test
     public void unionDifferentIndex() {
-        final RecordQueryPlan plan = new RecordQueryUnionPlan(
+        final RecordQueryPlan plan = RecordQueryUnionPlan.from(
                 indexPlanEquals("index_1", 2),
                 indexPlanEquals("index_2", 4),
-                EmptyKeyExpression.EMPTY, false, false);
+                EmptyKeyExpression.EMPTY, false);
 
         assertUsesIndexes(plan, Lists.newArrayList("index_1", "index_2"));
 
