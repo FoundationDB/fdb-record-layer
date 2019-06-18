@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 
@@ -42,30 +43,60 @@ import javax.annotation.Nullable;
  * @see com.apple.foundationdb.record.query.plan.temp.rules.RemoveNestedContextRule
  */
 @API(API.Status.EXPERIMENTAL)
-public interface NestedContext {
+public class NestedContext {
     @Nonnull
-    FieldKeyExpression getParentField();
+    private final FieldKeyExpression parentField;
 
-    boolean isParentFieldFannedOut();
+    public NestedContext(@Nonnull FieldKeyExpression parentField) {
+        this.parentField = parentField;
+    }
+
+    @Nonnull
+    public FieldKeyExpression getParentField() {
+        return parentField;
+    }
+
+    public boolean isParentFieldFannedOut() {
+        return parentField.getFanType().equals(KeyExpression.FanType.FanOut);
+    }
 
     @Nullable
-    default ExpressionRef<RelationalPlannerExpression> getNestedRelationalPlannerExpression(@Nonnull ExpressionRef<RelationalPlannerExpression> ref) {
+    public ExpressionRef<RelationalPlannerExpression> getNestedRelationalPlannerExpression(@Nonnull ExpressionRef<RelationalPlannerExpression> ref) {
         return ref.flatMapNullable(expression -> expression.asNestedWith(this, ref));
     }
 
     @Nullable
-    default ExpressionRef<QueryComponent> getNestedQueryComponent(@Nonnull ExpressionRef<QueryComponent> ref) {
+    public ExpressionRef<QueryComponent> getNestedQueryComponent(@Nonnull ExpressionRef<QueryComponent> ref) {
         return ref.flatMapNullable(expression -> expression.asNestedWith(this, ref));
     }
 
     @Nullable
-    default ExpressionRef<RelationalPlannerExpression> getUnnestedRelationalPlannerExpression(
+    public ExpressionRef<RelationalPlannerExpression> getUnnestedRelationalPlannerExpression(
             @Nonnull ExpressionRef<RelationalPlannerExpression> ref) {
         return ref.flatMapNullable(expression -> expression.asUnnestedWith(this, ref));
     }
 
     @Nullable
-    default ExpressionRef<QueryComponent> getUnnestedQueryComponent(@Nonnull ExpressionRef<QueryComponent> ref) {
+    public ExpressionRef<QueryComponent> getUnnestedQueryComponent(@Nonnull ExpressionRef<QueryComponent> ref) {
         return ref.flatMapNullable(expression -> expression.asUnnestedWith(this, ref));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        NestedContext that = (NestedContext)o;
+
+        return parentField.equals(that.parentField);
+    }
+
+    @Override
+    public int hashCode() {
+        return parentField.hashCode();
     }
 }

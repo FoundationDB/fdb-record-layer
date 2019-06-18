@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithConjunctNestedToNestingContextRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithNestedToNestingContextRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithOneOfThemToNestingContextRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndComponentRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndComponentRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRul
 import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressionToScanPlanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctFieldWithComparisonIntoExistingIndexScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushFieldWithComparisonIntoExistingIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushTypeFilterBelowFilterRule;
@@ -71,6 +73,7 @@ public class PlannerRuleSet {
             new OrToUnorderedUnionRule(),
             new FilterWithNestedToNestingContextRule(),
             new FilterWithConjunctNestedToNestingContextRule(),
+            new FilterWithOneOfThemToNestingContextRule(),
             new RemoveNestedContextRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
@@ -80,7 +83,8 @@ public class PlannerRuleSet {
             new LogicalToPhysicalScanRule(),
             new FullUnorderedExpressionToScanPlanRule(),
             new ImplementUnorderedUnionRule(),
-            new ImplementDistinctRule()
+            new ImplementDistinctRule(),
+            new PushDistinctFilterBelowFilterRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> EXPLORATION_RULES =
             ImmutableList.<PlannerRule<? extends PlannerExpression>>builder()

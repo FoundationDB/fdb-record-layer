@@ -1,5 +1,5 @@
 /*
- * FilterWithNestedToNestingContextRule.java
+ * FilterWithOneOfThemToNestingContextRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,15 +20,15 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.query.expressions.NestedField;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.expressions.NestedContextExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -38,18 +38,18 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import javax.annotation.Nonnull;
 
 /**
- * A rule that looks for a logical filter that contains a non-repeated nested predicate ({@link NestedField}) and
- * transforms the inner expression to a version with respect to the {@link NestedContext} defined by that nested field.
+ * A rule that looks for a logical filter that contains a repeated nested predicate
+ * ({@link com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent}) and transforms the inner expression
+ * to a version with respect to the {@link NestedContext} defined by that nested field.
  */
-@API(API.Status.EXPERIMENTAL)
-public class FilterWithNestedToNestingContextRule extends PlannerRule<LogicalFilterExpression> {
+public class FilterWithOneOfThemToNestingContextRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<ExpressionRef<RelationalPlannerExpression>> innerMatcher = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<ExpressionRef<QueryComponent>> nestedFilterMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<NestedField> nestedFieldMatcher = TypeMatcher.of(NestedField.class, nestedFilterMatcher);
+    private static final ExpressionMatcher<OneOfThemWithComponent> oneOfThemMatcher = TypeMatcher.of(OneOfThemWithComponent.class, nestedFilterMatcher);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
-            nestedFieldMatcher, innerMatcher);
+            oneOfThemMatcher, innerMatcher);
 
-    public FilterWithNestedToNestingContextRule() {
+    public FilterWithOneOfThemToNestingContextRule() {
         super(root);
     }
 
@@ -57,10 +57,11 @@ public class FilterWithNestedToNestingContextRule extends PlannerRule<LogicalFil
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         final ExpressionRef<RelationalPlannerExpression> inner = call.get(innerMatcher);
-        final NestedField nestedField = call.get(nestedFieldMatcher);
+        final OneOfThemWithComponent oneOfThem = call.get(oneOfThemMatcher);
         final ExpressionRef<QueryComponent> nestedFilter = call.get(nestedFilterMatcher);
 
-        final NestedContext nestedContext = new NestedContext(Key.Expressions.field(nestedField.getFieldName()));
+        final NestedContext nestedContext = new NestedContext(
+                Key.Expressions.field(oneOfThem.getFieldName(), KeyExpression.FanType.FanOut));
         final ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);
 
         if (nestedInner != null) {

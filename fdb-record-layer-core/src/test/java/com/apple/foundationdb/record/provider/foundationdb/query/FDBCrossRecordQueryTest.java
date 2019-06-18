@@ -304,7 +304,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that querying on a nested field can scan an appropriate universal index.
      */
-    @Test
+    @DualPlannerTest
     public void testNestedCrossRecordTypeQueryFilteredAndSorted() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
