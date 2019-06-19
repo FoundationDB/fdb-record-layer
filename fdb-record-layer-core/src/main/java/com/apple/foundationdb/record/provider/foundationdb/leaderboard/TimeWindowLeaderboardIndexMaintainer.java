@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
@@ -86,6 +86,8 @@ import java.util.stream.Collectors;
 public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeWindowLeaderboardIndexMaintainer.class);
 
+    private static final Tuple SUB_DIRECTORY_PREFIX = Tuple.from((Object)null); // Must not conflict with leaderboard subspace keys.
+
     public TimeWindowLeaderboardIndexMaintainer(IndexMaintainerState state) {
         super(state);
     }
@@ -116,6 +118,36 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     protected void saveDirectory(TimeWindowLeaderboardDirectory directory) {
         final Subspace extraSubspace = getSecondarySubspace();
         state.transaction.set(extraSubspace.pack(), directory.toProto().toByteArray());
+    }
+
+    @Nonnull
+    protected CompletableFuture<TimeWindowLeaderboardSubDirectory> loadSubDirectory(@Nonnull TimeWindowLeaderboardDirectory directory, @Nonnull Tuple group) {
+        TimeWindowLeaderboardSubDirectory subdirectory = directory.getSubDirectory(group);
+        if (subdirectory != null) {
+            return CompletableFuture.completedFuture(subdirectory);
+        }
+        final Subspace extraSubspace = getSecondarySubspace();
+        return state.transaction.get(extraSubspace.pack(SUB_DIRECTORY_PREFIX.addAll(group))).thenApply(bytes -> {
+            final TimeWindowLeaderboardSubDirectory newsub;
+            if (bytes == null) {
+                newsub = new TimeWindowLeaderboardSubDirectory(group, directory.isHighScoreFirst());
+            } else {
+                TimeWindowLeaderboardProto.TimeWindowLeaderboardSubDirectory.Builder builder = TimeWindowLeaderboardProto.TimeWindowLeaderboardSubDirectory.newBuilder();
+                try {
+                    builder.mergeFrom(bytes);
+                } catch (InvalidProtocolBufferException ex) {
+                    throw new RecordCoreStorageException("error decoding leaderboard sub-directory", ex);
+                }
+                newsub = new TimeWindowLeaderboardSubDirectory(group, builder.build());
+            }
+            directory.addSubDirectory(newsub);
+            return newsub;
+        });
+    }
+
+    protected void saveSubDirectory(@Nonnull TimeWindowLeaderboardSubDirectory subdirectory) {
+        final Subspace extraSubspace = getSecondarySubspace();
+        state.transaction.set(extraSubspace.pack(SUB_DIRECTORY_PREFIX.addAll(subdirectory.getGroup())), subdirectory.toProto().toByteArray());
     }
 
     @Nonnull
@@ -167,29 +199,45 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             });
         }
         // Add leaderboard's key to the front and take it off of the results.
-        return RecordCursor.fromFuture(getExecutor(), scoreRangeFuture)
-                .flatMapPipelined(scoreRange -> {
-                    if (scoreRange == null) {
-                        return RecordCursor.empty(getExecutor());
-                    } else if (scanType == IndexScanType.BY_VALUE && leaderboardFuture.join().isHighScoreFirst()) {
+        return RecordCursor.fromFuture(getExecutor(), scoreRangeFuture).flatMapPipelined(scoreRange -> {
+            if (scoreRange == null) {
+                return RecordCursor.empty(getExecutor());
+            }
+            final TimeWindowLeaderboard leaderboard = leaderboardFuture.join(); // Already waited in scoreRangeFuture.
+            final CompletableFuture<Boolean> highStoreFirstFuture;
+            if (scanType == IndexScanType.BY_VALUE) {
+                final Tuple lowGroup = scoreRange.getLow() != null && scoreRange.getLow().size() > groupPrefixSize ? TupleHelpers.subTuple(scoreRange.getLow(), 0, groupPrefixSize) : null;
+                final Tuple highGroup = scoreRange.getHigh() != null && scoreRange.getHigh().size() > groupPrefixSize ? TupleHelpers.subTuple(scoreRange.getHigh(), 0, groupPrefixSize) : null;
+                if (lowGroup != null && lowGroup.equals(highGroup)) {
+                    highStoreFirstFuture = isHighScoreFirst(leaderboard.getDirectory(), lowGroup);
+                } else {
+                    highStoreFirstFuture = CompletableFuture.completedFuture(leaderboard.getDirectory().isHighScoreFirst());
+                }
+            } else {
+                highStoreFirstFuture = AsyncUtil.READY_FALSE;
+            }
+            if (highStoreFirstFuture.isDone() && !highStoreFirstFuture.join()) {
+                return scanLeaderboard(leaderboard, scoreRange, continuation, scanProperties);
+            } else {
+                return RecordCursor.fromFuture(getExecutor(), highStoreFirstFuture).flatMapPipelined(highScoreFirst -> {
+                    if (highScoreFirst) {
                         // Reverse direction and endpoints and negate score values.
-                        final TupleRange indexRange = negateScoreRange(scoreRange).prepend(leaderboardFuture.join().getSubspaceKey());
-                        return scan(indexRange, continuation, scanProperties.setReverse(!scanProperties.isReverse()));
+                        return scanLeaderboard(leaderboard, negateScoreRange(scoreRange),
+                                continuation, scanProperties.setReverse(!scanProperties.isReverse()));
                     } else {
-                        final TupleRange indexRange = scoreRange.prepend(leaderboardFuture.join().getSubspaceKey());
-                        return scan(indexRange, continuation, scanProperties);
+                        return scanLeaderboard(leaderboard, scoreRange, continuation, scanProperties);
                     }
-                }, 1)
-                .map(kv -> getIndexEntry(kv, groupPrefixSize, leaderboardFuture.join().isHighScoreFirst()));
+                }, 1);
+            }
+        }, 1)
+                .mapPipelined(kv -> getIndexEntry(kv, groupPrefixSize, leaderboardFuture.join().getDirectory()), 1);
     }
 
-    // Remove leaderboard key and negate score if necessary.
-    protected static IndexEntry getIndexEntry(@Nonnull IndexEntry rawEntry, int groupPrefixSize, boolean isHighScoreFirst) {
-        Tuple key = rawEntry.getKey().popFront();
-        if (isHighScoreFirst) {
-            key = negateScoreForHighScoreFirst(key, groupPrefixSize);
-        }
-        return new IndexEntry(rawEntry.getIndex(), key, rawEntry.getValue());
+    protected RecordCursor<IndexEntry> scanLeaderboard(@Nonnull TimeWindowLeaderboard leaderboard,
+                                                       @Nonnull final TupleRange range,
+                                                       @Nullable byte[] continuation,
+                                                       @Nonnull ScanProperties scanProperties) {
+        return scan(range.prepend(leaderboard.getSubspaceKey()), continuation, scanProperties);
     }
 
     /**
@@ -219,6 +267,25 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             high = negateScoreForHighScoreFirst(high, groupPrefixSize);
         }
         return new TupleRange(high, low, highEndpoint, lowEndpoint);
+    }
+
+    // Remove leaderboard key and negate score if necessary.
+    protected CompletableFuture<IndexEntry> getIndexEntry(@Nonnull IndexEntry rawEntry, int groupPrefixSize, @Nonnull TimeWindowLeaderboardDirectory directory) {
+        Tuple rawKey = rawEntry.getKey().popFront();
+        return isHighScoreFirst(directory, TupleHelpers.subTuple(rawKey, 0, groupPrefixSize))
+                .thenApply(highScoreFirst -> {
+                    final Tuple key;
+                    if (highScoreFirst) {
+                        key = negateScoreForHighScoreFirst(rawKey, groupPrefixSize);
+                    } else {
+                        key = rawKey;
+                    }
+                    return new IndexEntry(rawEntry.getIndex(), key, rawEntry.getValue());
+                });
+    }
+
+    protected CompletableFuture<Boolean> isHighScoreFirst(@Nonnull TimeWindowLeaderboardDirectory directory, @Nonnull Tuple group) {
+        return loadSubDirectory(directory, group).thenApply(TimeWindowLeaderboardSubDirectory::isHighScoreFirst);
     }
 
     /**
@@ -253,48 +320,48 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         final Subspace extraSubspace = getSecondarySubspace();
         // The value for the index key cannot vary from entry-to-entry, so get the value only from the first entry.
         final Tuple entryValue = indexEntries.isEmpty()
-                ? TupleHelpers.EMPTY
-                : indexEntries.get(0).getValue();
+                                 ? TupleHelpers.EMPTY
+                                 : indexEntries.get(0).getValue();
 
         return loadDirectory().thenCompose(directory -> {
             if (directory == null) {
                 return AsyncUtil.DONE;
             }
-            final Map<Tuple, Collection<OrderedScoreIndexKey>> groupedScores =
-                    groupOrderedScoreIndexKeys(indexEntries, directory.isHighScoreFirst(), true);
-            final List<CompletableFuture<Void>> futures = new ArrayList<>();
-            for (Iterable<TimeWindowLeaderboard> directoryEntry : directory.getLeaderboards().values()) {
-                for (TimeWindowLeaderboard leaderboard : directoryEntry) {
-                    for (Map.Entry<Tuple, Collection<OrderedScoreIndexKey>> groupEntry : groupedScores.entrySet()) {
-                        final Optional<OrderedScoreIndexKey> bestContainedScore = groupEntry.getValue().stream()
-                                .filter(score -> leaderboard.containsTimestamp(score.timestamp))
-                                .findFirst();
-                        if (bestContainedScore.isPresent()) {
-                            final Tuple groupKey = groupEntry.getKey();
-                            final OrderedScoreIndexKey indexKey = bestContainedScore.get();
-                            final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
+            return groupOrderedScoreIndexKeys(indexEntries, directory, true).thenCompose(groupedScores -> {
+                final List<CompletableFuture<Void>> futures = new ArrayList<>();
+                for (Iterable<TimeWindowLeaderboard> directoryEntry : directory.getLeaderboards().values()) {
+                    for (TimeWindowLeaderboard leaderboard : directoryEntry) {
+                        for (Map.Entry<Tuple, Collection<OrderedScoreIndexKey>> groupEntry : groupedScores.entrySet()) {
+                            final Optional<OrderedScoreIndexKey> bestContainedScore = groupEntry.getValue().stream()
+                                    .filter(score -> leaderboard.containsTimestamp(score.timestamp))
+                                    .findFirst();
+                            if (bestContainedScore.isPresent()) {
+                                final Tuple groupKey = groupEntry.getKey();
+                                final OrderedScoreIndexKey indexKey = bestContainedScore.get();
+                                final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
 
-                            // Update the ordinary B-tree for this leaderboard.
-                            final Tuple entryKey = leaderboardGroupKey.addAll(indexKey.scoreKey);
-                            updateOneKey(savedRecord, remove, new IndexEntry(state.index, entryKey, entryValue));
+                                // Update the ordinary B-tree for this leaderboard.
+                                final Tuple entryKey = leaderboardGroupKey.addAll(indexKey.scoreKey);
+                                updateOneKey(savedRecord, remove, new IndexEntry(state.index, entryKey, entryValue));
 
-                            // Update the corresponding rankset for this leaderboard.
-                            final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-                            futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace,
-                                    leaderboard.getNLevels(), entryKey, indexKey.scoreKey, remove));
+                                // Update the corresponding rankset for this leaderboard.
+                                final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
+                                futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace,
+                                        leaderboard.getNLevels(), entryKey, indexKey.scoreKey, remove));
+                            }
                         }
                     }
                 }
-            }
-            Optional<Long> latestTimestamp = groupedScores.values().stream()
-                    .flatMap(Collection::stream).map(OrderedScoreIndexKey::getTimestamp).max(Long::compareTo);
-            if (latestTimestamp.isPresent()) {
-                // Keep track of the latest timestamp for any indexed entry.
-                // Then, if time window update adds an index that starts before then, we have to index existing records.
-                state.transaction.mutate(MutationType.MAX, state.indexSubspace.getKey(),
-                        AtomicMutation.Standard.encodeSignedLong(latestTimestamp.get()));
-            }
-            return AsyncUtil.whenAll(futures);
+                Optional<Long> latestTimestamp = groupedScores.values().stream()
+                        .flatMap(Collection::stream).map(OrderedScoreIndexKey::getTimestamp).max(Long::compareTo);
+                if (latestTimestamp.isPresent()) {
+                    // Keep track of the latest timestamp for any indexed entry.
+                    // Then, if time window update adds an index that starts before then, we have to index existing records.
+                    state.transaction.mutate(MutationType.MAX, state.indexSubspace.getKey(),
+                            AtomicMutation.Standard.encodeSignedLong(latestTimestamp.get()));
+                }
+                return AsyncUtil.whenAll(futures);
+            });
         });
     }
 
@@ -355,22 +422,25 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                                                               @Nonnull TupleRange range,
                                                               @Nonnull IsolationLevel isolationLevel) {
         if (FunctionNames.TIME_WINDOW_COUNT.equals(function.getName()) && range.isEquals()) {
-            return evaluateEqualRange(range, (leaderboard, rankedSet, values) ->
-                rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from));
+            return evaluateEqualRange(range, (leaderboard, rankedSet, groupKey, values) ->
+                    rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from));
         }
         if ((FunctionNames.SCORE_FOR_TIME_WINDOW_RANK.equals(function.getName()) ||
-                FunctionNames.SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP.equals(function.getName())) &&
+                 FunctionNames.SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP.equals(function.getName())) &&
                 range.isEquals()) {
             final Tuple outOfRange = FunctionNames.SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP.equals(function.getName()) ?
                                      RankedSetIndexHelper.COMPARISON_SKIPPED_SCORE : null;
-            return evaluateEqualRange(range, (leaderboard, rankedSet, values) ->
-                RankedSetIndexHelper.scoreForRank(state, rankedSet, (Number)values.get(0), outOfRange)
-                        .thenApply(score -> score == null || !leaderboard.isHighScoreFirst() ? score : negateScoreForHighScoreFirst(score, 0)));
+            return evaluateEqualRange(range, (leaderboard, rankedSet, groupKey, values) ->
+                    RankedSetIndexHelper.scoreForRank(state, rankedSet, (Number)values.get(0), outOfRange)
+                            .thenCombine(isHighScoreFirst(leaderboard.getDirectory(), groupKey), (score, highScoreFirst) ->
+                                    score == null || !highScoreFirst ? score : negateScoreForHighScoreFirst(score, 0)));
         }
         if (FunctionNames.TIME_WINDOW_RANK_FOR_SCORE.equals(function.getName()) && range.isEquals()) {
-            return evaluateEqualRange(range, (leaderboard, rankedSet, values) -> {
-                final Tuple scoreValues = leaderboard.isHighScoreFirst() ? negateScoreForHighScoreFirst(values, 0) : values;
-                return RankedSetIndexHelper.rankForScore(state, rankedSet, scoreValues, false).thenApply(Tuple::from);
+            return evaluateEqualRange(range, (leaderboard, rankedSet, groupKey, values) -> {
+                return isHighScoreFirst(leaderboard.getDirectory(), groupKey).thenCompose(highScoreFirst -> {
+                    final Tuple scoreValues = highScoreFirst ? negateScoreForHighScoreFirst(values, 0) : values;
+                    return RankedSetIndexHelper.rankForScore(state, rankedSet, scoreValues, false).thenApply(Tuple::from);
+                });
             });
         }
         return unsupportedAggregateFunction(function);
@@ -378,7 +448,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
     private interface EvaluateEqualRange {
         @Nonnull
-        CompletableFuture<Tuple> apply(@Nonnull TimeWindowLeaderboard leaderboard, @Nonnull RankedSet rankedSet, @Nonnull Tuple values);
+        CompletableFuture<Tuple> apply(@Nonnull TimeWindowLeaderboard leaderboard, @Nonnull RankedSet rankedSet, @Nonnull Tuple groupKey, @Nonnull Tuple values);
     }
 
     private CompletableFuture<Tuple> evaluateEqualRange(@Nonnull TupleRange range,
@@ -398,7 +468,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             final Subspace extraSubspace = getSecondarySubspace();
             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
             final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
-            return function.apply(leaderboard, rankedSet, values);
+            return function.apply(leaderboard, rankedSet, groupKey, values);
         });
     }
 
@@ -420,33 +490,36 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 return CompletableFuture.completedFuture(null);
             }
 
-            final Map<Tuple, Collection<OrderedScoreIndexKey>> groupedScores =
-                    groupOrderedScoreIndexKeys(indexEntries, leaderboard.isHighScoreFirst(), true);
-            if (groupedScores.isEmpty()) {
-                return CompletableFuture.completedFuture(null);
-            }
-            if (groupedScores.size() > 1) {
-                throw new RecordCoreException("Record has more than one group of scores");
-            }
+            return groupOrderedScoreIndexKeys(indexEntries, leaderboard.getDirectory(), true).thenCompose(groupedScores -> {
+                if (groupedScores.isEmpty()) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                if (groupedScores.size() > 1) {
+                    throw new RecordCoreException("Record has more than one group of scores");
+                }
 
-            Map.Entry<Tuple, Collection<OrderedScoreIndexKey>> groupEntry = groupedScores.entrySet().iterator().next();
-            Optional<OrderedScoreIndexKey> bestContainedScore = groupEntry.getValue().stream()
-                    .filter(score -> leaderboard.containsTimestamp(score.timestamp))
-                    .findFirst();
-            if (!bestContainedScore.isPresent()) {
-                return CompletableFuture.completedFuture(null);
-            }
+                Map.Entry<Tuple, Collection<OrderedScoreIndexKey>> groupEntry = groupedScores.entrySet().iterator().next();
+                Optional<OrderedScoreIndexKey> bestContainedScore = groupEntry.getValue().stream()
+                        .filter(score -> leaderboard.containsTimestamp(score.timestamp))
+                        .findFirst();
+                if (!bestContainedScore.isPresent()) {
+                    return CompletableFuture.completedFuture(null);
+                }
 
-            // bestContainedScore should be the one stored in the leaderboard's ranked set; get its rank there.
-            final Tuple groupKey = groupEntry.getKey();
-            final OrderedScoreIndexKey indexKey = bestContainedScore.get();
-            final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
-            final Subspace extraSubspace = getSecondarySubspace();
-            final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
-            // Undo any negation needed to find entry.
-            final Tuple entry = leaderboard.isHighScoreFirst() ? negateScoreForHighScoreFirst(indexKey.scoreKey, 0) : indexKey.scoreKey;
-            return RankedSetIndexHelper.rankForScore(state, rankedSet, indexKey.scoreKey, true).thenApply(rank -> Pair.of(rank, entry));
+                // bestContainedScore should be the one stored in the leaderboard's ranked set; get its rank there.
+                final Tuple groupKey = groupEntry.getKey();
+                return isHighScoreFirst(leaderboard.getDirectory(), groupKey)
+                        .thenCompose(highScoreFirst -> {
+                            final OrderedScoreIndexKey indexKey = bestContainedScore.get();
+                            final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
+                            final Subspace extraSubspace = getSecondarySubspace();
+                            final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
+                            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
+                            // Undo any negation needed to find entry.
+                            final Tuple entry = highScoreFirst ? negateScoreForHighScoreFirst(indexKey.scoreKey, 0) : indexKey.scoreKey;
+                            return RankedSetIndexHelper.rankForScore(state, rankedSet, indexKey.scoreKey, true).thenApply(rank -> Pair.of(rank, entry));
+                        });
+            });
         });
     }
 
@@ -493,15 +566,24 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                     .thenCompose(vignore -> state.checkRebuild())
                     .thenCompose(vignore -> state.save())
                     .thenApply(vignore -> state.getResult());
-            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_GET_DIRECTORY;
+            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_UPDATE_DIRECTORY;
         } else if (operation instanceof TimeWindowLeaderboardScoreTrim) {
             final TimeWindowLeaderboardScoreTrim trim = (TimeWindowLeaderboardScoreTrim)operation;
-            result = loadDirectory().thenApply(directory -> new TimeWindowLeaderboardScoreTrimResult(
-                    trimScores(directory, trim.getScores(), trim.isIncludesGroup())));
-            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_UPDATE_DIRECTORY;
+            result = loadDirectory().thenCompose(directory -> trimScores(directory, trim.getScores(), trim.isIncludesGroup()))
+                .thenApply(TimeWindowLeaderboardScoreTrimResult::new);
+            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_TRIM_SCORES;
         } else if (operation instanceof TimeWindowLeaderboardDirectoryOperation) {
             result = loadDirectory().thenApply(TimeWindowLeaderboardDirectoryResult::new);
-            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_TRIM_SCORES;
+            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_GET_DIRECTORY;
+        } else if (operation instanceof TimeWindowLeaderboardSubDirectoryOperation) {
+            final TimeWindowLeaderboardSubDirectoryOperation subdir = (TimeWindowLeaderboardSubDirectoryOperation)operation;
+            result = loadDirectory().thenCompose(directory -> loadSubDirectory(directory, subdir.getGroup())).thenApply(TimeWindowLeaderboardSubDirectoryResult::new);
+            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_GET_SUB_DIRECTORY;
+        } else if (operation instanceof TimeWindowLeaderboardSaveSubDirectory) {
+            final TimeWindowLeaderboardSaveSubDirectory subdir = (TimeWindowLeaderboardSaveSubDirectory)operation;
+            saveSubDirectory(subdir.getSubDirectory());
+            result = CompletableFuture.completedFuture(new TimeWindowLeaderboardSubDirectoryResult(subdir.getSubDirectory()));
+            event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY;
         } else {
             result = super.performOperation(operation);
         }
@@ -649,64 +731,74 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         }
     }
 
-    protected Collection<Tuple> trimScores(@Nullable TimeWindowLeaderboardDirectory directory,
-                                                @Nonnull Collection<Tuple> scores, boolean includesGroup) {
+    protected CompletableFuture<Collection<Tuple>> trimScores(@Nullable TimeWindowLeaderboardDirectory directory,
+                                                              @Nonnull Collection<Tuple> scores, boolean includesGroup) {
         if (directory == null) {
-            return scores;
+            return CompletableFuture.completedFuture(scores);
         }
         final List<IndexEntry> indexEntries = scores.stream().map(score -> new IndexEntry(state.index, score, TupleHelpers.EMPTY)).collect(Collectors.toList());
-        final Map<Tuple, Collection<OrderedScoreIndexKey>> groupedScores =
-                groupOrderedScoreIndexKeys(indexEntries, directory.isHighScoreFirst(), includesGroup);
-        final Set<OrderedScoreIndexKey> trimmed = new TreeSet<>();
-        for (Iterable<TimeWindowLeaderboard> directoryEntry : directory.getLeaderboards().values()) {
-            for (TimeWindowLeaderboard leaderboard : directoryEntry) {
-                for (Collection<OrderedScoreIndexKey> entry : groupedScores.values()) {
-                    Optional<OrderedScoreIndexKey> bestContainedScore = entry.stream()
-                            .filter(score -> leaderboard.containsTimestamp(score.timestamp))
-                            .findFirst();
-                    bestContainedScore.ifPresent(trimmed::add);
+        return groupOrderedScoreIndexKeys(indexEntries, directory, includesGroup).thenApply(groupedScores -> {
+            final Set<OrderedScoreIndexKey> trimmed = new TreeSet<>();
+            for (Iterable<TimeWindowLeaderboard> directoryEntry : directory.getLeaderboards().values()) {
+                for (TimeWindowLeaderboard leaderboard : directoryEntry) {
+                    for (Collection<OrderedScoreIndexKey> entry : groupedScores.values()) {
+                        Optional<OrderedScoreIndexKey> bestContainedScore = entry.stream()
+                                .filter(score -> leaderboard.containsTimestamp(score.timestamp))
+                                .findFirst();
+                        bestContainedScore.ifPresent(trimmed::add);
+                    }
                 }
             }
-        }
-        return trimmed.stream().map(indexKey -> indexKey.getIndexEntry().getKey()).collect(Collectors.toList());
+            return trimmed.stream().map(indexKey -> indexKey.getIndexEntry().getKey()).collect(Collectors.toList());
+        });
     }
 
     /**
      * Group the given <code>indexKeys</code> by group of size <code>groupPrefixSize</code>, ordering within each
      * group by score, taking <code>highScoreFirst</code> into account.
      * @param indexEntries index entries to be added to the index
-     * @param highScoreFirst whether higher scores are better (earlier in the list)
+     * @param directory leaderboard directory used to decide whether higher scores are better (earlier in the list)
      * @param includesGroup whether index entries also include the group key(s)
-     * @return index keys grouped by leaderboard
+     * @return a future that completes to index keys grouped by leaderboard
      */
-    protected Map<Tuple, Collection<OrderedScoreIndexKey>> groupOrderedScoreIndexKeys(@Nonnull Iterable<IndexEntry> indexEntries,
-                                                                                       boolean highScoreFirst,
-                                                                                       boolean includesGroup) {
+    protected CompletableFuture<Map<Tuple, Collection<OrderedScoreIndexKey>>> groupOrderedScoreIndexKeys(@Nonnull Iterable<IndexEntry> indexEntries,
+                                                                                                         @Nonnull TimeWindowLeaderboardDirectory directory,
+                                                                                                         boolean includesGroup) {
         final int groupPrefixSize = getGroupingCount();
-        final Map<Tuple, Collection<OrderedScoreIndexKey>> grouped = new HashMap<>();
-        for (IndexEntry indexEntry : indexEntries) {
-            // group_keys[groupingPrefixSize], score, timestamp, other tiebreakers...
-            Tuple scoreKey = indexEntry.getKey();
-            Tuple groupKey = TupleHelpers.EMPTY;
-
-            if (highScoreFirst) {
-                scoreKey = negateScoreForHighScoreFirst(scoreKey, includesGroup ? groupPrefixSize : 0);
+        final Map<Tuple, CompletableFuture<Boolean>> groupDirections = new HashMap<>();
+        if (includesGroup) {
+            for (IndexEntry indexEntry : indexEntries) {
+                Tuple groupKey = TupleHelpers.subTuple(indexEntry.getKey(), 0, groupPrefixSize);
+                groupDirections.computeIfAbsent(groupKey, group -> isHighScoreFirst(directory, group));
             }
-
-            if (includesGroup && groupPrefixSize > 0) {
-                groupKey = TupleHelpers.subTuple(scoreKey, 0, groupPrefixSize);
-                scoreKey = TupleHelpers.subTuple(scoreKey, groupPrefixSize, scoreKey.size());
-            }
-            final OrderedScoreIndexKey orderedScoreIndexKey = new OrderedScoreIndexKey(indexEntry, scoreKey);
-            grouped.compute(groupKey, (gignore, collection) -> {
-                if (collection == null) {
-                    collection = new TreeSet<>();
-                }
-                collection.add(orderedScoreIndexKey);
-                return collection;
-            });
         }
-        return grouped;
+        return AsyncUtil.whenAll(groupDirections.values()).thenApply(vignore -> {
+            final Map<Tuple, Collection<OrderedScoreIndexKey>> grouped = new HashMap<>();
+            for (IndexEntry indexEntry : indexEntries) {
+                // group_keys[groupingPrefixSize], score, timestamp, other tiebreakers...
+                Tuple scoreKey = indexEntry.getKey();
+                Tuple groupKey = TupleHelpers.EMPTY;
+
+                if (includesGroup && groupPrefixSize > 0) {
+                    groupKey = TupleHelpers.subTuple(scoreKey, 0, groupPrefixSize);
+                    scoreKey = TupleHelpers.subTuple(scoreKey, groupPrefixSize, scoreKey.size());
+                }
+
+                if (includesGroup ? groupDirections.get(groupKey).join() : directory.isHighScoreFirst()) {
+                    scoreKey = negateScoreForHighScoreFirst(scoreKey, 0);
+                }
+
+                final OrderedScoreIndexKey orderedScoreIndexKey = new OrderedScoreIndexKey(indexEntry, scoreKey);
+                grouped.compute(groupKey, (gignore, collection) -> {
+                    if (collection == null) {
+                        collection = new TreeSet<>();
+                    }
+                    collection.add(orderedScoreIndexKey);
+                    return collection;
+                });
+            }
+            return grouped;
+        });
     }
 
     /**

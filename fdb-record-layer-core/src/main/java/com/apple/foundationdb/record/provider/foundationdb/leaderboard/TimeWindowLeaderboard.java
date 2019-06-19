@@ -67,10 +67,6 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
         return directory;
     }
 
-    public boolean isHighScoreFirst() {
-        return directory.isHighScoreFirst();
-    }
-
     public int getType() {
         return type;
     }

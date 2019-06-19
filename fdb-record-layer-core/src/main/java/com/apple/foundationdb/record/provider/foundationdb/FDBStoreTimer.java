@@ -149,7 +149,11 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardWindowUpdate}. */
         TIME_WINDOW_LEADERBOARD_UPDATE_DIRECTORY("leaderboard update directory"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardScoreTrim}. */
-        TIME_WINDOW_LEADERBOARD_TRIM_SCORES("leaderboard trim scores");
+        TIME_WINDOW_LEADERBOARD_TRIM_SCORES("leaderboard trim scores"),
+        /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSubDirectoryOperation}. */
+        TIME_WINDOW_LEADERBOARD_GET_SUB_DIRECTORY("leaderboard get sub-directory"),
+        /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSaveSubDirectory}. */
+        TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory");
 
         private final String title;
         Events(String title) {

@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The persisted set of active leaderboard ranked sets.
@@ -40,6 +41,7 @@ public class TimeWindowLeaderboardDirectory {
     private long updateTimestamp;
     private int nextKey;
     private Map<Integer, Collection<TimeWindowLeaderboard>> leaderboards = new TreeMap<>();
+    private Map<Tuple, TimeWindowLeaderboardSubDirectory> subdirectories = new ConcurrentHashMap<>();
 
     public TimeWindowLeaderboardDirectory(boolean highScoreFirst) {
         this.highScoreFirst = highScoreFirst;
@@ -111,6 +113,15 @@ public class TimeWindowLeaderboardDirectory {
             collection.add(leaderboard);
             return collection;
         });
+    }
+
+    @Nullable
+    public TimeWindowLeaderboardSubDirectory getSubDirectory(@Nonnull Tuple subdir) {
+        return subdirectories.get(subdir);
+    }
+
+    public void addSubDirectory(@Nonnull TimeWindowLeaderboardSubDirectory subdir) {
+        subdirectories.put(subdir.getGroup(), subdir);
     }
 
     @Nonnull
