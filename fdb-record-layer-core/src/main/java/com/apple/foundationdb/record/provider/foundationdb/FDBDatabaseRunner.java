@@ -44,27 +44,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-/**
- * A context for running against an {@link FDBDatabase} with retrying of transient exceptions.
- *
- * Implements {@link #run} and {@link #runAsync} methods for executing functions in a new {@link FDBRecordContext} and returning their result.
- *
- * Implements {@link #close} in such a way that {@code runAsync} will not accidentally do more work afterwards. In particular, in the case
- * of timeouts and transaction retries, it is otherwise possible for a whole new transaction to start at some time in the future and change
- * the database even after the caller has given up, due to a timeout, for example.
- *
- *
- * <pre><code>
- * try (FDBDatabaseRunner runner = fdb.newRunner()) {
- *     CompleteableFuture&lt;Void&lt; future = runner.runAsync(context -&gt; ...);
- *     fdb.asyncToSync(timer, WAIT_XXX, future);
- * }
- * </code></pre>
- *
- * @see FDBDatabase
- */
 @API(API.Status.MAINTAINED)
-public class FDBDatabaseRunner implements AutoCloseable {
+public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseRunner.class);
 
     @Nonnull
@@ -121,96 +102,57 @@ public class FDBDatabaseRunner implements AutoCloseable {
         this(database, null, null, null);
     }
 
-    /**
-     * Get the database against which functions are run.
-     * @return the database used to run
-     */
+    @Override
     @Nonnull
     public FDBDatabase getDatabase() {
         return database;
     }
 
-    /**
-     * Get the executor that will be used for {@link #runAsync}.
-     * @return the executor to use
-     */
+    @Override
     public Executor getExecutor() {
         return executor;
     }
 
-    /**
-     * Get the timer used in record contexts opened by this runner.
-     * @return timer to use
-     */
+    @Override
     @Nullable
     public FDBStoreTimer getTimer() {
         return timer;
     }
 
-    /**
-     * Set the timer used in record contexts opened by this runner.
-     * @param timer timer to use
-     * @see FDBDatabase#openContext(Map,FDBStoreTimer)
-     */
+    @Override
     public void setTimer(@Nullable FDBStoreTimer timer) {
         this.timer = timer;
     }
 
-    /**
-     * Get the logging context used in record contexts opened by this runner.
-     * @return the logging context to use
-     */
+    @Override
     @Nullable
     public Map<String, String> getMdcContext() {
         return mdcContext;
     }
 
-    /**
-     * Set the logging context used in record contexts opened by this runner.
-     * This will change the executor to be one that restores this new {@code mdcContext}.
-     * @param mdcContext the logging context to use
-     * @see FDBDatabase#openContext(Map,FDBStoreTimer)
-     */
+    @Override
     public void setMdcContext(@Nullable Map<String, String> mdcContext) {
         this.mdcContext = mdcContext;
         executor = FDBRecordContext.initExecutor(database, mdcContext);
     }
 
-    /**
-     * Get the read semantics used in record contexts opened by this runner.
-     * @return allowable staleness parameters if caching read versions
-     */
+    @Override
     @Nullable
     public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
         return weakReadSemantics;
     }
 
-    /**
-     * Set the read semantics used in record contexts opened by this runner.
-     * @param weakReadSemantics allowable staleness parameters if caching read versions
-     * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)
-     */
+    @Override
     public void setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
         this.weakReadSemantics = weakReadSemantics;
     }
 
-    /**
-     * Gets the maximum number of attempts for a database to make when running a
-     * retriable transactional operation. This is used by {@link #run} and {@link #runAsync} to limit the number of
-     * attempts that an operation is retried.
-     * @return the maximum number of times to run a transactional database operation
-     */
+    @Override
     public int getMaxAttempts() {
         return maxAttempts;
     }
 
-    /**
-     * Sets the maximum number of attempts for a database to make when running a
-     * retriable transactional operation. This is used by {@link #run} and {@link #runAsync} to limit the number of
-     * attempts that an operation is retried.
-     * @param maxAttempts the maximum number of times to run a transactional database operation
-     * @throws IllegalArgumentException if a non-positive number is given
-     */
+    @Override
     public void setMaxAttempts(int maxAttempts) {
         if (maxAttempts <= 0) {
             throw new RecordCoreException("Cannot set maximum number of attempts to less than or equal to zero");
@@ -218,36 +160,17 @@ public class FDBDatabaseRunner implements AutoCloseable {
         this.maxAttempts = maxAttempts;
     }
 
-    /**
-     * Gets the minimum delay (in milliseconds) that will be applied between attempts to
-     * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to limit the time spent
-     * between successive attempts at completing a database operation.
-     * Currently this value is fixed at 2 milliseconds and is not settable.
-     * @return the minimum delay between attempts when retrying operations
-     */
+    @Override
     public long getMinDelayMillis() {
         return 2;
     }
 
-    /**
-     * Gets the maximum delay (in milliseconds) that will be applied between attempts to
-     * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to limit the time spent
-     * between successive attempts at completing a database operation. The default value is 1000 so that
-     * there will not be more than 1 second between attempts.
-     * @return the maximum delay between attempts when retrying operations
-     */
+    @Override
     public long getMaxDelayMillis() {
         return maxDelayMillis;
     }
 
-    /**
-     * Sets the maximum delay (in milliseconds) that will be applied between attempts to
-     * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to limit the time spent
-     * between successive attempts at completing a database operation. The default value is 1000 so that
-     * there will not be more than 1 second between attempts.
-     * @param maxDelayMillis the maximum delay between attempts when retrying operations
-     * @throws IllegalArgumentException if the value is negative or less than the minimum delay
-     */
+    @Override
     public void setMaxDelayMillis(long maxDelayMillis) {
         if (maxDelayMillis < 0) {
             throw new RecordCoreException("Cannot set maximum delay milliseconds to less than or equal to zero");
@@ -257,29 +180,12 @@ public class FDBDatabaseRunner implements AutoCloseable {
         this.maxDelayMillis = maxDelayMillis;
     }
 
-    /**
-     * Gets the delay ceiling (in milliseconds) that will be applied between attempts to
-     * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to determine how
-     * long to wait between the first and second attempts at running a database operation.
-     * The exponential backoff algorithm will choose an amount of time to wait between zero
-     * and the initial delay, and will use that value each successive iteration to determine
-     * how long that wait should be. The default value is 10 milliseconds.
-     * @return the delay ceiling between the first and second attempts at running a database operation
-     */
+    @Override
     public long getInitialDelayMillis() {
         return initialDelayMillis;
     }
 
-    /**
-     * Sets the delay ceiling (in milliseconds) that will be applied between attempts to
-     * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to determine how
-     * long to wait between the first and second attempts at running a database operation.
-     * The exponential backoff algorithm will choose an amount of time to wait between zero
-     * and the initial delay, and will use that value each successive iteration to determine
-     * how long that wait should be. The default value is 10 milliseconds.
-     * @param initialDelayMillis the delay ceiling between the first and second attempts at running a database operation
-     * @throws IllegalArgumentException if the value is negative or greater than the maximum delay
-     */
+    @Override
     public void setInitialDelayMillis(long initialDelayMillis) {
         if (initialDelayMillis < 0) {
             throw new RecordCoreException("Cannot set initial delay milleseconds to less than zero");
@@ -289,11 +195,7 @@ public class FDBDatabaseRunner implements AutoCloseable {
         this.initialDelayMillis = initialDelayMillis;
     }
 
-    /**
-     * Open a new record context.
-     * @return a new open record context
-     * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)
-     */
+    @Override
     @Nonnull
     public FDBRecordContext openContext() {
         if (closed) {
@@ -437,83 +339,32 @@ public class FDBDatabaseRunner implements AutoCloseable {
         }
     }
 
-    /**
-     * Runs a transactional function against with retry logic.
-     * This is a blocking call. See the appropriate overload of {@link #runAsync}
-     * for the non-blocking version of this method.
-     *
-     * @param retriable the database operation to run transactionally
-     * @param <T> return type of function to run
-     * @return result of function after successful run and commit
-     * @see #runAsync(Function)
-     */
+    @Override
     public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
         return run(retriable, null);
     }
 
-    /**
-     * Runs a transactional function against with retry logic.
-     * This is a blocking call. See the appropriate overload of {@link #runAsync}
-     * for the non-blocking version of this method.
-     *
-     * @param <T> return type of function to run
-     * @param retriable the database operation to run transactionally
-     * @param additionalLogMessageKeyValues additional key/value pairs to be included in logs
-     * @return result of function after successful run and commit
-     * @see #runAsync(Function)
-     */
+    @Override
     @API(API.Status.EXPERIMENTAL)
     public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
                      @Nullable List<Object> additionalLogMessageKeyValues) {
         return new RunRetriable<T>(additionalLogMessageKeyValues).run(retriable);
     }
 
-    /**
-     * Runs a transactional function asynchronously with retry logic.
-     * This is also a non-blocking call. See the appropriate overload of {@link #run}
-     * for the blocking version of this method.
-     *
-     * @param retriable the database operation to run transactionally
-     * @param <T> return type of function to run
-     * @return future that will contain the result of {@code retriable} after successful run and commit
-     * @see #run(Function)
-     */
+    @Override
     @Nonnull
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         return runAsync(retriable, Pair::of);
     }
 
-    /**
-     * Runs a transactional function asynchronously with retry logic.
-     * This is also a non-blocking call.
-     *
-     * @param retriable the database operation to run transactionally
-     * @param handlePostTransaction after the transaction is committed, or fails to commit, this function is called with the
-     * result or exception respectively. This handler should return a new pair with either the result to return from
-     * {@code runAsync} or an exception to be checked whether {@code retriable} should be retried.
-     * @param <T> return type of function to run
-     * @return future that will contain the result of {@code retriable} after successful run and commit
-     * @see #run(Function)
-     */
+    @Override
     @Nonnull
     public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
         return runAsync(retriable, handlePostTransaction, null);
     }
 
-    /**
-     * Runs a transactional function asynchronously with retry logic.
-     * This is also a non-blocking call.
-     *
-     * @param <T> return type of function to run
-     * @param retriable the database operation to run transactionally
-     * @param handlePostTransaction after the transaction is committed, or fails to commit, this function is called with the
-     * result or exception respectively. This handler should return a new pair with either the result to return from
-     * {@code runAsync} or an exception to be checked whether {@code retriable} should be retried.
-     * @param additionalLogMessageKeyValues additional key/value pairs to be included in logs
-     * @return future that will contain the result of {@code retriable} after successful run and commit
-     * @see #run(Function)
-     */
+    @Override
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
     public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
@@ -522,20 +373,12 @@ public class FDBDatabaseRunner implements AutoCloseable {
         return new RunRetriable<T>(additionalLogMessageKeyValues).runAsync(retriable, handlePostTransaction);
     }
 
+    @Override
     @Nullable
     public <T> T asyncToSync(FDBStoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
         return database.asyncToSync(timer, event, async);
     }
 
-    /**
-     * Close this runner.
-     *
-     * <ul>
-     * <li>Disallows starting more transactions</li>
-     * <li>Closes already open transactions</li>
-     * <li>Cancels futures returned by {@code runAsync}</li>
-     * </ul>
-     */
     @Override
     public synchronized void close() {
         if (closed) {
@@ -570,13 +413,4 @@ public class FDBDatabaseRunner implements AutoCloseable {
         futuresToCompleteExceptionally.add(future);
     }
 
-    /**
-     * Exception thrown when {@link FDBDatabaseRunner} has been closed but tries to do work.
-     */
-    @SuppressWarnings("serial")
-    public static class RunnerClosed extends RecordCoreException {
-        public RunnerClosed() {
-            super("runner has been closed");
-        }
-    }
 }
