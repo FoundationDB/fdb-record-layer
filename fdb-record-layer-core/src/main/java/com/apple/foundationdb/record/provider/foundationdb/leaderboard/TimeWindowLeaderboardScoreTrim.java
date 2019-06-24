@@ -28,6 +28,11 @@ import java.util.Collection;
 
 /**
  * Retain only scores that would be indexed by active time windows.
+ *
+ * Scores are specified as a collection of {@link Tuple}. A sub-collection is returned in {@link TimeWindowLeaderboardScoreTrimResult}.
+ *
+ * Score tuples can include their group key as well. If they do not, then all groups must have the default setting for whether high scores come first, which is needed
+ * to keep only the best score for a given time window.
  */
 @API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardScoreTrim extends IndexOperation {
