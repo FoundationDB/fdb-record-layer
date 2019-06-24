@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
+import com.apple.foundationdb.subspace.Subspace;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +40,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -392,6 +395,19 @@ public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
             }
         }
         contextsToClose.forEach(FDBRecordContext::close);
+    }
+
+    // Start a new session. A synchronized session keeps its lock by updating timestamp in its working transactions, so
+    // do NOT try to get the synchronized runner until it is going to be actively used.
+    @API(API.Status.EXPERIMENTAL)
+    public SynchronizedSessionRunner toSynchronized(Subspace lockSubspace) {
+        return SynchronizedSessionRunner.startSession(lockSubspace, this);
+    }
+
+    // Join an existing session.
+    @API(API.Status.EXPERIMENTAL)
+    public SynchronizedSessionRunner toSynchronized(Subspace lockSubspace, UUID sessionId) {
+        return SynchronizedSessionRunner.joinSession(lockSubspace, sessionId, this);
     }
 
     private synchronized void addContextToClose(@Nonnull FDBRecordContext context) {

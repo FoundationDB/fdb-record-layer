@@ -26,28 +26,30 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 
 @API(API.Status.EXPERIMENTAL)
-public class SynchronizedSession {
+class SynchronizedSession {
     @Nonnull
     private Subspace lockSubspace;
     @Nonnull
-    private FDBDatabaseRunner runner;
+    private UUID sessionId;
 
-    @Nullable
-    private UUID sessionId = null;
+    @Nonnull
+    private final byte[] lockSessionIdSubspaceKey;
+    @Nonnull
+    private final byte[] lockSessionTimeSubspaceKey;
 
     // TODO: configurable?
     private static final long LEASE_PERIOD_MILL = 60_000;
@@ -55,29 +57,15 @@ public class SynchronizedSession {
     private static final Object LOCK_SESSION_ID_KEY = 0L;
     private static final Object LOCK_SESSION_TIME_KEY = 1L;
 
-    public SynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull FDBDatabaseRunner runner) {
+    SynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId) {
         this.lockSubspace = lockSubspace;
-        this.runner = runner;
-    }
-
-    // A synchronized session keeps its look by updating timestamp in each of its transaction, so do not initialize the
-    // session until it is being actively used.
-    public SynchronizedSessionRunner initializeSessionAndCreateRunner() {
-        boolean success = runner.run(context -> runner.asyncToSync(FDBStoreTimer.Waits.WAIT_INITIALIZE_SYNCHRONIZED_SESSION, initializeSession(context)));
-        if (success) {
-            return new SynchronizedSessionRunner(runner, this);
-        } else {
-            throw new SynchronizedSessionExpiredException("failed to initialize the session");
-        }
-    }
-
-    public SynchronizedSessionRunner reuseSessionAndCreateRunner(@Nonnull UUID sessionId) {
         this.sessionId = sessionId;
-        return new SynchronizedSessionRunner(runner, this);
+        lockSessionIdSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_ID_KEY)).pack();
+        lockSessionTimeSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_TIME_KEY)).pack();
     }
 
     // Return true if get lease otherwise false.
-    private CompletableFuture<Boolean> initializeSession(@Nonnull FDBRecordContext context) {
+    CompletableFuture<Void> initializeSession(@Nonnull FDBRecordContext context) {
         if (sessionId != null) {
             throw new RecordCoreException("SynchronizedSession has been initialized");
         }
@@ -89,7 +77,9 @@ public class SynchronizedSession {
                 return getSessionLock(tr);
             } else if (lockSessionId == sessionId) {
                 // This should never happen.
-                throw new RecordCoreException("session id already exists");
+                throw new RecordCoreException("session id already exists in subspace")
+                        .addLogInfo(LogMessageKeys.SUBSPACE_KEY, ByteArrayUtil2.loggable(lockSubspace.getKey()))
+                        .addLogInfo(LogMessageKeys.UUID, sessionId);
             } else {
                 // This is snapshot read so it will not affect all working transactions writing to it.
                 return getLockSessionTime(tr.snapshot()).thenCompose(sessionTime -> {
@@ -99,11 +89,17 @@ public class SynchronizedSession {
                         // The old lease was outdated, can get the lock.
                         return getSessionLock(tr);
                     } else {
-                        return AsyncUtil.READY_FALSE;
+                        throw new SynchronizedSessionExpiredException("failed to initialize the session");
                     }
                 });
             }
         });
+    }
+
+    private CompletionStage<Void> getSessionLock(Transaction tr) {
+        setLockSessionId(tr);
+        setLockSessionTime(tr);
+        return tr.commit();
     }
 
     <T> Function<FDBRecordContext, T> workInSession(
@@ -128,24 +124,21 @@ public class SynchronizedSession {
                 });
     }
 
-    private CompletionStage<Boolean> getSessionLock(Transaction tr) {
-        setLockSessionId(tr);
-        setLockSessionTime(tr);
-        return tr.commit().thenCompose(vignore -> AsyncUtil.READY_TRUE);
+    public Void close(FDBRecordContext context) {
+        context.ensureActive().clear(lockSubspace.pack());
+        return null;
     }
 
     private CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr) {
-        final byte[] lockSessionIdSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_ID_KEY)).pack();
         return tr.get(lockSessionIdSubspaceKey)
                 .thenApply(value -> Tuple.fromBytes(value).getUUID(0));
     }
 
     private void setLockSessionId(@Nonnull Transaction tr) {
-        final byte[] lockSessionIdSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_ID_KEY)).pack();
         tr.set(lockSessionIdSubspaceKey, Tuple.from(sessionId).pack());
     }
 
-    // There may be multiple threads working in a same session, in which case the session time is being wrote
+    // There may be multiple threads working in a same session, in which case the session time is being written
     // frequently. To avoid unnecessary races:
     // - The session time should not be read during working in the session, so that all work transactions can write to
     //   it blindly and not conflict with each other.
@@ -154,18 +147,13 @@ public class SynchronizedSession {
     // - When the session time is read during session initialization, it should be a snapshot read so it will not have
     //   conflicts with working transactions (which write to session time).
     private CompletableFuture<Long> getLockSessionTime(@Nonnull ReadTransaction tr) {
-        final byte[] lockSessionTimeSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_TIME_KEY)).pack();
         return tr.get(lockSessionTimeSubspaceKey)
                 .thenApply(value -> Tuple.fromBytes(value).getLong(0));
     }
 
     private void setLockSessionTime(@Nonnull Transaction tr) {
-        final byte[] lockSessionTimeSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_TIME_KEY)).pack();
         long currentTime = System.currentTimeMillis();
         // The timestamp is stored as long so little-endian comparison should be used.
         tr.mutate(MutationType.MAX, lockSessionTimeSubspaceKey, Tuple.from(currentTime).pack());
     }
-
-
-
 }

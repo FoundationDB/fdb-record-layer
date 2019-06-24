@@ -34,13 +34,19 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
+ * <p>
  * A context for running against an {@link FDBDatabase} with retrying of transient exceptions.
+ * </p>
  *
+ * <p>
  * Implements {@link #run} and {@link #runAsync} methods for executing functions in a new {@link FDBRecordContext} and returning their result.
+ * </p>
  *
+ * <p>
  * Implements {@link #close} in such a way that {@code runAsync} will not accidentally do more work afterwards. In particular, in the case
  * of timeouts and transaction retries, it is otherwise possible for a whole new transaction to start at some time in the future and change
  * the database even after the caller has given up, due to a timeout, for example.
+ * </p>
  *
  *
  * <pre><code>

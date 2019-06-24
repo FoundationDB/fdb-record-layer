@@ -302,7 +302,7 @@ public class FDBStoreTimer extends StoreTimer {
         /** Wait for setting the store state cacheability. */
         WAIT_SET_STATE_CACHEABILITY("wait to set state cacheability"),
         /** Wait for initializing a synchronized session. */
-        WAIT_INITIALIZE_SYNCHRONIZED_SESSION("wait for initializing a synchronized session")
+        WAIT_INIT_SYNC_SESSION("wait for initializing a synchronized session")
         ;
 
         private final String title;

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunnerInterface;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.subspace.Subspace;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -51,16 +52,29 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     private FDBDatabaseRunner underlying;
     private SynchronizedSession session;
 
-    /**
-     * SynchronizedSessionRunner should only be constructed by {@link SynchronizedSession#initializeSessionAndCreateRunner()}
-     * or {@link SynchronizedSession#reuseSessionAndCreateRunner(UUID)} so we can be sure that the {@code session} has
-     * a session ID so {@link SynchronizedSession#workInSessionAsync(Function)} can be used.
-     * @param underlyingRunner the runner that runs underlying the synchronized session runner
-     * @param session a synchronized session with session ID created or assigned
-     */
-    SynchronizedSessionRunner(FDBDatabaseRunner underlyingRunner, SynchronizedSession session) {
+    // Start a new session. A synchronized session keeps its lock by updating timestamp in its working transactions, so
+    // do NOT try to get the synchronized runner until it is going to be actively used.
+    public static SynchronizedSessionRunner startSession(@Nonnull Subspace lockSubspace, @Nonnull FDBDatabaseRunner runner) {
+        final UUID newSessionId = UUID.randomUUID();
+        SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId);
+        runner.run(context -> runner.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION, session.initializeSession(context)));
+        return new SynchronizedSessionRunner(runner, session);
+    }
+
+    public static SynchronizedSessionRunner joinSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, @Nonnull FDBDatabaseRunner runner) {
+        SynchronizedSession session = new SynchronizedSession(lockSubspace, sessionId);
+        return new SynchronizedSessionRunner(runner, session);
+    }
+
+    private SynchronizedSessionRunner(FDBDatabaseRunner underlyingRunner, SynchronizedSession session) {
         this.underlying = underlyingRunner;
         this.session = session;
+    }
+
+    // This is not necessarily to be called when closing the runner because there can be multiple runner for a same
+    // session.
+    public void closeSession() {
+        underlying.run(context -> session.close(context));
     }
 
     @Override

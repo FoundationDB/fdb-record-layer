@@ -52,6 +52,7 @@ public enum LogMessageKeys {
     MAX_ATTEMPTS("max_attempts"),
     DELAY("delay"),
     COMMIT_NAME("commit_name"),
+    UUID("uuid"),
     // record splitting/unsplitting
     KEY("key"),
     KEY_TUPLE("key_tuple"),
