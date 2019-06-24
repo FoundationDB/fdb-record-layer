@@ -216,21 +216,28 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             } else {
                 highStoreFirstFuture = AsyncUtil.READY_FALSE;
             }
-            if (highStoreFirstFuture.isDone() && !highStoreFirstFuture.join()) {
-                return scanLeaderboard(leaderboard, scoreRange, continuation, scanProperties);
+            if (highStoreFirstFuture.isDone()) {
+                return scanLeaderboard(leaderboard, highStoreFirstFuture.join(), scoreRange, continuation, scanProperties);
             } else {
-                return RecordCursor.fromFuture(getExecutor(), highStoreFirstFuture).flatMapPipelined(highScoreFirst -> {
-                    if (highScoreFirst) {
-                        // Reverse direction and endpoints and negate score values.
-                        return scanLeaderboard(leaderboard, negateScoreRange(scoreRange),
-                                continuation, scanProperties.setReverse(!scanProperties.isReverse()));
-                    } else {
-                        return scanLeaderboard(leaderboard, scoreRange, continuation, scanProperties);
-                    }
-                }, 1);
+                return RecordCursor.fromFuture(getExecutor(), highStoreFirstFuture).flatMapPipelined(highScoreFirst ->
+                        scanLeaderboard(leaderboard, highScoreFirst, scoreRange, continuation, scanProperties), 1);
             }
         }, 1)
                 .mapPipelined(kv -> getIndexEntry(kv, groupPrefixSize, leaderboardFuture.join().getDirectory()), 1);
+    }
+
+    protected RecordCursor<IndexEntry> scanLeaderboard(@Nonnull TimeWindowLeaderboard leaderboard,
+                                                       boolean highScoreFirst,
+                                                       @Nonnull TupleRange scoreRange,
+                                                       @Nullable byte[] continuation,
+                                                       @Nonnull ScanProperties scanProperties) {
+        if (highScoreFirst) {
+            // Reverse direction and endpoints and negate score values.
+            return scanLeaderboard(leaderboard, negateScoreRange(scoreRange),
+                    continuation, scanProperties.setReverse(!scanProperties.isReverse()));
+        } else {
+            return scanLeaderboard(leaderboard, scoreRange, continuation, scanProperties);
+        }
     }
 
     protected RecordCursor<IndexEntry> scanLeaderboard(@Nonnull TimeWindowLeaderboard leaderboard,
@@ -427,7 +434,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         }
         if ((FunctionNames.SCORE_FOR_TIME_WINDOW_RANK.equals(function.getName()) ||
                  FunctionNames.SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP.equals(function.getName())) &&
-                range.isEquals()) {
+                 range.isEquals()) {
             final Tuple outOfRange = FunctionNames.SCORE_FOR_TIME_WINDOW_RANK_ELSE_SKIP.equals(function.getName()) ?
                                      RankedSetIndexHelper.COMPARISON_SKIPPED_SCORE : null;
             return evaluateEqualRange(range, (leaderboard, rankedSet, groupKey, values) ->
@@ -755,7 +762,8 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
     /**
      * Group the given <code>indexKeys</code> by group of size <code>groupPrefixSize</code>, ordering within each
-     * group by score, taking <code>highScoreFirst</code> into account.
+     * group by score, taking <code>highScoreFirst</code> into account from the directory
+     * or any sub-directory (if {@code includesGroup} is {@code true}).
      * @param indexEntries index entries to be added to the index
      * @param directory leaderboard directory used to decide whether higher scores are better (earlier in the list)
      * @param includesGroup whether index entries also include the group key(s)
