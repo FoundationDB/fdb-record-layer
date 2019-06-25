@@ -282,6 +282,12 @@ public class LeaderboardIndexTest extends FDBTestBase {
             return ((TimeWindowLeaderboardScoreTrimResult)recordStore.performIndexOperation("LeaderboardIndex",
                     new TimeWindowLeaderboardScoreTrim(untrimmedKeys, true))).getScores();
         }
+
+        public TimeWindowLeaderboardSubDirectory setGroupHighScoreFirst(Tuple group, boolean highScoreFirst) {
+            return ((TimeWindowLeaderboardSubDirectoryResult)
+                            recordStore.performIndexOperation("LeaderboardIndex",
+                                    new TimeWindowLeaderboardSaveSubDirectory(new TimeWindowLeaderboardSubDirectory(group, highScoreFirst)))).getSubDirectory();
+        }
     }
 
     abstract class NestedLeaderboards extends Leaderboards {
@@ -1069,6 +1075,38 @@ public class LeaderboardIndexTest extends FDBTestBase {
                     Tuple.from("game-1", 200L, 10105L, 667L),
                     Tuple.from("game-1", 100L, 10101L, 666L)),
                     trimmed);
+        }
+    }
+
+    @Test
+    public void subDirectoryLow() {
+        subDirectory(false);
+    }
+
+    @Test
+    public void subDirectoryHigh() {
+        subDirectory(true);
+    }
+
+    private void subDirectory(boolean highScoreFirst) {
+        Leaderboards leaderboards = new FlatLeaderboards();
+        leaderboards.buildMetaData();
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, true);
+            leaderboards.updateWindows(false, 10100);
+            leaderboards.setGroupHighScoreFirst(Tuple.from("game-1"), highScoreFirst);
+            addInitialScores(leaderboards);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            TupleRange game_1 = TupleRange.allOf(Tuple.from("game-1"));
+            assertEquals(highScoreFirst ?
+                         Arrays.asList("patroclus", "hecuba", "achilles", "hector") :
+                         Arrays.asList("achilles", "hector", "hecuba", "patroclus"),
+                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                            .map(leaderboards::getName).asList().join());
         }
     }
 

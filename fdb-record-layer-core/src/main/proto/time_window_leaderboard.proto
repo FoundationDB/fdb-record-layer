@@ -31,6 +31,10 @@ message TimeWindowLeaderboardDirectory {
   repeated TimeWindowLeaderboard leaderboards = 4;
 }
 
+message TimeWindowLeaderboardSubDirectory {
+  optional bool high_score_first = 1;
+}
+
 message TimeWindowLeaderboard {
    optional uint32 type = 1;
    optional uint64 start_timestamp = 2;

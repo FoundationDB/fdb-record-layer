@@ -63,8 +63,18 @@ import java.util.concurrent.CompletableFuture;
  * <li><b>select</b>: Given a range of ranks, return (the primary keys for) the records with values in that range.</li>
  * </ul>
  *
+ * <p>
  * Any number of fields in the index can optionally separate records into non-overlapping <i>groups</i>.
  * Each group, determined by the values of those fields, has separate ranking.
+ * </p>
+ *
+ * <p>
+ * Physical layout:
+ * </p>
+ * <ul>
+ * <li><b>primary subspace</b>: an ordinary B-tree index by <code>[<i>group</i>, ..., <i>score</i>, ...]</code>.</li>
+ * <li><b>secondary subspace</b>: a ranked set per group, that is, with any group key as a prefix.</li>
+ * </ul>
  */
 @API(API.Status.MAINTAINED)
 public class RankIndexMaintainer extends StandardIndexMaintainer {
