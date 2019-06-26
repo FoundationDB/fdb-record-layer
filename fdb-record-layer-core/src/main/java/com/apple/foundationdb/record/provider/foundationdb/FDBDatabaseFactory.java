@@ -78,6 +78,8 @@ public class FDBDatabaseFactory {
     private String traceDirectory = null;
     @Nullable
     private String traceLogGroup = null;
+    @Nonnull
+    private FDBTraceFormat traceFormat = FDBTraceFormat.DEFAULT;
     private int directoryCacheSize = DEFAULT_DIRECTORY_CACHE_SIZE;
     private boolean trackLastSeenVersion;
     private String datacenterId;
@@ -118,6 +120,9 @@ public class FDBDatabaseFactory {
             fdb = FDB.selectAPIVersion(API_VERSION);
             fdb.setUnclosedWarning(unclosedWarning);
             NetworkOptions options = fdb.options();
+            if (!traceFormat.isDefaultValue()) {
+                options.setTraceFormat(traceFormat.getOptionValue());
+            }
             if (traceDirectory != null) {
                 options.setTraceEnable(traceDirectory);
             }
@@ -181,10 +186,52 @@ public class FDBDatabaseFactory {
         this.unclosedWarning = unclosedWarning;
     }
 
+    /**
+     * Configure the client trace directory and log group. If set, this will configure the native client to
+     * emit trace logs with important metrics and instrumentation. As this information is useful for monitoring
+     * FoundationDB client behavior, it is generally recommended that the user set this option in production
+     * environments.
+     *
+     * <p>
+     * The logs will be placed in the directory on the local filesystem specified by the {@code traceDirectory}
+     * parameter. If the {@code traceLogGroup} is set to a non-null value, each log message will have a
+     * {@code LogGroup} field associated with it that is set to the parameter's value. This can be used to associate
+     * log messages from related processes together.
+     * </p>
+     *
+     * <p>
+     * This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
+     * The factory will configure the client in a manner consistent with the passed parameters the first
+     * time a database is needed, and subsequent calls to this method will have no effect.
+     * </p>
+     *
+     * @param traceDirectory the directory in which to write trace log files or {@code null} to disable writing logs
+     * @param traceLogGroup the value to set the log group field to in each message of {@code null} to set no group
+     */
     @SpotBugsSuppressWarnings("IS2_INCONSISTENT_SYNC")
     public void setTrace(@Nullable String traceDirectory, @Nullable String traceLogGroup) {
         this.traceDirectory = traceDirectory;
         this.traceLogGroup = traceLogGroup;
+    }
+
+    /**
+     * Set the output format for the client trace logs. This only will have any effect if
+     * {@link #setTrace(String, String)} is also called. If that method is called (i.e., if trace logs are enabled),
+     * then this will be used to configure what the output format of trace log files should be. See
+     * {@link FDBTraceFormat} for more details on what options are available.
+     *
+     * <p>
+     * This method should be called prior to the first time this factory is used to produce an {@link FDBDatabase}.
+     * The factory will configure the client in a manner consistent with the passed parameters the first
+     * time a database is needed, and subsequent calls to this method will have no effect.
+     * </p>
+     *
+     * @param traceFormat the output format for client trace logs
+     * @see #setTrace(String, String)
+     * @see FDBTraceFormat
+     */
+    public void setTraceFormat(@Nonnull FDBTraceFormat traceFormat) {
+        this.traceFormat = traceFormat;
     }
 
     public synchronized int getDirectoryCacheSize() {
