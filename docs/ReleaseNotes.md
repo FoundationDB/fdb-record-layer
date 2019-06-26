@@ -20,13 +20,13 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Union fields for record types are now assigned based on field number rather than declaration order [(Issue #620)](https://github.com/FoundationDB/fdb-record-layer/issues/620)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The `MetaDataEvolutionValidator` now permits record types to be renamed as long as all occurences of the record type in the meta-data definition are also renamed [(Issue #508)](https://github.com/FoundationDB/fdb-record-layer/issues/508)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,11 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 
 // end next release
 -->
+
+### 2.7.73.0
+
+* **Bug fix** Union fields for record types are now assigned based on field number rather than declaration order [(Issue #620)](https://github.com/FoundationDB/fdb-record-layer/issues/620)
+* **Feature** The `MetaDataEvolutionValidator` now permits record types to be renamed as long as all occurences of the record type in the meta-data definition are also renamed [(Issue #508)](https://github.com/FoundationDB/fdb-record-layer/issues/508)
 
 ### 2.7.72.0
 
