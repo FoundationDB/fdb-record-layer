@@ -701,7 +701,7 @@ public class SplitHelper {
         @Deprecated
         public boolean hasNext() {
             try {
-                return onHasNext().join();
+                return context.join(onHasNext());
             } catch (Exception e) {
                 throw FDBExceptions.wrapException(e);
             }

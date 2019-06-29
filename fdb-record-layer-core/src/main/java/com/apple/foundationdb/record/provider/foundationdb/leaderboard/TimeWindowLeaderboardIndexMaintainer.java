@@ -203,7 +203,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             if (scoreRange == null) {
                 return RecordCursor.empty(getExecutor());
             }
-            final TimeWindowLeaderboard leaderboard = leaderboardFuture.join(); // Already waited in scoreRangeFuture.
+            final TimeWindowLeaderboard leaderboard = state.context.joinNow(leaderboardFuture); // Already waited in scoreRangeFuture.
             final CompletableFuture<Boolean> highStoreFirstFuture;
             if (scanType == IndexScanType.BY_VALUE) {
                 final Tuple lowGroup = scoreRange.getLow() != null && scoreRange.getLow().size() > groupPrefixSize ? TupleHelpers.subTuple(scoreRange.getLow(), 0, groupPrefixSize) : null;
@@ -217,13 +217,13 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 highStoreFirstFuture = AsyncUtil.READY_FALSE;
             }
             if (highStoreFirstFuture.isDone()) {
-                return scanLeaderboard(leaderboard, highStoreFirstFuture.join(), scoreRange, continuation, scanProperties);
+                return scanLeaderboard(leaderboard, state.context.joinNow(highStoreFirstFuture), scoreRange, continuation, scanProperties);
             } else {
                 return RecordCursor.fromFuture(getExecutor(), highStoreFirstFuture).flatMapPipelined(highScoreFirst ->
                         scanLeaderboard(leaderboard, highScoreFirst, scoreRange, continuation, scanProperties), 1);
             }
         }, 1)
-                .mapPipelined(kv -> getIndexEntry(kv, groupPrefixSize, leaderboardFuture.join().getDirectory()), 1);
+                .mapPipelined(kv -> getIndexEntry(kv, groupPrefixSize, state.context.joinNow(leaderboardFuture).getDirectory()), 1);
     }
 
     protected RecordCursor<IndexEntry> scanLeaderboard(@Nonnull TimeWindowLeaderboard leaderboard,

@@ -601,9 +601,25 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param future the future to be completed
      * @param <T> the type of the value produced by the future
      * @return the result value
+     * @see FDBDatabase#join(CompletableFuture)
      */
     public <T> T join(CompletableFuture<T> future) {
         return database.join(future);
+    }
+
+    /**
+     * Join a future but validate that the future is already completed. This can be used to unwrap a completed
+     * future while allowing for bugs caused by inadvertently waiting on incomplete futures to be caught.
+     * In particular, this will throw an exception if the {@link BlockingInAsyncDetection} behavior is set
+     * to throw an exception on incomplete futures and otherwise just log that future was waited on.
+     *
+     * @param future the future that should already be completed
+     * @param <T> the type of the value produced by the future
+     * @return the result value
+     * @see FDBDatabase#joinNow(CompletableFuture)
+     */
+    public <T> T joinNow(CompletableFuture<T> future) {
+        return database.joinNow(future);
     }
 
     /**
@@ -613,6 +629,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param future the future to be completed
      * @param <T> the type of the value produced by the future
      * @return the result value
+     * @see FDBDatabase#get(CompletableFuture)
      *
      * @throws java.util.concurrent.CancellationException if the future was cancelled
      * @throws ExecutionException if the future completed exceptionally

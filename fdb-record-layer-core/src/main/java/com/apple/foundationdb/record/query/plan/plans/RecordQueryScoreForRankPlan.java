@@ -85,7 +85,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
             EvaluationContextBuilder builder = context.childBuilder();
             for (int i = 0; i < scores.size(); i++) {
                 final ScoreForRank rank = ranks.get(i);
-                final Tuple score = scores.get(i).join();
+                final Tuple score = store.getContext().joinNow(scores.get(i));
                 final Object binding;
                 if (score == null) {
                     binding = null;
