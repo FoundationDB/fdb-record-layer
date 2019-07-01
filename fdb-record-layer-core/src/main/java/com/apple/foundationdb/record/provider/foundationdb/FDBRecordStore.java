@@ -210,7 +210,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected final RecordMetaDataProvider metaDataProvider;
 
     @Nullable
-    protected MutableRecordStoreState recordStoreState;
+    protected final AtomicReference<MutableRecordStoreState> recordStoreStateRef = new AtomicReference<>();
 
     @Nonnull
     protected final RecordSerializer<Message> serializer;
@@ -324,11 +324,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public RecordStoreState getRecordStoreState() {
-        if (recordStoreState == null) {
-            recordStoreState = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE,
-                    preloadSubspaceAsync().thenCompose(vignore -> loadRecordStoreStateAsync(StoreExistenceCheck.NONE).thenApply(RecordStoreState::toMutable)));
+        if (recordStoreStateRef.get() == null) {
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE,
+                    preloadRecordStoreStateAsync(StoreExistenceCheck.NONE, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT));
         }
-        return recordStoreState;
+        return recordStoreStateRef.get();
     }
 
     @Override
@@ -491,7 +491,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (oldRecord == null && newRecord == null) {
             return AsyncUtil.DONE;
         }
-        if (recordStoreState == null) {
+        if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> updateSecondaryIndexes(oldRecord, newRecord));
         }
 
@@ -506,7 +506,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else {
             sameRecordType = null;
         }
-        recordStoreState.beginRead();
+        beginRecordStoreStateRead();
         boolean haveFuture = false;
         try {
             if (sameRecordType != null) {
@@ -539,16 +539,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             haveFuture = true;
         } finally {
             if (!haveFuture) {
-                recordStoreState.endRead();
+                endRecordStoreStateRead();
             }
         }
         if (futures.isEmpty()) {
-            recordStoreState.endRead();
+            endRecordStoreStateRead();
             return AsyncUtil.DONE;
         } else if (futures.size() == 1) {
-            return futures.get(0).whenComplete((v, t) -> recordStoreState.endRead());
+            return futures.get(0).whenComplete((v, t) -> endRecordStoreStateRead());
         } else {
-            return AsyncUtil.whenAll(futures).whenComplete((v, t) -> recordStoreState.endRead());
+            return AsyncUtil.whenAll(futures).whenComplete((v, t) -> endRecordStoreStateRead());
         }
     }
 
@@ -1509,8 +1509,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                     @Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
         CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck).thenApply(storeInfo -> {
-            recordStoreState = storeInfo.getRecordStoreState().toMutable();
-            return recordStoreState.getStoreHeader();
+            if (recordStoreStateRef.get() == null) {
+                recordStoreStateRef.compareAndSet(null, storeInfo.getRecordStoreState().toMutable());
+            }
+            return recordStoreStateRef.get().getStoreHeader();
         });
         if (!MoreAsyncUtil.isCompletedNormally(metaDataPreloadFuture)) {
             storeHeaderFuture = metaDataPreloadFuture.thenCombine(storeHeaderFuture, (vignore, storeHeader) -> storeHeader);
@@ -1676,24 +1678,59 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    private void beginRecordStoreStateRead() {
+        // When the record store state is being updated multiple times, this function (and its implicit retry loop at
+        // the atomic reference level) will retry the update on the new record store state, so the operation always
+        // does what's expected (i.e., update the "in flight reads" value while leaving the record store state otherwise
+        // in tact).
+        recordStoreStateRef.updateAndGet(state -> {
+            state.beginRead();
+            return state;
+        });
+    }
+
+    private void endRecordStoreStateRead() {
+        recordStoreStateRef.updateAndGet(state -> {
+            state.endRead();
+            return state;
+        });
+    }
+
+    private void beginRecordStoreStateWrite() {
+        recordStoreStateRef.updateAndGet(state -> {
+            state.beginWrite();
+            return state;
+        });
+    }
+
+    private void endRecordStoreStateWrite() {
+        recordStoreStateRef.updateAndGet(state -> {
+            state.endWrite();
+            return state;
+        });
+    }
+
     @Nonnull
     private CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(@Nonnull StoreExistenceCheck existenceCheck, @Nonnull IsolationLevel isolationLevel) {
         return readStoreFirstKey(context, getSubspace(), isolationLevel).thenApply(keyValue -> checkAndParseStoreHeader(keyValue, existenceCheck));
     }
 
     private void saveStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
-        if (recordStoreState == null) {
+        if (recordStoreStateRef.get() == null) {
             throw new RecordCoreException("cannot update store header with a null record store state");
         }
-        recordStoreState.beginWrite();
+        beginRecordStoreStateWrite();
         try {
             context.setDirtyStoreState(true);
-            synchronized (recordStoreState) {
-                recordStoreState.setStoreHeader(storeHeader);
+            synchronized (this) {
+                recordStoreStateRef.updateAndGet(state -> {
+                    state.setStoreHeader(storeHeader);
+                    return state;
+                });
                 ensureContextActive().set(getSubspace().pack(STORE_INFO_KEY), storeHeader.toByteArray());
             }
         } finally {
-            recordStoreState.endWrite();
+            endRecordStoreStateWrite();
         }
     }
 
@@ -1748,7 +1785,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
         // This is generally called by someone who should already have a write lock, but adding them here
         // defensively shouldn't cause problems.
-        recordStoreState.beginWrite();
+        beginRecordStoreStateWrite();
         try {
             context.setDirtyStoreState(true);
             Transaction tr = context.ensureActive();
@@ -1757,21 +1794,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 tr.set(indexKey, Tuple.from(indexState.code()).pack());
             }
-            recordStoreState.setState(indexName, indexState);
+            recordStoreStateRef.updateAndGet(state -> {
+                // See beginRecordStoreStateRead() on why setting state is done in updateAndGet().
+                state.setState(indexName, indexState);
+                return state;
+            });
         } finally {
-            recordStoreState.endWrite();
+            endRecordStoreStateWrite();
         }
     }
 
     @Nonnull
     private CompletableFuture<Boolean> markIndexNotReadable(@Nonnull String indexName, @Nonnull IndexState indexState) {
-        if (recordStoreState == null) {
+        if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexNotReadable(indexName, indexState));
         }
 
         addIndexStateReadConflict(indexName);
 
-        recordStoreState.beginWrite();
+        beginRecordStoreStateWrite();
         boolean haveFuture = false;
         try {
             // A read is done before the write in order to avoid having unnecessary
@@ -1785,12 +1826,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return false;
                 }
-            }).whenComplete((b, t) -> recordStoreState.endWrite());
+            }).whenComplete((b, t) -> endRecordStoreStateWrite());
             haveFuture = true;
             return future;
         } finally {
             if (!haveFuture) {
-                recordStoreState.endWrite();
+                endRecordStoreStateWrite();
             }
         }
     }
@@ -1933,13 +1974,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Boolean> markIndexReadable(@Nonnull Index index) {
-        if (recordStoreState == null) {
+        if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexReadable(index));
         }
 
         addIndexStateReadConflict(index.getName());
 
-        recordStoreState.beginWrite();
+        beginRecordStoreStateWrite();
         boolean haveFuture = false;
         try {
             Transaction tr = ensureContextActive();
@@ -1973,12 +2014,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return AsyncUtil.READY_FALSE;
                 }
-            }).whenComplete((b, t) -> recordStoreState.endWrite());
+            }).whenComplete((b, t) -> endRecordStoreStateWrite());
             haveFuture = true;
             return future;
         } finally {
             if (!haveFuture) {
-                recordStoreState.endWrite();
+                endRecordStoreStateWrite();
             }
         }
     }
@@ -2015,13 +2056,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Boolean> uncheckedMarkIndexReadable(@Nonnull String indexName) {
-        if (recordStoreState == null) {
+        if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> uncheckedMarkIndexReadable(indexName));
         }
 
         addIndexStateReadConflict(indexName);
 
-        recordStoreState.beginWrite();
+        beginRecordStoreStateWrite();
         boolean haveFuture = false;
         try {
             Transaction tr = ensureContextActive();
@@ -2033,12 +2074,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return false;
                 }
-            }).whenComplete((b, t) -> recordStoreState.endWrite());
+            }).whenComplete((b, t) -> endRecordStoreStateWrite());
             haveFuture = true;
             return future;
         } finally {
             if (!haveFuture) {
-                recordStoreState.endWrite();
+                endRecordStoreStateWrite();
             }
         }
     }
@@ -2054,18 +2095,38 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Loads the current state of the record store asynchronously.
+     * Loads the current state of the record store asynchronously and caches it in memory so that {@link #getRecordStoreState()} requires no i/o.
      * @return a future that will be complete when this store has loaded its record store state
      */
     @Nonnull
     @API(API.Status.INTERNAL)
     protected CompletableFuture<Void> preloadRecordStoreStateAsync() {
-        return loadRecordStoreStateAsync(StoreExistenceCheck.NONE, IsolationLevel.SNAPSHOT, IsolationLevel.SNAPSHOT)
-                .thenAccept(state -> this.recordStoreState = state.toMutable());
+        return preloadRecordStoreStateAsync(StoreExistenceCheck.NONE, IsolationLevel.SNAPSHOT, IsolationLevel.SNAPSHOT);
     }
 
     /**
-     * Loads the current state of the record store within the given subspace asynchronously.
+     * Loads the current state of the record store asynchronously and sets {@code recordStoreStateRef}.
+     * @param existenceCheck the action to be taken when the record store already exists (or does not exist yet)
+     * @param storeHeaderIsolationLevel the isolation level for loading the store header
+     * @param indexStateIsolationLevel the isolation level for loading index state
+     * @return a future that will be complete when this store has loaded its record store state
+     */
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    protected CompletableFuture<Void> preloadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
+                                                                   @Nonnull IsolationLevel storeHeaderIsolationLevel,
+                                                                   @Nonnull IsolationLevel indexStateIsolationLevel) {
+        return loadRecordStoreStateAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
+                .thenAccept(state -> {
+                    if (this.recordStoreStateRef.get() == null) {
+                        recordStoreStateRef.compareAndSet(null, state.toMutable());
+                    }
+                });
+    }
+
+    /**
+     * Loads the current state of the record store within the given subspace asynchronously. This method does not cache the
+     * state in the memory.
      *
      * @param existenceCheck the action to be taken when the record store already exists (or does not exist yet)
      * @return a future that will contain the state of the record state located at the given subspace
@@ -2664,31 +2725,31 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                      @Nonnull Map<Index, List<RecordType>> indexes) {
         // Do this with the new indexes in write-only mode to avoid using one of them
         // when evaluating the snapshot record count.
-        MutableRecordStoreState writeOnlyState = recordStoreState.withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
+        MutableRecordStoreState writeOnlyState = recordStoreStateRef.get().withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
         // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
         RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);
         if (singleRecordTypeWithPrefixKey != null) {
             // Get a count for just those records, either from a COUNT index on just that type or from a universal COUNT index grouped by record type.
-            MutableRecordStoreState saveState = recordStoreState;
+            MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
-                recordStoreState = writeOnlyState;
+                recordStoreStateRef.set(writeOnlyState);
                 return Pair.of(getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName()), false);
             } catch (RecordCoreException ex) {
                 // No such index; have to use total record count.
             } finally {
-                recordStoreState = saveState;
+                recordStoreStateRef.set(saveState);
             }
         }
         if (!rebuildRecordCounts) {
-            MutableRecordStoreState saveState = recordStoreState;
+            MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
-                recordStoreState = writeOnlyState;
+                recordStoreStateRef.set(writeOnlyState);
                 // TODO: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
                 return Pair.of(getSnapshotRecordCount(), true);
             } catch (RecordCoreException ex) {
                 // Probably this was from the lack of appropriate index on count; treat like rebuildRecordCounts = true.
             } finally {
-                recordStoreState = saveState;
+                recordStoreStateRef.set(saveState);
             }
         }
         // Do a scan (limited to a single record) to see if the store is empty.
