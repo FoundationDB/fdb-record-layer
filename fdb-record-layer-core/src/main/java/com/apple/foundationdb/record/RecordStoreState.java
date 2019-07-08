@@ -85,15 +85,17 @@ public class RecordStoreState {
     protected final AtomicReference<RecordMetaDataProto.DataStoreInfo> storeHeader;
     @Nonnull
     protected final AtomicReference<Map<String, IndexMetaDataProto.IndexMetaData>> indexMetaDataMap;
+    protected boolean isComplete;
 
     /**
      * Creates a <code>RecordStoreState</code>.
      *
      * @param storeHeader header information for the given store
      * @param indexMetaDataMap mapping from index name to index state meta-data
+     * @param isComplete whether the record store state is completely loaded
      */
     @API(API.Status.INTERNAL)
-    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap) {
+    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap, boolean isComplete) {
         final Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataCopy;
         if (indexMetaDataMap == null || indexMetaDataMap.isEmpty()) {
             indexMetaDataCopy = Collections.emptyMap();
@@ -102,6 +104,7 @@ public class RecordStoreState {
         }
         this.storeHeader = new AtomicReference<>(storeHeader == null ? RecordMetaDataProto.DataStoreInfo.getDefaultInstance() : storeHeader);
         this.indexMetaDataMap = new AtomicReference<>(indexMetaDataCopy);
+        this.isComplete = isComplete;
     }
 
     /**
@@ -116,7 +119,7 @@ public class RecordStoreState {
      */
     @Deprecated
     public RecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
-        this(null, indexStateMap == null ? null : indexStateMap.entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().toIndexMetaData())));
+        this(null, indexStateMap == null ? null : indexStateMap.entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().toIndexMetaData())), false);
     }
 
     /**
@@ -163,6 +166,17 @@ public class RecordStoreState {
                 .stream()
                 .filter(metadata -> metadata.getValue().getState() != IndexState.READABLE.ordinal())
                 .collect(Collectors.toMap(e -> e.getKey(), e -> IndexState.fromCode((long)e.getValue().getState()))));
+    }
+
+    /**
+     * Check if the state of the record store is completely loaded.
+     *
+     * <p> One could load only some parts of the state, e.g., the state of the indexes, but not the entire record store state. </p>
+     *
+     * @return whether the record store state is completely loaded
+     */
+    public boolean isComplete() {
+        return isComplete;
     }
 
     /**
@@ -310,7 +324,7 @@ public class RecordStoreState {
                                                @Nonnull IndexState state) {
         HashMap<String, IndexMetaDataProto.IndexMetaData> indexStateMapBuilder = new HashMap<>(getIndexMetaData());
         indexNames.forEach(indexName -> indexStateMapBuilder.put(indexName, state.toIndexMetaData()));
-        return new RecordStoreState(storeHeader.get(), ImmutableMap.copyOf(indexStateMapBuilder));
+        return new RecordStoreState(storeHeader.get(), ImmutableMap.copyOf(indexStateMapBuilder), true); // TODO: True?
     }
 
     /**
@@ -325,7 +339,7 @@ public class RecordStoreState {
      */
     @Nonnull
     public RecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new RecordStoreState(storeHeader.get(), writeOnlyMap(writeOnlyIndexNames));
+        return new RecordStoreState(storeHeader.get(), writeOnlyMap(writeOnlyIndexNames), true); // TODO: true?
     }
 
     @Nonnull

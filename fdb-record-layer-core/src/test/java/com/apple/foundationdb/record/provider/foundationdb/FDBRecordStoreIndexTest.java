@@ -1303,7 +1303,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             assertEquals(2, recordStore.getRecordStoreState().getIndexMetaData(indexName).getBuildAttemptsCount());
             long buildStartTime = recordStore.getRecordStoreState().getIndexMetaData(indexName).getLatestBuildStartTime();
-            assertThat(startTime, lessThan(buildStartTime));
+            assertThat(startTime, lessThanOrEqualTo(buildStartTime));
             assertThat(lastBuildStartTime, lessThan(buildStartTime));
             assertThat(lastBuildTime, lessThan(buildStartTime));
             assertThat(buildStartTime, lessThan(recordStore.getRecordStoreState().getIndexMetaData(indexName).getStateChangeTime()));

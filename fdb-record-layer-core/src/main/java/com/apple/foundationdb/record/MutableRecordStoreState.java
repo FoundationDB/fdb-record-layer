@@ -42,13 +42,17 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     private final AtomicLong users = new AtomicLong();
 
+    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap, boolean isComplete) {
+        super(storeHeader, indexMetaDataMap, isComplete);
+    }
+
     public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexMetaDataProto.IndexMetaData> indexMetaDataMap) {
-        super(storeHeader, indexMetaDataMap);
+        this(storeHeader, indexMetaDataMap, false);
     }
 
     // Copy constructor
     MutableRecordStoreState(@Nonnull RecordStoreState recordStoreState) {
-        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexMetaData());
+        this(recordStoreState.getStoreHeader(), recordStoreState.getIndexMetaData(), recordStoreState.isComplete);
     }
 
     @Deprecated
@@ -195,6 +199,6 @@ public class MutableRecordStoreState extends RecordStoreState {
     @Nonnull
     @Override
     public RecordStoreState toImmutable() {
-        return new RecordStoreState(storeHeader.get(), indexMetaDataMap.get());
+        return new RecordStoreState(storeHeader.get(), indexMetaDataMap.get(), isComplete);
     }
 }

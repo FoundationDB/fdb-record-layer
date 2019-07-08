@@ -53,7 +53,7 @@ public class RecordStoreStateTest {
             IndexState indexState = (IndexState)values[i + 1];
             indexStateMap.put(indexName, indexState.toIndexMetaData());
         }
-        return new RecordStoreState(null, indexStateMap);
+        return new RecordStoreState(null, indexStateMap, true);
     }
 
     @Nonnull
