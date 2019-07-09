@@ -182,7 +182,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testBlockingInAsyncWarning() throws Exception {
+    public void testBlockingInAsyncWarning() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.IGNORE_COMPLETE_WARN_BLOCKING);
         factory.clear();
@@ -196,7 +196,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testCompletedBlockingInAsyncWarning() throws Exception {
+    public void testCompletedBlockingInAsyncWarning() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
@@ -209,7 +209,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testBlockingCreatingAsyncDetection() throws Exception {
+    public void testBlockingCreatingAsyncDetection() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
@@ -220,7 +220,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testCompletedBlockingCreatingAsyncDetection() throws Exception {
+    public void testCompletedBlockingCreatingAsyncDetection() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
@@ -228,6 +228,42 @@ public class FDBDatabaseTest extends FDBTestBase {
         FDBDatabase database = factory.getDatabase();
         TestHelpers.assertDidNotLog(FDBDatabase.class, FDBDatabase.BLOCKING_RETURNING_ASYNC_MESSAGE,
                 () -> returnAnAsync(database, CompletableFuture.completedFuture(10L)));
+    }
+
+    @ParameterizedTest(name = "testJoinNowOnCompletedFuture (behavior = {0})")
+    @EnumSource(BlockingInAsyncDetection.class)
+    public void testJoinNowOnCompletedFuture(BlockingInAsyncDetection behavior) {
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        factory.setBlockingInAsyncDetection(behavior);
+        factory.clear();
+
+        FDBDatabase database = factory.getDatabase();
+        TestHelpers.assertDidNotLog(FDBDatabase.class, FDBDatabase.BLOCKING_FOR_FUTURE_MESSAGE, () -> {
+            long val = database.joinNow(CompletableFuture.completedFuture(1066L));
+            assertEquals(1066L, val);
+            return null;
+        });
+    }
+
+    @ParameterizedTest(name = "testJoinNowOnNonCompletedFuture (behavior = {0})")
+    @EnumSource(BlockingInAsyncDetection.class)
+    public void testJoinNowOnNonCompletedFuture(BlockingInAsyncDetection behavior) {
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        factory.setBlockingInAsyncDetection(behavior);
+        factory.clear();
+
+        FDBDatabase database = factory.getDatabase();
+        if (behavior.throwExceptionOnBlocking()) {
+            assertThrows(BlockingInAsyncException.class, () -> database.joinNow(new CompletableFuture<>()));
+        } else {
+            FDBDatabase database2 = factory.getDatabase();
+            TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_FOR_FUTURE_MESSAGE, () -> {
+                long val = database2.joinNow(MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS)
+                        .thenApply(vignore -> 1066L));
+                assertEquals(1066L, val);
+                return null;
+            });
+        }
     }
 
     @Test

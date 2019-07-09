@@ -90,10 +90,15 @@ public class FDBDatabase {
     protected static final String BLOCKING_IN_ASYNC_CONTEXT_MESSAGE = "Blocking in an asynchronous context";
 
     /**
-     * Message that logged when it is detected that a blocking call is being made in a method that may be producing
+     * Message that is logged when it is detected that a blocking call is being made in a method that may be producing
      * a future (specifically a method that ends in "<code>Async</code>").
      */
     protected static final String BLOCKING_RETURNING_ASYNC_MESSAGE = "Blocking in future producing call";
+
+    /**
+     * Message that is logged when one joins on a future and expects it to be completed, but it is not yet done.
+     */
+    protected static final String BLOCKING_FOR_FUTURE_MESSAGE = "Blocking on a future that should be completed";
 
     @Nonnull
     private final FDBDatabaseFactory factory;
@@ -809,6 +814,29 @@ public class FDBDatabase {
      */
     public <T> T join(CompletableFuture<T> future) {
         checkIfBlockingInFuture(future);
+        return future.join();
+    }
+
+    /**
+     * Join a future but validate that the future is already completed. This can be used to unwrap a completed
+     * future while allowing for bugs caused by inadvertently waiting on incomplete futures to be caught.
+     * In particular, this will throw an exception if the {@link BlockingInAsyncDetection} behavior is set
+     * to throw an exception on incomplete futures and otherwise just log that future was waited on.
+     *
+     * @param future the future that should already be completed
+     * @param <T> the type of the value produced by the future
+     * @return the result value
+     */
+    public <T> T joinNow(CompletableFuture<T> future) {
+        if (future.isDone()) {
+            return future.join();
+        }
+        final BlockingInAsyncDetection behavior = getBlockingInAsyncDetection();
+        final StackTraceElement caller = Thread.currentThread().getStackTrace()[1];
+        logOrThrowBlockingInAsync(behavior, false, caller, BLOCKING_FOR_FUTURE_MESSAGE);
+
+        // If the behavior only logs, we still need to block to return a value.
+        // If the behavior throws an exception, we won't reach here.
         return future.join();
     }
 

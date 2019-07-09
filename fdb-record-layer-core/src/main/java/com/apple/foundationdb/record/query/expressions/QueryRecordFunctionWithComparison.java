@@ -78,7 +78,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                    @Nullable FDBRecord<M> record, @Nullable Message message) {
-        return evalMessageAsync(store, context, record, message).join();
+        return store.getContext().join(evalMessageAsync(store, context, record, message));
     }
 
     @Override
