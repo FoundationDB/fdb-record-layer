@@ -1,5 +1,5 @@
 /*
- * PushFieldWithComparisonIntoExistingIndexScanRule.java
+ * PushComponentWithComparisonIntoExistingScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
@@ -34,16 +34,16 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
- * A simple rule that looks for a filter (with an equality comparison on a field) and a trivial but compatibly
- * ordered index scan with no existing comparisons and pushes the equality comparison down to the index scan.
+ * A simple rule that looks for a {@link com.apple.foundationdb.record.query.expressions.ComponentWithComparison}
+ * predicate and a compatibly ordered index scan comparison down to the index scan.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushFieldWithComparisonIntoExistingIndexScanRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class);
+public class PushComponentWithComparisonIntoExistingScanRule extends PlannerRule<LogicalFilterExpression> {
+    private static final ExpressionMatcher<ComponentWithComparison> filterMatcher = TypeMatcher.of(ComponentWithComparison.class);
     private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, filterMatcher, indexScanMatcher);
 
-    public PushFieldWithComparisonIntoExistingIndexScanRule() {
+    public PushComponentWithComparisonIntoExistingScanRule() {
         super(root);
     }
 
@@ -51,7 +51,7 @@ public class PushFieldWithComparisonIntoExistingIndexScanRule extends PlannerRul
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         IndexEntrySourceScanExpression indexScan = call.get(indexScanMatcher);
-        FieldWithComparison filter = call.get(filterMatcher);
+        ComponentWithComparison filter = call.get(filterMatcher);
 
         final Optional<KeyExpressionComparisons> matchedComparisons = indexScan.getComparisons().matchWith(filter);
         if (matchedComparisons.isPresent()) {

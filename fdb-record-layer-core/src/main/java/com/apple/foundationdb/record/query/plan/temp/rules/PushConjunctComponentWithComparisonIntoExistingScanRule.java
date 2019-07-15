@@ -1,5 +1,5 @@
 /*
- * PushConjunctFieldWithComparisonIntoExistingIndexScanRule.java
+ * PushConjunctComponentWithComparisonIntoExistingScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
-import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
@@ -40,20 +40,20 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * A rule that selects one of the {@link FieldWithComparison} conjuncts from an AND and tries to push it into an existing
- * logical index scan.
- * @see PushFieldWithComparisonIntoExistingIndexScanRule for a very similar rule for {@code FieldWithComparison}s that are not conjuncts
+ * A rule that selects one of the {@link com.apple.foundationdb.record.query.expressions.ComponentWithComparison}
+ * conjuncts from an AND and tries to push it into an existing logical scan.
+ * @see PushComponentWithComparisonIntoExistingScanRule for a very similar rule for {@code FieldWithComparison}s that are not conjuncts
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushConjunctFieldWithComparisonIntoExistingIndexScanRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class);
+public class PushConjunctComponentWithComparisonIntoExistingScanRule extends PlannerRule<LogicalFilterExpression> {
+    private static final ExpressionMatcher<ComponentWithComparison> filterMatcher = TypeMatcher.of(ComponentWithComparison.class);
     private static final ReferenceMatcher<QueryComponent> otherFilterMatchers = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<AndComponent> andMatcher = TypeMatcher.of(AndComponent.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(filterMatcher, otherFilterMatchers));
     private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, andMatcher, indexScanMatcher);
 
-    public PushConjunctFieldWithComparisonIntoExistingIndexScanRule() {
+    public PushConjunctComponentWithComparisonIntoExistingScanRule() {
         super(root);
     }
 
@@ -61,7 +61,7 @@ public class PushConjunctFieldWithComparisonIntoExistingIndexScanRule extends Pl
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         final IndexEntrySourceScanExpression indexScan = call.get(indexScanMatcher);
-        final FieldWithComparison field = call.get(filterMatcher);
+        final ComponentWithComparison field = call.get(filterMatcher);
         final List<ExpressionRef<QueryComponent>> residualFields = call.getBindings().getAll(otherFilterMatchers);
 
         final Optional<KeyExpressionComparisons> matchedComparisons = indexScan.getComparisons().matchWith(field);
