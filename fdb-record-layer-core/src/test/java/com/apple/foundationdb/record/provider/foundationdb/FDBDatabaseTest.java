@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -35,7 +36,11 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -48,6 +53,7 @@ import java.util.function.Function;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -60,6 +66,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBDatabaseTest extends FDBTestBase {
+    @Nonnull
+    private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseTest.class);
 
     @Test
     public void cachedVersionMaintenanceOnReadsTest() throws Exception {
@@ -413,4 +421,43 @@ public class FDBDatabaseTest extends FDBTestBase {
         return retrieved;
     }
 
+    @Test
+    public void performNoOp() {
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        FDBStoreTimer timer = new FDBStoreTimer();
+        database.performNoOp(timer);
+        assertEquals(1, timer.getCount(FDBStoreTimer.Events.PERFORM_NO_OP));
+        assertThat(timer.getCount(FDBStoreTimer.Waits.WAIT_PERFORM_NO_OP), lessThanOrEqualTo(1));
+
+        if (LOGGER.isInfoEnabled()) {
+            KeyValueLogMessage logMessage = KeyValueLogMessage.build("performed no-op");
+            logMessage.addKeysAndValues(timer.getKeysAndValues());
+            LOGGER.info(logMessage.toString());
+        }
+    }
+
+    @Test
+    public void performNoOpAgainstFakeCluster() throws IOException {
+        final String clusterFile = FDBTestBase.createFakeClusterFile("perform_no_op_");
+        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
+
+        // Should not be able to get a real read version from the fake cluster
+        assertThrows(TimeoutException.class, () -> {
+            try (FDBRecordContext context = database.openContext()) {
+                database.getReadVersion(context).get(100L, TimeUnit.MILLISECONDS);
+            }
+        });
+
+        // Should still be able to perform a no-op
+        FDBStoreTimer timer = new FDBStoreTimer();
+        database.performNoOp(timer);
+        assertEquals(1, timer.getCount(FDBStoreTimer.Events.PERFORM_NO_OP));
+        assertThat(timer.getCount(FDBStoreTimer.Waits.WAIT_PERFORM_NO_OP), lessThanOrEqualTo(1));
+
+        if (LOGGER.isInfoEnabled()) {
+            KeyValueLogMessage logMessage = KeyValueLogMessage.build("performed no-op");
+            logMessage.addKeysAndValues(timer.getKeysAndValues());
+            LOGGER.info(logMessage.toString());
+        }
+    }
 }

@@ -24,6 +24,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+
 /**
  * Base class from which all FDB tests should be derived.
  */
@@ -54,5 +60,14 @@ public abstract class FDBTestBase {
                 LOGGER.info("Blocking-in-async is " + detection);
             }
         }
+    }
+
+    @Nonnull
+    public static String createFakeClusterFile(String prefix) throws IOException {
+        File clusterFile = File.createTempFile(prefix, ".cluster");
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(clusterFile))) {
+            writer.write("fake:fdbcluster@127.0.0.1:65537\n");
+        }
+        return clusterFile.getAbsolutePath();
     }
 }
