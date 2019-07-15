@@ -47,9 +47,8 @@ public class PushComponentWithComparisonIntoExistingScanRule extends PlannerRule
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         IndexEntrySourceScanExpression indexScan = call.get(indexScanMatcher);
         ComponentWithComparison filter = call.get(filterMatcher);
 
@@ -57,8 +56,6 @@ public class PushComponentWithComparisonIntoExistingScanRule extends PlannerRule
         if (matchedComparisons.isPresent()) {
             call.yield(call.ref(new IndexEntrySourceScanExpression(indexScan.getIndexEntrySource(), indexScan.getScanType(),
                             matchedComparisons.get(), indexScan.isReverse())));
-            return ChangesMade.MADE_CHANGES;
         }
-        return ChangesMade.NO_CHANGE;
     }
 }

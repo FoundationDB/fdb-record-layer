@@ -57,9 +57,8 @@ public class PushConjunctComponentWithComparisonIntoExistingScanRule extends Pla
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final IndexEntrySourceScanExpression indexScan = call.get(indexScanMatcher);
         final ComponentWithComparison field = call.get(filterMatcher);
         final List<ExpressionRef<QueryComponent>> residualFields = call.getBindings().getAll(otherFilterMatchers);
@@ -70,7 +69,7 @@ public class PushConjunctComponentWithComparisonIntoExistingScanRule extends Pla
                     indexScan.getIndexEntrySource(), indexScan.getScanType(), matchedComparisons.get(), indexScan.isReverse());
             if (residualFields.isEmpty()) {
                 call.yield(call.ref(newIndexScan));
-                return ChangesMade.MADE_CHANGES;
+                return;
             }
 
             final ExpressionRef<QueryComponent> residualFilter;
@@ -80,8 +79,6 @@ public class PushConjunctComponentWithComparisonIntoExistingScanRule extends Pla
                 residualFilter = residualFields.get(0);
             }
             call.yield(call.ref(new LogicalFilterExpression(residualFilter, call.ref(newIndexScan))));
-            return ChangesMade.MADE_CHANGES;
         }
-        return ChangesMade.NO_CHANGE;
     }
 }

@@ -49,9 +49,8 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         LogicalTypeFilterExpression typeFilter = call.get(root);
         ExpressionRef<RelationalPlannerExpression> child = call.get(childMatcher);
 
@@ -60,16 +59,13 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
         if (filterRecordTypes.containsAll(childRecordTypes)) {
             // type filter is completely redundant, so remove it entirely
             call.yield(child);
-            return ChangesMade.MADE_CHANGES;
         } else {
             // otherwise, keep a logical filter on record types which the child might produce and are included in the filter
             Set<String> unsatisfiedTypeFilters = Sets.intersection(childRecordTypes, filterRecordTypes);
             if (!unsatisfiedTypeFilters.equals(filterRecordTypes)) {
                 // there were some unnecessary filters, so remove them
                 call.yield(SingleExpressionRef.of(new LogicalTypeFilterExpression(unsatisfiedTypeFilters, child)));
-                return ChangesMade.MADE_CHANGES;
             } // otherwise, nothing changes
         }
-        return ChangesMade.NO_CHANGE;
     }
 }

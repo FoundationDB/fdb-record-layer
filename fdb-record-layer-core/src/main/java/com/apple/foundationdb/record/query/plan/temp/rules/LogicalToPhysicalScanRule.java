@@ -45,9 +45,8 @@ public class LogicalToPhysicalScanRule extends PlannerRule<IndexEntrySourceScanE
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final IndexEntrySourceScanExpression logical = call.get(root);
         final IndexEntrySource indexEntrySource = logical.getIndexEntrySource();
 
@@ -62,6 +61,5 @@ public class LogicalToPhysicalScanRule extends PlannerRule<IndexEntrySourceScanE
         } else {
             call.yield(call.ref(new RecordQueryScanPlan(logical.getComparisons().toScanComparisons(), logical.isReverse())));
         }
-        return ChangesMade.MADE_CHANGES;
     }
 }

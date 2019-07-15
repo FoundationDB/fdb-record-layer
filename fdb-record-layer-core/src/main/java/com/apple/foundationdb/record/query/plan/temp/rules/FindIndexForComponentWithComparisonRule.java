@@ -53,30 +53,21 @@ public class FindIndexForComponentWithComparisonRule extends PlannerRule<Logical
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final ComponentWithComparison singleField = call.get(filterMatcher);
         if (ScanComparisons.getComparisonType(singleField.getComparison()).equals(ScanComparisons.ComparisonType.NONE)) {
             // This comparison cannot be accomplished with a single scan.
-            return ChangesMade.NO_CHANGE;
+            return;
         }
 
-        boolean found = false;
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
             final KeyExpressionComparisons comparisons = indexEntrySource.getEmptyComparisons();
             Optional<KeyExpressionComparisons> matchedComparisons = comparisons.matchWith(singleField);
             if (matchedComparisons.isPresent()) {
                 call.yield(call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
                         matchedComparisons.get(), false)));
-                found = true;
             }
-        }
-        if (found) {
-            return ChangesMade.MADE_CHANGES;
-        } else {
-            // couldn't find an index
-            return ChangesMade.NO_CHANGE;
         }
     }
 }

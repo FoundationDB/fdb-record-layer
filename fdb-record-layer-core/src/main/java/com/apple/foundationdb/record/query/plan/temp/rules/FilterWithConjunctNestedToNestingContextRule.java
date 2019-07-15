@@ -60,9 +60,8 @@ public class FilterWithConjunctNestedToNestingContextRule extends PlannerRule<Lo
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final ExpressionRef<RelationalPlannerExpression> inner = call.get(innerMatcher);
         final NestedField nestedField = call.get(nestedFieldMatcher);
         final List<ExpressionRef<QueryComponent>> otherConjuncts = call.getBindings().getAll(otherConjunctMatcher);
@@ -72,7 +71,7 @@ public class FilterWithConjunctNestedToNestingContextRule extends PlannerRule<Lo
         final ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);
 
         if (nestedInner == null) {
-            return ChangesMade.NO_CHANGE;
+            return;
         }
 
         final ExpressionRef<RelationalPlannerExpression> nestedExpression = call.ref(
@@ -88,6 +87,5 @@ public class FilterWithConjunctNestedToNestingContextRule extends PlannerRule<Lo
             }
             call.yield(call.ref(new LogicalFilterExpression(residualFilter, nestedExpression)));
         }
-        return ChangesMade.MADE_CHANGES;
     }
 }

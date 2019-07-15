@@ -51,9 +51,8 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalTypeFilterExpression typeFilter = call.get(root);
         final RecordQueryPlan child = call.get(childMatcher);
 
@@ -67,6 +66,5 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
             Set<String> unsatisfiedTypeFilters = Sets.intersection(filterRecordTypes, childRecordTypes);
             call.yield(SingleExpressionRef.of(new RecordQueryTypeFilterPlan(child, unsatisfiedTypeFilters)));
         }
-        return ChangesMade.MADE_CHANGES;
     }
 }

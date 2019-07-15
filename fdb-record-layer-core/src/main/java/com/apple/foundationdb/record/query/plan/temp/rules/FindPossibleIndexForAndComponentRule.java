@@ -61,11 +61,9 @@ public class FindPossibleIndexForAndComponentRule extends PlannerRule<LogicalFil
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         ComponentWithComparison field = call.getBindings().get(fieldMatcher);
-        ChangesMade madeChanges = ChangesMade.NO_CHANGE;
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
             final KeyExpressionComparisons keyComparisons = indexEntrySource.getEmptyComparisons();
             final Optional<KeyExpressionComparisons> matchedKeyComparisons = keyComparisons.matchWith(field);
@@ -80,10 +78,7 @@ public class FindPossibleIndexForAndComponentRule extends PlannerRule<LogicalFil
                 call.yield(call.ref(new LogicalFilterExpression(residualFilter,
                         call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
                                 matchedKeyComparisons.get(), false)))));
-                madeChanges = ChangesMade.MADE_CHANGES;
             }
         }
-
-        return madeChanges;
     }
 }

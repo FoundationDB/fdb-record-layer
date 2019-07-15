@@ -68,15 +68,13 @@ public class FlattenNestedAndComponentRule extends PlannerRule<AndComponent> {
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         List<ExpressionRef<QueryComponent>> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
         List<ExpressionRef<QueryComponent>> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
         List<ExpressionRef<QueryComponent>> allConjuncts = new ArrayList<>(innerAndChildren);
         allConjuncts.addAll(otherOuterAndChildren);
 
         call.yield(call.ref(new AndComponent(allConjuncts)));
-        return ChangesMade.MADE_CHANGES;
     }
 }
