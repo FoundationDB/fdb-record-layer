@@ -21,6 +21,20 @@
 /**
  * Classes relating to hooking up join index synthetic records to the query planner.
  *
- * It is expected that these will change substantially when the planner itself supports joins.
+ * <p>
+ * These planners and plans are used to generate synthetic records for the purpose of maintaining
+ * indexes of them. They run in response to changes that require such maintenance. For example, when
+ * a new index on a synthetic record type is defined, all its records need to be synthesized to populate
+ * the index. When an ordinary stored record that is part of a synthetic record type is modified, the
+ * associated records must be synthesized to update the index.
+ * </p>
+ *
+ * <p>
+ * These classes are <em>not</em> used as part of ordinary query planning and execution. Rather, they use
+ * the ordinary query planner, building queries from the synthetic record meta-data and running those queries
+ * to produce streams of stored records that are combined into streams of synthetic records for indexing.
+ * Since the query planner does not support joins, the synthetic planners must build multiple query plans
+ * and nest them. It is expected that this will change substantially when the planner itself supports joins.
+ * </p>
  */
 package com.apple.foundationdb.record.query.plan.synthetic;

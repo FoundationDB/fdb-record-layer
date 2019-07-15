@@ -33,7 +33,6 @@ import java.util.Objects;
 
 /**
  * Generate synthetic records by querying records and passing to a {@link SyntheticRecordFromStoredRecordPlan}.
- *
  */
 class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
 

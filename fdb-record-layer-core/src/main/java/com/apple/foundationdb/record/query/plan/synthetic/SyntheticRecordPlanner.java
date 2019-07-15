@@ -50,6 +50,12 @@ import java.util.Set;
 /**
  * A planner for {@link SyntheticRecordPlan} and {@link SyntheticRecordFromStoredRecordPlan} plans.
  *
+ * The planner is invoked when plans are needed for index maintenance, either to generate all synthetic
+ * records for rebuilding a whole index or to generate affected synthetic records when a stored record
+ * is modified (the {@code FromStoredRecord} case). The planner is initialized with a {@link RecordMetaData},
+ * for getting synthetic record type definitions (such as the joins that make up a joined record type) and
+ * a {@link RecordQueryPlanner}, which is used to plan the underlying scans of stored records from which the
+ * records to be indexed can be synthesized.
  */
 @API(API.Status.INTERNAL)
 public class SyntheticRecordPlanner {

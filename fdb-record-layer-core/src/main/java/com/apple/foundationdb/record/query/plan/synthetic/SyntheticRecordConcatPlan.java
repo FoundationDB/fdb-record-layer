@@ -39,9 +39,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Concatenate several plan outputs together.
+ * Concatenate several {@linkplain SyntheticRecordFromStoredRecordPlan plan} outputs together.
  * 
- * Similar to the union cursor proposed in https://github.com/FoundationDB/fdb-record-layer/issues/148.
+ * Similar to {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan}.
  */
 class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  {
 

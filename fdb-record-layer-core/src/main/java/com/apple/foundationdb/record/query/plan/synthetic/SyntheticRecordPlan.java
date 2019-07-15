@@ -33,6 +33,12 @@ import javax.annotation.Nullable;
 /**
  * A plan for generating synthetic records without an explicit starting point.
  *
+ * This kind of plan is similar to {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}, in that
+ * it takes a store, continuation, and execute properties and produces a cursor of records. However, it is <em>not</em>
+ * run as part of ordinary query execution. In other words, while these plans in some sense represent
+ * <code>SELECT * FROM synth_type</code>, an <em>actual</em> query to get the same underlying records would be
+ * <code>SELECT * FROM t1 JOIN t2 USING k</code>.
+ *
  */
 @API(API.Status.INTERNAL)
 public interface SyntheticRecordPlan extends PlanHashable  {

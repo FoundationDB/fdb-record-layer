@@ -29,8 +29,9 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A <i>synthetic</i> record type is made up of other record types and not actually stored.
- * It can, however, be indexed.
+ * A <i>synthetic</i> record type is made up of other record types and not actually stored separately in the record store.
+ * It can, however, be indexed, by passing it to an {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer}
+ * that will evaluate {@link KeyExpression}s against it.
  * @param <C> type of constituent record types
  */
 @API(API.Status.EXPERIMENTAL)

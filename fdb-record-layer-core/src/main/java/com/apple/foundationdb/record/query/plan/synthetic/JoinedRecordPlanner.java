@@ -47,10 +47,14 @@ import java.util.stream.Collectors;
 /**
  * A planner for {@link JoinedRecordPlan}.
  *
- * Anticipates in a very rough way some of the things that join plan generation will do.
+ * <p>
+ * Anticipates, in a very rough way, some of the things that join plan generation will do in the regular {@link RecordQueryPlanner}.
+ * </p>
  *
+ * <p>
  * Since joined record types are synthesized from both sides of the join, depending on what record has been modified,
  * there really need to be indexes in both directions, which means that join ordering isn't as much of an issue.
+ * </p>
  *
  */
 class JoinedRecordPlanner {
@@ -221,7 +225,9 @@ class JoinedRecordPlanner {
         if (!conditions.isEmpty()) {
             builder.setFilter(conditions.size() > 1 ? Query.and(conditions) : conditions.get(0));
         }
-        // TODO: Would it be better to do this more centrally?
+        // An alternative would be to add duplicate elimination on the result of the join before forming the synthetic records.
+        // But until the planner is able to push that down / eliminate it when the scan does not produce duplicates, it's better to give it here,
+        // since the planner at least understands the simple cases of the elimination.
         builder.setRemoveDuplicates(true);
         return builder.build();
     }

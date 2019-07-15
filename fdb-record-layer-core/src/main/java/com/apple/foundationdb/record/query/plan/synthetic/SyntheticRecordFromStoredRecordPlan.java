@@ -36,6 +36,10 @@ import java.util.Set;
 /**
  * A plan for deriving synthetic records from a given record.
  *
+ * Like {@link SyntheticRecordPlan}, but with the additional {@code execute}-time parameter of a seed record.
+ * While the former is used to generate all records to rebuild an index, this plan is used to generate affected
+ * records for a changed record to update just for those changes.
+ *
  */
 @API(API.Status.INTERNAL)
 public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {

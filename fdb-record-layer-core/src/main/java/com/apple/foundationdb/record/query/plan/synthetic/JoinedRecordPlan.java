@@ -50,8 +50,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
- * Execute a stack of join queries starting with a stored {@link com.apple.foundationdb.record.metadata.RecordType}
- * and generating {@link JoinedRecordType} {@linkplain FDBSyntheticRecord records}.
+ * Generate {@link JoinedRecordType} {@linkplain FDBSyntheticRecord records} starting with a stored {@link com.apple.foundationdb.record.metadata.RecordType}
+ * by executing a stack of queries for the nesting of joins that define the synthetic record type. Each nested query generates another cursor of stored
+ * records using parameters bound to the join key fields of outer cursors' stored records.
+ *
  */
 class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
 

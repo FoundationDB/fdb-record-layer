@@ -41,10 +41,28 @@ import java.util.stream.Collectors;
 
 /**
  * Combine keys from zero or more child keys.
+ *
+ * <p>
  * Form a cross-product similar to {@link ThenKeyExpression}, but producing lists containing each
  * child's evaluation result rather than concatenating.
  * When converted to a {@link com.apple.foundationdb.tuple.Tuple}, the <i>nth</i> child corresponds
  * to {@code tuple.getNestedTuple(n)}, which is less compact on disk but easier to find the child boundaries in.
+ * </p>
+ *
+ * <p>
+ * Consider the expressions
+ * <code>concat(field("child_1").nest(field("field_1")), field("child_2").nest(concat(field("field_1"), field("field_2")))</code> and
+ * <code>concat(field("child_1").nest(concat(field("field_1"), field("field_2"))), field("child_2").nest(field("field_1")))</code>.
+ * These might produce values like <code>[[1.1, 2.1, 2.2]]</code> and <code>[[1.1, 1.2, 2.1]]</code>, respectively.
+ * Recovering the first child's contribution means remembering it or at least its {@link KeyExpression#getColumnSize()}, to know where the boundary is.
+ * </p>
+ *
+ * <p>
+ * Contrast
+ * <code>list(field("child_1").nest(field("field_1")), field("child_2").nest(concat(field("field_1"), field("field_2")))</code> and
+ * <code>list(field("child_1").nest(concat(field("field_1"), field("field_2"))), field("child_2").nest(field("field_1")))</code>.
+ * These would produce <code>[[[1.1], [2.1, 2.2]]]</code> and <code>[[[1.1, 1.2], [2.1]]]</code>, respectively.
+ * </p>
  */
 @API(API.Status.MAINTAINED)
 public class ListKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {

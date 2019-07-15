@@ -35,7 +35,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Select a synthetic record sub-plan based on the record type of the given record.
+ * Select a synthetic record sub-plan based on the record type of the given record and then execute
+ * that sub-plan.
  */
 class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  {
 
