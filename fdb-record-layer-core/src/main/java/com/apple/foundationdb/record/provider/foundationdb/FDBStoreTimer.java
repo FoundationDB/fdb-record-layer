@@ -38,6 +38,8 @@ public class FDBStoreTimer extends StoreTimer {
      * Ordinary top-level events which surround a single body of code.
      */
     public enum Events implements Event {
+        /** The amount of time taken performing a no-op. */
+        PERFORM_NO_OP("perform no-op"),
         /** The amount of time taken committing transactions successfully. */
         COMMIT("commit transaction"),
         /** The amount of time taken committing transactions that did not actually have any writes. */
@@ -214,6 +216,8 @@ public class FDBStoreTimer extends StoreTimer {
          * The purpose of passing this is to get standard error handling for futures that have completed exceptionally.
          */
         WAIT_ERROR_CHECK("check for error completion"),
+        /** Wait for performing a no-op operation.*/
+        WAIT_PERFORM_NO_OP("wait for performing a no-op"),
         /** Wait for explicit call to {@link FDBDatabase#getReadVersion}. */
         WAIT_GET_READ_VERSION("get_read_version"),
         /** Wait for a transaction to commit. */

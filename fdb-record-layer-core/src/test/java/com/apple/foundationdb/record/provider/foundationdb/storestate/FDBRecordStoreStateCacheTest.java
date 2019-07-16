@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExistsException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreNoInfoAndNotEmptyException;
@@ -45,9 +46,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
 import java.util.Collections;
 import java.util.UUID;
 
@@ -582,12 +580,9 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     public void useWithDifferentDatabase() throws Exception {
         FDBRecordStoreStateCacheFactory currentCacheFactory = FDBDatabaseFactory.instance().getStoreStateCacheFactory();
         try {
-            File clusterFile = File.createTempFile("record_store_cache_", ".cluster");
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(clusterFile))) {
-                writer.write("fake:fdbcluster@127.0.0.1:65537\n");
-            }
+            String clusterFile = FDBTestBase.createFakeClusterFile("record_store_cache_");
             FDBDatabaseFactory.instance().setStoreStateCacheFactory(readVersionCacheFactory);
-            FDBDatabase secondDatabase = FDBDatabaseFactory.instance().getDatabase(clusterFile.getAbsolutePath());
+            FDBDatabase secondDatabase = FDBDatabaseFactory.instance().getDatabase(clusterFile);
 
             // Using the cache with a context from the wrong database shouldn't work
             try (FDBRecordContext context = openContext()) {

@@ -296,8 +296,8 @@ public class FDBDatabase {
 
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
-     * @param timer the timer to use for instrumentation
      * @param mdcContext logger context to set in running threads
+     * @param timer the timer to use for instrumentation
      * @return a new record context
      * @see Database#createTransaction
      */
@@ -309,8 +309,8 @@ public class FDBDatabase {
 
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
-     * @param timer the timer to use for instrumentation
      * @param mdcContext logger context to set in running threads
+     * @param timer the timer to use for instrumentation
      * @param weakReadSemantics allowable staleness information if caching read versions
      * @return a new record context
      * @see Database#createTransaction
@@ -343,6 +343,129 @@ public class FDBDatabase {
             }
         }
         return context;
+    }
+
+    private void logNoOpFailure(@Nonnull Throwable err) {
+        if (LOGGER.isErrorEnabled()) {
+            LOGGER.error(KeyValueLogMessage.of("unable to perform no-op operation against fdb",
+                    LogMessageKeys.CLUSTER, getClusterFile()), err);
+        }
+    }
+
+    /**
+     * Perform a no-op against FDB to check network thread liveness. See {@link #performNoOp(Map, FDBStoreTimer)}
+     * for more information. This will use the default MDC for running threads and will not instrument the
+     * operation.
+     *
+     * @return a future that will complete after being run by the FDB network thread
+     * @see #performNoOp(Map, FDBStoreTimer)
+     */
+    @Nonnull
+    public CompletableFuture<Void> performNoOpAsync() {
+        return performNoOpAsync(null);
+    }
+
+    /**
+     * Perform a no-op against FDB to check network thread liveness. See {@link #performNoOp(Map, FDBStoreTimer)}
+     * for more information. This will use the default MDC for running threads.
+     *
+     * @param timer the timer to use for instrumentation
+     * @return a future that will complete after being run by the FDB network thread
+     * @see #performNoOp(Map, FDBStoreTimer)
+     */
+    @Nonnull
+    public CompletableFuture<Void> performNoOpAsync(@Nullable FDBStoreTimer timer) {
+        return performNoOpAsync(null, timer);
+    }
+
+    /**
+     * Perform a no-op against FDB to check network thread liveness. This operation will not change the underlying data
+     * in any way, nor will it perform any I/O against the FDB cluster. However, it will schedule some amount of work
+     * onto the FDB client and wait for it to complete. The FoundationDB client operates by scheduling onto an event
+     * queue that is then processed by a single thread (the "network thread"). This method can be used to determine if
+     * the network thread has entered a state where it is no longer processing requests or if its time to process
+     * requests has increased. If the network thread is busy, this operation may take some amount of time to complete,
+     * which is why this operation returns a future.
+     *
+     * <p>
+     * If the provided {@link FDBStoreTimer} is not {@code null}, then this will update the {@link FDBStoreTimer.Events#PERFORM_NO_OP}
+     * operation with related timing information. This can then be monitored to detect instances of client saturation
+     * where the performance bottleneck lies in scheduling work to run on the FDB event queue.
+     * </p>
+     *
+     * @param mdcContext logger context to set in running threads
+     * @param timer the timer to use for instrumentation
+     * @return a future that will complete after being run by the FDB network thread
+     */
+    @Nonnull
+    public CompletableFuture<Void> performNoOpAsync(@Nullable Map<String, String> mdcContext,
+                                                    @Nullable FDBStoreTimer timer) {
+        final FDBRecordContext context = openContext(mdcContext, timer);
+        boolean futureStarted = false;
+
+        try {
+            // Set the read version of the transaction, then read it back. This requires no I/O, but it does
+            // require the network thread be running. The exact value used for the read version is unimportant.
+            final Transaction tr = context.ensureActive();
+            final long startTime = System.nanoTime();
+            tr.setReadVersion(1066L);
+            CompletableFuture<Long> future = tr.getReadVersion();
+            if (timer != null) {
+                future = context.instrument(FDBStoreTimer.Events.PERFORM_NO_OP, future, startTime);
+            }
+            futureStarted = true;
+            return future.thenAccept(ignore -> { }).whenComplete((vignore, err) -> {
+                context.close();
+                if (err != null) {
+                    logNoOpFailure(err);
+                }
+            });
+        } catch (RuntimeException e) {
+            logNoOpFailure(e);
+            CompletableFuture<Void> errFuture = new CompletableFuture<>();
+            errFuture.completeExceptionally(e);
+            return errFuture;
+        } finally {
+            if (!futureStarted) {
+                context.close();
+            }
+        }
+    }
+
+    /**
+     * Perform a no-op against FDB to check network thread liveness. This is a blocking version of {@link #performNoOpAsync()}.
+     * Note that the future is expected to complete relatively quickly in most circumstances, but it may take a long
+     * time if the network thread has been saturated, e.g., if there is a lot of work being scheduled to run in FDB.
+     *
+     * @see #performNoOpAsync()
+     */
+    public void performNoOp() {
+        performNoOp(null);
+    }
+
+    /**
+     * Perform a no-op against FDB to check network thread liveness. This is a blocking version of {@link #performNoOpAsync(FDBStoreTimer)}.
+     * Note that the future is expected to complete relatively quickly in most circumstances, but it may take a long
+     * time if the network thread has been saturated, e.g., if there is a lot of work being scheduled to run in FDB.
+     *
+     * @param timer the timer to use for instrumentation
+     * @see #performNoOpAsync(FDBStoreTimer)
+     */
+    public void performNoOp(@Nullable FDBStoreTimer timer) {
+        performNoOp(null, timer);
+    }
+
+    /**
+     * Perform a no-op against FDB to check network thread liveness. This is a blocking version of {@link #performNoOpAsync(Map, FDBStoreTimer)}.
+     * Note that the future is expected to complete relatively quickly in most circumstances, but it may take a long
+     * time if the network thread has been saturated, e.g., if there is a lot of work being scheduled to run in FDB.
+     *
+     * @param mdcContext logger context to set in running threads
+     * @param timer the timer to use for instrumentation
+     * @see #performNoOpAsync(Map, FDBStoreTimer)
+     */
+    public void performNoOp(@Nullable Map<String, String> mdcContext, @Nullable FDBStoreTimer timer) {
+        asyncToSync(timer, FDBStoreTimer.Waits.WAIT_PERFORM_NO_OP, performNoOpAsync(mdcContext, timer));
     }
 
     private long versionTimeEstimate(long startMillis) {
