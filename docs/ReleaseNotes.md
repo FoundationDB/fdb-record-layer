@@ -16,14 +16,14 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Wrap the `RecordStoreState` in an `AtomicReference` [(Issue #563)](https://github.com/FoundationDB/fdb-record-layer/issues/563)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Blocking on a future that should already be complete can now be detected and logged [(Issue #641)](https://github.com/FoundationDB/fdb-record-layer/issues/641)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** The `performNoOp` method on `FDBDatabase` allows for instrumenting the delay from queuing work onto the network thread [(Issue #650)](https://github.com/FoundationDB/fdb-record-layer/issues/650)
+* **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,12 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 
 // end next release
 -->
+
+### 2.7.74.0
+
+* **Bug fix** Wrap the `RecordStoreState` in an `AtomicReference` [(Issue #563)](https://github.com/FoundationDB/fdb-record-layer/issues/563)
+* **Performance** Blocking on a future that should already be complete can now be detected and logged [(Issue #641)](https://github.com/FoundationDB/fdb-record-layer/issues/641)
+* **Performance** The `performNoOp` method on `FDBDatabase` allows for instrumenting the delay from queuing work onto the network thread [(Issue #650)](https://github.com/FoundationDB/fdb-record-layer/issues/650)
 
 ### 2.7.73.0
 
