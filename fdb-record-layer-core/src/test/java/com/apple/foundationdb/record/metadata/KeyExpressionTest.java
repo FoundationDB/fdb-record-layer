@@ -673,11 +673,10 @@ public class KeyExpressionTest {
 
     @Test
     public void testSerializeField() throws Exception {
-        final FieldKeyExpression f1 = field("f1", FanType.FanOut, Key.Evaluated.NullStandin.NULL_UNIQUE);
+        final FieldKeyExpression f1 = field("f1", FanType.FanOut);
         final FieldKeyExpression f1Deserialized = new FieldKeyExpression(f1.toProto());
         assertEquals("f1", f1Deserialized.getFieldName());
         assertEquals(FanType.FanOut, f1Deserialized.getFanType());
-        assertEquals(Key.Evaluated.NullStandin.NULL_UNIQUE, f1Deserialized.getNullStandin());
     }
 
     @Test
