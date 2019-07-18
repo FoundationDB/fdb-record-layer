@@ -16,7 +16,7 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix key comparison in `checkPossiblyRebuildRecordCounts` [(Issue #646)](https://github.com/FoundationDB/fdb-record-layer/issues/646)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,10 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 
 // end next release
 -->
+
+### 2.7.75.0
+
+* **Bug fix** Fix key comparison in `checkPossiblyRebuildRecordCounts` [(Issue #646)](https://github.com/FoundationDB/fdb-record-layer/issues/646)
 
 ### 2.7.74.0
 
