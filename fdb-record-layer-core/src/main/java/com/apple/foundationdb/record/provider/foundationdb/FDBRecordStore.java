@@ -77,6 +77,7 @@ import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSeriali
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
@@ -178,6 +179,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public static final int SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION = 5;
     // 6 - store record version at a split point within the record
     public static final int SAVE_VERSION_WITH_RECORD_FORMAT_VERSION = 6;
+    //
     // 7 - allow the record store state to be cached and invalidated with the meta-data version key
     public static final int CACHEABLE_STATE_FORMAT_VERSION = 7;
     // 8 - add custom fields to store header
@@ -185,6 +187,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     // The current code can read and write up to the format version below
     public static final int MAX_SUPPORTED_FORMAT_VERSION = HEADER_USER_FIELDS_FORMAT_VERSION;
+=======
+    // 7 - store index state using the index subspace key
+    public static final int SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION = 7;
+
+    // The current code can read and write up to the format version below
+    public static final int MAX_SUPPORTED_FORMAT_VERSION = SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION;
+>>>>>>> Resolves #514: Store index state with subspace key
 
     // By default, record stores attempt to upgrade to this version
     // NOTE: Updating this can break certain users during upgrades.
@@ -203,6 +212,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected static final Object INDEX_KEY = FDBRecordStoreKeyspace.INDEX.key();
     protected static final Object INDEX_SECONDARY_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_SECONDARY_SPACE.key();
     protected static final Object RECORD_COUNT_KEY = FDBRecordStoreKeyspace.RECORD_COUNT.key();
+    protected static final Object INDEX_STATE_SPACE_KEY_DEPRECATED = FDBRecordStoreKeyspace.INDEX_STATE_SPACE_DEPRECATED.key();
     protected static final Object INDEX_STATE_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_STATE_SPACE.key();
     protected static final Object INDEX_RANGE_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_RANGE_SPACE.key();
     protected static final Object INDEX_UNIQUENESS_VIOLATIONS_KEY = FDBRecordStoreKeyspace.INDEX_UNIQUENESS_VIOLATIONS_SPACE.key();
@@ -751,6 +761,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
+    public Subspace indexStateSubspaceDeprecated() {
+        return getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED));
+    }
+
+    @Nonnull
     public Subspace indexSecondarySubspace(@Nonnull Index index) {
         return getSubspace().subspace(Tuple.from(INDEX_SECONDARY_SPACE_KEY, index.getSubspaceTupleKey()));
     }
@@ -1293,8 +1308,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Clear out all data except for the store header key and the index state space.
         // Those two subspaces are determined by the configuration of the record store rather then
         // the records.
+        Range oldIndexStateRange = indexStateSubspaceDeprecated().range();
         Range indexStateRange = indexStateSubspace().range();
-        tr.clear(recordsSubspace().getKey(), indexStateRange.begin);
+        tr.clear(recordsSubspace().getKey(), oldIndexStateRange.begin);
+        tr.clear(oldIndexStateRange.end, indexStateRange.begin);
         tr.clear(indexStateRange.end, getSubspace().range().end);
     }
 
@@ -1677,7 +1694,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                     @Nonnull StoreExistenceCheck existenceCheck,
                                                     @Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
         CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
-        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck).thenApply(storeInfo -> {
+        CompletableFuture<FDBRecordStoreStateCacheEntry> cacheEntryFuture = metaDataPreloadFuture.thenCompose(vignore ->
+                getStoreStateCache().get(this, existenceCheck));
+        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = cacheEntryFuture.thenApply(storeInfo -> {
             if (recordStoreStateRef.get() == null) {
                 recordStoreStateRef.compareAndSet(null, storeInfo.getRecordStoreState().toMutable());
             }
@@ -1706,6 +1725,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // on an unset boolean field results in getting back "false".)
             omitUnsplitRecordSuffix = info.getOmitUnsplitRecordSuffix();
         }
+        if (indexStateIsStoredInOldFormat(storeHeader)) {
+            // This store has the old index state that lived in common_record_store_prefix + (INDEX_STATE_SPACE_DEPRECATED, index's name) and must move to
+            // common_record_store_prefix + (INDEX_STATE_SPACE, index's subspace key).
+            upgradeIndexStates();
+        }
         final boolean[] dirty = new boolean[1];
         final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, oldUserVersion, oldMetaDataVersion, info, dirty);
         final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
@@ -1716,6 +1740,28 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return AsyncUtil.READY_FALSE;
             }
         });
+    }
+
+    private boolean indexStateIsStoredInOldFormat(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
+        return storeHeader.hasFormatVersion() && storeHeader.getFormatVersion() < SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION;
+    }
+
+    private CompletableFuture<Void> upgradeIndexStates() {
+        context.setDirtyStoreState(true);
+        Transaction tr = ensureContextActive();
+        if (recordStoreStateRef.get() == null) {
+            throw new RecordCoreException("record store state is not loaded");
+        }
+        synchronized (this) {
+            // This should be rare enough to handle synchronized.
+            MutableRecordStoreState recordStoreState = recordStoreStateRef.get();
+            for (Map.Entry<String, IndexState> indexState : recordStoreState.getIndexStates().entrySet()) {
+                Index index = getRecordMetaData().getIndex(indexState.getKey());
+                tr.set(indexStateSubspace().pack(index.getSubspaceTupleKey()), Tuple.from(indexState.getValue().code()).pack());
+            }
+            tr.clear(indexStateSubspaceDeprecated().range());
+        }
+        return AsyncUtil.DONE;
     }
 
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker, int oldUserVersion, int oldMetaDataVersion,
@@ -2302,7 +2348,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
-    private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
+    private void updateIndexState(@Nonnull Index index, @Nonnull IndexState indexState) {
         if (recordStoreStateRef.get() == null) {
             throw uninitializedStoreException("cannot update index state on an uninitialized store");
         }
@@ -2318,13 +2364,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             Transaction tr = context.ensureActive();
             if (IndexState.READABLE.equals(indexState)) {
-                tr.clear(indexKey);
+                tr.clear(indexStateSubspace().pack(index.getSubspaceTupleKey()));
+                if (indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader())) {
+                    tr.clear(indexStateSubspaceDeprecated().pack(index.getName()));
+                }
             } else {
-                tr.set(indexKey, Tuple.from(indexState.code()).pack());
+                tr.set(indexStateSubspace().pack(index.getSubspaceTupleKey()), Tuple.from(indexState.code()).pack());
+                if (indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader())) {
+                    tr.set(indexStateSubspaceDeprecated().pack(index.getName()), Tuple.from(indexState.code()).pack());
+                }
             }
             recordStoreStateRef.updateAndGet(state -> {
                 // See beginRecordStoreStateRead() on why setting state is done in updateAndGet().
-                state.setState(indexName, indexState);
+                state.setState(index.getName(), indexState);
                 return state;
             });
         } finally {
@@ -2338,30 +2390,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexNotReadable(indexName, indexState));
         }
 
+        CompletableFuture<Boolean> result = AsyncUtil.READY_FALSE;
         addIndexStateReadConflict(indexName);
-
         beginRecordStoreStateWrite();
-        boolean haveFuture = false;
-        try {
-            // A read is done before the write in order to avoid having unnecessary
-            // updates cause spurious not_committed errors.
-            byte[] indexKey = indexStateSubspace().pack(indexName);
-            Transaction tr = context.ensureActive();
-            CompletableFuture<Boolean> future = tr.get(indexKey).thenApply(previous -> {
-                if (previous == null || !Tuple.fromBytes(previous).get(0).equals(indexState.code())) {
-                    updateIndexState(indexName, indexKey, indexState);
-                    return true;
-                } else {
-                    return false;
-                }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
-            haveFuture = true;
-            return future;
-        } finally {
-            if (!haveFuture) {
-                endRecordStoreStateWrite();
-            }
+        if (!recordStoreStateRef.get().getState(indexName).equals(indexState)) {
+            updateIndexState(getRecordMetaData().getIndex(indexName), indexState);
+            result = AsyncUtil.READY_TRUE;
         }
+        endRecordStoreStateWrite();
+        return result;
     }
 
     /**
@@ -2507,48 +2544,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         addIndexStateReadConflict(index.getName());
-
-        beginRecordStoreStateWrite();
-        boolean haveFuture = false;
-        try {
-            Transaction tr = ensureContextActive();
-            byte[] indexKey = indexStateSubspace().pack(index.getName());
-            CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
-                if (previous != null) {
-                    CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
-                    CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = scanUniquenessViolations(index, 1).first();
-                    return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
-                        Optional<Range> firstUnbuilt = context.join(builtFuture);
-                        Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
-                        if (firstUnbuilt.isPresent()) {
-                            throw new IndexNotBuiltException("Attempted to make unbuilt index readable" , firstUnbuilt.get(),
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
-                                    "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context),
-                                    LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
-                        } else if (uniquenessViolation.isPresent()) {
-                            RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
-                                                                                                        uniquenessViolation.get());
-                            wrapped.addLogInfo(
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                            throw wrapped;
-                        } else {
-                            updateIndexState(index.getName(), indexKey, IndexState.READABLE);
-                            return true;
-                        }
-                    });
+        if (!recordStoreStateRef.get().isReadable(index)) {
+            CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
+            CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = scanUniquenessViolations(index, 1).first();
+            return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
+                Optional<Range> firstUnbuilt = context.join(builtFuture);
+                Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
+                if (firstUnbuilt.isPresent()) {
+                    throw new IndexNotBuiltException("Attempted to make unbuilt index readable" , firstUnbuilt.get(),
+                            LogMessageKeys.INDEX_NAME, index.getName(),
+                            "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
+                            "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
+                            subspaceProvider.logKey(), subspaceProvider.toString(context),
+                            LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
+                } else if (uniquenessViolation.isPresent()) {
+                    RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
+                            uniquenessViolation.get());
+                    wrapped.addLogInfo(
+                            LogMessageKeys.INDEX_NAME, index.getName(),
+                            subspaceProvider.logKey(), subspaceProvider.toString(context));
+                    throw wrapped;
                 } else {
-                    return AsyncUtil.READY_FALSE;
+                    updateIndexState(index, IndexState.READABLE);
+                    return true;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
-            haveFuture = true;
-            return future;
-        } finally {
-            if (!haveFuture) {
-                endRecordStoreStateWrite();
-            }
+            });
+        } else {
+            return AsyncUtil.READY_FALSE;
         }
     }
 
@@ -2590,25 +2612,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         addIndexStateReadConflict(indexName);
 
-        beginRecordStoreStateWrite();
-        boolean haveFuture = false;
-        try {
-            Transaction tr = ensureContextActive();
-            byte[] indexKey = indexStateSubspace().pack(indexName);
-            CompletableFuture<Boolean> future = tr.get(indexKey).thenApply(previous -> {
-                if (previous != null) {
-                    updateIndexState(indexName, indexKey, IndexState.READABLE);
-                    return true;
-                } else {
-                    return false;
-                }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
-            haveFuture = true;
-            return future;
-        } finally {
-            if (!haveFuture) {
-                endRecordStoreStateWrite();
-            }
+        if (!recordStoreStateRef.get().isReadable(indexName)) {
+            updateIndexState(getRecordMetaData().getIndex(indexName), IndexState.READABLE);
+            return AsyncUtil.READY_TRUE;
+        } else {
+            return AsyncUtil.READY_FALSE;
         }
     }
 
@@ -2680,13 +2688,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                   @Nonnull IsolationLevel storeHeaderIsolationLevel,
                                                                                   @Nonnull IsolationLevel indexStateIsolationLevel) {
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel);
-        CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(indexStateIsolationLevel);
-        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, RecordStoreState::new));
+        CompletableFuture<Map<String, IndexState>> loadIndexStates = storeHeaderFuture.thenCompose(vignore -> loadIndexStatesAsync(indexStateIsolationLevel, storeHeaderFuture.join()));
+        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, loadIndexStates.thenApply(vignore -> new RecordStoreState(storeHeaderFuture.join(), loadIndexStates.join())));
     }
 
     @Nonnull
-    private CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull IsolationLevel isolationLevel) {
-        Subspace isSubspace = getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
+    private CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull IsolationLevel isolationLevel, @Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
+        Subspace isSubspace;
+        if (indexStateIsStoredInOldFormat(storeHeader)) {
+            isSubspace = getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED));
+        } else {
+            isSubspace = getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
+        }
         KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
                 .setContext(getContext())
                 .setRange(TupleRange.ALL)
@@ -2702,7 +2715,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 ImmutableMap.Builder<String, IndexState> indexStateMapBuilder = ImmutableMap.builder();
 
                 for (KeyValue kv : list) {
-                    String indexName = isSubspace.unpack(kv.getKey()).getString(0);
+                    String indexName;
+                    if (indexStateIsStoredInOldFormat(storeHeader)) {
+                        indexName = isSubspace.unpack(kv.getKey()).getString(0);
+                    } else {
+                        Index index = getRecordMetaData().getIndex(isSubspace.unpack(kv.getKey()).get(0));
+                        if (index == null) {
+                            // Unknown index. This can happen if an index is removed.
+                            continue;
+                        }
+                        indexName = index.getName();
+                    }
                     Object code = Tuple.fromBytes(kv.getValue()).get(0);
                     indexStateMapBuilder.put(indexName, IndexState.fromCode(code));
                     if (timer != null) {
@@ -2740,7 +2763,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             throw new MetaDataException("Index " + indexName + " does not exist in meta-data.");
         }
         Transaction tr = ensureContextActive();
-        byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, indexName));
+        byte[] oldIndexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED, indexName));
+        tr.addReadConflictKey(oldIndexStateKey);
+        byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, getRecordMetaData().getIndex(indexName).getSubspaceTupleKey()));
         tr.addReadConflictKey(indexStateKey);
     }
 
@@ -2749,6 +2774,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     private void addStoreStateReadConflict() {
         Transaction tr = ensureContextActive();
+        byte[] oldIndexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED));
+        tr.addReadConflictRange(oldIndexStateKey, ByteArrayUtil.strinc(oldIndexStateKey));
         byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY));
         tr.addReadConflictRange(indexStateKey, ByteArrayUtil.strinc(indexStateKey));
     }
@@ -3440,6 +3467,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         tr.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         tr.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        tr.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED, formerIndex.getSubspaceTupleKey())));
         tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);

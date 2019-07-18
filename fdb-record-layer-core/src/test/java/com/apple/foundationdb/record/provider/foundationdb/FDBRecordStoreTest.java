@@ -3635,4 +3635,68 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.getRecordStoreState().getStoreHeader().getOmitUnsplitRecordSuffix());
         }
     }
+
+    @Test
+    public void testIndexStateFormatVersionUpgrade() {
+        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
+        try (FDBRecordContext context = openContext()) {
+            recordStore = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(builder)
+                    .setKeySpacePath(path)
+                    .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1)
+                    .create();
+            assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+            // Save 200 records without any indexes.
+            for (int i = 0; i < 200; i++) {
+                TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
+                        .setRecNo(i).setNumValue(i + 1000).build();
+                recordStore.saveRecord(record);
+            }
+            commit(context);
+        }
+
+        // Add a new index named "index" on rec_no.
+        final Index index = new Index("index", "rec_no");
+        index.setSubspaceKey(1);
+        builder.addIndex("MySimpleRecord", index);
+        try (FDBRecordContext context = openContext()) {
+            recordStore = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(builder)
+                    .setKeySpacePath(path)
+                    .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1)
+                    .createOrOpen();
+            assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+            // Since there were 200 records already, the new index is write-only.
+            assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
+            assertEquals(1L, recordStore.getRecordMetaData().getIndex("index").getSubspaceKey());
+            context.commit();
+        }
+
+        // Now upgrade. The index state must upgrade.
+        try (FDBRecordContext context = openContext()) {
+            recordStore = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(builder)
+                    .setKeySpacePath(path)
+                    .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION)
+                    .createOrOpen();
+            assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION, recordStore.getFormatVersion());
+            assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName())); // upgraded index state
+            assertEquals(1L, recordStore.getRecordMetaData().getIndex("index").getSubspaceKey());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            recordStore = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(builder)
+                    .setKeySpacePath(path)
+                    .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION)
+                    .createOrOpen();
+            assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION, recordStore.getFormatVersion());
+            commit(context);
+        }
+    }
+
 }

@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestNoIndexesProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsIndexFilteringProto;
@@ -1951,8 +1952,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    public void testChangeIndexDefinitionWriteOnly() throws Exception {
+    @ParameterizedTest(name = "testChangeIndexDefinitionWriteOnly({0})")
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    public void testChangeIndexDefinitionWriteOnly(TestHelpers.BooleanEnum changeIndexNameToo) throws Exception {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
@@ -1968,10 +1970,12 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // Add a new index named "index" on rec_no.
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             final Index index = new Index("index", "rec_no");
+            index.setSubspaceKey(1);
             builder.addIndex("MySimpleRecord", index);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
             // Since there were 200 records already, the new index is write-only.
             assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
+            assertEquals(1L, recordStore.getRecordMetaData().getIndex("index").getSubspaceKey());
             // Add 100 more records. Only these records will be stored in the new index.
             for (int i = 200; i < 300; i++) {
                 TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
@@ -1981,7 +1985,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         RecordMetaData recordMetaData;
-        Index index = new Index("index", "num_value");
+        Index index = new Index(changeIndexNameToo.toBoolean() ? "index2" : "index", "num_value");
+        index.setSubspaceKey(1);
         try (FDBRecordContext context = openContext()) {
             // Change the definition of the "index" index to be on num_value instead.
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
@@ -1991,6 +1996,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             recordMetaData = recordStore.getRecordMetaData();
             // The changed index is again write-only because there are 300 records.
             assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
+            assertEquals(1L, recordStore.getRecordMetaData().getIndex(index.getName()).getSubspaceKey());
+            if (changeIndexNameToo.toBoolean()) {
+                MetaDataException ex = assertThrows(MetaDataException.class, () -> recordMetaData.getIndex("index"));
+                assertEquals(ex.getMessage(), "Index index not defined");
+            }
             // Add 100 more records. These will be recorded in the new index.
             for (int i = 300; i < 400; i++) {
                 TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
