@@ -90,7 +90,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.LoggableException;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
@@ -1716,8 +1715,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return readStoreFirstKey(context, getSubspace(), isolationLevel).thenApply(keyValue -> checkAndParseStoreHeader(keyValue, existenceCheck));
     }
 
-    @VisibleForTesting
-    protected void saveStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
+    private void saveStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
         if (recordStoreStateRef.get() == null) {
             throw new RecordCoreException("cannot update store header with a null record store state");
         }
@@ -2924,11 +2922,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                        @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
                                                        @Nonnull List<CompletableFuture<Void>> work,
                                                        int oldFormatVersion) {
-        KeyExpression countKeyExpression = metaData.getRecordCountKey();
+        RecordMetaDataProto.KeyExpression countKeyExpression = null;
+        if (metaData.getRecordCountKey() != null) {
+            try {
+                countKeyExpression = metaData.getRecordCountKey().toKeyExpression();
+            } catch (KeyExpression.SerializationException e) {
+                throw new RecordCoreException("Error converting count key expression to protobuf", e);
+            }
+        }
         boolean rebuildRecordCounts =
                 (oldFormatVersion > 0 && oldFormatVersion < RECORD_COUNT_ADDED_FORMAT_VERSION) ||
                         (countKeyExpression != null && formatVersion >= RECORD_COUNT_KEY_ADDED_FORMAT_VERSION &&
-                                (!info.hasRecordCountKey() || !KeyExpression.fromProto(info.getRecordCountKey()).equals(countKeyExpression)));
+                                (!info.hasRecordCountKey() || !info.getRecordCountKey().equals(countKeyExpression)));
         if (rebuildRecordCounts) {
             // We want to clear all record counts.
             final Transaction tr = ensureContextActive();
@@ -2937,7 +2942,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // Set the new record count key if we have one.
             if (formatVersion >= RECORD_COUNT_KEY_ADDED_FORMAT_VERSION) {
                 if (countKeyExpression != null) {
-                    info.setRecordCountKey(countKeyExpression.toKeyExpression());
+                    info.setRecordCountKey(countKeyExpression);
                 } else {
                     info.clearRecordCountKey();
                 }
