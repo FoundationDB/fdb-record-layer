@@ -743,10 +743,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         if (directory == null) {
             return CompletableFuture.completedFuture(scores);
         }
+        final Map<Integer, Collection<TimeWindowLeaderboard>> leaderboards = directory.getLeaderboards();
         final List<IndexEntry> indexEntries = scores.stream().map(score -> new IndexEntry(state.index, score, TupleHelpers.EMPTY)).collect(Collectors.toList());
         return groupOrderedScoreIndexKeys(indexEntries, directory, includesGroup).thenApply(groupedScores -> {
             final Set<OrderedScoreIndexKey> trimmed = new TreeSet<>();
-            for (Iterable<TimeWindowLeaderboard> directoryEntry : directory.getLeaderboards().values()) {
+            for (Iterable<TimeWindowLeaderboard> directoryEntry : leaderboards.values()) {
                 for (TimeWindowLeaderboard leaderboard : directoryEntry) {
                     for (Collection<OrderedScoreIndexKey> entry : groupedScores.values()) {
                         Optional<OrderedScoreIndexKey> bestContainedScore = entry.stream()
