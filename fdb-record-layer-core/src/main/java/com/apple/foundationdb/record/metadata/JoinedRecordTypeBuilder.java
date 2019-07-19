@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
@@ -162,6 +163,10 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
      */
     @Nonnull
     public Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftExpression, @Nonnull String right, @Nonnull KeyExpression rightExpression) {
+        if (leftExpression.getColumnSize() != rightExpression.getColumnSize()) {
+            throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
+                    .addLogInfo("left", leftExpression, "right", rightExpression);
+        }
         Join join = new Join(left, leftExpression, right, rightExpression);
         joins.add(join);
         return join;

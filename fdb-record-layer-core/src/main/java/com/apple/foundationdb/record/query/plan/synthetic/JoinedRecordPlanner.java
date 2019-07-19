@@ -195,6 +195,8 @@ class JoinedRecordPlanner {
                 bindingPlans.add(new JoinedRecordPlan.BindingPlan(pendingJoin.bindingName, expression, pendingJoin.singleton));
             }
         }
+        // The list is not meaningfully ordered, so impose a canonical ordering so it's invariant.
+        bindingPlans.sort(Comparator.comparing(JoinedRecordPlan.BindingPlan::getName));
         joinedTypes.add(new JoinedRecordPlan.JoinedType(pendingType.joinConstituent, bindingPlans));
         pendingTypes.remove(pendingType);
     }

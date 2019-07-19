@@ -137,6 +137,11 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
             return evaluated.getObject(0);
         }
 
+        @Nonnull
+        public String getName() {
+            return name;
+        }
+
         @Override
         public String toString() {
             return name + ":" + expression;
