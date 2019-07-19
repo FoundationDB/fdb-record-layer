@@ -353,7 +353,7 @@ public class Key {
                 proto = nullInterpretation;
             }
 
-            public RecordMetaDataProto.Field.NullInterpretation toProto() {
+            RecordMetaDataProto.Field.NullInterpretation toProto() {
                 return proto;
             }
 

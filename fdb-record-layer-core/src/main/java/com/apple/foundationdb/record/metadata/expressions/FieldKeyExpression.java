@@ -188,7 +188,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return RecordMetaDataProto.Field.newBuilder()
                 .setFieldName(fieldName)
                 .setFanType(fanType.toProto())
-                .setNullInterpretation(nullStandin.toProto())
                 .build();
     }
 
@@ -296,10 +295,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     @Nonnull
     public FanType getFanType() {
         return fanType;
-    }
-
-    public Key.Evaluated.NullStandin getNullStandin() {
-        return nullStandin;
     }
 
     @Override
