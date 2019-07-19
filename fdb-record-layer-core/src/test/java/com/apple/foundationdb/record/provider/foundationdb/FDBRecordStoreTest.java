@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
@@ -97,7 +96,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -1804,64 +1802,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context, hook);
             Index countIndex = recordStore.getRecordMetaData().getIndex("record_count");
             assertThat(recordStore.getRecordStoreState().isWriteOnly(countIndex), is(false));
-            assertEquals(10L, recordStore.getSnapshotRecordCount().get().longValue());
-        }
-    }
-
-    @Test
-    @SuppressWarnings("deprecation")
-    public void addCountKey() throws Exception {
-        RecordMetaDataHook removeCountHook = metaData -> {
-            metaData.removeIndex(COUNT_INDEX.getName());
-        };
-
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, removeCountHook);
-
-            for (int i = 0; i < 10; i++) {
-                recordStore.saveRecord(makeRecord(i, 1066, i % 5));
-            }
-            commit(context);
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, removeCountHook);
-            recordStore.getSnapshotRecordCount().get();
-            fail("evaluated count without index or key");
-        } catch (RecordCoreException e) {
-            assertThat(e.getMessage(), containsString("requires appropriate index"));
-        }
-
-        AtomicInteger versionCounter = new AtomicInteger(recordStore.getRecordMetaData().getVersion());
-        RecordMetaDataHook hook = md -> {
-            md.setRecordCountKey(Key.Expressions.field("num_value_3_indexed"));
-            md.setVersion(md.getVersion() + versionCounter.incrementAndGet());
-        };
-
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
-            assertThat(timer.getCount(FDBStoreTimer.Events.RECOUNT_RECORDS), equalTo(1));
-            commit(context);
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
-            assertThat(timer.getCount(FDBStoreTimer.Events.RECOUNT_RECORDS), equalTo(0));
-            assertEquals(10L, recordStore.getSnapshotRecordCount().get().longValue());
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
-            // Before it was deprecated, this is how a key would have been written.
-            RecordMetaDataProto.DataStoreInfo.Builder infoBuilder = recordStore.getRecordStoreState().getStoreHeader().toBuilder();
-            infoBuilder.getRecordCountKeyBuilder().getFieldBuilder().clearNullInterpretation();
-            recordStore.saveStoreHeader(infoBuilder.build());
-            commit(context);
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
-            assertThat(timer.getCount(FDBStoreTimer.Events.RECOUNT_RECORDS), equalTo(0));
             assertEquals(10L, recordStore.getSnapshotRecordCount().get().longValue());
         }
     }

@@ -305,7 +305,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
 
             assertThat(executeQuery(RecordQuery.newBuilder()
                     .setRecordType("MyNullRecord")
-                    .setSort(scalarFieldsNotNull ? Key.Expressions.field("int_value", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NOT_NULL) : Key.Expressions.field("int_value"))
+                    .setSort(Key.Expressions.field("int_value"))
                     .build()),
                     is(scalarFieldsNotNull ?
                                 Arrays.asList("minus", "default", "empty", "one", "two") :
@@ -359,7 +359,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
 
             assertThat(executeQuery(RecordQuery.newBuilder()
                             .setRecordType("MyNullRecord")
-                            .setSort(Key.Expressions.field("nullable_int_value").nest(Key.Expressions.field("value", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NOT_NULL)))
+                            .setSort(Key.Expressions.field("nullable_int_value").nest("value"))
                             .build()),
                     is(Arrays.asList("empty", "minus", "default", "one", "two")));
         }
