@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -37,30 +36,48 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
- * A cursor that returns the results of two or more cursors that may return elements in any order. This cursor makes
- * no guarantees as to the order of elements it returns, and it may return the same element more than once as it does
- * not make any attempt to de-duplicate elements that appear in multiple of its source cursors. It attempts to return
- * elements from its children "as they come", which means that it might be the case that identical cursors of this type
- * may return results in two different orders even if all of its child cursors all return the same results if different
- * children happen to be faster in one run than the other (due to, for example, non-determinism in sending messages across
- * the network).
+ * A cursor that returns the results of two or more cursors that may return elements in any order. This cursor will return
+ * elements from its child cursors using a round robin strategy. In particular, it will return the first element from
+ * its first child, then the first element from its second child, and so on until it has returned one element from each
+ * child. It will then return the second element from its first child, then the second element from its second child,
+ * and so on. Once a child cursor has been exhausted, it will skip that child. If a child hits a different limit,
+ * then the cursor will stop when it hits that child and return a {@link com.apple.foundationdb.record.RecordCursor.NoNextReason}
+ * consistent with a stopped child. Note that duplicate values are not removed.
  *
  * <p>
- * If there are limits applied to the children of this cursor, this cursor will continue to emit elements as long as
- * there remains at least one child cursor who has not yet returned its last result. (For example, if this cursor
- * has two children and one of them completes faster than the other due to hitting some limit, then the union cursor
- * will continue returning results from the other cursor.) This differs from the behavior of the ordered
- * {@link UnionCursor}.
+ * If the cursor is resumed from a continuation, the cursor will start from the first child cursor that had hit a limit.
+ * In this way, the returned values should be invariant to cursor restarts as long as each child cursor can be restarted
+ * from its continuation without changing its returned values and as long as the underlying data do not change while the
+ * cursor is running.
+ * </p>
+ *
+ * <p>
+ * Internally, this cursor will begin all child cursors concurrently, so even though the return order is deterministic,
+ * this can effectively pipeline pulling from each child.
  * </p>
  *
  * @param <T> the type of elements returned by the cursor
  */
 @API(API.Status.EXPERIMENTAL)
 public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState<T>> {
+    @Nonnull
+    private RoundRobinCursorChooser<T> cursorChooser;
 
-    protected UnorderedUnionCursor(@Nonnull List<MergeCursorState<T>> cursorStates,
-                                   @Nullable FDBStoreTimer timer) {
+    private UnorderedUnionCursor(@Nonnull List<MergeCursorState<T>> cursorStates,
+                                 int currentChild,
+                                 @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
+        this.cursorChooser = new RoundRobinCursorChooser<>(cursorStates, currentChild);
+    }
+
+    int getCurrentChildPos() {
+        return cursorChooser.getNextStatePos();
+    }
+
+    @Override
+    @Nonnull
+    UnorderedUnionCursorContinuation getContinuationObject() {
+        return UnorderedUnionCursorContinuation.from(this);
     }
 
     @Nonnull
@@ -68,33 +85,32 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
     CompletableFuture<List<MergeCursorState<T>>> computeNextResultStates() {
         final long startComputingStateTime = System.currentTimeMillis();
         final List<MergeCursorState<T>> cursorStates = getCursorStates();
+        startAllStates(cursorStates);
+
         AtomicReference<MergeCursorState<T>> nextStateRef = new AtomicReference<>();
-        return AsyncUtil.whileTrue(() -> whenAny(cursorStates).thenApply(vignore -> {
+        return AsyncUtil.whileTrue(() -> {
             checkNextStateTimeout(startComputingStateTime);
-            MergeCursorState<T> nextState = null;
-            boolean allDone = true;
-            for (MergeCursorState<T> cursorState : cursorStates) {
-                if (!MoreAsyncUtil.isCompletedNormally(cursorState.getOnNextFuture())) {
-                    allDone = false;
-                    continue;
-                }
-                final RecordCursorResult<T> result = cursorState.getResult();
-                if (result.hasNext()) {
-                    // Found a cursor with an element.
-                    allDone = false;
-                    nextState = cursorState;
-                    break;
-                }
+            CompletableFuture<RecordCursorResult<T>> nextResultFuture = cursorChooser.getFutureFromNextState();
+            if (nextResultFuture == null) {
+                // All children are exhausted.
+                return AsyncUtil.READY_FALSE;
             }
-            // If any cursor has another element, return that there is another element
-            // for the union. If no element was found, it was because the child
-            // cursor that became ready was exhausted and the cursor needs to
-            // keep looking for another (so this loops again).
-            if (nextState != null) {
-                nextStateRef.set(nextState);
-            }
-            return nextState == null && !allDone;
-        }), getExecutor()).thenApply(vignore -> {
+            return nextResultFuture.thenApply(nextResult -> {
+                final MergeCursorState<T> nextState = cursorStates.get(cursorChooser.getNextStatePos());
+                if (nextResult.hasNext()) {
+                    nextStateRef.set(nextState);
+                    cursorChooser.advance();
+                    return false;
+                } else if (nextResult.getNoNextReason().isSourceExhausted()) {
+                    // Cursor is exhausted. Advance to the next cursor and try that one.
+                    cursorChooser.advance();
+                    return true;
+                } else {
+                    // The cursor has stopped, but it is not exhausted. Stop looking and bubble up limit.
+                    return false;
+                }
+            });
+        }, getExecutor()).thenApply(vignore -> {
             if (nextStateRef.get() == null) {
                 return Collections.emptyList();
             } else {
@@ -104,10 +120,9 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
     }
 
     @Nonnull
-    static <T> List<MergeCursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
-                                                            @Nullable byte[] byteContinuation) {
+    private static <T> List<MergeCursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+                                                                    @Nonnull UnionCursorContinuation continuation) {
         final List<MergeCursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
-        final UnionCursorContinuation continuation = UnionCursorContinuation.from(byteContinuation, cursorFunctions.size());
         int i = 0;
         for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
             cursorStates.add(KeyedMergeCursorState.from(cursorFunction, continuation.getContinuations().get(i)));
@@ -119,8 +134,7 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
     /**
      * Create a union cursor from two or more cursors. Unlike the other {@link UnionCursor}, this does
      * not require that the child cursors return values in any particular order. The trade-off, however,
-     * is that this cursor will not attempt to remove any duplicates from its children. It will return
-     * results from its children as they become available.
+     * is that this cursor will not attempt to remove any duplicates from its children.
      *
      * @param cursorFunctions a list of functions to produce {@link RecordCursor}s from a continuation
      * @param continuation any continuation from a previous scan
@@ -133,6 +147,7 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
             @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
-        return new UnorderedUnionCursor<>(createCursorStates(cursorFunctions, continuation), timer);
+        final UnorderedUnionCursorContinuation unionContinuation = UnorderedUnionCursorContinuation.from(continuation, cursorFunctions.size());
+        return new UnorderedUnionCursor<>(createCursorStates(cursorFunctions, unionContinuation), unionContinuation.getCurrentChild(), timer);
     }
 }

@@ -23,10 +23,10 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorTest;
-import com.apple.foundationdb.record.cursors.FirableCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.TestLogMessageKeys;
@@ -64,6 +64,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of the {@link ProbableIntersectionCursor} class. This class is somewhat difficult to test because of its
@@ -96,8 +97,8 @@ public class ProbableIntersectionCursorTest {
         final Iterator<Integer> iterator1 = IntStream.iterate(0, x -> x + 2).limit(150).iterator();
         final Iterator<Integer> iterator2 = IntStream.iterate(0, x -> x + 3).limit(100).iterator();
 
-        final FirableCursor<Integer> cursor1 = new FirableCursor<>(RecordCursor.fromIterator(iterator1));
-        final FirableCursor<Integer> cursor2 = new FirableCursor<>(RecordCursor.fromIterator(iterator2));
+        final RecordCursor<Integer> cursor1 = RecordCursor.fromIterator(iterator1);
+        final RecordCursor<Integer> cursor2 = RecordCursor.fromIterator(iterator2);
         final RecordCursor<Integer> intersectionCursor = ProbableIntersectionCursor.create(
                 Collections::singletonList,
                 Arrays.asList(bignore -> cursor1, bignore -> cursor2),
@@ -105,38 +106,29 @@ public class ProbableIntersectionCursorTest {
                 timer
         );
 
-        cursor1.fireAll(); // Intersection consumes first cursor
-        CompletableFuture<RecordCursorResult<Integer>> firstFuture = intersectionCursor.onNext();
-        cursor2.fire();
-        RecordCursorResult<Integer> firstResult = firstFuture.join();
+        RecordCursorResult<Integer> firstResult = intersectionCursor.getNext();
+        assertTrue(firstResult.hasNext());
         assertEquals(0, (int)firstResult.get());
-        assertThat(firstResult.hasNext(), is(true));
-        assertEquals(cursor1.getNext().getNoNextReason(), RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
-        cursor2.fireAll(); // Intersection consumes second cursor as they come
 
         AtomicInteger falsePositives = new AtomicInteger();
         AsyncUtil.whileTrue(() -> intersectionCursor.onNext().thenApply(result -> {
             if (result.hasNext()) {
                 int value = result.get();
-                assertEquals(0, value % 3); // every result *must* be divisible by 3
-                if (value % 2 != 0) {
-                    falsePositives.incrementAndGet(); // most results should be divisible by 2
+                assertTrue(value % 2 == 0 || value % 3 == 0);
+                if (value % 2 != 0 || value % 3 != 0) {
+                    falsePositives.incrementAndGet();
                 }
                 assertThat(result.getContinuation().isEnd(), is(false));
                 assertNotNull(result.getContinuation().toBytes());
                 try {
                     RecordCursorProto.ProbableIntersectionContinuation protoContinuation = RecordCursorProto.ProbableIntersectionContinuation.parseFrom(result.getContinuation().toBytes());
                     assertEquals(2, protoContinuation.getChildStateCount());
-                    assertThat(protoContinuation.getChildState(0).getExhausted(), is(true));
-                    assertThat(protoContinuation.getChildState(0).hasContinuation(), is(false));
-                    assertThat(protoContinuation.getChildState(1).getExhausted(), is(false));
-                    assertThat(protoContinuation.getChildState(1).hasContinuation(), is(true));
                 } catch (InvalidProtocolBufferException e) {
                     throw new RecordCoreException("error parsing proto continuation", e);
                 }
             } else {
-                assertThat(result.getNoNextReason().isSourceExhausted(), is(true));
-                assertThat(result.getContinuation().isEnd(), is(true));
+                assertTrue(result.getNoNextReason().isSourceExhausted());
+                assertTrue(result.getContinuation().isEnd());
                 assertNull(result.getContinuation().toBytes());
             }
             return result.hasNext();
@@ -154,7 +146,7 @@ public class ProbableIntersectionCursorTest {
     public void resumeFromContinuation() {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final List<Integer> list1 = Arrays.asList(10, 2, 5, 6, 8, 19, 0);
-        final List<Integer> list2 = Arrays.asList( 9, 1, 3, 5, 2, 4, 8);
+        final List<Integer> list2 = Arrays.asList( 9, 1, 3, 5, 2, 4, 8, 3);
         final List<Function<byte[], RecordCursor<Integer>>> cursorFuncs = listsToFunctions(Arrays.asList(list1, list2));
         final Function<byte[], ProbableIntersectionCursor<Integer>> intersectionCursorFunction = continuation ->
                 ProbableIntersectionCursor.create(Collections::singletonList, cursorFuncs, continuation, timer);
@@ -309,7 +301,7 @@ public class ProbableIntersectionCursorTest {
                 )),
                 null,
                 null);
-        verifyResults(cursor, RecordCursor.NoNextReason.TIME_LIMIT_REACHED, 3, 4, 1);
+        verifyResults(cursor, RecordCursor.NoNextReason.TIME_LIMIT_REACHED, 3);
 
         // One in band limit reached, one exhausted
         cursor = ProbableIntersectionCursor.create(Collections::singletonList,
@@ -319,7 +311,7 @@ public class ProbableIntersectionCursorTest {
                 )),
                 null,
                 null);
-        verifyResults(cursor, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, 3, 4, 1);
+        verifyResults(cursor, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, 3);
 
         // Both exhausted
         cursor = ProbableIntersectionCursor.create(Collections::singletonList,
@@ -367,22 +359,38 @@ public class ProbableIntersectionCursorTest {
     @Test
     public void loopIterationWithLimit() throws ExecutionException, InterruptedException {
         FDBStoreTimer timer = new FDBStoreTimer();
-        FirableCursor<Integer> secondCursor = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(2, 1)));
-        RecordCursor<Integer> cursor = ProbableIntersectionCursor.create(Collections::singletonList, Arrays.asList(
-                continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation).limitRowsTo(1),
-                continuation -> secondCursor
-        ), null, timer);
+        Function<RecordCursorContinuation, RecordCursor<Integer>> cursorCreator = continuationObj ->
+                ProbableIntersectionCursor.create(Collections::singletonList, Arrays.asList(
+                        continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation).limitRowsTo(1),
+                        continuation -> RecordCursor.fromList(Arrays.asList(2, 1), continuation)
+                ), continuationObj == null ? null : continuationObj.toBytes(), timer);
+        RecordCursor<Integer> cursor = cursorCreator.apply(null);
 
         CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
-        secondCursor.fire();
-        assertFalse(cursorResultFuture.isDone());
-        secondCursor.fire();
         RecordCursorResult<Integer> cursorResult = cursorResultFuture.get();
+        assertFalse(cursorResult.hasNext());
+        assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursorResult.getNoNextReason());
+
+        cursor = cursorCreator.apply(cursorResult.getContinuation());
+
+        cursorResult = cursor.getNext();
+        assertTrue(cursorResult.hasNext());
+        assertEquals(2, (int)cursorResult.get());
+
+        cursorResult = cursor.getNext();
+        assertTrue(cursorResult.hasNext());
         assertEquals(1, (int)cursorResult.get());
 
-        secondCursor.fire();
         cursorResult = cursor.getNext();
+        assertFalse(cursorResult.hasNext());
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursorResult.getNoNextReason());
+
+        cursor = cursorCreator.apply(cursorResult.getContinuation());
+
+        cursorResult = cursor.getNext();
+        assertFalse(cursorResult.hasNext());
+        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursorResult.getNoNextReason());
+
         assertThat(timer.getCount(FDBStoreTimer.Events.QUERY_INTERSECTION), lessThanOrEqualTo(5));
     }
 }

@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -46,9 +45,8 @@ import java.util.function.Function;
  * only uses this comparison key for determining whether two results returned by child cursors are equal.
  *
  * <p>
- * This cursor makes very few guarantees about its results. In particular, just as with the {@link UnorderedUnionCursor},
- * results are returned as they come, so the exact ordering of returned results is determined only at runtime.
- * It also can produce duplicates if the same result appears multiple times in its child cursors.
+ * This cursor has a somewhat complicated contract. In particular, just as with the {@link UnorderedUnionCursor},
+ * results are processed internally by visiting each child cursor in a round robin fashion.
  * Additionally, in order to support resuming this cursor using a continuation, Bloom filters are used internally
  * to remember which results the cursors have already seen. However, as Bloom filters can report false positives,
  * it is possible that this cursor can return a result that only appears in a proper subset of the child cursors'
@@ -64,7 +62,14 @@ import java.util.function.Function;
  * <ul>
  *     <li>All results that are actually in the intersection will be in this cursor's result set.</li>
  *     <li>Any result of this cursor is the result of at least one child cursor.</li>
+ *     <li>Assuming each child returns a deterministic stream of results and the underlying data are not modified,
+ *            running the same cursor multiple times will return the same results in the same order.</li>
  * </ul>
+ *
+ * <p>
+ * Importantly, note that even though this cursor returns a deterministic stream of values, it might not necessarily be
+ * predictable (if the underlying Bloom filter is treated as a black box).
+ * </p>
  *
  * <p>
  * This cursor can therefore be used to select a narrow candidate set of "probable" elements of the intersection
@@ -96,8 +101,15 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
     private static final Set<StoreTimer.Count> nonmatchesCounts =
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_INTERSECTION_PLAN_NONMATCHES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    ProbableIntersectionCursor(@Nonnull List<ProbableIntersectionCursorState<T>> cursorStates, @Nullable FDBStoreTimer timer) {
+    private final RoundRobinCursorChooser<T> cursorChooser;
+
+    private ProbableIntersectionCursor(@Nonnull List<ProbableIntersectionCursorState<T>> cursorStates, int currentChild, @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
+        this.cursorChooser = new RoundRobinCursorChooser<>(cursorStates, currentChild);
+    }
+
+    int getCurrentChildPos() {
+        return cursorChooser.getNextStatePos();
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -120,21 +132,23 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
     @Nonnull
     CompletableFuture<List<ProbableIntersectionCursorState<T>>> computeNextResultStates() {
         final long startComputingStateTime = System.currentTimeMillis();
+        final List<ProbableIntersectionCursorState<T>> cursorStates = getCursorStates();
+        startAllStates(cursorStates);
+
         final AtomicReference<ProbableIntersectionCursorState<T>> resultStateRef = new AtomicReference<>();
-        return AsyncUtil.whileTrue(() -> whenAny(getCursorStates()).thenApply(vignore -> {
+        return AsyncUtil.whileTrue(() -> {
             checkNextStateTimeout(startComputingStateTime);
             final long startTime = System.nanoTime();
-            final List<ProbableIntersectionCursorState<T>> cursorStates = getCursorStates();
-            boolean allDone = true;
-            for (ProbableIntersectionCursorState<T> cursorState : cursorStates) {
-                final CompletableFuture<RecordCursorResult<T>> onNextFuture = cursorState.getOnNextFuture();
-                if (!MoreAsyncUtil.isCompletedNormally(onNextFuture)) {
-                    allDone = false;
-                    continue;
-                }
-                final RecordCursorResult<T> resultState = onNextFuture.join();
-                if (resultState.hasNext()) {
-                    allDone = false;
+            CompletableFuture<RecordCursorResult<T>> nextResultFuture = cursorChooser.getFutureFromNextState();
+            if (nextResultFuture == null) {
+                // All children are exhausted.
+                return AsyncUtil.READY_FALSE;
+            }
+            return nextResultFuture.thenApply(nextResult -> {
+                final ProbableIntersectionCursorState<T> cursorState = cursorStates.get(cursorChooser.getNextStatePos());
+
+                if (nextResult.hasNext()) {
+                    cursorChooser.advance();
                     if (!cursorState.isDefiniteDuplicate() && checkIfInRest(cursorState)) {
                         // We've found an element that is in all of the other states.
                         // Exit immediately with "false" to indicate that the loop can stop.
@@ -146,19 +160,23 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
                         return false;
                     } else {
                         // This element is missing from at least one child so will not be in the
-                        // result set (at least not yet).
+                        // result set (at least not yet). Try the next one.
                         cursorState.consume();
                         if (getTimer() != null) {
                             getTimer().increment(nonmatchesCounts);
                         }
+                        return true;
                     }
+                } else if (nextResult.getNoNextReason().isSourceExhausted()) {
+                    // This cursor has been exhausted. Try the next one.
+                    cursorChooser.advance();
+                    return true;
+                } else {
+                    // The cursor hit a limit. Stop looking and bubble up the limit.
+                    return false;
                 }
-            }
-            if (getTimer() != null) {
-                getTimer().record(duringEvents, System.nanoTime() - startTime);
-            }
-            return !allDone;
-        }), getExecutor()).thenApply(vignore -> {
+            });
+        }, getExecutor()).thenApply(vignore -> {
             if (resultStateRef.get() == null) {
                 // All cursors have stopped. Signal this with the empty list.
                 return Collections.emptyList();
@@ -189,11 +207,10 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
 
     @Nonnull
     static <T> List<ProbableIntersectionCursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
-                                                                           @Nullable byte[] byteContinuation,
+                                                                           @Nonnull ProbableIntersectionCursorContinuation continuation,
                                                                            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
                                                                            long expectedInsertions, double falsePositiveRate) {
         final List<ProbableIntersectionCursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
-        final ProbableIntersectionCursorContinuation continuation = ProbableIntersectionCursorContinuation.from(byteContinuation, cursorFunctions.size());
         int i = 0;
         for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
             cursorStates.add(ProbableIntersectionCursorState.from(cursorFunction, continuation.getContinuations().get(i),
@@ -212,7 +229,7 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
      * @param continuation any continuation from a previous scan
      * @param timer the timer used to instrument events
      * @param <T> the type of elements returned by this cursor
-     * @return a cursor containing any records from any child cursor
+     * @return a cursor containing any records that are probably in all child cursors
      * @see #create(Function, List, long, double, byte[], FDBStoreTimer)
      */
     @Nonnull
@@ -247,7 +264,7 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
      * @param continuation any continuation from a previous scan
      * @param timer the timer used to instrument events
      * @param <T> the type of elements returned by this cursor
-     * @return a cursor containing any records from any child cursor
+     * @return a cursor containing any records that are probably in all child cursors
      */
     @Nonnull
     public static <T> ProbableIntersectionCursor<T> create(
@@ -257,6 +274,8 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
             double falsePositivePercentage,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
-        return new ProbableIntersectionCursor<>(createCursorStates(cursorFunctions, continuation, comparisonKeyFunction, expectedResults, falsePositivePercentage), timer);
+        final ProbableIntersectionCursorContinuation intersectionContinuation = ProbableIntersectionCursorContinuation.from(continuation, cursorFunctions.size());
+        List<ProbableIntersectionCursorState<T>> cursorStates = createCursorStates(cursorFunctions, intersectionContinuation, comparisonKeyFunction, expectedResults, falsePositivePercentage);
+        return new ProbableIntersectionCursor<>(cursorStates, intersectionContinuation.getCurrentChild(), timer);
     }
 }

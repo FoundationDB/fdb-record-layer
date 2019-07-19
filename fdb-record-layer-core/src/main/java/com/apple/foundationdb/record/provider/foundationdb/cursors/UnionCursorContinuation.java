@@ -110,29 +110,23 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
         return getContinuations().stream().allMatch(RecordCursorContinuation::isEnd);
     }
 
-    @Nonnull
-    static UnionCursorContinuation from(@Nonnull UnionCursorBase<?, ?> cursor) {
-        return new UnionCursorContinuation(cursor.getChildContinuations());
-    }
-
     @SuppressWarnings("PMD.PreserveStackTrace")
     @Nonnull
-    static UnionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
-        if (bytes == null) {
-            return new UnionCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));
-        }
+    static RecordCursorProto.UnionContinuation parseProto(@Nonnull byte[] bytes) {
         try {
-            return UnionCursorContinuation.from(RecordCursorProto.UnionContinuation.parseFrom(bytes), numberOfChildren);
+            return RecordCursorProto.UnionContinuation.parseFrom(bytes);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
         } catch (RecordCoreArgumentException ex) {
             throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
         }
+
     }
 
     @Nonnull
-    static UnionCursorContinuation from(@Nonnull RecordCursorProto.UnionContinuation parsed, int numberOfChildren) {
+    static List<RecordCursorContinuation> getChildContinuations(@Nonnull RecordCursorProto.UnionContinuation parsed,
+                                                                int numberOfChildren) {
         ImmutableList.Builder<RecordCursorContinuation> builder = ImmutableList.builder();
         if (parsed.hasFirstContinuation()) {
             builder.add(ByteArrayContinuation.fromNullable(parsed.getFirstContinuation().toByteArray()));
@@ -163,6 +157,24 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
                     .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, numberOfChildren)
                     .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, children.size());
         }
-        return new UnionCursorContinuation(children, parsed);
+        return children;
+    }
+
+    @Nonnull
+    static UnionCursorContinuation from(@Nonnull UnionCursorBase<?, ?> cursor) {
+        return new UnionCursorContinuation(cursor.getChildContinuations());
+    }
+
+    @Nonnull
+    static UnionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
+        if (bytes == null) {
+            return new UnionCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));
+        }
+        return UnionCursorContinuation.from(parseProto(bytes), numberOfChildren);
+    }
+
+    @Nonnull
+    static UnionCursorContinuation from(@Nonnull RecordCursorProto.UnionContinuation parsed, int numberOfChildren) {
+        return new UnionCursorContinuation(getChildContinuations(parsed, numberOfChildren), parsed);
     }
 }

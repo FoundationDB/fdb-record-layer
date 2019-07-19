@@ -40,12 +40,17 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.RecordCursorProto.ProbableIntersectionContinuation;
 
 class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<ProbableIntersectionContinuation.Builder, BloomFilterCursorContinuation> {
-    protected ProbableIntersectionCursorContinuation(@Nonnull List<BloomFilterCursorContinuation> continuations, @Nullable Message originalProto) {
+    private final int currentChild;
+
+    protected ProbableIntersectionCursorContinuation(@Nonnull List<BloomFilterCursorContinuation> continuations, @Nullable Message originalProto,
+                                                     int currentChild) {
         super(continuations, originalProto);
+        this.currentChild = currentChild;
     }
 
-    protected ProbableIntersectionCursorContinuation(@Nonnull List<BloomFilterCursorContinuation> continuations) {
-        this(continuations, null);
+    protected ProbableIntersectionCursorContinuation(@Nonnull List<BloomFilterCursorContinuation> continuations,
+                                                     int currentChild) {
+        this(continuations, null, currentChild);
     }
 
     private void addChild(@Nonnull ProbableIntersectionContinuation.Builder builder,
@@ -71,7 +76,12 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
     @Nonnull
     @Override
     ProbableIntersectionContinuation.Builder newProtoBuilder() {
-        return ProbableIntersectionContinuation.newBuilder();
+        return ProbableIntersectionContinuation.newBuilder()
+                .setCurrentChild(currentChild);
+    }
+
+    int getCurrentChild() {
+        return currentChild;
     }
 
     @Override
@@ -83,22 +93,9 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
     }
 
     @Nonnull
-    static ProbableIntersectionCursorContinuation from(@Nonnull ProbableIntersectionCursor<?> cursor) {
-        // This can't use getChildContinuations() because of the way the type system works
-        List<BloomFilterCursorContinuation> childContinuations = cursor.getCursorStates().stream()
-                .map(ProbableIntersectionCursorState::getContinuation)
-                .collect(Collectors.toList());
-        return new ProbableIntersectionCursorContinuation(childContinuations);
-    }
-
-    @Nonnull
-    static ProbableIntersectionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
-        if (bytes == null) {
-            return new ProbableIntersectionCursorContinuation(Collections.nCopies(numberOfChildren,
-                    new BloomFilterCursorContinuation(RecordCursorStartContinuation.START, null)));
-        }
+    static ProbableIntersectionContinuation parse(@Nonnull byte[] bytes) {
         try {
-            return ProbableIntersectionCursorContinuation.from(ProbableIntersectionContinuation.parseFrom(bytes), numberOfChildren);
+            return ProbableIntersectionContinuation.parseFrom(bytes);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
@@ -106,7 +103,8 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
     }
 
     @Nonnull
-    static ProbableIntersectionCursorContinuation from(@Nonnull ProbableIntersectionContinuation parsed, int numberOfChildren) {
+    static List<BloomFilterCursorContinuation> getChildContinuations(@Nonnull ProbableIntersectionContinuation parsed,
+                                                                     int numberOfChildren) {
         ImmutableList.Builder<BloomFilterCursorContinuation> builder = ImmutableList.builder();
         for (ProbableIntersectionContinuation.CursorState state : parsed.getChildStateList()) {
             if (state.getExhausted()) {
@@ -123,6 +121,30 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
                     .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, numberOfChildren)
                     .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, parsed.getChildStateCount());
         }
-        return new ProbableIntersectionCursorContinuation(children, parsed);
+        return children;
+    }
+
+    @Nonnull
+    static ProbableIntersectionCursorContinuation from(@Nonnull ProbableIntersectionCursor<?> cursor) {
+        // This can't use getChildContinuations() because of the way the type system works
+        List<BloomFilterCursorContinuation> childContinuations = cursor.getCursorStates().stream()
+                .map(ProbableIntersectionCursorState::getContinuation)
+                .collect(Collectors.toList());
+        return new ProbableIntersectionCursorContinuation(childContinuations, cursor.getCurrentChildPos());
+    }
+
+    @Nonnull
+    static ProbableIntersectionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
+        if (bytes == null) {
+            return new ProbableIntersectionCursorContinuation(Collections.nCopies(numberOfChildren,
+                    new BloomFilterCursorContinuation(RecordCursorStartContinuation.START, null)), 0);
+        }
+        return ProbableIntersectionCursorContinuation.from(parse(bytes), numberOfChildren);
+    }
+
+    @Nonnull
+    static ProbableIntersectionCursorContinuation from(@Nonnull ProbableIntersectionContinuation parsed, int numberOfChildren) {
+        List<BloomFilterCursorContinuation> childContinatuions = getChildContinuations(parsed, numberOfChildren);
+        return new ProbableIntersectionCursorContinuation(childContinatuions, parsed, parsed.getCurrentChild());
     }
 }

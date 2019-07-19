@@ -55,6 +55,7 @@ message UnionContinuation {
     optional bool first_exhausted = 3;
     optional bool second_exhausted = 4;
     repeated CursorState other_child_state = 5;
+    optional int32 current_child = 6;
 }
 
 message ProbableIntersectionContinuation {
@@ -64,6 +65,7 @@ message ProbableIntersectionContinuation {
         optional bytes bloom_filter = 3;
     }
     repeated CursorState child_state = 1;
+    optional int32 current_child = 2;
 }
 
 message ConcatContinuation {

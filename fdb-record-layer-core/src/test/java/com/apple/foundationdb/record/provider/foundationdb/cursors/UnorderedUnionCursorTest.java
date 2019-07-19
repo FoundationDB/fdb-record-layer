@@ -38,7 +38,6 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -54,6 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for the {@link UnorderedUnionCursor} class. This cursor is somewhat unique in that it
@@ -78,24 +78,15 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
 
     @Test
     public void basicUnion() throws ExecutionException, InterruptedException {
+        final List<Integer> expectedResults = Arrays.asList(0, 401, 2, 100, 201, 302, 200, 1, 102, 3);
         final List<List<Integer>> elems = Arrays.asList(
                 Arrays.asList(0, 100, 200),
-                Arrays.asList(401, 201, 1),
+                Arrays.asList(401, 201, 1, 3),
                 Arrays.asList(2, 302, 102)
         );
         final UnorderedUnionCursor<Integer> cursor = UnorderedUnionCursor.create(functionsFromLists(elems), null, null);
         List<Integer> results = cursor.asList().get();
-        assertEquals(elems.stream().mapToInt(List::size).sum(), results.size());
-        // Verify that each list is returned within the cursor in the same order as it appears in the source list.
-        for (List<Integer> childCursorList : elems) {
-            int pos = 0;
-            for (Integer result : results) {
-                if (pos < childCursorList.size() && result.equals(childCursorList.get(pos))) {
-                    pos++;
-                }
-            }
-            assertEquals(childCursorList.size(), pos);
-        }
+        assertEquals(expectedResults, results);
         RecordCursorResult<Integer> noNextResult = cursor.getNext();
         assertThat(noNextResult.hasNext(), is(false));
         assertThat(noNextResult.getNoNextReason().isSourceExhausted(), is(true));
@@ -124,29 +115,7 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
     }
 
     @Test
-    public void concat() {
-        final int childCursorSize = 3;
-        final List<Integer> expectedResults = Arrays.asList(0, 100, 200, 401, 201, 1, 2, 302, 102);
-        final List<FirableCursor<Integer>> cursors = Arrays.asList(
-                new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 100, 200))),
-                new FirableCursor<>(RecordCursor.fromList(Arrays.asList(401, 201, 1))),
-                new FirableCursor<>(RecordCursor.fromList(Arrays.asList(2, 302, 102)))
-        );
-        final RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
-        Iterator<Integer> expectedIterator = expectedResults.iterator();
-        for (FirableCursor<Integer> childCursor : cursors) {
-            childCursor.fireAll();
-            for (int i = 0; i < childCursorSize; i++) {
-                assertEquals((int)expectedIterator.next(), (int)cursor.next());
-            }
-            assertThat(childCursor.getNext().hasNext(), is(false));
-        }
-        assertThat(cursor.hasNext(), is(false));
-        assertThat(cursor.getNoNextReason().isSourceExhausted(), is(true));
-    }
-
-    @Test
-    public void innerLimitReasons() throws ExecutionException, InterruptedException {
+    public void innerLimitReasons() {
         // One hits limit ; one has not yet returned anything
         List<FirableCursor<Integer>> cursors = Arrays.asList(
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
@@ -158,85 +127,68 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
         cursors.get(1).fire();
         assertEquals(3, (int)cursor.next());
         cursors.get(1).fire();
-        assertEquals(4, (int)cursor.next());
-        cursors.get(1).fire();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
+    }
 
+    @Test
+    public void innerLimitReasons2() {
         // One hits limit ; one has fired exactly once
-        cursors = Arrays.asList(
+        List<FirableCursor<Integer>> cursors = Arrays.asList(
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)))
         );
-        cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        cursors.get(0).fire();
+        assertEquals(0, (int)cursor.next());
+        cursors.get(0).fireAll();
         cursors.get(1).fire();
         assertEquals(3, (int)cursor.next());
-        cursors.get(0).fireAll();
-        assertEquals(0, (int)cursor.next());
-        cursors.get(1).fire();
-        assertEquals(4, (int)cursor.next());
-        cursors.get(1).fire();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
+    }
 
+    @Test
+    public void innerLimitReasons3() {
         // One hits limit ; one is exhausted
-        cursors = Arrays.asList(
-                new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
+        List<FirableCursor<Integer>> cursors = Arrays.asList(
+                new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1, 2)).limitRowsTo(2)),
                 new FirableCursor<>(RecordCursor.fromList(Collections.singletonList(3)))
         );
-        cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        cursors.get(0).fire();
+        assertEquals(0, (int)cursor.next());
         cursors.get(1).fire();
         assertEquals(3, (int)cursor.next());
         cursors.get(0).fireAll();
         cursors.get(1).fireAll();
-        assertEquals(0, (int)cursor.next());
+        assertEquals(1, (int)cursor.next());
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
 
+    }
+
+    @Test
+    public void innerLimitReasons4() {
         // One hits return limit ; one hits scan limit exhausted
-        cursors = Arrays.asList(
+        List<FirableCursor<Integer>> cursors = Arrays.asList(
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
                 new FirableCursor<>(new RecordCursorTest.FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)), 1, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED))
         );
-        cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
         cursors.get(1).fire();
-        assertEquals(3, (int)cursor.next());
         cursors.get(0).fireAll();
         assertEquals(0, (int)cursor.next());
+        assertEquals(3, (int)cursor.next());
         cursors.get(1).fireAll();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, cursor.getNoNextReason());
     }
 
-    /**
-     * There was a race condition that could result in an unordered union cursor throwing a {@link java.util.NoSuchElementException}
-     * after also returning {@code true} from {@link RecordCursor#onHasNext()}, which is a contract violation.
-     * This is to check regressions of that bug: https://github.com/FoundationDB/fdb-record-layer/issues/332
-     */
-    @Test
-    public void childCompletesBetweenHasNextAndNext() {
-        final FirableCursor<Integer> cursor1 = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)));
-        final FirableCursor<Integer> cursor2 = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)).limitRowsTo(1));
-        List<FirableCursor<Integer>> cursors = Arrays.asList(cursor1, cursor2);
-        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
-
-        cursor2.fire();
-        assertEquals(3, (int)cursor.next());
-        cursor1.fire();
-        assertThat(cursor.hasNext(), is(true));
-        cursor2.fire();
-        assertThat(cursor2.getNext().hasNext(), is(false));
-        assertEquals(0, (int)cursor.next());
-        cursor1.fire();
-        assertEquals(1, (int)cursor.next());
-        cursor1.fire();
-        assertThat(cursor.hasNext(), is(false));
-        assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
-    }
-
     @ValueSource(ints = {1, 3, 5})
     @ParameterizedTest(name = "basicContinuation() [limit = {0}]")
     public void basicContinuation(int limit) {
+        final List<Integer> expectedResults = Arrays.asList(0, 6, 2, 3, 4, 8, 5, 1, 7);
         final List<List<Integer>> elems = Arrays.asList(
                 Arrays.asList(0, 3, 5),
                 Arrays.asList(6, 4, 1),
@@ -252,8 +204,7 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
             continuation = noNextResult.getContinuation().toBytes();
             done = noNextResult.getNoNextReason().isSourceExhausted();
         }
-        assertEquals(elems.stream().mapToInt(List::size).sum(), results.size());
-        assertEquals(elems.stream().flatMap(List::stream).collect(Collectors.toSet()), new HashSet<>(results));
+        assertEquals(expectedResults, results);
     }
 
     @Test
@@ -266,8 +217,6 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
 
         RecordCursorResult<Integer> cursorResult = cursor.getNext();
         assertEquals(1, (int)cursorResult.get());
-        cursorResult = cursor.getNext();
-        assertEquals(2, (int)cursorResult.get());
 
         CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
         final RecordCoreException ex = new RecordCoreException("something bad happened!");
@@ -315,14 +264,7 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
         assertEquals(3, (int)cursorResult.get());
 
         cursorResultFuture = cursor.onNext();
-        assertFalse(cursorResultFuture.isDone());
-        secondCursor.fire();
-        cursorResult = cursorResultFuture.get();
-        assertEquals(4, (int)cursorResult.get());
-
-        cursorResultFuture = cursor.onNext();
-        assertFalse(cursorResultFuture.isDone());
-        secondCursor.fire();
+        assertTrue(cursorResultFuture.isDone());
         cursorResult = cursorResultFuture.get();
         assertFalse(cursorResult.hasNext());
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursorResult.getNoNextReason());

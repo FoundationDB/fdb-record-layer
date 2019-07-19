@@ -134,6 +134,16 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
         }
     }
 
+    /**
+     * Fire off futures for each state in the list. This allows for the cursor to pipeline
+     * work from each of its children.
+     */
+    static <T, S extends MergeCursorState<T>> void startAllStates(@Nonnull List<S> curorStates) {
+        for (MergeCursorState<T> cursorState : curorStates) {
+            cursorState.getOnNextFuture();
+        }
+    }
+
     void checkNextStateTimeout(long startTime) {
         long checkStateTime = System.currentTimeMillis();
         if (checkStateTime - startTime > MAX_NEXT_STATE_MILLIS) {
