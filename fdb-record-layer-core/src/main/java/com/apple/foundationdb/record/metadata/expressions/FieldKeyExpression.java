@@ -54,10 +54,9 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     private final String fieldName;
     @Nonnull
     private final FanType fanType;
-    @Nonnull
     private final Key.Evaluated.NullStandin nullStandin;
 
-    public FieldKeyExpression(@Nonnull String fieldName, @Nonnull FanType fanType, @Nonnull Key.Evaluated.NullStandin nullStandin) {
+    public FieldKeyExpression(@Nonnull String fieldName, @Nonnull FanType fanType, Key.Evaluated.NullStandin nullStandin) {
         this.fieldName = fieldName;
         this.fanType = fanType;
         this.nullStandin = nullStandin;
@@ -189,7 +188,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return RecordMetaDataProto.Field.newBuilder()
                 .setFieldName(fieldName)
                 .setFanType(fanType.toProto())
-                .setNullInterpretation(nullStandin.toProto())
                 .build();
     }
 
@@ -299,11 +297,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return fanType;
     }
 
-    @Nonnull
-    public Key.Evaluated.NullStandin getNullStandin() {
-        return nullStandin;
-    }
-
     @Override
     public String toString() {
         return "Field { '" + fieldName + "' " + fanType + '}';
@@ -320,14 +313,12 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         }
 
         FieldKeyExpression that = (FieldKeyExpression)o;
-        return this.fieldName.equals(that.fieldName) &&
-               this.fanType == that.fanType &&
-               this.nullStandin == that.nullStandin;
+        return this.fieldName.equals(that.fieldName) && (this.fanType == that.fanType);
     }
 
     @Override
     public int hashCode() {
-        return fieldName.hashCode() + fanType.hashCode() + nullStandin.hashCode();
+        return fieldName.hashCode() + fanType.hashCode();
     }
 
     @Override
