@@ -125,11 +125,11 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
      * Verify that simple sorts are implemented using index scans.
      */
     @DualPlannerTest
-    public void sort() throws Exception {
-        sortUnique(NO_HOOK);
+    public void sortOnly() throws Exception {
+        sortOnlyUnique(NO_HOOK);
     }
 
-    private void sortUnique(RecordMetaDataHook hook) throws Exception {
+    private void sortOnlyUnique(RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 
@@ -164,21 +164,6 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
             assertEquals(100, i);
             assertDiscardedNone(context);
         }
-    }
-
-    /**
-     * Verify that unique sort works with different null interpretation.
-     */
-    @Test
-    public void sortUniqueNull() throws Exception {
-        sortUnique(md -> {
-            md.removeIndex("MySimpleRecord$num_value_unique");
-            final Index index = new Index("MySimpleRecord$num_value_unique",
-                    field("num_value_unique", FanType.None, Key.Evaluated.NullStandin.NULL_UNIQUE),
-                    IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
-            index.setSubspaceKey("MySimpleRecord$num_value_unique_2");  // Otherwise fails validation
-            md.addIndex("MySimpleRecord", index);
-        });
     }
 
     /**
@@ -803,4 +788,64 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertThat(plan, indexScan(allOf(indexName("schoolNameEmail"), bounds(hasTupleString("[[Human University],[Human University]]")))));
         assertEquals(387659205, plan.planHash());
     }
+
+    static final RecordMetaDataHook NULL_UNIQUE_HOOK = md -> {
+        md.removeIndex("MySimpleRecord$num_value_unique");
+        final Index index = new Index("MySimpleRecord$num_value_unique",
+                field("num_value_unique", FanType.None, Key.Evaluated.NullStandin.NULL_UNIQUE),
+                IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        index.setSubspaceKey("MySimpleRecord$num_value_unique_2");  // Otherwise fails validation
+        md.addIndex("MySimpleRecord", index);
+    };
+
+    /**
+     * Verify that sort only works with different null interpretation on unique index.
+     */
+    @DualPlannerTest
+    public void sortOnlyUniqueNull() throws Exception {
+        sortOnlyUnique(NULL_UNIQUE_HOOK);
+    }
+    
+    /**
+     * Verify that sort with filter works with different null interpretation on unique index.
+     */
+    @DualPlannerTest
+    public void sortUniqueNull() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, NULL_UNIQUE_HOOK);
+
+            for (int i = 0; i < 100; i++) {
+                TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                recBuilder.setRecNo((1096 * i + 722) % 1289);
+                recBuilder.setNumValueUnique(i);
+                recordStore.saveRecord(recBuilder.build());
+            }
+            commit(context);
+        }
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_unique").greaterThanOrEquals(20))
+                .setSort(field("num_value_unique"))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("[[20],>")))));
+        assertEquals(-535398101, plan.planHash());
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, NULL_UNIQUE_HOOK);
+            int i = 20;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(rec.getRecord());
+                    assertEquals(i++, myrec.getNumValueUnique());
+                }
+            }
+            assertEquals(100, i);
+            assertDiscardedNone(context);
+        }
+    }
+
 }

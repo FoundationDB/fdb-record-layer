@@ -332,11 +332,28 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Override
     public int planHash() {
-        return fieldName.hashCode() + fanType.name().hashCode();
+        int hash = fieldName.hashCode() + fanType.name().hashCode();
+        if (nullStandin == Key.Evaluated.NullStandin.NOT_NULL) {
+            // NULL and NULL_UNIQUE have the same hash, which is also the same as before.
+            hash++;
+        }
+        return hash;
     }
 
     @Override
     public boolean equalsAtomic(AtomKeyExpression other) {
-        return equals(other);
+        return equivalentForSort(other);
+    }
+
+    @Override
+    public boolean equivalentForSort(@Nonnull KeyExpression other) {
+        if (getClass() != other.getClass()) {
+            return false;
+        }
+
+        FieldKeyExpression that = (FieldKeyExpression)other;
+        return this.fieldName.equals(that.fieldName) &&
+               this.fanType == that.fanType &&
+               (this.nullStandin == Key.Evaluated.NullStandin.NOT_NULL) == (that.nullStandin == Key.Evaluated.NullStandin.NOT_NULL);
     }
 }
