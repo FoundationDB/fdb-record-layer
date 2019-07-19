@@ -30,7 +30,9 @@ import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -124,8 +126,12 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
      */
     @DualPlannerTest
     public void sort() throws Exception {
+        sortUnique(NO_HOOK);
+    }
+
+    private void sortUnique(RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            openSimpleRecordStore(context, hook);
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -145,7 +151,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         assertEquals(-1130465929, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            openSimpleRecordStore(context, hook);
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
@@ -158,6 +164,21 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
             assertEquals(100, i);
             assertDiscardedNone(context);
         }
+    }
+
+    /**
+     * Verify that unique sort works with different null interpretation.
+     */
+    @Test
+    public void sortUniqueNull() throws Exception {
+        sortUnique(md -> {
+            md.removeIndex("MySimpleRecord$num_value_unique");
+            final Index index = new Index("MySimpleRecord$num_value_unique",
+                    field("num_value_unique", FanType.None, Key.Evaluated.NullStandin.NULL_UNIQUE),
+                    IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+            index.setSubspaceKey("MySimpleRecord$num_value_unique_2");  // Otherwise fails validation
+            md.addIndex("MySimpleRecord", index);
+        });
     }
 
     /**
