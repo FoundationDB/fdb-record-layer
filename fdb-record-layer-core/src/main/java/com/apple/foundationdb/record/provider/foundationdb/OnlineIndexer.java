@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -47,6 +48,8 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
+import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -180,11 +183,14 @@ public class OnlineIndexer implements AutoCloseable {
      */
     private AtomicLong totalRecordsScanned;
 
+    private final boolean syntheticIndex;
+
+    @SuppressWarnings("squid:S00107")
     protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                             @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                             @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
                             int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis,
-                            int increaseLimitAfter) {
+                            int increaseLimitAfter, boolean syntheticIndex) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
@@ -195,6 +201,7 @@ public class OnlineIndexer implements AutoCloseable {
         this.recordsPerSecond = recordsPerSecond;
         this.progressLogIntervalMillis = progressLogIntervalMillis;
         this.increaseLimitAfter = increaseLimitAfter;
+        this.syntheticIndex = syntheticIndex;
         this.recordsRange = computeRecordsRange();
         timeOfLastProgressLogMillis = System.currentTimeMillis();
         totalRecordsScanned = new AtomicLong(0);
@@ -230,7 +237,7 @@ public class OnlineIndexer implements AutoCloseable {
         Tuple low = null;
         Tuple high = null;
         for (RecordType recordType : recordTypes) {
-            if (!recordType.primaryKeyHasRecordTypePrefix()) {
+            if (!recordType.primaryKeyHasRecordTypePrefix() || recordType.isSynthetic()) {
                 // If any of the types to build for does not have a prefix, give up.
                 return TupleRange.ALL;
             }
@@ -468,6 +475,17 @@ public class OnlineIndexer implements AutoCloseable {
         final AtomicBoolean empty = new AtomicBoolean(true);
         final FDBStoreTimer timer = runner.getTimer();
 
+        final SyntheticRecordFromStoredRecordPlan syntheticPlan;
+        if (syntheticIndex) {
+            // Need to do this each transaction because other index enabled state might have changed. Could cache based on that.
+            // Copying the state also guards against changes made by other online building from check version.
+            // TODO: need some state to avoid generating the same synthetic record via more than one self-join path for non-idempotent indexes.
+            final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(index.getName())));
+            syntheticPlan = syntheticPlanner.forIndex(index);
+        } else {
+            syntheticPlan = null;
+        }
+
         // Note: This runs all of the updates in serial in order to not invoke a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
@@ -484,7 +502,12 @@ public class OnlineIndexer implements AutoCloseable {
                 if (timer != null) {
                     timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
                 }
-                return maintainer.update(null, rec);
+                if (syntheticPlan == null) {
+                    return maintainer.update(null, rec);
+                } else {
+                    // Pipeline size is 1, since not all maintainers are thread-safe.
+                    return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
+                }
             } else {
                 return AsyncUtil.DONE;
             }
@@ -1170,6 +1193,7 @@ public class OnlineIndexer implements AutoCloseable {
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
         private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
         private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
+        protected boolean syntheticIndex;
 
         protected Builder() {
         }
@@ -1659,7 +1683,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public OnlineIndexer build() {
             validate();
-            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
+            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, syntheticIndex);
         }
 
         protected void validate() {
@@ -1681,10 +1705,16 @@ public class OnlineIndexer implements AutoCloseable {
                 recordTypes = metaData.recordTypesForIndex(index);
             } else {
                 for (RecordType recordType : recordTypes) {
-                    if (recordType != metaData.getRecordTypes().get(recordType.getName())) {
+                    if (recordType != metaData.getIndexableRecordType(recordType.getName())) {
                         throw new MetaDataException("Record type " + recordType.getName() + " not contained within specified metadata");
                     }
                 }
+            }
+            if (recordTypes.stream().anyMatch(RecordType::isSynthetic)) {
+                syntheticIndex = true;
+                // The (stored) types to scan, not the (synthetic) types that are indexed.
+                recordTypes = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null))
+                    .storedRecordTypesForIndex(index, recordTypes);
             }
         }
 

@@ -242,6 +242,10 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
             found++;
             root = new ThenKeyExpression(expression.getThen());
         }
+        if (expression.hasList()) {
+            found++;
+            root = new ListKeyExpression(expression.getList());
+        }
         if (expression.hasGrouping()) {
             found++;
             root = new GroupingKeyExpression(expression.getGrouping());

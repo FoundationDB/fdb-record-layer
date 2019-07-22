@@ -194,11 +194,11 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Override
     public int versionColumns() {
-        int versonColumns = 0;
+        int versionColumns = 0;
         for (KeyExpression subkey : getChildren()) {
-            versonColumns += subkey.versionColumns();
+            versionColumns += subkey.versionColumns();
         }
-        return versonColumns;
+        return versionColumns;
     }
 
     @Override

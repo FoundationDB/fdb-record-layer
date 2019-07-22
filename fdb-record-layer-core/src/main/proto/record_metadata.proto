@@ -87,10 +87,15 @@ message MetaData {
   repeated google.protobuf.FileDescriptorProto dependencies = 9;
   optional int64 subspace_key_counter = 10;
   optional bool uses_subspace_key_counter = 11;
+  repeated JoinedRecordType joined_record_types = 12;
   extensions 1000 to 2000;
 }
 
 message Then {
+  repeated KeyExpression child = 1;
+}
+
+message List {
   repeated KeyExpression child = 1;
 }
 
@@ -167,4 +172,26 @@ message KeyExpression {
   optional Function function = 9;
   optional KeyWithValue key_with_value = 10;
   optional RecordTypeKey record_type_key = 11;
+  optional List list = 12;
+}
+
+message JoinedRecordType {
+  optional string name = 1;
+  optional Value record_type_key = 4;
+
+  message JoinConstituent {
+    optional string name = 1;
+    optional string record_type = 2;
+    optional bool outer_joined = 3;
+  }
+
+  message Join {
+    optional string left = 1;
+    optional KeyExpression left_expression = 2;
+    optional string right = 3;
+    optional KeyExpression right_expression = 4;
+  }
+
+  repeated JoinConstituent join_constituents = 10;
+  repeated Join joins = 11;
 }
