@@ -22,14 +22,21 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.util.LoggableKeysAndValues;
+import com.apple.test.Tags;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -42,10 +49,12 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link FDBExceptions}.
  */
+@Tag(Tags.RequiresFDB)
 public class FDBExceptionsTest {
     private static final String EXCEPTION_CAUSE_MESSAGE = "the failure cause";
     private static final String PARENT_EXCEPTION_MESSAGE = "something failed asynchronously";
@@ -55,6 +64,25 @@ public class FDBExceptionsTest {
         Exception cause = createRuntimeException();
         final String methodName = "createRuntimeException";
         testWrappedStackTrace(cause, methodName);
+    }
+
+    @Test
+    public void loggableTimeoutException() {
+        CompletableFuture<Void> delayed = new CompletableFuture<Void>();
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabase database = factory.getDatabase();
+        database.setAsyncToSyncTimeout(1, TimeUnit.MILLISECONDS);
+        try {
+            database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_COMMIT, delayed);
+        } catch (Exception ex) {
+            assertTrue(ex instanceof LoggableKeysAndValues);
+            assertTrue(((LoggableKeysAndValues)ex).getLogInfo().containsKey(LogMessageKeys.TIME_LIMIT.toString()));
+            Assertions.assertEquals((long)((LoggableKeysAndValues)ex).getLogInfo().get((Object)LogMessageKeys.TIME_LIMIT.toString()), 1L);
+            assertTrue(((LoggableKeysAndValues)ex).getLogInfo().containsKey(LogMessageKeys.TIME_UNIT.toString()));
+            Assertions.assertEquals(((LoggableKeysAndValues)ex).getLogInfo().get((Object)LogMessageKeys.TIME_UNIT.toString()), TimeUnit.MILLISECONDS);
+        } finally {
+            factory.clear();
+        }
     }
 
     @Test

@@ -201,7 +201,11 @@ public enum LogMessageKeys {
     NEXT_CONTINUATION("next_continuation"),
 
     // Log the name of the tokenizer used
-    TOKENIZER_NAME("tokenizer_name");
+    TOKENIZER_NAME("tokenizer_name"),
+
+    //for logging asyncToSync timeout limits
+    TIME_LIMIT("time_limit"),
+    TIME_UNIT("time_unit");
 
     private final String logKey;
 

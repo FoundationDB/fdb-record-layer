@@ -20,13 +20,14 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreInterruptedException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
+import com.apple.foundationdb.util.LoggableKeysAndValues;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,6 +39,8 @@ import java.util.concurrent.ExecutionException;
  */
 @API(API.Status.STABLE)
 public class FDBExceptions {
+
+    private static final Object[] EMPTY_KEYS_AND_VALUES = new Object[0];
 
     private FDBExceptions() {
     }
@@ -130,6 +133,13 @@ public class FDBExceptions {
     }
 
     public static RuntimeException wrapException(@Nonnull Throwable ex) {
+        //transfer any logging details into mapped exception
+        Object[] logInfo;
+        if (ex instanceof LoggableKeysAndValues) {
+            logInfo = ((LoggableKeysAndValues)ex).exportLogInfo();
+        } else {
+            logInfo = EMPTY_KEYS_AND_VALUES;
+        }
         if (ex instanceof CompletionException) {
             ex = CompletionExceptionLogHelper.asCause((CompletionException)ex);
         } else if (ex instanceof ExecutionException) {
@@ -139,30 +149,31 @@ public class FDBExceptions {
             FDBException fdbex = (FDBException)ex;
             switch (fdbex.getCode()) {
                 case 1007:    // transaction_too_old
-                    return new FDBStoreTransactionIsTooOldException(fdbex);
+                    return new FDBStoreTransactionIsTooOldException(fdbex).addLogInfo(logInfo);
                 case 1020:    // not_committed
-                    return new FDBStoreTransactionConflictException(fdbex);
+                    return new FDBStoreTransactionConflictException(fdbex).addLogInfo(logInfo);
                 case 2101:    // transaction_too_large
-                    return new FDBStoreTransactionSizeException(fdbex);
+                    return new FDBStoreTransactionSizeException(fdbex).addLogInfo(logInfo);
                 case 2102:    // key_too_large
-                    return new FDBStoreKeySizeException(fdbex);
+                    return new FDBStoreKeySizeException(fdbex).addLogInfo(logInfo);
                 case 2103:    // value_too_large
-                    return new FDBStoreValueSizeException(fdbex);
+                    return new FDBStoreValueSizeException(fdbex).addLogInfo(logInfo);
                 default:
                     if (fdbex.isRetryable()) {
-                        return new FDBStoreRetriableException(fdbex);
+                        return new FDBStoreRetriableException(fdbex).addLogInfo(logInfo);
                     } else {
-                        return new FDBStoreException(fdbex);
+                        return new FDBStoreException(fdbex).addLogInfo(logInfo);
                     }
             }
         }
         if (ex instanceof RuntimeException) {
             return (RuntimeException)ex;
         }
+
         if (ex instanceof InterruptedException) {
-            return new RecordCoreInterruptedException(ex.getMessage(), ex);
+            return new RecordCoreInterruptedException(ex.getMessage(), ex).addLogInfo(logInfo);
         }
-        return new RecordCoreException(ex.getMessage(), ex);
+        return new RecordCoreException(ex.getMessage(), ex).addLogInfo(logInfo);
     }
 
     /**
