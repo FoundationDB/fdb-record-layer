@@ -52,17 +52,25 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     private FDBDatabaseRunner underlying;
     private SynchronizedSession session;
 
-    // Start a new session. A synchronized session keeps its lock by updating timestamp in its working transactions, so
-    // do NOT try to get the synchronized runner until it is going to be actively used.
-    public static SynchronizedSessionRunner startSession(@Nonnull Subspace lockSubspace, @Nonnull FDBDatabaseRunner runner) {
+    // Start a new session. A synchronized session keeps its lock by updating the timestamp in each of its working
+    // transactions, so do NOT try to get the synchronized runner until it is going to be actively used.
+    public static SynchronizedSessionRunner startSession(@Nonnull Subspace lockSubspace,
+                                                         long leaseLengthMill,
+                                                         @Nonnull FDBDatabaseRunner runner) {
         final UUID newSessionId = UUID.randomUUID();
-        SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId);
-        runner.run(context -> runner.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION, session.initializeSession(context)));
+        SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId, leaseLengthMill);
+        try (FDBRecordContext context = runner.openContext()) {
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION, session.initializeSession(context));
+            context.commit();
+        }
         return new SynchronizedSessionRunner(runner, session);
     }
 
-    public static SynchronizedSessionRunner joinSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, @Nonnull FDBDatabaseRunner runner) {
-        SynchronizedSession session = new SynchronizedSession(lockSubspace, sessionId);
+    public static SynchronizedSessionRunner joinSession(@Nonnull Subspace lockSubspace,
+                                                        @Nonnull UUID sessionId,
+                                                        long leaseLengthMill,
+                                                        @Nonnull FDBDatabaseRunner runner) {
+        SynchronizedSession session = new SynchronizedSession(lockSubspace, sessionId, leaseLengthMill);
         return new SynchronizedSessionRunner(runner, session);
     }
 
@@ -71,10 +79,17 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
         this.session = session;
     }
 
+    public UUID getSessionId() {
+        return this.session.getSessionId();
+    }
+
     // This is not necessarily to be called when closing the runner because there can be multiple runner for a same
     // session.
     public void closeSession() {
-        underlying.run(context -> session.close(context));
+        underlying.run(context -> {
+            session.close(context);
+            return null;
+        });
     }
 
     @Override

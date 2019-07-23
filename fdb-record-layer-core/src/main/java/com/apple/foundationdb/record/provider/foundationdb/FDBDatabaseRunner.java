@@ -47,6 +47,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+/**
+ * The standard implementation of {@link FDBDatabaseRunnerInterface}.
+ */
 @API(API.Status.MAINTAINED)
 public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseRunner.class);
@@ -397,17 +400,17 @@ public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
         contextsToClose.forEach(FDBRecordContext::close);
     }
 
-    // Start a new session. A synchronized session keeps its lock by updating timestamp in its working transactions, so
-    // do NOT try to get the synchronized runner until it is going to be actively used.
+    // Start a new session. A synchronized session keeps its lock by updating the timestamp in each of its working
+    // transactions, so do NOT try to get the synchronized runner until it is going to be actively used.
     @API(API.Status.EXPERIMENTAL)
-    public SynchronizedSessionRunner toSynchronized(Subspace lockSubspace) {
-        return SynchronizedSessionRunner.startSession(lockSubspace, this);
+    public SynchronizedSessionRunner toSynchronized(@Nonnull Subspace lockSubspace, long leaseLengthMill) {
+        return SynchronizedSessionRunner.startSession(lockSubspace, leaseLengthMill, this);
     }
 
     // Join an existing session.
     @API(API.Status.EXPERIMENTAL)
-    public SynchronizedSessionRunner toSynchronized(Subspace lockSubspace, UUID sessionId) {
-        return SynchronizedSessionRunner.joinSession(lockSubspace, sessionId, this);
+    public SynchronizedSessionRunner toSynchronized(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMill) {
+        return SynchronizedSessionRunner.joinSession(lockSubspace, sessionId, leaseLengthMill, this);
     }
 
     private synchronized void addContextToClose(@Nonnull FDBRecordContext context) {

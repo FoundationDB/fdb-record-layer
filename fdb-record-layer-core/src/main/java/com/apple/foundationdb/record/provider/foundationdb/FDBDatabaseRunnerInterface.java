@@ -285,7 +285,7 @@ public interface FDBDatabaseRunnerInterface extends AutoCloseable {
      * Exception thrown when {@link FDBDatabaseRunner} has been closed but tries to do work.
      */
     @SuppressWarnings("serial")
-    public static class RunnerClosed extends RecordCoreException {
+    class RunnerClosed extends RecordCoreException {
         public RunnerClosed() {
             super("runner has been closed");
         }

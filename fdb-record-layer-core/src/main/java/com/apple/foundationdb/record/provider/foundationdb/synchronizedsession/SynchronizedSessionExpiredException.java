@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * This exception means that the synchronized session is invalid anymore because probably another synchronized session
+ * This exception means that the synchronized session is not valid anymore, probably because another synchronized session
  * on the same lock is running.
  */
 @API(API.Status.EXPERIMENTAL)
