@@ -28,6 +28,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.AsyncLoadingCache;
+import com.apple.foundationdb.record.LoggableTimeoutException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -912,6 +913,7 @@ public class FDBDatabase {
             } catch (TimeoutException ex) {
                 if (timer != null) {
                     timer.recordTimeout(event, startTime);
+                    throw asyncToSyncExceptionMapper.apply(new LoggableTimeoutException(ex, LogMessageKeys.TIME_LIMIT.toString(), timeout.getLeft(), LogMessageKeys.TIME_UNIT.toString(), timeout.getRight()), event);
                 }
                 throw asyncToSyncExceptionMapper.apply(ex, event);
             } catch (ExecutionException ex) {

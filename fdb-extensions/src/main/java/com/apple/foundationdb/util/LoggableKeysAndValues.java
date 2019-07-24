@@ -35,9 +35,9 @@ import java.util.Map;
  * the methods that all objects that wish to provide such logging details
  * must implement.
  *
- * @typeparam T type of object to associate loggable information with
+ * @param <T> type of object to associate loggable information with
  */
-interface LoggableKeysAndValues<T extends LoggableKeysAndValues<T>> {
+public interface LoggableKeysAndValues<T extends LoggableKeysAndValues<T>> {
 
     /**
      * Get the log information associated with object as a map.
