@@ -71,13 +71,15 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openJoinRecordStore(context);
-            RecordCursor<FDBQueriedRecord<Message>> parentCursor = recordStore.executeQuery(parentPlan);
-            RecordCursor<FDBQueriedRecord<Message>> childCursor = parentCursor.flatMapPipelined(rec -> {
-                TestRecordsParentChildRelationshipProto.MyParentRecord.Builder parentRec = TestRecordsParentChildRelationshipProto.MyParentRecord.newBuilder();
-                parentRec.mergeFrom(rec.getRecord());
-                EvaluationContext childContext = EvaluationContext.forBinding("parent", parentRec.getRecNo());
-                return childPlan.execute(recordStore, childContext);
-            }, 10);
+            RecordCursor<FDBQueriedRecord<Message>> childCursor = RecordCursor.flatMapPipelined(
+                    ignore -> recordStore.executeQuery(parentPlan),
+                    (rec, ignore) -> {
+                        TestRecordsParentChildRelationshipProto.MyParentRecord.Builder parentRec =
+                                TestRecordsParentChildRelationshipProto.MyParentRecord.newBuilder();
+                        parentRec.mergeFrom(rec.getRecord());
+                        EvaluationContext childContext = EvaluationContext.forBinding("parent", parentRec.getRecNo());
+                        return childPlan.execute(recordStore, childContext);
+                    }, null, 10);
             RecordCursor<String> resultsCursor = childCursor.map(rec -> {
                 TestRecordsParentChildRelationshipProto.MyChildRecord.Builder childRec = TestRecordsParentChildRelationshipProto.MyChildRecord.newBuilder();
                 childRec.mergeFrom(rec.getRecord());
@@ -105,14 +107,17 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openJoinRecordStore(context);
             RecordCursor<FDBQueriedRecord<Message>> parentCursor = recordStore.executeQuery(parentPlan);
-            RecordCursor<FDBQueriedRecord<Message>> childCursor = parentCursor.flatMapPipelined(rec -> {
-                TestRecordsParentChildRelationshipProto.MyParentRecord.Builder parentRec = TestRecordsParentChildRelationshipProto.MyParentRecord.newBuilder();
-                parentRec.mergeFrom(rec.getRecord());
-                EvaluationContext childContext = EvaluationContext.forBinding("children", parentRec.getChildRecNosList().stream()
-                        .map(Tuple::from)
-                        .collect(Collectors.toList()));
-                return childPlan.execute(recordStore, childContext);
-            }, 10);
+            RecordCursor<FDBQueriedRecord<Message>> childCursor = RecordCursor.flatMapPipelined(
+                    ignore -> recordStore.executeQuery(parentPlan),
+                    (rec, ignore) -> {
+                        TestRecordsParentChildRelationshipProto.MyParentRecord.Builder parentRec =
+                                TestRecordsParentChildRelationshipProto.MyParentRecord.newBuilder();
+                        parentRec.mergeFrom(rec.getRecord());
+                        EvaluationContext childContext = EvaluationContext.forBinding("children", parentRec.getChildRecNosList().stream()
+                                .map(Tuple::from)
+                                .collect(Collectors.toList()));
+                        return childPlan.execute(recordStore, childContext);
+                    }, null, 10);
             RecordCursor<String> resultsCursor = childCursor.map(rec -> {
                 TestRecordsParentChildRelationshipProto.MyChildRecord.Builder childRec = TestRecordsParentChildRelationshipProto.MyChildRecord.newBuilder();
                 childRec.mergeFrom(rec.getRecord());
