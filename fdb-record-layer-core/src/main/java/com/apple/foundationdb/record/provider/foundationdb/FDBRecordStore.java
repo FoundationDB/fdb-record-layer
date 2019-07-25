@@ -2689,7 +2689,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                   @Nonnull IsolationLevel indexStateIsolationLevel) {
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel);
         CompletableFuture<Map<String, IndexState>> loadIndexStates = storeHeaderFuture.thenCompose(storeHeader -> loadIndexStatesAsync(indexStateIsolationLevel, storeHeader));
-        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, loadIndexStates.thenApply(vignore -> new RecordStoreState(storeHeaderFuture.join(), loadIndexStates.join())));
+        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, loadIndexStates.thenApply(indexStates -> new RecordStoreState(storeHeaderFuture.join(), indexStates)));
     }
 
     @Nonnull
