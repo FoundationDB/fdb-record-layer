@@ -237,7 +237,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @return the index or null if not found
      */
     @Nullable
-    public Index getIndex(@Nonnull Object indexSubspaceTupleKey) throws MetaDataException {
+    public Index getIndexByKey(@Nonnull Object indexSubspaceTupleKey) {
         for (Index index : indexes.values()) {
             if (index.getSubspaceTupleKey().equals(indexSubspaceTupleKey)) {
                 return index;

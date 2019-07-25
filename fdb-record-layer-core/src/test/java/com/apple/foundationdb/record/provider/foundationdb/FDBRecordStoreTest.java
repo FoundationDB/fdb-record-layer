@@ -3647,12 +3647,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1)
                     .create();
             assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1, recordStore.getFormatVersion());
-            // Save 200 records without any indexes.
-            for (int i = 0; i < 200; i++) {
-                TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
-                        .setRecNo(i).setNumValue(i + 1000).build();
-                recordStore.saveRecord(record);
-            }
             commit(context);
         }
 
@@ -3666,11 +3660,15 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     .setMetaDataProvider(builder)
                     .setKeySpacePath(path)
                     .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1)
-                    .createOrOpen();
+                    .open();
             assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1, recordStore.getFormatVersion());
-            // Since there were 200 records already, the new index is write-only.
+            recordStore.markIndexWriteOnly(index.getName());
             assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
             assertEquals(1L, recordStore.getRecordMetaData().getIndex("index").getSubspaceKey());
+            byte[] oldIndexKey = recordStore.indexStateSubspaceDeprecated().pack(index.getName());
+            assertEquals(Tuple.fromBytes(context.ensureActive().get(oldIndexKey).join()).get(0), IndexState.WRITE_ONLY.code());
+            byte[] newIndexKey = recordStore.indexStateSubspace().pack(index.getSubspaceTupleKey());
+            assertNull(context.ensureActive().get(newIndexKey).join());
             context.commit();
         }
 
@@ -3680,11 +3678,15 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     .setContext(context)
                     .setMetaDataProvider(builder)
                     .setKeySpacePath(path)
-                    .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION)
-                    .createOrOpen();
-            assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION, recordStore.getFormatVersion());
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .open();
+            assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName())); // upgraded index state
             assertEquals(1L, recordStore.getRecordMetaData().getIndex("index").getSubspaceKey());
+            byte[] oldIndexKey = recordStore.indexStateSubspaceDeprecated().pack(index.getName());
+            assertNull(context.ensureActive().get(oldIndexKey).join());
+            byte[] newIndexKey = recordStore.indexStateSubspace().pack(index.getSubspaceTupleKey());
+            assertEquals(Tuple.fromBytes(context.ensureActive().get(newIndexKey).join()).get(0), IndexState.WRITE_ONLY.code());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
@@ -3692,9 +3694,28 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     .setContext(context)
                     .setMetaDataProvider(builder)
                     .setKeySpacePath(path)
-                    .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION)
-                    .createOrOpen();
-            assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION, recordStore.getFormatVersion());
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .open();
+            assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
+            byte[] oldIndexKey = recordStore.indexStateSubspaceDeprecated().pack(index.getName());
+            assertNull(context.ensureActive().get(oldIndexKey).join());
+            byte[] newIndexKey = recordStore.indexStateSubspace().pack(index.getSubspaceTupleKey());
+            assertEquals(Tuple.fromBytes(context.ensureActive().get(newIndexKey).join()).get(0), IndexState.WRITE_ONLY.code());
+            commit(context);
+        }
+        // Downgrade is not allowed.
+        try (FDBRecordContext context = openContext()) {
+            recordStore = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(builder)
+                    .setKeySpacePath(path)
+                    .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1)
+                    .open();
+            assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
+            byte[] oldIndexKey = recordStore.indexStateSubspaceDeprecated().pack(index.getName());
+            assertNull(context.ensureActive().get(oldIndexKey).join());
+            byte[] newIndexKey = recordStore.indexStateSubspace().pack(index.getSubspaceTupleKey());
+            assertEquals(Tuple.fromBytes(context.ensureActive().get(newIndexKey).join()).get(0), IndexState.WRITE_ONLY.code());
             commit(context);
         }
     }

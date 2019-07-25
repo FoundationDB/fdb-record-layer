@@ -410,7 +410,6 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
         return instrument(FDBStoreTimer.Events.SAVE_META_DATA, future);
     }
 
-    // TODO: FDBMetadataStore should assign index keys based on a counter (https://github.com/FoundationDB/fdb-record-layer/issues/11)
     public CompletableFuture<RecordMetaData> getRecordMetaDataAsync(boolean errorIfMissing) {
         if (recordMetaData != null) {
             return CompletableFuture.completedFuture(recordMetaData);
