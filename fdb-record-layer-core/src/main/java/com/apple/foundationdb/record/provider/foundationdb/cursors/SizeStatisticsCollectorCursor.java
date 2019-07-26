@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -98,11 +97,16 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
 
         if (continuation != null) {
             try {
-                //if this is a continuation update stats with partial values and get the underlying cursor's continuation
+                // if this is a continuation update stats with partial values and get the underlying cursor's continuation
                 RecordCursorProto.SizeStatisticsContinuation statsContinuation = RecordCursorProto.SizeStatisticsContinuation.parseFrom(continuation);
-                this.sizeStatisticsResults.fromProto(statsContinuation.getPartialResults());
-                kvCursorContinuation = statsContinuation.getContinuation().toByteArray(); //underlying KV cursor continues here
-
+                if (statsContinuation.hasPartialResults()) {
+                    this.sizeStatisticsResults.fromProto(statsContinuation.getPartialResults());
+                    kvCursorContinuation = statsContinuation.getContinuation().toByteArray(); //underlying KV cursor continues here
+                } else {
+                    // final results were returned on a previous iteration and the caller inexplicably decided to reset the cursor before calling onNext() once more
+                    // so this is tantamount to reset the cursor after we have already sent the last result (in our case the last and only result)
+                    this.finalResultsEmitted = true;
+                }
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("Error parsing SizeStatisticsCollectorCursor continuation", ex)
                         .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
@@ -194,6 +198,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
     }
 
     //form a continuation that allows us to restart statistics aggregation from where we left off
+    // Note that this continuation SHOULD NOT be used to represent an end continuation
     private static class SizeStatisticsCollectorCursorContinuation implements RecordCursorContinuation {
         @Nonnull
         private final RecordCursorResult<KeyValue> currentKvResult;
@@ -217,7 +222,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
                     return RecordCursorProto.SizeStatisticsContinuation.newBuilder().setPartialResults(this.sizeStatisticsResults.toProto()).setContinuation(ByteString.copyFrom(b)).build();
                 } else {
                     //nothing more to aggregate
-                    return RecordCursorProto.SizeStatisticsContinuation.newBuilder().setContinuation(ByteString.copyFrom(RecordCursorEndContinuation.END.toBytes())).build();
+                    return RecordCursorProto.SizeStatisticsContinuation.getDefaultInstance();
                 }
             };
         }
@@ -225,20 +230,17 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         @Nullable
         @Override
         public byte[] toBytes() {
-            if (isEnd()) {
-                return null;
-            } else {
-                //form bytes exactly once
-                if (this.cachedBytes == null) {
-                    this.cachedBytes = continuationFunction.apply(this.currentKvResult.getContinuation().toBytes()).toByteArray();
-                }
-                return cachedBytes;
+            // form bytes exactly once
+            if (this.cachedBytes == null) {
+                this.cachedBytes = continuationFunction.apply(this.currentKvResult.getContinuation().toBytes()).toByteArray();
             }
+            return cachedBytes;
         }
 
         @Override
         @Nonnull
         public boolean isEnd() {
+            // instances of this class are NOT meant to represent end continuations
             return false;
         }
     }
