@@ -36,6 +36,7 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* All changes from version [2.7.73.21](#277321)
 
 // end next release
 -->
@@ -47,8 +48,8 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 
 ### 2.7.76.0
 
-* All changes from version [2.7.73.20](#277320)
 * **Bug fix** Revert fix for #646 (in [2.7.75.0](#27750)) until a complete resolution is worked out [(PR #654)](https://github.com/FoundationDB/fdb-record-layer/pull/654)
+* All changes from version [2.7.73.20](#277320)
 
 ### 2.7.75.0
 
@@ -59,6 +60,10 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 * **Bug fix** Wrap the `RecordStoreState` in an `AtomicReference` [(Issue #563)](https://github.com/FoundationDB/fdb-record-layer/issues/563)
 * **Performance** Blocking on a future that should already be complete can now be detected and logged [(Issue #641)](https://github.com/FoundationDB/fdb-record-layer/issues/641)
 * **Performance** The `performNoOp` method on `FDBDatabase` allows for instrumenting the delay from queuing work onto the network thread [(Issue #650)](https://github.com/FoundationDB/fdb-record-layer/issues/650)
+
+### 2.7.73.21
+
+* **Bug fix** The `SizeStatisticsCursorContinuation` must not access the continuation of its underlying cursor after it is exhausted [(Issue #656)](https://github.com/FoundationDB/fdb-record-layer/issues/656)
 
 ### 2.7.73.20
 
