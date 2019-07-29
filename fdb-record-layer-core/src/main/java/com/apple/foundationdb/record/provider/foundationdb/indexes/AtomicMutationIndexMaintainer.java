@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Message;
@@ -97,6 +98,9 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         if (IndexTypes.MAX_EVER_LONG.equals(index.getType()) || IndexTypes.MAX_EVER.equals(index.getType())) {
             return AtomicMutation.Standard.MAX_EVER_LONG;
         }
+        if (IndexTypes.MAX_EVER_VERSION.equals(index.getType())) {
+            return AtomicMutation.Standard.MAX_EVER_VERSION;
+        }
         throw new MetaDataException("Unknown index type for " + index);
     }
 
@@ -147,7 +151,21 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
             }
 
             final byte[] key = state.indexSubspace.pack(groupKey);
-            state.transaction.mutate(mutationType, key, param);
+            if (AtomicMutation.Standard.MAX_EVER_VERSION.equals(mutation)) {
+                if (groupedValue.getKey().hasIncompleteVersionstamp()) {
+                    // With an incomplete versionstamp, we need to call SET_VERSIONSTAMPED_VALUE.
+                    // If multiple records (with possibly different local versions) are written with the same
+                    // grouping key in the same context, we want to only write the one with the maximum
+                    // local version. Choosing the one with the maximum byte representation will do this
+                    // as all incomplete versionstamps are serialized with identical fake global versions.
+                    state.context.updateVersionMutation(MutationType.SET_VERSIONSTAMPED_VALUE, key, param,
+                            (oldParam, newParam) -> ByteArrayUtil.compareUnsigned(oldParam, newParam) < 0 ? newParam : oldParam);
+                } else {
+                    state.transaction.mutate(MutationType.BYTE_MAX, key, param);
+                }
+            } else {
+                state.transaction.mutate(mutationType, key, param);
+            }
             if (state.store.getTimer() != null) {
                 state.store.getTimer().recordSinceNanoTime(FDBStoreTimer.Events.MUTATE_INDEX_ENTRY, startTime);
             }

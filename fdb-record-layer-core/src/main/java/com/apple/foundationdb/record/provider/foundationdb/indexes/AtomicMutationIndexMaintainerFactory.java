@@ -44,14 +44,15 @@ import java.util.List;
  *
  * Implements the following index types:
  * <ul>
- * <li><code>COUNT</code></li>
- * <li><code>COUNT_UPDATES</code></li>
- * <li><code>COUNT_NOT_NULL</code></li>
- * <li><code>SUM</code></li>
- * <li><code>MIN_EVER_TUPLE</code></li>
- * <li><code>MAX_EVER_TUPLE</code></li>
- * <li><code>MIN_EVER_LONG</code></li>
- * <li><code>MAX_EVER_LONG</code></li>
+ *     <li>{@link IndexTypes#COUNT COUNT}</li>
+ *     <li>{@link IndexTypes#COUNT_UPDATES COUNT_UPDATES}</li>
+ *     <li>{@link IndexTypes#COUNT_NOT_NULL COUNT_NOT_NULL}</li>
+ *     <li>{@link IndexTypes#SUM SUM}</li>
+ *     <li>{@link IndexTypes#MIN_EVER_TUPLE MIN_EVER_TUPLE}</li>
+ *     <li>{@link IndexTypes#MAX_EVER_TUPLE MAX_EVER_TUPLE}</li>
+ *     <li>{@link IndexTypes#MIN_EVER_LONG MIN_EVER_LONG}</li>
+ *     <li>{@link IndexTypes#MAX_EVER_LONG MAX_EVER_LONG}</li>
+ *     <li>{@link IndexTypes#MAX_EVER_VERSION MAX_EVER_VERSION}</li>
  * </ul>
  */
 @AutoService(IndexMaintainerFactory.class)
@@ -59,8 +60,11 @@ import java.util.List;
 public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFactory {
     @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"}) // Support the deprecated names for compatibility.
     static final String[] TYPES = {
-        IndexTypes.COUNT, IndexTypes.COUNT_UPDATES, IndexTypes.COUNT_NOT_NULL, IndexTypes.SUM,
-        IndexTypes.MIN_EVER_TUPLE, IndexTypes.MAX_EVER_TUPLE, IndexTypes.MIN_EVER_LONG, IndexTypes.MAX_EVER_LONG, IndexTypes.MIN_EVER, IndexTypes.MAX_EVER
+            IndexTypes.COUNT, IndexTypes.COUNT_UPDATES, IndexTypes.COUNT_NOT_NULL, IndexTypes.SUM,
+            IndexTypes.MIN_EVER_TUPLE, IndexTypes.MAX_EVER_TUPLE,
+            IndexTypes.MIN_EVER_LONG, IndexTypes.MAX_EVER_LONG,
+            IndexTypes.MAX_EVER_VERSION,
+            IndexTypes.MIN_EVER, IndexTypes.MAX_EVER
     };
 
     @Override
@@ -82,7 +86,6 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
             @Override
             public void validate(@Nonnull MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
-                validateNotVersion();
                 if (!mutation.hasValues()) {
                     validateGrouping(0);
                     if (getGroupedCount() != 0) {
@@ -99,6 +102,11 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.INDEX_KEY, index.getRootExpression());
                     }
+                }
+                if (AtomicMutation.Standard.MAX_EVER_VERSION.equals(mutation)) {
+                    validateVersionInGroupedKeys();
+                } else {
+                    validateNotVersion();
                 }
             }
 
