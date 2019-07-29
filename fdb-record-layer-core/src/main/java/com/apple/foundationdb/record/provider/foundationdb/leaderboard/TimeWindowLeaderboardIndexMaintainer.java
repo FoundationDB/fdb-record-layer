@@ -199,30 +199,35 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             });
         }
         // Add leaderboard's key to the front and take it off of the results.
-        return RecordCursor.fromFuture(getExecutor(), scoreRangeFuture).flatMapPipelined(scoreRange -> {
-            if (scoreRange == null) {
-                return RecordCursor.empty(getExecutor());
-            }
-            final TimeWindowLeaderboard leaderboard = state.context.joinNow(leaderboardFuture); // Already waited in scoreRangeFuture.
-            final CompletableFuture<Boolean> highStoreFirstFuture;
-            if (scanType == IndexScanType.BY_VALUE) {
-                final Tuple lowGroup = scoreRange.getLow() != null && scoreRange.getLow().size() > groupPrefixSize ? TupleHelpers.subTuple(scoreRange.getLow(), 0, groupPrefixSize) : null;
-                final Tuple highGroup = scoreRange.getHigh() != null && scoreRange.getHigh().size() > groupPrefixSize ? TupleHelpers.subTuple(scoreRange.getHigh(), 0, groupPrefixSize) : null;
-                if (lowGroup != null && lowGroup.equals(highGroup)) {
-                    highStoreFirstFuture = isHighScoreFirst(leaderboard.getDirectory(), lowGroup);
-                } else {
-                    highStoreFirstFuture = CompletableFuture.completedFuture(leaderboard.getDirectory().isHighScoreFirst());
-                }
-            } else {
-                highStoreFirstFuture = AsyncUtil.READY_FALSE;
-            }
-            if (highStoreFirstFuture.isDone()) {
-                return scanLeaderboard(leaderboard, state.context.joinNow(highStoreFirstFuture), scoreRange, continuation, scanProperties);
-            } else {
-                return RecordCursor.fromFuture(getExecutor(), highStoreFirstFuture).flatMapPipelined(highScoreFirst ->
-                        scanLeaderboard(leaderboard, highScoreFirst, scoreRange, continuation, scanProperties), 1);
-            }
-        }, 1)
+        return RecordCursor.flatMapPipelined(ignore -> RecordCursor.fromFuture(getExecutor(), scoreRangeFuture),
+                (scoreRange, ignore)  -> {
+                    if (scoreRange == null) {
+                        return RecordCursor.empty(getExecutor());
+                    }
+                    final TimeWindowLeaderboard leaderboard = state.context.joinNow(leaderboardFuture); // Already waited in scoreRangeFuture.
+                    final CompletableFuture<Boolean> highStoreFirstFuture;
+                    if (scanType == IndexScanType.BY_VALUE) {
+                        final Tuple lowGroup = scoreRange.getLow() != null && scoreRange.getLow().size() > groupPrefixSize ?
+                                               TupleHelpers.subTuple(scoreRange.getLow(), 0, groupPrefixSize) : null;
+                        final Tuple highGroup = scoreRange.getHigh() != null && scoreRange.getHigh().size() > groupPrefixSize ?
+                                                TupleHelpers.subTuple(scoreRange.getHigh(), 0, groupPrefixSize) : null;
+                        if (lowGroup != null && lowGroup.equals(highGroup)) {
+                            highStoreFirstFuture = isHighScoreFirst(leaderboard.getDirectory(), lowGroup);
+                        } else {
+                            highStoreFirstFuture = CompletableFuture.completedFuture(leaderboard.getDirectory().isHighScoreFirst());
+                        }
+                    } else {
+                        highStoreFirstFuture = AsyncUtil.READY_FALSE;
+                    }
+                    if (highStoreFirstFuture.isDone()) {
+                        return scanLeaderboard(leaderboard, state.context.joinNow(highStoreFirstFuture), scoreRange,
+                                continuation, scanProperties);
+                    } else {
+                        return RecordCursor.flatMapPipelined(ignore2 -> RecordCursor.fromFuture(getExecutor(), highStoreFirstFuture),
+                                (highScoreFirst, ignore2) -> scanLeaderboard(leaderboard, highScoreFirst, scoreRange,
+                                        continuation, scanProperties), null, 1);
+                    }
+                }, null, 1)
                 .mapPipelined(kv -> getIndexEntry(kv, groupPrefixSize, state.context.joinNow(leaderboardFuture).getDirectory()), 1);
     }
 

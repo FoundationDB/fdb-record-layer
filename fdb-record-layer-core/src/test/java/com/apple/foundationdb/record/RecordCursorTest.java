@@ -328,20 +328,16 @@ public class RecordCursorTest {
         List<Integer> expected = ints.stream().flatMap(o -> ints.stream().map(i -> o * 100 + i)).collect(Collectors.toList());
 
         Function<byte[], RecordCursor<Integer>> outerFunc = cont -> RecordCursor.fromList(ints, cont);
-        Function<Integer, RecordCursor<Integer>> innerFunc1 = outer -> RecordCursor.fromList(ints)
+        BiFunction<Integer, byte[], RecordCursor<Integer>> innerFunc = (outer, cont) -> RecordCursor.fromList(ints, cont)
                 .map(inner -> outer.intValue() * 100 + inner.intValue());
-        assertEquals(expected, outerFunc.apply(null).flatMapPipelined(innerFunc1, 1).asList().join());
-
-        BiFunction<Integer, byte[], RecordCursor<Integer>> innerFunc2 = (outer, cont) -> RecordCursor.fromList(ints, cont)
-                .map(inner -> outer.intValue() * 100 + inner.intValue());
-        assertEquals(expected, RecordCursor.flatMapPipelined(outerFunc, innerFunc2, null, 1).asList().join());
+        assertEquals(expected, RecordCursor.flatMapPipelined(outerFunc, innerFunc, null, 1).asList().join());
 
         List<Integer> pieces = new ArrayList<>();
         byte[] continuation = null;
         do {
             // Keep stopping and restarting every 3 items.
             int limit = 3;
-            RecordCursorIterator<Integer> cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc2, continuation, 7).asIterator();
+            RecordCursorIterator<Integer> cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 7).asIterator();
             while (cursor.hasNext()) {
                 pieces.add(cursor.next());
                 if (--limit <= 0) {
@@ -358,11 +354,11 @@ public class RecordCursorTest {
         // When the item we were on is removed, we skip to the next.
         pieces.clear();
         continuation = null;
-        RecordCursor<Integer> partCursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc2, checkFunc, continuation, 7).limitRowsTo(12);
+        RecordCursor<Integer> partCursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, checkFunc, continuation, 7).limitRowsTo(12);
         pieces.addAll(partCursor.asList().get());
         continuation = partCursor.getNext().getContinuation().toBytes();
         ints.remove(2); // The 3, of which we've done 301, 302
-        partCursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc2, checkFunc, continuation, 7);
+        partCursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, checkFunc, continuation, 7);
         pieces.addAll(partCursor.asList().get());
         List<Integer> adjusted = new ArrayList<>(expected);
         // Everything after where we restarted that involves the removed item (3).
@@ -373,11 +369,11 @@ public class RecordCursorTest {
         ints.add(2, 3);
         pieces.clear();
         continuation = null;
-        partCursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc2, checkFunc, continuation, 7).limitRowsTo(12);
+        partCursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, checkFunc, continuation, 7).limitRowsTo(12);
         pieces.addAll(partCursor.asList().get());
         continuation = partCursor.getNext().getContinuation().toBytes();
         ints.add(2, 22); // Before the 3, of which we've done 301, 302
-        partCursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc2, checkFunc, continuation, 7);
+        partCursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, checkFunc, continuation, 7);
         pieces.addAll(partCursor.asList().get());
         adjusted = new ArrayList<>();
         // Before we stopped.
@@ -589,7 +585,8 @@ public class RecordCursorTest {
         FirableCursor<String> firableCursor2 = new FirableCursor<>(new BrokenCursor());
         List<FirableCursor<String>> firableCursors = Arrays.asList(firableCursor1, firableCursor2);
         FirableCursor<Integer> outerCursor = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)));
-        RecordCursor<String> cursor = outerCursor.flatMapPipelined(firableCursors::get, 10);
+        RecordCursor<String> cursor = RecordCursor.flatMapPipelined(cont -> outerCursor,
+                (a, cont) -> firableCursors.get(a), null, 10);
         outerCursor.fire();
         firableCursor1.fire();
         RecordCursorResult<String> cursorResult = cursor.onNext().get();
@@ -605,7 +602,8 @@ public class RecordCursorTest {
         assertThat(e.getCause(), instanceOf(RuntimeException.class));
         assertEquals("sorry", e.getCause().getMessage());
 
-        RecordCursor<Integer> outerCursorError = new BrokenCursor().flatMapPipelined((String s) -> RecordCursor.fromList(Collections.singletonList(s.length())), 10);
+        RecordCursor<Integer> outerCursorError = RecordCursor.flatMapPipelined(cont -> new BrokenCursor(),
+                (s, cont) -> RecordCursor.fromList(Collections.singletonList(s.length())), null, 10);
         e = assertThrows(ExecutionException.class, () -> outerCursorError.onNext().get());
         assertNotNull(e.getCause());
         assertThat(e.getCause(), instanceOf(RuntimeException.class));

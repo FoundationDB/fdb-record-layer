@@ -556,7 +556,11 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @param pipelineSize the number of cursors from applications of the mapping function to open ahead of time
      * @param <V> the result type of the mapping function
      * @return a new cursor that applies the given function to produce a cursor of records that gets flattened
+     * @deprecated because it does not support continuations and is easy to misuse.
+     *             Use {@link #flatMapPipelined(Function, BiFunction, byte[], int)} instead.
      */
+    @Deprecated
+    @API(API.Status.DEPRECATED)
     @Nonnull
     default <V> RecordCursor<V> flatMapPipelined(@Nonnull Function<T, ? extends RecordCursor<V>> func, int pipelineSize) {
         return new FlatMapPipelinedCursor<>(this, (t, cignore) -> func.apply(t),
@@ -572,7 +576,6 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
         return flatMapPipelined(outerFunc, innerFunc, null, continuation, pipelineSize);
     }
 
-    @Nonnull
     /**
      * Resume a nested cursor with the given continuation or start if <code>null</code>.
      * @param outerFunc a function that takes the outer continuation and returns the outer cursor.
@@ -586,7 +589,11 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * or a new record being inserted right before it (do full inner cursor, not partial based on previous).
      * @param continuation the continuation returned from a previous instance of this pipeline or <code>null</code> at start.
      * @param pipelineSize the number of outer items to work ahead; inner cursors for these will be started in parallel.
+     * @param <T> the result type of the outer cursor
+     * @param <V> the result type of the inner cursor produced by the mapping function
+     * @return a {@link FlatMapPipelinedCursor} that maps the inner function across the results of the outer function
      */
+    @Nonnull
     static <T, V> RecordCursor<V> flatMapPipelined(@Nonnull Function<byte[], ? extends RecordCursor<T>> outerFunc,
                                                           @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
                                                           @Nullable Function<T, byte[]> checker,
