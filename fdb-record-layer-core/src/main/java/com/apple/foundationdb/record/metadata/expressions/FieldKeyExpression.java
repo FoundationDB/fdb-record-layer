@@ -54,9 +54,10 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     private final String fieldName;
     @Nonnull
     private final FanType fanType;
+    @Nonnull
     private final Key.Evaluated.NullStandin nullStandin;
 
-    public FieldKeyExpression(@Nonnull String fieldName, @Nonnull FanType fanType, Key.Evaluated.NullStandin nullStandin) {
+    public FieldKeyExpression(@Nonnull String fieldName, @Nonnull FanType fanType, @Nonnull Key.Evaluated.NullStandin nullStandin) {
         this.fieldName = fieldName;
         this.fanType = fanType;
         this.nullStandin = nullStandin;
@@ -188,6 +189,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return RecordMetaDataProto.Field.newBuilder()
                 .setFieldName(fieldName)
                 .setFanType(fanType.toProto())
+                .setNullInterpretation(nullStandin.toProto())
                 .build();
     }
 
@@ -297,6 +299,11 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return fanType;
     }
 
+    @Nonnull
+    public Key.Evaluated.NullStandin getNullStandin() {
+        return nullStandin;
+    }
+
     @Override
     public String toString() {
         return "Field { '" + fieldName + "' " + fanType + '}';
@@ -313,21 +320,40 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         }
 
         FieldKeyExpression that = (FieldKeyExpression)o;
-        return this.fieldName.equals(that.fieldName) && (this.fanType == that.fanType);
+        return this.fieldName.equals(that.fieldName) &&
+               this.fanType == that.fanType &&
+               this.nullStandin == that.nullStandin;
     }
 
     @Override
     public int hashCode() {
-        return fieldName.hashCode() + fanType.hashCode();
+        return fieldName.hashCode() + fanType.hashCode() + nullStandin.hashCode();
     }
 
     @Override
     public int planHash() {
-        return fieldName.hashCode() + fanType.name().hashCode();
+        int hash = fieldName.hashCode() + fanType.name().hashCode();
+        if (nullStandin == Key.Evaluated.NullStandin.NOT_NULL) {
+            // NULL and NULL_UNIQUE have the same hash, which is also the same as before.
+            hash++;
+        }
+        return hash;
     }
 
     @Override
     public boolean equalsAtomic(AtomKeyExpression other) {
-        return equals(other);
+        return equivalentForSort(other);
+    }
+
+    @Override
+    public boolean equivalentForSort(@Nonnull KeyExpression other) {
+        if (getClass() != other.getClass()) {
+            return false;
+        }
+
+        FieldKeyExpression that = (FieldKeyExpression)other;
+        return this.fieldName.equals(that.fieldName) &&
+               this.fanType == that.fanType &&
+               (this.nullStandin == Key.Evaluated.NullStandin.NOT_NULL) == (that.nullStandin == Key.Evaluated.NullStandin.NOT_NULL);
     }
 }

@@ -234,4 +234,14 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     public int planHash() {
         return getInnerKey().planHash() + splitPoint;
     }
+
+    @Override
+    public boolean equivalentForSort(@Nonnull KeyExpression other) {
+        if (getClass() != other.getClass()) {
+            return false;
+        }
+
+        KeyWithValueExpression that = (KeyWithValueExpression)other;
+        return this.getInnerKey().equivalentForSort(that.getInnerKey()) && (this.splitPoint == that.splitPoint);
+    }
 }

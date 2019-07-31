@@ -199,4 +199,14 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
     public int planHash() {
         return getWholeKey().planHash() + groupedCount;
     }
+
+    @Override
+    public boolean equivalentForSort(@Nonnull KeyExpression other) {
+        if (getClass() != other.getClass()) {
+            return false;
+        }
+
+        GroupingKeyExpression that = (GroupingKeyExpression)other;
+        return this.getWholeKey().equivalentForSort(that.getWholeKey()) && (this.groupedCount == that.groupedCount);
+    }
 }

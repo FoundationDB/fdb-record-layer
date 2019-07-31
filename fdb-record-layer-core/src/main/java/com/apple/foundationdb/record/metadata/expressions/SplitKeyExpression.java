@@ -196,4 +196,14 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     public boolean equalsAtomic(AtomKeyExpression other) {
         return equals(other);
     }
+
+    @Override
+    public boolean equivalentForSort(@Nonnull KeyExpression other) {
+        if (getClass() != other.getClass()) {
+            return false;
+        }
+
+        SplitKeyExpression that = (SplitKeyExpression)other;
+        return this.getJoined().equivalentForSort(that.getJoined()) && (this.splitSize == that.splitSize);
+    }
 }
