@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -206,6 +207,28 @@ public class FDBDatabaseTest extends FDBTestBase {
                 () -> database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK,
                         CompletableFuture.supplyAsync(() ->
                                 database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK, CompletableFuture.completedFuture(10L)))));
+    }
+
+    @Test
+    public void loggableTimeoutException() {
+        CompletableFuture<Void> delayed = new CompletableFuture<Void>();
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabase database = factory.getDatabase();
+        FDBStoreTimer timer = new FDBStoreTimer();
+        database.setAsyncToSyncTimeout(1, TimeUnit.MILLISECONDS);
+        try {
+            database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_COMMIT, delayed);
+        } catch (Exception ex) {
+            KeyValueLogMessage message = KeyValueLogMessage.build("Testing logging of timeout events.");
+            message.addKeysAndValues(timer.getKeysAndValues());
+            assertTrue(message.getKeyValueMap().containsKey("wait_commit_timeout_micros"));
+            assertTrue(Long.parseLong(message.getKeyValueMap().get("wait_commit_timeout_micros")) > 0L);
+            assertTrue(message.getKeyValueMap().containsKey("wait_commit_timeout_count"));
+            assertEquals(Integer.parseInt(message.getKeyValueMap().get("wait_commit_timeout_count")), 1);
+        } finally {
+            factory.clear();
+            timer.reset();
+        }
     }
 
     @Test

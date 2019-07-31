@@ -304,7 +304,9 @@ public class StoreTimer {
      * @return a map of recorded times and counts for logging
      */
     public Map<String, Number> getKeysAndValues() {
-        Map<String, Number> result = new HashMap<>(counters.size() * 2);
+        Collection<Event> timeoutEvents = getTimeoutEvents();
+        Map<String, Number> result = new HashMap<>((counters.size() + timeoutEvents.size()) * 2);
+        //add counter events to result map
         for (Map.Entry<Event, Counter> entry : counters.entrySet()) {
             Event event = entry.getKey();
             Counter counter = entry.getValue();
@@ -313,6 +315,12 @@ public class StoreTimer {
             if (!(event instanceof Count)) {
                 result.put(prefix + "_micros", counter.timeNanos.get() / 1000);
             }
+        }
+        // now add recorded timeout events to map
+        for (Event timeoutEvent : timeoutEvents) {
+            String timeoutPrefix = timeoutEvent.name().toLowerCase(Locale.ROOT);
+            result.put(timeoutPrefix + "_timeout_micros", getTimeoutTimeNanos(timeoutEvent) / 1000);
+            result.put(timeoutPrefix + "_timeout_count", getTimeoutCount(timeoutEvent));
         }
         return result;
     }
