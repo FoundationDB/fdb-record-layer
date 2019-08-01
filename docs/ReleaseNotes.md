@@ -21,8 +21,8 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix sorting with null-is-unique indexes [(Issue #655)](https://github.com/FoundationDB/fdb-record-layer/issues/655)
-* **Bug fix** `NullStandin` should be set in `FieldKeyExpression::toProto` [(Issue #626)](https://github.com/FoundationDB/fdb-record-layer/issues/626)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,11 +40,16 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Deprecated** The non-static `RecordCursor::flatMapPipelined()` method has been deprecated [(Issue #665)](https://github.com/FoundationDB/fdb-record-layer/issues/665)
-* All changes from versions [2.7.73.21](#277321) and [2.7.73.22](#277322)
 
 // end next release
 -->
+
+### 2.7.78.0
+
+* **Bug fix** Fix sorting with null-is-unique indexes [(Issue #655)](https://github.com/FoundationDB/fdb-record-layer/issues/655)
+* **Bug fix** `NullStandin` should be set in `FieldKeyExpression::toProto` [(Issue #626)](https://github.com/FoundationDB/fdb-record-layer/issues/626)
+* **Deprecated** The non-static `RecordCursor::flatMapPipelined()` method has been deprecated [(Issue #665)](https://github.com/FoundationDB/fdb-record-layer/issues/665)
+* All changes from versions [2.7.73.21](#277321) and [2.7.73.22](#277322)
 
 ### 2.7.77.0
 
