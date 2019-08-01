@@ -29,9 +29,8 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Include timeout counters in `StoreTimer::getKeysAndValues` [(Issue #672)](https://github.com/FoundationDB/fdb-record-layer/issues/672)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add `TRACE`-level log details for inspecting the `KeyValueUnsplitter` [(Issue #673)](https://github.com/FoundationDB/fdb-record-layer/issues/673)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +39,11 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 
 // end next release
 -->
+
+### 2.7.73.22
+
+* **Feature** Include timeout counters in `StoreTimer::getKeysAndValues` [(Issue #672)](https://github.com/FoundationDB/fdb-record-layer/issues/672)
+* **Feature** Add `TRACE`-level log details for inspecting the `KeyValueUnsplitter` [(Issue #673)](https://github.com/FoundationDB/fdb-record-layer/issues/673)
 
 ### 2.7.73.21
 
