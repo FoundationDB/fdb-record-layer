@@ -57,8 +57,10 @@ public enum LogMessageKeys {
     KEY_TUPLE("key_tuple"),
     EXPECTED_INDEX("expected_index"),
     FOUND_INDEX("found_index"),
+    KNOWN_LAST_KEY("known_last_key"),
     SPLIT_NEXT_INDEX("next_index"),
     SPLIT_REVERSE("reverse"),
+    READ_LAST_KEY_MICROS("read_last_key_micros"),
     // protobuf parsing
     RAW_BYTES("raw_bytes"),
     // key space API keys
@@ -74,6 +76,12 @@ public enum LogMessageKeys {
     RANGE_VALUE_TYPE("range_value_type"),
     EXPECTED_VALUE_TYPE("expected_value_type"),
     ENDPOINT_TYPE("endpoint_type"),
+    // stored size info
+    KEY_COUNT("key_count"),
+    KEY_SIZE("key_size"),
+    VALUE_SIZE("value_size"),
+    IS_SPLIT("is_split"),
+    IS_VERSIONED_INLINE("is_versioned_inline"),
     // key expressions
     EXPECTED_COLUMN_SIZE("expected_column_size"),
     ACTUAL_COLUMN_SIZE("actual_column_size"),
@@ -145,6 +153,7 @@ public enum LogMessageKeys {
     DURATION_MILLIS("duration_millis"),
     CURSOR_ELAPSED_MILLIS("cursor_elapsed_millis"),
     CURSOR_TIME_LIMIT_MILLIS("cursor_time_limit_millis"),
+    NO_NEXT_REASON("no_next_reason"),
     // upgrading
     VERSION("version"),
     OLD_VERSION("old_version"),

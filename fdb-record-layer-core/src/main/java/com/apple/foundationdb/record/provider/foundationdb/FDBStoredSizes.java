@@ -21,6 +21,10 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+
+import javax.annotation.Nonnull;
 
 /**
  * Information about how a record is stored in the database.
@@ -61,4 +65,18 @@ public interface FDBStoredSizes {
      * @return {@code true} if this record is stored with a version in-line
      */
     boolean isVersionedInline();
+
+    /**
+     * Add logging information about size information to a log message.
+     *
+     * @param msg the log message to add information to
+     */
+    @API(API.Status.EXPERIMENTAL)
+    default void addSizeLogInfo(@Nonnull KeyValueLogMessage msg) {
+        msg.addKeyAndValue(LogMessageKeys.KEY_COUNT, getKeyCount())
+                .addKeyAndValue(LogMessageKeys.KEY_SIZE, getKeySize())
+                .addKeyAndValue(LogMessageKeys.VALUE_SIZE, getValueSize())
+                .addKeyAndValue(LogMessageKeys.IS_SPLIT, isSplit())
+                .addKeyAndValue(LogMessageKeys.IS_VERSIONED_INLINE, isVersionedInline());
+    }
 }
