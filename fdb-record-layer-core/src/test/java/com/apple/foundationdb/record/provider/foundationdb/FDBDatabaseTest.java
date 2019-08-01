@@ -217,7 +217,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    public void testBlockingCreatingAsyncDetection() {
+    public void testBlockingCreatingAsyncDetection() throws Exception {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
@@ -271,6 +271,28 @@ public class FDBDatabaseTest extends FDBTestBase {
                 assertEquals(1066L, val);
                 return null;
             });
+        }
+    }
+
+    @Test
+    public void loggableTimeoutException() {
+        CompletableFuture<Void> delayed = new CompletableFuture<Void>();
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabase database = factory.getDatabase();
+        FDBStoreTimer timer = new FDBStoreTimer();
+        database.setAsyncToSyncTimeout(1, TimeUnit.MILLISECONDS);
+        try {
+            database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_COMMIT, delayed);
+        } catch (Exception ex) {
+            KeyValueLogMessage message = KeyValueLogMessage.build("Testing logging of timeout events.");
+            message.addKeysAndValues(timer.getKeysAndValues());
+            assertTrue(message.getKeyValueMap().containsKey("wait_commit_timeout_micros"));
+            assertTrue(Long.parseLong(message.getKeyValueMap().get("wait_commit_timeout_micros")) > 0L);
+            assertTrue(message.getKeyValueMap().containsKey("wait_commit_timeout_count"));
+            assertEquals(Integer.parseInt(message.getKeyValueMap().get("wait_commit_timeout_count")), 1);
+        } finally {
+            factory.clear();
+            timer.reset();
         }
     }
 

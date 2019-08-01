@@ -41,7 +41,7 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Deprecated** The non-static `RecordCursor::flatMapPipelined()` method has been deprecated [(Issue #665)](https://github.com/FoundationDB/fdb-record-layer/issues/665)
-* All changes from version [2.7.73.21](#277321)
+* All changes from versions [2.7.73.21](#277321) and [2.7.73.22](#277322)
 
 // end next release
 -->
@@ -65,6 +65,11 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 * **Bug fix** Wrap the `RecordStoreState` in an `AtomicReference` [(Issue #563)](https://github.com/FoundationDB/fdb-record-layer/issues/563)
 * **Performance** Blocking on a future that should already be complete can now be detected and logged [(Issue #641)](https://github.com/FoundationDB/fdb-record-layer/issues/641)
 * **Performance** The `performNoOp` method on `FDBDatabase` allows for instrumenting the delay from queuing work onto the network thread [(Issue #650)](https://github.com/FoundationDB/fdb-record-layer/issues/650)
+
+### 2.7.73.22
+
+* **Feature** Include timeout counters in `StoreTimer::getKeysAndValues` [(Issue #672)](https://github.com/FoundationDB/fdb-record-layer/issues/672)
+* **Feature** Add `TRACE`-level log details for inspecting the `KeyValueUnsplitter` [(Issue #673)](https://github.com/FoundationDB/fdb-record-layer/issues/673)
 
 ### 2.7.73.21
 

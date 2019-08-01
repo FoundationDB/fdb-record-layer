@@ -40,12 +40,15 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.cursors.IllegalContinuationAccessChecker;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,12 +57,16 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Helper classes for splitting records across multiple key-value pairs.
  */
 @API(API.Status.INTERNAL)
 public class SplitHelper {
+    @Nonnull
+    private static final Logger LOGGER = LoggerFactory.getLogger(SplitHelper.class);
+
     /**
      * If a record is greater than this size (in bytes),
      * it will be split into multiple kv pairs.
@@ -607,6 +614,7 @@ public class SplitHelper {
         private RecordCursorContinuation continuation;
         @Nonnull
         private final CursorLimitManager limitManager;
+        private long readLastKeyNanos = 0L; // for logging purposes
 
         // for supporting old cursor API
         @Nullable
@@ -665,6 +673,12 @@ public class SplitHelper {
 
                     if (next == null) { // no next result
                         nextResult = RecordCursorResult.withoutNextValue(continuation, mergeNoNextReason());
+                        if (LOGGER.isTraceEnabled()) {
+                            LOGGER.trace(KeyValueLogMessage.of("unsplitter stopped",
+                                    LogMessageKeys.NEXT_CONTINUATION, continuation == null ? "null" : ByteArrayUtil2.loggable(continuation.toBytes()),
+                                    LogMessageKeys.NO_NEXT_REASON, nextResult.getNoNextReason(),
+                                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.getKey())));
+                        }
                     } else { // has next result
                         sizeInfo.setVersionedInline(nextVersion != null);
                         final FDBRawRecord result = new FDBRawRecord(nextKey, next.getValue(), nextVersion, sizeInfo);
@@ -673,6 +687,14 @@ public class SplitHelper {
                         nextVersion = null;
                         nextPrefix = null;
                         nextResult =  RecordCursorResult.withNextValue(result, continuation);
+                        if (LOGGER.isTraceEnabled()) {
+                            KeyValueLogMessage msg = KeyValueLogMessage.build("unsplitter assembled new record",
+                                    LogMessageKeys.NEXT_CONTINUATION, continuation == null ? "null" : ByteArrayUtil2.loggable(continuation.toBytes()),
+                                    LogMessageKeys.KEY_TUPLE, result.getPrimaryKey(),
+                                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.getKey()));
+                            result.addSizeLogInfo(msg);
+                            LOGGER.trace(msg.toString());
+                        }
                     }
                     mayGetContinuation = next == null;
                     return nextResult;
@@ -788,6 +810,13 @@ public class SplitHelper {
                         if (next == null) {
                             continuation = innerResult.getContinuation();
                         }
+                        if (LOGGER.isTraceEnabled()) {
+                            LOGGER.trace(KeyValueLogMessage.of("unsplitter inner cursor stopped",
+                                    LogMessageKeys.NEXT_CONTINUATION, continuation == null ? "null" : ByteArrayUtil2.loggable(continuation.toBytes()),
+                                    LogMessageKeys.NO_NEXT_REASON, innerNoNextReason,
+                                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.getKey())
+                            ));
+                        }
                         return false;
                     } else {
                         innerNoNextReason = null; // currently, we have a next value
@@ -814,6 +843,7 @@ public class SplitHelper {
                     throw new FoundSplitWithoutStartException(nextIndex, true);
                 }
                 pending = resultWithKv;
+                logEndFound();
                 return true;
             }
         }
@@ -827,13 +857,14 @@ public class SplitHelper {
             next = new KeyValue(nextPrefix, kv.getValue());
             nextIndex = keyTuple.getLong(keyTuple.size() - 1);
             sizeInfo.set(kv);
+            boolean done;
             if (nextIndex == UNSPLIT_RECORD) {
                 // First key is an unsplit record key. Either this is going
                 // in the forward direction (in which case this is the only
                 // key), or we are going in the reverse direction, in which
                 // case there might be a version key before it.
                 sizeInfo.setSplit(false);
-                return !reverse;
+                done = !reverse;
             } else if (!reverse && nextIndex == RECORD_VERSION) {
                 if (oldVersionFormat) {
                     throw new RecordCoreException("Found record version when old format specified")
@@ -847,23 +878,26 @@ public class SplitHelper {
                 sizeInfo.setVersionedInline(true);
                 nextVersion = unpackVersion(kv.getValue());
                 next = null;
-                return false;
+                done = false;
             } else if (reverse && nextIndex != RECORD_VERSION || nextIndex == START_SPLIT_RECORD) {
                 // The data is either the beginning or end of the split (depending
                 // on scan direction).
                 sizeInfo.setSplit(true);
-                return false;
+                done = false;
             } else {
                 throw new FoundSplitWithoutStartException(nextIndex, reverse)
                         .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
                         .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
             }
+            logFirstKey(done);
+            return done;
         }
 
         // Process the a key-value pair (other than the first one) for a given record; return whether the record is complete
         private boolean appendNext(@Nonnull KeyValue kv) {
             long index = nextSubspace.unpack(kv.getKey()).getLong(0);
             sizeInfo.add(kv);
+            boolean done;
             if (!reverse && nextIndex == RECORD_VERSION && (index == UNSPLIT_RECORD || index == START_SPLIT_RECORD)) {
                 // The first key (in a forward) scan was a version. Set the key (so far) to be
                 // just what has been read from this key. If it is the beginning of
@@ -872,7 +906,7 @@ public class SplitHelper {
                 next = new KeyValue(nextPrefix, kv.getValue());
                 nextIndex = index;
                 sizeInfo.setSplit(index == START_SPLIT_RECORD);
-                return nextIndex == UNSPLIT_RECORD;
+                done = nextIndex == UNSPLIT_RECORD;
             } else if (!reverse && index == nextIndex + 1) {
                 // This is the second or later key (not counting a possible version key)
                 // in the forward scan. Append its value to the end of the current
@@ -880,7 +914,7 @@ public class SplitHelper {
                 // no way to know if this is the last key or not.
                 next = new KeyValue(nextPrefix, ByteArrayUtil.join(next.getValue(), kv.getValue()));
                 nextIndex = index;
-                return false;
+                done = false;
             } else if (reverse && index == RECORD_VERSION && (nextIndex == START_SPLIT_RECORD || nextIndex == UNSPLIT_RECORD)) {
                 // This is the record version key encountered during a backwards scan.
                 // Update the version information and return true, as the record version
@@ -892,7 +926,7 @@ public class SplitHelper {
                 }
                 nextVersion = unpackVersion(kv.getValue());
                 nextIndex = index;
-                return true;
+                done = true;
             } else if (reverse && index == nextIndex - 1 && index != RECORD_VERSION) {
                 // The second or later key in a backwards scan, but not the record version.
                 // Append its value to the beginning of the current key-value pair being
@@ -901,7 +935,7 @@ public class SplitHelper {
                 // possible that there is a record version before it).
                 next = new KeyValue(nextPrefix, ByteArrayUtil.join(kv.getValue(), next.getValue()));
                 nextIndex = index;
-                return false;
+                done = false;
             } else {
                 final long expectedIndex = nextIndex + (reverse ? -1 : 1);
                 if (reverse && expectedIndex == START_SPLIT_RECORD || !reverse && nextIndex == RECORD_VERSION) {
@@ -915,6 +949,38 @@ public class SplitHelper {
                             .addLogInfo(LogMessageKeys.EXPECTED_INDEX, nextIndex + (reverse ? -1 : 1))
                             .addLogInfo(LogMessageKeys.FOUND_INDEX, index);
                 }
+            }
+            logNextKey(done);
+            return done;
+        }
+
+        private void logFirstKey(boolean done) {
+            logKey("found first key in new split record", done);
+        }
+
+        private void logNextKey(boolean done) {
+            logKey("found next key in split record", done);
+        }
+
+        private void logEndFound() {
+            logKey("end key found for split record", true);
+        }
+
+        private void logKey(@Nonnull String staticMessage, boolean done) {
+            if (LOGGER.isTraceEnabled()) {
+                KeyValueLogMessage msg = KeyValueLogMessage.build(staticMessage,
+                        LogMessageKeys.KEY_TUPLE, nextKey,
+                        LogMessageKeys.SPLIT_REVERSE, reverse,
+                        LogMessageKeys.SPLIT_NEXT_INDEX, nextIndex,
+                        LogMessageKeys.KNOWN_LAST_KEY, done,
+                        LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.getKey()));
+                sizeInfo.addSizeLogInfo(msg);
+                long currentNanos = System.nanoTime();
+                if (readLastKeyNanos != 0) {
+                    msg.addKeyAndValue(LogMessageKeys.READ_LAST_KEY_MICROS, TimeUnit.NANOSECONDS.toMicros(currentNanos - readLastKeyNanos));
+                }
+                readLastKeyNanos = currentNanos;
+                LOGGER.trace(msg.toString());
             }
         }
     }
