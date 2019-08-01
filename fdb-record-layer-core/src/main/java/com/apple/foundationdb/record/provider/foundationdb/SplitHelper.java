@@ -57,6 +57,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Helper classes for splitting records across multiple key-value pairs.
@@ -613,6 +614,7 @@ public class SplitHelper {
         private RecordCursorContinuation continuation;
         @Nonnull
         private final CursorLimitManager limitManager;
+        private long readLastKeyNanos = 0L; // for logging purposes
 
         // for supporting old cursor API
         @Nullable
@@ -973,6 +975,11 @@ public class SplitHelper {
                         LogMessageKeys.KNOWN_LAST_KEY, done,
                         LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.getKey()));
                 sizeInfo.addSizeLogInfo(msg);
+                long currentNanos = System.nanoTime();
+                if (readLastKeyNanos != 0) {
+                    msg.addKeyAndValue(LogMessageKeys.READ_LAST_KEY_MICROS, TimeUnit.NANOSECONDS.toMicros(currentNanos - readLastKeyNanos));
+                }
+                readLastKeyNanos = currentNanos;
                 LOGGER.trace(msg.toString());
             }
         }

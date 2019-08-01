@@ -60,6 +60,7 @@ public enum LogMessageKeys {
     KNOWN_LAST_KEY("known_last_key"),
     SPLIT_NEXT_INDEX("next_index"),
     SPLIT_REVERSE("reverse"),
+    READ_LAST_KEY_MICROS("read_last_key_micros"),
     // protobuf parsing
     RAW_BYTES("raw_bytes"),
     // key space API keys
