@@ -58,6 +58,8 @@ import java.util.function.Function;
  *
  * @see FDBDatabase
  */
+// TODO: Rename this class to FDBDatabaseRunner in next minor release.
+@API(API.Status.INTERNAL)
 public interface FDBDatabaseRunnerInterface extends AutoCloseable {
     /**
      * Get the database against which functions are run.

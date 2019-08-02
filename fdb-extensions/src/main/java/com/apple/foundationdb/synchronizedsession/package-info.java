@@ -19,9 +19,7 @@
  */
 
 /**
- * In addition to {@link com.apple.foundationdb.synchronizedsession}, extended classes to support running operations in
- * synchronized sessions with {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunnerInterface}
- * and {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext}
- * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
+ * Basic classes to support running operations in synchronized sessions
+ * TODO @see SynchronizedSession
  */
-package com.apple.foundationdb.record.provider.foundationdb.synchronizedsession;
+package com.apple.foundationdb.synchronizedsession;

@@ -42,9 +42,16 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * It delegates all methods to {@link FDBDatabaseRunner}. For {@code run} and {@code runAsync} methods that take the
- * work {@code retriable}, it injects necessary operations to keep the session synchronized by wrapping the work} with
- * {@link SynchronizedSession#workInSession(Function)} or {@link SynchronizedSession#workInSessionAsync(Function)}.
+ * <p>
+ * An {@link FDBDatabaseRunnerInterface} implementation that performs all work in the context of  a
+ * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+ * </p>
+ * <p>
+ * For all variations of {@code run} and {@code runAsync} methods, the work in the {@code retriable} lambda
+ * is wrapped by calls that check locks and update leases to ensure that two synchronized sessions are not
+ * concurrently running at the same time.
+ * </p>
+ * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
  */
 @API(API.Status.EXPERIMENTAL)
 public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
@@ -52,20 +59,46 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     private FDBDatabaseRunner underlying;
     private SynchronizedSession session;
 
-    // Start a new session. A synchronized session keeps its lock by updating the timestamp in each of its working
-    // transactions, so do NOT try to get the synchronized runner until it is going to be actively used.
+
+    /**
+     * <p>
+     * Produces a new runner, wrapping a given runner, which performs all work in the context of a new
+     *      * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * </p>
+     * <p>
+     * The returned runner will have acquired and started the lease, so care must be taken to ensure that
+     * work begins before the lease expiration period.
+     * </p>
+     * <p>
+     * This is a blocking call.
+     * </p>
+     * @see FDBDatabaseRunner#startSynchronizedSession(Subspace, long)
+     * @param lockSubspace the lock for which the session contends
+     * @param leaseLengthMill length between last access and lease's end time in milliseconds
+     * @param runner the underlying runner
+     * @return a runner maintaining a new synchronized session
+     */
     public static SynchronizedSessionRunner startSession(@Nonnull Subspace lockSubspace,
                                                          long leaseLengthMill,
                                                          @Nonnull FDBDatabaseRunner runner) {
         final UUID newSessionId = UUID.randomUUID();
         SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId, leaseLengthMill);
         try (FDBRecordContext context = runner.openContext()) {
-            context.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION, session.initializeSession(context));
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION, session.initializeSessionAsync(context.ensureActive()));
             context.commit();
         }
         return new SynchronizedSessionRunner(runner, session);
     }
 
+    /**
+     * Produces a new runner, wrapping a given runner, which performs all work in the context of an existing
+     *      * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * @param lockSubspace the lock for which the session contends
+     * @param sessionId session ID
+     * @param leaseLengthMill length between last access and lease's end time in milliseconds
+     * @param runner the underlying runner
+     * @return a runner maintaining a existing synchronized session
+     */
     public static SynchronizedSessionRunner joinSession(@Nonnull Subspace lockSubspace,
                                                         @Nonnull UUID sessionId,
                                                         long leaseLengthMill,
@@ -74,20 +107,46 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
         return new SynchronizedSessionRunner(runner, session);
     }
 
-    private SynchronizedSessionRunner(FDBDatabaseRunner underlyingRunner, SynchronizedSession session) {
+    private SynchronizedSessionRunner(@Nonnull FDBDatabaseRunner underlyingRunner,
+                                      @Nonnull SynchronizedSession session) {
         this.underlying = underlyingRunner;
         this.session = session;
     }
 
-    public UUID getSessionId() {
-        return this.session.getSessionId();
+    // Check and renew the lock when the session in being used.
+    // TODO: Maybe the time should be updated even if the work is failed. For example, online indexer may fail
+    // in the first a few transactions to find the optimal number of records to scan in one transaction.
+    private <T> Function<FDBRecordContext, T> runInSession(
+            @Nonnull Function<? super FDBRecordContext, ? extends T> work) {
+        return context -> {
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_SYNC_SESSION, session.checkLockAsync((context.ensureActive())));
+            T result = work.apply(context);
+            session.updateLockSessionLeaseEndTime(context.ensureActive());
+            return result;
+        };
     }
 
-    // This is not necessarily to be called when closing the runner because there can be multiple runner for a same
-    // session.
-    public void closeSession() {
+    private <T> Function<? super FDBRecordContext, CompletableFuture<? extends T>> runInSessionAsync(
+            @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> work) {
+        return context -> session.checkLockAsync(context.ensureActive())
+                .thenCompose(vignore -> work.apply(context))
+                .thenApply(result -> {
+                    session.updateLockSessionLeaseEndTime(context.ensureActive());
+                    return result;
+                });
+    }
+
+    public UUID getSessionId() {
+        return session.getSessionId();
+    }
+
+    /**
+     * Releases the lock to end the synchronized session. This should not necessarily be called when closing the runner
+     * because there can be multiple runners for the same session.
+     */
+    public void endSession() {
         underlying.run(context -> {
-            session.close(context);
+            session.releaseLock(context.ensureActive());
             return null;
         });
     }
@@ -179,30 +238,30 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
 
     @Override
     public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
-        return underlying.run(session.workInSession(retriable));
+        return underlying.run(runInSession(retriable));
     }
 
     @Override
     public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable, @Nullable List<Object> additionalLogMessageKeyValues) {
-        return underlying.run(session.workInSession(retriable), additionalLogMessageKeyValues);
+        return underlying.run(runInSession(retriable), additionalLogMessageKeyValues);
     }
 
     @Override
     @Nonnull
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
-        return underlying.runAsync(session.workInSessionAsync(retriable));
+        return underlying.runAsync(runInSessionAsync(retriable));
     }
 
     @Override
     @Nonnull
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable, @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
-        return underlying.runAsync(session.workInSessionAsync(retriable), handlePostTransaction);
+        return underlying.runAsync(runInSessionAsync(retriable), handlePostTransaction);
     }
 
     @Override
     @Nonnull
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable, @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction, @Nullable List<Object> additionalLogMessageKeyValues) {
-        return underlying.runAsync(session.workInSessionAsync(retriable), handlePostTransaction, additionalLogMessageKeyValues);
+        return underlying.runAsync(runInSessionAsync(retriable), handlePostTransaction, additionalLogMessageKeyValues);
     }
 
     @Override

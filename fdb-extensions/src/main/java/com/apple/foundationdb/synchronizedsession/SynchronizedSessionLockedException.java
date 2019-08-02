@@ -1,5 +1,5 @@
 /*
- * SynchronizedSessionExpiredException.java
+ * SynchronizedSessionLockedException.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,10 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.synchronizedsession;
+package com.apple.foundationdb.synchronizedsession;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.util.LoggableException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -29,11 +29,12 @@ import javax.annotation.Nullable;
 /**
  * This exception means that the synchronized session is not valid anymore, probably because another synchronized session
  * on the same lock is running.
+ * TODO @see SynchronizedSession
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("serial")
-public class SynchronizedSessionExpiredException extends RecordCoreException {
-    SynchronizedSessionExpiredException(@Nonnull String msg, @Nullable Object... keyValues) {
+public class SynchronizedSessionLockedException extends LoggableException {
+    public SynchronizedSessionLockedException(@Nonnull String msg, @Nullable Object... keyValues) {
         super(msg, keyValues);
     }
 }

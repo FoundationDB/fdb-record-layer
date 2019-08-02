@@ -25,125 +25,167 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.LogMessageKeys;
+import com.apple.foundationdb.util.LoggableException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
 
+/**
+ * <p>
+ * {@link SynchronizedSession} is a concept introduced to avoid multiple attempts (an attempt contains multiple
+ * transactions running concurrently and/or consecutively) working together. Each attempt corresponds to a session
+ * identified by a session ID. Of the sessions with the same lock subspace, only the one holds the lock is allowed to
+ * work.
+ * </p>
+ * <p>
+ * Each session should and should only try to acquire the lock when the session is initialized.
+ * </p>
+ * <p>
+ * When a session holds the lock, it is protected to hold it for an extended length of time (a.k.a lease). Another new
+ * session can only take lock if the lease of the original lock owner is outdated. (Note a session is allowed to work
+ * even if its lease is outdated, as long as no other session takes its lock.) In order to keep the lease, every time a
+ * session is used, it needs to update the lease's end time to something a period (configured by
+ * {@code leaseLengthMillis}) later than current time.
+ * </p>
+ * <p>
+ * If a session is not able to acquire the lock during the initialization or lost the lock during work later, it will
+ * get a {@link SynchronizedSessionLockedException}. The session is considered ended when it gets a such exception. It
+ * can neither try to acquire the lock again nor commit any work.
+ * </p>
+ * <p>
+ * {@link #initializeSessionAsync} should be used when initializing a session to acquire the lock, while
+ * {@link #checkLockAsync(Transaction)} and {@link #updateLockSessionLeaseEndTime(Transaction)} should be used in every
+ * other transactions to check the lock and keep the lease. Please refer to {@link SynchronizedSessionRunner} for an
+ * example of using {@link SynchronizedSession} in practice.
+ * </p>
+ * <p>
+ * TODO: This class should be moved to {@link com.apple.foundationdb.synchronizedsession} in {@code fdb-extensions}
+ * after {@code org.slf4j} is added as a dependency in next minor version.
+ * </p>
+ */
 @API(API.Status.EXPERIMENTAL)
-class SynchronizedSession {
+public class SynchronizedSession {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SynchronizedSession.class);
+
     @Nonnull
     private Subspace lockSubspace;
     @Nonnull
     private UUID sessionId;
-    private long leaseLengthMill;
+    private long leaseLengthMillis;
 
+    // The UUID stored here indicates which session holds the lock.
     @Nonnull
     private final byte[] lockSessionIdSubspaceKey;
+    // The timestamp stored here indicates the session above holds the lock until which time if the lease is not renewed.
     @Nonnull
-    private final byte[] lockSessionTimeSubspaceKey;
+    private final byte[] lockSessionLeaseEndTimeSubspaceKey;
 
     // The UUID of the session owning the lock.
     private static final Object LOCK_SESSION_ID_KEY = 0L;
     // The time point after which the lock can be taken by others.
     private static final Object LOCK_SESSION_TIME_KEY = 1L;
 
-    SynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMill) {
+    /**
+     * Construct a session. Remember to {@link #initializeSessionAsync(Transaction)} if the {@code sessionId} is newly
+     * generated.
+     * @param lockSubspace the lock for which this session contends
+     * @param sessionId session ID
+     * @param leaseLengthMillis length between last access and lease's end time in milliseconds
+     */
+    public SynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {
         this.lockSubspace = lockSubspace;
         this.sessionId = sessionId;
-        this.leaseLengthMill = leaseLengthMill;
+        this.leaseLengthMillis = leaseLengthMillis;
         lockSessionIdSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_ID_KEY)).pack();
-        lockSessionTimeSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_TIME_KEY)).pack();
+        lockSessionLeaseEndTimeSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_TIME_KEY)).pack();
     }
 
-    // Take the lock when the session is initialized.
-    CompletableFuture<Void> initializeSession(@Nonnull FDBRecordContext context) {
-        Transaction tr = context.ensureActive();
-        return getLockSessionId(tr).thenCompose(lockSessionId -> {
+    /**
+     * Initialize the session by acquiring the lock. This should be invoked before a new session is ever used.
+     * @param tr transaction to use
+     * @return a future that will return null when the session is initialized
+     */
+    public CompletableFuture<Void> initializeSessionAsync(@Nonnull Transaction tr) {
+        // Though sessionTime is not necessarily needed in some cases, its read in parallel with the lockSessionId read
+        // in the hope of that the FDB client then batches those two operations together into a single request.
+        return getLockSessionId(tr).thenAcceptBoth(getLockSessionTime(tr.snapshot()), (lockSessionId, sessionTime) -> {
             if (lockSessionId == null) {
                 // If there was no lock, can get the lock.
-                return takeSessionLock(tr);
+                takeSessionLock(tr);
             } else if (lockSessionId.equals(sessionId)) {
                 // This should never happen.
-                throw new RecordCoreException("session id already exists in subspace")
-                        .addLogInfo(LogMessageKeys.SUBSPACE_KEY, ByteArrayUtil2.loggable(lockSubspace.getKey()))
-                        .addLogInfo(LogMessageKeys.UUID, sessionId);
+                throw new LoggableException("session id already exists in subspace")
+                        .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()))
+                        .addLogInfo(LogMessageKeys.SESSION_ID, sessionId);
             } else {
-                // This is snapshot read so it will not affect all working transactions writing to it.
-                return getLockSessionTime(tr.snapshot()).thenCompose(sessionTime -> {
-                    long currentTime = System.currentTimeMillis();
-                    if (sessionTime < currentTime) {
-                        // The old lease was outdated, can get the lock.
-                        return takeSessionLock(tr);
-                    } else {
-                        throw new SynchronizedSessionExpiredException("Failed to initialize the session")
-                                .addLogInfo(LogMessageKeys.SUBSPACE_KEY, ByteArrayUtil2.loggable(lockSubspace.getKey()))
-                                .addLogInfo(LogMessageKeys.UUID, sessionId);
-                    }
-                });
+                if (sessionTime == null) {
+                    LOGGER.warn("Session ID is set but session time is not",
+                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()),
+                            LogMessageKeys.SESSION_ID, sessionId);
+                    // This is unexpected, but if it does occur, we may want to correct it by letting the new session
+                    // to take the lock.
+                    takeSessionLock(tr);
+                } else if (sessionTime < System.currentTimeMillis()) {
+                    // The old lease was outdated, can get the lock.
+                    takeSessionLock(tr);
+                } else {
+                    throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
+                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()))
+                            .addLogInfo(LogMessageKeys.SESSION_ID, sessionId)
+                            .addLogInfo(LogMessageKeys.EXISTING_SESSION, lockSessionId)
+                            .addLogInfo(LogMessageKeys.EXISTING_SESSION_EXPIRE_TIME, sessionTime);
+                }
             }
         });
     }
 
-    private CompletionStage<Void> takeSessionLock(Transaction tr) {
+    private void takeSessionLock(@Nonnull Transaction tr) {
         setLockSessionId(tr);
-        setLockSessionTime(tr);
-        return AsyncUtil.DONE;
+        updateLockSessionLeaseEndTime(tr);
     }
 
-    // Check and renew the lock when the session in being used.
-    // TODO: Maybe the time should be updated even if the work is failed. For example, online indexer may fail
-    // in the first a few transactions to find the optimal number of records to scan in one transcation.
-    <T> Function<FDBRecordContext, T> workInSession(
-            @Nonnull Function<? super FDBRecordContext, ? extends T> work) {
-        return context -> {
-            context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_SYNC_SESSION, checkLock(context));
-            T result = work.apply(context);
-            setLockSessionTime(context.ensureActive());
-            return result;
-        };
-    }
-
-    <T> Function<? super FDBRecordContext, CompletableFuture<? extends T>> workInSessionAsync(
-            @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> work) {
-        return context -> checkLock(context)
-                .thenCompose(vignore -> work.apply(context))
-                .thenApply(result -> {
-                    setLockSessionTime(context.ensureActive());
-                    return result;
-                });
-    }
-
+    /**
+     * Get session ID.
+     * @return session ID
+     */
     @Nonnull
-    UUID getSessionId() {
+    public UUID getSessionId() {
         return sessionId;
     }
 
-    private CompletableFuture<Void> checkLock(FDBRecordContext context) {
-        return getLockSessionId(context.ensureActive())
+    /**
+     * Check if the session still holds the lock. This should be invoked
+     * @param tr transaction to use
+     * @return a future that will return null when lock is checked
+     */
+    public CompletableFuture<Void> checkLockAsync(@Nonnull Transaction tr) {
+        return getLockSessionId(tr)
                 .thenCompose(lockSessionId -> {
                     if (!sessionId.equals(lockSessionId)) { // sessionId is nonnull while lockSessionId is nullable
-                        throw new SynchronizedSessionExpiredException("Failed to continue the session")
-                                .addLogInfo(LogMessageKeys.SUBSPACE_KEY, ByteArrayUtil2.loggable(lockSubspace.getKey()))
-                                .addLogInfo(LogMessageKeys.UUID, sessionId)
-                                .addLogInfo("lockSessionId", lockSessionId);
+                        throw new SynchronizedSessionLockedException("Failed to continue the session")
+                                .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()))
+                                .addLogInfo(LogMessageKeys.SESSION_ID, sessionId)
+                                .addLogInfo(LogMessageKeys.EXISTING_SESSION, lockSessionId);
                     }
                     return AsyncUtil.DONE;
                 });
     }
 
-    void close(FDBRecordContext context) {
-        context.ensureActive().clear(lockSubspace.pack(), ByteArrayUtil.strinc(lockSubspace.pack()));
+    /**
+     * End the session by releasing the lock.
+     * @param tr transaction to use
+     */
+    public void releaseLock(@Nonnull Transaction tr) {
+        tr.clear(lockSubspace.pack(), ByteArrayUtil.strinc(lockSubspace.pack()));
     }
 
     private CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr) {
@@ -164,13 +206,18 @@ class SynchronizedSession {
     // - When the session time is read during session initialization, it should be a snapshot read so it will not have
     //   conflicts with working transactions (which write to session time).
     private CompletableFuture<Long> getLockSessionTime(@Nonnull ReadTransaction tr) {
-        return tr.get(lockSessionTimeSubspaceKey)
-                .thenApply(value -> Tuple.fromBytes(value).getLong(0));
+        return tr.get(lockSessionLeaseEndTimeSubspaceKey)
+                .thenApply(value -> value == null ? null : Tuple.fromBytes(value).getLong(0));
     }
 
-    private void setLockSessionTime(@Nonnull Transaction tr) {
-        long leaseEndTime = System.currentTimeMillis() + leaseLengthMill;
+    /**
+     * Update the lease's end time. This should be invoked in every transaction in the session to keep the session
+     * alive.
+     * @param tr transaction to use
+     */
+    public void updateLockSessionLeaseEndTime(@Nonnull Transaction tr) {
+        long leaseEndTime = System.currentTimeMillis() + leaseLengthMillis;
         // Use BYTE_MAX rather than MAX because `Tuple`s write their integers in big Endian.
-        tr.mutate(MutationType.BYTE_MAX, lockSessionTimeSubspaceKey, Tuple.from(leaseEndTime).pack());
+        tr.mutate(MutationType.BYTE_MAX, lockSessionLeaseEndTimeSubspaceKey, Tuple.from(leaseEndTime).pack());
     }
 }

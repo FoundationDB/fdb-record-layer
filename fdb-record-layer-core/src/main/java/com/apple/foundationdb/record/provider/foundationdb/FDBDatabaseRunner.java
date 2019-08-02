@@ -50,7 +50,8 @@ import java.util.function.Function;
 /**
  * The standard implementation of {@link FDBDatabaseRunnerInterface}.
  */
-@API(API.Status.MAINTAINED)
+// TODO: Rename this class to FDBDatabaseRunnerImpl in next minor release.
+@API(API.Status.INTERNAL)
 public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseRunner.class);
 
@@ -400,17 +401,40 @@ public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
         contextsToClose.forEach(FDBRecordContext::close);
     }
 
-    // Start a new session. A synchronized session keeps its lock by updating the timestamp in each of its working
-    // transactions, so do NOT try to get the synchronized runner until it is going to be actively used.
+    /**
+     * <p>
+     * Produces a new runner, wrapping this runner, which performs all work in the context of a new
+     * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * </p>
+     * <p>
+     * The returned runner will have acquired and started the lease, so care must be taken to ensure that
+     * work begins before the lease expiration period.
+     * </p>
+     * <p>
+     * This is a blocking call.
+     * </p>
+     * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
+     * @param lockSubspace the lock for which the session contends
+     * @param leaseLengthMillis length between last access and lease's end time in milliseconds
+     * @return a runner maintaining a new synchronized session
+     */
     @API(API.Status.EXPERIMENTAL)
-    public SynchronizedSessionRunner toSynchronized(@Nonnull Subspace lockSubspace, long leaseLengthMill) {
-        return SynchronizedSessionRunner.startSession(lockSubspace, leaseLengthMill, this);
+    public SynchronizedSessionRunner startSynchronizedSession(@Nonnull Subspace lockSubspace, long leaseLengthMillis) {
+        return SynchronizedSessionRunner.startSession(lockSubspace, leaseLengthMillis, this);
     }
 
-    // Join an existing session.
+    /**
+     * Produces a new runner, wrapping this runner, which performs all work in the context of an existing
+     * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
+     * @param lockSubspace the lock for which the session contends
+     * @param sessionId session ID
+     * @param leaseLengthMillis length between last access and lease's end time in milliseconds
+     * @return a runner maintaining a existing synchronized session
+     */
     @API(API.Status.EXPERIMENTAL)
-    public SynchronizedSessionRunner toSynchronized(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMill) {
-        return SynchronizedSessionRunner.joinSession(lockSubspace, sessionId, leaseLengthMill, this);
+    public SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {
+        return SynchronizedSessionRunner.joinSession(lockSubspace, sessionId, leaseLengthMillis, this);
     }
 
     private synchronized void addContextToClose(@Nonnull FDBRecordContext context) {

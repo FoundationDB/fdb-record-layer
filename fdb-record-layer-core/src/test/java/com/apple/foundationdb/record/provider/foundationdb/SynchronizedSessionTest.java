@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionExpiredException;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -33,23 +33,27 @@ import org.junit.jupiter.api.Test;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner}
+ * Tests for {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner}.
  */
 @Tag(Tags.RequiresFDB)
 public abstract class SynchronizedSessionTest extends FDBTestBase {
 
     private FDBDatabase database;
+    private Subspace lockSubspace1;
+    private Subspace lockSubspace2;
 
     private boolean runAsync;
 
-    private static final long DEFAULT_LEASE_LENGTH_MILL = 2_000;
+    private static final long DEFAULT_LEASE_LENGTH_MILLIS = 2_000;
 
     private Random random = new Random();
 
@@ -58,21 +62,27 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
     }
 
     @BeforeEach
-    public void getDatabase() {
+    public void initializeSubspace() {
         database = FDBDatabaseFactory.instance().getDatabase();
+        KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit", "synchronizedsession");
+        try (FDBRecordContext context = database.openContext()) {
+            path.deleteAllData(context);
+            lockSubspace1 = path.add("lock", 1L).toSubspace(context);
+            lockSubspace2 = path.add("lock", 2L).toSubspace(context);
+            context.commit();
+        }
     }
 
     // Sessions on same lock, runners on distinct sessions.
     @Test
     public void initializeSecondSessionOnLockShouldFail() throws InterruptedException {
-        final Subspace lockSubspace = new Subspace(Tuple.from(Math.random()));
         // Get runner by creating a session.
-        try (SynchronizedSessionRunner session1Runner = newRunnerStartSession(lockSubspace)) {
+        try (SynchronizedSessionRunner session1Runner = newRunnerStartSession(lockSubspace1)) {
             // Session 1 is active.
             checkActive(session1Runner);
 
             // Should not be able to create another session.
-            assertFailedStartSession(lockSubspace);
+            assertFailedStartSession(lockSubspace1);
 
             // Session 1 is still active.
             checkActive(session1Runner);
@@ -85,28 +95,25 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
 
     @Test
     public void secondSessionShouldTakeLockIfTheFirstOneExpiresAndTheFirstOneCannotContinue() throws Exception {
-        final Subspace lockSubspace = new Subspace(Tuple.from(Math.random()));
-        try (SynchronizedSessionRunner session1Runner = newRunnerStartSession(lockSubspace)) {
+        try (SynchronizedSessionRunner session1Runner = newRunnerStartSession(lockSubspace1)) {
             checkActive(session1Runner);
 
             waitLongEnough();
 
             // Able to create another session and the new session is active.
-            try (SynchronizedSessionRunner session2Runner = newRunnerStartSession(lockSubspace)) {
+            try (SynchronizedSessionRunner session2Runner = newRunnerStartSession(lockSubspace1)) {
                 checkActive(session2Runner);
             }
 
             // Should not be able to use session1, neither by existing runner nor by new runner.
             assertFailedContinueSession(session1Runner);
-            assertFailedJoinSession(lockSubspace, session1Runner.getSessionId());
+            assertFailedJoinSession(lockSubspace1, session1Runner.getSessionId());
         }
     }
 
     // Sessions on distinct locks.
     @Test
     public void sessionsOnDifferentLocksShouldNotInterfere() {
-        final Subspace lockSubspace1 = new Subspace(Tuple.from(Math.random()));
-        final Subspace lockSubspace2 = new Subspace(Tuple.from(Math.random()));
         try (SynchronizedSessionRunner sessionOnLock1 = newRunnerStartSession(lockSubspace1)) {
             sessionOnLock1.run(context -> {
                 try (SynchronizedSessionRunner sessionOnLock2 = newRunnerStartSession(lockSubspace2)) {
@@ -120,14 +127,13 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
     // Runners on same session.
     @Test
     public void runnersOnSameSessionShouldWorkAndExpireTogether() throws InterruptedException {
-        final Subspace lockSubspace = new Subspace(Tuple.from(Math.random()));
         // Get runner by creating a session.
-        try (SynchronizedSessionRunner session1Runner1 = newRunnerStartSession(lockSubspace)) {
+        try (SynchronizedSessionRunner session1Runner1 = newRunnerStartSession(lockSubspace1)) {
             // Session 1 Runner 1 is active.
             checkActive(session1Runner1);
 
             UUID session1Id = session1Runner1.getSessionId();
-            try (SynchronizedSessionRunner session1Runner2 = newRunnerJoinSession(lockSubspace, session1Id)) {
+            try (SynchronizedSessionRunner session1Runner2 = newRunnerJoinSession(lockSubspace1, session1Id)) {
                 // Both runners are active
                 checkActive(session1Runner2);
                 checkActive(session1Runner1);
@@ -152,7 +158,7 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
 
                 // Should not be able to continue the runners after the lock is taken by others.
                 waitLongEnough();
-                newRunnerStartSession(lockSubspace);
+                newRunnerStartSession(lockSubspace1).close();
                 assertFailedContinueSession(session1Runner1);
                 assertFailedContinueSession(session1Runner2);
             }
@@ -167,20 +173,17 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
 
     @Test
     public void clearSession() {
-        final Subspace lockSubspace = new Subspace(Tuple.from(Math.random()));
-        try (SynchronizedSessionRunner session1Runner1 = newRunnerStartSession(lockSubspace)) {
+        try (SynchronizedSessionRunner session1Runner1 = newRunnerStartSession(lockSubspace1)) {
             checkActive(session1Runner1);
 
-            session1Runner1.closeSession();
+            session1Runner1.endSession();
 
             // Runners of the current session should not be able to work (neither existing runner nor newly created runner).
             assertFailedContinueSession(session1Runner1);
-            try (SynchronizedSessionRunner session1Runner2 = newRunnerJoinSession(lockSubspace, session1Runner1.getSessionId())) {
-                assertFailedContinueSession(session1Runner2);
-            }
+            assertFailedJoinSession(lockSubspace1, session1Runner1.getSessionId());
 
             // The new session should be able to be created and used right away.
-            try (SynchronizedSessionRunner session2Runner = newRunnerStartSession(lockSubspace)) {
+            try (SynchronizedSessionRunner session2Runner = newRunnerStartSession(lockSubspace1)) {
                 checkActive(session2Runner);
             }
         }
@@ -188,34 +191,31 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
 
     @Test
     public void takeLaterOneWhenThereAreDifferentLeaseEndTimes() throws Exception {
-        final Subspace lockSubspace = new Subspace(Tuple.from(Math.random()));
-        try (SynchronizedSessionRunner session1Runner1 = database.newRunner().toSynchronized(lockSubspace, 2_000)) {
+        try (SynchronizedSessionRunner session1Runner1 = database.newRunner().startSynchronizedSession(lockSubspace1, 2_000)) {
             checkActive(session1Runner1);
 
             UUID session1Id = session1Runner1.getSessionId();
-            try (SynchronizedSessionRunner session1Runner2 = database.newRunner().toSynchronized(lockSubspace, session1Id, 4_000)) {
-                checkActive(session1Runner2);
-                checkActive(session1Runner1);
+            try (SynchronizedSessionRunner session1Runner2 = database.newRunner().joinSynchronizedSession(lockSubspace1, session1Id, 3_000)) {
+                Thread run1 = new Thread(() -> checkActive(session1Runner1));
+                Thread run2 = new Thread(() -> checkActive(session1Runner2));
 
-                AtomicBoolean start = new AtomicBoolean(false);
-                CompletableFuture<Void> session1Runner1Job = session1Runner1.runAsync(context -> AsyncUtil.whileTrue(
-                        () -> CompletableFuture.completedFuture(start.get()),
-                        context.getExecutor()));
-                CompletableFuture<Void> session1Runner2Job = session1Runner1.runAsync(context -> AsyncUtil.whileTrue(
-                        () -> CompletableFuture.completedFuture(start.get()),
-                        context.getExecutor()));
-                database.newRunner().asyncToSync(null, CompletableFuture.allOf(session1Runner1Job, session1Runner2Job));
+                ConcurrentLinkedQueue<Throwable> exceptions = new ConcurrentLinkedQueue<>();
+                Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> exceptions.add(exception));
 
-                // Make the the jobs run almost at the same time with unknown order.
-                start.set(true);
+                run1.start();
+                run2.start();
+                run1.join();
+                run2.join();
 
-                // Runner 1 set the lease end time to 2 seconds in the future, while Runner 2 set it to 4 seconds,
-                // the later one should be honoured. So a new session shouldn't take the lock until 4 seconds.
+                assertTrue(exceptions.isEmpty());
+
+                // Runner 1 set the lease end time to 2 seconds in the future, while Runner 2 set it to 3 seconds,
+                // the later one should be honoured. So a new session shouldn't take the lock until 3 seconds.
                 Thread.sleep(2_000 + 100);
-                assertFailedStartSession(lockSubspace);
+                assertFailedStartSession(lockSubspace1);
 
-                Thread.sleep(2_000);
-                try (SynchronizedSessionRunner session2Runner = newRunnerStartSession(lockSubspace)) {
+                Thread.sleep(1_000);
+                try (SynchronizedSessionRunner session2Runner = newRunnerStartSession(lockSubspace1)) {
                     checkActive(session2Runner);
                 }
             }
@@ -223,18 +223,19 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
     }
 
     @Test
+    @Tag(Tags.Slow)
     public void singleRunnerRenewLeaseContinuously() throws Exception {
         testRenewLeaseContinuously(true);
     }
 
     @Test
+    @Tag(Tags.Slow)
     public void newRunnersRenewLeaseContinuously() throws Exception {
         testRenewLeaseContinuously(false);
     }
 
     private void testRenewLeaseContinuously(boolean reuseRunner) throws Exception {
-        final Subspace lockSubspace = new Subspace(Tuple.from(Math.random()));
-        try (SynchronizedSessionRunner session1Runner0 = database.newRunner().toSynchronized(lockSubspace, 1_000)) {
+        try (SynchronizedSessionRunner session1Runner0 = database.newRunner().startSynchronizedSession(lockSubspace1, 1_000)) {
             UUID session1 = session1Runner0.getSessionId();
             AtomicBoolean session1Stopped = new AtomicBoolean(false);
             Thread longSession = new Thread(() -> {
@@ -245,14 +246,14 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
                         e.printStackTrace();
                     }
                     SynchronizedSessionRunner runner = reuseRunner ? session1Runner0 : database.newRunner()
-                            .toSynchronized(lockSubspace, session1, 1_000);
+                            .joinSynchronizedSession(lockSubspace1, session1, 1_000);
                     checkActive(runner);
                 }
                 session1Stopped.set(true);
             });
             Thread tryStartSession = new Thread(() -> {
                 while (!session1Stopped.get()) {
-                    assertFailedStartSession(lockSubspace);
+                    assertFailedStartSession(lockSubspace1);
                     try {
                         Thread.sleep(random.nextInt(500));
                     } catch (InterruptedException e) {
@@ -260,18 +261,24 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
                     }
                 }
             });
+
+            ConcurrentLinkedQueue<Throwable> exceptions = new ConcurrentLinkedQueue<>();
+            Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> exceptions.add(exception));
+
             longSession.start();
             tryStartSession.start();
             tryStartSession.join();
+
+            assertTrue(exceptions.isEmpty());
         }
     }
 
     private SynchronizedSessionRunner newRunnerStartSession(Subspace lockSubspace) {
-        return database.newRunner().toSynchronized(lockSubspace, DEFAULT_LEASE_LENGTH_MILL);
+        return database.newRunner().startSynchronizedSession(lockSubspace, DEFAULT_LEASE_LENGTH_MILLIS);
     }
 
     private SynchronizedSessionRunner newRunnerJoinSession(Subspace lockSubspace, UUID sessionId) {
-        return database.newRunner().toSynchronized(lockSubspace, sessionId, DEFAULT_LEASE_LENGTH_MILL);
+        return database.newRunner().joinSynchronizedSession(lockSubspace, sessionId, DEFAULT_LEASE_LENGTH_MILLIS);
     }
 
     private void checkActive(SynchronizedSessionRunner runner) {
@@ -283,9 +290,9 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
     }
 
     private void assertFailedStartSession(Subspace lockSubspace) {
-        SynchronizedSessionExpiredException exception = assertThrows(SynchronizedSessionExpiredException.class,
+        SynchronizedSessionLockedException exception = assertThrows(SynchronizedSessionLockedException.class,
                 () -> newRunnerStartSession(lockSubspace));
-        assertEquals("Failed to initialize the session", exception.getMessage());
+        assertEquals("Failed to initialize the session because of an existing session in progress", exception.getMessage());
     }
 
     private void assertFailedJoinSession(Subspace lockSubspace, UUID sessionId) {
@@ -296,13 +303,13 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
     }
 
     private void assertFailedContinueSession(SynchronizedSessionRunner synchronizedSessionRunner) {
-        SynchronizedSessionExpiredException exception = assertThrows(SynchronizedSessionExpiredException.class,
+        SynchronizedSessionLockedException exception = assertThrows(SynchronizedSessionLockedException.class,
                 () -> synchronizedSessionRunner.run(c -> null));
         assertEquals("Failed to continue the session", exception.getMessage());
     }
 
     private void waitLongEnough() throws InterruptedException {
-        Thread.sleep(DEFAULT_LEASE_LENGTH_MILL + 100);
+        Thread.sleep(DEFAULT_LEASE_LENGTH_MILLIS + 100);
     }
 
     /**
