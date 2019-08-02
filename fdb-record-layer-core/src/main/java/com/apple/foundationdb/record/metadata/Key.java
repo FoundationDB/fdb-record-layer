@@ -66,9 +66,13 @@ public class Key {
         private Expressions() {}
 
         /**
-         * Create an expression of a single scalar (i.e. not repeated) field.
+         * Create an expression of a single scalar (i.e. not repeated) field. This sets the {@link Evaluated.NullStandin}
+         * to {@link Evaluated.NullStandin#NULL}. See {@link #field(String, KeyExpression.FanType, com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin)}
+         * for more details.
+         *
          * @param name the name of the field to evaluate
          * @return a new Field expression, which can further be nested if the associated field is of the Message type.
+         * @see #field(String, KeyExpression.FanType, com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin)
          */
         @Nonnull
         public static FieldKeyExpression field(@Nonnull String name) {
@@ -78,10 +82,14 @@ public class Key {
         /**
          * Creates an expression of a field. This field can be repeated or not, depending on the fanType.
          * If fanType is Concatenate or None, this expression will only create 1 index entry. If it is FanOut it will
-         * create 1 index entry per value of the field.
+         * create 1 index entry per value of the field. This sets the {@link Evaluated.NullStandin} to
+         * {@link Evaluated.NullStandin#NULL}. See {@link #field(String, KeyExpression.FanType, com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin)}
+         * for more details.
+         *
          * @param name the name of the field to evaluate
          * @param fanType the way that repeated fields should be handled
          * @return a new Field expression which can further be nested if the associated field is of the Message type.
+         * @see #field(String, KeyExpression.FanType, com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin)
          */
         @Nonnull
         public static FieldKeyExpression field(@Nonnull String name, @Nonnull KeyExpression.FanType fanType) {
@@ -92,6 +100,21 @@ public class Key {
          * Creates an expression of a field. This field can be repeated or not, depending on the fanType.
          * If fanType is Concatenate or None, this expression will only create 1 index entry. If it is FanOut it will
          * create 1 index entry per value of the field.
+         *
+         * <p>
+         * This also takes a {@link Evaluated.NullStandin} value to describe the field's behavior when it encounters an
+         * unset field. If the value is {@link Evaluated.NullStandin#NOT_NULL NOT_NULL}, it will use the field's default
+         * value instead of {@code null}. If the value is {@link Evaluated.NullStandin#NULL NULL}, it will return the
+         * value {@code null} and disable any uniqueness checks (if the index is a {@linkplain IndexOptions#UNIQUE_OPTION unique}
+         * index). If the value is {@link Evaluated.NullStandin#NULL_UNIQUE NULL_UNIQUE}, it will return {@code null}
+         * and not disable any uniqueness checks. (In other words, it will treat {@code null} just like any other value.)
+         * Note that for most use cases, the same value should be used for the {@code nullStandIn} every time the field
+         * is referenced by any key expression or different indexes may have different ideas as to, for example,
+         * whether a field can be {@code null} or not. For this reason, there are plans to move this expression from
+         * the field to meta-data on the {@link RecordType}. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/677">Issue #677</a>
+         * for more details.
+         * </p>
+         *
          * @param name the name of the field to evaluate
          * @param fanType the way that repeated fields should be handled
          * @param nullStandin value to use in place of missing values,
@@ -99,7 +122,7 @@ public class Key {
          * @return a new Field expression which can further be nested if the associated field is of the Message type.
          */
         @Nonnull
-        public static FieldKeyExpression field(@Nonnull String name, @Nonnull KeyExpression.FanType fanType, Evaluated.NullStandin nullStandin) {
+        public static FieldKeyExpression field(@Nonnull String name, @Nonnull KeyExpression.FanType fanType, @Nonnull Evaluated.NullStandin nullStandin) {
             return new FieldKeyExpression(name, fanType, nullStandin);
         }
 

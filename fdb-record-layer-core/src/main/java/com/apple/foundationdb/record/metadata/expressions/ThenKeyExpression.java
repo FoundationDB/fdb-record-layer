@@ -302,24 +302,5 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         }
         return i;
     }
-
-    @Override
-    public boolean equivalentForSort(@Nonnull KeyExpression other) {
-        if (getClass() != other.getClass()) {
-            return false;
-        }
-
-        List<KeyExpression> children = getChildren();
-        List<KeyExpression> otherChildren = ((ThenKeyExpression)other).getChildren();
-        if (children.size() != otherChildren.size()) {
-            return false;
-        }
-        for (int i = 0; i < children.size(); i++) {
-            if (!children.get(i).equivalentForSort(otherChildren.get(i))) {
-                return false;
-            }
-        }
-        return true;
-    }
 }
 

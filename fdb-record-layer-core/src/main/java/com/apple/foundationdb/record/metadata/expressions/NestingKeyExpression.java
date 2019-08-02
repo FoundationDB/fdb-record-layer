@@ -201,15 +201,4 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
     public boolean equalsAtomic(AtomKeyExpression other) {
         return this.getClass() == other.getClass() && parent.equals(((NestingKeyExpression) other).parent);
     }
-
-    @Override
-    public boolean equivalentForSort(@Nonnull KeyExpression other) {
-        if (getClass() != other.getClass()) {
-            return false;
-        }
-
-        NestingKeyExpression that = (NestingKeyExpression)other;
-        // Parent does not contribute to sorting, so just use equals.
-        return this.parent.equals(that.parent) && this.getChild().equivalentForSort(that.getChild());
-    }
 }
