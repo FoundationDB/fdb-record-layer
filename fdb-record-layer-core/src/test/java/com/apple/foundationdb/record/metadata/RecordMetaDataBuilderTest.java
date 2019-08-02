@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.TestRecordsUnsigned5Proto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestTwoUnionsProto;
 import com.apple.foundationdb.record.TestUnionDefaultNameProto;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.google.protobuf.DescriptorProtos;
@@ -178,6 +179,34 @@ public class RecordMetaDataBuilderTest {
             assertEquals(index.getName(), index.getSubspaceKey());
         } else {
             assertEquals(1L, index.getSubspaceKey());
+        }
+    }
+
+    @MethodSource("indexTestArguments")
+    @ParameterizedTest(name = "uniqueIndexOnNestedPrimaryKey [deprecatedWay = {0}, indexCounterBasedSubspaceKey = {1}]")
+    public void uniqueIndexOverlappingWithNestedPrimaryKey(final TestHelpers.BooleanEnum deprecatedWay, final TestHelpers.BooleanEnum indexCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(),
+                deprecatedWay.toBoolean(),
+                indexCounterBasedSubspaceKey.toBoolean());
+        builder.getRecordType("MyRecord")
+                .setPrimaryKey(field("header").nest(concat(field("num"), field("rec_no"))));
+        builder.addIndex("MyRecord", new Index("MyRecord$num-str-unique-1",
+                concat(field("header").nest(field("num")), field("str_value")),
+                IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        builder.addIndex("MyRecord", new Index("MyRecord$num-str-unique-2",
+                concat(field("header").nest(field("num", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL_UNIQUE)), field("str_value")),
+                IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        RecordMetaData metaData = builder.getRecordMetaData();
+        Index index1 = metaData.getIndex("MyRecord$num-str-unique-1");
+        assertArrayEquals(new int[] {0, -1}, index1.getPrimaryKeyComponentPositions());
+        Index index2 = metaData.getIndex("MyRecord$num-str-unique-2");
+        assertArrayEquals(new int[] {0, -1}, index2.getPrimaryKeyComponentPositions());
+        if (deprecatedWay.toBoolean() || !indexCounterBasedSubspaceKey.toBoolean()) {
+            assertEquals(index1.getName(), index1.getSubspaceKey());
+            assertEquals(index2.getName(), index2.getSubspaceKey());
+        } else {
+            assertEquals(1L, index1.getSubspaceKey());
+            assertEquals(2L, index2.getSubspaceKey());
         }
     }
 

@@ -226,16 +226,7 @@ public interface KeyExpression extends PlanHashable, PlannerExpression {
         return this instanceof KeyExpressionWithChildren || this instanceof KeyExpressionWithoutChildren;
     }
 
-    /**
-     * Check whether a key expression is the same for purposes of determining sort order.
-     * @param other another key expression
-     * @return {@code true} if this key expression sorts entries in the same order
-     */
-    @API(API.Status.INTERNAL)
-    default boolean equivalentForSort(@Nonnull KeyExpression other) {
-        return equals(other);
-    }
-
+    @Nonnull
     static KeyExpression fromProto(RecordMetaDataProto.KeyExpression expression)
             throws DeserializationException {
         KeyExpression root = null;

@@ -371,18 +371,4 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
             return functions;
         }
     }
-
-    @Override
-    public boolean equivalentForSort(@Nonnull KeyExpression other) {
-        if (getClass() != other.getClass()) {
-            return false;
-        }
-
-        FunctionKeyExpression that = (FunctionKeyExpression) other;
-        if (!this.getName().equals(that.getName())) {
-            return false;
-        }
-
-        return this.getArguments().equivalentForSort(that.getArguments());
-    }
 }

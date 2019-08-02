@@ -319,41 +319,29 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
             return false;
         }
 
+        // Note that the NullStandIn value is NOT checked here. It will be replaced with
+        // https://github.com/FoundationDB/fdb-record-layer/issues/677
         FieldKeyExpression that = (FieldKeyExpression)o;
         return this.fieldName.equals(that.fieldName) &&
-               this.fanType == that.fanType &&
-               this.nullStandin == that.nullStandin;
+               this.fanType == that.fanType;
     }
 
     @Override
     public int hashCode() {
-        return fieldName.hashCode() + fanType.hashCode() + nullStandin.hashCode();
+        // Note that the NullStandIn is NOT included in the hash code. It will be replaced with
+        // https://github.com/FoundationDB/fdb-record-layer/issues/677
+        return fieldName.hashCode() + fanType.hashCode();
     }
 
     @Override
     public int planHash() {
-        int hash = fieldName.hashCode() + fanType.name().hashCode();
-        if (nullStandin == Key.Evaluated.NullStandin.NOT_NULL) {
-            // NULL and NULL_UNIQUE have the same hash, which is also the same as before.
-            hash++;
-        }
-        return hash;
+        // Note that the NullStandIn is NOT included in the hash code. It will be replaced with
+        // https://github.com/FoundationDB/fdb-record-layer/issues/677
+        return fieldName.hashCode() + fanType.name().hashCode();
     }
 
     @Override
     public boolean equalsAtomic(AtomKeyExpression other) {
-        return equivalentForSort(other);
-    }
-
-    @Override
-    public boolean equivalentForSort(@Nonnull KeyExpression other) {
-        if (getClass() != other.getClass()) {
-            return false;
-        }
-
-        FieldKeyExpression that = (FieldKeyExpression)other;
-        return this.fieldName.equals(that.fieldName) &&
-               this.fanType == that.fanType &&
-               (this.nullStandin == Key.Evaluated.NullStandin.NOT_NULL) == (that.nullStandin == Key.Evaluated.NullStandin.NOT_NULL);
+        return equals(other);
     }
 }
