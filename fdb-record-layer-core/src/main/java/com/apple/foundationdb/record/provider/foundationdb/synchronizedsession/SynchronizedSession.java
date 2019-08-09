@@ -112,10 +112,10 @@ public class SynchronizedSession {
     /**
      * Initialize the session by acquiring the lock. This should be invoked before a new session is ever used.
      * @param tr transaction to use
-     * @return a future that will return null when the session is initialized
+     * @return a future that will return {@code null} when the session is initialized
      */
     public CompletableFuture<Void> initializeSessionAsync(@Nonnull Transaction tr) {
-        // Though sessionTime is not necessarily needed in some cases, its read in parallel with the lockSessionId read
+        // Though sessionTime is not necessarily needed in some cases, it's read in parallel with the lockSessionId read
         // in the hope of that the FDB client then batches those two operations together into a single request.
         return getLockSessionId(tr).thenAcceptBoth(getLockSessionTime(tr.snapshot()), (lockSessionId, sessionTime) -> {
             if (lockSessionId == null) {
@@ -163,14 +163,15 @@ public class SynchronizedSession {
     }
 
     /**
-     * Check if the session still holds the lock. This should be invoked
+     * Check if the session still holds the lock. This should be invoked in every transaction in the session to follow
+     * the contract.
      * @param tr transaction to use
-     * @return a future that will return null when lock is checked
+     * @return a future that will return {@code null} when the lock is checked
      */
     public CompletableFuture<Void> checkLockAsync(@Nonnull Transaction tr) {
         return getLockSessionId(tr)
                 .thenCompose(lockSessionId -> {
-                    if (!sessionId.equals(lockSessionId)) { // sessionId is nonnull while lockSessionId is nullable
+                    if (!sessionId.equals(lockSessionId)) { // Note sessionId is nonnull and lockSessionId is nullable.
                         throw new SynchronizedSessionLockedException("Failed to continue the session")
                                 .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()))
                                 .addLogInfo(LogMessageKeys.SESSION_ID, sessionId)
@@ -181,11 +182,17 @@ public class SynchronizedSession {
     }
 
     /**
-     * End the session by releasing the lock.
+     * End the session by releasing the lock if it still holds the lock. Do thing otherwise.
      * @param tr transaction to use
+     * @return a future that will return {@code null} when the lock is no longer this session
      */
-    public void releaseLock(@Nonnull Transaction tr) {
-        tr.clear(lockSubspace.pack(), ByteArrayUtil.strinc(lockSubspace.pack()));
+    public CompletableFuture<Void> releaseLock(@Nonnull Transaction tr) {
+        return getLockSessionId(tr).thenApply(lockSessionId -> {
+            if (sessionId.equals(lockSessionId)) {
+                tr.clear(lockSubspace.pack(), ByteArrayUtil.strinc(lockSubspace.pack()));
+            }
+            return null;
+        });
     }
 
     private CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr) {

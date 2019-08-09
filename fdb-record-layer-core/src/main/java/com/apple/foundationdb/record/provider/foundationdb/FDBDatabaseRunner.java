@@ -410,10 +410,18 @@ public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
      * The returned runner will have acquired and started the lease, so care must be taken to ensure that
      * work begins before the lease expiration period.
      * </p>
-     * <p>
-     * This is a blocking call.
-     * </p>
+     * @param lockSubspace the lock for which the session contends
+     * @param leaseLengthMillis length between last access and lease's end time in milliseconds
+     * @return a future that will return a runner maintaining a new synchronized session
      * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public CompletableFuture<SynchronizedSessionRunner> startSynchronizedSessionAsync(@Nonnull Subspace lockSubspace, long leaseLengthMillis) {
+        return SynchronizedSessionRunner.startSessionAsync(lockSubspace, leaseLengthMillis, this);
+    }
+
+    /**
+     * Synchronous/blocking version of {@link #startSynchronizedSessionAsync(Subspace, long)}.
      * @param lockSubspace the lock for which the session contends
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
      * @return a runner maintaining a new synchronized session
@@ -426,11 +434,11 @@ public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
     /**
      * Produces a new runner, wrapping this runner, which performs all work in the context of an existing
      * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
-     * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
      * @param lockSubspace the lock for which the session contends
      * @param sessionId session ID
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
      * @return a runner maintaining a existing synchronized session
+     * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
      */
     @API(API.Status.EXPERIMENTAL)
     public SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {

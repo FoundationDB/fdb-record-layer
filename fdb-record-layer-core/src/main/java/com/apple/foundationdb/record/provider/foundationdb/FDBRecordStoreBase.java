@@ -510,7 +510,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Caller needs to hold on to result until ready or else there is a chance it will get
      * GC'ed and cancelled before then.
      * @param primaryKey the primary key for the record to retrieve
-     * @return a future that will return null when the record is preloaded
+     * @return a future that will return {@code null} when the record is preloaded
      */
     @Nonnull
     CompletableFuture<Void> preloadRecordAsync(@Nonnull Tuple primaryKey);

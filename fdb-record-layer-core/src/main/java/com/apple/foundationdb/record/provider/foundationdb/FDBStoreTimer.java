@@ -305,6 +305,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_INIT_SYNC_SESSION("wait for initializing a synchronized session"),
         /** Wait for checking a synchronized session. */
         WAIT_CHECK_SYNC_SESSION("wait for checking a synchronized session"),
+        /** Wait for ending a synchronized session. */
+        WAIT_END_SYNC_SESSION("wait for ending a synchronized session"),
         ;
 
         private final String title;

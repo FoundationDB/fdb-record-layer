@@ -43,7 +43,7 @@ import java.util.function.Function;
 
 /**
  * <p>
- * An {@link FDBDatabaseRunnerInterface} implementation that performs all work in the context of  a
+ * An {@link FDBDatabaseRunnerInterface} implementation that performs all work in the context of a
  * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
  * </p>
  * <p>
@@ -63,16 +63,28 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     /**
      * <p>
      * Produces a new runner, wrapping a given runner, which performs all work in the context of a new
-     *      * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
      * </p>
      * <p>
      * The returned runner will have acquired and started the lease, so care must be taken to ensure that
      * work begins before the lease expiration period.
      * </p>
-     * <p>
-     * This is a blocking call.
-     * </p>
-     * @see FDBDatabaseRunner#startSynchronizedSession(Subspace, long)
+     * @param lockSubspace the lock for which the session contends
+     * @param leaseLengthMill length between last access and lease's end time in milliseconds
+     * @param runner the underlying runner
+     * @return a future that will return a runner maintaining a new synchronized session
+     */
+    public static CompletableFuture<SynchronizedSessionRunner> startSessionAsync(@Nonnull Subspace lockSubspace,
+                                                                                 long leaseLengthMill,
+                                                                                 @Nonnull FDBDatabaseRunner runner) {
+        final UUID newSessionId = UUID.randomUUID();
+        SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId, leaseLengthMill);
+        return runner.runAsync(context -> session.initializeSessionAsync(context.ensureActive()))
+                .thenApply(vignore -> new SynchronizedSessionRunner(runner, session));
+    }
+
+    /**
+     * Synchronous/blocking version of {@link #startSessionAsync(Subspace, long, FDBDatabaseRunner)}.
      * @param lockSubspace the lock for which the session contends
      * @param leaseLengthMill length between last access and lease's end time in milliseconds
      * @param runner the underlying runner
@@ -81,18 +93,14 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     public static SynchronizedSessionRunner startSession(@Nonnull Subspace lockSubspace,
                                                          long leaseLengthMill,
                                                          @Nonnull FDBDatabaseRunner runner) {
-        final UUID newSessionId = UUID.randomUUID();
-        SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId, leaseLengthMill);
-        try (FDBRecordContext context = runner.openContext()) {
-            context.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION, session.initializeSessionAsync(context.ensureActive()));
-            context.commit();
-        }
-        return new SynchronizedSessionRunner(runner, session);
+        return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION,
+                startSessionAsync(lockSubspace, leaseLengthMill, runner));
     }
+
 
     /**
      * Produces a new runner, wrapping a given runner, which performs all work in the context of an existing
-     *      * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
      * @param lockSubspace the lock for which the session contends
      * @param sessionId session ID
      * @param leaseLengthMill length between last access and lease's end time in milliseconds
@@ -141,14 +149,20 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     }
 
     /**
-     * Releases the lock to end the synchronized session. This should not necessarily be called when closing the runner
-     * because there can be multiple runners for the same session.
+     * Releases the lock to end the synchronized session. It does nothing if the current session does not hold the lock.
+     * This should not necessarily be called when closing the runner because there can be multiple runners for the same
+     * session.
+     * @return a future that will return {@code null} when the session is ended
+     */
+    public CompletableFuture<Void> endSessionAsync() {
+        return underlying.runAsync(context -> session.releaseLock(context.ensureActive()));
+    }
+
+    /**
+     * Synchronous/blocking version of {@link #endSessionAsync()}.
      */
     public void endSession() {
-        underlying.run(context -> {
-            session.releaseLock(context.ensureActive());
-            return null;
-        });
+        underlying.asyncToSync(FDBStoreTimer.Waits.WAIT_END_SYNC_SESSION, endSessionAsync());
     }
 
     @Override

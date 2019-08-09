@@ -19,7 +19,7 @@
  */
 
 /**
- * Basic classes to support running operations in synchronized sessions
+ * Basic classes to support running operations in synchronized sessions.
  * TODO @see SynchronizedSession
  */
 package com.apple.foundationdb.synchronizedsession;
