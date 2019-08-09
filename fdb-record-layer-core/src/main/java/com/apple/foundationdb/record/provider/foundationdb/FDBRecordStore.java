@@ -2039,11 +2039,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
-        // This is generally called by someone who should already have a write lock, but adding them here
-        // defensively shouldn't cause problems.
         if (recordStoreStateRef.get() == null) {
             throw new RecordCoreException("cannot update index state with a null record store state");
         }
+        // This is generally called by someone who should already have a write lock, but adding them here
+        // defensively shouldn't cause problems.
         beginRecordStoreStateWrite();
         try {
             context.setDirtyStoreState(true);

@@ -23,6 +23,7 @@ package com.apple.foundationdb.map;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
@@ -80,7 +81,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link BunchedMap}.
  */
 @Tag(Tags.RequiresFDB)
-public class BunchedMapTest {
+public class BunchedMapTest extends FDBTestBase {
     private static final BunchedTupleSerializer serializer = BunchedTupleSerializer.instance();
     private static final BunchedMap<Tuple,Tuple> map;
     protected static final int NOT_COMMITTED_CODE = 1020;
@@ -94,9 +95,7 @@ public class BunchedMapTest {
 
     @BeforeAll
     public static void setup() throws InterruptedException, ExecutionException {
-        FDB fdb = FDB.selectAPIVersion(610);
-        fdb.setUnclosedWarning(true);
-        db = fdb.open();
+        db = FDB.instance().open();
         bmSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(BunchedMap.class.getSimpleName())).get();
     }
 
