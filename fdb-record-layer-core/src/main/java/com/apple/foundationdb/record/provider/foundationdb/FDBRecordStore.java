@@ -218,7 +218,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     protected final RecordMetaDataProvider metaDataProvider;
 
-    @Nullable
+    @Nonnull
     protected final AtomicReference<MutableRecordStoreState> recordStoreStateRef = new AtomicReference<>();
 
     @Nonnull
@@ -2014,7 +2014,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (formatVersion < CACHEABLE_STATE_FORMAT_VERSION) {
             throw new RecordCoreException("cannot mark record store state cacheable at format version " + formatVersion);
         }
-        if (recordStoreStateRef.get().getStoreHeader().getCacheable() == cacheable) {
+        if (isStateCacheableInternal() == cacheable) {
             return AsyncUtil.READY_FALSE;
         } else {
             return updateStoreHeaderAsync(oldHeader -> oldHeader.toBuilder()
@@ -2037,6 +2037,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_SET_STATE_CACHEABILITY, setStateCacheabilityAsync(cacheable));
     }
 
+    private boolean isStateCacheableInternal() {
+        if (recordStoreStateRef.get() == null) {
+            throw new RecordCoreException("cannot check record store state cacheability with null record store state");
+        }
+        return recordStoreStateRef.get().getStoreHeader().getCacheable();
+    }
+
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
         if (recordStoreStateRef.get() == null) {
@@ -2047,7 +2054,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         beginRecordStoreStateWrite();
         try {
             context.setDirtyStoreState(true);
-            if (recordStoreStateRef.get().getStoreHeader().getCacheable()) {
+            if (isStateCacheableInternal()) {
+                // The cache contains index state information, so updates to this information must also
+                // update the meta-data version stamp or instances might cache state index states.
                 context.setMetaDataVersionStamp();
             }
             Transaction tr = context.ensureActive();
