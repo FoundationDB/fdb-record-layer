@@ -31,6 +31,7 @@ message DataStoreInfo {
   optional KeyExpression record_count_key = 4;
   optional uint64 lastUpdateTime = 5;
   optional bool omit_unsplit_record_suffix = 6;
+  optional bool cacheable = 7;
 }
 
 message Index {

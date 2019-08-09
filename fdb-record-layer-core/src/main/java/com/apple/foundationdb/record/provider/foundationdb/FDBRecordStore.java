@@ -123,6 +123,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -176,9 +177,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public static final int SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION = 5;
     // 6 - store record version at a split point within the record
     public static final int SAVE_VERSION_WITH_RECORD_FORMAT_VERSION = 6;
+    // 7 - allow the record store state to be cached and invalidated with the meta-data version key
+    public static final int CACHEABLE_STATE_FORMAT_VERSION = 7;
 
     // The current code can read and write up to the format version below
-    public static final int MAX_SUPPORTED_FORMAT_VERSION = SAVE_VERSION_WITH_RECORD_FORMAT_VERSION;
+    public static final int MAX_SUPPORTED_FORMAT_VERSION = CACHEABLE_STATE_FORMAT_VERSION;
 
     // Record stores attempt to upgrade to this version
     public static final int DEFAULT_FORMAT_VERSION = MAX_SUPPORTED_FORMAT_VERSION;
@@ -1237,15 +1240,44 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return context.instrument(FDBStoreTimer.Events.DELETE_RECORD, result);
     }
 
+    /**
+     * Delete the record store at the given {@link KeySpacePath}. This behaves like
+     * {@link #deleteStore(FDBRecordContext, Subspace)} on the record store saved
+     * at {@link KeySpacePath#toSubspace(FDBRecordContext)}.
+     *
+     * @param context the transactional context in which to delete the record store
+     * @param path the path to the record store
+     * @see #deleteStore(FDBRecordContext, Subspace)
+     */
     public static void deleteStore(FDBRecordContext context, KeySpacePath path) {
-        final Subspace subspace = new Subspace(path.toTuple(context));
+        final Subspace subspace = path.toSubspace(context);
         deleteStore(context, subspace);
     }
 
+    /**
+     * Delete the record store at the given {@link Subspace}. In addition to the store's
+     * data this will delete the store's header and therefore will remove any evidence that
+     * the store existed.
+     *
+     * <p>
+     * This method does not read the underlying record store, so it does not validate
+     * that a record store exists in the given subspace. As it might be the case that
+     * this record store has a cacheable store state (see {@link #setStateCacheability(boolean)}),
+     * this method resets the database's
+     * {@linkplain FDBRecordContext#getMetaDataVersionStamp(IsolationLevel) meta-data version-stamp}.
+     * As a result, calling this method may cause other clients to invalidate their caches needlessly.
+     * </p>
+     *
+     * @param context the transactional context in which to delete the record store
+     * @param subspace the subspace containing the record store
+     */
     public static void deleteStore(FDBRecordContext context, Subspace subspace) {
+        // In theory, we only need to set the meta-data version stamp if the record store's
+        // meta-data is cacheable, but we can't know that from here.
+        context.setMetaDataVersionStamp();
+        context.setDirtyStoreState(true);
         final Transaction transaction = context.ensureActive();
         transaction.clear(subspace.range());
-        context.setDirtyStoreState(true);
     }
 
     @Override
@@ -1672,12 +1704,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final boolean[] dirty = new boolean[1];
         final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, oldUserVersion, oldMetaDataVersion, info, dirty);
         final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
-        return checkedRebuild.thenApply(vignore -> {
+        return checkedRebuild.thenCompose(vignore -> {
             if (dirty[0]) {
-                info.setLastUpdateTime(System.currentTimeMillis());
-                saveStoreHeader(info.build());
+                RecordMetaDataProto.DataStoreInfo newStoreHeader = info.setLastUpdateTime(System.currentTimeMillis()).build();
+                return updateStoreHeaderAsync(ignore -> newStoreHeader).thenApply(vignore2 -> true);
+            } else {
+                return AsyncUtil.READY_FALSE;
             }
-            return dirty[0];
         });
     }
 
@@ -1868,6 +1901,54 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
+    private CompletableFuture<Void> updateStoreHeaderAsync(@Nonnull UnaryOperator<RecordMetaDataProto.DataStoreInfo> storeHeaderOperator) {
+        if (recordStoreStateRef.get() == null) {
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> updateStoreHeaderAsync(storeHeaderOperator));
+        }
+        AtomicReference<RecordMetaDataProto.DataStoreInfo> oldStoreHeaderRef = new AtomicReference<>();
+        AtomicReference<RecordMetaDataProto.DataStoreInfo> newStoreHeaderRef = new AtomicReference<>();
+        beginRecordStoreStateWrite();
+        try {
+            context.setDirtyStoreState(true);
+            synchronized (this) {
+                recordStoreStateRef.updateAndGet(state -> {
+                    RecordMetaDataProto.DataStoreInfo oldStoreHeader = state.getStoreHeader();
+                    oldStoreHeaderRef.set(oldStoreHeader);
+                    RecordMetaDataProto.DataStoreInfo newStoreHeader = storeHeaderOperator.apply(oldStoreHeader);
+                    newStoreHeaderRef.set(newStoreHeader);
+                    state.setStoreHeader(newStoreHeader);
+                    return state;
+                });
+                ensureContextActive().set(getSubspace().pack(STORE_INFO_KEY), newStoreHeaderRef.get().toByteArray());
+            }
+        } finally {
+            endRecordStoreStateWrite();
+        }
+
+        RecordMetaDataProto.DataStoreInfo oldStoreHeader = oldStoreHeaderRef.get();
+        RecordMetaDataProto.DataStoreInfo newStoreHeader = newStoreHeaderRef.get();
+
+        // Update the meta-data version-stamp key as appropriate.
+        if (oldStoreHeader.getCacheable()) {
+            // The old store header had a cacheable store header, so update the database's meta-data version-stamp
+            // so that anything that has the old cached value knows to invalidate its cache.
+            context.setMetaDataVersionStamp();
+            return AsyncUtil.DONE;
+        } else if (newStoreHeader.getCacheable()) {
+            // The old header did not have a cacheable store header, but the new header does. As long as someone
+            // has set the meta-data version stamp ever, there is no need to update it here.
+            return context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT).thenAccept(metaDataVersionStamp -> {
+                if (metaDataVersionStamp == null) {
+                    context.setMetaDataVersionStamp();
+                }
+            });
+        } else {
+            // Neither header was cacheable meta-data, so there is no need to update the key.
+            return AsyncUtil.DONE;
+        }
+    }
+
+    @Nonnull
     private static CompletableFuture<KeyValue> readStoreFirstKey(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace, @Nonnull IsolationLevel isolationLevel) {
         final AsyncIterator<KeyValue> iterator = context.readTransaction(isolationLevel.isSnapshot()).getRange(subspace.range(), 1).iterator();
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_INFO,
@@ -1914,13 +1995,61 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
+    /**
+     * Set whether the store state is cacheable. In particular, this flag determines whether the
+     * {@linkplain FDBRecordContext#getMetaDataVersionStampAsync(IsolationLevel) meta-data version-stamp} key
+     * is changed whenever the {@link RecordStoreState} is changed. By default, record store state information is
+     * <em>not</em> cacheable. This is because for deployments in which there are many record stores sharing the same
+     * cluster, updating the meta-data version key every time any store changes its state could lead to performance
+     * problems, so (at least for now), this is a feature the user must opt-in to on each record store.
+     *
+     * @param cacheable whether the meta-data version-stamp should be invalidated upon store state change
+     * @return a future that will complete to {@code true} if the store state's cacheability has changed
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> setStateCacheabilityAsync(boolean cacheable) {
+        if (recordStoreStateRef.get() == null) {
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> setStateCacheabilityAsync(cacheable));
+        }
+        if (formatVersion < CACHEABLE_STATE_FORMAT_VERSION) {
+            throw new RecordCoreException("cannot mark record store state cacheable at format version " + formatVersion);
+        }
+        if (recordStoreStateRef.get().getStoreHeader().getCacheable() == cacheable) {
+            return AsyncUtil.READY_FALSE;
+        } else {
+            return updateStoreHeaderAsync(oldHeader -> oldHeader.toBuilder()
+                    .setCacheable(cacheable)
+                    .setLastUpdateTime(System.currentTimeMillis())
+                    .build()
+            ).thenApply(ignore -> true);
+        }
+    }
+
+    /**
+     * Set whether the store state is cacheable. This operation might block if the record store state has
+     * not yet been loaded. Use {@link #setStateCacheabilityAsync(boolean)} in asychronous contexts.
+     *
+     * @param cacheable whether this store's state should be cacheable
+     * @return whether the record store state cacheability has changed
+     * @see #setStateCacheabilityAsync(boolean)
+     */
+    public boolean setStateCacheability(boolean cacheable) {
+        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_SET_STATE_CACHEABILITY, setStateCacheabilityAsync(cacheable));
+    }
+
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
         // This is generally called by someone who should already have a write lock, but adding them here
         // defensively shouldn't cause problems.
+        if (recordStoreStateRef.get() == null) {
+            throw new RecordCoreException("cannot update index state with a null record store state");
+        }
         beginRecordStoreStateWrite();
         try {
             context.setDirtyStoreState(true);
+            if (recordStoreStateRef.get().getStoreHeader().getCacheable()) {
+                context.setMetaDataVersionStamp();
+            }
             Transaction tr = context.ensureActive();
             if (IndexState.READABLE.equals(indexState)) {
                 tr.clear(indexKey);

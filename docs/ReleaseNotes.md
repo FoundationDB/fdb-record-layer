@@ -4,11 +4,21 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the master release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 2.7
+## 2.8
 
-# Breaking Changes
+### Features
 
-The Guava version has been updated to version 27. Users of the [shaded variants](Shaded.html#Variants) of the Record Layer dependencies should not be affected by this change. Users of the unshaded variant using an older version of Guava as part of their own project may find that their own Guava dependency is updated automatically by their dependency manager.
+The `FDBRecordStore` can now use the global meta-data key that was added to FoundationDB in version 6.1 to cache state that otherwise must be read from the database at store initialization time. When opening any record store, the user can supply an instance of the new `MetaDataVersionStampStoreStateCache` class. (Alternatively, the `FDBDatabase` can be configured with a `MetaDataVersionStampStoreStateCache` that will be shared by all record stores opened using that database.) This class uses the value of the cluster's global meta-data key to detect if cache entries are stale, and it will invalidate older entries whenever the value of that key changes.
+
+This cache invalidation strategy is safe as record stores can now be configured to update the global meta-data version key whenever any of the cached information is changed. To do so, the user must configure their record store to have cacheable meta-data by calling `setStoreStateCacheability(true)`. The record store will then update the global meta-data key whenever the cached state changes. If the record store has not been so configured, then the `MetaDataVersionStampStoreStateCache` will *not* cache the store initialization information in memory, so opening the store will require re-reading this information from the database each time the store is opened.
+
+If the client is only accessing a small number of record stores on each cluster, then using the `MetaDataVersionStampStoreStateCache` can speed up record store initialization time as most record stores should now be able to be opened without reading anything from the database. Additionally, enabling this feature can help with users facing scalability problems on large record stores if loading this information at store creation time becomes a performance bottleneck. However, note that if there are many record stores coexisting on the same cluster, enabling this feature on all record stores may cause the meta-data key to change with high frequency, and it can degrage the effectiveness of the cache. Users are therefore encouraged to consider carefully which record stores require this feature and which ones do not before enabling it.
+
+### Breaking Changes
+
+A new format version, [`CACHEABLE_STATE_FORMAT_VERSION`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/FDBRecordStore.html#CACHEABLE_STATE_FORMAT_VERSION), was introduced in this version of the Record Layer. Users who wish to experience zero downtime when upgrading from earlier versions should initialize all record stores to the previous maximum format version, [`SAVE_VERSION_WITH_RECORD_FORMAT_VERSION`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/FDBRecordStore.html#SAVE_VERSION_WITH_RECORD_FORMAT_VERSION), until all clients have been upgraded to version 2.8. If the update is done without this measure, then older clients running 2.7 or older will not be able to read from any record stores written using version 2.8. The new format version is also required to use the new `MetaDataVersionStampStoreStateCache` class to cache a record store's initialization state.
+
+This version of the Record Layer requires a FoundationDB server version of at least version 6.1. Attempting to connect to older versions may result in the client hanging when attempting to connect to the database.
 
 Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` have been marked as deprecated in favor of static initializers. This will allow for more flexibility as work on the new planner develops.
 
@@ -30,19 +40,25 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Store state information can now be cached using the meta-data key added in FoundationDB 6.1 [(Issue #537)](https://github.com/FoundationDB/fdb-record-layer/issues/537)
+* **Feature** Trace log format can be set in the `FDBDatabaseFactory` [(Issue #584)](https://github.com/FoundationDB/fdb-record-layer/issues/584)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The version of the `commons-lang3` dependency has been upgraded to version 3.9 [(Issue #606)](https://github.com/FoundationDB/fdb-record-layer/issues/606)
+* **Breaking change** The stabilities of `FDBDatabaseRunner` constructors have been downgraded to `INTERNAL` [(Issue #681)](https://github.com/FoundationDB/fdb-record-layer/issues/681)
+* **Breaking change** The slf4j dependency has been added to `fdb-extensions` [(Issue #680)](https://github.com/FoundationDB/fdb-record-layer/issues/680)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The Record Layer now requires a minimum FoundationDB version of 6.1 [(Issue #551)](https://github.com/FoundationDB/fdb-record-layer/issues/551)
 
 // end next release
 -->
+
+## 2.7
+
+# Breaking Changes
+
+The Guava version has been updated to version 27. Users of the [shaded variants](Shaded.html#Variants) of the Record Layer dependencies should not be affected by this change. Users of the unshaded variant using an older version of Guava as part of their own project may find that their own Guava dependency is updated automatically by their dependency manager.
 
 ### 2.7.79.0
 

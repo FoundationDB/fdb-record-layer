@@ -1263,6 +1263,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * header and all index states), one should call {@link FDBRecordStore#deleteStore(FDBRecordContext, KeySpacePath)}
      * instead of this method.
      *
+     * <p>
+     * Note that, at the moment, this operation also has the side effect of resetting
+     * {@link com.apple.foundationdb.record.metadata.IndexTypes#MAX_EVER_TUPLE MAX_EVER} and
+     * {@link com.apple.foundationdb.record.metadata.IndexTypes#MIN_EVER_TUPLE MIN_EVER} indexes.
+     * See: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/398">Issue #398</a>.
+     * </p>
+     *
      * @see FDBRecordStore#deleteStore(FDBRecordContext, KeySpacePath)
      * @see FDBRecordStore#deleteStore(FDBRecordContext, Subspace)
      */

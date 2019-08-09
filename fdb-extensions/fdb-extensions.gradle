@@ -25,10 +25,13 @@ dependencies {
     compile "org.foundationdb:fdb-java:${fdbVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     compile "com.google.guava:guava:${guavaVersion}"
+    compile "org.slf4j:slf4j-api:${slf4jVersion}"
 
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
+    testCompile "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
 }
 
 test {
