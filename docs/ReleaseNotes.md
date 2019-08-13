@@ -40,19 +40,28 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Store state information can now be cached using the meta-data key added in FoundationDB 6.1 [(Issue #537)](https://github.com/FoundationDB/fdb-record-layer/issues/537)
-* **Feature** Trace log format can be set in the `FDBDatabaseFactory` [(Issue #584)](https://github.com/FoundationDB/fdb-record-layer/issues/584)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** The version of the `commons-lang3` dependency has been upgraded to version 3.9 [(Issue #606)](https://github.com/FoundationDB/fdb-record-layer/issues/606)
-* **Breaking change** The stabilities of `FDBDatabaseRunner` constructors have been downgraded to `INTERNAL` [(Issue #681)](https://github.com/FoundationDB/fdb-record-layer/issues/681)
-* **Breaking change** The slf4j dependency has been added to `fdb-extensions` [(Issue #680)](https://github.com/FoundationDB/fdb-record-layer/issues/680)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** The Record Layer now requires a minimum FoundationDB version of 6.1 [(Issue #551)](https://github.com/FoundationDB/fdb-record-layer/issues/551)
+* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 2.8.80.0
+
+* **Feature** Store state information can now be cached using the meta-data key added in FoundationDB 6.1 [(Issue #537)](https://github.com/FoundationDB/fdb-record-layer/issues/537)
+* **Feature** Trace log format can be set in the `FDBDatabaseFactory` [(Issue #584)](https://github.com/FoundationDB/fdb-record-layer/issues/584)
+* **Breaking change** The version of the `commons-lang3` dependency has been upgraded to version 3.9 [(Issue #606)](https://github.com/FoundationDB/fdb-record-layer/issues/606)
+* **Breaking change** The stabilities of `FDBDatabaseRunner` constructors have been downgraded to `INTERNAL` [(Issue #681)](https://github.com/FoundationDB/fdb-record-layer/issues/681)
+* **Breaking change** The slf4j dependency has been added to `fdb-extensions` [(Issue #680)](https://github.com/FoundationDB/fdb-record-layer/issues/680)
+* **Breaking change** The Record Layer now requires a minimum FoundationDB version of 6.1 [(Issue #551)](https://github.com/FoundationDB/fdb-record-layer/issues/551)
 
 ## 2.7
 
