@@ -1008,7 +1008,7 @@ public class FDBDatabase {
             return;
         }
 
-        final boolean isComplete = future.isDone();
+        final boolean isComplete = future.isDone() || future.isCompletedExceptionally();
         if (isComplete && behavior.ignoreComplete()) {
             return;
         }
