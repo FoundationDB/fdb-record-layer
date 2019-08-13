@@ -23,6 +23,7 @@ package com.apple.foundationdb.async;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
@@ -56,7 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link RangeSet}.
  */
 @Tag(Tags.RequiresFDB)
-public class RangeSetTest {
+public class RangeSetTest extends FDBTestBase {
     private Database db;
     private Subspace rsSubspace;
     private RangeSet rs;
@@ -112,7 +113,7 @@ public class RangeSetTest {
 
     @BeforeEach
     public void setUp() throws Exception {
-        db = FDB.selectAPIVersion(600).open();
+        db = FDB.instance().open();
         rsSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(getClass().getSimpleName())).get();
         rs = new RangeSet(rsSubspace);
         rs.clear(db).join();

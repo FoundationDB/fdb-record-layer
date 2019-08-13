@@ -22,6 +22,7 @@ package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
@@ -52,8 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link RankedSet}.
  */
 @Tag(Tags.RequiresFDB)
-public class RankedSetTest
-{
+public class RankedSetTest extends FDBTestBase {
     private Database db;
     private Subspace rsSubspace;
 
@@ -61,7 +61,7 @@ public class RankedSetTest
 
     @BeforeEach
     public void setUp() throws Exception {
-        FDB fdb = FDB.selectAPIVersion(600);
+        FDB fdb = FDB.instance();
         if (TRACE) {
             NetworkOptions options = fdb.options();
             options.setTraceEnable("/tmp");
@@ -109,11 +109,13 @@ public class RankedSetTest
         });
         Transaction tr1 = db.createTransaction();
         if (TRACE) {
-            tr1.options().setTransactionLoggingEnable("tr1");
+            tr1.options().setDebugTransactionIdentifier("tr1");
+            tr1.options().setLogTransaction();
         }
         Transaction tr2 = db.createTransaction();
         if (TRACE) {
-            tr2.options().setTransactionLoggingEnable("tr2");
+            tr2.options().setDebugTransactionIdentifier("tr2");
+            tr2.options().setLogTransaction();
         }
         rs.add(tr1, Tuple.from(30).pack()).join();
         rs.add(tr2, Tuple.from(40).pack()).join();
@@ -137,11 +139,13 @@ public class RankedSetTest
         });
         Transaction tr1 = db.createTransaction();
         if (TRACE) {
-            tr1.options().setTransactionLoggingEnable("tr1");
+            tr1.options().setDebugTransactionIdentifier("tr1");
+            tr1.options().setLogTransaction();
         }
         Transaction tr2 = db.createTransaction();
         if (TRACE) {
-            tr2.options().setTransactionLoggingEnable("tr2");
+            tr2.options().setDebugTransactionIdentifier("tr2");
+            tr2.options().setLogTransaction();
         }
         // Will remove from all levels.
         rs.remove(tr1, Tuple.from(20).pack()).join();

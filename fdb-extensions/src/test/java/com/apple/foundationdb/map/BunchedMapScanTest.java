@@ -23,6 +23,7 @@ package com.apple.foundationdb.map;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncPeekIterator;
@@ -73,7 +74,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for scanning in {@link BunchedMap}.
  */
 @Tag(Tags.RequiresFDB)
-public class BunchedMapScanTest {
+public class BunchedMapScanTest extends FDBTestBase {
     private static Database db;
     private static Subspace bmSubspace;
     private static List<Subspace> subSubspaces;
@@ -104,9 +105,7 @@ public class BunchedMapScanTest {
 
     @BeforeAll
     public static void setup() throws InterruptedException, ExecutionException {
-        FDB fdb = FDB.selectAPIVersion(600);
-        fdb.setUnclosedWarning(true);
-        db = fdb.open();
+        db = FDB.instance().open();
         bmSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(BunchedMapIterator.class.getSimpleName())).get();
         subSubspaces = LongStream.range(0L, 50L).boxed().map(l -> bmSubspace.subspace(Tuple.from(l))).collect(Collectors.toList());
         map = new BunchedMap<>(BunchedTupleSerializer.instance(), Comparator.naturalOrder(), 10);

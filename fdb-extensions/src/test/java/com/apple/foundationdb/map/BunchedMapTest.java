@@ -23,6 +23,7 @@ package com.apple.foundationdb.map;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
@@ -80,7 +81,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link BunchedMap}.
  */
 @Tag(Tags.RequiresFDB)
-public class BunchedMapTest {
+public class BunchedMapTest extends FDBTestBase {
     private static final BunchedTupleSerializer serializer = BunchedTupleSerializer.instance();
     private static final BunchedMap<Tuple,Tuple> map;
     protected static final int NOT_COMMITTED_CODE = 1020;
@@ -94,9 +95,7 @@ public class BunchedMapTest {
 
     @BeforeAll
     public static void setup() throws InterruptedException, ExecutionException {
-        FDB fdb = FDB.selectAPIVersion(600);
-        fdb.setUnclosedWarning(true);
-        db = fdb.open();
+        db = FDB.instance().open();
         bmSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(BunchedMap.class.getSimpleName())).get();
     }
 
@@ -278,8 +277,10 @@ public class BunchedMapTest {
                                @Nonnull List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
         final String id = "two-trs-" + UUID.randomUUID().toString();
         try (Transaction tr1 = db.createTransaction(); Transaction tr2 = db.createTransaction()) {
-            tr1.options().setTransactionLoggingEnable(id + "-1");
-            tr2.options().setTransactionLoggingEnable(id + "-2");
+            tr1.options().setDebugTransactionIdentifier(id + "-1");
+            tr1.options().setLogTransaction();
+            tr2.options().setDebugTransactionIdentifier(id + "-2");
+            tr2.options().setLogTransaction();
             CompletableFuture.allOf(tr1.getReadVersion(), tr2.getReadVersion()).get();
             tr1.addWriteConflictKey(new byte[]{0x01});
             tr2.addWriteConflictKey(new byte[]{0x02});
@@ -529,7 +530,8 @@ public class BunchedMapTest {
             AtomicInteger trCount = new AtomicInteger(0);
             return AsyncUtil.whileTrue(() -> {
                 final Transaction tr = db.createTransaction();
-                tr.options().setTransactionLoggingEnable("stress-tr-" + globalTrCount.getAndIncrement());
+                tr.options().setDebugTransactionIdentifier("stress-tr-" + globalTrCount.getAndIncrement());
+                tr.options().setLogTransaction();
                 final AtomicInteger opCount = new AtomicInteger(0);
                 final AtomicInteger localOrder = new AtomicInteger(0);
                 return AsyncUtil.whileTrue(() -> {

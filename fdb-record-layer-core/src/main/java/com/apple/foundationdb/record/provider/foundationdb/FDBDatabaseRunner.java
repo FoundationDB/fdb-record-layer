@@ -89,6 +89,7 @@ public class FDBDatabaseRunner implements AutoCloseable {
     @Nonnull
     private final List<CompletableFuture<?>> futuresToCompleteExceptionally;
 
+    @API(API.Status.INTERNAL)
     public FDBDatabaseRunner(@Nonnull FDBDatabase database,
                              @Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                              @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
@@ -109,11 +110,13 @@ public class FDBDatabaseRunner implements AutoCloseable {
         futuresToCompleteExceptionally = new ArrayList<>();
     }
 
+    @API(API.Status.INTERNAL)
     public FDBDatabaseRunner(@Nonnull FDBDatabase database,
                              @Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext) {
         this(database, timer, mdcContext, null);
     }
 
+    @API(API.Status.INTERNAL)
     public FDBDatabaseRunner(@Nonnull FDBDatabase database) {
         this(database, null, null, null);
     }

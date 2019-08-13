@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.storestate;
 
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -35,27 +37,36 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExistsException;
-import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreNoInfoAndNotEmptyException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreStaleMetaDataVersionException;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 
 import java.util.Collections;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThan;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,7 +79,118 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     @Nonnull
     private static final ReadVersionRecordStoreStateCacheFactory readVersionCacheFactory = ReadVersionRecordStoreStateCacheFactory.newInstance();
     @Nonnull
+    private static final MetaDataVersionStampStoreStateCacheFactory metaDataVersionStampCacheFactory = MetaDataVersionStampStoreStateCacheFactory.newInstance();
+    @Nonnull
     private KeySpacePath multiStorePath = TestKeySpace.getKeyspacePath(new Object[]{"record-test", "unit", "multiRecordStore"});
+
+    @Nonnull
+    public static Stream<FDBRecordStoreStateCacheFactory> factorySource() {
+        return Stream.of(readVersionCacheFactory, metaDataVersionStampCacheFactory);
+    }
+
+    @Nonnull
+    public static Stream<StateCacheTestContext> testContextSource() {
+        return Stream.of(new ReadVersionStateCacheTestContext(), new MetaDataVersionStampStateCacheTestContext());
+    }
+
+    /**
+     * A wrapper interface for dealing with the differences between the different {@link FDBRecordStoreStateCache}
+     * implementations.
+     */
+    public interface StateCacheTestContext {
+        @Nonnull
+        FDBRecordStoreStateCache getCache(@Nonnull FDBDatabase database);
+
+        @Nonnull
+        default FDBRecordContext getCachedContext(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStore.Builder storeBuilder) {
+            return getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY);
+        }
+
+        @Nonnull
+        FDBRecordContext getCachedContext(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStore.Builder storeBuilder,
+                                          @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck);
+
+        void invalidateCache(@Nonnull FDBDatabase fdb);
+    }
+
+    /**
+     * An implementation of the {@link StateCacheTestContext} that handles caching by read version.
+     */
+    public static class ReadVersionStateCacheTestContext implements StateCacheTestContext {
+        @Nonnull
+        @Override
+        public FDBRecordStoreStateCache getCache(@Nonnull FDBDatabase database) {
+            return readVersionCacheFactory.getCache(database);
+        }
+
+        @Nonnull
+        @Override
+        public FDBRecordContext getCachedContext(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStore.Builder storeBuilder,
+                                                 @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+            long readVersion;
+            try (FDBRecordContext context = fdb.openContext()) {
+                storeBuilder.copyBuilder().setContext(context).createOrOpen(existenceCheck);
+                readVersion = context.ensureActive().getReadVersion().join();
+            }
+            FDBRecordContext context = fdb.openContext(null, new FDBStoreTimer());
+            context.ensureActive().setReadVersion(readVersion);
+            return context;
+        }
+
+        @Override
+        public void invalidateCache(@Nonnull FDBDatabase fdb) {
+            // Ensure that the next read version includes at least one new commit.
+            try (FDBRecordContext context = fdb.openContext()) {
+                context.ensureActive().addWriteConflictKey(Tuple.from(UUID.randomUUID()).pack());
+                context.commit();
+            }
+        }
+    }
+
+    /**
+     * An implementation of the {@link StateCacheTestContext} that handles caching by the meta-data version-stamp.
+     */
+    public static class MetaDataVersionStampStateCacheTestContext implements StateCacheTestContext {
+
+        @Nonnull
+        @Override
+        public FDBRecordStoreStateCache getCache(@Nonnull FDBDatabase database) {
+            return metaDataVersionStampCacheFactory.getCache(database);
+        }
+
+        @Nonnull
+        @Override
+        public FDBRecordContext getCachedContext(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStore.Builder storeBuilder,
+                                                 @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+            boolean cacheable = true;
+            try (FDBRecordContext context = fdb.openContext()) {
+                FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).createOrOpen(existenceCheck);
+                if (!store.getRecordStoreState().getStoreHeader().getCacheable()) {
+                    cacheable = false;
+                    assertTrue(store.setStateCacheability(true));
+                    context.commit();
+                }
+            }
+            if (!cacheable) {
+                try (FDBRecordContext context = fdb.openContext()) {
+                    storeBuilder.copyBuilder().setContext(context).createOrOpen(existenceCheck);
+                    context.commit();
+                }
+            }
+            FDBRecordContext context = fdb.openContext(null, new FDBStoreTimer());
+            context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT).join();
+            return context;
+        }
+
+        @Override
+        public void invalidateCache(@Nonnull FDBDatabase fdb) {
+            // Ensure that the next read version includes at least one new commit.
+            try (FDBRecordContext context = fdb.openContext()) {
+                context.setMetaDataVersionStamp();
+                context.commit();
+            }
+        }
+    }
 
     /**
      * Validate that caching by read version works.
@@ -183,20 +305,223 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     }
 
     /**
+     * Validate that caching by the meta-data version works.
+     */
+    @Test
+    public void cacheByMetaDataVersion() throws Exception {
+        FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
+        try {
+            fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+            byte[] metaDataVersionStamp;
+
+            // Open the store; save the meta-data
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
+                context.setMetaDataVersionStamp();
+                commit(context);
+            }
+
+            // Load the meta-data. It should not be cached as the store meta-data are not cacheable.
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                metaDataVersionStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+                assertNotNull(metaDataVersionStamp);
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                recordStore.markIndexWriteOnly("MySimpleRecord$str_value_indexed").get();
+                assertTrue(context.hasDirtyStoreState());
+                assertNotNull(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                commit(context);
+            }
+
+            // Note that the meta-data version has not been updated
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                assertTrue(recordStore.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
+                commit(context);
+            }
+
+            // Mark the meta-data as cacheable
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                assertTrue(recordStore.setStateCacheability(true));
+                assertTrue(context.hasDirtyStoreState());
+                assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                commit(context);
+            }
+
+            // Load the store state into cache
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                assertTrue(recordStore.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
+                // don't need to commit
+            }
+
+            // The first meta-data cache hit!
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                assertTrue(recordStore.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
+                recordStore.markIndexReadable("MySimpleRecord$str_value_indexed").get();
+                assertTrue(context.hasDirtyStoreState());
+                assertNull(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                commit(context);
+            }
+
+            // Load the updated the meta-data into cache
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                assertTrue(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
+                byte[] trMetaDataVersionStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+                assertNotNull(trMetaDataVersionStamp);
+                assertThat(ByteArrayUtil.compareUnsigned(metaDataVersionStamp, trMetaDataVersionStamp), lessThan(0));
+                metaDataVersionStamp = trMetaDataVersionStamp;
+            }
+
+            // The updated meta-data should now be in cache
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                assertTrue(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
+                assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+            }
+
+            // Changing the meta-data to a non-cacheable state should increment the meta-data version stamp
+            long readVersion;
+            byte[] commitVersionStamp;
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                readVersion = context.ensureActive().getReadVersion().get();
+                assertTrue(recordStore.setStateCacheability(false));
+                assertTrue(context.hasDirtyStoreState());
+                assertNull(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                commit(context);
+                commitVersionStamp = context.getVersionStamp();
+                assertNotNull(commitVersionStamp);
+            }
+
+            // This should hit the cache because it uses an older read version where the meta-data versionstamp is good.
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                context.ensureActive().setReadVersion(readVersion);
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                assertTrue(recordStore.getRecordStoreState().getStoreHeader().getCacheable());
+            }
+
+            // These should both miss the cache
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                byte[] trMetaDataVersionStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+                assertNotNull(trMetaDataVersionStamp);
+                assertThat(ByteArrayUtil.compareUnsigned(metaDataVersionStamp, trMetaDataVersionStamp), lessThan(0));
+                assertArrayEquals(commitVersionStamp, trMetaDataVersionStamp);
+                metaDataVersionStamp = trMetaDataVersionStamp;
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                byte[] trMetaDataVersionStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+                assertNotNull(trMetaDataVersionStamp);
+                assertArrayEquals(metaDataVersionStamp, trMetaDataVersionStamp);
+            }
+        } finally {
+            fdb.setStoreStateCache(origStoreStateCache);
+        }
+    }
+
+    @Test
+    public void cacheByMetaDataVersionFirstTimeEver() throws Exception {
+        FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
+        try {
+            fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+
+            // Clear out the meta-data version-stamp key
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
+                byte[] metaDataVersionStampKey = ByteArrayUtil2.unprint("\\xff/metadataVersion");
+                context.ensureActive().options().setAccessSystemKeys();
+                context.ensureActive().clear(metaDataVersionStampKey);
+                commit(context);
+            }
+
+            byte[] commitVersionStamp;
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                assertNull(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+
+                recordStore.setStateCacheability(true);
+                commit(context);
+                commitVersionStamp = context.getVersionStamp();
+                assertNotNull(commitVersionStamp);
+            }
+
+            // Usually, marking the store state as cacheable from a non-cacheable state won't update the
+            // meta-data version. However, in the case where the key is initially unset, to make sure that
+            // caching actually happens, the meta-data version *is* updated.
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                assertArrayEquals(commitVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                assertArrayEquals(commitVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+            }
+        } finally {
+            fdb.setStoreStateCache(origStoreStateCache);
+        }
+    }
+
+    /**
      * Make sure that if one transaction changes the store header then an open store in another transaction that
      * loaded the store state from cache will fail at commit time with conflict.
      */
-    @Test
-    public void readVersionConflictWhenCachedChanged() throws Exception {
+    @ParameterizedTest(name = "conflictWhenCachedChanged (test context = [0])")
+    @MethodSource("testContextSource")
+    public void conflictWhenCachedChanged(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
         try {
-            fdb.setStoreStateCache(readVersionCacheFactory.getCache(fdb));
+            fdb.setStoreStateCache(testContext.getCache(fdb));
 
             RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
             metaDataBuilder.addIndex("MySimpleRecord", "num_value_2");
             RecordMetaData metaData2 = metaDataBuilder.getRecordMetaData();
             assertThat(metaData1.getVersion(), lessThan(metaData2.getVersion()));
+
+            FDBRecordStore.Builder storeBuilder;
 
             // Initialize the record store with a meta-data store
             try (FDBRecordContext context = openContext()) {
@@ -210,43 +535,27 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
                 assertEquals(metaData1.getVersion(), recordStore.getRecordStoreState().getStoreHeader().getMetaDataversion());
                 commit(context);
+
+                storeBuilder = recordStore.asBuilder();
             }
 
             // Load the record store state into the cache.
-            long readVersion;
-            try (FDBRecordContext context = openContext()) {
-                readVersion = context.ensureActive().getReadVersion().get();
-                FDBRecordStore recordStore = FDBRecordStore.newBuilder()
-                        .setContext(context)
-                        .setMetaDataProvider(metaData1)
-                        .setKeySpacePath(path)
-                        .open();
-                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
-                assertEquals(metaData1.getVersion(), recordStore.getRecordMetaData().getVersion());
-                assertEquals(metaData1.getVersion(), recordStore.getRecordStoreState().getStoreHeader().getMetaDataversion());
-            }
-
-            // Use the cache to load the record store states
-            try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
+            try (FDBRecordContext context1 = testContext.getCachedContext(fdb, storeBuilder); FDBRecordContext context2 = testContext.getCachedContext(fdb, storeBuilder)) {
                 context1.setTimer(new FDBStoreTimer());
-                context1.ensureActive().setReadVersion(readVersion);
                 context2.setTimer(new FDBStoreTimer());
-                context2.ensureActive().setReadVersion(readVersion);
 
-                FDBRecordStore recordStore1 = FDBRecordStore.newBuilder()
+                FDBRecordStore recordStore1 = storeBuilder.copyBuilder()
                         .setContext(context1)
                         .setMetaDataProvider(metaData1)
-                        .setKeySpacePath(path)
                         .open();
                 assertEquals(1, context1.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 assertEquals(metaData1.getVersion(), recordStore1.getRecordMetaData().getVersion());
                 assertEquals(metaData1.getVersion(), recordStore1.getRecordStoreState().getStoreHeader().getMetaDataversion());
 
                 // Update the meta-data in the second transaction
-                FDBRecordStore recordStore2 = FDBRecordStore.newBuilder()
+                FDBRecordStore recordStore2 = storeBuilder.copyBuilder()
                         .setContext(context2)
                         .setMetaDataProvider(metaData2)
-                        .setKeySpacePath(path)
                         .open();
                 assertEquals(1, context2.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 assertEquals(Collections.singletonList(recordStore2.getRecordMetaData().getRecordType("MySimpleRecord")),
@@ -270,18 +579,16 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 context.getTimer().reset();
 
                 // Trying to load with the old meta-data should fail
-                assertThrows(RecordStoreStaleMetaDataVersionException.class, () -> FDBRecordStore.newBuilder()
+                assertThrows(RecordStoreStaleMetaDataVersionException.class, () -> storeBuilder.copyBuilder()
                         .setContext(context)
                         .setMetaDataProvider(metaData1)
-                        .setKeySpacePath(path)
                         .open());
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
 
                 // Trying to load with the new meta-data should succeed
-                FDBRecordStore recordStore = FDBRecordStore.newBuilder()
+                FDBRecordStore recordStore = storeBuilder.copyBuilder()
                         .setContext(context)
                         .setMetaDataProvider(metaData2)
-                        .setKeySpacePath(path)
                         .open();
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 assertEquals(metaData2.getVersion(), recordStore.getRecordStoreState().getStoreHeader().getMetaDataversion());
@@ -295,67 +602,44 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     /**
      * Validate that the store existence check is still performed on the cached store info.
      */
-    @Test
-    public void existenceCheckOnCachedStoreStates() throws Exception {
+    @ParameterizedTest(name = "existenceCheckOnCachedStoreStates (test context = [0])")
+    @MethodSource("testContextSource")
+    public void existenceCheckOnCachedStoreStates(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
         try {
-            fdb.setStoreStateCache(readVersionCacheFactory.getCache(fdb));
+            fdb.setStoreStateCache(testContext.getCache(fdb));
 
             // Create a record store
-            long readVersion;
             FDBRecordStore.Builder storeBuilder;
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
-                readVersion = context.ensureActive().getReadVersion().get();
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
                 assertTrue(context.hasDirtyStoreState());
                 storeBuilder = recordStore.asBuilder();
                 commit(context);
             }
 
-            try (FDBRecordContext context = openContext()) {
-                context.ensureActive().setReadVersion(readVersion);
-                storeBuilder.setContext(context);
-                assertThrows(RecordStoreDoesNotExistException.class, storeBuilder::open);
-            }
-
-            // Load the record store state into the cache
-            try (FDBRecordContext context = openContext()) {
-                context.getTimer().reset();
-                openSimpleRecordStore(context);
-                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
-                readVersion = context.ensureActive().getReadVersion().get();
-                storeBuilder = recordStore.asBuilder();
-            }
-
-            try (FDBRecordContext context = openContext()) {
-                context.getTimer().reset();
-                context.ensureActive().setReadVersion(readVersion);
+            byte[] storeInfoKey;
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder)) {
                 storeBuilder.setContext(context);
                 assertThrows(RecordStoreAlreadyExistsException.class, storeBuilder::create);
+                context.getTimer().reset();
                 FDBRecordStore store = storeBuilder.open();
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
 
                 // Delete the store header
-                context.ensureActive().clear(store.getSubspace().pack(FDBRecordStoreKeyspace.STORE_INFO.key()));
+                storeInfoKey = store.getSubspace().pack(FDBRecordStoreKeyspace.STORE_INFO.key());
+                context.ensureActive().clear(storeInfoKey);
                 commit(context);
             }
 
-            // Load the record store state into cache
-            try (FDBRecordContext context = openContext()) {
-                context.getTimer().reset();
-                storeBuilder.setContext(context);
-                assertThrows(RecordStoreNoInfoAndNotEmptyException.class, storeBuilder::createOrOpen);
-                storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-                readVersion = context.ensureActive().getReadVersion().get();
-            }
+            // The caches have dirty information from the out-of-band "clear".
+            testContext.invalidateCache(fdb);
+            assertThrows(RecordStoreNoInfoAndNotEmptyException.class, () -> testContext.getCachedContext(fdb, storeBuilder));
 
-            try (FDBRecordContext context = openContext()) {
-                context.getTimer().reset();
-                context.ensureActive().setReadVersion(readVersion);
-                storeBuilder.setContext(context);
-                assertThrows(RecordStoreNoInfoAndNotEmptyException.class, storeBuilder::createOrOpen);
-                storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+            // Ensure the store info key is still empty
+            try (FDBRecordContext context = fdb.openContext()) {
+                assertNull(context.readTransaction(true).get(storeInfoKey).get());
             }
         } finally {
             fdb.setStoreStateCache(origStoreStateCache);
@@ -366,28 +650,21 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
      * Validate that deleting a record store causes the record store to go back to the database as it's possible the
      * cached stuff is what was deleted.
      */
-    @Test
-    public void storeDeletionInSameContext() throws Exception {
+    @ParameterizedTest(name = "storeDeletionInSameContext (test context = [0])")
+    @MethodSource("testContextSource")
+    public void storeDeletionInSameContext(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache storeStateCache = fdb.getStoreStateCache();
         try {
-            fdb.setStoreStateCache(readVersionCacheFactory.getCache(fdb));
+            fdb.setStoreStateCache(testContext.getCache(fdb));
 
+            FDBRecordStore.Builder storeBuilder;
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
+                storeBuilder = recordStore.asBuilder();
                 commit(context);
             }
 
-            // Load the record store state into the cache
-            long readVersion;
-            try (FDBRecordContext context = openContext()) {
-                context.getTimer().reset();
-                openSimpleRecordStore(context);
-                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
-                readVersion = context.ensureActive().getReadVersion().get();
-            }
-
-            try (FDBRecordContext context = openContext()) {
-                context.ensureActive().setReadVersion(readVersion);
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder)) {
                 openSimpleRecordStore(context);
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
 
@@ -399,16 +676,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 commit(context);
             }
 
-            try (FDBRecordContext context = openContext()) {
-                context.getTimer().reset();
-                openSimpleRecordStore(context);
-                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
-                readVersion = context.ensureActive().getReadVersion().get();
-            }
-
-            try (FDBRecordContext context = openContext()) {
-                context.getTimer().reset();
-                context.ensureActive().setReadVersion(readVersion);
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder)) {
                 openSimpleRecordStore(context);
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 path.deleteAllData(context);
@@ -417,6 +685,104 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 recordStore.asBuilder().create();
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
             }
+
+            // Deleting all records should not disable the index, so the result should still be cacheable.
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/399
+            final String disabledIndex = "MySimpleRecord$str_value_indexed";
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                recordStore.markIndexDisabled(disabledIndex).get();
+                commit(context);
+            }
+
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                assertTrue(recordStore.isIndexDisabled(disabledIndex));
+                recordStore.deleteAllRecords();
+
+                context.getTimer().reset();
+                recordStore = recordStore.asBuilder().open();
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                assertTrue(recordStore.isIndexDisabled(disabledIndex));
+                commit(context);
+            }
+        } finally {
+            fdb.setStoreStateCache(storeStateCache);
+        }
+    }
+
+    /**
+     * After a store is deleted, validate that future transactions need to reload it from cache.
+     */
+    @ParameterizedTest(name = "storeDeletionAcrossContexts (test context = [0])")
+    @MethodSource("testContextSource")
+    public void storeDeletionAcrossContexts(@Nonnull StateCacheTestContext testContext) throws Exception {
+        FDBRecordStoreStateCache storeStateCache = fdb.getStoreStateCache();
+        try {
+            fdb.setStoreStateCache(testContext.getCache(fdb));
+
+            FDBRecordStore.Builder storeBuilder;
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
+                assertTrue(recordStore.setStateCacheability(true));
+                storeBuilder = recordStore.asBuilder();
+                commit(context);
+            }
+
+            // Delete by calling deleteStore.
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                FDBRecordStore.deleteStore(context, recordStore.getSubspace());
+                commit(context);
+            }
+
+            // After deleting it, when opening the same store again, it shouldn't be cached.
+            try (FDBRecordContext context = fdb.openContext(null, new FDBStoreTimer())) {
+                FDBRecordStore store = storeBuilder.setContext(context).create();
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                assertTrue(store.setStateCacheability(true));
+                commit(context);
+            }
+
+            // Delete by calling path.deleteAllData
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                path.deleteAllData(context);
+                commit(context);
+            }
+
+            try (FDBRecordContext context = fdb.openContext(null, new FDBStoreTimer())) {
+                FDBRecordStore store = storeBuilder.setContext(context).create();
+                store.setStateCacheabilityAsync(true).get();
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                commit(context);
+            }
+
+            // Deleting all records should not disable the index state.
+            final String disabledIndex = "MySimpleRecord$str_value_indexed";
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                recordStore.markIndexDisabled(disabledIndex).get();
+                commit(context);
+            }
+
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                assertTrue(recordStore.isIndexDisabled(disabledIndex));
+                recordStore.deleteAllRecords();
+                commit(context);
+            }
+
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                assertTrue(recordStore.isIndexDisabled(disabledIndex));
+                commit(context);
+            }
+
         } finally {
             fdb.setStoreStateCache(storeStateCache);
         }
@@ -425,13 +791,17 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     /**
      * Make sure that caching two different subspaces are both cached but with separate entries.
      */
-    @Test
-    public void cacheTwoSubspacesByReadVersion() throws Exception {
+    @ParameterizedTest(name = "cacheTwoSubspaces (test context = [0])")
+    @MethodSource("testContextSource")
+    public void cacheTwoSubspaces(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
         try {
-            fdb.setStoreStateCache(readVersionCacheFactory.getCache(fdb));
+            fdb.setStoreStateCache(testContext.getCache(fdb));
             final KeySpacePath path1 = multiStorePath.add("storePath", "path1");
             final KeySpacePath path2 = multiStorePath.add("storePath", "path2");
+
+            final FDBRecordStore.Builder storeBuilder1;
+            final FDBRecordStore.Builder storeBuilder2;
 
             try (FDBRecordContext context = openContext()) {
                 context.getTimer().reset();
@@ -440,51 +810,43 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
 
                 openSimpleRecordStore(context);
                 FDBRecordStore store1 = recordStore.asBuilder().setKeySpacePath(path1).create();
+                store1.setStateCacheabilityAsync(true).get();
+                storeBuilder1 = store1.asBuilder();
                 store1.markIndexWriteOnly("MySimpleRecord$str_value_indexed").get();
+
                 FDBRecordStore store2 = recordStore.asBuilder().setKeySpacePath(path2).create();
+                store2.setStateCacheabilityAsync(true).get();
+                storeBuilder2 = store2.asBuilder();
                 store2.markIndexDisabled("MySimpleRecord$num_value_3_indexed").get();
 
                 commit(context);
             }
 
-            // Get a read version and load one of the record store's info into cache
-            long readVersion;
-            try (FDBRecordContext context = openContext()) {
-                context.getTimer().reset();
-                openSimpleRecordStore(context);
-                readVersion = context.ensureActive().getReadVersion().get();
-                FDBRecordStore store1 = recordStore.asBuilder().setKeySpacePath(path1).open();
-                assertTrue(store1.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
-                assertTrue(store1.isIndexReadable("MySimpleRecord$num_value_3_indexed"));
-                assertEquals(2, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
-            }
-
             // Open both paths. Only the one in path1 should be cached.
-            try (FDBRecordContext context = openContext()) {
-                context.getTimer().reset();
-                context.ensureActive().setReadVersion(readVersion);
-                openSimpleRecordStore(context);
-                FDBRecordStore store1 = recordStore.asBuilder().setKeySpacePath(path1).open();
-                assertEquals(2, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            long readVersion;
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder1, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                FDBRecordStore store1 = storeBuilder1.setContext(context).open();
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 assertTrue(store1.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
                 assertTrue(store1.isIndexReadable("MySimpleRecord$num_value_3_indexed"));
-                FDBRecordStore store2 = recordStore.asBuilder().setKeySpacePath(path2).open();
+                FDBRecordStore store2 = storeBuilder2.setContext(context).open();
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
                 assertTrue(store2.isIndexReadable("MySimpleRecord$str_value_indexed"));
                 assertTrue(store2.isIndexDisabled("MySimpleRecord$num_value_3_indexed"));
+
+                readVersion = context.ensureActive().getReadVersion().get();
             }
 
             // Open both paths. Now they are both cached.
             try (FDBRecordContext context = openContext()) {
                 context.getTimer().reset();
                 context.ensureActive().setReadVersion(readVersion);
-                openSimpleRecordStore(context);
-                FDBRecordStore store1 = recordStore.asBuilder().setKeySpacePath(path1).open();
-                assertEquals(2, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                FDBRecordStore store1 = storeBuilder1.setContext(context).open();
+                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 assertTrue(store1.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
                 assertTrue(store1.isIndexReadable("MySimpleRecord$num_value_3_indexed"));
-                FDBRecordStore store2 = recordStore.asBuilder().setKeySpacePath(path2).open();
-                assertEquals(3, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                FDBRecordStore store2 = storeBuilder2.setContext(context).open();
+                assertEquals(2, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 assertTrue(store2.isIndexReadable("MySimpleRecord$str_value_indexed"));
                 assertTrue(store2.isIndexDisabled("MySimpleRecord$num_value_3_indexed"));
             }
@@ -496,13 +858,14 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     /**
      * Validate that caching just naturally works.
      */
-    @Test
-    public void cacheByReadWithVersionTracking() throws Exception {
+    @ParameterizedTest(name = "cacheWithVersionTracking (test context = [0])")
+    @MethodSource("testContextSource")
+    public void cacheWithVersionTracking(@Nonnull StateCacheTestContext testContext) throws Exception {
         boolean trackCommitVersions = fdb.isTrackLastSeenVersionOnCommit();
         boolean trackReadVersion = fdb.isTrackLastSeenVersionOnCommit();
         FDBRecordStoreStateCache currentCache = fdb.getStoreStateCache();
         try {
-            fdb.setStoreStateCache(readVersionCacheFactory.getCache(fdb));
+            fdb.setStoreStateCache(testContext.getCache(fdb));
             fdb.setTrackLastSeenVersion(true);
             FDBStoreTimer timer = new FDBStoreTimer();
             final FDBDatabase.WeakReadSemantics readSemantics = new FDBDatabase.WeakReadSemantics(0L, 5000, false);
@@ -514,10 +877,11 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             }
 
             // Commit a new meta-data
-            final long commitVersion;
+            long commitVersion;
             timer.reset();
             try (FDBRecordContext context = fdb.openContext(null, timer, readSemantics)) {
                 openSimpleRecordStore(context);
+                recordStore.setStateCacheabilityAsync(true).get();
                 assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
                 recordStore.markIndexDisabled("MySimpleRecord$str_value_indexed").get();
                 commit(context);
@@ -534,34 +898,57 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 commit(context); // should be read only-so won't change commit version
             }
 
-            // Version caching will still use the commit version, but now it is in cache
+            // Version caching will still use the commit version from the first (non read-only commit), but now it is in cache
             timer.reset();
             try (FDBRecordContext context = fdb.openContext(null, timer, readSemantics)) {
                 assertEquals(commitVersion, (long)context.ensureActive().getReadVersion().get());
                 openSimpleRecordStore(context);
                 assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
-                commit(context);
-            }
 
-            // Make a (no-op) commit to ensure that the db version is increased.
-            try (FDBRecordContext context = fdb.openContext(null, timer, readSemantics)) {
-                openSimpleRecordStore(context);
+                // Add a dummy write to increase the DB version
                 context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUID.randomUUID()));
                 commit(context);
+                assertThat(context.getCommittedVersion(), greaterThan(commitVersion));
+                commitVersion = context.getCommittedVersion();
             }
 
-            // Load a new read version
+            // The commit version will be from the commit above. This should invalidate the
+            // read-version cache, but not the meta-data version cache.
+            timer.reset();
+            try (FDBRecordContext context = fdb.openContext(null, timer, readSemantics)) {
+                assertEquals(commitVersion, (long)context.ensureActive().getReadVersion().get());
+                openSimpleRecordStore(context);
+                if (testContext instanceof ReadVersionStateCacheTestContext) {
+                    assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                } else {
+                    assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                }
+                assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
+
+                // Add a dummy write to increase the DB version
+                context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUID.randomUUID()));
+                commit(context);
+                assertThat(context.getCommittedVersion(), greaterThan(commitVersion));
+                commitVersion = context.getCommittedVersion();
+            }
+
+            // Load a new read version.
             timer.reset();
             final long readVersion;
             try (FDBRecordContext context = fdb.openContext(null, timer, null)) {
                 readVersion = fdb.getReadVersion(context).get();
+                assertThat(readVersion, greaterThanOrEqualTo(commitVersion));
                 openSimpleRecordStore(context);
-                assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                if (testContext instanceof ReadVersionStateCacheTestContext) {
+                    assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+                } else {
+                    assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+                }
                 assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
             }
 
-            // Load the meta-data using the cached read version
+            // Load the meta-data using the cached read version.
             timer.reset();
             try (FDBRecordContext context = fdb.openContext(null, timer, readSemantics)) {
                 assertEquals(readVersion, (long)context.ensureActive().getReadVersion().get());
@@ -576,8 +963,9 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    public void useWithDifferentDatabase() throws Exception {
+    @ParameterizedTest(name = "useWithDifferentDatabase (factory = [0])")
+    @MethodSource("factorySource")
+    public void useWithDifferentDatabase(FDBRecordStoreStateCacheFactory storeStateCacheFactory) throws Exception {
         FDBRecordStoreStateCacheFactory currentCacheFactory = FDBDatabaseFactory.instance().getStoreStateCacheFactory();
         try {
             String clusterFile = FDBTestBase.createFakeClusterFile("record_store_cache_");
@@ -600,6 +988,57 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             assertSame(originalCache, fdb.getStoreStateCache());
         } finally {
             FDBDatabaseFactory.instance().setStoreStateCacheFactory(currentCacheFactory);
+        }
+    }
+
+    @Test
+    public void setCacheableAtWrongFormatVersion() throws Exception {
+        FDBRecordStoreStateCache currentCache = fdb.getStoreStateCache();
+        try {
+            fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+
+            // Initialize the store at the format version prior to the cacheable state version
+            FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(RecordMetaData.build(TestRecords1Proto.getDescriptor()))
+                    .setFormatVersion(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1);
+            try (FDBRecordContext context = openContext()) {
+                storeBuilder.copyBuilder().setContext(context).create();
+                commit(context);
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                FDBRecordStore recordStore = storeBuilder.copyBuilder()
+                        .setContext(context)
+                        .open();
+                assertEquals(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+                RecordCoreException e = assertThrows(RecordCoreException.class, () -> recordStore.setStateCacheability(true));
+                assertThat(e.getMessage(), containsString("cannot mark record store state cacheable at format version"));
+                commit(context);
+            }
+
+            // Update the format version
+            try (FDBRecordContext context = openContext()) {
+                storeBuilder.copyBuilder()
+                        .setContext(context)
+                        .setFormatVersion(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION)
+                        .open();
+                commit(context);
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                // Assert that format version happens because of the upgrade behind the scenes
+                assertEquals(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1, storeBuilder.getFormatVersion());
+                FDBRecordStore recordStore = storeBuilder.copyBuilder()
+                        .setContext(context)
+                        .open();
+                assertEquals(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION, recordStore.getFormatVersion());
+                assertTrue(recordStore.setStateCacheability(true));
+                commit(context);
+            }
+
+        } finally {
+            fdb.setStoreStateCache(currentCache);
         }
     }
 }
