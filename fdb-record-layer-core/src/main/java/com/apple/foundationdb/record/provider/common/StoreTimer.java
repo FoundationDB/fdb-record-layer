@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.common;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -37,6 +38,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -47,10 +49,11 @@ import java.util.stream.Stream;
 
 /**
  * A context-wide accumulator of timing information.
- *
- * A store timer is a thread-safe record of call counts and nanosecond call times for various database operations, classified by an {@link Event}.
- * If a context has a store timer, various operations will record timing information in it. It is up to the caller to provide the necessary integration
- * between this information and any system monitoring tools.
+ * <p>
+ * A store timer is a thread-safe record of call counts and nanosecond call times for various database operations,
+ * classified by an {@link Event}.
+ * If a context has a store timer, various operations will record timing information in it. It is up to the caller to
+ * provide the necessary integration between this information and any system monitoring tools.
  */
 @API(API.Status.MAINTAINED)
 public class StoreTimer {
@@ -61,9 +64,13 @@ public class StoreTimer {
     protected final Map<Event, Counter> counters;
     @Nonnull
     protected final Map<Event, Counter> timeoutCounters;
+    protected long lastReset;
+    @Nonnull
+    protected final UUID uuid;
 
     /**
      * Confirm that there is no naming conflict among the event names that will be used.
+     *
      * @param events a stream of events to check for duplicates
      */
     public static void checkEventNameUniqueness(@Nonnull Stream<Event> events) {
@@ -72,6 +79,66 @@ public class StoreTimer {
         if (!duplicates.isEmpty()) {
             throw new RecordCoreException("Duplicate event names: " + duplicates);
         }
+    }
+
+    /**
+     * Subtracts counts and times recorded by a snapshot of a timer returning a new timer representing the difference.
+     * <p>
+     * Subtracting a snapshot of a timer from the original timer after subsequent operations have
+     * been performed and timed can provide useful metrics as to the cost of those subsequent operations.
+     * <p>
+     * The timer must have been previously derived from the snapshot. Moreover,
+     * the timer should not have been reset after the snapshot was taken.
+     *
+     * @param timer timer to subtract the snapshot from
+     * @param timerSnapshot snapshot of the provided timer
+     *
+     * @return a snapshot of the provided timer
+     */
+    @Nonnull
+    public static StoreTimer getDifference(@Nonnull StoreTimer timer, @Nonnull StoreTimerSnapshot timerSnapshot) {
+
+        if (!timerSnapshot.derivedFrom(timer)) {
+            throw new RecordCoreArgumentException("Invalid to subtract a snapshot timer from a timer it was not derived from.");
+        }
+
+        if (!timerSnapshot.takenAfterReset(timer)) {
+            throw new RecordCoreArgumentException("Invalid to substract a snapshot timer from a timer that has been reset after the snapshot was taken");
+        }
+
+        StoreTimer resultTimer = new StoreTimer();
+        timer.counters.entrySet()
+                .stream()
+                .forEach(entry -> {
+                    int count = 0;
+                    long time = 0L;
+                    if (timerSnapshot.containsCounter(entry.getKey())) {
+                        count = timerSnapshot.getCounterSnapshot(entry.getKey()).getCount();
+                        time = timerSnapshot.getCounterSnapshot(entry.getKey()).getTimeNanos();
+                    }
+                    Counter diffCounter = new Counter();
+                    diffCounter.count.set(entry.getValue().count.get() - count);
+                    diffCounter.timeNanos.set(entry.getValue().timeNanos.get() - time);
+                    resultTimer.counters.put(entry.getKey(), diffCounter);
+                });
+        timer.timeoutCounters.entrySet()
+                .stream()
+                .forEach(entry -> {
+                    int count = 0;
+                    long time = 0L;
+                    if (timerSnapshot.containsTimeoutCounter(entry.getKey())) {
+                        count = timerSnapshot.getTimeoutCounterSnapshot(entry.getKey()).getCount();
+                        time = timerSnapshot.getTimeoutCounterSnapshot(entry.getKey()).getTimeNanos();
+                    }
+                    Counter diffCounter = new Counter();
+                    diffCounter.count.set(entry.getValue().count.get() - count);
+                    diffCounter.timeNanos.set(entry.getValue().timeNanos.get() - time);
+                    resultTimer.timeoutCounters.put(entry.getKey(), diffCounter);
+                });
+
+        //subtracting out the snapshot has effectively made the snapshot time the last reset time
+        timerSnapshot.setResetTime(resultTimer);
+        return resultTimer;
     }
 
     @Nonnull
@@ -89,12 +156,14 @@ public class StoreTimer {
     public interface Event {
         /**
          * Get the name of this event for machine processing.
+         *
          * @return the name
          */
         String name();
 
         /**
          * Get the title of this event for user displays.
+         *
          * @return the user-visible title
          */
         String title();
@@ -122,20 +191,53 @@ public class StoreTimer {
     public interface Count extends Event {
         /**
          * Get whether the count value is actually a size in bytes.
+         *
          * @return {@code true} if the count value is actually a size in bytes
          */
         boolean isSize();
     }
 
-    protected static class Counter {
+    /**
+     * Contains the number of occurrences and cummulative time spent on an associated {@link StoreTimer.Event}.
+     */
+    public static class Counter {
         private final AtomicLong timeNanos = new AtomicLong();
         private final AtomicInteger count = new AtomicInteger();
 
+        /**
+         * Get the number of occurrences of the associated event.
+         *
+         * @return the number of occurrences of the associated event
+         */
+        @Nonnull
+        public int getCount() {
+            return count.get();
+        }
+
+        /**
+         * Get the cumulative time spent on the associated event.
+         *
+         * @return the cumulative time spent on the associated event
+         */
+        public long getTimeNanos() {
+            return timeNanos.get();
+        }
+
+        /**
+         * Add additional time spent performing the associated event.
+         *
+         * @param timeDifference additional time spent performing the associated event
+         */
         public void record(long timeDifference) {
             timeNanos.addAndGet(timeDifference);
             count.incrementAndGet();
         }
 
+        /**
+         * Add an additional number of occurrences spent performing the associated event.
+         *
+         * @param amount additional number of times spent performing the associated event
+         */
         public void increment(int amount) {
             count.addAndGet(amount);
         }
@@ -144,6 +246,18 @@ public class StoreTimer {
     public StoreTimer() {
         counters = new ConcurrentHashMap<>();
         timeoutCounters = new ConcurrentHashMap<>();
+        lastReset = System.nanoTime();
+        uuid = UUID.randomUUID();
+    }
+
+    /**
+     * Get the UUID of this timer.
+     *
+     * @return the UUID of this timer
+     */
+    @Nonnull
+    public UUID geUUID() {
+        return uuid;
     }
 
     /**
@@ -176,6 +290,7 @@ public class StoreTimer {
      * {@link #increment(Count)} instead.
      *
      * @param event the event being recorded
+     *
      * @deprecated replaced with {@link #increment(Count)}
      */
     @Deprecated
@@ -185,6 +300,7 @@ public class StoreTimer {
 
     /**
      * Record time since given time.
+     *
      * @param event the event being recorded
      * @param startTime the {@code System.nanoTime()} when the event started
      */
@@ -194,6 +310,7 @@ public class StoreTimer {
 
     /**
      * Record that some operation timed out.
+     *
      * @param event the event that was waited for
      * @param startTime the {@code System.nanoTime()} when the event started
      */
@@ -249,7 +366,9 @@ public class StoreTimer {
 
     /**
      * Get the total time spent for a given event.
+     *
      * @param event the event to get time information for
+     *
      * @return the total number of nanoseconds recorded for the event
      */
     public long getTimeNanos(Event event) {
@@ -258,7 +377,9 @@ public class StoreTimer {
 
     /**
      * Get the total count for a given event.
+     *
      * @param event the event to get count information for
+     *
      * @return the total number times that event was recorded
      */
     public int getCount(Event event) {
@@ -267,7 +388,9 @@ public class StoreTimer {
 
     /**
      * Get the total time spent for a given event that timed out.
+     *
      * @param event the event to get time information for
+     *
      * @return the total number of nanoseconds recorded for when the event timed out
      */
     public long getTimeoutTimeNanos(Event event) {
@@ -276,7 +399,9 @@ public class StoreTimer {
 
     /**
      * Get the total count of timeouts for a given event.
+     *
      * @param event the event to get timeout information for
+     *
      * @return the total number times that event was recorded as timed out
      */
     public int getTimeoutCount(Event event) {
@@ -285,6 +410,7 @@ public class StoreTimer {
 
     /**
      * Get all events known to this timer.
+     *
      * @return a collection of events for which timing information was recorded
      */
     public Collection<Event> getEvents() {
@@ -293,6 +419,7 @@ public class StoreTimer {
 
     /**
      * Get all events that have timed out.
+     *
      * @return a collection of events for which timeout information was recorded
      */
     public Collection<Event> getTimeoutEvents() {
@@ -301,6 +428,7 @@ public class StoreTimer {
 
     /**
      * Suitable for {@link KeyValueLogMessage}.
+     *
      * @return a map of recorded times and counts for logging
      */
     public Map<String, Number> getKeysAndValues() {
@@ -331,14 +459,17 @@ public class StoreTimer {
     public void reset() {
         counters.clear();
         timeoutCounters.clear();
+        lastReset = System.nanoTime();
     }
 
     /**
      * Add timing instrumentation to an asynchronous operation.
+     *
      * @param event the event type to use to record timing
      * @param future a future that will complete when the operation is finished
      * @param executor an asynchronous executor to use to run the recording
      * @param <T> the type of the future
+     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, Executor executor) {
@@ -351,10 +482,12 @@ public class StoreTimer {
 
     /**
      * Add timing instrumentation to an asynchronous operation.
+     *
      * @param events the event types to use to record timing
      * @param future a future that will complete when the operation is finished
      * @param executor an asynchronous executor to use to run the recording
      * @param <T> the type of the future
+     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Set<Event> events, CompletableFuture<T> future, Executor executor) {
@@ -369,11 +502,13 @@ public class StoreTimer {
 
     /**
      * Add timing instrumentation to an asynchronous operation.
+     *
      * @param event the event type to use to record timing
      * @param future a future that will complete when the operation is finished
      * @param executor an asynchronous executor to use to run the recording
      * @param startTime the nanosecond time at which the operation started
      * @param <T> the type of the future
+     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, Executor executor, long startTime) {
@@ -386,11 +521,13 @@ public class StoreTimer {
 
     /**
      * Add timing instrumentation to an asynchronous operation.
+     *
      * @param events the event types to use to record timing
      * @param future a future that will complete when the operation is finished
      * @param executor an asynchronous executor to use to run the recording
      * @param startTime the nanosecond time at which the operation started
      * @param <T> the type of the future
+     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Set<Event> events, CompletableFuture<T> future, Executor executor, long startTime) {
@@ -407,9 +544,11 @@ public class StoreTimer {
     /**
      * Instrument an asynchronous cursor.
      * Timing information is recorded for each invocation of the {@link RecordCursor#onHasNext()} asynchronous method.
+     *
      * @param event the event type to use to record timing
      * @param inner the cursor to record timing information for
      * @param <T> the type of the cursor elements
+     *
      * @return a new cursor that returns the same elements and also records timing information
      */
     public <T> RecordCursor<T> instrument(Event event, RecordCursor<T> inner) {
