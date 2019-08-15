@@ -236,6 +236,10 @@ public class StoreTimer {
         }
     }
 
+    //TODO remove this
+    //TODO and remove this too
+    //TODO remove me too 
+
     /**
      * Record that an event occurred one or more times. This increments the
      * counter associated with the given event by <code>amount</code>.
