@@ -40,6 +40,8 @@ public class FDBStoreTimer extends StoreTimer {
     public enum Events implements Event {
         /** The amount of time taken performing a no-op. */
         PERFORM_NO_OP("perform no-op"),
+        /** The amount of time taken to get a read version when explicitly called. */
+        GET_READ_VERSION("get read version"),
         /** The amount of time taken committing transactions successfully. */
         COMMIT("commit transaction"),
         /** The amount of time taken committing transactions that did not actually have any writes. */

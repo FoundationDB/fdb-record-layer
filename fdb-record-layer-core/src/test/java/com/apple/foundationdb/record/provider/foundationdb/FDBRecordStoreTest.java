@@ -132,7 +132,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreTest.class);
 
-    private void openLongRecordStore(FDBRecordContext context) throws Exception {
+    private void openLongRecordStore(FDBRecordContext context) {
         createOrOpenRecordStore(context, RecordMetaData.build(TestRecords2Proto.getDescriptor()));
     }
 
@@ -884,7 +884,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testDeleteWhereMissingIndex() throws Exception {
+    public void testDeleteWhereMissingIndex() {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
@@ -899,7 +899,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testOverlappingPrimaryKey() throws Exception {
+    public void testOverlappingPrimaryKey() {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
@@ -941,7 +941,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testIndexKeyTooLarge() throws Exception {
+    public void testIndexKeyTooLarge() {
         assertThrows(FDBExceptions.FDBStoreKeySizeException.class, () -> {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
@@ -957,7 +957,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testIndexValueTooLarge() throws Exception {
+    public void testIndexValueTooLarge() {
         assertThrows(FDBExceptions.FDBStoreValueSizeException.class, () -> {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, md -> {
@@ -982,7 +982,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testStoredRecordSizeIsPlausible() throws Exception {
+    public void testStoredRecordSizeIsPlausible() {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
 
@@ -1017,7 +1017,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testStoredRecordSizeIsConsistent() throws Exception {
+    public void testStoredRecordSizeIsConsistent() {
         final RecordMetaDataHook hook = md -> {
             md.setSplitLongRecords(true);
         };
@@ -1060,7 +1060,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testSplitContinuation() throws Exception {
+    public void testSplitContinuation() {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
             commit(context);
@@ -1148,7 +1148,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         deleteAndCheckSplitSimpleRecord(recno);
     }
 
-    private void saveAndCheckSplitSimpleRecord(long recno, String strValue, int numValue) throws Exception {
+    private void saveAndCheckSplitSimpleRecord(long recno, String strValue, int numValue) {
         FDBStoredRecord<Message> savedRecord = saveAndSplitSimpleRecord(recno, strValue, numValue);
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
@@ -1194,7 +1194,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void saveAndCheckCorruptSplitSimpleRecord(long recno, String strValue, int numValue) throws Exception {
+    private void saveAndCheckCorruptSplitSimpleRecord(long recno, String strValue, int numValue) {
         FDBStoredRecord<Message> savedRecord = saveAndSplitSimpleRecord(recno, strValue, numValue);
         if (!savedRecord.isSplit()) {
             return;
@@ -1270,7 +1270,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void deleteAndCheckSplitSimpleRecord(long recno) throws Exception {
+    private void deleteAndCheckSplitSimpleRecord(long recno) {
         FDBStoredRecord<Message> savedRecord;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
@@ -1454,7 +1454,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         countRecords(false);
     }
 
-    private void countRecords(boolean useIndex) throws Exception {
+    private void countRecords(boolean useIndex) {
         final RecordMetaDataHook hook = countKeyHook(EmptyKeyExpression.EMPTY, useIndex, 0);
         HashMap<Integer, Integer> expectedCountBuckets = new HashMap<>();
 
@@ -1593,7 +1593,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         countRecordsKeyed(false);
     }
 
-    private void countRecordsKeyed(boolean useIndex) throws Exception {
+    private void countRecordsKeyed(boolean useIndex) {
         final KeyExpression key = field("num_value_3_indexed");
         final RecordMetaDataHook hook = countKeyHook(key, useIndex, 0);
 
@@ -2183,7 +2183,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     @Test
     public void testCommittedVersion() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            final long readVersion = context.ensureActive().getReadVersion().get();
+            final long readVersion = context.getReadVersion();
 
             openSimpleRecordStore(context);
 
@@ -2196,7 +2196,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testCommittedVersionReadOnly() throws Exception {
+    public void testCommittedVersionReadOnly() {
         try (FDBRecordContext context = openContext()) {
             commit(context);
             assertThat(context.getCommittedVersion(), equalTo(-1L));
@@ -2222,7 +2222,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testVersionStampReadOnly() throws Exception {
+    public void testVersionStampReadOnly() {
         try (FDBRecordContext context = openContext()) {
             commit(context);
             assertNull(context.getVersionStamp());
@@ -2962,7 +2962,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void invalidMetaData() throws Exception {
+    public void invalidMetaData() {
         RecordMetaDataHook invalid = metaData -> {
             metaData.addIndex("MySimpleRecord", "no_such_field");
         };
@@ -3193,7 +3193,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void metaDataVersionZero() throws Exception {
+    public void metaDataVersionZero() {
         final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
         metaData.setVersion(0);
 
@@ -3267,7 +3267,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
     @EnumSource(ClearOmitUnsplitRecordSuffixMode.class)
     @ParameterizedTest(name = "clearOmitUnsplitRecordSuffix [mode = {0}]")
-    public void clearOmitUnsplitRecordSuffix(ClearOmitUnsplitRecordSuffixMode mode) throws Exception {
+    public void clearOmitUnsplitRecordSuffix(ClearOmitUnsplitRecordSuffixMode mode) {
         final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
@@ -3306,7 +3306,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void clearOmitUnsplitRecordSuffixTyped() throws Exception {
+    public void clearOmitUnsplitRecordSuffixTyped() {
         final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         final KeyExpression pkey = concat(Key.Expressions.recordType(), field("rec_no"));
         metaData.getRecordType("MySimpleRecord").setPrimaryKey(pkey);
@@ -3340,7 +3340,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void clearOmitUnsplitRecordSuffixOverlapping() throws Exception {
+    public void clearOmitUnsplitRecordSuffixOverlapping() {
         final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
 
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()

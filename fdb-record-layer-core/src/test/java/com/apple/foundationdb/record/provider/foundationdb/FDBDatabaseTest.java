@@ -298,9 +298,7 @@ public class FDBDatabaseTest extends FDBTestBase {
 
     @Test
     public void testGetReadVersionLatencyInjection() throws Exception {
-        testLatencyInjection(FDBLatencySource.GET_READ_VERSION, 300L, context -> {
-            context.getDatabase().getReadVersion(context).join();
-        });
+        testLatencyInjection(FDBLatencySource.GET_READ_VERSION, 300L, FDBRecordContext::getReadVersion);
     }
 
     @Test
@@ -389,16 +387,16 @@ public class FDBDatabaseTest extends FDBTestBase {
     private long getReadVersionInRetryLoop(FDBDatabase database, Long minVersion, Long stalenessBoundMillis, boolean async) throws InterruptedException, ExecutionException {
         FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
         if (async) {
-            return database.runAsync(null, null, weakReadSemantics, database::getReadVersion).get();
+            return database.runAsync(null, null, weakReadSemantics, FDBRecordContext::getReadVersionAsync).get();
         } else {
-            return database.run(null, null, weakReadSemantics, context -> database.getReadVersion(context).join());
+            return database.run(null, null, weakReadSemantics, FDBRecordContext::getReadVersion);
         }
     }
 
     private long getReadVersion(FDBDatabase database, Long minVersion, Long stalenessBoundMillis) {
         FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
         try (FDBRecordContext context = database.openContext(Collections.emptyMap(), null, weakReadSemantics)) {
-            return database.getReadVersion(context).join();
+            return context.getReadVersion();
         }
     }
 
@@ -466,7 +464,7 @@ public class FDBDatabaseTest extends FDBTestBase {
         // Should not be able to get a real read version from the fake cluster
         assertThrows(TimeoutException.class, () -> {
             try (FDBRecordContext context = database.openContext()) {
-                database.getReadVersion(context).get(100L, TimeUnit.MILLISECONDS);
+                context.getReadVersionAsync().get(100L, TimeUnit.MILLISECONDS);
             }
         });
 

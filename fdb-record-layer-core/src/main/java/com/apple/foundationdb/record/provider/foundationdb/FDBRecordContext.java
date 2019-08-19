@@ -29,6 +29,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -85,6 +86,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordContext.class);
     private static final byte[] META_DATA_VERSION_STAMP_KEY = new byte[]{(byte)0xff, '/', 'm', 'e', 't', 'a', 'd', 'a', 't', 'a', 'V', 'e', 'r', 's', 'i', 'o', 'n'};
     private static final byte[] META_DATA_VERSION_STAMP_VALUE = new byte[FDBRecordVersion.GLOBAL_VERSION_LENGTH + Integer.BYTES];
+    private static final long UNSET_VERSION = 0L;
 
     static {
         Arrays.fill(META_DATA_VERSION_STAMP_VALUE, (byte)0x00);
@@ -96,7 +98,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private static final String INTERNAL_COMMIT_HOOK_PREFIX = "@__";
     private static final String AFTER_COMMIT_HOOK_NAME = INTERNAL_COMMIT_HOOK_PREFIX + "afterCommit";
 
-    private long committedVersion;
+    @Nullable
+    private CompletableFuture<Long> readVersionFuture;
+    private long readVersion = UNSET_VERSION;
+    private long committedVersion = UNSET_VERSION;
     private long transactionCreateTime;
     @Nullable
     private byte[] versionStamp;
@@ -234,6 +239,110 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             throw new RecordCoreStorageException("Transaction is no longer active.");
         }
         return transaction;
+    }
+
+    /**
+     * Set the read version used by this transaction. All reads to the database will include
+     * only changes that were committed at this version or smaller. A transaction's read version
+     * can only be set once, so if this function is called multiple times, it will return the
+     * previously set read version. If this method is called and another caller has already called
+     * {@link #getReadVersionAsync()} or {@link #getReadVersion()}, this method may throw a
+     * {@link RecordCoreException} indicating that there is already an outstanding read version request
+     * if that request has not yet completed.
+     *
+     * @param readVersion the read version this transaction should use if is not already set
+     * @return this transaction's read version
+     * @see Transaction#setReadVersion(long)
+     */
+    public synchronized long setReadVersion(long readVersion) {
+        if (hasReadVersion()) {
+            return this.readVersion;
+        }
+        if (readVersionFuture != null) {
+            if (MoreAsyncUtil.isCompletedNormally(readVersionFuture)) {
+                return joinNow(readVersionFuture);
+            } else {
+                throw new RecordCoreException("Cannot set read version as read version request is outstanding");
+            }
+        }
+        ensureActive().setReadVersion(readVersion);
+        this.readVersion = readVersion;
+        this.readVersionFuture = CompletableFuture.completedFuture(readVersion);
+        return readVersion;
+    }
+
+    /**
+     * Get the read version used by this transaction. All reads to the database will include only changes that
+     * were committed at this version or smaller. If the read version has not already been set, this
+     * may require talking to the database. If the read version has already been set, then this will return
+     * with an already completed future.
+     *
+     * <p>
+     * Note that this method is {@code synchronized}, but only creating the future (<em>not</em> waiting on
+     * the future) will block other threads. Thus, while it is advised that this method ony be called once
+     * and by only one caller at a time, if it safe to use this method in asynchronous contexts.
+     * </p>
+     *
+     * @return a future that will contain the read version of this transaction
+     * @see Transaction#getReadVersion()
+     */
+    @Nonnull
+    public synchronized CompletableFuture<Long> getReadVersionAsync() {
+        if (readVersionFuture != null) {
+            return readVersionFuture;
+        }
+        final Transaction tr = ensureActive();
+        long startTimeMillis = System.currentTimeMillis();
+        long startTimeNanos = System.nanoTime();
+        CompletableFuture<Long> localReadVersionFuture = database.injectLatency(FDBLatencySource.GET_READ_VERSION)
+                .thenCompose(ignore -> tr.getReadVersion())
+                .thenApply(newReadVersion -> {
+                    readVersion = newReadVersion;
+                    if (database.isTrackLastSeenVersionOnRead()) {
+                        database.updateLastSeenFDBVersion(startTimeMillis, newReadVersion);
+                    }
+                    return newReadVersion;
+                });
+        if (getTimer() != null) {
+            localReadVersionFuture = getTimer().instrument(FDBStoreTimer.Events.GET_READ_VERSION, localReadVersionFuture, getExecutor(), startTimeNanos);
+        }
+        readVersionFuture = localReadVersionFuture;
+        return localReadVersionFuture;
+    }
+
+    /**
+     * Get the read version used by this transaction. This is a synchronous version of {@link #getReadVersionAsync()}.
+     * Note that if the read version has already been set (either by calling {@link #setReadVersion(long)} or
+     * {@link #getReadVersionAsync()} or this method), then the previously set read version is returned immediately,
+     * and this method will not block. One can check if the read version has already been set by calling
+     * {@link #hasReadVersion()}.
+     *
+     * @return the read version of this transaction
+     * @see #getReadVersionAsync()
+     * @see Transaction#getReadVersion()
+     */
+    @SpotBugsSuppressWarnings(value = "UG_SYNC_SET_UNSYNC_GET", justification = "read only one field and avoid blocking in setReadVersion")
+    public long getReadVersion() {
+        if (hasReadVersion()) {
+            return readVersion;
+        }
+        return asyncToSync(FDBStoreTimer.Waits.WAIT_GET_READ_VERSION, getReadVersionAsync());
+    }
+
+    /**
+     * Get whether this transaction's read version has already been set. In particular, this will return
+     * {@code true} if someone has explicitly called {@link #setReadVersion(long)} or
+     * {@link #getReadVersion()} on this context or if a {@link #getReadVersionAsync()} call has completed, and it will
+     * return {@code false} otherwise. If this returns {@code true}, then {@link #getReadVersionAsync()} will return
+     * an immediately ready future and {@link #getReadVersion()} is non-blocking.
+     *
+     * @return whether this transaction's read version has already been set
+     * @see #getReadVersionAsync()
+     * @see #setReadVersion(long)
+     * @see Transaction#getReadVersion()
+     */
+    public boolean hasReadVersion() {
+        return readVersion != UNSET_VERSION;
     }
 
     @Nonnull
@@ -571,7 +680,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @throws IllegalStateException if this is called prior to the transaction being committed
      */
     public long getCommittedVersion() {
-        if (committedVersion == 0) {
+        if (committedVersion == UNSET_VERSION) {
             throw new RecordCoreStorageException("Transaction has not been committed yet.");
         }
         return committedVersion;
@@ -592,7 +701,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     @SpotBugsSuppressWarnings(value = {"EI"}, justification = "avoids copy")
     public byte[] getVersionStamp() {
-        if (committedVersion == 0) {
+        if (committedVersion == UNSET_VERSION) {
             throw new RecordCoreStorageException("Transaction has not been committed yet.");
         }
         return versionStamp;

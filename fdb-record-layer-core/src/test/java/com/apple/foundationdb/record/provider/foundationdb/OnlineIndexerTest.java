@@ -1721,9 +1721,9 @@ public class OnlineIndexerTest extends FDBTestBase {
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             try (FDBRecordContext context = openContext()) {
-                context.ensureActive().getReadVersion().join();
+                context.getReadVersion();
                 try (FDBRecordContext context2 = fdb.openContext()) {
-                    context2.ensureActive().getReadVersion().join();
+                    context2.getReadVersion();
                     FDBRecordStore recordStore2 = recordStore.asBuilder().setContext(context2).build();
 
                     indexBuilder.buildUnbuiltRange(recordStore, null, Key.Evaluated.scalar(5L)).join();

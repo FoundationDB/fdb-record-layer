@@ -26,6 +26,8 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 
 The non-static `RecordCursor::flatMapPipelined()` method has been deprecated because it is easy to mis-use (by mistaken analogy to the `mapPipelined()` method) and cannot be used with continuations. See [Issue #665](https://github.com/FoundationDB/fdb-record-layer/issues/665) for further explanation.
 
+The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecordContext::getReadVersionAsync()` and `FDBRecordContext::getReadVersion()` methods. Though not strictly necessary, users should also replace any uses of `Transaction::getReadVersion()` and `Transaction::setReadVersion()` (on the `Transaction` interface provided by the FoundationDB Java bindings) with `FDBRecordContext::getReadVersionAsync()` and `FDBRecordContext::setReadVersion()` on any transactions created by the Record Layer. This allows the Record Layer to track the version in Java memory which both can then be used to skip a JNI hop if the read version is needed, but it also allows the Record Layer to more accurately track when read versions are retrieved from the database if the user has enabled read version tracking.
+
 <!--
 // begin next release
 ### NEXT_RELEASE
@@ -48,7 +50,7 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The `FDBDatabase::getReadVersion` method has been deprecated and replaced with `FDBRecordContext::getReadVersionAsync` [(Issue #698)](https://github.com/FoundationDB/fdb-record-layer/issues/698)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
