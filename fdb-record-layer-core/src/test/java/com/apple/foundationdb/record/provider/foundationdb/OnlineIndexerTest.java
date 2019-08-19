@@ -199,7 +199,9 @@ public class OnlineIndexerTest extends FDBTestBase {
     private FDBRecordContext openContext(boolean checked) {
         FDBRecordContext context = fdb.openContext();
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
-                .setMetaDataProvider(metaData).setContext(context).setSubspace(subspace);
+                .setMetaDataProvider(metaData)
+                .setContext(context)
+                .setSubspace(subspace);
         if (checked) {
             recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
         } else {
@@ -276,6 +278,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                         TestLogMessageKeys.SPLIT_LONG_RECORDS, splitLongRecords,
                         TestLogMessageKeys.INDEX, index)
         );
+        final FDBStoreTimer timer = new FDBStoreTimer();
 
         final RecordMetaDataHook onlySplitHook = metaDataBuilder -> {
             if (splitLongRecords) {
@@ -319,8 +322,14 @@ public class OnlineIndexerTest extends FDBTestBase {
                         LogMessageKeys.LIMIT, 20,
                         TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
         final OnlineIndexer.Builder builder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
-                .setLimit(20).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
+                .setDatabase(fdb)
+                .setMetaData(metaData)
+                .setIndex(index)
+                .setSubspace(subspace)
+                .setLimit(20)
+                .setMaxRetries(Integer.MAX_VALUE)
+                .setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100)
+                .setTimer(timer);
         if (ThreadLocalRandom.current().nextBoolean()) {
             // randomly enable the progress logging to ensure that it doesn't throw exceptions,
             // or otherwise disrupt the build.
@@ -398,7 +407,9 @@ public class OnlineIndexerTest extends FDBTestBase {
                             lessThanOrEqualTo((long)records.size() + additionalScans)
                     ));
         }
-        LOGGER.info(KeyValueLogMessage.of("building index - completed", TestLogMessageKeys.INDEX, index));
+        KeyValueLogMessage msg = KeyValueLogMessage.build("building index - completed", TestLogMessageKeys.INDEX, index);
+        msg.addKeysAndValues(timer.getKeysAndValues());
+        LOGGER.info(msg.toString());
 
         LOGGER.info(KeyValueLogMessage.of("running post build checks", TestLogMessageKeys.INDEX, index));
         afterBuild.run();

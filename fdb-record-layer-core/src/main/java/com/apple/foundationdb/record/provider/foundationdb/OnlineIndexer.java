@@ -338,14 +338,15 @@ public class OnlineIndexer implements AutoCloseable {
                     // One difference here from your standard retry loop is that within this method, we set the
                     // priority to "batch" on all transactions in order to avoid other stepping on the toes of other work.
                     context.ensureActive().options().setPriorityBatch();
-                    return openRecordStore(context).thenCompose(store -> {
+                    // Get a read version explicitly here for instrumentation purposes
+                    return context.getReadVersionAsync().thenCompose(ignore -> openRecordStore(context).thenCompose(store -> {
                         if (!store.isIndexWriteOnly(index)) {
                             throw new RecordCoreStorageException("Attempted to build readable index",
                                     LogMessageKeys.INDEX_NAME, index.getName(),
                                     recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
                         }
                         return function.apply(store);
-                    });
+                    }));
                 }, handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
                     if (e == null) {
                         ret.complete(value);
