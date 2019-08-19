@@ -317,12 +317,30 @@ public class FDBDatabase {
      * @see Database#createTransaction
      */
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
                                         @Nullable FDBStoreTimer timer,
                                         @Nullable WeakReadSemantics weakReadSemantics) {
+        return openContext(mdcContext, timer, weakReadSemantics, FDBTransactionPriority.DEFAULT);
+    }
+
+
+    /**
+     * Open a new record context with a new transaction begun on the underlying FDB database.
+     * @param mdcContext logger context to set in running threads
+     * @param timer the timer to use for instrumentation
+     * @param weakReadSemantics allowable staleness information if caching read versions
+     * @param priority the priority of the transaction being created
+     * @return a new record context
+     * @see Database#createTransaction
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
+                                        @Nullable FDBStoreTimer timer,
+                                        @Nullable WeakReadSemantics weakReadSemantics,
+                                        @Nonnull FDBTransactionPriority priority) {
         openFDB();
-        FDBRecordContext context = new FDBRecordContext(this, mdcContext, transactionIsTracedSupplier.get(), weakReadSemantics);
+        FDBRecordContext context = new FDBRecordContext(this, mdcContext, transactionIsTracedSupplier.get(), weakReadSemantics, priority);
         if (timer != null) {
             context.setTimer(timer);
             timer.increment(FDBStoreTimer.Counts.OPEN_CONTEXT);

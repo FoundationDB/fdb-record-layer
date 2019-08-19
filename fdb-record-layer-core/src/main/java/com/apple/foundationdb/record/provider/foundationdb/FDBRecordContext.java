@@ -111,7 +111,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private ConcurrentNavigableMap<Tuple, Integer> localVersionCache;
     @Nonnull
     private ConcurrentNavigableMap<byte[], Pair<MutationType, byte[]>> versionMutationCache;
-    private FDBDatabase.WeakReadSemantics weakReadSemantics;
+    @Nullable
+    private final FDBDatabase.WeakReadSemantics weakReadSemantics;
+    @Nonnull
+    private final FDBTransactionPriority priority;
     @Nullable
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
     @Nonnull
@@ -122,7 +125,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private boolean dirtyMetaDataVersionStamp;
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
-                               boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+                               boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics,
+                               @Nonnull FDBTransactionPriority priority) {
         super(fdb, fdb.createTransaction(initExecutor(fdb, mdcContext), mdcContext, transactionIsTraced));
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
@@ -140,6 +144,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         // If a causal read risky is requested, we set the corresponding transaction option
         if (weakReadSemantics != null && weakReadSemantics.isCausalReadRisky()) {
             transaction.options().setCausalReadRisky();
+        }
+
+        this.priority = priority;
+        switch (priority) {
+            case BATCH:
+                transaction.options().setPriorityBatch();
+                break;
+            case DEFAULT:
+                // Default priority does not need to set any option
+                break;
+            case SYSTEM_IMMEDIATE:
+                transaction.options().setPrioritySystemImmediate();
+                break;
+            default:
+                throw new RecordCoreArgumentException("unknown priority level " + priority);
         }
 
         this.weakReadSemantics = weakReadSemantics;
@@ -1048,6 +1067,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return existingValue != null ? existingValue.getRight() : null;
     }
 
+    @Nullable
     public byte[] updateVersionMutation(@Nonnull MutationType mutationType, @Nonnull byte[] key, @Nonnull byte[] value,
                                         @Nonnull BiFunction<byte[], byte[], byte[]> remappingFunction) {
         Pair<MutationType, byte[]> valuePair = Pair.of(mutationType, value);
@@ -1061,8 +1081,22 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }).getRight();
     }
 
+    @Nullable
     public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
         return weakReadSemantics;
+    }
+
+    /**
+     * Get the priority of this transaction. This is used to determine what rate-limiting rules should be
+     * applied to this transaction by the database. In general, {@link FDBTransactionPriority#DEFAULT DEFAULT}
+     * priority transactions are favored over {@link FDBTransactionPriority#BATCH BATCH} priority transactions.
+     *
+     * @return this transaction's priority
+     * @see FDBTransactionPriority
+     */
+    @Nonnull
+    public FDBTransactionPriority getPriority() {
+        return priority;
     }
 
     public void setHookForAsyncToSync(@Nonnull Consumer<FDBStoreTimer.Wait> hook) {

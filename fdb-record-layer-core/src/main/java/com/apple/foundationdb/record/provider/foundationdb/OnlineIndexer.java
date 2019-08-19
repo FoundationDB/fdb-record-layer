@@ -335,9 +335,6 @@ public class OnlineIndexer implements AutoCloseable {
 
         AsyncUtil.whileTrue(() ->
                 runner.runAsync(context -> {
-                    // One difference here from your standard retry loop is that within this method, we set the
-                    // priority to "batch" on all transactions in order to avoid other stepping on the toes of other work.
-                    context.ensureActive().options().setPriorityBatch();
                     // Get a read version explicitly here for instrumentation purposes
                     return context.getReadVersionAsync().thenCompose(ignore -> openRecordStore(context).thenCompose(store -> {
                         if (!store.isIndexWriteOnly(index)) {
@@ -1220,6 +1217,10 @@ public class OnlineIndexer implements AutoCloseable {
             return this;
         }
 
+        private void setRunnerDefaults() {
+            setPriority(FDBTransactionPriority.BATCH);
+        }
+
         /**
          * Set the database in which to run the indexing.
          *
@@ -1229,6 +1230,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public Builder setDatabase(@Nonnull FDBDatabase database) {
             this.runner = database.newRunner();
+            setRunnerDefaults();
             return this;
         }
 
@@ -1252,6 +1254,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setContext(null);
             if (runner == null && recordStoreBuilder.getContext() != null) {
                 runner = recordStoreBuilder.getContext().newRunner();
+                setRunnerDefaults();
             }
             return this;
         }
@@ -1265,6 +1268,7 @@ public class OnlineIndexer implements AutoCloseable {
             recordStoreBuilder = recordStore.asBuilder().setContext(null);
             if (runner == null) {
                 runner = recordStore.getRecordContext().newRunner();
+                setRunnerDefaults();
             }
             return this;
         }
@@ -1283,6 +1287,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param index the index to be built
          * @return this builder
          */
+        @Nonnull
         public Builder setIndex(@Nullable Index index) {
             this.index = index;
             return this;
@@ -1293,6 +1298,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param indexName the index to be built
          * @return this builder
          */
+        @Nonnull
         public Builder setIndex(@Nonnull String indexName) {
             this.index = getRecordMetaData().getIndex(indexName);
             return this;
@@ -1316,6 +1322,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
          */
+        @Nonnull
         public Builder setRecordTypes(@Nullable Collection<RecordType> recordTypes) {
             this.recordTypes = recordTypes;
             return this;
@@ -1336,6 +1343,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param limit the maximum number of records to process in one transaction
          * @return this builder
          */
+        @Nonnull
         public Builder setLimit(int limit) {
             this.limit = limit;
             return this;
@@ -1360,6 +1368,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param maxRetries the maximum number of times to retry a single range rebuild
          * @return this builder
          */
+        @Nonnull
         public Builder setMaxRetries(int maxRetries) {
             this.maxRetries = maxRetries;
             return this;
@@ -1380,6 +1389,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param recordsPerSecond the maximum number of records to process in a single second.
          * @return this builder
          */
+        @Nonnull
         public Builder setRecordsPerSecond(int recordsPerSecond) {
             this.recordsPerSecond = recordsPerSecond;
             return this;
@@ -1402,6 +1412,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param timer timer to use
          * @return this builder
          */
+        @Nonnull
         public Builder setTimer(@Nullable FDBStoreTimer timer) {
             if (runner == null) {
                 throw new MetaDataException("timer can only be set after runner has been set");
@@ -1428,11 +1439,81 @@ public class OnlineIndexer implements AutoCloseable {
          * @return this builder
          * @see FDBDatabase#openContext(Map,FDBStoreTimer)
          */
+        @Nonnull
         public Builder setMdcContext(@Nullable Map<String, String> mdcContext) {
             if (runner == null) {
                 throw new MetaDataException("logging context can only be set after runner has been set");
             }
             runner.setMdcContext(mdcContext);
+            return this;
+        }
+
+        /**
+         * Get the acceptable staleness bounds for transactions used by this build. By default, this
+         * is set to {@code null}, which indicates that the transaction should not used any cached version
+         * at all.
+         * @return the acceptable staleness bounds for transactions used by this build
+         * @see FDBRecordContext#getWeakReadSemantics()
+         */
+        @Nullable
+        public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
+            if (runner == null) {
+                throw new MetaDataException("weak read semantics is only known after runner has been set");
+            }
+            return runner.getWeakReadSemantics();
+        }
+
+        /**
+         * Set the acceptable staleness bounds for transactions used by this build. For index builds, essentially
+         * all operations will read and write data in the same transaction, so it is safe to set this value
+         * to use potentially stale read versions, though that can potentially result in more transaction conflicts.
+         * For performance reasons, it is generally advised that this only be provided an acceptable staleness bound
+         * that might use a cached commit if the database tracks the latest commit version in addition to the read
+         * version. This is to ensure that the online indexer see its own commits, and it should not be required
+         * for correctness, but the online indexer may perform additional work if this is not set.
+         *
+         * @param weakReadSemantics the acceptable staleness bounds for transactions used by this build
+         * @return this builder
+         * @see FDBRecordContext#getWeakReadSemantics()
+         * @see FDBDatabase#setTrackLastSeenVersion(boolean)
+         */
+        @Nonnull
+        public Builder setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+            if (runner == null) {
+                throw new MetaDataException("weak read semantics can only be set after runner has been set");
+            }
+            runner.setWeakReadSemantics(weakReadSemantics);
+            return this;
+        }
+
+        /**
+         * Get the priority of transactions used for this index build. By default, this will be
+         * {@link FDBTransactionPriority#BATCH}.
+         * @return the priority of transactions used for this index build
+         * @see FDBRecordContext#getPriority()
+         */
+        @Nonnull
+        public FDBTransactionPriority getPriority() {
+            if (runner == null) {
+                throw new MetaDataException("transaction priority is only known after runner has been set");
+            }
+            return runner.getPriority();
+        }
+
+        /**
+         * Set the priority of transactions used for this index build. In general, index builds should run
+         * using the {@link FDBTransactionPriority#BATCH BATCH} priority level as their work is generally
+         * discretionary and not time sensitive. However, in certain circumstances, it may be
+         * @param priority the priority of transactions used for this index build
+         * @return this builder
+         * @see FDBRecordContext#getPriority()
+         */
+        @Nonnull
+        public Builder setPriority(@Nonnull FDBTransactionPriority priority) {
+            if (runner == null) {
+                throw new MetaDataException("transaction priority can only be set after runner has been set");
+            }
+            runner.setPriority(priority);
             return this;
         }
 

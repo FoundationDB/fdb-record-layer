@@ -65,6 +65,8 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     private Map<String, String> mdcContext;
     @Nullable
     private FDBDatabase.WeakReadSemantics weakReadSemantics;
+    @Nonnull
+    private FDBTransactionPriority priority;
 
     private int maxAttempts;
     private long maxDelayMillis;
@@ -85,6 +87,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         this.timer = timer;
         this.mdcContext = mdcContext;
         this.weakReadSemantics = weakReadSemantics;
+        this.priority = FDBTransactionPriority.DEFAULT;
 
         final FDBDatabaseFactory factory = database.getFactory();
         this.maxAttempts = factory.getMaxAttempts();
@@ -153,6 +156,17 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         this.weakReadSemantics = weakReadSemantics;
     }
 
+    @Nonnull
+    @Override
+    public FDBTransactionPriority getPriority() {
+        return priority;
+    }
+
+    @Override
+    public void setPriority(@Nonnull FDBTransactionPriority priority) {
+        this.priority = priority;
+    }
+
     @Override
     public int getMaxAttempts() {
         return maxAttempts;
@@ -207,7 +221,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         if (closed) {
             throw new RunnerClosed();
         }
-        FDBRecordContext context = database.openContext(mdcContext, timer, weakReadSemantics);
+        FDBRecordContext context = database.openContext(mdcContext, timer, weakReadSemantics, priority);
         addContextToClose(context);
         return context;
     }

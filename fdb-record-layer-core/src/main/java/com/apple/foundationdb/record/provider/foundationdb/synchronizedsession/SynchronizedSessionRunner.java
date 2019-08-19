@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunnerImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import org.apache.commons.lang3.tuple.Pair;
@@ -218,6 +219,17 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     @Override
     public void setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
         underlying.setWeakReadSemantics(weakReadSemantics);
+    }
+
+    @Nonnull
+    @Override
+    public FDBTransactionPriority getPriority() {
+        return underlying.getPriority();
+    }
+
+    @Override
+    public void setPriority(@Nonnull FDBTransactionPriority priority) {
+        underlying.setPriority(priority);
     }
 
     @Override
