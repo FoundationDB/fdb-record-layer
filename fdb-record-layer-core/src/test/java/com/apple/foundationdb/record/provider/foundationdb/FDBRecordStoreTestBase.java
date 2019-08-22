@@ -115,17 +115,22 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         fdb = FDBDatabaseFactory.instance().getDatabase();
     }
 
-    protected void createOrOpenRecordStore(FDBRecordContext context, RecordMetaData metaData) {
-        recordStore = FDBRecordStore.newBuilder()
-                .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
-                .createOrOpen();
+    @Nonnull
+    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+        return FDBRecordStore.newBuilder()
+                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
+                .setKeySpacePath(path)
+                .setContext(context)
+                .setMetaDataProvider(metaData);
+    }
+
+    protected void createOrOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+        recordStore = getStoreBuilder(context, metaData).createOrOpen();
         setupPlanner(null);
     }
 
-    protected void uncheckedOpenRecordStore(FDBRecordContext context, RecordMetaData metaData) {
-        recordStore = FDBRecordStore.newBuilder()
-                .setContext(context).setKeySpacePath(path).setMetaDataProvider(metaData)
-                .uncheckedOpen();
+    protected void uncheckedOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+        recordStore = getStoreBuilder(context, metaData).uncheckedOpen();
         setupPlanner(null);
     }
 

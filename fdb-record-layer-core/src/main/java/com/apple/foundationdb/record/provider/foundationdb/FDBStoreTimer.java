@@ -327,6 +327,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_CHECK_SYNC_SESSION("wait for checking a synchronized session"),
         /** Wait for ending a synchronized session. */
         WAIT_END_SYNC_SESSION("wait for ending a synchronized session"),
+        /** Wait for editing a header user field. */
+        WAIT_EDIT_HEADER_USER_FIELD("wait to edit a header user field"),
         ;
 
         private final String title;

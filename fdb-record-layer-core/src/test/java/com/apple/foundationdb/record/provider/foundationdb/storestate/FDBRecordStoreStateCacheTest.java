@@ -25,7 +25,10 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
@@ -785,6 +788,50 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
 
         } finally {
             fdb.setStoreStateCache(storeStateCache);
+        }
+    }
+
+    /**
+     * Verify that updating a header user field will be updated if the store state is cached.
+     */
+    @ParameterizedTest(name = "cacheUserFields (test context = [0])")
+    @MethodSource("testContextSource")
+    public void cacheUserFields(@Nonnull StateCacheTestContext testContext) throws Exception {
+        FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
+        try {
+            fdb.setStoreStateCache(testContext.getCache(fdb));
+
+            FDBRecordStore.Builder storeBuilder;
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
+                assertTrue(recordStore.setStateCacheability(true));
+                storeBuilder = recordStore.asBuilder();
+                commit(context);
+            }
+
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                assertNull(recordStore.getHeaderUserField("expr"));
+                recordStore.setHeaderUserField("expr", Key.Expressions.field("parent").nest("child").toKeyExpression().toByteString());
+                commit(context);
+            }
+
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                assertNotNull(recordStore.getHeaderUserField("expr"));
+                KeyExpression expr = KeyExpression.fromProto(RecordMetaDataProto.KeyExpression.parseFrom(recordStore.getHeaderUserField("expr")));
+                assertEquals(Key.Expressions.field("parent").nest("child"), expr);
+                recordStore.clearHeaderUserField("expr");
+                commit(context);
+            }
+
+            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
+                openSimpleRecordStore(context);
+                assertNull(recordStore.getHeaderUserField("expr"));
+                commit(context);
+            }
+        } finally {
+            fdb.setStoreStateCache(origStoreStateCache);
         }
     }
 

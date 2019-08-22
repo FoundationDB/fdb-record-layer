@@ -68,8 +68,10 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
@@ -98,6 +100,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -110,7 +113,6 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.startsWith;
@@ -1779,7 +1781,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertThat(e.getMessage(), containsString("requires appropriate index"));
         }
 
-        RecordMetaDataHook hook = countKeyHook(Key.Expressions.field("num_value_3_indexed"), true, 10);
+        RecordMetaDataHook hook = countKeyHook(field("num_value_3_indexed"), true, 10);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -1834,7 +1836,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         AtomicInteger versionCounter = new AtomicInteger(recordStore.getRecordMetaData().getVersion());
         RecordMetaDataHook hook = md -> {
-            md.setRecordCountKey(Key.Expressions.field("num_value_3_indexed"));
+            md.setRecordCountKey(field("num_value_3_indexed"));
             md.setVersion(md.getVersion() + versionCounter.incrementAndGet());
         };
 
@@ -2351,6 +2353,138 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1).open();
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
+        }
+    }
+
+    /**
+     * Test that the user field can be set.
+     */
+    @Test
+    public void testAccessUserField() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertNull(recordStore.getHeaderUserField("foo"));
+            recordStore.setHeaderUserField("foo", "bar".getBytes(Charsets.UTF_8));
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertEquals("bar", recordStore.getHeaderUserField("foo").toStringUtf8());
+            RecordMetaDataProto.DataStoreInfo storeHeader = recordStore.getRecordStoreState().getStoreHeader();
+            assertEquals(1, storeHeader.getUserFieldCount());
+
+            // Validate that one can overwrite an existing value
+            recordStore.setHeaderUserField("foo", "µs".getBytes(Charsets.UTF_8));
+            storeHeader = recordStore.getRecordStoreState().getStoreHeader();
+            assertEquals(1, storeHeader.getUserFieldCount());
+
+            // Validate that one can add a new value
+            recordStore.setHeaderUserField("baz", field("baz").toKeyExpression().toByteString());
+            storeHeader = recordStore.getRecordStoreState().getStoreHeader();
+            assertEquals(2, storeHeader.getUserFieldCount());
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            // Read back the stored values
+            assertEquals("µs", recordStore.getHeaderUserField("foo").toStringUtf8());
+            ByteString bazValue = recordStore.getHeaderUserField("baz");
+            assertNotNull(bazValue);
+            KeyExpression expr = KeyExpression.fromProto(RecordMetaDataProto.KeyExpression.parseFrom(bazValue));
+            assertEquals(field("baz"), expr);
+
+            // Add in a new field
+            recordStore.setHeaderUserField("qwop", Tuple.from(1066L).pack());
+
+            // Delete the middle field
+            recordStore.clearHeaderUserField("baz");
+            assertNull(recordStore.getHeaderUserField("baz"));
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertEquals("µs", recordStore.getHeaderUserField("foo").toStringUtf8());
+            assertNull(recordStore.getHeaderUserField("baz"));
+            assertEquals(Tuple.from(1066L), Tuple.fromBytes(recordStore.getHeaderUserField("qwop").toByteArray()));
+            RecordMetaDataProto.DataStoreInfo storeHeader = recordStore.getRecordStoreState().getStoreHeader();
+            assertEquals(2, storeHeader.getUserFieldCount());
+            commit(context);
+        }
+    }
+
+    /**
+     * Test that accessing the header user fields at earlier format versions is disallowed.
+     */
+    @Test
+    public void testAccessUserFieldAtOldFormatVersion() {
+        final String expectedErrMsg = "cannot access header user fields at current format version";
+        final RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
+                .setKeySpacePath(path).setMetaDataProvider(metaData)
+                .setFormatVersion(FDBRecordStore.HEADER_USER_FIELDS_FORMAT_VERSION - 1);
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setContext(context).create();
+            RecordCoreException err = assertThrows(RecordCoreException.class,
+                    () -> recordStore.getHeaderUserField("foo"));
+            assertEquals(expectedErrMsg, err.getMessage());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setContext(context).open();
+            RecordCoreException err = assertThrows(RecordCoreException.class,
+                    () -> recordStore.setHeaderUserField("foo", "bar".getBytes(Charsets.UTF_8)));
+            assertEquals(expectedErrMsg, err.getMessage());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setFormatVersion(FDBRecordStore.INFO_ADDED_FORMAT_VERSION).setContext(context).open();
+            assertEquals(FDBRecordStore.HEADER_USER_FIELDS_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+            RecordCoreException err = assertThrows(RecordCoreException.class,
+                    () -> recordStore.clearHeaderUserField("foo"));
+            assertEquals(expectedErrMsg, err.getMessage());
+            commit(context);
+        }
+        // Now try upgrading the format version and validate that the fields can be read
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setFormatVersion(FDBRecordStore.HEADER_USER_FIELDS_FORMAT_VERSION)
+                    .setContext(context).open();
+            assertEquals(FDBRecordStore.HEADER_USER_FIELDS_FORMAT_VERSION, recordStore.getFormatVersion());
+            recordStore.setHeaderUserField("foo", "bar".getBytes(Charsets.UTF_8));
+            String val = recordStore.getHeaderUserField("foo").toStringUtf8();
+            assertEquals("bar", val);
+            recordStore.clearHeaderUserField("foo");
+            assertNull(recordStore.getHeaderUserField("foo"));
+            commit(context);
+        }
+    }
+
+    /**
+     * Test that when the store header user fields are updated, all other concurrent operations fail with a conflict.
+     */
+    @Test
+    public void testConflictIfUpdateUserHeaderField() throws Exception {
+        final String userField = "my_important_user_header_field";
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.setHeaderUserField(userField, ByteArrayUtil.encodeInt(1066L));
+            commit(context);
+        }
+
+        try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
+            openSimpleRecordStore(context1);
+            FDBRecordStore recordStore1 = recordStore;
+            openSimpleRecordStore(context2);
+            FDBRecordStore recordStore2 = recordStore;
+
+            recordStore1.setHeaderUserField(userField, ByteArrayUtil.encodeInt(1459L));
+            commit(context1);
+
+            // Need to save a record to make the conflict resolver actually check for conflicts
+            recordStore2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1776L)
+                    .build());
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context2::commit);
         }
     }
 
@@ -3169,7 +3303,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                             .setName("rec_no")
                             .setNumber(1))
                     .build();
-            metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType, Key.Expressions.field("rec_no")));
+            metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType, field("rec_no")));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertEquals(version + 1 , metaDataStore.getRecordMetaData().getVersion());
@@ -3232,30 +3366,49 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private long checkLastUpdateTimeUpdated(long previousUpdateTime, @Nullable RecordMetaDataHook metaDataHook, @Nonnull Consumer<FDBRecordStore> updateOperation) {
+        long updateTime;
+        try (FDBRecordContext context = openContext()) {
+            final long beforeOpenTime = System.currentTimeMillis();
+            assumeTrue(previousUpdateTime < beforeOpenTime, "time has not advanced since first update");
+            openSimpleRecordStore(context, metaDataHook);
+            updateOperation.accept(recordStore);
+            updateTime = recordStore.getRecordStoreState().getStoreHeader().getLastUpdateTime();
+            assertThat(updateTime, greaterThan(previousUpdateTime));
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            assertEquals(updateTime, recordStore.getRecordStoreState().getStoreHeader().getLastUpdateTime());
+        }
+        return updateTime;
+    }
+
+    /**
+     * Test that the various ways of updating a the store header all update the last updated time.
+     */
     @Test
-    public void updateLastUpdatedTime() throws Exception {
+    public void updateLastUpdatedTime() {
         RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", "num_value_2");
 
-        long firstUpdateTime;
-        int metaDataVersion;
-        try (FDBRecordContext context = openContext()) {
-            final long beforeOpenTime = System.currentTimeMillis();
-            openSimpleRecordStore(context);
-            metaDataVersion = recordStore.getRecordMetaData().getVersion();
-            firstUpdateTime = recordStore.getRecordStoreState().getStoreHeader().getLastUpdateTime();
-            assertThat(firstUpdateTime, greaterThanOrEqualTo(beforeOpenTime));
-            commit(context);
-        }
+        AtomicInteger metaDataVersion = new AtomicInteger();
+        long firstUpdateTime = checkLastUpdateTimeUpdated(0L, null, store -> metaDataVersion.set(store.getRecordMetaData().getVersion()));
 
-        try (FDBRecordContext context = openContext()) {
-            final long beforeOpenTime = System.currentTimeMillis();
-            assumeTrue(firstUpdateTime < beforeOpenTime, "time has not advanced since first update");
-            openSimpleRecordStore(context, hook);
-            assertEquals(metaDataVersion + 1, recordStore.getRecordMetaData().getVersion());
-            long secondUpdateTime = recordStore.getRecordStoreState().getStoreHeader().getLastUpdateTime();
-            assertThat(secondUpdateTime, greaterThan(firstUpdateTime));
-            commit(context);
-        }
+        // Update the meta-data to a new version
+        long secondUpdateTime = checkLastUpdateTimeUpdated(firstUpdateTime, hook,
+                store -> assertEquals(metaDataVersion.get() + 1, store.getRecordMetaData().getVersion()));
+
+        // Change the store state cacheability
+        long thirdUpdateTime = checkLastUpdateTimeUpdated(secondUpdateTime, hook,
+                store -> store.setStateCacheability(true));
+
+        // Set a header user field
+        long fourthUpdateTime = checkLastUpdateTimeUpdated(thirdUpdateTime, hook,
+                store -> store.setHeaderUserField("field_name", new byte[]{0x01, 0x2}));
+
+        // Clear a header user field
+        checkLastUpdateTimeUpdated(fourthUpdateTime, hook,
+                store -> store.clearHeaderUserField("field_name"));
     }
 
     /**
