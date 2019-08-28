@@ -648,7 +648,7 @@ public class FDBDatabase {
      */
     @Nonnull
     public FDBDatabaseRunner newRunner() {
-        return new FDBDatabaseRunner(this);
+        return new FDBDatabaseRunnerImpl(this);
     }
 
     /**
@@ -659,7 +659,7 @@ public class FDBDatabase {
      */
     @Nonnull
     public FDBDatabaseRunner newRunner(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext) {
-        return new FDBDatabaseRunner(this, timer, mdcContext);
+        return new FDBDatabaseRunnerImpl(this, timer, mdcContext);
     }
 
     /**
@@ -672,7 +672,7 @@ public class FDBDatabase {
     @Nonnull
     public FDBDatabaseRunner newRunner(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                        @Nullable WeakReadSemantics weakReadSemantics) {
-        return new FDBDatabaseRunner(this, timer, mdcContext, weakReadSemantics);
+        return new FDBDatabaseRunnerImpl(this, timer, mdcContext, weakReadSemantics);
     }
 
     /**

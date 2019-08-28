@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunnerInterface;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunnerImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
@@ -44,7 +44,7 @@ import java.util.function.Function;
 
 /**
  * <p>
- * An {@link FDBDatabaseRunnerInterface} implementation that performs all work in the context of a
+ * An {@link FDBDatabaseRunner} implementation that performs all work in the context of a
  * {@link SynchronizedSession}.
  * </p>
  * <p>
@@ -55,9 +55,9 @@ import java.util.function.Function;
  * @see SynchronizedSession
  */
 @API(API.Status.EXPERIMENTAL)
-public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
+public class SynchronizedSessionRunner implements FDBDatabaseRunner {
 
-    private FDBDatabaseRunner underlying;
+    private FDBDatabaseRunnerImpl underlying;
     private SynchronizedSession session;
 
 
@@ -77,7 +77,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
      */
     public static CompletableFuture<SynchronizedSessionRunner> startSessionAsync(@Nonnull Subspace lockSubspace,
                                                                                  long leaseLengthMill,
-                                                                                 @Nonnull FDBDatabaseRunner runner) {
+                                                                                 @Nonnull FDBDatabaseRunnerImpl runner) {
         final UUID newSessionId = UUID.randomUUID();
         SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId, leaseLengthMill);
         return runner.runAsync(context -> session.initializeSessionAsync(context.ensureActive()))
@@ -85,7 +85,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     }
 
     /**
-     * Synchronous/blocking version of {@link #startSessionAsync(Subspace, long, FDBDatabaseRunner)}.
+     * Synchronous/blocking version of {@link #startSessionAsync(Subspace, long, FDBDatabaseRunnerImpl)}.
      * @param lockSubspace the lock for which the session contends
      * @param leaseLengthMill length between last access and lease's end time in milliseconds
      * @param runner the underlying runner
@@ -93,7 +93,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
      */
     public static SynchronizedSessionRunner startSession(@Nonnull Subspace lockSubspace,
                                                          long leaseLengthMill,
-                                                         @Nonnull FDBDatabaseRunner runner) {
+                                                         @Nonnull FDBDatabaseRunnerImpl runner) {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION,
                 startSessionAsync(lockSubspace, leaseLengthMill, runner));
     }
@@ -111,12 +111,12 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     public static SynchronizedSessionRunner joinSession(@Nonnull Subspace lockSubspace,
                                                         @Nonnull UUID sessionId,
                                                         long leaseLengthMill,
-                                                        @Nonnull FDBDatabaseRunner runner) {
+                                                        @Nonnull FDBDatabaseRunnerImpl runner) {
         SynchronizedSession session = new SynchronizedSession(lockSubspace, sessionId, leaseLengthMill);
         return new SynchronizedSessionRunner(runner, session);
     }
 
-    private SynchronizedSessionRunner(@Nonnull FDBDatabaseRunner underlyingRunner,
+    private SynchronizedSessionRunner(@Nonnull FDBDatabaseRunnerImpl underlyingRunner,
                                       @Nonnull SynchronizedSession session) {
         this.underlying = underlyingRunner;
         this.session = session;
@@ -165,6 +165,10 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     public void endSession() {
         underlying.asyncToSync(FDBStoreTimer.Waits.WAIT_END_SYNC_SESSION, endSessionAsync());
     }
+
+
+    // The other methods below simply delegate to the implementations of the underlying runner, including the three
+    // methods that create SynchronizedSessionRunner.
 
     @Override
     @Nonnull
@@ -288,5 +292,20 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     @Override
     public void close() {
         underlying.close();
+    }
+
+    @Override
+    public CompletableFuture<SynchronizedSessionRunner> startSynchronizedSessionAsync(@Nonnull Subspace lockSubspace, long leaseLengthMillis) {
+        return underlying.startSynchronizedSessionAsync(lockSubspace, leaseLengthMillis);
+    }
+
+    @Override
+    public SynchronizedSessionRunner startSynchronizedSession(@Nonnull Subspace lockSubspace, long leaseLengthMillis) {
+        return underlying.startSynchronizedSession(lockSubspace, leaseLengthMillis);
+    }
+
+    @Override
+    public SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {
+        return underlying.joinSynchronizedSession(lockSubspace, sessionId, leaseLengthMillis);
     }
 }
