@@ -24,26 +24,36 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import com.google.common.base.Strings;
+import com.google.common.base.Utf8;
+import com.google.common.collect.ImmutableList;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
-
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,10 +66,37 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordContextTest extends FDBTestBase {
+    // A list of transaction IDs where the left item is the original ID and the right item is the expected
+    // sanitized ID. It is a list of pairs rather than a map to support null as the expected value.
+    @Nonnull
+    private static final List<Pair<String, String>> trIds;
     private static final int ERR_CODE_READ_VERSION_ALREADY_SET = 2010;
     @Nonnull
     private static final FDBDatabase.WeakReadSemantics UNLIMITED_STALE_READ = new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true);
     protected FDBDatabase fdb;
+
+    static {
+        final ImmutableList.Builder<Pair<String, String>> listBuilder = ImmutableList.builder();
+        listBuilder.add(Pair.of("my_fake_tr_id", "my_fake_tr_id"));
+
+        // There is a maximum length allowed on transaction IDs. Ensure that if the user-specified ID is too
+        // long that that doesn't propagate its way down to FDB.
+        final String longString = Strings.repeat("id_", 200);
+        listBuilder.add(Pair.of(longString, longString.substring(0, 97) + "..."));
+
+        // Try a string with non-ASCII characters, though that isn't necessarily advised.
+        final String nonAsciiString = "универсальный уникальный идентификатор";
+        assertThat(Utf8.encodedLength(nonAsciiString), lessThanOrEqualTo(100));
+        listBuilder.add(Pair.of(nonAsciiString, nonAsciiString));
+
+        // A long string like this is not truncatable as it contains non-ASCII characters, so it should instead
+        // be set to null by the sanitizer.
+        final String longNonAsciiString = nonAsciiString + " " + nonAsciiString;
+        assertThat(longNonAsciiString.length(), lessThanOrEqualTo(100));
+        assertThat(Utf8.encodedLength(longNonAsciiString), greaterThan(100));
+        listBuilder.add(Pair.of(longNonAsciiString, null));
+        trIds = listBuilder.build();
+    }
 
     @BeforeEach
     public void getFDB() {
@@ -274,6 +311,101 @@ public class FDBRecordContextTest extends FDBTestBase {
         try (FDBRecordContext context = fdb.openContext(null, timer, UNLIMITED_STALE_READ)) {
             assertEquals(firstReadVersion, context.getReadVersion());
             assertEquals(0, timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION));
+        }
+    }
+
+    @ParameterizedTest(name = "setTrIdThroughMdc [traced = {0}]")
+    @BooleanSource
+    public void setTrIdThroughMdc(boolean traced) {
+        final FDBDatabaseFactory factory = fdb.getFactory();
+        final Supplier<Boolean> oldTrIsTracedSupplier = factory.getTransactionIsTracedSupplier();
+        factory.clear(); // clear out caches from cluster files to databases
+        try {
+            factory.setTransactionIsTracedSupplier(() -> traced);
+            fdb = factory.getDatabase(fdb.getClusterFile());
+            for (Pair<String, String> idPair : trIds) {
+                final String trId = idPair.getLeft();
+                final String expectedId = idPair.getRight();
+                Map<String, String> fakeMdc = Collections.singletonMap("uuid", trId);
+                try (FDBRecordContext context = fdb.openContext(fakeMdc, null)) {
+                    assertThat(context.getMdcContext(), hasEntry("uuid", trId));
+                    assertEquals(traced && expectedId != null, context.isLogged());
+                    context.ensureActive().getReadVersion().join();
+                    assertEquals(expectedId, context.getTransactionId());
+                    context.commit();
+                } catch (RuntimeException e) {
+                    fail("unable to set id to " + trId, e);
+                }
+            }
+        } finally {
+            factory.setTransactionIsTracedSupplier(oldTrIsTracedSupplier);
+            factory.clear();
+        }
+    }
+
+    @ParameterizedTest(name = "setTrIdThroughMethod [logged = {0}]")
+    @BooleanSource
+    public void setTrIdThroughMethod(boolean logged) {
+        for (Pair<String, String> idPair : trIds) {
+            final String trId = idPair.getLeft();
+            final String expectedId = idPair.getRight();
+            try (FDBRecordContext context = fdb.openContext(null, null, null, FDBTransactionPriority.DEFAULT, trId)) {
+                if (expectedId != null && logged) {
+                    context.logTransaction();
+                }
+                context.ensureActive().getReadVersion().join();
+                assertEquals(expectedId, context.getTransactionId());
+                assertEquals(logged && expectedId != null, context.isLogged());
+                context.commit();
+            } catch (RuntimeException e) {
+                fail("unable to set id to " + trId, e);
+            }
+        }
+    }
+
+    @ParameterizedTest(name = "setTrIdThroughParameterEvenIfInMdc [logged = {0}]")
+    @BooleanSource
+    public void setIdThroughParameterEvenIfInMdc(boolean logged) {
+        final Map<String, String> fakeMdc = Collections.singletonMap("uuid", "id_in_mdc");
+        try (FDBRecordContext context = fdb.openContext(fakeMdc, null, null, FDBTransactionPriority.DEFAULT, "id_in_param")) {
+            assertEquals("id_in_param", context.getTransactionId());
+            assertThat(context.getMdcContext(), hasEntry("uuid", "id_in_mdc"));
+            if (logged) {
+                context.logTransaction();
+            }
+            context.ensureActive().getReadVersion().join();
+            context.commit();
+        }
+    }
+
+    @Test
+    public void logWithoutSettingId() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            RecordCoreException err = assertThrows(RecordCoreException.class, context::logTransaction);
+            assertEquals("Cannot log transaction as ID is not set", err.getMessage());
+            context.ensureActive().getReadVersion().join();
+            context.commit();
+        }
+    }
+
+    @Test
+    public void logTwice() {
+        try (FDBRecordContext context = fdb.openContext(null, null, null, FDBTransactionPriority.DEFAULT, "logTransactionTwice")) {
+            context.logTransaction();
+            context.logTransaction();
+            context.ensureActive().getReadVersion().join();
+            context.commit();
+        }
+    }
+
+    @Test
+    public void logTransactionAfterGettingAReadVersion() {
+        try (FDBRecordContext context = fdb.openContext(null, null, null, FDBTransactionPriority.DEFAULT, "logTransactionAfterGrv")) {
+            context.ensureActive().getReadVersion().join();
+            context.logTransaction();
+            Subspace fakeSubspace = new Subspace(Tuple.from(UUID.randomUUID()));
+            context.ensureActive().addWriteConflictRange(fakeSubspace.range().begin, fakeSubspace.range().end);
+            context.commit();
         }
     }
 }
