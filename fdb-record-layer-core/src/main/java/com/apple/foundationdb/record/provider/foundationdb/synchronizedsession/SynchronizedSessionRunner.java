@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunnerInte
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -44,14 +45,14 @@ import java.util.function.Function;
 /**
  * <p>
  * An {@link FDBDatabaseRunnerInterface} implementation that performs all work in the context of a
- * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+ * {@link SynchronizedSession}.
  * </p>
  * <p>
  * For all variations of {@code run} and {@code runAsync} methods, the work in the {@code retriable} lambda
  * is wrapped by calls that check locks and update leases to ensure that two synchronized sessions are not
  * concurrently running at the same time.
  * </p>
- * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
+ * @see SynchronizedSession
  */
 @API(API.Status.EXPERIMENTAL)
 public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
@@ -63,7 +64,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
     /**
      * <p>
      * Produces a new runner, wrapping a given runner, which performs all work in the context of a new
-     * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * {@link SynchronizedSession}.
      * </p>
      * <p>
      * The returned runner will have acquired and started the lease, so care must be taken to ensure that
@@ -100,7 +101,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunnerInterface {
 
     /**
      * Produces a new runner, wrapping a given runner, which performs all work in the context of an existing
-     * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * {@link SynchronizedSession}.
      * @param lockSubspace the lock for which the session contends
      * @param sessionId session ID
      * @param leaseLengthMill length between last access and lease's end time in milliseconds

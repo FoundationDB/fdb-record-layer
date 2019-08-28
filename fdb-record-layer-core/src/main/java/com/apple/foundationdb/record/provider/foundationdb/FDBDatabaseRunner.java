@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -404,7 +405,7 @@ public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
     /**
      * <p>
      * Produces a new runner, wrapping this runner, which performs all work in the context of a new
-     * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * {@link SynchronizedSession}.
      * </p>
      * <p>
      * The returned runner will have acquired and started the lease, so care must be taken to ensure that
@@ -413,7 +414,7 @@ public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
      * @param lockSubspace the lock for which the session contends
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
      * @return a future that will return a runner maintaining a new synchronized session
-     * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
+     * @see SynchronizedSession
      */
     @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<SynchronizedSessionRunner> startSynchronizedSessionAsync(@Nonnull Subspace lockSubspace, long leaseLengthMillis) {
@@ -433,12 +434,12 @@ public class FDBDatabaseRunner implements FDBDatabaseRunnerInterface {
 
     /**
      * Produces a new runner, wrapping this runner, which performs all work in the context of an existing
-     * {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession}.
+     * {@link SynchronizedSession}.
      * @param lockSubspace the lock for which the session contends
      * @param sessionId session ID
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
      * @return a runner maintaining a existing synchronized session
-     * @see com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSession
+     * @see SynchronizedSession
      */
     @API(API.Status.EXPERIMENTAL)
     public SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {

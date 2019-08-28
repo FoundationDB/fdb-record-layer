@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.synchronizedsession;
+package com.apple.foundationdb.synchronizedsession;
 
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
@@ -26,7 +26,6 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -64,12 +63,8 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * {@link #initializeSessionAsync} should be used when initializing a session to acquire the lock, while
  * {@link #checkLockAsync(Transaction)} and {@link #updateLockSessionLeaseEndTime(Transaction)} should be used in every
- * other transactions to check the lock and keep the lease. Please refer to {@link SynchronizedSessionRunner} for an
- * example of using {@link SynchronizedSession} in practice.
- * </p>
- * <p>
- * TODO: This class should be moved to {@link com.apple.foundationdb.synchronizedsession} in {@code fdb-extensions}
- * after {@code org.slf4j} is added as a dependency in next minor version.
+ * other transactions to check the lock and keep the lease. Please refer to <code>SynchronizedSessionRunner</code> in
+ * <code>fdb-record-layer-core</code> for an example of using {@link SynchronizedSession} in practice.
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)

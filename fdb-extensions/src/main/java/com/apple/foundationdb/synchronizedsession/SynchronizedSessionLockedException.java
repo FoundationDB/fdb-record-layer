@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 /**
  * This exception means that the synchronized session is not valid anymore, probably because another synchronized session
  * on the same lock is running.
- * TODO @see SynchronizedSession
+ * @see SynchronizedSession
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("serial")
