@@ -38,9 +38,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * <p>
  * A context for running against an {@link FDBDatabase} with retrying of transient exceptions.
- * </p>
  *
  * <p>
  * Implements {@link #run} and {@link #runAsync} methods for executing functions in a new {@link FDBRecordContext} and returning their result.
@@ -62,7 +60,7 @@ import java.util.function.Function;
  *
  * @see FDBDatabase
  */
-@API(API.Status.INTERNAL)
+@API(API.Status.MAINTAINED)
 public interface FDBDatabaseRunner extends AutoCloseable {
     /**
      * Get the database against which functions are run.
@@ -206,7 +204,9 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return result of function after successful run and commit
      * @see #runAsync(Function)
      */
-    <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable);
+    default <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
+        return run(retriable, null);
+    }
 
     /**
      * Runs a transactional function against with retry logic.
@@ -234,7 +234,9 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @see #run(Function)
      */
     @Nonnull
-    <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable);
+    default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
+        return runAsync(retriable, Pair::of);
+    }
 
     /**
      * Runs a transactional function asynchronously with retry logic.
@@ -249,8 +251,10 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @see #run(Function)
      */
     @Nonnull
-    <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                      @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction);
+    default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                              @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
+        return runAsync(retriable, handlePostTransaction, null);
+    }
 
     /**
      * Runs a transactional function asynchronously with retry logic.
@@ -287,10 +291,8 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     void close();
 
     /**
-     * <p>
      * Produces a new runner, wrapping this runner, which performs all work in the context of a new
      * {@link SynchronizedSession}.
-     * </p>
      * <p>
      * The returned runner will have acquired and started the lease, so care must be taken to ensure that
      * work begins before the lease expiration period.
@@ -325,7 +327,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis);
 
     /**
-     * Exception thrown when {@link FDBDatabaseRunnerImpl} has been closed but tries to do work.
+     * Exception thrown when {@link FDBDatabaseRunner} has been closed but tries to do work.
      */
     @SuppressWarnings("serial")
     class RunnerClosed extends RecordCoreException {

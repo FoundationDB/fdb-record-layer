@@ -40,7 +40,7 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support synchronized sessions, where only one of them are allowed to work at a time [(Issue #637)](https://github.com/FoundationDB/fdb-record-layer/issues/637)
+* **Feature** Support synchronized sessions, where only one of them is allowed to work at a time [(Issue #637)](https://github.com/FoundationDB/fdb-record-layer/issues/637)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

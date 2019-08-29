@@ -43,10 +43,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * <p>
  * An {@link FDBDatabaseRunner} implementation that performs all work in the context of a
  * {@link SynchronizedSession}.
- * </p>
  * <p>
  * For all variations of {@code run} and {@code runAsync} methods, the work in the {@code retriable} lambda
  * is wrapped by calls that check locks and update leases to ensure that two synchronized sessions are not
@@ -62,10 +60,8 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
 
 
     /**
-     * <p>
      * Produces a new runner, wrapping a given runner, which performs all work in the context of a new
      * {@link SynchronizedSession}.
-     * </p>
      * <p>
      * The returned runner will have acquired and started the lease, so care must be taken to ensure that
      * work begins before the lease expiration period.
@@ -166,6 +162,16 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
         underlying.asyncToSync(FDBStoreTimer.Waits.WAIT_END_SYNC_SESSION, endSessionAsync());
     }
 
+    @Override
+    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable, @Nullable List<Object> additionalLogMessageKeyValues) {
+        return underlying.run(runInSession(retriable), additionalLogMessageKeyValues);
+    }
+
+    @Override
+    @Nonnull
+    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable, @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction, @Nullable List<Object> additionalLogMessageKeyValues) {
+        return underlying.runAsync(runInSessionAsync(retriable), handlePostTransaction, additionalLogMessageKeyValues);
+    }
 
     // The other methods below simply delegate to the implementations of the underlying runner, including the three
     // methods that create SynchronizedSessionRunner.
@@ -253,34 +259,6 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     @Nonnull
     public FDBRecordContext openContext() {
         return underlying.openContext();
-    }
-
-    @Override
-    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
-        return underlying.run(runInSession(retriable));
-    }
-
-    @Override
-    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable, @Nullable List<Object> additionalLogMessageKeyValues) {
-        return underlying.run(runInSession(retriable), additionalLogMessageKeyValues);
-    }
-
-    @Override
-    @Nonnull
-    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
-        return underlying.runAsync(runInSessionAsync(retriable));
-    }
-
-    @Override
-    @Nonnull
-    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable, @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
-        return underlying.runAsync(runInSessionAsync(retriable), handlePostTransaction);
-    }
-
-    @Override
-    @Nonnull
-    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable, @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction, @Nullable List<Object> additionalLogMessageKeyValues) {
-        return underlying.runAsync(runInSessionAsync(retriable), handlePostTransaction, additionalLogMessageKeyValues);
     }
 
     @Override

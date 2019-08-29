@@ -26,7 +26,6 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LogMessageKeys;
@@ -39,26 +38,25 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * <p>
- * {@link SynchronizedSession} is a concept introduced to avoid multiple attempts (an attempt contains multiple
- * transactions running concurrently and/or consecutively) working together. Each attempt corresponds to a session
- * identified by a session ID. Of the sessions with the same lock subspace, only the one holds the lock is allowed to
- * work.
- * </p>
+ * A {@code SynchronizedSession} is a concept introduced to avoid multiple attempts at performing the same operation
+ * (with each attempt opening multiple transactions running concurrently and/or consecutively) from running concurrently
+ * and contending for resources. Each attempt corresponds to a session identified by a session ID. Of the sessions with
+ * the same lock subspace, only the one holding the lock is allowed to work.
  * <p>
  * Each session should and should only try to acquire the lock when the session is initialized.
  * </p>
  * <p>
- * When a session holds the lock, it is protected to hold it for an extended length of time (a.k.a lease). Another new
- * session can only take lock if the lease of the original lock owner is outdated. (Note a session is allowed to work
- * even if its lease is outdated, as long as no other session takes its lock.) In order to keep the lease, every time a
- * session is used, it needs to update the lease's end time to something a period (configured by
- * {@code leaseLengthMillis}) later than current time.
+ * When a session holds the lock, it is protected from other sessions grabbing the same lock for an extended length of
+ * time (a.k.a lease). Another new session can only take lock if the lease of the original lock owner is outdated. (Note
+ * a session is allowed to work even if its lease is outdated, as long as no other session takes its lock.) In order to
+ * keep the lease, every time a session is used, it needs to update the lease's end time to some time (configured by
+ * {@code leaseLengthMillis}) later than current time. (The lease time is used only as an optimization.
+ * {@link SynchronizedSession} does not depend on synchronized clocks for the correctness of mutual exclusion.)
  * </p>
  * <p>
- * If a session is not able to acquire the lock during the initialization or lost the lock during work later, it will
- * get a {@link SynchronizedSessionLockedException}. The session is considered ended when it gets a such exception. It
- * can neither try to acquire the lock again nor commit any work.
+ * If a session is not able to acquire the lock during the initialization or loses the lock later, it will get a
+ * {@link SynchronizedSessionLockedException}. The session is considered ended when it gets a such exception. It can
+ * neither try to acquire the lock again nor commit any work.
  * </p>
  * <p>
  * {@link #initializeSessionAsync} should be used when initializing a session to acquire the lock, while
@@ -90,8 +88,8 @@ public class SynchronizedSession {
     private static final Object LOCK_SESSION_TIME_KEY = 1L;
 
     /**
-     * Construct a session. Remember to {@link #initializeSessionAsync(Transaction)} if the {@code sessionId} is newly
-     * generated.
+     * Construct a session. Remember to call {@link #initializeSessionAsync(Transaction)} if the {@code sessionId} is
+     * newly generated.
      * @param lockSubspace the lock for which this session contends
      * @param sessionId session ID
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
@@ -177,14 +175,14 @@ public class SynchronizedSession {
     }
 
     /**
-     * End the session by releasing the lock if it still holds the lock. Do thing otherwise.
+     * End the session by releasing the lock if it still holds the lock. Do nothing otherwise.
      * @param tr transaction to use
      * @return a future that will return {@code null} when the lock is no longer this session
      */
     public CompletableFuture<Void> releaseLock(@Nonnull Transaction tr) {
         return getLockSessionId(tr).thenApply(lockSessionId -> {
             if (sessionId.equals(lockSessionId)) {
-                tr.clear(lockSubspace.pack(), ByteArrayUtil.strinc(lockSubspace.pack()));
+                tr.clear(lockSubspace.range());
             }
             return null;
         });

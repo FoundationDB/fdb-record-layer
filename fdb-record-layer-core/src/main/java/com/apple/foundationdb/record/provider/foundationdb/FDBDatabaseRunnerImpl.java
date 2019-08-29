@@ -346,28 +346,10 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     @Override
-    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
-        return run(retriable, null);
-    }
-
-    @Override
     @API(API.Status.EXPERIMENTAL)
     public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
                      @Nullable List<Object> additionalLogMessageKeyValues) {
         return new RunRetriable<T>(additionalLogMessageKeyValues).run(retriable);
-    }
-
-    @Override
-    @Nonnull
-    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
-        return runAsync(retriable, Pair::of);
-    }
-
-    @Override
-    @Nonnull
-    public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
-        return runAsync(retriable, handlePostTransaction, null);
     }
 
     @Override
