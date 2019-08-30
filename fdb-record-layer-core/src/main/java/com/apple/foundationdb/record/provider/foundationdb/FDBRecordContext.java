@@ -58,6 +58,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -936,6 +937,19 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     public byte[] removeVersionMutation(@Nonnull byte[] key) {
         Pair<MutationType, byte[]> existingValue = versionMutationCache.remove(key);
         return existingValue != null ? existingValue.getRight() : null;
+    }
+
+    public byte[] updateVersionMutation(@Nonnull MutationType mutationType, @Nonnull byte[] key, @Nonnull byte[] value,
+                                        @Nonnull BiFunction<byte[], byte[], byte[]> remappingFunction) {
+        Pair<MutationType, byte[]> valuePair = Pair.of(mutationType, value);
+        return versionMutationCache.merge(key, valuePair, (origPair, newPair) -> {
+            if (origPair.getLeft().equals(newPair.getLeft())) {
+                byte[] newValue = remappingFunction.apply(origPair.getRight(), newPair.getRight());
+                return newValue == null ? null : Pair.of(origPair.getLeft(), newValue);
+            } else {
+                throw new RecordCoreArgumentException("cannot update mutation type for versionstamp operation");
+            }
+        }).getRight();
     }
 
     public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {

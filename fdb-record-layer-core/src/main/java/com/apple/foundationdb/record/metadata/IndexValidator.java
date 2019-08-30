@@ -107,6 +107,30 @@ public class IndexValidator {
         }
     }
 
+    protected void validateVersionInGroupedKeys() {
+        KeyExpression key = index.getRootExpression();
+        validateGrouping(1);
+        if (key instanceof GroupingKeyExpression) {
+            GroupingKeyExpression grouping = (GroupingKeyExpression)key;
+            KeyExpression groupingKey = grouping.getGroupingSubKey();
+            if (groupingKey.versionColumns() != 0) {
+                throw new KeyExpression.InvalidExpressionException(
+                        String.format("there must be no version entries in grouping key in %s index",
+                                index.getType()),
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        LogMessageKeys.INDEX_KEY, key);
+            }
+            final KeyExpression groupedKey = grouping.getGroupedSubKey();
+            if (groupedKey.versionColumns() != 1) {
+                throw new KeyExpression.InvalidExpressionException(
+                        String.format("there must be exactly 1 version entry in grouped key in %s index",
+                                index.getType()),
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        LogMessageKeys.INDEX_KEY, key);
+            }
+        }
+    }
+
     protected void validateNotUnique() {
         if (index.isUnique()) {
             throw new MetaDataException(String.format(

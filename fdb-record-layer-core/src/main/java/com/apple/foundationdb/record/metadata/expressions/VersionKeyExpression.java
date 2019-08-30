@@ -47,7 +47,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     public static final RecordMetaDataProto.KeyExpression VERSION_PROTO =
             RecordMetaDataProto.KeyExpression.newBuilder().setVersion(VERSION.toProto()).build();
 
-    private static final GroupingKeyExpression UNGROUPED = new GroupingKeyExpression(new VersionKeyExpression(), 0);
+    private static final GroupingKeyExpression UNGROUPED = new GroupingKeyExpression(new VersionKeyExpression(), 1);
 
     private VersionKeyExpression() {
         // nothing to initialize
@@ -84,6 +84,10 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
         return UNGROUPED;
     }
 
+    @Nonnull
+    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+        return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
+    }
 
     @Nonnull
     @Override

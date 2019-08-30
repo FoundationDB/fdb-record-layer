@@ -102,6 +102,27 @@ public class IndexTypes {
     public static final String MAX_EVER_LONG = FunctionNames.MAX_EVER + "_long";
 
     /**
+     * An index remembering the maximum ever value stored where one column is the
+     * {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion record version}.
+     * This can be used to detect if there have been any changes to the record store or to subsections
+     * of the record store (if there are grouping columns included in the index definition).
+     *
+     * <p>
+     * This index is like {@link #MAX_EVER_TUPLE} except that the expression may contain exactly
+     * one aggregated column that contains a
+     * {@link com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression VersionKeyExpression}
+     * with one caveat. If a record is written with an incomplete version-stamp, then the aggregate index
+     * entry is guaranteed to be updated to include the value from that record. For example, if there
+     * are two columns defined as part of the index, and the first corresponds to an integer field while the
+     * second corresponds to the record version, then the value stored by this index may go backwards
+     * if, for example, one stores a record where the first field has value 2 and has an incomplete
+     * version-stamp and then, in a separate transaction, one stores a record with the first field has
+     * value 1 and has an incomplete version-stamp.
+     * </p>
+     */
+    public static final String MAX_EVER_VERSION = FunctionNames.MAX_EVER + "_version";
+
+    /**
      * A ranked set index, allowing efficient rank and select operations.
      */
     public static final String RANK = "rank";

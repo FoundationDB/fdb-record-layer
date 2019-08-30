@@ -42,7 +42,7 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Support synchronized sessions, where only one of them is allowed to work at a time [(Issue #637)](https://github.com/FoundationDB/fdb-record-layer/issues/637)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** The new `MAX_EVER_VERSION` index type tracks the maximum ever value for key expressions including a record's version [(Issue #670)](https://github.com/FoundationDB/fdb-record-layer/issues/670)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** `FDBDatabaseRunner` is changed to an interface, which can be contructed by `FDBDatabaseRunnerImpl` [(Issue #637)](https://github.com/FoundationDB/fdb-record-layer/issues/637)

@@ -121,7 +121,8 @@ public interface AtomicMutation {
         MIN_EVER_TUPLE(MutationType.BYTE_MIN),
         // MutationType.MAX and MIN do little-endian unsigned comparison, which only works for long (and only if you disallow negatives).
         MAX_EVER_LONG(MutationType.MAX),
-        MIN_EVER_LONG(MutationType.MIN);
+        MIN_EVER_LONG(MutationType.MIN),
+        MAX_EVER_VERSION(MutationType.SET_VERSIONSTAMPED_VALUE);
 
         @Nonnull
         private final MutationType mutationType;
@@ -185,6 +186,15 @@ public interface AtomicMutation {
                         lval = numVal.longValue();
                         return encodeUnsignedLong(lval);
                     }
+                case MAX_EVER_VERSION:
+                    if (remove) {
+                        return null; // _EVER, so cannot undo
+                    }
+                    if (entry.getKey().hasIncompleteVersionstamp()) {
+                        return entry.getKey().packWithVersionstamp();
+                    } else {
+                        return entry.getKey().pack();
+                    }
                 default:
                     return entry.getKey().pack();
             }
@@ -231,6 +241,7 @@ public interface AtomicMutation {
                     return (min, tuple) -> min == null || min.compareTo(tuple) > 0 ? tuple : min;
                 case MAX_EVER_LONG:
                 case MAX_EVER_TUPLE:
+                case MAX_EVER_VERSION:
                     return (max, tuple) -> max == null || max.compareTo(tuple) < 0 ? tuple : max;
                 default:
                     return (accum, tuple) -> {
@@ -286,6 +297,7 @@ public interface AtomicMutation {
                 case COUNT_NOT_NULL:
                 case MAX_EVER_TUPLE:
                 case MIN_EVER_TUPLE:
+                case MAX_EVER_VERSION:
                     return false;
                 default:
                     return true;
