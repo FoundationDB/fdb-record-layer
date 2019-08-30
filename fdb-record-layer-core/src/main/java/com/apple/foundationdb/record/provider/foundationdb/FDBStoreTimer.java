@@ -301,6 +301,12 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_GET_BOUNDARY("wait for boundary result from locality api"),
         /** Wait for setting the store state cacheability. */
         WAIT_SET_STATE_CACHEABILITY("wait to set state cacheability"),
+        /** Wait for initializing a synchronized session. */
+        WAIT_INIT_SYNC_SESSION("wait for initializing a synchronized session"),
+        /** Wait for checking a synchronized session. */
+        WAIT_CHECK_SYNC_SESSION("wait for checking a synchronized session"),
+        /** Wait for ending a synchronized session. */
+        WAIT_END_SYNC_SESSION("wait for ending a synchronized session"),
         ;
 
         private final String title;

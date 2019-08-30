@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Tests for {@link FDBDatabaseRunner}.
+ * Tests for {@link FDBDatabaseRunner} and {@link FDBDatabaseRunnerImpl}.
  */
 @Tag(Tags.RequiresFDB)
 public class FDBDatabaseRunnerTest extends FDBTestBase {
@@ -375,7 +375,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             FDBDatabaseFactory.instance().setExecutor(new FDBRecordContext.ContextRestoringExecutor(
                     new ForkJoinPool(2), ImmutableMap.of("executor", "Water Bear")));
             AtomicInteger attempts = new AtomicInteger(0);
-            final FDBDatabaseRunner runner = new FDBDatabaseRunner(database, null, restored);
+            final FDBDatabaseRunner runner = new FDBDatabaseRunnerImpl(database, null, restored);
             List<Map<String, String>> threadContexts = new Vector<>();
             Consumer<String> saveThreadContext =
                     name -> threadContexts.add(threadContextPlus(name, attempts.get(), ThreadContext.getContext()));

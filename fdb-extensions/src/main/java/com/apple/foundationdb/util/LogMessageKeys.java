@@ -30,7 +30,13 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.UNSTABLE)
 public enum LogMessageKeys {
-    SUBSPACE("subspace");
+    SUBSPACE("subspace"),
+
+    // synchronized session
+    SESSION_ID("session_id"),
+    EXISTING_SESSION("existing_session"),
+    EXISTING_SESSION_EXPIRE_TIME("existing_session_expire_time"),
+    ;
 
     private final String logKey;
 
