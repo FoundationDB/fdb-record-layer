@@ -187,6 +187,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
+    @Nonnull
+    private CompletableFuture<Void> injectLatency(@Nonnull FDBLatencySource latencySource) {
+        return instrument(latencySource.getTimerEvent(), database.injectLatency(latencySource));
+    }
+
     /**
      * Commit an open transaction.
      */
@@ -248,7 +253,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * Returns a commit that may be delayed due to latency injection.
      */
     private CompletableFuture<Void> delayedCommit() {
-        return database.injectLatency(FDBLatencySource.COMMIT_ASYNC).thenCompose(vignore -> transaction.commit());
+        return injectLatency(FDBLatencySource.COMMIT_ASYNC).thenCompose(vignore -> transaction.commit());
     }
 
     @Override
@@ -292,14 +297,15 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     /**
      * Get the read version used by this transaction. All reads to the database will include only changes that
-     * were committed at this version or smaller. If the read version has not already been set, this
-     * may require talking to the database. If the read version has already been set, then this will return
+     * were committed at this version or smaller. If the read version has not already been set or gotten, this
+     * may require talking to the database. If the read version has already been set or gotten, then this will return
      * with an already completed future.
      *
      * <p>
      * Note that this method is {@code synchronized}, but only creating the future (<em>not</em> waiting on
      * the future) will block other threads. Thus, while it is advised that this method ony be called once
-     * and by only one caller at a time, if it safe to use this method in asynchronous contexts.
+     * and by only one caller at a time, if it safe to use this method in asynchronous contexts. If this method is
+     * called multiple times, then the same future will be returned each time.
      * </p>
      *
      * @return a future that will contain the read version of this transaction
@@ -310,28 +316,28 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         if (readVersionFuture != null) {
             return readVersionFuture;
         }
-        final Transaction tr = ensureActive();
+        ensureActive(); // call ensure active here so that we don't inject latency on inactive contexts
         long startTimeMillis = System.currentTimeMillis();
         long startTimeNanos = System.nanoTime();
-        CompletableFuture<Long> localReadVersionFuture = database.injectLatency(FDBLatencySource.GET_READ_VERSION)
-                .thenCompose(ignore -> tr.getReadVersion())
+        CompletableFuture<Long> localReadVersionFuture = injectLatency(FDBLatencySource.GET_READ_VERSION)
+                .thenCompose(ignore -> ensureActive().getReadVersion())
                 .thenApply(newReadVersion -> {
                     readVersion = newReadVersion;
                     if (database.isTrackLastSeenVersionOnRead()) {
                         database.updateLastSeenFDBVersion(startTimeMillis, newReadVersion);
                     }
+                    if (timer != null) {
+                        timer.record(FDBStoreTimer.Events.GET_READ_VERSION, System.nanoTime() - startTimeNanos);
+                    }
                     return newReadVersion;
                 });
-        if (getTimer() != null) {
-            localReadVersionFuture = getTimer().instrument(FDBStoreTimer.Events.GET_READ_VERSION, localReadVersionFuture, getExecutor(), startTimeNanos);
-        }
         readVersionFuture = localReadVersionFuture;
         return localReadVersionFuture;
     }
 
     /**
      * Get the read version used by this transaction. This is a synchronous version of {@link #getReadVersionAsync()}.
-     * Note that if the read version has already been set (either by calling {@link #setReadVersion(long)} or
+     * Note that if the read version has already been set or gotten (either by calling {@link #setReadVersion(long)} or
      * {@link #getReadVersionAsync()} or this method), then the previously set read version is returned immediately,
      * and this method will not block. One can check if the read version has already been set by calling
      * {@link #hasReadVersion()}.

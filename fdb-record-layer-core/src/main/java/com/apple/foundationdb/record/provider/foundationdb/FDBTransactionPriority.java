@@ -48,9 +48,9 @@ public enum FDBTransactionPriority {
      */
     DEFAULT,
     /**
-     * The priority level for system operations. This is used within internally within FoundationDB for operations
-     * that must complete immediately for all operations, and it bypasses any rate limiting. For this reason, it
-     * should generally <em>not</em> be used by users of the system, and it is included mainly for completeness.
+     * The priority level for system operations. This is used internally within FoundationDB for operations that must
+     * complete immediately for all operations, and it bypasses any rate limiting. For this reason, it should
+     * generally <em>not</em> be used by users of the system, and it is included mainly for completeness.
      */
     SYSTEM_IMMEDIATE
 }

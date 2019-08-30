@@ -319,10 +319,19 @@ public class FDBDatabaseTest extends FDBTestBase {
                 requestedLatency -> requestedLatency == latencySource ? expectedLatency : 0L);
 
         FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        try (FDBRecordContext context = database.openContext()) {
-            long grvStart = System.currentTimeMillis();
-            thingToDo.accept(context);
-            assertTrue(System.currentTimeMillis() - grvStart >= expectedLatency, "latency not injected");
+        try {
+            try (FDBRecordContext context = database.openContext()) {
+                long grvStart = System.currentTimeMillis();
+                thingToDo.accept(context);
+                assertThat("latency not injected without timer", System.currentTimeMillis() - grvStart, greaterThanOrEqualTo(expectedLatency));
+            }
+            FDBStoreTimer timer = new FDBStoreTimer();
+            try (FDBRecordContext context = database.openContext(null, timer)) {
+                long grvStart = System.currentTimeMillis();
+                thingToDo.accept(context);
+                assertThat("latency not injected with timer set", System.currentTimeMillis() - grvStart, greaterThanOrEqualTo(expectedLatency));
+                assertEquals(1, timer.getCount(latencySource.getTimerEvent()));
+            }
         } finally {
             factory.clearLatencyInjector();
             factory.clear();

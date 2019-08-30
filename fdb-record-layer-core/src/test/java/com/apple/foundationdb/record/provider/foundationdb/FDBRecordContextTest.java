@@ -23,24 +23,34 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests of the {@link FDBRecordContext} class.
@@ -89,6 +99,100 @@ public class FDBRecordContextTest extends FDBTestBase {
                 assertEquals(firstReadVersion, readVersion);
             }
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION));
+        }
+    }
+
+    @Test
+    public void getReadVersionTimingWithInjectedLatency() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        FDBDatabaseFactory factory = fdb.getFactory();
+        Function<FDBLatencySource, Long> oldLatencyInjector = factory.getLatencyInjector();
+        factory.setLatencyInjector(latencySource -> {
+            if (latencySource.equals(FDBLatencySource.GET_READ_VERSION)) {
+                return 50L;
+            } else {
+                return 10L;
+            }
+        });
+        factory.clear();
+        fdb = factory.getDatabase(fdb.getClusterFile());
+        try {
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                context.getReadVersion();
+            }
+            assertEquals(1, timer.getCount(FDBStoreTimer.Waits.WAIT_GET_READ_VERSION));
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION));
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.INJECTED_GET_READ_VERSION_LATENCY));
+
+            long waitNanos = timer.getTimeNanos(FDBStoreTimer.Waits.WAIT_GET_READ_VERSION);
+            long grvNanos = timer.getTimeNanos(FDBStoreTimer.Events.GET_READ_VERSION);
+            long injectedNanos = timer.getTimeNanos(FDBStoreTimer.Events.INJECTED_GET_READ_VERSION_LATENCY);
+
+            // Validate that the grvNanos includes the injected nanos. It is very likely that GRV is higher than
+            // the injected nanos, but theoretically could be different
+            assertThat(injectedNanos, lessThanOrEqualTo(grvNanos));
+            assertThat(waitNanos, greaterThan(0L));
+
+        } finally {
+            factory.setLatencyInjector(oldLatencyInjector);
+            factory.clear();
+        }
+    }
+
+    @ParameterizedTest(name = "closeWithOutstandingGetReadVersion [inject latency = {0}]")
+    @EnumSource(TestHelpers.BooleanEnum.class)
+    public void closeWithOutstandingGetReadVersion(@Nonnull TestHelpers.BooleanEnum injectLatency) throws InterruptedException, ExecutionException {
+        FDBDatabaseFactory factory = fdb.getFactory();
+        Function<FDBLatencySource, Long> oldLatencyInjector = factory.getLatencyInjector();
+        if (injectLatency.toBoolean()) {
+            factory.setLatencyInjector(latencySource -> 5L);
+        } else {
+            factory.setLatencyInjector(latencySource -> 0L);
+        }
+        factory.clear();
+        fdb = factory.getDatabase(fdb.getClusterFile());
+
+        FDBRecordContext context = null;
+        try {
+            context = fdb.openContext();
+            CompletableFuture<Long> readVersionFuture = context.getReadVersionAsync();
+            context.close();
+            context = null;
+            readVersionFuture.handle((val, err) -> {
+                // If the future happens to complete before the transaction is closed (possible, but unlikely,
+                // then this might not throw an error.
+                if (err != null) {
+                    Throwable currentErr = err;
+                    while (currentErr != null && (currentErr instanceof ExecutionException || currentErr instanceof CompletionException)) {
+                        currentErr = currentErr.getCause();
+                    }
+
+                    if (currentErr instanceof FDBException) {
+                        // Error from the FDB native code if an operation is cancelled
+                        // This is the probable error if latency is not injected
+                        FDBException fdbException = (FDBException)currentErr;
+                        assertEquals(1025, fdbException.getCode()); // transaction_cancelled
+                    } else if (currentErr instanceof IllegalStateException) {
+                        // This is the error the FDB Java bindings throw if one closes a transaction and then tries to use it.
+                        // This error can happen if the exact order of events is (1) injected latency completes then
+                        // (2) ensureActive is called and completes then (3) the context is closed then (4) "getReadVersion" is called.
+                        assertThat(currentErr.getMessage(), containsString("Cannot access closed object"));
+                    } else if (currentErr instanceof RecordCoreStorageException) {
+                        // Generated by FDB if one attempts to do something on an object that has been closed
+                        // This is the probable error if latency is injected
+                        assertThat(currentErr.getMessage(), containsString("Transaction is no longer active."));
+                    } else {
+                        fail("Unexpected exception encountered", err);
+                    }
+                }
+                return null;
+            }).get();
+        } finally {
+            if (context != null) {
+                context.close();
+            }
+            factory.setLatencyInjector(oldLatencyInjector);
+            factory.clear();
         }
     }
 

@@ -625,7 +625,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull
     private CompletableFuture<Void> buildRange(@Nonnull SubspaceProvider subspaceProvider, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return runner.runAsync(context ->
+        return runner.runAsync(context -> context.getReadVersionAsync().thenCompose(vignore ->
                 subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
                     RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
                     byte[] startBytes = packOrNull(convertOrNull(start));
@@ -634,9 +634,9 @@ public class OnlineIndexer implements AutoCloseable {
                     ReadTransactionContext rtc = context.ensureActive();
                     return rangeSet.missingRanges(rtc, startBytes, endBytes)
                             .thenAccept(rangeDeque::addAll)
-                            .thenCompose(vignore -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
+                            .thenCompose(vignore2 -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
                 })
-        );
+        ));
     }
 
     @Nonnull
@@ -970,11 +970,11 @@ public class OnlineIndexer implements AutoCloseable {
 
         if (markReadable) {
             return buildFuture.thenCompose(vignore ->
-                runner.runAsync(context ->
+                runner.runAsync(context -> context.getReadVersionAsync().thenCompose(vignore2 ->
                         openRecordStore(context)
                                 .thenCompose(store -> store.markIndexReadable(index))
                                 .thenApply(ignore -> null))
-            );
+            ));
         } else {
             return buildFuture;
         }
@@ -1070,6 +1070,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     private List<Tuple> getPrimaryKeyBoundaries(TupleRange tupleRange) {
         List<Tuple> boundaries = runner.run(context -> {
+            context.getReadVersion(); // for instrumentation reasons
             RecordCursor<Tuple> cursor = recordStoreBuilder.copyBuilder().setContext(context).open()
                     .getPrimaryKeyBoundaries(tupleRange.getLow(), tupleRange.getHigh());
             return context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY, cursor.asList());
@@ -1094,7 +1095,7 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<Boolean> markReadableIfBuilt() {
-        return runner.runAsync(context ->
+        return runner.runAsync(context -> context.getReadVersionAsync().thenCompose(vignore ->
                 openRecordStore(context).thenCompose(store -> {
                     final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
                     return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
@@ -1105,11 +1106,11 @@ public class OnlineIndexer implements AutoCloseable {
                                     // Index is built because there is no missing range.
                                     return store.markIndexReadable(index)
                                             // markIndexReadable will return false if the index was already readable
-                                            .thenApply(vignore -> true);
+                                            .thenApply(vignore2 -> true);
                                 }
                             });
                 })
-        );
+        ));
     }
 
     /**
@@ -1121,9 +1122,9 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<Boolean> markReadable() {
-        return runner.runAsync(context ->
+        return runner.runAsync(context -> context.getReadVersionAsync().thenCompose(vignore ->
                 openRecordStore(context).thenCompose(store -> store.markIndexReadable(index))
-        );
+        ));
     }
 
     /**
@@ -1504,6 +1505,11 @@ public class OnlineIndexer implements AutoCloseable {
          * Set the priority of transactions used for this index build. In general, index builds should run
          * using the {@link FDBTransactionPriority#BATCH BATCH} priority level as their work is generally
          * discretionary and not time sensitive. However, in certain circumstances, it may be
+         * necessary to run at the higher {@link FDBTransactionPriority#DEFAULT DEFAULT} priority level.
+         * For example, if a missing index is causing some queries to perform additional, unnecessary work that
+         * is overwhelming the database, it may be necessary to build the index at {@code DEFAULT} priority
+         * in order to lessen the load induced by those queries on the cluster.
+         *
          * @param priority the priority of transactions used for this index build
          * @return this builder
          * @see FDBRecordContext#getPriority()
