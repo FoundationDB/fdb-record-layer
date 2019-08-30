@@ -204,7 +204,20 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         NONE,
 
         /**
-         * Throw if the record store does not have an info header but is not empty.
+         * Throw if the record store does not have an info header but does have have at least one
+         * record. This differs from {@link #ERROR_IF_NO_INFO_AND_NOT_EMPTY} in that there is
+         * data stored in the record store other than just the records and the indexes, including
+         * meta-data about which indexes have been built. A record store that is missing a header
+         * but has this other data is in a corrupt state, but as there are no records, it can be
+         * recovered when creating the store in a straightforward way.
+         */
+        ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES,
+
+        /**
+         * Throw if the record store does not have an info header but is not empty. Unlike with
+         * {@link #ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES}, this existence check will throw an
+         * error even if there are no records in the store, only data stored internally by the
+         * Record Layer.
          *
          * This corresponds to {@link FDBRecordStore.Builder#createOrOpen}
          */
