@@ -40,14 +40,12 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support synchronized sessions, where only one of them is allowed to work at a time [(Issue #637)](https://github.com/FoundationDB/fdb-record-layer/issues/637)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The new `MAX_EVER_VERSION` index type tracks the maximum ever value for key expressions including a record's version [(Issue #670)](https://github.com/FoundationDB/fdb-record-layer/issues/670)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** A new store existence check level only warns if there is no store info header but the store contains no records [(Issue #707)](https://github.com/FoundationDB/fdb-record-layer/issues/707)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** `FDBDatabaseRunner` is changed to an interface, which can be contructed by `FDBDatabaseRunnerImpl` [(Issue #637)](https://github.com/FoundationDB/fdb-record-layer/issues/637)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -55,6 +53,13 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 
 // end next release
 -->
+
+### 2.8.82.0
+
+* **Feature** Support synchronized sessions, where only one of them is allowed to work at a time [(Issue #637)](https://github.com/FoundationDB/fdb-record-layer/issues/637)
+* **Feature** The new `MAX_EVER_VERSION` index type tracks the maximum ever value for key expressions including a record's version [(Issue #670)](https://github.com/FoundationDB/fdb-record-layer/issues/670)
+* **Feature** A new store existence check level only warns if there is no store info header but the store contains no records [(Issue #707)](https://github.com/FoundationDB/fdb-record-layer/issues/707)
+* **Breaking change** `FDBDatabaseRunner` is changed to an interface, which can be contructed by `FDBDatabaseRunnerImpl` [(Issue #637)](https://github.com/FoundationDB/fdb-record-layer/issues/637)
 
 ### 2.8.81.0
 
