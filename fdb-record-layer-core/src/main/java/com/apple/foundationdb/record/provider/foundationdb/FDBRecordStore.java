@@ -1808,18 +1808,63 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                  @Nonnull SubspaceProvider subspaceProvider,
                                                  @Nonnull Subspace subspace,
                                                  @Nonnull StoreExistenceCheck existenceCheck) {
-        if (TupleHelpers.equals(subspace.unpack(firstKeyValue.getKey()), Tuple.from(STORE_INFO_KEY))) {
+        final Tuple firstKey = subspace.unpack(firstKeyValue.getKey());
+        if (TupleHelpers.equals(firstKey, Tuple.from(STORE_INFO_KEY))) {
             return true;
         } else if (existenceCheck == StoreExistenceCheck.NONE) {
             LOGGER.warn(KeyValueLogMessage.of("Record store has no info but is not empty",
                     subspaceProvider.logKey(), subspaceProvider.toString(context),
-                    LogMessageKeys.KEY, subspace.unpack(firstKeyValue.getKey())));
+                    LogMessageKeys.KEY, firstKey));
             return false;
+        } else if (existenceCheck == StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES) {
+            final FDBRecordStoreKeyspace keyspace = determineRecordStoreKeyspace(firstKey, subspaceProvider, context);
+            // White list of acceptable key ranges for the first key. This may need to be updated as more keyspaces are added.
+            // Includes: INDEX_STATE_SPACE and INDEX_RANGE_SPACE as that contains only meta-data about the state of the index but no "user data"
+            // Excludes: anything with records or data about records, i.e., RECORD (as it contains records), INDEX and INDEX_SECONDARY space (as
+            // they contains data from indexes), RECORD_COUNT (as that is/was effectively an index), INDEX_UNIQUENESS_VIOLATIONS_SPACE (as it
+            // contains data that should be consistent with the index), and RECORD_VERSION_SPACE (as it contains data that is effectively tied
+            // to the records). In a record store where the only corruption is the lack of a store header, then if the store has no records,
+            // INDEX_UNIQUENESS_VIOLATIONS_SPACE and RECORD_VERSION_SPACE should be empty as well, but this isn't validated. In theory, if the
+            // RECORD_COUNT keyspace was zero, that would be consistent, so it would be "safe" to only warn then as well.
+            if (FDBRecordStoreKeyspace.INDEX_STATE_SPACE.equals(keyspace) || FDBRecordStoreKeyspace.INDEX_RANGE_SPACE.equals(keyspace)) {
+                LOGGER.warn(KeyValueLogMessage.of("Record store has no info or records but is not empty",
+                        subspaceProvider.logKey(), subspaceProvider.toString(context),
+                        LogMessageKeys.KEY, firstKey));
+                return false;
+            } else {
+                throw noInfoAndNotEmptyException("Record store has no info or records but is not empty", firstKey, subspaceProvider, context);
+            }
         } else {
-            throw new RecordStoreNoInfoAndNotEmptyException("Record store has no info but is not empty",
-                    subspaceProvider.logKey(), subspaceProvider.toString(context),
-                    LogMessageKeys.KEY, subspace.unpack(firstKeyValue.getKey()));
+            throw noInfoAndNotEmptyException("Record store has no info but is not empty", firstKey, subspaceProvider, context);
         }
+    }
+
+    @SuppressWarnings("PMD.PreserveStackTrace")
+    @Nonnull
+    private static FDBRecordStoreKeyspace determineRecordStoreKeyspace(@Nonnull Tuple firstKey, @Nonnull SubspaceProvider subspaceProvider, @Nonnull FDBRecordContext context) {
+        if (firstKey.isEmpty()) {
+            // This shouldn't happen because of how the range read is performed
+            throw new RecordCoreException("First key in record store is empty",
+                    subspaceProvider.logKey(), subspaceProvider.toString(context),
+                    LogMessageKeys.KEY, firstKey);
+        }
+        try {
+            return FDBRecordStoreKeyspace.fromKey(firstKey.get(0));
+        } catch (RecordCoreException e) {
+            // PMD doesn't like this line because it can't tell it's actually the same exception being rethrown
+            throw e.addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(context),
+                    LogMessageKeys.KEY, firstKey);
+        }
+    }
+
+    @Nonnull
+    private static RecordStoreNoInfoAndNotEmptyException noInfoAndNotEmptyException(@Nonnull String staticMessage,
+                                                                                    @Nonnull Tuple firstKey,
+                                                                                    @Nonnull SubspaceProvider subspaceProvider,
+                                                                                    @Nonnull FDBRecordContext context) {
+        return new RecordStoreNoInfoAndNotEmptyException(staticMessage,
+                    subspaceProvider.logKey(), subspaceProvider.toString(context),
+                    LogMessageKeys.KEY, firstKey);
     }
 
     private static void checkStoreHeaderInternal(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,

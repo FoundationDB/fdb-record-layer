@@ -2818,7 +2818,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
 
     @Test
-    public void storeExistenceChecks() throws Exception {
+    public void storeExistenceChecks() {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
             FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
@@ -2843,6 +2843,68 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertThrows(RecordStoreAlreadyExistsException.class, storeBuilder::create);
             recordStore = storeBuilder.open();
             assertNotNull(recordStore.loadRecord(Tuple.from(1)));
+            commit(context);
+        }
+    }
+
+    private static byte[] getStoreInfoKey(@Nonnull FDBRecordStore store) {
+        return store.getSubspace().pack(FDBRecordStoreKeyspace.STORE_INFO.key());
+    }
+
+    @Test
+    public void storeExistenceChecksWithNoRecords() throws Exception {
+        RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
+                .setKeySpacePath(path)
+                .setMetaDataProvider(metaData);
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = storeBuilder.setContext(context).create();
+            // delete the header
+            store.ensureContextActive().clear(getStoreInfoKey(store));
+            commit(context);
+        }
+
+        // Should be able to recover from an empty record store
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context);
+            assertThrows(RecordStoreNoInfoAndNotEmptyException.class, storeBuilder::createOrOpen);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context);
+            FDBRecordStore store = storeBuilder.build(); // do not perform checkVersion yet
+            assertNull(context.ensureActive().get(getStoreInfoKey(store)).get());
+            assertTrue(store.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES).get());
+            commit(context);
+        }
+
+        // Insert a record, then delete the store header
+        try (FDBRecordContext context = openContext()) {
+            // open as the previous open with the relaxed existence check should have fixed the store header
+            FDBRecordStore store = storeBuilder.setContext(context).open();
+            store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build());
+            store.ensureContextActive().clear(getStoreInfoKey(store));
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context);
+            assertThrows(RecordStoreNoInfoAndNotEmptyException.class, storeBuilder::createOrOpen);
+            assertThrows(RecordStoreNoInfoAndNotEmptyException.class, () -> storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES));
+            commit(context);
+        }
+
+        // Delete the record store, then insert a key at an unknown keyspace
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.deleteStore(context, path);
+            Subspace subspace = path.toSubspace(context);
+            context.ensureActive().set(subspace.pack("unknown_keyspace"), Tuple.from("doesn't matter").pack());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context);
+            assertThrows(RecordStoreNoInfoAndNotEmptyException.class, storeBuilder::createOrOpen);
+            RecordCoreException err = assertThrows(RecordCoreException.class, () -> storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES));
+            assertEquals("Unrecognized keyspace: unknown_keyspace", err.getMessage());
             commit(context);
         }
     }
