@@ -35,7 +35,7 @@ public enum FDBTransactionPriority {
     /**
      * The priority level that should be used for batch operations. This should be used for discretionary work
      * such as background jobs that do not have strict time pressure to complete in the near future. For example
-     * {@linkplain OnlineIndexer index builds} and
+     * {@linkplain OnlineIndexer online index builds} and
      * {@linkplain com.apple.foundationdb.record.provider.foundationdb.cursors.SizeStatisticsCollectorCursor statistics collection}
      * should often happen at batch priority. This signals to the database that this work should be rate limited
      * at a higher rate if it would impact work done at a higher priority.

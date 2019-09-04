@@ -3774,7 +3774,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Override
         @Nonnull
         public CompletableFuture<FDBRecordStore> uncheckedOpenAsync() {
-            final CompletableFuture<Void> preloadMetaData = preloadMetaData();
+            final CompletableFuture<Long> readVersionFuture = preloadReadVersion();
+            final CompletableFuture<Void> preloadMetaData = readVersionFuture.thenCompose(ignore -> preloadMetaData());
             FDBRecordStore recordStore = build();
             final CompletableFuture<Void> subspaceFuture = recordStore.preloadSubspaceAsync();
             final CompletableFuture<Void> loadStoreState = subspaceFuture.thenCompose(vignore -> recordStore.preloadRecordStoreStateAsync());
@@ -3786,7 +3787,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         public CompletableFuture<FDBRecordStore> createOrOpenAsync(@Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
             // Might be as many as four reads: meta-data store, keyspace path, store index state, store info header.
             // Try to do them as much in parallel as possible.
-            final CompletableFuture<Void> preloadMetaData = preloadMetaData();
+            final CompletableFuture<Long> readVersionFuture = preloadReadVersion();
+            final CompletableFuture<Void> preloadMetaData = readVersionFuture.thenCompose(ignore -> preloadMetaData());
             FDBRecordStore recordStore = build();
             final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(userVersionChecker, existenceCheck, preloadMetaData);
             return checkVersion.thenApply(vignore -> recordStore);
@@ -3801,6 +3803,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 throw new RecordCoreException("Neither metaDataStore nor metaDataProvider was set in builder.");
             }
+        }
+
+        /**
+         * Load the read version for instrumentation purposes. This assumes that for many transactions, opening
+         * a record store will be the first thing that is done, so this ensures that in most cases, the read version
+         * is instrumented (separately from the rest of the store opening method). If the user has already called
+         * {@link FDBRecordContext#getReadVersionAsync()} or {@link FDBRecordContext#getReadVersion()}, this will
+         * not add spurious instrumentation as the future will be re-used.
+         *
+         * @return a future that will contain the transaction's read version
+         * @see FDBRecordContext#getReadVersionAsync()
+         */
+        @Nonnull
+        private CompletableFuture<Long> preloadReadVersion() {
+            if (context == null) {
+                throw new RecordCoreException("record context must be supplied");
+            }
+            return context.getReadVersionAsync();
         }
 
         @Nonnull

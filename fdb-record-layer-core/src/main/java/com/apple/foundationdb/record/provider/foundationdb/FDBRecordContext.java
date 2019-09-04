@@ -303,7 +303,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      *
      * <p>
      * Note that this method is {@code synchronized}, but only creating the future (<em>not</em> waiting on
-     * the future) will block other threads. Thus, while it is advised that this method ony be called once
+     * the future) will block other threads. Thus, while it is advised that this method only be called once
      * and by only one caller at a time, if it safe to use this method in asynchronous contexts. If this method is
      * called multiple times, then the same future will be returned each time.
      * </p>

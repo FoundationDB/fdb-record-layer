@@ -334,17 +334,14 @@ public class OnlineIndexer implements AutoCloseable {
         AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
 
         AsyncUtil.whileTrue(() ->
-                runner.runAsync(context -> {
-                    // Get a read version explicitly here for instrumentation purposes
-                    return context.getReadVersionAsync().thenCompose(ignore -> openRecordStore(context).thenCompose(store -> {
-                        if (!store.isIndexWriteOnly(index)) {
-                            throw new RecordCoreStorageException("Attempted to build readable index",
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
-                        }
-                        return function.apply(store);
-                    }));
-                }, handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
+                runner.runAsync(context -> openRecordStore(context).thenCompose(store -> {
+                    if (!store.isIndexWriteOnly(index)) {
+                        throw new RecordCoreStorageException("Attempted to build readable index",
+                                LogMessageKeys.INDEX_NAME, index.getName(),
+                                recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
+                    }
+                    return function.apply(store);
+                }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
                     if (e == null) {
                         ret.complete(value);
                         return AsyncUtil.READY_FALSE;
@@ -970,11 +967,10 @@ public class OnlineIndexer implements AutoCloseable {
 
         if (markReadable) {
             return buildFuture.thenCompose(vignore ->
-                runner.runAsync(context -> context.getReadVersionAsync().thenCompose(vignore2 ->
-                        openRecordStore(context)
-                                .thenCompose(store -> store.markIndexReadable(index))
-                                .thenApply(ignore -> null))
-            ));
+                runner.runAsync(context -> openRecordStore(context)
+                        .thenCompose(store -> store.markIndexReadable(index))
+                        .thenApply(ignore -> null))
+            );
         } else {
             return buildFuture;
         }
@@ -1095,22 +1091,20 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<Boolean> markReadableIfBuilt() {
-        return runner.runAsync(context -> context.getReadVersionAsync().thenCompose(vignore ->
-                openRecordStore(context).thenCompose(store -> {
-                    final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-                    return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
-                            .thenCompose(hasNext -> {
-                                if (hasNext) {
-                                    return AsyncUtil.READY_FALSE;
-                                } else {
-                                    // Index is built because there is no missing range.
-                                    return store.markIndexReadable(index)
-                                            // markIndexReadable will return false if the index was already readable
-                                            .thenApply(vignore2 -> true);
-                                }
-                            });
-                })
-        ));
+        return runner.runAsync(context -> openRecordStore(context).thenCompose(store -> {
+            final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
+            return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
+                    .thenCompose(hasNext -> {
+                        if (hasNext) {
+                            return AsyncUtil.READY_FALSE;
+                        } else {
+                            // Index is built because there is no missing range.
+                            return store.markIndexReadable(index)
+                                    // markIndexReadable will return false if the index was already readable
+                                    .thenApply(vignore2 -> true);
+                        }
+                    });
+        }));
     }
 
     /**
@@ -1122,9 +1116,8 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<Boolean> markReadable() {
-        return runner.runAsync(context -> context.getReadVersionAsync().thenCompose(vignore ->
-                openRecordStore(context).thenCompose(store -> store.markIndexReadable(index))
-        ));
+        return runner.runAsync(context -> openRecordStore(context)
+                .thenCompose(store -> store.markIndexReadable(index)));
     }
 
     /**

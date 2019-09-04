@@ -105,6 +105,14 @@ public abstract class LocatableResolver {
         return database;
     }
 
+    @Nonnull
+    private <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable) {
+        return database.runAsync(timer, null, context ->
+                // Explicitly get a read version for instrumentation purposes
+                context.getReadVersionAsync().thenCompose(ignore -> retriable.apply(context))
+        );
+    }
+
     /**
      * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
      * Will return the value that's persisted in FDB or create it if it does not exist.
@@ -224,9 +232,8 @@ public abstract class LocatableResolver {
             return CompletableFuture.completedFuture(value);
         }
 
-        return database.runAsync(timer, null,
-                context -> context.instrument(FDBStoreTimer.Events.DIRECTORY_READ,
-                        fetchValue(context, scopedName.getData(), hooks))
+        return runAsync(timer, context ->
+                context.instrument(FDBStoreTimer.Events.DIRECTORY_READ, fetchValue(context, scopedName.getData(), hooks))
         ).thenApply(fetched -> {
             directoryCache.put(scopedName, fetched);
             return fetched;
@@ -292,7 +299,7 @@ public abstract class LocatableResolver {
 
     @Nonnull
     private CompletableFuture<ResolverStateProto.State> readResolverState(@Nullable FDBStoreTimer timer) {
-        return database.runAsync(timer, null, this::readResolverStateInTransaction);
+        return runAsync(timer, this::readResolverStateInTransaction);
     }
 
     @Nonnull
@@ -405,12 +412,12 @@ public abstract class LocatableResolver {
      */
     public CompletableFuture<Void> updateMetadataAndVersion(@Nonnull final String key,
                                                             @Nullable final byte[] metadata) {
-        return database.runAsync(context -> updateMetadata(context, key, metadata)
+        return runAsync(null, context -> updateMetadata(context, key, metadata)
                 .thenCompose(ignore -> updateResolverState(context, StateMutation.INCREMENT_VERSION)));
     }
 
     private CompletableFuture<Void> updateAndCommitResolverState(@Nonnull final StateMutation mutation) {
-        return database.runAsync(context -> updateResolverState(context, mutation));
+        return runAsync(null, context -> updateResolverState(context, mutation));
     }
 
     private CompletableFuture<Void> updateResolverState(@Nonnull final FDBRecordContext context, @Nonnull final StateMutation mutation) {
