@@ -326,11 +326,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     if (database.isTrackLastSeenVersionOnRead()) {
                         database.updateLastSeenFDBVersion(startTimeMillis, newReadVersion);
                     }
-                    if (timer != null) {
-                        timer.record(FDBStoreTimer.Events.GET_READ_VERSION, System.nanoTime() - startTimeNanos);
-                    }
                     return newReadVersion;
                 });
+        localReadVersionFuture = instrument(FDBStoreTimer.Events.GET_READ_VERSION, localReadVersionFuture, startTimeNanos);
         readVersionFuture = localReadVersionFuture;
         return localReadVersionFuture;
     }
