@@ -22,7 +22,7 @@ This version of the Record Layer requires a FoundationDB server version of at le
 
 Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` have been marked as deprecated in favor of static initializers. This will allow for more flexibility as work on the new planner develops.
 
-# Newly Deprecated 
+### Newly Deprecated 
 
 The non-static `RecordCursor::flatMapPipelined()` method has been deprecated because it is easy to mis-use (by mistaken analogy to the `mapPipelined()` method) and cannot be used with continuations. See [Issue #665](https://github.com/FoundationDB/fdb-record-layer/issues/665) for further explanation.
 
@@ -76,7 +76,7 @@ The non-static `RecordCursor::flatMapPipelined()` method has been deprecated bec
 
 ## 2.7
 
-# Breaking Changes
+### Breaking Changes
 
 The Guava version has been updated to version 27. Users of the [shaded variants](Shaded.html#Variants) of the Record Layer dependencies should not be affected by this change. Users of the unshaded variant using an older version of Guava as part of their own project may find that their own Guava dependency is updated automatically by their dependency manager.
 
