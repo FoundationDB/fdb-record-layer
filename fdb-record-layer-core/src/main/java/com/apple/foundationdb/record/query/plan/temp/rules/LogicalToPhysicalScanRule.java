@@ -51,7 +51,6 @@ public class LogicalToPhysicalScanRule extends PlannerRule<IndexEntrySourceScanE
         final IndexEntrySourceScanExpression logical = call.get(root);
         final IndexEntrySource indexEntrySource = logical.getIndexEntrySource();
 
-        call.yield(call.ref(logical));
         if (indexEntrySource.isIndexScan()) {
             call.yield(call.ref(new RecordQueryIndexPlan(indexEntrySource.getIndexName(), logical.getScanType(),
                     logical.getComparisons().toScanComparisons(), logical.isReverse())));

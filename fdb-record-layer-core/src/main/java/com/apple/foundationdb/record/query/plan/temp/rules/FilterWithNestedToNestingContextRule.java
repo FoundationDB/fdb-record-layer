@@ -63,7 +63,6 @@ public class FilterWithNestedToNestingContextRule extends PlannerRule<LogicalFil
         final NestedContext nestedContext = new SingleNestedContext(nestedField.getFieldName());
         final ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);
 
-        call.yield(call.ref(call.get(root)));
         if (nestedInner != null) {
             call.yield(call.ref(new NestedContextExpression(nestedContext,
                     new LogicalFilterExpression(nestedFilter, nestedInner))));

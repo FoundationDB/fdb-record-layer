@@ -60,10 +60,11 @@ public interface RelationalPlannerExpression extends PlannerExpression {
     }
 
     /**
-     * Produce a version of the {@link PlannerExpression} tree rooted at this {@code RelationalPlannerExpression} as if
-     * all operations were nested inside the given {@link NestedContext}. That is, transform all predicates, index scans,
-     * and other operations to the form that they would have if they were nested within the field given by the parent
-     * field of the given nested context. If it is not possible to produce such an expression, return null.
+     * Produce an exactly equivalent version of the {@link PlannerExpression} tree rooted at this
+     * {@code RelationalPlannerExpression} as if all operations were nested inside the given {@link NestedContext}. That
+     * is, transform all predicates, index scans, and other operations to the form that they would have if they were
+     * nested within the field given by the parent field of the given nested context. If it is not possible to produce
+     * such an expression, return {@code null}.
      *
      * <p>
      * With {@link #asUnnestedWith(NestedContext, ExpressionRef)}, this method should obey the contract that, for any
@@ -95,10 +96,10 @@ public interface RelationalPlannerExpression extends PlannerExpression {
                                                             @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef);
 
     /**
-     * Produce a version of the {@link PlannerExpression} tree rooted at this {@code RelationalPlannerExpression} with
-     * all operations placed inside the field given by the {@link NestedContext}. That is, put all predicates, index
-     * scans, and other operations within the given nested field. If it is not possible to produce such an expression,
-     * return null.
+     * Produce an exactly equivalent version of the {@link PlannerExpression} tree rooted at this
+     * {@code RelationalPlannerExpression} with all operations placed inside the field given by the {@link NestedContext}.
+     * That is, put all predicates, index scans, and other operations within the given nested field. If it is not possible
+     * to produce such an expression, return {@code null}.
      *
      * <p>
      * With {@link #asNestedWith(NestedContext, ExpressionRef)}, this method should obey the contract that, for any

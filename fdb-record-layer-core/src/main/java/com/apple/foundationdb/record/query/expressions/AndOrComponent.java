@@ -91,10 +91,12 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
     @API(API.Status.EXPERIMENTAL)
     public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
                                                       @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        // An AndComponent can be placed in a NestedContext if and only if all of its children are nested under the
-        // context's parent.
-        if (nestedContext.isParentFieldRepeated()) {
-            // If the parent field is repeated, then we can only place a single conjunct in the context because
+        // An AndComponent has an exactly equivalent form within a NestedContext if and only if all of its children are
+        // nested under the context's parent.
+        if (nestedContext.isParentFieldFannedOut()) {
+            // If the parent field is fanned out, then we can only place a single conjunct in the context even if all
+            // of them share a common parent because each separate fan out iterates through the repeated children
+            // independently. Concretely, the expressions
             //     and(field("p", FanType.FanOut).matches(field("a").equals("foo")),
             //         field("p", FanType.Fanout).matches(field("b").equals("bar")))
             // and

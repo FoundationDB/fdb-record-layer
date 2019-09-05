@@ -67,7 +67,6 @@ public class FilterWithConjunctNestedToNestingContextRule extends PlannerRule<Lo
         final NestedField nestedField = call.get(nestedFieldMatcher);
         final List<ExpressionRef<QueryComponent>> otherConjuncts = call.getBindings().getAll(otherConjunctMatcher);
         final ExpressionRef<QueryComponent> nestedFilter = call.get(nestedFilterMatcher);
-        call.yield(call.ref(call.get(root)));
 
         final NestedContext nestedContext = new SingleNestedContext(nestedField.getFieldName());
         final ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);

@@ -46,7 +46,7 @@ public interface NestedContext {
     @Nonnull
     FieldKeyExpression getParentField();
 
-    boolean isParentFieldRepeated();
+    boolean isParentFieldFannedOut();
 
     @Nullable
     default ExpressionRef<RelationalPlannerExpression> getNestedRelationalPlannerExpression(@Nonnull ExpressionRef<RelationalPlannerExpression> ref) {

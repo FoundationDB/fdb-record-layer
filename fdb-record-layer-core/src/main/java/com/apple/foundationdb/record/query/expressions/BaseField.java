@@ -39,6 +39,7 @@ import java.util.Objects;
  * An abstract base class for field-like {@link QueryComponent}s that involve predicates on one particular record field,
  * as specified by the {@link #fieldName} member.
  */
+@API(API.Status.INTERNAL)
 public abstract class BaseField implements PlanHashable, QueryComponent {
     @Nonnull
     private final String fieldName;
@@ -154,7 +155,7 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
     public static ExpressionRef<QueryComponent> unnestedWith(@Nonnull NestedContext nestedContext,
                                                              @Nonnull ExpressionRef<QueryComponent> thisRef) {
         final QueryComponent nest;
-        if (nestedContext.isParentFieldRepeated()) {
+        if (nestedContext.isParentFieldFannedOut()) {
             nest = new OneOfThemWithComponent(nestedContext.getParentField().getFieldName(), thisRef);
         } else {
             nest = new NestedField(nestedContext.getParentField().getFieldName(), thisRef);

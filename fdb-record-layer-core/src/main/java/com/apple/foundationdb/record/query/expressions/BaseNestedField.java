@@ -64,7 +64,7 @@ public abstract class BaseNestedField extends BaseField implements ComponentWith
     @API(API.Status.EXPERIMENTAL)
     public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
                                                       @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        if (!nestedContext.isParentFieldRepeated() && // can only match a non-repeated context
+        if (!nestedContext.isParentFieldFannedOut() && // can only match a non-repeated context
                 nestedContext.getParentField().getFieldName().equals(getFieldName())) { // field names match
             return childComponent;
         }

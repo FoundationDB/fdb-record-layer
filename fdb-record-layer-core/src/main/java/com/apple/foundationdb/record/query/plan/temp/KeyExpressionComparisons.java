@@ -398,7 +398,7 @@ public class KeyExpressionComparisons {
 
         @Nullable
         private NestedAndUnnestingFunction asNestedInThenWith(@Nonnull NestedContext nestedContext) {
-            if (nestedContext.isParentFieldRepeated()) {
+            if (nestedContext.isParentFieldFannedOut()) {
                 // If the parent field of the nesting is repeated, there a few important consequences:
                 // (1) We cannot match a comparison to more than one part of a Then
                 // (2) We cannot match to a partially matched part of a Then

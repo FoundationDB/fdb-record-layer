@@ -106,7 +106,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     @API(API.Status.EXPERIMENTAL)
     public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
                                                       @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        if (nestedContext.isParentFieldRepeated() && // can only match to a context with a repeated field
+        if (nestedContext.isParentFieldFannedOut() && // can only match to a context with a repeated field
                 nestedContext.getParentField().getFieldName().equals(getFieldName())) { // field names must match
             return child;
         }

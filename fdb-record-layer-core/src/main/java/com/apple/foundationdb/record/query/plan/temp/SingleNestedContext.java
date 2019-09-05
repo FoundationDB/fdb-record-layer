@@ -52,7 +52,7 @@ public class SingleNestedContext implements NestedContext {
     }
 
     @Override
-    public boolean isParentFieldRepeated() {
+    public boolean isParentFieldFannedOut() {
         return false;
     }
 

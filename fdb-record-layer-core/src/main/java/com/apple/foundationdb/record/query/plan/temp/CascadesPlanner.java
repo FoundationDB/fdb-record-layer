@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
@@ -51,16 +52,16 @@ import java.util.Iterator;
  * types such as {@link RecordQueryPlan} and {@link com.apple.foundationdb.record.query.expressions.QueryComponent}.
  * This highly flexible data structure reifies essentially the entire state of the planner (i.e., partially planned
  * elements, current optimization, goals, etc.) and allows individual planning steps to be modular and stateless by
- * all state in the {@link PlannerExpression} tree.
+ * keeping all state in the {@link PlannerExpression} tree.
  * </p>
  *
  * <p>
- * Like many optimization frameworks,Cascades is driven by {@link PlannerRule}s that describe a particular transformation
- * and encapsulate the logic for detecting when it can be applied and how to apply them. The planner searches through
- * its {@link PlannerRuleSet} to find a matching rule and then executes that rule, creating zero or more additional
- * {@code PlannerExpression}s. A rule is defined by:
+ * Like many optimization frameworks, Cascades is driven by a set of {@link PlannerRule}s, each of which describes a
+ * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
+ * searches through its {@link PlannerRuleSet} to find a matching rule and then executes that rule, creating zero or
+ * more additional {@code PlannerExpression}s. A rule is defined by:
  * </p>
- * <ol>
+ * <ul>
  *     <li>
  *         An {@link com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher} that defines a
  *         finite-depth tree of matchers that inspect the structure (i.e., the type-level information) of some sub-graph
@@ -70,7 +71,7 @@ import java.util.Iterator;
  *         A {@link PlannerRule#onMatch(PlannerRuleCall)} method that is run for each successful match, producing zero
  *         or more new expressions.
  *     </li>
- * </ol>
+ * </ul>
  *
  * <p>
  * Since rules can be applied speculatively and need not be "reductive" in any reasonable sense, it is common for cyclic
@@ -116,7 +117,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private GroupExpressionRef<PlannerExpression> currentRoot;
     @Nonnull
-    private Deque<Task> taskStack;
+    private Deque<Task> taskStack; // Use a Dequeue instead of a Stack because we don't need synchronization.
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
         this(metaData, recordStoreState, PlannerRuleSet.ALL);
@@ -156,12 +157,13 @@ public class CascadesPlanner implements QueryPlanner {
         while (!taskStack.isEmpty()) {
             Task nextTask = taskStack.pop();
             if (logger.isTraceEnabled()) {
-                logger.trace(nextTask.toString());
+                logger.trace(KeyValueLogMessage.of("executing task", "nextTask", nextTask.toString()));
             }
             nextTask.execute();
             if (logger.isTraceEnabled()) {
-                logger.trace("Task stack size: " + taskStack.size());
-                logger.trace(new GroupExpressionPrinter(currentRoot).toString());
+                logger.trace(KeyValueLogMessage.of("planner state",
+                        "taskStackSize", taskStack.size(),
+                        "memo", new GroupExpressionPrinter(currentRoot)));
             }
         }
         return currentRoot;
