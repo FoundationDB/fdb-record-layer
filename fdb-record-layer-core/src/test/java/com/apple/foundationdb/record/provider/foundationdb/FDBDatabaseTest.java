@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -137,10 +138,9 @@ public class FDBDatabaseTest extends FDBTestBase {
         assertTrue(readVersion1 < readVersion2);
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "cachedReadVersionWithRetryLoops [async = {0}]")
-    public void cachedReadVersionWithRetryLoops(TestHelpers.BooleanEnum asyncEnum) throws InterruptedException, ExecutionException {
-        final boolean async = asyncEnum.toBoolean();
+    @BooleanSource
+    public void cachedReadVersionWithRetryLoops(boolean async) throws InterruptedException, ExecutionException {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setTrackLastSeenVersion(true);
         FDBDatabase database = factory.getDatabase();

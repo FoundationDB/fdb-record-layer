@@ -24,13 +24,12 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
-import com.apple.foundationdb.record.TestHelpers;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 
@@ -140,17 +139,18 @@ public class FDBRecordContextTest extends FDBTestBase {
     }
 
     @ParameterizedTest(name = "closeWithOutstandingGetReadVersion [inject latency = {0}]")
-    @EnumSource(TestHelpers.BooleanEnum.class)
-    public void closeWithOutstandingGetReadVersion(@Nonnull TestHelpers.BooleanEnum injectLatency) throws InterruptedException, ExecutionException {
+    @BooleanSource
+    public void closeWithOutstandingGetReadVersion(boolean injectLatency) throws InterruptedException, ExecutionException {
         FDBDatabaseFactory factory = fdb.getFactory();
         Function<FDBLatencySource, Long> oldLatencyInjector = factory.getLatencyInjector();
-        if (injectLatency.toBoolean()) {
+        if (injectLatency) {
             factory.setLatencyInjector(latencySource -> 5L);
         } else {
             factory.setLatencyInjector(latencySource -> 0L);
         }
         factory.clear();
         fdb = factory.getDatabase(fdb.getClusterFile());
+
 
         FDBRecordContext context = null;
         try {

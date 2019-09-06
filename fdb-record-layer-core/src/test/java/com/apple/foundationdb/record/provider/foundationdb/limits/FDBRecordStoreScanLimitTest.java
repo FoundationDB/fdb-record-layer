@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanLimitReachedException;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -53,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
@@ -63,7 +63,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
@@ -273,10 +272,9 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     }
 
     @ParameterizedTest(name = "unorderedIntersectionWithScanLimit [fail = {0}]")
-    @EnumSource(TestHelpers.BooleanEnum.class)
-    public void unorderedIntersectionWithScanLimit(TestHelpers.BooleanEnum failEnum) throws Exception {
+    @BooleanSource
+    public void unorderedIntersectionWithScanLimit(boolean fail) throws Exception {
         // TODO: When there is an UnorderedIntersectionPlan (or whatever) add that to the unordered plans stream
-        final boolean fail = failEnum.toBoolean();
         RecordQueryPlanner planner = new RecordQueryPlanner(simpleMetaData(NO_HOOK), new RecordStoreState(null, null));
         RecordQueryPlan leftPlan = planner.plan(RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")

@@ -30,11 +30,11 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
@@ -43,7 +43,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -461,10 +460,9 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "deleteWithSplitAndVersion [splitLongRecords = {0}]")
-    public void deleteWithSplitAndVersion(TestHelpers.BooleanEnum splitLongRecordsEnum) throws Exception {
-        final boolean splitLongRecords = splitLongRecordsEnum.toBoolean();
+    @BooleanSource
+    public void deleteWithSplitAndVersion(boolean splitLongRecords) throws Exception {
         final byte[] globalVersion = "chrysan_th".getBytes(Charsets.US_ASCII);
         try (FDBRecordContext context = openContext()) {
             // Delete unsplit with size info
@@ -685,10 +683,9 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "scan [reverse = {0}]")
-    public void scanSingleRecords(final TestHelpers.BooleanEnum reverseEnum) throws Exception {
-        final boolean reverse = reverseEnum.toBoolean();
+    @BooleanSource
+    public void scanSingleRecords(boolean reverse) throws Exception {
         loadSingleRecords(true, false,
                 (context, key, expectedSizes, expectedContents, version) -> scanSingleRecord(context, reverse, key, expectedSizes, expectedContents, version));
     }
@@ -719,10 +716,9 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return rawRecords;
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "scanMultipleRecords [reverse = {0}]")
-    public void scanMultipleRecords(final TestHelpers.BooleanEnum reverseEnum) throws Exception {
-        final boolean reverse = reverseEnum.toBoolean();
+    @BooleanSource
+    public void scanMultipleRecords(boolean reverse) throws Exception {
         final ScanProperties scanProperties = reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN;
         List<FDBRawRecord> rawRecords = writeDummyRecords();
 

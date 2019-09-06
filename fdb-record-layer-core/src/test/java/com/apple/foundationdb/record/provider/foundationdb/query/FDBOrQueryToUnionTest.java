@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursorIterator;
-import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -33,6 +32,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -338,11 +337,10 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an OR of inequalities on different fields uses an unordered union, since there is no compatible ordering.
      */
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @DualPlannerTest
     @ParameterizedTest(name = "testOrQuery5 [removesDuplicates = {0}]")
-    public void testOrQuery5(@Nonnull TestHelpers.BooleanEnum removesDuplicatesEnum) throws Exception {
-        final boolean removesDuplicates = removesDuplicatesEnum.toBoolean();
+    @BooleanSource
+    public void testOrQuery5(boolean removesDuplicates) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -504,10 +502,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * Unlike {@link #testOrQuery6()}, the legs of the union are not compatibly ordered, so this will revert to using
      * an unordered union.
      */
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest
-    public void testUnorderableOrQueryWithAnd(@Nonnull TestHelpers.BooleanEnum removesDuplicatesEnum) throws Exception {
-        final boolean removesDuplicates = removesDuplicatesEnum.toBoolean();
+    @BooleanSource
+    public void testUnorderableOrQueryWithAnd(boolean removesDuplicates) throws Exception {
         RecordMetaDataHook hook = metaDataBuilder -> {
             complexQuerySetupHook().apply(metaDataBuilder);
             metaDataBuilder.addIndex("MySimpleRecord", new Index("multi_index_2", "str_value_indexed", "num_value_3_indexed"));
