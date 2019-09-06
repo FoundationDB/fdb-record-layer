@@ -143,17 +143,16 @@ public class FDBRecordContextTest extends FDBTestBase {
     public void closeWithOutstandingGetReadVersion(boolean injectLatency) throws InterruptedException, ExecutionException {
         FDBDatabaseFactory factory = fdb.getFactory();
         Function<FDBLatencySource, Long> oldLatencyInjector = factory.getLatencyInjector();
-        if (injectLatency) {
-            factory.setLatencyInjector(latencySource -> 5L);
-        } else {
-            factory.setLatencyInjector(latencySource -> 0L);
-        }
-        factory.clear();
-        fdb = factory.getDatabase(fdb.getClusterFile());
-
 
         FDBRecordContext context = null;
         try {
+            if (injectLatency) {
+                factory.setLatencyInjector(latencySource -> 5L);
+            } else {
+                factory.setLatencyInjector(latencySource -> 0L);
+            }
+            factory.clear();
+            fdb = factory.getDatabase(fdb.getClusterFile());
             context = fdb.openContext();
             CompletableFuture<Long> readVersionFuture = context.getReadVersionAsync();
             context.close();
