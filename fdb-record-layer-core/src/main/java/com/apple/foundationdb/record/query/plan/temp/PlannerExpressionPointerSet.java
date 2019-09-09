@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import javax.annotation.Nonnull;
+import java.util.AbstractCollection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -31,7 +32,7 @@ import java.util.Set;
  * This is important for implementing the memo data structure in {@link GroupExpressionRef}
  * @param <T> the planner expression type contained in the set
  */
-public class PlannerExpressionPointerSet<T extends PlannerExpression> implements Iterable<T> {
+public class PlannerExpressionPointerSet<T extends PlannerExpression> extends AbstractCollection<T> {
     @Nonnull
     private final Set<Wrapper<T>> members;
 
@@ -43,12 +44,23 @@ public class PlannerExpressionPointerSet<T extends PlannerExpression> implements
         this.members = members;
     }
 
-    public void add(@Nonnull T expression) {
-        members.add(new Wrapper<>(expression));
+    @Override
+    public boolean add(@Nonnull T expression) {
+        return members.add(new Wrapper<>(expression));
     }
 
     public void addAll(@Nonnull PlannerExpressionPointerSet<T> otherSet) {
         members.addAll(otherSet.members);
+    }
+
+    @Override
+    public boolean contains(Object o) {
+        if (!(o instanceof PlannerExpression)) { // also handles null check
+            return false;
+        } else {
+            return members.contains(new Wrapper<>((PlannerExpression) o));
+        }
+
     }
 
     public boolean contains(@Nonnull T expression) {
@@ -59,14 +71,17 @@ public class PlannerExpressionPointerSet<T extends PlannerExpression> implements
         return members.remove(new Wrapper<>(expression));
     }
 
+    @Override
     public void clear() {
         members.clear();
     }
 
+    @Override
     public boolean isEmpty() {
         return members.isEmpty();
     }
 
+    @Override
     public int size() {
         return members.size();
     }
