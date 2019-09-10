@@ -31,7 +31,8 @@ import java.lang.annotation.Target;
 /**
  * An annotation for parameterized tests that take a single boolean argument. One might think one could use
  * {@link org.junit.jupiter.params.provider.ValueSource} for that, but that annotation does not allow
- * one to set a boolean value.
+ * one to set a boolean value. This will always provide {@code false} and {@code true} as the single argument
+ * to parameterized tests that have this annotation in that order.
  */
 @Documented
 @Target(ElementType.METHOD)

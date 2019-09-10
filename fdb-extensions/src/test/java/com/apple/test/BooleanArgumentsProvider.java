@@ -30,6 +30,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
+/**
+ * Argument provider for the {@link BooleanSource} annotation for providing booleans to parameterized
+ * tests. Regardless of the source or context, this always returns {@code false} and {@code true} in that order.
+ */
 class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<BooleanSource> {
     @Nonnull
     private static final List<Arguments> BOOLEANS = Arrays.asList(Arguments.of(false), Arguments.of(true));
