@@ -101,6 +101,7 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.indexEntryKey;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -2208,9 +2209,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     .validateEntries(null, null)
                     .asList().get();
             assertEquals(
-                    Collections.singletonList(new InvalidIndexEntry(
-                            new IndexEntry(index, Tuple.from("bar", 2), TupleHelpers.EMPTY),
-                            InvalidIndexEntry.Reasons.ORPHAN)),
+                    Collections.singletonList(InvalidIndexEntry.newOrphan(
+                            new IndexEntry(index, Tuple.from("bar", 2), TupleHelpers.EMPTY))),
                     invalidIndexEntries,
                     "Validation should return the index entry that has no associated record.");
             commit(context);
@@ -2316,9 +2316,88 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 assertFalse(results.contains(entry), "Entry " + entry + " is duplicated");
                 results.add(entry);
             }
-            assertEquals(20 / 4 + 1, generatorCount.get());
             assertEquals(expectedInvalidEntries, results,
                     "Validation should return the index entry that has no associated record.");
+            // The number of scans is about the number of index entries (orphan validation) plus the number of records
+            // (missing validation).
+            assertThat(generatorCount.get(), greaterThanOrEqualTo((20 + 10) / 4));
+        }
+    }
+
+    @Test
+    public void testIndexMissingValidation() throws Exception {
+        final int nRecords = 10;
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context);
+
+            for (int i = 0; i < nRecords; i++) {
+                TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                recBuilder.setRecNo(i);
+                recBuilder.setStrValueIndexed(Integer.toString(i));
+                // nRecords is not larger than 10, so the indexes (sorted by the string version of recNo) are in the
+                // same order as the records. This can make the test easy.
+                recordStore.saveRecord(recBuilder.build());
+            }
+            commit(context);
+        }
+
+        // Delete the indexes of some records.
+        Set<InvalidIndexEntry> expectedInvalidEntries = new HashSet<>();
+        try (FDBRecordContext context = openContext()) {
+            final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+            uncheckedOpenSimpleRecordStore(context);
+
+            List<FDBStoredRecord<Message>> savedRecords = recordStore.scanRecords(
+                    TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
+            List<IndexEntry> indexEntries = recordStore.scanIndex(
+                    index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
+            for (int i = 0; i < nRecords; i += 2) {
+                IndexEntry indexEntry = indexEntries.get(i);
+                FDBStoredRecord<Message> record = savedRecords.get(i);
+
+                final Tuple valueKey = indexEntry.getKey();
+                final Tuple entryKey = indexEntryKey(index, valueKey, record.getPrimaryKey());
+                final byte[] keyBytes = recordStore.indexSubspace(index).pack(valueKey);
+
+                byte[] v0 = recordStore.getContext().ensureActive().get(keyBytes).get();
+
+                recordStore.getContext().ensureActive().clear(keyBytes);
+                byte[] v = recordStore.getContext().ensureActive().get(keyBytes).get();
+                expectedInvalidEntries.add(InvalidIndexEntry.newMissing(indexEntry, record));
+            }
+            commit(context);
+        }
+
+        try (FDBDatabaseRunner runner = fdb.newRunner()) {
+            AtomicInteger generatorCount = new AtomicInteger();
+            // Set a scanned records limit to mock when the transaction is out of band.
+            RecordCursorIterator<InvalidIndexEntry> cursor = new AutoContinuingCursor<>(
+                    runner,
+                    (context, continuation) -> new LazyCursor<>(
+                            FDBRecordStore.newBuilder()
+                                    .setContext(context).setKeySpacePath(path).setMetaDataProvider(simpleMetaData(NO_HOOK))
+                                    .uncheckedOpenAsync()
+                                    .thenApply(currentRecordStore -> {
+                                        generatorCount.getAndIncrement();
+                                        final Index index = currentRecordStore.getRecordMetaData()
+                                                .getIndex("MySimpleRecord$str_value_indexed");
+                                        ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                                                .setReturnedRowLimit(Integer.MAX_VALUE)
+                                                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                                                .setScannedRecordsLimit(4)
+                                                .build());
+                                        return currentRecordStore.getIndexMaintainer(index)
+                                                .validateEntries(continuation, scanProperties);
+                                    })
+                    )
+            ).asIterator();
+
+            Set<InvalidIndexEntry> results = new HashSet<>();
+            cursor.forEachRemaining(results::add);
+            assertEquals(expectedInvalidEntries, results);
+            // The number of scans is about the number of index entries (orphan validation) plus the number of records
+            // (missing validation).
+            assertThat(generatorCount.get(), greaterThanOrEqualTo((5 + 10) / 4));
         }
     }
 

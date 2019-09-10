@@ -21,8 +21,11 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -35,18 +38,29 @@ public class InvalidIndexEntry {
     @Nonnull
     private Reason reason;
 
+    @Nullable
+    private FDBStoredRecord<Message> record;
+
+    private InvalidIndexEntry(@Nonnull IndexEntry entry, @Nonnull Reason reason, @Nullable FDBStoredRecord<Message> record) {
+        this.entry = entry;
+        this.reason = reason;
+        this.record = record;
+    }
+
     /**
      * The reason why an index entry is invalid.
      */
     public interface Reason {
         /**
          * Get the name of the reason.
+         *
          * @return the name
          */
         String name();
 
         /**
          * Get the description of the reason for user displays.
+         *
          * @return the user-visible description
          */
         String description();
@@ -56,7 +70,8 @@ public class InvalidIndexEntry {
      * The reasons supported in the Record Layer.
      */
     public enum Reasons implements Reason {
-        ORPHAN("index entry does not point to an existing record")
+        ORPHAN("index entry does not point to an existing record"),
+        MISSING("index entry is missing for a record"),
         ;
 
         private final String description;
@@ -71,6 +86,14 @@ public class InvalidIndexEntry {
         }
     }
 
+    public static InvalidIndexEntry newOrphan(@Nonnull IndexEntry entry) {
+        return new InvalidIndexEntry(entry, Reasons.ORPHAN, null);
+    }
+
+    public static InvalidIndexEntry newMissing(@Nonnull IndexEntry entry, @Nonnull FDBStoredRecord<Message> record) {
+        return new InvalidIndexEntry(entry, Reasons.MISSING, record);
+    }
+
     @Nonnull
     public IndexEntry getEntry() {
         return entry;
@@ -81,14 +104,14 @@ public class InvalidIndexEntry {
         return reason;
     }
 
-    public InvalidIndexEntry(@Nonnull IndexEntry entry, @Nonnull Reason reason) {
-        this.entry = entry;
-        this.reason = reason;
-    }
-
     @Override
     public String toString() {
-        return reason + " - " + entry;
+        final StringBuilder sb = new StringBuilder("InvalidIndexEntry{");
+        sb.append("entry=").append(entry);
+        sb.append(", reason=").append(reason);
+        sb.append(", record=").append(record);
+        sb.append('}');
+        return sb.toString();
     }
 
     @Override
@@ -100,12 +123,13 @@ public class InvalidIndexEntry {
             return false;
         }
         InvalidIndexEntry that = (InvalidIndexEntry)o;
-        return Objects.equals(entry, that.entry) &&
-               Objects.equals(reason, that.reason);
+        return entry.equals(that.entry) &&
+               reason.equals(that.reason) &&
+               Objects.equals(record, that.record);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(entry, reason);
+        return Objects.hash(entry, reason, record);
     }
 }
