@@ -37,12 +37,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** The `OnlineIndexer` now instruments its read versions so that performance issues that may be linked to high read version latencies can now be better diagnosed [(Issue #696)](https://github.com/FoundationDB/fdb-record-layer/issues/696)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The transaction priority can be set through the `FDBTransactionPriority` enum, and the `OnlineIndexer` exposes that as an option on index builds [(Issue #697)](https://github.com/FoundationDB/fdb-record-layer/issues/697)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -50,11 +50,17 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** The `FDBDatabase::getReadVersion` method has been deprecated and replaced with `FDBRecordContext::getReadVersionAsync` [(Issue #698)](https://github.com/FoundationDB/fdb-record-layer/issues/698)
+* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 2.8.83.0
+
+* **Performance** The `OnlineIndexer` now instruments its read versions so that performance issues that may be linked to high read version latencies can now be better diagnosed [(Issue #696)](https://github.com/FoundationDB/fdb-record-layer/issues/696)
+* **Feature** The transaction priority can be set through the `FDBTransactionPriority` enum, and the `OnlineIndexer` exposes that as an option on index builds [(Issue #697)](https://github.com/FoundationDB/fdb-record-layer/issues/697)
+* **Breaking change** The `FDBDatabase::getReadVersion` method has been deprecated and replaced with `FDBRecordContext::getReadVersionAsync` [(Issue #698)](https://github.com/FoundationDB/fdb-record-layer/issues/698)
 
 ### 2.8.82.0
 
