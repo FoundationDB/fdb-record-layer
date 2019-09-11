@@ -69,7 +69,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Nonnull
     private final List<ExpressionRef<RecordQueryPlan>> children;
     @Nonnull
-    private final ExpressionRef<KeyExpression> comparisonKey;
+    private final KeyExpression comparisonKey;
     @Nonnull
     private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
     private boolean reverse;
@@ -88,7 +88,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Deprecated
     public RecordQueryIntersectionPlan(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
                                        @Nonnull KeyExpression comparisonKey, boolean reverse) {
-        this(ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right)), SingleExpressionRef.of(comparisonKey), reverse);
+        this(ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right)), comparisonKey, reverse, false);
     }
 
     /**
@@ -104,19 +104,19 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Deprecated
     public RecordQueryIntersectionPlan(@Nonnull List<RecordQueryPlan> children,
                                        @Nonnull KeyExpression comparisonKey, boolean reverse) {
-        this(children.stream().map(SingleExpressionRef::of).collect(Collectors.toList()), SingleExpressionRef.of(comparisonKey), reverse);
+        this(children.stream().map(SingleExpressionRef::of).collect(Collectors.toList()), comparisonKey, reverse, false);
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private RecordQueryIntersectionPlan(@Nonnull List<ExpressionRef<RecordQueryPlan>> children,
-                                        @Nonnull ExpressionRef<KeyExpression> comparisonKey,
-                                        boolean reverse) {
+                                        @Nonnull KeyExpression comparisonKey,
+                                        boolean reverse, boolean ignoredTemporaryFlag) {
         this.children = children;
         this.comparisonKey = comparisonKey;
         this.reverse = reverse;
 
         final ImmutableList.Builder<ExpressionRef<? extends PlannerExpression>> expressionChildrenBuilder = ImmutableList.builder();
         expressionChildrenBuilder.addAll(children);
-        expressionChildrenBuilder.add(comparisonKey);
         expressionChildren = expressionChildrenBuilder.build();
     }
 
@@ -169,7 +169,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
 
     @Nonnull
     public KeyExpression getComparisonKey() {
-        return comparisonKey.get();
+        return comparisonKey;
     }
 
     @Nonnull
@@ -194,6 +194,17 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     public String toString() {
         return String.join(" " + INTERSECT + " ",
                 getChildStream().map(RecordQueryPlan::toString).collect(Collectors.toList()));
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        if (!(otherExpression instanceof RecordQueryIntersectionPlan)) {
+            return false;
+        }
+        final RecordQueryIntersectionPlan other = (RecordQueryIntersectionPlan) otherExpression;
+        return reverse == other.reverse &&
+               comparisonKey.equals(other.comparisonKey);
     }
 
     @Override
@@ -257,7 +268,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
         final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right));
-        return new RecordQueryIntersectionPlan(childRefs, SingleExpressionRef.of(comparisonKey), left.isReverse());
+        return new RecordQueryIntersectionPlan(childRefs, comparisonKey, left.isReverse(), false);
     }
 
     /**
@@ -284,6 +295,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
         for (RecordQueryPlan child : children) {
             childRefsBuilder.add(SingleExpressionRef.of(child));
         }
-        return new RecordQueryIntersectionPlan(childRefsBuilder.build(), SingleExpressionRef.of(comparisonKey), firstReverse);
+        return new RecordQueryIntersectionPlan(childRefsBuilder.build(), comparisonKey, firstReverse, false);
     }
 }

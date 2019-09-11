@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
@@ -32,7 +35,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-class BaseField implements PlanHashable {
+/**
+ * An abstract base class for field-like {@link QueryComponent}s that involve predicates on one particular record field,
+ * as specified by the {@link #fieldName} member.
+ */
+@API(API.Status.INTERNAL)
+public abstract class BaseField implements PlanHashable, QueryComponent {
     @Nonnull
     private final String fieldName;
 
@@ -112,6 +120,14 @@ class BaseField implements PlanHashable {
         return fieldName;
     }
 
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                        @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return unnestedWith(nestedContext, thisRef);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -132,5 +148,18 @@ class BaseField implements PlanHashable {
     @Override
     public int planHash() {
         return fieldName.hashCode();
+    }
+
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public static ExpressionRef<QueryComponent> unnestedWith(@Nonnull NestedContext nestedContext,
+                                                             @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        final QueryComponent nest;
+        if (nestedContext.isParentFieldFannedOut()) {
+            nest = new OneOfThemWithComponent(nestedContext.getParentField().getFieldName(), thisRef);
+        } else {
+            nest = new NestedField(nestedContext.getParentField().getFieldName(), thisRef);
+        }
+        return thisRef.getNewRefWith(nest);
     }
 }

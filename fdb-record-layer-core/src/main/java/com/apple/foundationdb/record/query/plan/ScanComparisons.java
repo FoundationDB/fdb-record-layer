@@ -39,7 +39,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,18 +49,19 @@ import java.util.stream.Stream;
  * A set of {@link Comparisons.Comparison} for scanning an index.
  * A <em>prefix</em> of zero or more equality comparisons for each of
  * the corresponding indexed fields, followed by zero or more
- * inequality comparisons to be applied to the next field. */
+ * inequality comparisons to be applied to the next field.
+ */
 @API(API.Status.INTERNAL)
 public class ScanComparisons implements PlanHashable {
     @Nonnull
     protected final List<Comparisons.Comparison> equalityComparisons;
     @Nonnull
-    protected final List<Comparisons.Comparison> inequalityComparisons;
+    protected final Set<Comparisons.Comparison> inequalityComparisons;
 
-    public static final ScanComparisons EMPTY = new ScanComparisons(Collections.emptyList(), Collections.emptyList());
+    public static final ScanComparisons EMPTY = new ScanComparisons(Collections.emptyList(), Collections.emptySet());
     
     public ScanComparisons(@Nonnull List<Comparisons.Comparison> equalityComparisons,
-                           @Nonnull List<Comparisons.Comparison> inequalityComparisons) {
+                           @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
         checkComparisonTypes(equalityComparisons, ComparisonType.EQUALITY);
         checkComparisonTypes(inequalityComparisons, ComparisonType.INEQUALITY);
         this.equalityComparisons = equalityComparisons;
@@ -81,7 +84,7 @@ public class ScanComparisons implements PlanHashable {
     }
 
     @Nonnull
-    public List<Comparisons.Comparison> getInequalityComparisons() {
+    public Set<Comparisons.Comparison> getInequalityComparisons() {
         return inequalityComparisons;
     }
 
@@ -140,10 +143,10 @@ public class ScanComparisons implements PlanHashable {
         switch (getComparisonType(comparison)) {
             case EQUALITY:
                 return new ScanComparisons(Collections.singletonList(comparison),
-                        Collections.emptyList());
+                        Collections.emptySet());
             case INEQUALITY:
                 return new ScanComparisons(Collections.emptyList(),
-                        Collections.singletonList(comparison));
+                        Collections.singleton(comparison));
             default:
                 return null;
         }
@@ -152,7 +155,7 @@ public class ScanComparisons implements PlanHashable {
     @Nullable
     public ScanComparisons merge(@Nonnull ScanComparisons other) {
         if (equalityComparisons.equals(other.equalityComparisons)) {
-            List<Comparisons.Comparison> comparisons = new ArrayList<>(inequalityComparisons);
+            Set<Comparisons.Comparison> comparisons = new HashSet<>(inequalityComparisons);
             comparisons.addAll(other.inequalityComparisons);
             return new ScanComparisons(equalityComparisons, comparisons);
         }
@@ -178,7 +181,7 @@ public class ScanComparisons implements PlanHashable {
      */
     public static class Builder extends ScanComparisons {
         public Builder() {
-            super(new ArrayList<>(), new ArrayList<>());
+            super(new ArrayList<>(), new HashSet<>());
         }
 
         @Nonnull
@@ -240,10 +243,12 @@ public class ScanComparisons implements PlanHashable {
             return TupleRange.allOf(baseTuple);
         }
 
-        if (inequalityComparisons.size() == 1 &&
-                inequalityComparisons.get(0).getType() == Comparisons.Type.STARTS_WITH) {
-            final Tuple startTuple = baseTuple.addObject(toTupleItem(inequalityComparisons.get(0).getComparand(store, context)));
-            return new TupleRange(startTuple, startTuple, EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING);
+        if (inequalityComparisons.size() == 1) {
+            final Comparisons.Comparison inequalityComparison = inequalityComparisons.iterator().next();
+            if (inequalityComparison.getType() == Comparisons.Type.STARTS_WITH) {
+                final Tuple startTuple = baseTuple.addObject(toTupleItem(inequalityComparison.getComparand(store, context)));
+                return new TupleRange(startTuple, startTuple, EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING);
+            }
         }
 
         InequalityRangeCombiner rangeCombiner = new InequalityRangeCombiner(store, context, baseTuple, inequalityComparisons);
@@ -287,7 +292,7 @@ public class ScanComparisons implements PlanHashable {
 
     @Override
     public int planHash() {
-        return PlanHashable.planHash(equalityComparisons) + PlanHashable.planHash(inequalityComparisons);
+        return PlanHashable.planHash(equalityComparisons) + PlanHashable.planHashUnordered(inequalityComparisons);
     }
 
     @Override
@@ -316,7 +321,7 @@ public class ScanComparisons implements PlanHashable {
         private boolean hasHigh = false;
 
         public InequalityRangeCombiner(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context, @Nonnull Tuple baseTuple,
-                                       @Nonnull List<Comparisons.Comparison> inequalityComparisons) {
+                                       @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
             this.store = store;
             this.context = context;
             this.baseTuple = baseTuple;

@@ -389,7 +389,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat("should have range scan in " + plan, plan, descendant(indexScan("index_2_3")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
-        assertEquals(1840965325, plan.planHash());
+        assertEquals(2140693065, plan.planHash());
     }
 
     /**
@@ -455,7 +455,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, intersection(
                 indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10, 2],[10, 11]]")))),
                 indexScan(allOf(indexName("shape"), bounds(hasTupleString("[[200, 2],[200, 11]]"))))));
-        assertEquals(-1943887159, plan.planHash());
+        assertEquals(-942526391, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openEnumRecordStore(context, hook);

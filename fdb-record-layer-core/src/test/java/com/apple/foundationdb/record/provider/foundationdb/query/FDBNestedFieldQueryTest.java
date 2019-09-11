@@ -74,7 +74,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that simple queries on nested fields can use bounds on a record scan.
      */
-    @Test
+    @DualPlannerTest
     public void hierarchical() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openHierarchicalRecordStore(context);
@@ -226,7 +226,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that AND clauses in queries on nested record stores are implemented so that the AND is expressed as a
      * condition on the parent field, rather than as an AND of separate nested conditions.
      */
-    @Test
+    @DualPlannerTest
     public void nestedWithAnd() throws Exception {
         nestedWithAndSetup(null);
 
@@ -305,7 +305,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that AND clauses in queries on nested record stores with concatenated repeats are implemented properly.
      */
-    @Test
+    @DualPlannerTest
     public void nestedWithAndConcat() throws Exception {
         final RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("stats$school");
@@ -349,7 +349,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that BETWEEN-style AND on nested fields merge properly.
      */
-    @Test
+    @DualPlannerTest
     public void nestedWithBetween() throws Exception {
         final RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("stats$school");
@@ -369,7 +369,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([Newt A. Robot, 100],[Newt A. Robot, 2000])")))));
-        assertEquals(-518945616, plan.planHash());
+        assertEquals(1355996214, plan.planHash());
         assertEquals(Collections.singletonList(2L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 ctx -> openNestedRecordStore(ctx, hook),
                 TestHelpers::assertDiscardedNone));
@@ -507,7 +507,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Specifically, verify that a filter is implemented as a record scan in the case where there is a two-field
      * primary key both of whose fields are nested in some header subrecord.
      */
-    @Test
+    @DualPlannerTest
     public void testNestedPrimaryKeyQuery() throws Exception {
         final RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")

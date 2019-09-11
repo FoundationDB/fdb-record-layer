@@ -146,6 +146,11 @@ public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof RecordQueryFilterPlan;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

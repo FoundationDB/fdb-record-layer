@@ -40,11 +40,19 @@ public interface PlanContext {
     Set<Index> getIndexes();
 
     @Nonnull
+    Set<IndexEntrySource> getIndexEntrySources();
+
+    @Nonnull
     Index getIndexByName(@Nonnull String name);
 
     @Nullable
     KeyExpression getCommonPrimaryKey();
 
+    int getGreatestPrimaryKeyWidth();
+
     @Nonnull
     RecordMetaData getMetaData();
+
+    @Nonnull
+    PlanContext asNestedWith(@Nonnull NestedContext nestedContext);
 }

@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -153,7 +154,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
         return new RecordQueryIndexPlan(indexName, IndexScanType.BY_VALUE,
                 new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
-                        Collections.emptyList()),
+                        Collections.emptySet()),
                 false);
     }
 
@@ -188,7 +189,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     @Test
     public void indexRange() throws Exception {
         final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE,
-                new ScanComparisons(Collections.emptyList(), Arrays.asList(
+                new ScanComparisons(Collections.emptyList(), ImmutableSet.of(
                         new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 2),
                         new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 4))),
                 false);
@@ -198,7 +199,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     @Test
     public void reverse() throws Exception {
         final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE,
-                new ScanComparisons(Collections.emptyList(), Arrays.asList(
+                new ScanComparisons(Collections.emptyList(), ImmutableSet.of(
                         new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 2),
                         new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 4))),
                 true);
@@ -209,7 +210,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     public void in() throws Exception {
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
                 new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE,
-                new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "in_num")), Collections.emptyList()), false),
+                new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "in_num")), Collections.emptySet()), false),
                 "in_num", Arrays.asList(2, 4), false, false);
         compareSkipsAndCursors(plan);
     }

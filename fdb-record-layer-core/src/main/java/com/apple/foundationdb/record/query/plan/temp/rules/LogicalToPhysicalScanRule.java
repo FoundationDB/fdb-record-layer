@@ -1,5 +1,5 @@
 /*
- * LogicalToPhysicalIndexScanRule.java
+ * LogicalToPhysicalScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,9 +22,11 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIndexScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
@@ -36,19 +38,25 @@ import javax.annotation.Nonnull;
  * {@link com.apple.foundationdb.record.query.plan.ScanComparisons} to be used during query execution.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalToPhysicalIndexScanRule extends PlannerRule<LogicalIndexScanExpression> {
-    private static final ExpressionMatcher<LogicalIndexScanExpression> root = TypeMatcher.of(LogicalIndexScanExpression.class);
+public class LogicalToPhysicalScanRule extends PlannerRule<IndexEntrySourceScanExpression> {
+    private static final ExpressionMatcher<IndexEntrySourceScanExpression> root = TypeMatcher.of(IndexEntrySourceScanExpression.class);
 
-    public LogicalToPhysicalIndexScanRule() {
+    public LogicalToPhysicalScanRule() {
         super(root);
     }
 
     @Nonnull
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
-        final LogicalIndexScanExpression logical = call.get(root);
-        call.yield(call.ref(new RecordQueryIndexPlan(logical.getIndexName(), logical.getScanType(),
-                logical.getComparisons().toScanComparisons(), logical.isReverse())));
+        final IndexEntrySourceScanExpression logical = call.get(root);
+        final IndexEntrySource indexEntrySource = logical.getIndexEntrySource();
+
+        if (indexEntrySource.isIndexScan()) {
+            call.yield(call.ref(new RecordQueryIndexPlan(indexEntrySource.getIndexName(), logical.getScanType(),
+                    logical.getComparisons().toScanComparisons(), logical.isReverse())));
+        } else {
+            call.yield(call.ref(new RecordQueryScanPlan(logical.getComparisons().toScanComparisons(), logical.isReverse())));
+        }
         return ChangesMade.MADE_CHANGES;
     }
 }

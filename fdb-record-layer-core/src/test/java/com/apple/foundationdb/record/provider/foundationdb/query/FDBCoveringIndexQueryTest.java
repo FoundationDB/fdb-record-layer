@@ -414,7 +414,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$2+3"), bounds(hasTupleString("([0],[10])"))))));
-        assertEquals(-152048326, plan.planHash());
+        assertEquals(1722836804, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

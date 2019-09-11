@@ -27,6 +27,9 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
+import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -115,5 +118,21 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>> {
     @Override
     default List<? extends QueryPlan<?>> getQueryPlanChildren() {
         return getChildren();
+    }
+
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    default ExpressionRef<RelationalPlannerExpression> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                                    @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        return null;
+    }
+
+    @Nullable
+    @Override
+    @API(API.Status.DEPRECATED)
+    default ExpressionRef<RelationalPlannerExpression> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                                      @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        return null;
     }
 }

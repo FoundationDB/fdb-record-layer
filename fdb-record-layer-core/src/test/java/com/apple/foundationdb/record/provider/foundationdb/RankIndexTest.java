@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
@@ -81,8 +82,12 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTup
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scoreForRank;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -805,10 +810,14 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(Key.Expressions.field("score").ungrouped()).lessThan(3L)))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertEquals("Index(rank_by_gender [EQUALS M, [GREATER_THAN_OR_EQUALS $__rank_0 && LESS_THAN $__rank_1]])" +
-                " WHERE __rank_0 = BasicRankedRecord$score.score_for_rank(1)," +
-                " __rank_1 = BasicRankedRecord$score.score_for_rank_else_skip(3)",
-                plan.toString());
+        List<String> tupleBounds = Arrays.asList("GREATER_THAN_OR_EQUALS $__rank_0", "LESS_THAN $__rank_1");
+        assertThat(plan, scoreForRank(
+                containsInAnyOrder(Arrays.asList(hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank(1)"),
+                        hasToString("__rank_1 = BasicRankedRecord$score.score_for_rank_else_skip(3)"))),
+                indexScan(allOf(indexName("rank_by_gender"), bounds(anyOf(
+                Collections2.permutations(tupleBounds).stream()
+                .map(ls -> hasTupleString("[EQUALS M, [" + String.join(" && ", ls) + "]]"))
+                .collect(Collectors.toList())))))));
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);

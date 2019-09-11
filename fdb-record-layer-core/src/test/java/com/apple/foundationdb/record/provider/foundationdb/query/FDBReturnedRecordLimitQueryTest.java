@@ -112,7 +112,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(scan(unbounded())));
-        assertEquals(913370491, plan.planHash());
+        assertEquals(913370522, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -141,7 +141,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
-        assertEquals(1623132305, plan.planHash());
+        assertEquals(1623132336, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

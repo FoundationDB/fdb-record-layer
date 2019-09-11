@@ -804,7 +804,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, union(
                 indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 0],[even, 0, 0]]")))),
                 indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 2],[even, 0, 3]]"))))));
-        assertEquals(1921174117, plan.planHash());
+        assertEquals(-2074065439, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

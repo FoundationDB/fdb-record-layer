@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.ImmutableList;
 
@@ -69,6 +70,12 @@ public class AndComponent extends AndOrComponent {
     @Override
     public QueryComponent withOtherChildren(List<QueryComponent> newChildren) {
         return AndComponent.from(newChildren);
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof AndComponent;
     }
 
     @Override

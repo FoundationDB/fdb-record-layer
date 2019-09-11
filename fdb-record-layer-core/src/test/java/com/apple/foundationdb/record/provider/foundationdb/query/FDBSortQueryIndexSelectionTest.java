@@ -351,7 +351,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         sortByPrimaryKeyWithFilter(
                 Query.field("num_value_3_indexed").equalsValue(0),
                 reverse,
-                reverse ? 831975727 : 831975726, // with index: -1828364112
+                reverse ? 831975758 : 831975757, // with index: -1828364112
                 34,
                 // with index: indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]")))
                 builder -> assertThat(builder.getNumValue3Indexed(), equalTo(0))
@@ -361,7 +361,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         sortByPrimaryKeyWithFilter(
                 Query.field("num_value_3_indexed").greaterThan(0),
                 reverse,
-                reverse ? -248685482 : -248685483,
+                reverse ? -248685451 : -248685452,
                 66,
                 builder -> assertThat(builder.getNumValue3Indexed(), greaterThan(0))
         );
@@ -371,7 +371,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         sortByPrimaryKeyWithFilter(
                 Query.field("num_value_3_indexed").notEquals(1),
                 reverse,
-                reverse ? 409493564 : 409493563,
+                reverse ? 409493595 : 409493594,
                 67,
                 builder -> assertThat(builder.getNumValue3Indexed(), not(equalTo(1)))
         );
@@ -380,7 +380,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         sortByPrimaryKeyWithFilter(
                 Query.field("num_value_2").equalsValue(1),
                 reverse,
-                reverse ? 913370493 : 913370492,
+                reverse ? 913370524 : 913370523,
                 50,
                 builder -> assertThat(builder.getNumValue2(), equalTo(1))
         );
@@ -389,7 +389,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         sortByPrimaryKeyWithFilter(
                 Query.field("num_value_2").lessThan(2),
                 reverse,
-                reverse ? 2042689094 : 2042689093,
+                reverse ? 2042689125 : 2042689124,
                 100,
                 builder -> assertThat(builder.getNumValue2(), lessThan(2))
         );
@@ -398,7 +398,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         sortByPrimaryKeyWithFilter(
                 Query.field("num_value_2").notEquals(1),
                 reverse,
-                reverse ? 490888329 : 490888328,
+                reverse ? 490888360 : 490888359,
                 50,
                 builder -> assertThat(builder.getNumValue2(), not(equalTo(2)))
         );
@@ -411,7 +411,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                     Query.field("num_value_3_indexed").equalsValue(0)
                 ),
                 reverse,
-                reverse ? 304196965 : 304196964, // with index: 1756841371
+                reverse ? 304196996 : 304196995, // with index: 1756841371
                 17,
                 // with index:
                 // filter(equalTo(Query.field("num_value_2").equalsValue(1)),
@@ -426,7 +426,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                     Query.field("num_value_3_indexed").greaterThan(1)
                 ),
                 reverse,
-                reverse ? -988509439 : -988509440,
+                reverse ? -988509408 : -988509409,
                 17,
                 builder -> {
                     assertThat(builder.getNumValue2(), not(equalTo(1)));

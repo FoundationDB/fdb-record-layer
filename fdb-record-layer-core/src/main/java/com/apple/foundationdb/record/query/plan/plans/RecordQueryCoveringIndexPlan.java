@@ -131,6 +131,16 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        if (!(otherExpression instanceof RecordQueryCoveringIndexPlan)) {
+            return false;
+        }
+        final RecordQueryCoveringIndexPlan other = (RecordQueryCoveringIndexPlan) otherExpression;
+        return recordTypeName.equals(other.recordTypeName) && toRecord.equals(other.toRecord);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

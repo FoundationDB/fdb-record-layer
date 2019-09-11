@@ -110,6 +110,11 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                 (innerContext, innerContinuation) -> getChild().execute(store, innerContext, innerContinuation, executeProperties));
     }
 
+    @Nonnull
+    public List<ScoreForRank> getRanks() {
+        return ranks;
+    }
+
     @Override
     public boolean hasRecordScan() {
         return getChild().hasRecordScan();
@@ -152,6 +157,13 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Override
     public String toString() {
         return getChild() + " WHERE " + ranks.stream().map(Object::toString).collect(Collectors.joining(", "));
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof RecordQueryScoreForRankPlan &&
+               ranks.equals(((RecordQueryScoreForRankPlan) otherExpression).ranks);
     }
 
     @Override

@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.expressions.AtomKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -29,8 +31,10 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithChild
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithChildren;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithoutChildren;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
@@ -41,7 +45,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -77,18 +83,28 @@ import java.util.Optional;
 public class KeyExpressionComparisons {
     @Nonnull
     private final KeyExpressionWithComparison root;
+    @Nullable
+    private final NestedStackEntry nestedStackEntry;
 
     public KeyExpressionComparisons(@Nonnull KeyExpression keyExpression) {
         this.root = KeyExpressionWithComparison.from(this, keyExpression);
+        this.nestedStackEntry = null;
     }
 
-    private KeyExpressionComparisons(@Nonnull KeyExpressionWithComparison root) {
+    private KeyExpressionComparisons(@Nonnull KeyExpressionWithComparison root,
+                                     @Nullable NestedStackEntry nestedStackEntry) {
         this.root = root;
+        this.nestedStackEntry = nestedStackEntry;
     }
 
     @Nonnull
     public Optional<KeyExpressionComparisons> matchWith(@Nonnull ComponentWithComparison component) {
-        return root.matchWith(component).map(KeyExpressionComparisons::new);
+        return root.matchWith(component).map(newRoot ->
+                new KeyExpressionComparisons(newRoot, nestedStackEntry));
+    }
+
+    public boolean supportsSortOrder(@Nonnull KeyExpressionComparisons sortExpression) {
+        return root.supportsSortOrder(sortExpression.root);
     }
 
     @Nonnull
@@ -96,6 +112,50 @@ public class KeyExpressionComparisons {
         ScanComparisons.Builder builder = new ScanComparisons.Builder();
         root.addToScanComparisonsBuilder(builder);
         return builder.build();
+    }
+
+    @Nullable
+    public KeyExpressionComparisons asNestedWith(@Nonnull NestedContext nestedContext) {
+        final NestedAndUnnestingFunction pair = root.asNestedWith(nestedContext);
+        if (pair == null) {
+            return null;
+        }
+        return new KeyExpressionComparisons(pair.getNested(),
+                new NestedStackEntry(nestedContext, pair.getUnnestingFunction(), nestedStackEntry));
+    }
+
+    @Nonnull
+    public KeyExpressionComparisons asUnnestedWith(@Nonnull NestedContext nestedContext) {
+        if (nestedStackEntry == null) {
+            throw new RecordCoreException("tried to unnest a KeyExpressionComparisons that wasn't nested in the first place");
+        }
+        if (nestedContext == nestedStackEntry.getContext()) { // intentional use of pointer equality
+            return new KeyExpressionComparisons(nestedStackEntry.getUnnestingFunction().unnest(root), nestedStackEntry.getParent());
+        } else {
+            // TODO refine
+            throw new RecordCoreException("tried to unnest using a different NestedContext than was used to create it");
+        }
+    }
+
+    public int getUnmatchedFieldCount() {
+        return root.getUnmatchedFieldCount();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        KeyExpressionComparisons that = (KeyExpressionComparisons)o;
+        return Objects.equals(root, that.root);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(root);
     }
 
     private enum MatchedComparisonType {
@@ -236,6 +296,70 @@ public class KeyExpressionComparisons {
             return Optional.empty();
         }
 
+        public boolean supportsSortOrder(@Nonnull KeyExpressionWithComparison sortExpression) {
+            final KeyExpression sortKeyExpression = sortExpression.keyExpression;
+            if (sortKeyExpression instanceof EmptyKeyExpression ||
+                    sortExpression.getMatchedComparisonType().equals(MatchedComparisonType.MATCHED)) {
+                return true; // sort is trivial
+            }
+            if (sortKeyExpression instanceof GroupingKeyExpression && ((GroupingKeyExpression)sortKeyExpression).getGroupedCount() > 0) {
+                return false; // a grouping can never be a prefix of a different key, so this "sort expression" is not implementable
+            }
+
+            if (getMatchedComparisonType().equals(MatchedComparisonType.MATCHED)) {
+                return false; // this key is completely matched and sortExpression isn't, so we can't support the sort
+            }
+
+            // robustness check to ensure that proper interfaces are implemented
+            // every key expression must implement either Key.ExpressionWithChildren or Key.ExpressionWithoutChildren
+            if (!keyExpression.hasProperInterfaces() || !sortKeyExpression.hasProperInterfaces()) {
+                throw new KeyExpression.InvalidExpressionException("Expression contained Key.Expression implementation that does " +
+                                                                   "not implement Key.ExpressionWithChildren or Key.ExpressionWithoutChildren");
+            }
+
+            if (keyExpression instanceof AtomKeyExpression) {
+                if (sortKeyExpression instanceof AtomKeyExpression &&
+                        (((AtomKeyExpression)sortKeyExpression).equalsAtomic((AtomKeyExpression)keyExpression))) {
+                    return childrenSupportSortChildren(sortExpression.children);
+                }
+                return false;
+            } else if (sortKeyExpression instanceof AtomKeyExpression) {
+                if (children.isEmpty()) {
+                    return false;
+                } else {
+                    return children.get(0).supportsSortOrder(sortExpression);
+                }
+            } else {
+                return childrenSupportSortChildren(sortExpression.children);
+            }
+        }
+
+        private boolean childrenSupportSortChildren(@Nonnull List<KeyExpressionWithComparison> sortExpressionChildren) {
+            Iterator<KeyExpressionWithComparison> sortChildren = sortExpressionChildren.iterator();
+            Iterator<KeyExpressionWithComparison> keyChildren = children.iterator();
+
+            while (sortChildren.hasNext()) {
+                final KeyExpressionWithComparison sortChild = sortChildren.next();
+                if (!sortChild.getMatchedComparisonType().equals(MatchedComparisonType.MATCHED)) {
+                    boolean foundKeyChild = false;
+                    KeyExpressionWithComparison keyChild = null;
+                    while (!foundKeyChild) {
+                        if (!keyChildren.hasNext()) {
+                            return false;
+                        }
+                        keyChild = keyChildren.next();
+                        if (!keyChild.getMatchedComparisonType().equals(MatchedComparisonType.MATCHED)) {
+                            foundKeyChild = true;
+                        }
+                    }
+                    if (!keyChild.supportsSortOrder(sortChild)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
         public void addToScanComparisonsBuilder(@Nonnull ScanComparisons.Builder builder) {
             if (keyExpression instanceof KeyExpressionWithoutChildren) {
                 if (!comparison.isEmpty()) {
@@ -249,7 +373,109 @@ public class KeyExpressionComparisons {
                 children.get(0).addToScanComparisonsBuilder(builder);
             } else if (keyExpression instanceof KeyWithValueExpression) {
                 children.get(0).addToScanComparisonsBuilder(builder);
+            } else if (keyExpression instanceof NestingKeyExpression) {
+                children.get(0).addToScanComparisonsBuilder(builder);
             }
+        }
+
+        @Nullable
+        public NestedAndUnnestingFunction asNestedWith(@Nonnull NestedContext nestedContext) {
+            if (keyExpression instanceof ThenKeyExpression) {
+                return asNestedInThenWith(nestedContext);
+            } else if (keyExpression instanceof NestingKeyExpression &&
+                       ((NestingKeyExpression)keyExpression).getParent().equals(nestedContext.getParentField())) {
+                return new NestedAndUnnestingFunction(children.get(0), this::withChild);
+            } else if (keyExpression instanceof KeyWithValueExpression) {
+                final NestedAndUnnestingFunction innerNested = children.get(0).asNestedWith(nestedContext);
+                if (innerNested == null) {
+                    return null;
+                }
+                return innerNested.combineUnnesting(this::withChild);
+            }
+            // TODO: Handle other nestable key expression types, if we can figure out how to nest them.
+            return null;
+        }
+
+        @Nullable
+        private NestedAndUnnestingFunction asNestedInThenWith(@Nonnull NestedContext nestedContext) {
+            if (nestedContext.isParentFieldFannedOut()) {
+                // If the parent field of the nesting is repeated, there a few important consequences:
+                // (1) We cannot match a comparison to more than one part of a Then
+                // (2) We cannot match to a partially matched part of a Then
+                // Instead, find _only_ the first unmatched child and check if it matches. Otherwise, there's
+                // nothing here.
+                final List<KeyExpressionWithComparison> matchedChildren = new ArrayList<>();
+                final Iterator<KeyExpressionWithComparison> childrenIterator = children.iterator();
+                while (childrenIterator.hasNext()) {
+                    final KeyExpressionWithComparison child = childrenIterator.next();
+                    if (child.getMatchedComparisonType().equals(MatchedComparisonType.NOT_MATCHED)) {
+                        // This is the first unmatched child of the ThenKeyExpression. This one must match or we don't
+                        // have a match at all.
+                        final NestedAndUnnestingFunction nestedChild = child.asNestedWith(nestedContext);
+                        if (nestedChild == null) {
+                            return null;
+                        }
+                        final List<KeyExpressionWithComparison> remainingChildren = new ArrayList<>();
+                        childrenIterator.forEachRemaining(remainingChildren::add);
+                        return nestedChild.combineUnnesting(result -> {
+                            final List<KeyExpressionWithComparison> allChildren = new ArrayList<>(children.size());
+                            allChildren.addAll(matchedChildren);
+                            allChildren.add(result);
+                            allChildren.addAll(remainingChildren);
+                            return withChildren(allChildren);
+                        });
+                    } else if (child.getMatchedComparisonType().equals(MatchedComparisonType.MATCHED)) {
+                        matchedChildren.add(child);
+                    } else {
+                        break;
+                    }
+                }
+                return null;
+            } else {
+                // The parent field is not repeated, so the view should include all parts of the then that have this
+                // nesting.
+                final List<KeyExpressionWithComparison> childrenWithMatchingNesting = new ArrayList<>();
+                final List<UnnestingFunction> unnestingFunctions = new ArrayList<>();
+                for (KeyExpressionWithComparison child : children) {
+                    final NestedAndUnnestingFunction nestedChild = child.asNestedWith(nestedContext);
+                    if (nestedChild != null) {
+                        final int nestedChildIndex = childrenWithMatchingNesting.size();
+                        childrenWithMatchingNesting.add(nestedChild.getNested());
+                        unnestingFunctions.add(result -> nestedChild.getUnnestingFunction()
+                                .unnest(result.children.get(nestedChildIndex)));
+                    } else {
+                        unnestingFunctions.add(result -> child);
+                    }
+                }
+
+                if (childrenWithMatchingNesting.isEmpty()) {
+                    return null;
+                }
+                return new NestedAndUnnestingFunction(withChildren(childrenWithMatchingNesting), result -> {
+                    List<KeyExpressionWithComparison> unnestedChildren = new ArrayList<>(children.size());
+                    for (int i = 0; i < children.size(); i++) {
+                        final KeyExpressionWithComparison unnestedChild = unnestingFunctions.get(i).unnest(result);
+                        if (unnestedChild == null) {
+                            return null;
+                        }
+                        unnestedChildren.add(unnestedChild);
+                    }
+                    return withChildren(unnestedChildren);
+                });
+            }
+        }
+
+        public int getUnmatchedFieldCount() {
+            if (keyExpression instanceof FieldKeyExpression ||
+                    keyExpression instanceof RecordTypeKeyExpression ||
+                    keyExpression instanceof VersionKeyExpression) {
+                return getMatchedComparisonType().equals(MatchedComparisonType.NOT_MATCHED) ? 1 : 0;
+            }
+
+            if (keyExpression instanceof KeyExpressionWithChildren) {
+                return children.stream().mapToInt(KeyExpressionWithComparison::getUnmatchedFieldCount).sum();
+            }
+            return 0;
         }
 
         public static KeyExpressionWithComparison from(@Nonnull KeyExpressionComparisons root, @Nonnull KeyExpression keyExpression) {
@@ -269,5 +495,94 @@ public class KeyExpressionComparisons {
                 throw new RecordCoreException("found key expression that does not implement proper interfaces");
             }
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            KeyExpressionWithComparison that = (KeyExpressionWithComparison)o;
+            return Objects.equals(keyExpression, that.keyExpression) &&
+                   Objects.equals(children, that.children) &&
+                   Objects.equals(comparison, that.comparison);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(keyExpression, children, comparison);
+        }
+    }
+
+    private static class NestedAndUnnestingFunction {
+        @Nonnull
+        private final KeyExpressionWithComparison nested;
+        @Nonnull
+        private final UnnestingFunction unnestingFunction;
+
+        public NestedAndUnnestingFunction(@Nonnull KeyExpressionWithComparison nested, @Nonnull UnnestingFunction unnestingFunction) {
+            this.nested = nested;
+            this.unnestingFunction = unnestingFunction;
+        }
+
+        @Nonnull
+        public KeyExpressionWithComparison getNested() {
+            return nested;
+        }
+
+        @Nonnull
+        public UnnestingFunction getUnnestingFunction() {
+            return unnestingFunction;
+        }
+
+        @Nonnull
+        public NestedAndUnnestingFunction combineUnnesting(@Nonnull UnnestingFunction outerFunction) {
+            return new NestedAndUnnestingFunction(nested, result -> {
+                final KeyExpressionWithComparison unnestedChild = unnestingFunction.unnest(result);
+                if (unnestedChild == null) {
+                    return null;
+                }
+                return outerFunction.unnest(unnestedChild);
+            });
+        }
+    }
+
+    private static class NestedStackEntry {
+        @Nonnull
+        private final NestedContext context;
+        @Nonnull
+        private final UnnestingFunction unnestingFunction;
+        @Nullable
+        private final NestedStackEntry parent;
+
+        public NestedStackEntry(@Nonnull NestedContext nestedContext, @Nonnull UnnestingFunction unnestingFunction,
+                                @Nullable NestedStackEntry parent) {
+            this.context = nestedContext;
+            this.unnestingFunction = unnestingFunction;
+            this.parent = parent;
+        }
+
+        @Nonnull
+        public NestedContext getContext() {
+            return context;
+        }
+
+        @Nonnull
+        public UnnestingFunction getUnnestingFunction() {
+            return unnestingFunction;
+        }
+
+        @Nullable
+        public NestedStackEntry getParent() {
+            return parent;
+        }
+    }
+
+    @FunctionalInterface
+    private interface UnnestingFunction {
+        @Nullable
+        KeyExpressionWithComparison unnest(@Nonnull KeyExpressionWithComparison nested);
     }
 }

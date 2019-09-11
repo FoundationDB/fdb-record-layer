@@ -33,8 +33,9 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.Sets;
@@ -75,7 +76,8 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
         // If we mess this up, better to find out sooner rather than later.
         final RelationalPlannerExpression relationalExpression = (RelationalPlannerExpression) expression;
 
-        if (relationalExpression instanceof RecordQueryScanPlan) {
+        if (relationalExpression instanceof RecordQueryScanPlan ||
+                relationalExpression instanceof FullUnorderedScanExpression) {
             return context.getMetaData().getRecordTypes().keySet();
         } else if (relationalExpression instanceof RecordQueryPlanWithIndex) {
             Index index = context.getIndexByName(((RecordQueryPlanWithIndex) relationalExpression).getIndexName());
@@ -83,10 +85,17 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
                     .map(RecordType::getName).collect(Collectors.toSet());
         } else if (relationalExpression instanceof TypeFilterExpression) {
             return Sets.filter(childResults.get(0), ((TypeFilterExpression)relationalExpression).getRecordTypes()::contains);
-        } else if (relationalExpression instanceof LogicalIndexScanExpression) {
-            Index index = context.getIndexByName(((LogicalIndexScanExpression)relationalExpression).getIndexName());
-            return context.getMetaData().recordTypesForIndex(index).stream()
-                    .map(RecordType::getName).collect(Collectors.toSet());
+        } else if (relationalExpression instanceof IndexEntrySourceScanExpression) {
+            String indexName = ((IndexEntrySourceScanExpression)relationalExpression).getIndexName();
+            if (indexName == null) {
+                // TODO: This isn't quite right, because we might have matched a common prefix of the (non-common)
+                // primary key and thus restricted the set of types that could be returned. Getting it right seems tricky.
+                return context.getMetaData().getRecordTypes().keySet();
+            } else {
+                Index index = context.getIndexByName(indexName);
+                return context.getMetaData().recordTypesForIndex(index).stream()
+                        .map(RecordType::getName).collect(Collectors.toSet());
+            }
         } else if (childResults.isEmpty()) {
             throw new RecordCoreException("tried to find record types for a relational expression with no children" +
                                           "but case wasn't handled");
@@ -141,4 +150,8 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
         return ref.acceptPropertyVisitor(new RecordTypesProperty(context));
     }
 
+    @Nonnull
+    public static Set<String> evaluate(@Nonnull PlanContext context, @Nonnull PlannerExpression ref) {
+        return ref.acceptPropertyVisitor(new RecordTypesProperty(context));
+    }
 }

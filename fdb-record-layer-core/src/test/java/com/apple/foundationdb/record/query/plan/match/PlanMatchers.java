@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import org.hamcrest.Matcher;
 
@@ -180,6 +181,11 @@ public class PlanMatchers {
     public static Matcher<RecordQueryPlan> inParameter(@Nonnull Matcher<String> bindingMatcher,
                                               @Nonnull Matcher<RecordQueryPlan> childMatcher) {
         return new InParameterJoinMatcher(bindingMatcher, childMatcher);
+    }
+
+    public static Matcher<RecordQueryPlan> scoreForRank(@Nonnull Matcher<Iterable<? extends RecordQueryScoreForRankPlan.ScoreForRank>> rankMatchers,
+                                                        @Nonnull Matcher<RecordQueryPlan> childMatcher) {
+        return new ScoreForRankMatcher(rankMatchers, childMatcher);
     }
 
     public static Matcher<RecordQueryPlan> primaryKeyDistinct(@Nonnull Matcher<RecordQueryPlan> childMatcher) {

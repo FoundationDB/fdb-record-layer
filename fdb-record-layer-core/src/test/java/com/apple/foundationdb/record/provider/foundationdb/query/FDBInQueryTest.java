@@ -103,7 +103,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
-        assertEquals(-1139367309, plan.planHash());
+        assertEquals(-1139367278, plan.planHash());
         assertEquals(67, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), anyOf(is(0), is(2))),
                 context -> assertDiscardedAtMost(33, context)));
@@ -121,7 +121,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
-        assertEquals(-1677754243, plan.planHash());
+        assertEquals(-1677754212, plan.planHash());
         assertEquals(33, querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valuesThree", asList(1, 3)),
                 record -> assertThat(record.getNumValue2(), anyOf(is(1), is(3))),
@@ -208,7 +208,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
-        assertEquals(1667070459, plan.planHash());
+        assertEquals(1667070490, plan.planHash());
         assertEquals(100, querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valueThrees", Collections.emptyList()),
                 myrec -> {
@@ -772,7 +772,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
-        assertEquals(-1139440926, plan.planHash());
+        assertEquals(-1139440895, plan.planHash());
         assertEquals(0, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty, (rec) -> {
         }));
     }

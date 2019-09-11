@@ -30,7 +30,7 @@ import java.lang.annotation.Target;
 
 /**
  * An annotation used to indicate that a test should be run using the old {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner}
- * and the new, experimental {@link com.apple.foundationdb.record.query.plan.temp.RewritePlanner}.
+ * and the new, experimental {@link com.apple.foundationdb.record.query.plan.temp.CascadesPlanner}.
  */
 @Target({ ElementType.ANNOTATION_TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)

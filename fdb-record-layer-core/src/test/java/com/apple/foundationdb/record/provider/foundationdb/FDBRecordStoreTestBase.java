@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.temp.RewritePlanner;
+import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -135,7 +135,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
 
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
         if (useRewritePlanner) {
-            planner = new RewritePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
         } else {
             if (indexTypes == null) {
                 indexTypes = PlannableIndexTypes.DEFAULT;

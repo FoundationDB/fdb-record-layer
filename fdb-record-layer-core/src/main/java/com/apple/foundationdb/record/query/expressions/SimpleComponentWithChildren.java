@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @API(API.Status.INTERNAL)
-class SimpleComponentWithChildren implements PlannerExpression {
+abstract class SimpleComponentWithChildren implements PlannerExpression {
     /**
      * Children for this component, at least 2 of them.
      */
@@ -68,6 +68,11 @@ class SimpleComponentWithChildren implements PlannerExpression {
     @Nonnull
     public List<QueryComponent> getChildren() {
         return children.stream().map(ExpressionRef::get).collect(Collectors.toList());
+    }
+
+    @Nonnull
+    public List<ExpressionRef<QueryComponent>> getChildrenRefs() {
+        return children;
     }
 
     @Nonnull

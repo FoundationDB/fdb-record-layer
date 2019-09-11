@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
@@ -64,6 +66,13 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
             }
         }
         return str.toString();
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof RecordQueryInParameterJoinPlan &&
+               super.equalsWithoutChildren(otherExpression) &&
+               externalBinding.equals(((RecordQueryInParameterJoinPlan)otherExpression).externalBinding);
     }
 
     @Override

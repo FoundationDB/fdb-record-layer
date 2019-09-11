@@ -78,4 +78,12 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
     public static int evaluate(ExpressionRef<? extends PlannerExpression> ref) {
         return ref.acceptPropertyVisitor(INSTANCE);
     }
+
+    public static int evaluate(@Nonnull PlannerExpression expression) {
+        Integer result = expression.acceptPropertyVisitor(INSTANCE);
+        if (result == null) {
+            return Integer.MAX_VALUE;
+        }
+        return result;
+    }
 }

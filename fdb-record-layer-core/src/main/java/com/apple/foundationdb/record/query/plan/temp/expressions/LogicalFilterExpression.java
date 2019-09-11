@@ -23,11 +23,13 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -75,6 +77,35 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     @Nonnull
     public RelationalPlannerExpression getInner() {
         return inner.get();
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<RelationalPlannerExpression> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                                   @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        ExpressionRef<QueryComponent> nestedFilter = nestedContext.getNestedQueryComponent(filter);
+        ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);
+        if (nestedFilter == null || nestedInner == null) {
+            return null;
+        }
+        return thisRef.getNewRefWith(new LogicalFilterExpression(nestedFilter, nestedInner));
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<RelationalPlannerExpression> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                                     @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
+        ExpressionRef<QueryComponent> unnestedFilter = nestedContext.getUnnestedQueryComponent(filter);
+        ExpressionRef<RelationalPlannerExpression> unnestedInner = nestedContext.getUnnestedRelationalPlannerExpression(inner);
+        if (unnestedFilter == null || unnestedInner == null) {
+            return null;
+        }
+        return thisRef.getNewRefWith(new LogicalFilterExpression(unnestedFilter, unnestedInner));
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof LogicalFilterExpression;
     }
 
     @Override

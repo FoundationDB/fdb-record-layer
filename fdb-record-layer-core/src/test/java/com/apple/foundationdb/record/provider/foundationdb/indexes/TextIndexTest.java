@@ -1600,7 +1600,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // Just a not. There's not a lot this could query could do to be performed because it can return
             // a lot of results by its very nature.
             assertEquals(Collections.singletonList(3L),
-                    querySimpleDocumentsWithScan(Query.not(Query.field("text").text().containsAny("king unclean")), 784296904));
+                    querySimpleDocumentsWithScan(Query.not(Query.field("text").text().containsAny("king unclean")), 784296935));
 
             // Scans the index for the first predicate and then applies the second as a not.
             // In theory, it could scan the index twice and filter out the "not".
@@ -2246,16 +2246,16 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Arrays.asList(0L, 1L),
                     queryMultiTypeDocuments(Query.field("text").text().containsPhrase("where we lay our scene"), bothTypes, 1755757799));
             assertEquals(Collections.singletonList(0L),
-                    queryMultiTypeDocuments(Query.field("text").text().containsPhrase("where we lay our scene"), simpleTypes, -1489953292));
+                    queryMultiTypeDocuments(Query.field("text").text().containsPhrase("where we lay our scene"), simpleTypes, -1489953261));
             assertEquals(Collections.singletonList(1L),
-                    queryMultiTypeDocuments(Query.field("text").text().containsPhrase("where we lay our scene"), complexTypes, -1333764430));
+                    queryMultiTypeDocuments(Query.field("text").text().containsPhrase("where we lay our scene"), complexTypes, -1333764399));
 
             assertEquals(Arrays.asList(2L, 4L, 5L),
                     queryMultiTypeDocuments(Query.field("text").text().containsPrefix("na"), bothTypes, -714642562));
             assertEquals(Arrays.asList(2L, 4L),
-                    queryMultiTypeDocuments(Query.field("text").text().containsPrefix("na"), simpleTypes, 334613643));
+                    queryMultiTypeDocuments(Query.field("text").text().containsPrefix("na"), simpleTypes, 334613674));
             assertEquals(Collections.singletonList(5L),
-                    queryMultiTypeDocuments(Query.field("text").text().containsPrefix("na"), complexTypes, 490802505));
+                    queryMultiTypeDocuments(Query.field("text").text().containsPrefix("na"), complexTypes, 490802536));
 
             commit(context);
         }

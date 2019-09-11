@@ -21,12 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
-import java.util.stream.Stream;
 
 /**
  * A mutable reference to a single planner expression. Since it references a single expression, it can provide
@@ -34,47 +30,12 @@ import java.util.stream.Stream;
  * @param <T> the type of planner expression that is contained in this reference
  */
 @API(API.Status.EXPERIMENTAL)
-public class SingleExpressionRef<T extends PlannerExpression> implements MutableExpressionRef<T> {
-    @Nonnull
-    private T expression;
-
+public class SingleExpressionRef<T extends PlannerExpression> extends GroupExpressionRef<T> {
     protected SingleExpressionRef(@Nonnull T expression) {
-        this.expression = expression;
-    }
-
-    @Override
-    @Nonnull
-    public T get() {
-        return expression;
-    }
-
-    /**
-     * Replace the current value behind this reference with a new value.
-     * @param newValue the new value for this reference to store.
-     */
-    @Override
-    public void insert(@Nonnull T newValue) {
-        expression = newValue;
-    }
-
-    @Override
-    public <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> visitor) {
-        if (visitor.shouldVisit(this)) {
-            final U memberResult = expression.acceptPropertyVisitor(visitor);
-            if (memberResult != null) {
-                return visitor.evaluateAtRef(this, Collections.singletonList(memberResult));
-            }
-        }
-        return null;
+        super(expression);
     }
 
     public static <T extends PlannerExpression> SingleExpressionRef<T> of(@Nonnull T expression) {
         return new SingleExpressionRef<>(expression);
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> bindWithin(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        return expression.bindTo(matcher);
     }
 }

@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +44,6 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -58,9 +57,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     @Nonnull
     private final ExpressionRef<RecordQueryPlan> inner;
     @Nonnull
-    private final ExpressionRef<KeyExpression> comparisonKey;
-    @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
+    private final KeyExpression comparisonKey;
     @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_DISTINCT);
     @Nonnull
@@ -72,8 +69,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     public RecordQueryUnorderedDistinctPlan(@Nonnull RecordQueryPlan inner,
                                             @Nonnull KeyExpression comparisonKey) {
         this.inner = SingleExpressionRef.of(inner);
-        this.comparisonKey = SingleExpressionRef.of(comparisonKey);
-        this.expressionChildren = ImmutableList.of(this.inner, this.comparisonKey);
+        this.comparisonKey = comparisonKey;
     }
 
     @Nonnull
@@ -107,7 +103,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     private KeyExpression getComparisonKey() {
-        return comparisonKey.get();
+        return comparisonKey;
     }
 
     @Override
@@ -135,12 +131,19 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     @Override
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return expressionChildren.iterator();
+        return Iterators.singletonIterator(inner);
     }
 
     @Override
     public String toString() {
         return getInner() + " | UnorderedDistinct(" + getComparisonKey() + ")";
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof RecordQueryUnorderedDistinctPlan &&
+               comparisonKey.equals(((RecordQueryUnorderedDistinctPlan)otherExpression).comparisonKey);
     }
 
     @Override

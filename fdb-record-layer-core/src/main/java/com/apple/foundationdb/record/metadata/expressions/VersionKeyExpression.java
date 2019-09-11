@@ -25,15 +25,12 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -104,13 +101,6 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     @Override
     public int versionColumns() {
         return 1;
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Collections.emptyIterator();
     }
 
     @Override

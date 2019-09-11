@@ -25,10 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.google.common.collect.Iterators;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -36,7 +32,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -47,11 +42,11 @@ import java.util.List;
  */
 @API(API.Status.MAINTAINED)
 public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
-    private final ExpressionRef<KeyExpression> joined;
+    private final KeyExpression joined;
     private final int splitSize;
 
     public SplitKeyExpression(KeyExpression joined, int splitSize) {
-        this.joined = SingleExpressionRef.of(joined);
+        this.joined = joined;
         this.splitSize = splitSize;
     }
 
@@ -135,7 +130,7 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     public KeyExpression getJoined() {
-        return joined.get();
+        return joined;
     }
 
     /**
@@ -150,13 +145,6 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     @Nonnull
     public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.joined);
     }
 
     @Override

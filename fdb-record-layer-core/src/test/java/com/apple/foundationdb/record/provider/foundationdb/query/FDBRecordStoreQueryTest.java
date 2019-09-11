@@ -222,7 +222,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
-            assertEquals(1623132305, plan.planHash());
+            assertEquals(1623132336, plan.planHash());
             byte[] continuation = null;
             List<TestRecords1Proto.MySimpleRecord> retrieved = new ArrayList<>(100);
             while (true) {
@@ -284,7 +284,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             plan = planner.plan(query);
             assertThat(plan, filter(equalTo(query.getFilter()), typeFilter(anything(), scan(unbounded()))));
-            assertEquals(913370491, plan.planHash());
+            assertEquals(913370522, plan.planHash());
             continuation = null;
             retrieved = new ArrayList<>(50);
             while (true) {

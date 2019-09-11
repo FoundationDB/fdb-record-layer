@@ -33,9 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -53,10 +51,10 @@ import java.util.Set;
 @API(API.Status.MAINTAINED)
 public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
-    private final ExpressionRef<KeysSource> keysSource;
+    private final KeysSource keysSource;
 
     public RecordQueryLoadByKeysPlan(@Nonnull KeysSource keysSource) {
-        this.keysSource = SingleExpressionRef.of(keysSource);
+        this.keysSource = keysSource;
     }
 
     public RecordQueryLoadByKeysPlan(@Nonnull List<Tuple> primaryKeys) {
@@ -110,7 +108,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
 
     @Nonnull
     public KeysSource getKeysSource() {
-        return keysSource.get();
+        return keysSource;
     }
 
     @Nonnull
@@ -123,13 +121,19 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     @Override
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.keysSource);
+        return Collections.emptyIterator();
     }
 
     @Nonnull
     @Override
     public String toString() {
         return "ByKeys(" + getKeysSource() + ")";
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof RecordQueryLoadByKeysPlan;
     }
 
     @Override
@@ -176,13 +180,6 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
             return primaryKeys;
         }
 
-        @Nonnull
-        @Override
-        @API(API.Status.EXPERIMENTAL)
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
-        }
-
         @Override
         public String toString() {
             return primaryKeys.toString();
@@ -214,7 +211,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     /**
      * A source for the primary keys for records.
      */
-    public interface KeysSource extends PlanHashable, PlannerExpression {
+    public interface KeysSource extends PlanHashable {
         List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context);
     }
 
@@ -229,13 +226,6 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         @SuppressWarnings("unchecked")
         public List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context) {
             return (List<Tuple>)context.getBinding(parameter);
-        }
-
-        @Nonnull
-        @Override
-        @API(API.Status.EXPERIMENTAL)
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
         }
 
         @Override

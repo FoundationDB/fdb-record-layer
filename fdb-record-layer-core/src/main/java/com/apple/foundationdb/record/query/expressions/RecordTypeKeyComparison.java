@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -89,9 +90,29 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         return Collections.emptyIterator();
     }
 
+    @Nullable
+    @Override
+    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return thisRef;
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                        @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return thisRef;
+    }
+
     @Override
     public String toString() {
         return getComparison().toString();
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return equals(otherExpression);
     }
 
     @Override

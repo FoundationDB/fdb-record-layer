@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.Iterators;
@@ -46,8 +47,12 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     private final ExpressionRef<QueryComponent> child;
 
     public OneOfThemWithComponent(@Nonnull String fieldName, @Nonnull QueryComponent child) {
+        this(fieldName, SingleExpressionRef.of(child));
+    }
+
+    public OneOfThemWithComponent(@Nonnull String fieldName, @Nonnull ExpressionRef<QueryComponent> child) {
         super(fieldName);
-        this.child = SingleExpressionRef.of(child);
+        this.child = child;
     }
 
     @Override
@@ -96,6 +101,18 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
         return Iterators.singletonIterator(this.child);
     }
 
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        if (nestedContext.isParentFieldFannedOut() && // can only match to a context with a repeated field
+                nestedContext.getParentField().getFieldName().equals(getFieldName())) { // field names must match
+            return child;
+        }
+        return null;
+    }
+
     @Override
     public QueryComponent withOtherChild(QueryComponent newChild) {
         return new OneOfThemWithComponent(getFieldName(), newChild);
@@ -104,6 +121,13 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     @Override
     public String toString() {
         return "one of " + getFieldName() + "/{" + getChild() + "}";
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return otherExpression instanceof OneOfThemWithComponent &&
+               ((OneOfThemWithComponent)otherExpression).getFieldName().equals(getFieldName());
     }
 
     @Override

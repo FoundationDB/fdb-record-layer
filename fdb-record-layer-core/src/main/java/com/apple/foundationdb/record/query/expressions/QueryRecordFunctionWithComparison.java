@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -108,9 +109,31 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
         return Collections.emptyIterator();
     }
 
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return null;
+    }
+
+    @Nullable
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
+                                                        @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return null;
+    }
+
     @Override
     public String toString() {
         return function.toString() + " " + getComparison();
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return equals(otherExpression);
     }
 
     @Override
