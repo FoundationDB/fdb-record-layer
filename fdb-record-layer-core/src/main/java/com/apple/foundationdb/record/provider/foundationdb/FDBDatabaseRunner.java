@@ -119,6 +119,21 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     void setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics);
 
     /**
+     * Get the priority of transactions opened by this runner.
+     * @return the priority of transactions opened by this runner
+     * @see FDBRecordContext#getPriority()
+     */
+    @Nonnull
+    FDBTransactionPriority getPriority();
+
+    /**
+     * Set the priority of transactions opened by this runner.
+     * @param priority the priority of transactions by this runner
+     * @see FDBRecordContext#getPriority()
+     */
+    void setPriority(@Nonnull FDBTransactionPriority priority);
+
+    /**
      * Gets the maximum number of attempts for a database to make when running a
      * retriable transactional operation. This is used by {@link #run} and {@link #runAsync} to limit the number of
      * attempts that an operation is retried.

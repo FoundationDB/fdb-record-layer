@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase.RecordMetaDataHook;
@@ -74,7 +73,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -89,6 +87,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -115,6 +114,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -199,7 +199,9 @@ public class OnlineIndexerTest extends FDBTestBase {
     private FDBRecordContext openContext(boolean checked) {
         FDBRecordContext context = fdb.openContext();
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
-                .setMetaDataProvider(metaData).setContext(context).setSubspace(subspace);
+                .setMetaDataProvider(metaData)
+                .setContext(context)
+                .setSubspace(subspace);
         if (checked) {
             recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
         } else {
@@ -276,6 +278,7 @@ public class OnlineIndexerTest extends FDBTestBase {
                         TestLogMessageKeys.SPLIT_LONG_RECORDS, splitLongRecords,
                         TestLogMessageKeys.INDEX, index)
         );
+        final FDBStoreTimer timer = new FDBStoreTimer();
 
         final RecordMetaDataHook onlySplitHook = metaDataBuilder -> {
             if (splitLongRecords) {
@@ -319,13 +322,27 @@ public class OnlineIndexerTest extends FDBTestBase {
                         LogMessageKeys.LIMIT, 20,
                         TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
         final OnlineIndexer.Builder builder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
-                .setLimit(20).setMaxRetries(Integer.MAX_VALUE).setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
+                .setDatabase(fdb)
+                .setMetaData(metaData)
+                .setIndex(index)
+                .setSubspace(subspace)
+                .setLimit(20)
+                .setMaxRetries(Integer.MAX_VALUE)
+                .setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100)
+                .setTimer(timer);
         if (ThreadLocalRandom.current().nextBoolean()) {
             // randomly enable the progress logging to ensure that it doesn't throw exceptions,
             // or otherwise disrupt the build.
             LOGGER.info("Setting progress log interval");
             builder.setProgressLogIntervalMillis(0);
+        }
+        if (ThreadLocalRandom.current().nextBoolean()) {
+            LOGGER.info("Setting priority to DEFAULT");
+            builder.setPriority(FDBTransactionPriority.DEFAULT);
+        }
+        if (fdb.isTrackLastSeenVersion()) {
+            LOGGER.info("Setting weak read semantics");
+            builder.setWeakReadSemantics(new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true));
         }
 
         try (OnlineIndexer indexBuilder = builder.build()) {
@@ -398,7 +415,9 @@ public class OnlineIndexerTest extends FDBTestBase {
                             lessThanOrEqualTo((long)records.size() + additionalScans)
                     ));
         }
-        LOGGER.info(KeyValueLogMessage.of("building index - completed", TestLogMessageKeys.INDEX, index));
+        KeyValueLogMessage msg = KeyValueLogMessage.build("building index - completed", TestLogMessageKeys.INDEX, index);
+        msg.addKeysAndValues(timer.getKeysAndValues());
+        LOGGER.info(msg.toString());
 
         LOGGER.info(KeyValueLogMessage.of("running post build checks", TestLogMessageKeys.INDEX, index));
         afterBuild.run();
@@ -944,12 +963,48 @@ public class OnlineIndexerTest extends FDBTestBase {
 
     @Test
     @Tag(Tags.Slow)
+    public void oneHundredElementsWithWeakReads() {
+        boolean dbTracksReadVersionOnRead = fdb.isTrackLastSeenVersionOnRead();
+        boolean dbTracksReadVersionOnCommit = fdb.isTrackLastSeenVersionOnCommit();
+        try {
+            fdb.setTrackLastSeenVersion(true);
+            Random r = new Random(0x5ca1ab1e);
+            List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
+                    TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
+            ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
+            valueRebuild(records);
+        } finally {
+            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
+            fdb.setTrackLastSeenVersionOnCommit(dbTracksReadVersionOnCommit);
+        }
+    }
+
+    @Test
+    @Tag(Tags.Slow)
     public void oneHundredElementsParallel() {
         Random r = new Random(0x5ca1ab1e);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         valueRebuild(records, null, 5, false);
+    }
+
+    @Test
+    @Tag(Tags.Slow)
+    public void oneHundredElementsParallelWithWeakReads() {
+        boolean dbTracksReadVersionOnRead = fdb.isTrackLastSeenVersionOnRead();
+        boolean dbTracksReadVersionOnCommit = fdb.isTrackLastSeenVersionOnCommit();
+        try {
+            fdb.setTrackLastSeenVersion(true);
+            Random r = new Random(0x5ca1ab1e);
+            List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
+                    TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
+            ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
+            valueRebuild(records, null, 5, false);
+        } finally {
+            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
+            fdb.setTrackLastSeenVersionOnCommit(dbTracksReadVersionOnCommit);
+        }
     }
 
     @Test
@@ -1721,9 +1776,9 @@ public class OnlineIndexerTest extends FDBTestBase {
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .build()) {
             try (FDBRecordContext context = openContext()) {
-                context.ensureActive().getReadVersion().join();
+                context.getReadVersion();
                 try (FDBRecordContext context2 = fdb.openContext()) {
-                    context2.ensureActive().getReadVersion().join();
+                    context2.getReadVersion();
                     FDBRecordStore recordStore2 = recordStore.asBuilder().setContext(context2).build();
 
                     indexBuilder.buildUnbuiltRange(recordStore, null, Key.Evaluated.scalar(5L)).join();
@@ -2382,6 +2437,59 @@ public class OnlineIndexerTest extends FDBTestBase {
         }
     }
 
+    @Test
+    public void runWithWeakReadSemantics() throws InterruptedException, ExecutionException {
+        boolean dbTracksReadVersionOnRead = fdb.isTrackLastSeenVersionOnRead();
+        boolean dbTracksReadVersionOnCommit = fdb.isTrackLastSeenVersionOnCommit();
+        try {
+            fdb.setTrackLastSeenVersion(true);
+            Index index = runAsyncSetup();
+
+            FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true);
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                    .setWeakReadSemantics(weakReadSemantics)
+                    .build()) {
+                long readVersion = runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
+                    assertSame(weakReadSemantics, recordStore.getContext().getWeakReadSemantics());
+                    assertTrue(recordStore.getContext().hasReadVersion());
+                    return recordStore.getContext().getReadVersionAsync();
+                }).get();
+                long readVersion2 = runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
+                    assertTrue(recordStore.getContext().hasReadVersion());
+                    return recordStore.getContext().getReadVersionAsync();
+                }).get();
+                assertEquals(readVersion, readVersion2, "weak read semantics did not preserve read version");
+            }
+        } finally {
+            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
+            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
+        }
+    }
+
+    @Test
+    public void runWithPriorities() throws InterruptedException, ExecutionException {
+        Index index = runAsyncSetup();
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .build()) {
+            runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
+                assertEquals(FDBTransactionPriority.BATCH, recordStore.getContext().getPriority());
+                return AsyncUtil.DONE;
+            }).get();
+        }
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setPriority(FDBTransactionPriority.DEFAULT)
+                .build()) {
+            runAndHandleLessenWorkCodes(indexBuilder, recordStore -> {
+                assertEquals(FDBTransactionPriority.DEFAULT, recordStore.getContext().getPriority());
+                return AsyncUtil.DONE;
+            }).get();
+        }
+    }
+
+    @Nonnull
     private Index runAsyncSetup() {
         Index index = new Index("newIndex", field("num_value_2"));
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
@@ -2399,55 +2507,49 @@ public class OnlineIndexerTest extends FDBTestBase {
         Index newIndex = new Index("newIndex", field("num_value_2"));
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", newIndex));
         Index indexPrime = metaData.getIndex("newIndex");
-        Collection<RecordType> recordTypes = metaData.recordTypesForIndex(indexPrime);
         // Absent index
-        try {
+        RecordCoreException e = assertThrows(MetaDataException.class, () -> {
             Index absentIndex = new Index("absent", field("num_value_2"));
             OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(absentIndex).setSubspace(subspace).build();
-            fail("Did not catch absent index.");
-        } catch (MetaDataException e) {
-            assertEquals("Index absent not contained within specified metadata", e.getMessage());
-        }
+        });
+        assertEquals("Index absent not contained within specified metadata", e.getMessage());
         // Limit
-        try {
-            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setLimit(-1).build();
-            fail("Did not catch negative limit.");
-        } catch (RecordCoreException e) {
-            assertEquals("Non-positive value -1 given for record limit", e.getMessage());
-        }
-        try {
-            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setLimit(0).build();
-            fail("Did not catch zero limit.");
-        } catch (RecordCoreException e) {
-            assertEquals("Non-positive value 0 given for record limit", e.getMessage());
-        }
+        e = assertThrows(RecordCoreException.class, () ->
+                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setLimit(-1).build()
+        );
+        assertEquals("Non-positive value -1 given for record limit", e.getMessage());
+        e = assertThrows(RecordCoreException.class, () ->
+                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setLimit(0).build()
+        );
+        assertEquals("Non-positive value 0 given for record limit", e.getMessage());
         // Retries
-        try {
-            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setMaxRetries(-1).build();
-            fail("Did not catch negative retries.");
-        } catch (RecordCoreException e) {
-            assertEquals("Non-positive value -1 given for maximum retries", e.getMessage());
-        }
-        try {
-            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setMaxRetries(0).build();
-            fail("Did not catch zero retries.");
-        } catch (RecordCoreException e) {
-            assertEquals("Non-positive value 0 given for maximum retries", e.getMessage());
-        }
+        e = assertThrows(RecordCoreException.class, () ->
+                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setMaxRetries(-1).build()
+        );
+        assertEquals("Non-positive value -1 given for maximum retries", e.getMessage());
+        e = assertThrows(RecordCoreException.class, () ->
+                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setMaxRetries(0).build()
+        );
+        assertEquals("Non-positive value 0 given for maximum retries", e.getMessage());
         // Records per second
-        try {
-            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setRecordsPerSecond(-1).build();
-            fail("Did not catch negative RPS");
-        } catch (RecordCoreException e) {
-            assertEquals("Non-positive value -1 given for records per second value", e.getMessage());
-        }
-        try {
-            OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setRecordsPerSecond(0).build();
-
-            fail("Did not catch zero RPS");
-        } catch (RecordCoreException e) {
-            assertEquals("Non-positive value 0 given for records per second value", e.getMessage());
-        }
+        e = assertThrows(RecordCoreException.class, () ->
+                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setRecordsPerSecond(-1).build()
+        );
+        assertEquals("Non-positive value -1 given for records per second value", e.getMessage());
+        e = assertThrows(RecordCoreException.class, () ->
+                OnlineIndexer.newBuilder().setDatabase(fdb).setMetaData(metaData).setIndex(indexPrime).setSubspace(subspace).setRecordsPerSecond(0).build()
+        );
+        assertEquals("Non-positive value 0 given for records per second value", e.getMessage());
+        // WeakReadSemantics before runner
+        e = assertThrows(MetaDataException.class, () ->
+                OnlineIndexer.newBuilder().setWeakReadSemantics(new FDBDatabase.WeakReadSemantics(Long.MAX_VALUE, 0L, true))
+        );
+        assertEquals("weak read semantics can only be set after runner has been set", e.getMessage());
+        // priority before runner
+        e = assertThrows(MetaDataException.class, () ->
+                OnlineIndexer.newBuilder().setPriority(FDBTransactionPriority.DEFAULT)
+        );
+        assertEquals("transaction priority can only be set after runner has been set", e.getMessage());
     }
 
     @Test

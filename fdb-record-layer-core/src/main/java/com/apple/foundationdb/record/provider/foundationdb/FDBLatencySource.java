@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+
+import javax.annotation.Nonnull;
 import java.util.function.Function;
 
 /**
@@ -27,13 +30,30 @@ import java.util.function.Function;
  */
 public enum FDBLatencySource {
     /**
-     * See {@link FDBDatabase#getReadVersion(FDBRecordContext)}.
+     * See {@link FDBRecordContext#getReadVersion()}.
      */
-    GET_READ_VERSION,
+    GET_READ_VERSION(FDBStoreTimer.Events.INJECTED_GET_READ_VERSION_LATENCY),
 
     /**
      * See {@link FDBRecordContext#commitAsync()}.
      */
-    COMMIT_ASYNC,
+    COMMIT_ASYNC(FDBStoreTimer.Events.INJECTED_COMMIT_LATENCY),
     ;
+
+    @Nonnull
+    private final StoreTimer.Event event;
+
+    FDBLatencySource(@Nonnull StoreTimer.Event event) {
+        this.event = event;
+    }
+
+    /**
+     * Get the event used to track this latency source by {@link FDBStoreTimer}s.
+     *
+     * @return the event used to instrument injecting this latency source
+     */
+    @Nonnull
+    public StoreTimer.Event getTimerEvent() {
+        return event;
+    }
 }

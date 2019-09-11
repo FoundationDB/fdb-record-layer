@@ -552,7 +552,7 @@ public class VersionIndexTest extends FDBTestBase {
         FDBRecordVersion manualVersion;
         byte[] versionstamp;
         try (FDBRecordContext context = openContext(functionVersionHook)) {
-            long readVersion = context.ensureActive().getReadVersion().get();
+            long readVersion = context.getReadVersion();
             manualVersion = FDBRecordVersion.firstInDBVersion(readVersion);
             FDBStoredRecord<Message> storedCommitWithDummy =  recordStore.saveRecord(recordCommitWithDummy);
             assertEquals(FDBRecordVersion.incomplete(0), storedCommitWithDummy.getVersion());

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.cursors.MapCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.cursors.SkipCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.test.BooleanSource;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
@@ -36,7 +37,6 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -425,10 +425,9 @@ public class RecordCursorTest {
         return results;
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "pipelineWithInnerLimits [outOfBand = {0}]")
-    public void pipelineWithInnerLimits(TestHelpers.BooleanEnum outOfBandEnum) {
-        final boolean outOfBand = outOfBandEnum.toBoolean();
+    @BooleanSource
+    public void pipelineWithInnerLimits(boolean outOfBand) {
         final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[]{
                 RecordCursor.NoNextReason.SOURCE_EXHAUSTED,
                 outOfBand ? RecordCursor.NoNextReason.TIME_LIMIT_REACHED : RecordCursor.NoNextReason.RETURN_LIMIT_REACHED
@@ -458,10 +457,9 @@ public class RecordCursorTest {
         assertEquals(ints.size() * ints.size() - expectedResults, timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED));
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "pipelineWithOuterLimits [outOfBand = {0}]")
-    public void pipelineWithOuterLimits(TestHelpers.BooleanEnum outOfBandEnum) {
-        final boolean outOfBand = outOfBandEnum.toBoolean();
+    @BooleanSource
+    public void pipelineWithOuterLimits(boolean outOfBand) {
         final RecordCursor.NoNextReason[] possibleNoNextReasons = new RecordCursor.NoNextReason[]{
                 RecordCursor.NoNextReason.SOURCE_EXHAUSTED,
                 outOfBand ? RecordCursor.NoNextReason.TIME_LIMIT_REACHED : RecordCursor.NoNextReason.RETURN_LIMIT_REACHED
@@ -509,10 +507,9 @@ public class RecordCursorTest {
         assertEquals(13, timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED));
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "pipelineWithOuterLimitsWithSomeDelay [outOfBand = {0}]")
-    public void pipelineWithOuterLimitsWithSomeDelay(TestHelpers.BooleanEnum outOfBandEnum) {
-        final boolean outOfBand = outOfBandEnum.toBoolean();
+    @BooleanSource
+    public void pipelineWithOuterLimitsWithSomeDelay(boolean outOfBand) {
         final RecordCursor.NoNextReason limitReason = outOfBand ? RecordCursor.NoNextReason.TIME_LIMIT_REACHED : RecordCursor.NoNextReason.RETURN_LIMIT_REACHED;
         final List<Integer> ints = IntStream.range(0, 10).boxed().collect(Collectors.toList());
 

@@ -56,26 +56,6 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class TestHelpers {
 
-    /**
-     * This enum exists so that tests can use them as an enumeration source in
-     * parameterized tests. JUnit5, for whatever reason, doesn't allow booleans
-     * as values for parameters--only strings, ints, longs, and doubles.
-     */
-    public enum BooleanEnum {
-        FALSE(false),
-        TRUE(true);
-
-        private final boolean value;
-
-        BooleanEnum(boolean value) {
-            this.value = value;
-        }
-
-        public boolean toBoolean() {
-            return value;
-        }
-    }
-
     public static Executable toCallable(DangerousRunnable danger) {
         return () -> {
             try {

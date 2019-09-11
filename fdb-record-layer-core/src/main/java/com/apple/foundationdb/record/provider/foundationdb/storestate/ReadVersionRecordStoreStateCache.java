@@ -78,7 +78,7 @@ public class ReadVersionRecordStoreStateCache implements FDBRecordStoreStateCach
             context.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS);
             return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck);
         } else {
-            return context.ensureActive().getReadVersion().thenCompose(readVersion -> {
+            return context.getReadVersionAsync().thenCompose(readVersion -> {
                 final SubspaceProvider subspaceProvider = recordStore.getSubspaceProvider();
                 CompletableFuture<FDBRecordStoreStateCacheEntry> storeStateFuture = cache.orElseGet(Pair.of(subspaceProvider, readVersion), () -> {
                     if (LOGGER.isDebugEnabled()) {

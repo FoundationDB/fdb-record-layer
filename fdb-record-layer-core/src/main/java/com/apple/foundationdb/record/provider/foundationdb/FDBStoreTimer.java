@@ -40,8 +40,28 @@ public class FDBStoreTimer extends StoreTimer {
     public enum Events implements Event {
         /** The amount of time taken performing a no-op. */
         PERFORM_NO_OP("perform no-op"),
-        /** The amount of time taken committing transactions successfully. */
+        /**
+         * The amount of time taken to get a read version when explicitly called.
+         * This includes any injected latency added before issuing the request.
+         * @see #INJECTED_GET_READ_VERSION_LATENCY
+         */
+        GET_READ_VERSION("get read version"),
+        /**
+         * The amount of time injected prior to getting a read version.
+         * @see FDBDatabase#injectLatency(FDBLatencySource)
+         */
+        INJECTED_GET_READ_VERSION_LATENCY("injected get read version latency"),
+        /**
+         * The amount of time taken committing transactions successfully.
+         * This includes any injected latency added before issuing the request and any time spent performing pre-commit checks.
+         * @see #INJECTED_COMMIT_LATENCY
+         */
         COMMIT("commit transaction"),
+        /**
+         * The amount of time injected into committing transactions.
+         * @see FDBDatabase#injectLatency(FDBLatencySource)
+         */
+        INJECTED_COMMIT_LATENCY("injected commit latency"),
         /** The amount of time taken committing transactions that did not actually have any writes. */
         COMMIT_READ_ONLY("commit read-only transaction"),
         /** The amount of time taken committing transactions that did not succeed. */

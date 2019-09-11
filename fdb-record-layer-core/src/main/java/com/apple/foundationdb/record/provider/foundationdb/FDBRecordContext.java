@@ -29,6 +29,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -85,6 +86,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordContext.class);
     private static final byte[] META_DATA_VERSION_STAMP_KEY = new byte[]{(byte)0xff, '/', 'm', 'e', 't', 'a', 'd', 'a', 't', 'a', 'V', 'e', 'r', 's', 'i', 'o', 'n'};
     private static final byte[] META_DATA_VERSION_STAMP_VALUE = new byte[FDBRecordVersion.GLOBAL_VERSION_LENGTH + Integer.BYTES];
+    private static final long UNSET_VERSION = 0L;
 
     static {
         Arrays.fill(META_DATA_VERSION_STAMP_VALUE, (byte)0x00);
@@ -96,7 +98,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private static final String INTERNAL_COMMIT_HOOK_PREFIX = "@__";
     private static final String AFTER_COMMIT_HOOK_NAME = INTERNAL_COMMIT_HOOK_PREFIX + "afterCommit";
 
-    private long committedVersion;
+    @Nullable
+    private CompletableFuture<Long> readVersionFuture;
+    private long readVersion = UNSET_VERSION;
+    private long committedVersion = UNSET_VERSION;
     private long transactionCreateTime;
     @Nullable
     private byte[] versionStamp;
@@ -106,7 +111,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private ConcurrentNavigableMap<Tuple, Integer> localVersionCache;
     @Nonnull
     private ConcurrentNavigableMap<byte[], Pair<MutationType, byte[]>> versionMutationCache;
-    private FDBDatabase.WeakReadSemantics weakReadSemantics;
+    @Nullable
+    private final FDBDatabase.WeakReadSemantics weakReadSemantics;
+    @Nonnull
+    private final FDBTransactionPriority priority;
     @Nullable
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
     @Nonnull
@@ -117,7 +125,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private boolean dirtyMetaDataVersionStamp;
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
-                               boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+                               boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics,
+                               @Nonnull FDBTransactionPriority priority) {
         super(fdb, fdb.createTransaction(initExecutor(fdb, mdcContext), mdcContext, transactionIsTraced));
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
@@ -135,6 +144,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         // If a causal read risky is requested, we set the corresponding transaction option
         if (weakReadSemantics != null && weakReadSemantics.isCausalReadRisky()) {
             transaction.options().setCausalReadRisky();
+        }
+
+        this.priority = priority;
+        switch (priority) {
+            case BATCH:
+                transaction.options().setPriorityBatch();
+                break;
+            case DEFAULT:
+                // Default priority does not need to set any option
+                break;
+            case SYSTEM_IMMEDIATE:
+                transaction.options().setPrioritySystemImmediate();
+                break;
+            default:
+                throw new RecordCoreArgumentException("unknown priority level " + priority);
         }
 
         this.weakReadSemantics = weakReadSemantics;
@@ -161,6 +185,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 }
             }
         }
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> injectLatency(@Nonnull FDBLatencySource latencySource) {
+        return instrument(latencySource.getTimerEvent(), database.injectLatency(latencySource));
     }
 
     /**
@@ -224,7 +253,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * Returns a commit that may be delayed due to latency injection.
      */
     private CompletableFuture<Void> delayedCommit() {
-        return database.injectLatency(FDBLatencySource.COMMIT_ASYNC).thenCompose(vignore -> transaction.commit());
+        return injectLatency(FDBLatencySource.COMMIT_ASYNC).thenCompose(vignore -> transaction.commit());
     }
 
     @Override
@@ -234,6 +263,109 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             throw new RecordCoreStorageException("Transaction is no longer active.");
         }
         return transaction;
+    }
+
+    /**
+     * Set the read version used by this transaction. All reads to the database will include
+     * only changes that were committed at this version or smaller. A transaction's read version
+     * can only be set once, so if this function is called multiple times, it will return the
+     * previously set read version. If this method is called and another caller has already called
+     * {@link #getReadVersionAsync()} or {@link #getReadVersion()}, this method may throw a
+     * {@link RecordCoreException} indicating that there is already an outstanding read version request
+     * if that request has not yet completed.
+     *
+     * @param readVersion the read version this transaction should use if is not already set
+     * @return this transaction's read version
+     * @see Transaction#setReadVersion(long)
+     */
+    public synchronized long setReadVersion(long readVersion) {
+        if (hasReadVersion()) {
+            return this.readVersion;
+        }
+        if (readVersionFuture != null) {
+            if (MoreAsyncUtil.isCompletedNormally(readVersionFuture)) {
+                return joinNow(readVersionFuture);
+            } else {
+                throw new RecordCoreException("Cannot set read version as read version request is outstanding");
+            }
+        }
+        ensureActive().setReadVersion(readVersion);
+        this.readVersion = readVersion;
+        this.readVersionFuture = CompletableFuture.completedFuture(readVersion);
+        return readVersion;
+    }
+
+    /**
+     * Get the read version used by this transaction. All reads to the database will include only changes that
+     * were committed at this version or smaller. If the read version has not already been set or gotten, this
+     * may require talking to the database. If the read version has already been set or gotten, then this will return
+     * with an already completed future.
+     *
+     * <p>
+     * Note that this method is {@code synchronized}, but only creating the future (<em>not</em> waiting on
+     * the future) will block other threads. Thus, while it is advised that this method only be called once
+     * and by only one caller at a time, if it safe to use this method in asynchronous contexts. If this method is
+     * called multiple times, then the same future will be returned each time.
+     * </p>
+     *
+     * @return a future that will contain the read version of this transaction
+     * @see Transaction#getReadVersion()
+     */
+    @Nonnull
+    public synchronized CompletableFuture<Long> getReadVersionAsync() {
+        if (readVersionFuture != null) {
+            return readVersionFuture;
+        }
+        ensureActive(); // call ensure active here so that we don't inject latency on inactive contexts
+        long startTimeMillis = System.currentTimeMillis();
+        long startTimeNanos = System.nanoTime();
+        CompletableFuture<Long> localReadVersionFuture = injectLatency(FDBLatencySource.GET_READ_VERSION)
+                .thenCompose(ignore -> ensureActive().getReadVersion())
+                .thenApply(newReadVersion -> {
+                    readVersion = newReadVersion;
+                    if (database.isTrackLastSeenVersionOnRead()) {
+                        database.updateLastSeenFDBVersion(startTimeMillis, newReadVersion);
+                    }
+                    return newReadVersion;
+                });
+        localReadVersionFuture = instrument(FDBStoreTimer.Events.GET_READ_VERSION, localReadVersionFuture, startTimeNanos);
+        readVersionFuture = localReadVersionFuture;
+        return localReadVersionFuture;
+    }
+
+    /**
+     * Get the read version used by this transaction. This is a synchronous version of {@link #getReadVersionAsync()}.
+     * Note that if the read version has already been set or gotten (either by calling {@link #setReadVersion(long)} or
+     * {@link #getReadVersionAsync()} or this method), then the previously set read version is returned immediately,
+     * and this method will not block. One can check if the read version has already been set by calling
+     * {@link #hasReadVersion()}.
+     *
+     * @return the read version of this transaction
+     * @see #getReadVersionAsync()
+     * @see Transaction#getReadVersion()
+     */
+    @SpotBugsSuppressWarnings(value = "UG_SYNC_SET_UNSYNC_GET", justification = "read only one field and avoid blocking in setReadVersion")
+    public long getReadVersion() {
+        if (hasReadVersion()) {
+            return readVersion;
+        }
+        return asyncToSync(FDBStoreTimer.Waits.WAIT_GET_READ_VERSION, getReadVersionAsync());
+    }
+
+    /**
+     * Get whether this transaction's read version has already been set. In particular, this will return
+     * {@code true} if someone has explicitly called {@link #setReadVersion(long)} or
+     * {@link #getReadVersion()} on this context or if a {@link #getReadVersionAsync()} call has completed, and it will
+     * return {@code false} otherwise. If this returns {@code true}, then {@link #getReadVersionAsync()} will return
+     * an immediately ready future and {@link #getReadVersion()} is non-blocking.
+     *
+     * @return whether this transaction's read version has already been set
+     * @see #getReadVersionAsync()
+     * @see #setReadVersion(long)
+     * @see Transaction#getReadVersion()
+     */
+    public boolean hasReadVersion() {
+        return readVersion != UNSET_VERSION;
     }
 
     @Nonnull
@@ -571,7 +703,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @throws IllegalStateException if this is called prior to the transaction being committed
      */
     public long getCommittedVersion() {
-        if (committedVersion == 0) {
+        if (committedVersion == UNSET_VERSION) {
             throw new RecordCoreStorageException("Transaction has not been committed yet.");
         }
         return committedVersion;
@@ -592,7 +724,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     @SpotBugsSuppressWarnings(value = {"EI"}, justification = "avoids copy")
     public byte[] getVersionStamp() {
-        if (committedVersion == 0) {
+        if (committedVersion == UNSET_VERSION) {
             throw new RecordCoreStorageException("Transaction has not been committed yet.");
         }
         return versionStamp;
@@ -939,6 +1071,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return existingValue != null ? existingValue.getRight() : null;
     }
 
+    @Nullable
     public byte[] updateVersionMutation(@Nonnull MutationType mutationType, @Nonnull byte[] key, @Nonnull byte[] value,
                                         @Nonnull BiFunction<byte[], byte[], byte[]> remappingFunction) {
         Pair<MutationType, byte[]> valuePair = Pair.of(mutationType, value);
@@ -952,8 +1085,22 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }).getRight();
     }
 
+    @Nullable
     public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
         return weakReadSemantics;
+    }
+
+    /**
+     * Get the priority of this transaction. This is used to determine what rate-limiting rules should be
+     * applied to this transaction by the database. In general, {@link FDBTransactionPriority#DEFAULT DEFAULT}
+     * priority transactions are favored over {@link FDBTransactionPriority#BATCH BATCH} priority transactions.
+     *
+     * @return this transaction's priority
+     * @see FDBTransactionPriority
+     */
+    @Nonnull
+    public FDBTransactionPriority getPriority() {
+        return priority;
     }
 
     public void setHookForAsyncToSync(@Nonnull Consumer<FDBStoreTimer.Wait> hook) {

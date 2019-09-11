@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.Sets;
@@ -53,7 +54,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -272,20 +272,20 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
      */
     @DualPlannerTest
     @ParameterizedTest(name = "sortByPrimaryKey() [{0}]")
-    @EnumSource(TestHelpers.BooleanEnum.class)
-    public void sortByPrimaryKey(TestHelpers.BooleanEnum reverse) throws Exception {
+    @BooleanSource
+    public void sortByPrimaryKey(boolean reverse) throws Exception {
         setupSimpleRecordStore(NO_HOOK, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2));
 
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setSort(field("rec_no"), reverse.toBoolean())
+                .setSort(field("rec_no"), reverse)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
 
-        AtomicLong lastId = new AtomicLong(reverse.toBoolean() ? 99L : 0L);
+        AtomicLong lastId = new AtomicLong(reverse ? 99L : 0L);
         int returned = querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
-                builder -> assertThat(builder.getRecNo(), equalTo(reverse.toBoolean() ? lastId.getAndDecrement() : lastId.getAndIncrement())),
+                builder -> assertThat(builder.getRecNo(), equalTo(reverse ? lastId.getAndDecrement() : lastId.getAndIncrement())),
                 TestHelpers::assertDiscardedNone);
         assertEquals(100, returned);
     }
@@ -341,9 +341,8 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
      * Verify that we can still sort by primary key without an index but with filters.
      */
     @ParameterizedTest(name = "sortByPrimaryKeyWithFilter() [{0}]")
-    @EnumSource(TestHelpers.BooleanEnum.class)
-    public void sortByPrimaryKeyWithFilter(@Nonnull TestHelpers.BooleanEnum reverseEnum) throws Exception {
-        final boolean reverse = reverseEnum.toBoolean();
+    @BooleanSource
+    public void sortByPrimaryKeyWithFilter(boolean reverse) throws Exception {
         setupSimpleRecordStore(NO_HOOK, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
 
         // Case 1: Equality filter on a single field with primary key as next field.

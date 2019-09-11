@@ -317,12 +317,30 @@ public class FDBDatabase {
      * @see Database#createTransaction
      */
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
                                         @Nullable FDBStoreTimer timer,
                                         @Nullable WeakReadSemantics weakReadSemantics) {
+        return openContext(mdcContext, timer, weakReadSemantics, FDBTransactionPriority.DEFAULT);
+    }
+
+
+    /**
+     * Open a new record context with a new transaction begun on the underlying FDB database.
+     * @param mdcContext logger context to set in running threads
+     * @param timer the timer to use for instrumentation
+     * @param weakReadSemantics allowable staleness information if caching read versions
+     * @param priority the priority of the transaction being created
+     * @return a new record context
+     * @see Database#createTransaction
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
+                                        @Nullable FDBStoreTimer timer,
+                                        @Nullable WeakReadSemantics weakReadSemantics,
+                                        @Nonnull FDBTransactionPriority priority) {
         openFDB();
-        FDBRecordContext context = new FDBRecordContext(this, mdcContext, transactionIsTracedSupplier.get(), weakReadSemantics);
+        FDBRecordContext context = new FDBRecordContext(this, mdcContext, transactionIsTracedSupplier.get(), weakReadSemantics, priority);
         if (timer != null) {
             context.setTimer(timer);
             timer.increment(FDBStoreTimer.Counts.OPEN_CONTEXT);
@@ -336,7 +354,7 @@ public class FDBDatabase {
                 // otherwise getReadVersion does not use the cached value and results in a GRV call to FDB
                 if (version >= weakReadSemantics.getMinVersion() &&
                         (System.currentTimeMillis() - versionTimeMillis) <= weakReadSemantics.getStalenessBoundMillis()) {
-                    context.ensureActive().setReadVersion(version);
+                    context.setReadVersion(version);
                     if (timer != null) {
                         timer.increment(FDBStoreTimer.Counts.SET_READ_VERSION_TO_LAST_SEEN);
                     }
@@ -407,6 +425,9 @@ public class FDBDatabase {
         try {
             // Set the read version of the transaction, then read it back. This requires no I/O, but it does
             // require the network thread be running. The exact value used for the read version is unimportant.
+            // Note that this calls setReadVersion and getReadVersion on the Transaction object, *not* on the
+            // FDBRecordContext. This is because the FDBRecordContext will cache the value of setReadVersion to
+            // avoid having to go back to the FDB network thread, but we do not want that for instrumentation.
             final Transaction tr = context.ensureActive();
             final long startTime = System.nanoTime();
             tr.setReadVersion(1066L);
@@ -496,18 +517,12 @@ public class FDBDatabase {
      * Measuring it explicitly gives an indication of the cluster's GRV latency, which is driven by its rate keeping.
      * @param context transaction to use to access the database
      * @return a future that will be completed with the read version of the current transaction
+     * @deprecated use {@link FDBRecordContext#getReadVersionAsync()} instead
      */
+    @Deprecated
+    @Nonnull
     public CompletableFuture<Long> getReadVersion(@Nonnull FDBRecordContext context) {
-        CompletableFuture<Long> readVersionFuture = injectLatency(FDBLatencySource.GET_READ_VERSION).thenCompose(ignore ->
-                context.ensureActive().getReadVersion());
-        if (!isTrackLastSeenVersionOnRead()) {
-            return readVersionFuture;
-        }
-        long startTime = System.currentTimeMillis();
-        return readVersionFuture.thenApply((Long readVersion) -> {
-            updateLastSeenFDBVersion(startTime, readVersion);
-            return readVersion;
-        });
+        return context.getReadVersionAsync();
     }
 
     // Update lastSeenFDBVersion if readVersion is newer

@@ -334,19 +334,14 @@ public class OnlineIndexer implements AutoCloseable {
         AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
 
         AsyncUtil.whileTrue(() ->
-                runner.runAsync(context -> {
-                    // One difference here from your standard retry loop is that within this method, we set the
-                    // priority to "batch" on all transactions in order to avoid other stepping on the toes of other work.
-                    context.ensureActive().options().setPriorityBatch();
-                    return openRecordStore(context).thenCompose(store -> {
-                        if (!store.isIndexWriteOnly(index)) {
-                            throw new RecordCoreStorageException("Attempted to build readable index",
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
-                        }
-                        return function.apply(store);
-                    });
-                }, handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
+                runner.runAsync(context -> openRecordStore(context).thenCompose(store -> {
+                    if (!store.isIndexWriteOnly(index)) {
+                        throw new RecordCoreStorageException("Attempted to build readable index",
+                                LogMessageKeys.INDEX_NAME, index.getName(),
+                                recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
+                    }
+                    return function.apply(store);
+                }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
                     if (e == null) {
                         ret.complete(value);
                         return AsyncUtil.READY_FALSE;
@@ -627,7 +622,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull
     private CompletableFuture<Void> buildRange(@Nonnull SubspaceProvider subspaceProvider, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return runner.runAsync(context ->
+        return runner.runAsync(context -> context.getReadVersionAsync().thenCompose(vignore ->
                 subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
                     RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
                     byte[] startBytes = packOrNull(convertOrNull(start));
@@ -636,9 +631,9 @@ public class OnlineIndexer implements AutoCloseable {
                     ReadTransactionContext rtc = context.ensureActive();
                     return rangeSet.missingRanges(rtc, startBytes, endBytes)
                             .thenAccept(rangeDeque::addAll)
-                            .thenCompose(vignore -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
+                            .thenCompose(vignore2 -> buildRanges(subspaceProvider, subspace, rangeSet, rangeDeque));
                 })
-        );
+        ));
     }
 
     @Nonnull
@@ -972,10 +967,9 @@ public class OnlineIndexer implements AutoCloseable {
 
         if (markReadable) {
             return buildFuture.thenCompose(vignore ->
-                runner.runAsync(context ->
-                        openRecordStore(context)
-                                .thenCompose(store -> store.markIndexReadable(index))
-                                .thenApply(ignore -> null))
+                runner.runAsync(context -> openRecordStore(context)
+                        .thenCompose(store -> store.markIndexReadable(index))
+                        .thenApply(ignore -> null))
             );
         } else {
             return buildFuture;
@@ -1072,6 +1066,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     private List<Tuple> getPrimaryKeyBoundaries(TupleRange tupleRange) {
         List<Tuple> boundaries = runner.run(context -> {
+            context.getReadVersion(); // for instrumentation reasons
             RecordCursor<Tuple> cursor = recordStoreBuilder.copyBuilder().setContext(context).open()
                     .getPrimaryKeyBoundaries(tupleRange.getLow(), tupleRange.getHigh());
             return context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY, cursor.asList());
@@ -1096,22 +1091,20 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<Boolean> markReadableIfBuilt() {
-        return runner.runAsync(context ->
-                openRecordStore(context).thenCompose(store -> {
-                    final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-                    return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
-                            .thenCompose(hasNext -> {
-                                if (hasNext) {
-                                    return AsyncUtil.READY_FALSE;
-                                } else {
-                                    // Index is built because there is no missing range.
-                                    return store.markIndexReadable(index)
-                                            // markIndexReadable will return false if the index was already readable
-                                            .thenApply(vignore -> true);
-                                }
-                            });
-                })
-        );
+        return runner.runAsync(context -> openRecordStore(context).thenCompose(store -> {
+            final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
+            return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
+                    .thenCompose(hasNext -> {
+                        if (hasNext) {
+                            return AsyncUtil.READY_FALSE;
+                        } else {
+                            // Index is built because there is no missing range.
+                            return store.markIndexReadable(index)
+                                    // markIndexReadable will return false if the index was already readable
+                                    .thenApply(vignore2 -> true);
+                        }
+                    });
+        }));
     }
 
     /**
@@ -1123,9 +1116,8 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<Boolean> markReadable() {
-        return runner.runAsync(context ->
-                openRecordStore(context).thenCompose(store -> store.markIndexReadable(index))
-        );
+        return runner.runAsync(context -> openRecordStore(context)
+                .thenCompose(store -> store.markIndexReadable(index)));
     }
 
     /**
@@ -1219,6 +1211,10 @@ public class OnlineIndexer implements AutoCloseable {
             return this;
         }
 
+        private void setRunnerDefaults() {
+            setPriority(FDBTransactionPriority.BATCH);
+        }
+
         /**
          * Set the database in which to run the indexing.
          *
@@ -1228,6 +1224,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public Builder setDatabase(@Nonnull FDBDatabase database) {
             this.runner = database.newRunner();
+            setRunnerDefaults();
             return this;
         }
 
@@ -1251,6 +1248,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setContext(null);
             if (runner == null && recordStoreBuilder.getContext() != null) {
                 runner = recordStoreBuilder.getContext().newRunner();
+                setRunnerDefaults();
             }
             return this;
         }
@@ -1264,6 +1262,7 @@ public class OnlineIndexer implements AutoCloseable {
             recordStoreBuilder = recordStore.asBuilder().setContext(null);
             if (runner == null) {
                 runner = recordStore.getRecordContext().newRunner();
+                setRunnerDefaults();
             }
             return this;
         }
@@ -1282,6 +1281,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param index the index to be built
          * @return this builder
          */
+        @Nonnull
         public Builder setIndex(@Nullable Index index) {
             this.index = index;
             return this;
@@ -1292,6 +1292,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param indexName the index to be built
          * @return this builder
          */
+        @Nonnull
         public Builder setIndex(@Nonnull String indexName) {
             this.index = getRecordMetaData().getIndex(indexName);
             return this;
@@ -1315,6 +1316,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
          */
+        @Nonnull
         public Builder setRecordTypes(@Nullable Collection<RecordType> recordTypes) {
             this.recordTypes = recordTypes;
             return this;
@@ -1335,6 +1337,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param limit the maximum number of records to process in one transaction
          * @return this builder
          */
+        @Nonnull
         public Builder setLimit(int limit) {
             this.limit = limit;
             return this;
@@ -1359,6 +1362,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param maxRetries the maximum number of times to retry a single range rebuild
          * @return this builder
          */
+        @Nonnull
         public Builder setMaxRetries(int maxRetries) {
             this.maxRetries = maxRetries;
             return this;
@@ -1379,6 +1383,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param recordsPerSecond the maximum number of records to process in a single second.
          * @return this builder
          */
+        @Nonnull
         public Builder setRecordsPerSecond(int recordsPerSecond) {
             this.recordsPerSecond = recordsPerSecond;
             return this;
@@ -1401,6 +1406,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param timer timer to use
          * @return this builder
          */
+        @Nonnull
         public Builder setTimer(@Nullable FDBStoreTimer timer) {
             if (runner == null) {
                 throw new MetaDataException("timer can only be set after runner has been set");
@@ -1427,11 +1433,86 @@ public class OnlineIndexer implements AutoCloseable {
          * @return this builder
          * @see FDBDatabase#openContext(Map,FDBStoreTimer)
          */
+        @Nonnull
         public Builder setMdcContext(@Nullable Map<String, String> mdcContext) {
             if (runner == null) {
                 throw new MetaDataException("logging context can only be set after runner has been set");
             }
             runner.setMdcContext(mdcContext);
+            return this;
+        }
+
+        /**
+         * Get the acceptable staleness bounds for transactions used by this build. By default, this
+         * is set to {@code null}, which indicates that the transaction should not used any cached version
+         * at all.
+         * @return the acceptable staleness bounds for transactions used by this build
+         * @see FDBRecordContext#getWeakReadSemantics()
+         */
+        @Nullable
+        public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
+            if (runner == null) {
+                throw new MetaDataException("weak read semantics is only known after runner has been set");
+            }
+            return runner.getWeakReadSemantics();
+        }
+
+        /**
+         * Set the acceptable staleness bounds for transactions used by this build. For index builds, essentially
+         * all operations will read and write data in the same transaction, so it is safe to set this value
+         * to use potentially stale read versions, though that can potentially result in more transaction conflicts.
+         * For performance reasons, it is generally advised that this only be provided an acceptable staleness bound
+         * that might use a cached commit if the database tracks the latest commit version in addition to the read
+         * version. This is to ensure that the online indexer see its own commits, and it should not be required
+         * for correctness, but the online indexer may perform additional work if this is not set.
+         *
+         * @param weakReadSemantics the acceptable staleness bounds for transactions used by this build
+         * @return this builder
+         * @see FDBRecordContext#getWeakReadSemantics()
+         * @see FDBDatabase#setTrackLastSeenVersion(boolean)
+         */
+        @Nonnull
+        public Builder setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+            if (runner == null) {
+                throw new MetaDataException("weak read semantics can only be set after runner has been set");
+            }
+            runner.setWeakReadSemantics(weakReadSemantics);
+            return this;
+        }
+
+        /**
+         * Get the priority of transactions used for this index build. By default, this will be
+         * {@link FDBTransactionPriority#BATCH}.
+         * @return the priority of transactions used for this index build
+         * @see FDBRecordContext#getPriority()
+         */
+        @Nonnull
+        public FDBTransactionPriority getPriority() {
+            if (runner == null) {
+                throw new MetaDataException("transaction priority is only known after runner has been set");
+            }
+            return runner.getPriority();
+        }
+
+        /**
+         * Set the priority of transactions used for this index build. In general, index builds should run
+         * using the {@link FDBTransactionPriority#BATCH BATCH} priority level as their work is generally
+         * discretionary and not time sensitive. However, in certain circumstances, it may be
+         * necessary to run at the higher {@link FDBTransactionPriority#DEFAULT DEFAULT} priority level.
+         * For example, if a missing index is causing some queries to perform additional, unnecessary work that
+         * is overwhelming the database, it may be necessary to build the index at {@code DEFAULT} priority
+         * in order to lessen the load induced by those queries on the cluster.
+         *
+         * @param priority the priority of transactions used for this index build
+         * @return this builder
+         * @see FDBRecordContext#getPriority()
+         */
+        @Nonnull
+        public Builder setPriority(@Nonnull FDBTransactionPriority priority) {
+            if (runner == null) {
+                throw new MetaDataException("transaction priority can only be set after runner has been set");
+            }
+            runner.setPriority(priority);
             return this;
         }
 

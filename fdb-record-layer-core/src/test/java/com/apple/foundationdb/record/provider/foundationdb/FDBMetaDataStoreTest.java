@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestNoUnionEvolvedIllegalProto;
 import com.apple.foundationdb.record.TestNoUnionEvolvedProto;
 import com.apple.foundationdb.record.TestNoUnionEvolvedRenamedRecordTypeProto;
@@ -56,6 +55,7 @@ import com.apple.foundationdb.record.metadata.MetaDataProtoTest;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.DescriptorProtos;
@@ -350,13 +350,13 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         }
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "indexes [indexCounterBasedSubspaceKey = {0}]")
-    public void indexes(final TestHelpers.BooleanEnum indexCounterBasedSubspaceKey) {
+    @BooleanSource
+    public void indexes(final boolean indexCounterBasedSubspaceKey) {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder();
-            if (indexCounterBasedSubspaceKey.toBoolean()) {
+            if (indexCounterBasedSubspaceKey) {
                 builder.enableCounterBasedSubspaceKeys();
             }
             metaDataStore.saveRecordMetaData(builder.setRecords(TestRecords1Proto.getDescriptor()).getRecordMetaData());
@@ -545,10 +545,9 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         }
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "updateRecordsWithNewUnionField [reorderFields = {0}]")
-    public void updateRecordsWithNewUnionField(TestHelpers.BooleanEnum reorderFieldsEnum) {
-        final boolean reorderFields = reorderFieldsEnum.toBoolean();
+    @BooleanSource
+    public void updateRecordsWithNewUnionField(boolean reorderFields) {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
             RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
@@ -1569,9 +1568,9 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         }
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "noUnionUpdateRecords [repeatSaveOrDoUpdate = {0}]")
-    public void noUnionUpdateRecords(TestHelpers.BooleanEnum repeatSaveOrDoUpdate) {
+    @BooleanSource
+    public void noUnionUpdateRecords(boolean repeatSaveOrDoUpdate) {
         int version;
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
@@ -1584,7 +1583,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
             assertEquals(version, metaDataStore.getRecordMetaData().getVersion());
-            if (repeatSaveOrDoUpdate.toBoolean()) {
+            if (repeatSaveOrDoUpdate) {
                 metaDataStore.updateRecords(TestNoUnionEvolvedProto.getDescriptor());
             } else {
                 metaDataStore.saveRecordMetaData(TestNoUnionEvolvedProto.getDescriptor());
@@ -1602,7 +1601,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
             openMetaDataStore(context);
             assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
             MetaDataException e;
-            if (repeatSaveOrDoUpdate.toBoolean()) {
+            if (repeatSaveOrDoUpdate) {
                 e = assertThrows(MetaDataException.class, () -> metaDataStore.updateRecords(TestNoUnionEvolvedRenamedRecordTypeProto.getDescriptor()));
             } else {
                 e = assertThrows(MetaDataException.class, () -> metaDataStore.saveRecordMetaData(TestNoUnionEvolvedRenamedRecordTypeProto.getDescriptor()));
@@ -1612,9 +1611,9 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         }
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "noUnionImplicitUsage [repeatSaveOrDoUpdate = {0}]")
-    public void noUnionImplicitUsage(TestHelpers.BooleanEnum repeatSaveOrDoUpdate) {
+    @BooleanSource
+    public void noUnionImplicitUsage(boolean repeatSaveOrDoUpdate) {
         int version;
 
         // MyOtherRecord has no explicit usage. The proto file has a union and does not include MyOtherRecord.
@@ -1632,7 +1631,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
             assertEquals(version, metaDataStore.getRecordMetaData().getVersion());
-            if (repeatSaveOrDoUpdate.toBoolean()) {
+            if (repeatSaveOrDoUpdate) {
                 metaDataStore.updateRecords(TestRecordsImplicitUsageNoUnionProto.getDescriptor());
             } else {
                 metaDataStore.saveRecordMetaData(TestRecordsImplicitUsageNoUnionProto.getDescriptor());

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -137,10 +138,9 @@ public class FDBDatabaseTest extends FDBTestBase {
         assertTrue(readVersion1 < readVersion2);
     }
 
-    @EnumSource(TestHelpers.BooleanEnum.class)
     @ParameterizedTest(name = "cachedReadVersionWithRetryLoops [async = {0}]")
-    public void cachedReadVersionWithRetryLoops(TestHelpers.BooleanEnum asyncEnum) throws InterruptedException, ExecutionException {
-        final boolean async = asyncEnum.toBoolean();
+    @BooleanSource
+    public void cachedReadVersionWithRetryLoops(boolean async) throws InterruptedException, ExecutionException {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setTrackLastSeenVersion(true);
         FDBDatabase database = factory.getDatabase();
@@ -298,9 +298,7 @@ public class FDBDatabaseTest extends FDBTestBase {
 
     @Test
     public void testGetReadVersionLatencyInjection() throws Exception {
-        testLatencyInjection(FDBLatencySource.GET_READ_VERSION, 300L, context -> {
-            context.getDatabase().getReadVersion(context).join();
-        });
+        testLatencyInjection(FDBLatencySource.GET_READ_VERSION, 300L, FDBRecordContext::getReadVersion);
     }
 
     @Test
@@ -321,10 +319,19 @@ public class FDBDatabaseTest extends FDBTestBase {
                 requestedLatency -> requestedLatency == latencySource ? expectedLatency : 0L);
 
         FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        try (FDBRecordContext context = database.openContext()) {
-            long grvStart = System.currentTimeMillis();
-            thingToDo.accept(context);
-            assertTrue(System.currentTimeMillis() - grvStart >= expectedLatency, "latency not injected");
+        try {
+            try (FDBRecordContext context = database.openContext()) {
+                long grvStart = System.currentTimeMillis();
+                thingToDo.accept(context);
+                assertThat("latency not injected without timer", System.currentTimeMillis() - grvStart, greaterThanOrEqualTo(expectedLatency));
+            }
+            FDBStoreTimer timer = new FDBStoreTimer();
+            try (FDBRecordContext context = database.openContext(null, timer)) {
+                long grvStart = System.currentTimeMillis();
+                thingToDo.accept(context);
+                assertThat("latency not injected with timer set", System.currentTimeMillis() - grvStart, greaterThanOrEqualTo(expectedLatency));
+                assertEquals(1, timer.getCount(latencySource.getTimerEvent()));
+            }
         } finally {
             factory.clearLatencyInjector();
             factory.clear();
@@ -389,16 +396,16 @@ public class FDBDatabaseTest extends FDBTestBase {
     private long getReadVersionInRetryLoop(FDBDatabase database, Long minVersion, Long stalenessBoundMillis, boolean async) throws InterruptedException, ExecutionException {
         FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
         if (async) {
-            return database.runAsync(null, null, weakReadSemantics, database::getReadVersion).get();
+            return database.runAsync(null, null, weakReadSemantics, FDBRecordContext::getReadVersionAsync).get();
         } else {
-            return database.run(null, null, weakReadSemantics, context -> database.getReadVersion(context).join());
+            return database.run(null, null, weakReadSemantics, FDBRecordContext::getReadVersion);
         }
     }
 
     private long getReadVersion(FDBDatabase database, Long minVersion, Long stalenessBoundMillis) {
         FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
         try (FDBRecordContext context = database.openContext(Collections.emptyMap(), null, weakReadSemantics)) {
-            return database.getReadVersion(context).join();
+            return context.getReadVersion();
         }
     }
 
@@ -466,7 +473,7 @@ public class FDBDatabaseTest extends FDBTestBase {
         // Should not be able to get a real read version from the fake cluster
         assertThrows(TimeoutException.class, () -> {
             try (FDBRecordContext context = database.openContext()) {
-                database.getReadVersion(context).get(100L, TimeUnit.MILLISECONDS);
+                context.getReadVersionAsync().get(100L, TimeUnit.MILLISECONDS);
             }
         });
 
