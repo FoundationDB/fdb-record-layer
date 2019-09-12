@@ -1,5 +1,5 @@
 /*
- * TypeFilterDepthProperty.java
+ * RelationalExpressionDepthProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,23 +21,37 @@
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
- * A property representing the minimum depth of a type filter in a relational planner expression: that is, the smallest
- * integer such that there is a {@link RecordQueryTypeFilterPlan} or {@link LogicalTypeFilterExpression} exactly that
- * many relational planner expressions away from the root expression.
+ * A property representing the minimum depth of any of a set of relational planner expression types in a relational
+ * planner expression: that is, the smallest integer such that one of those types is exactly that many relational
+ * planner expressions away from the root expression.
  */
-public class TypeFilterDepthProperty implements PlannerProperty<Integer> {
-    private static final TypeFilterDepthProperty INSTANCE = new TypeFilterDepthProperty();
+public class RelationalExpressionDepthProperty implements PlannerProperty<Integer> {
+    public static final RelationalExpressionDepthProperty TYPE_FILTER_DEPTH = new RelationalExpressionDepthProperty(
+            ImmutableSet.of(LogicalTypeFilterExpression.class, RecordQueryTypeFilterPlan.class));
+    public static final RelationalExpressionDepthProperty DISTINCT_FILTER_DEPTH = new RelationalExpressionDepthProperty(
+            ImmutableSet.of(LogicalDistinctExpression.class, RecordQueryUnorderedPrimaryKeyDistinctPlan.class));
+
+    @Nonnull
+    private final Set<Class<? extends RelationalPlannerExpression>> types;
+
+    public RelationalExpressionDepthProperty(@Nonnull Set<Class<? extends RelationalPlannerExpression>> types) {
+        this.types = types;
+    }
 
     @Override
     public boolean shouldVisit(@Nonnull PlannerExpression expression) {
@@ -52,10 +66,12 @@ public class TypeFilterDepthProperty implements PlannerProperty<Integer> {
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
-        if (expression instanceof RecordQueryTypeFilterPlan ||
-                expression instanceof LogicalTypeFilterExpression) {
-            return 0;
+        for (Class<? extends RelationalPlannerExpression> type : types) {
+            if (type.isInstance(expression)) {
+                return 0;
+            }
         }
+
         int min = Integer.MAX_VALUE;
         for (Integer result : childResults) {
             if (result != null && result < min) {
@@ -71,8 +87,8 @@ public class TypeFilterDepthProperty implements PlannerProperty<Integer> {
         return Collections.min(memberResults);
     }
 
-    public static int evaluate(@Nonnull PlannerExpression expression) {
-        return expression.acceptPropertyVisitor(INSTANCE);
+    public int evaluate(@Nonnull PlannerExpression expression) {
+        return expression.acceptPropertyVisitor(this);
     }
 
 }

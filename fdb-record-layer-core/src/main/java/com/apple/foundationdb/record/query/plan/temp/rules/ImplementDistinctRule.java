@@ -63,7 +63,7 @@ public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression
     @Override
     public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
         RecordQueryPlan inner = call.get(innerMatcher);
-        boolean createsDuplicates = CreatesDuplicatesProperty.evaluate(inner);
+        boolean createsDuplicates = CreatesDuplicatesProperty.evaluate(inner, call.getContext());
         if (createsDuplicates) {
             call.yield(call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(inner)));
             return ChangesMade.MADE_CHANGES;

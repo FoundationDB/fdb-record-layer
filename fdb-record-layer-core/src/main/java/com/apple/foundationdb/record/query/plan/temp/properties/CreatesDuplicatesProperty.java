@@ -22,12 +22,15 @@ package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
@@ -44,11 +47,16 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
-    private static final CreatesDuplicatesProperty INSTANCE = new CreatesDuplicatesProperty();
+    @Nonnull
+    private final PlanContext context;
+
+    private CreatesDuplicatesProperty(@Nonnull PlanContext context) {
+        this.context = context;
+    }
 
     @Override
     public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression || expression instanceof KeyExpression;
+        return expression instanceof RelationalPlannerExpression;
     }
 
     @Override
@@ -59,11 +67,19 @@ public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
     @Nonnull
     @Override
     public Boolean evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Boolean> childResults) {
-        if (expression instanceof KeyExpression) {
-            return ((KeyExpression)expression).createsDuplicates();
-        } else if (expression instanceof RecordQueryUnorderedDistinctPlan ||
-                   expression instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ||
-                   expression instanceof LogicalDistinctExpression) {
+        String indexName = null;
+        if (expression instanceof RecordQueryPlanWithIndex) {
+            indexName = ((RecordQueryPlanWithIndex)expression).getIndexName();
+        } else if (expression instanceof IndexEntrySourceScanExpression) {
+            indexName = ((IndexEntrySourceScanExpression)expression).getIndexName();
+        }
+        if (indexName != null) {
+            return context.getIndexByName(indexName).getRootExpression().createsDuplicates();
+        }
+
+        if (expression instanceof RecordQueryUnorderedDistinctPlan ||
+                expression instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ||
+                expression instanceof LogicalDistinctExpression) {
             // These expressions filter out duplicates, so they therefore will not return duplicates even if their
             // children will.
             return Boolean.FALSE;
@@ -82,17 +98,17 @@ public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
         return memberResults.stream().anyMatch(b -> b != null && b);
     }
 
-    public static boolean evaluate(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
-        return ref.acceptPropertyVisitor(INSTANCE);
+    public static boolean evaluate(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull PlanContext context) {
+        return ref.acceptPropertyVisitor(new CreatesDuplicatesProperty(context));
     }
 
     @Nullable
-    public static Boolean evaluate(@Nonnull PlannerExpression expression) {
-        return expression.acceptPropertyVisitor(INSTANCE);
+    public static Boolean evaluate(@Nonnull PlannerExpression expression, @Nonnull PlanContext context) {
+        return expression.acceptPropertyVisitor(new CreatesDuplicatesProperty(context));
     }
 
-    public static boolean evaluate(@Nonnull RelationalPlannerExpression expression) {
+    public static boolean evaluate(@Nonnull RelationalPlannerExpression expression, @Nonnull PlanContext context) {
         // Won't actually be null for relational planner expressions.
-        return expression.acceptPropertyVisitor(INSTANCE);
+        return expression.acceptPropertyVisitor(new CreatesDuplicatesProperty(context));
     }
 }

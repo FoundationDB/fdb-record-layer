@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.PredicateHeightProperty;
+import com.apple.foundationdb.record.query.plan.temp.properties.RelationalExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.TypeFilterCountProperty;
-import com.apple.foundationdb.record.query.plan.temp.properties.TypeFilterDepthProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.UnmatchedFieldsProperty;
 
 import javax.annotation.Nonnull;
@@ -73,12 +73,17 @@ public class CascadesCostModel implements Comparator<PlannerExpression> {
             return typeFilterCountCompare;
         }
 
-        int typeFilterPositionCompare = Integer.compare(TypeFilterDepthProperty.evaluate(b),
-                TypeFilterDepthProperty.evaluate(a)); // prefer the one with a deeper type filter
+        int typeFilterPositionCompare = Integer.compare(RelationalExpressionDepthProperty.TYPE_FILTER_DEPTH.evaluate(b),
+                RelationalExpressionDepthProperty.TYPE_FILTER_DEPTH.evaluate(a)); // prefer the one with a deeper type filter
         if (typeFilterPositionCompare != 0) {
             return typeFilterPositionCompare;
         }
 
+        int distinctFilterPositionCompare = Integer.compare(RelationalExpressionDepthProperty.DISTINCT_FILTER_DEPTH.evaluate(b),
+                RelationalExpressionDepthProperty.DISTINCT_FILTER_DEPTH.evaluate(a));
+        if (distinctFilterPositionCompare != 0) {
+            return distinctFilterPositionCompare;
+        }
         return Integer.compare(UnmatchedFieldsProperty.evaluate(planContext, a),
                 UnmatchedFieldsProperty.evaluate(planContext, b));
     }

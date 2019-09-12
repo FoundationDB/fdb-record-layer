@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.query.plan.temp.SingleNestedContext;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
@@ -68,7 +68,7 @@ public class FilterWithConjunctNestedToNestingContextRule extends PlannerRule<Lo
         final List<ExpressionRef<QueryComponent>> otherConjuncts = call.getBindings().getAll(otherConjunctMatcher);
         final ExpressionRef<QueryComponent> nestedFilter = call.get(nestedFilterMatcher);
 
-        final NestedContext nestedContext = new SingleNestedContext(nestedField.getFieldName());
+        final NestedContext nestedContext = new NestedContext(Key.Expressions.field(nestedField.getFieldName()));
         final ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);
 
         if (nestedInner == null) {

@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -148,7 +149,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that nested field comparisons with fanout can scan indexes.
      */
-    @Test
+    @DualPlannerTest
     public void nested() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
@@ -273,7 +274,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * record that can be satisfied by scanning a particular index, and a predicate on the inner record that cannot be
      * satisfied by scanning that index, is planned as an index scan followed by a filter with the unsatisfied predicate.
      */
-    @Test
+    @DualPlannerTest
     public void nestedAndOnNestedMap() throws Exception {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsNestedMapProto.getDescriptor());
@@ -299,7 +300,14 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, filter(
                 queryComponentDescendant(equalTo(Query.field("value").notEquals("test"))),
                 primaryKeyDistinct(indexScan(allOf(indexName("key_index"), bounds(hasTupleString("[[1, alpha],[1, alpha]]")))))));
-        assertEquals(-1406660101, plan.planHash());
+        // The RecordQueryPlanner produces a plan with an equality predicate on "value", which isn't needed since it is
+        // satisfied by the index scan. The CascadesPlanner does not leave the extra predicate.
+        // As a result, there are two separate plan hashes that could be produced.
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(-1406660101, plan.planHash());
+        } else {
+            assertEquals(792093238, plan.planHash());
+        }
     }
 
     /**
@@ -378,7 +386,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that queries on doubly nested records with fanout on the inner field work properly.
      */
-    @Test
+    @DualPlannerTest
     public void doublyNested() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openDoublyNestedRecordStore(context);
