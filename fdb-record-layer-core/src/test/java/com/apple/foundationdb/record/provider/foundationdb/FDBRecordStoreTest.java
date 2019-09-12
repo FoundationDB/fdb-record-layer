@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -88,6 +89,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -113,10 +115,12 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.startsWith;
 import static org.hamcrest.core.Is.is;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -2414,6 +2418,71 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     /**
+     * Test that if a header user field is set that it's value can be read in the same transaction (i.e., that it
+     * supports read-your-writes).
+     */
+    @Test
+    public void testReadYourWritesWithHeaderUserField() throws Exception {
+        final String userField = "my_key";
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.setHeaderUserField(userField, ByteString.copyFromUtf8("my_value"));
+            assertEquals("my_value", recordStore.getHeaderUserField(userField).toStringUtf8());
+            // do not commit to make sure it is *only* updated at commit time
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertNull(recordStore.getHeaderUserField("my_key"));
+            recordStore.setHeaderUserField(userField, ByteString.copyFromUtf8("my_other_value"));
+            assertEquals("my_other_value", recordStore.getHeaderUserField(userField).toStringUtf8());
+
+            // Create a new record store to validate that a new record store in the same transaction also sees the value
+            // when opened after the value has been changed
+            FDBRecordStore secondStore = recordStore.asBuilder().open();
+            assertEquals("my_other_value", secondStore.getHeaderUserField(userField).toStringUtf8());
+
+            secondStore.clearHeaderUserField(userField);
+            assertNull(secondStore.getHeaderUserField(userField));
+
+            FDBRecordStore thirdStore = recordStore.asBuilder().open();
+            assertNull(secondStore.getHeaderUserField(userField));
+
+            commit(context);
+        }
+    }
+
+    /**
+     * This is essentially a bug, but this test exhibits the behavior. Essentially, if you have a two record store
+     * objects opened on the same subspace in the same transaction, and then you update a header user field
+     * in one, then it isn't updated in the other. There might be a solution that involves all of this "shared state"
+     * living in some shared place for all record stores (as the same problem affects, say, index state information),
+     * but that is not what the code does right now. See:
+     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/489">Issue #489</a>.
+     */
+    @Test
+    public void testHeaderUserFieldNotUpdatedInRecordStoreOnSameSubspace() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.setHeaderUserField("user_field", new byte[]{0x42});
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertArrayEquals(new byte[]{0x42}, recordStore.getHeaderUserField("user_field").toByteArray());
+
+            FDBRecordStore secondStore = recordStore.asBuilder().open();
+            assertArrayEquals(new byte[]{0x42}, secondStore.getHeaderUserField("user_field").toByteArray());
+
+            recordStore.setHeaderUserField("user_field", new byte[]{0x10, 0x66});
+            assertArrayEquals(new byte[]{0x10, 0x66}, recordStore.getHeaderUserField("user_field").toByteArray());
+            assertArrayEquals(new byte[]{0x42}, secondStore.getHeaderUserField("user_field").toByteArray());
+
+            commit(context);
+        }
+    }
+
+    /**
      * Test that accessing the header user fields at earlier format versions is disallowed.
      */
     @Test
@@ -2485,6 +2554,25 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     .setRecNo(1776L)
                     .build());
             assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context2::commit);
+        }
+    }
+
+    @Test
+    public void testGetHeaderFieldOnUninitializedStore() throws Exception {
+        final String userField = "some_user_field";
+        final FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.setHeaderUserField(userField, "my utf-16 string".getBytes(StandardCharsets.UTF_16));
+            commit(context);
+            storeBuilder = recordStore.asBuilder();
+        }
+        try (FDBRecordContext context = openContext()) {
+            // Do *not* call check version
+            FDBRecordStore store = storeBuilder.setContext(context).build();
+            UninitializedRecordStoreException err = assertThrows(UninitializedRecordStoreException.class, () -> store.getHeaderUserField(userField));
+            assertThat(err.getLogInfo(), hasKey(LogMessageKeys.KEY_SPACE_PATH.toString()));
+            logger.info(KeyValueLogMessage.of("uninitialized store exception: " + err.getMessage(), err.exportLogInfo()));
         }
     }
 

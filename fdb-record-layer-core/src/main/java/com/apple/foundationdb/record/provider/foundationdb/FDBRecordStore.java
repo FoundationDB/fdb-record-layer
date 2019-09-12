@@ -439,7 +439,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private FDBRecordVersion recordVersionForSave(@Nonnull RecordMetaData metaData, @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
         if (behavior.equals(VersionstampSaveBehavior.NO_VERSION)) {
             if (version != null) {
-                throw new RecordCoreException("Nonnull version supplied with a NO_VERSION behavior: " + version);
+                throw recordCoreException("Nonnull version supplied with a NO_VERSION behavior: " + version);
             }
             return null;
         }
@@ -705,7 +705,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         SyntheticRecordType<?> syntheticRecordType = getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(primaryKey.get(0));
         int nconstituents = syntheticRecordType.getConstituents().size();
         if (nconstituents != primaryKey.size() - 1) {
-            throw new RecordCoreException("Primary key does not have correct number of nested keys: " + primaryKey);
+            throw recordCoreException("Primary key does not have correct number of nested keys: " + primaryKey);
         }
         final Map<String, FDBStoredRecord<? extends Message>> constituents = new ConcurrentHashMap<>(nconstituents);
         final CompletableFuture<?>[] futures = new CompletableFuture<?>[nconstituents];
@@ -1169,7 +1169,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                               @Nullable byte[] continuation,
                                               @Nonnull ScanProperties scanProperties) {
         if (!isIndexReadable(index)) {
-            throw new RecordCoreException("Cannot scan non-readable index " + index.getName());
+            throw recordCoreException("Cannot scan non-readable index " + index.getName());
         }
         RecordCursor<IndexEntry> result = getIndexMaintainer(index)
                 .scan(scanType, range, continuation, scanProperties);
@@ -1350,7 +1350,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
             }
             if (recordTypeKeyComparison != null && !getRecordMetaData().primaryKeyHasRecordTypePrefix()) {
-                throw new RecordCoreException("record type version of deleteRecordsWhere can only be used when all record types have a type prefix");
+                throw recordCoreException("record type version of deleteRecordsWhere can only be used when all record types have a type prefix");
             }
 
             matcher = new QueryToKeyMatcher(component);
@@ -1394,7 +1394,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 if (evaluated == null) {
                     evaluated = match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY);
                 } else if (!evaluated.equals(match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY))) {
-                    throw new RecordCoreException("Primary key prefixes don't align",
+                    throw recordCoreException("Primary key prefixes don't align",
                             "initialPrefix", evaluated,
                             "secondPrefix", match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY),
                             "recordType", recordType.getName());
@@ -1412,7 +1412,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
                 final Key.Evaluated subkey = match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY);
                 if (!evaluated.equals(subkey)) {
-                    throw new RecordCoreException("Record count key prefix doesn't align",
+                    throw recordCoreException("Record count key prefix doesn't align",
                             "initialPrefix", evaluated,
                             "secondPrefix", match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY));
                 }
@@ -1434,8 +1434,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         canDelete = index.canDeleteWhere(matcher, evaluated);
                     } else {
                         if (recordMetaData.recordTypesForIndex(index.state.index).size() > 1) {
-                            throw new RecordCoreException("Index " + index.state.index.getName() +
-                                                          " applies to more record types than just " + recordType.getName());
+                            throw recordCoreException("Index " + index.state.index.getName() +
+                                                      " applies to more record types than just " + recordType.getName());
                         }
                         if (indexMatcher != null) {
                             canDelete = index.canDeleteWhere(indexMatcher, indexEvaluated);
@@ -1526,7 +1526,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
         if (getRecordMetaData().getRecordCountKey() != null) {
             if (key.getColumnSize() != value.size()) {
-                throw new RecordCoreException("key and value are not the same size");
+                throw recordCoreException("key and value are not the same size");
             }
             final ReadTransaction tr = context.readTransaction(true);
             final Tuple subkey = Tuple.from(RECORD_COUNT_KEY).addAll(value.toTupleAppropriateList());
@@ -1560,7 +1560,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.allOf(recordType.getRecordTypeKeyTuple()), IsolationLevel.SNAPSHOT)
                     .thenApply(tuple -> tuple.getLong(0));
         }
-        throw new RecordCoreException("Require a COUNT index on " + recordTypeName);
+        throw recordCoreException("Require a COUNT index on " + recordTypeName);
     }
 
     public static long decodeRecordCount(@Nullable byte[] bytes) {
@@ -1580,8 +1580,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                            @Nonnull IndexRecordFunction<T> indexRecordFunction,
                                                                                            @Nonnull FDBRecord<M> record) {
         return IndexFunctionHelper.indexMaintainerForRecordFunction(this, indexRecordFunction, record)
-                .orElseThrow(() -> new RecordCoreException("Record function " + indexRecordFunction +
-                                                           " requires appropriate index on " + record.getRecordType().getName()))
+                .orElseThrow(() -> recordCoreException("Record function " + indexRecordFunction +
+                                                       " requires appropriate index on " + record.getRecordType().getName()))
             .evaluateRecordFunction(evaluationContext, indexRecordFunction, record);
     }
 
@@ -1604,7 +1604,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             return (CompletableFuture<T>) loadRecordVersionAsync(record.getPrimaryKey()).orElse(CompletableFuture.completedFuture(null));
         } else {
-            throw new RecordCoreException("Unknown store function " + function.getName());
+            throw recordCoreException("Unknown store function " + function.getName());
         }
     }
 
@@ -1615,7 +1615,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nonnull TupleRange range,
                                                               @Nonnull IsolationLevel isolationLevel) {
         return IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, recordTypeNames)
-                .orElseThrow(() -> new RecordCoreException("Aggregate function " + aggregateFunction + " requires appropriate index"))
+                .orElseThrow(() -> recordCoreException("Aggregate function " + aggregateFunction + " requires appropriate index"))
                 .evaluateAggregateFunction(aggregateFunction, range, isolationLevel);
     }
 
@@ -1767,7 +1767,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             try {
                 info = RecordMetaDataProto.DataStoreInfo.parseFrom(firstKeyValue.getValue());
             } catch (InvalidProtocolBufferException ex) {
-                throw new RecordCoreStorageException("Error reading version", ex);
+                throw new RecordCoreStorageException("Error reading version", ex)
+                        .addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(context));
             }
         }
         checkStoreHeaderInternal(info, getContext(), getSubspaceProvider(), existenceCheck);
@@ -1932,7 +1933,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @VisibleForTesting
     protected void saveStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
         if (recordStoreStateRef.get() == null) {
-            throw new RecordCoreException("cannot update store header with a null record store state");
+            throw uninitializedStoreException("cannot update store header on an uninitialized store");
         }
         beginRecordStoreStateWrite();
         try {
@@ -2064,7 +2065,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return preloadRecordStoreStateAsync().thenCompose(vignore -> setStateCacheabilityAsync(cacheable));
         }
         if (formatVersion < CACHEABLE_STATE_FORMAT_VERSION) {
-            throw new RecordCoreException("cannot mark record store state cacheable at format version " + formatVersion);
+            throw recordCoreException("cannot mark record store state cacheable at format version " + formatVersion);
         }
         if (isStateCacheableInternal() == cacheable) {
             return AsyncUtil.READY_FALSE;
@@ -2088,20 +2089,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     private boolean isStateCacheableInternal() {
         if (recordStoreStateRef.get() == null) {
-            throw new RecordCoreException("cannot check record store state cacheability with null record store state");
+            throw uninitializedStoreException("cannot check record store state cacheability on uninitialized store");
         }
         return recordStoreStateRef.get().getStoreHeader().getCacheable();
     }
 
     private void validateCanAccessHeaderUserFields() {
         if (formatVersion < HEADER_USER_FIELDS_FORMAT_VERSION) {
-            throw new RecordCoreException("cannot access header user fields at current format version",
+            throw recordCoreException("cannot access header user fields at current format version",
                     LogMessageKeys.FORMAT_VERSION, formatVersion);
         }
     }
 
     /**
-     * Get one of the value of a user-settable field from the store header. Each of these fields are written into
+     * Get the value of a user-settable field from the store header. Each of these fields are written into
      * this record store's store header. This is loaded automatically by the record store as part of
      * {@link Builder#createOrOpenAsync()} or one of its variants. This means that reading this
      * information from the header does not require any additional communication with database assuming that
@@ -2123,7 +2124,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public ByteString getHeaderUserField(@Nonnull String userField) {
         validateCanAccessHeaderUserFields();
         if (recordStoreStateRef.get() == null) {
-            throw new RecordCoreException("cannot get field from header as record store state is null");
+            throw uninitializedStoreException("cannot get field from header on uninitialized store");
         }
         beginRecordStoreStateRead();
         try {
@@ -2178,7 +2179,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      *
      * <p>
      * Once set, the value of these fields can be retrieved by calling {@link #getHeaderUserField(String)}. They
-     * can be cleared by calling {@link #clearHeaderUserFieldAsync(String)}.
+     * can be cleared by calling {@link #clearHeaderUserFieldAsync(String)}. Within a given transaction, updates
+     * to the header fields should be visible through {@code getHeaderUserField()} (that is, the header user fields
+     * support read-your-writes within a transaction), but the context associated with this store must be committed
+     * for other transactions to see the update.
      * </p>
      *
      * <p>
@@ -2259,7 +2263,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * Clear the value of a user-settable field in the store header. This removes a field from the store header
-     * after it has been set by {@link #setHeaderUserFieldAsync(String, ByteString)}. This has the save caveats
+     * after it has been set by {@link #setHeaderUserFieldAsync(String, ByteString)}. This has the same caveats
      * as that function. In particular, whenever this is called, all concurrent operations to the same record store
      * will also fail with an
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionConflictException FDBStoreTransactionConflictException}.
@@ -2300,7 +2304,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
         if (recordStoreStateRef.get() == null) {
-            throw new RecordCoreException("cannot update index state with a null record store state");
+            throw uninitializedStoreException("cannot update index state on an uninitialized store");
         }
         // This is generally called by someone who should already have a write lock, but adding them here
         // defensively shouldn't cause problems.
@@ -3336,7 +3340,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private void addConvertRecordVersions(@Nonnull List<CompletableFuture<Void>> work) {
         if (useOldVersionFormat()) {
-            throw new RecordCoreException("attempted to convert record versions when still using older format");
+            throw recordCoreException("attempted to convert record versions when still using older format");
         }
         final Subspace legacyVersionSubspace = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY));
 
@@ -3600,7 +3604,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         if (scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot()) {
             throw new RecordCoreArgumentException("Cannot repair record key split markers at SNAPSHOT isolation level")
-                    .addLogInfo(LogMessageKeys.SCAN_PROPERTIES, scanProperties);
+                    .addLogInfo(LogMessageKeys.SCAN_PROPERTIES, scanProperties)
+                    .addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(context));
         }
 
         final Subspace recordSubspace = recordsSubspace();
@@ -3684,6 +3689,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private boolean isMaybeVersion(Tuple recordKey) {
         Object suffix = recordKey.get(recordKey.size() - 1);
         return suffix instanceof Long && (((Long) suffix) == SplitHelper.RECORD_VERSION);
+    }
+
+    @Nonnull
+    private RecordCoreException recordCoreException(@Nonnull String msg) {
+        return new RecordCoreException(msg,
+                subspaceProvider.logKey(), subspaceProvider.toString(context));
+    }
+
+    @Nonnull
+    private RecordCoreException recordCoreException(@Nonnull String msg, Object...keysAndValues) {
+        RecordCoreException err = new RecordCoreException(msg, keysAndValues);
+        err.addLogInfo(subspaceProvider.logKey().toString(), subspaceProvider.toString(context));
+        return err;
+    }
+
+    @Nonnull
+    private UninitializedRecordStoreException uninitializedStoreException(@Nonnull String msg) {
+        return new UninitializedRecordStoreException(msg,
+                subspaceProvider.logKey(), subspaceProvider.toString(context));
     }
 
     @Nonnull
