@@ -79,13 +79,13 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
         if (scanProperties == null) {
             scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
                     .setReturnedRowLimit(Integer.MAX_VALUE)
-                    // For orphan index entry validation, it does not hurt to have a weaker isolation.
+                    // For index entry validation, it does not hurt to have a weaker isolation.
                     .setIsolationLevel(IsolationLevel.SNAPSHOT)
                     .build());
         }
         return new ConcatCursor<>(state.context, scanProperties,
-                (c, s, b) -> validateOrphanEntries(b, s),
-                (c, s, b) -> validateMissingEntries(b, s),
+                (context, scanProperties1, continuation1) -> validateOrphanEntries(continuation1, scanProperties1),
+                (context, scanProperties2, continuation2) -> validateMissingEntries(continuation2, scanProperties2),
                 continuation);
     }
 

@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -77,7 +78,6 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.DEFAULT_PIPELINE_SIZE;
 import static com.apple.foundationdb.record.provider.foundationdb.SplitHelper.unpackKey;
 
 /**
@@ -391,7 +391,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     /**
      * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
      * @param continuation any continuation from a previous validation invocation
-     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @param scanProperties skip, limit and other properties of the validation
      * @return a cursor over index entries that have no associated records including the reason
      */
     @Nonnull
@@ -402,21 +402,22 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                         indexEntry -> state.store
                                 .hasIndexEntryRecord(indexEntry, IsolationLevel.SNAPSHOT)
                                 .thenApply(has -> !has),
-                        DEFAULT_PIPELINE_SIZE)
+                        state.store.getPipelineSizer().getPipelineSize(PipelineOperation.INDEX_ASYNC_FILTER))
                 .map(InvalidIndexEntry::newOrphan);
     }
 
     /**
      * Validate entries in the index. It scans the records and checks if the index entries associated with each record
-     * exist. Note that it may not work for synthetic indexes.
+     * exist. Note that it may not work for indexes on synthetic record types (e.g., join indexes).
      * @param continuation any continuation from a previous validation invocation
-     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @param scanProperties skip, limit and other properties of the validation
      * @return a cursor over records that have no associated index entries including the reason
      */
     @Nonnull
     protected RecordCursor<InvalidIndexEntry> validateMissingEntries(@Nullable byte[] continuation,
                                                                      @Nonnull ScanProperties scanProperties) {
         final Collection<RecordType> recordTypes = state.store.getRecordMetaData().recordTypesForIndex(state.index);
+        final FDBRecordStoreBase.PipelineSizer pipelineSizer = state.store.getPipelineSizer();
         return RecordCursor.flatMapPipelined(
                 cont -> state.store.scanRecords(TupleRange.ALL, cont, scanProperties)
                         .filter(rec -> recordTypes.contains(rec.getRecordType())),
@@ -433,11 +434,11 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                                     .collect(Collectors.toList()),
                             cont);
                 },
-                continuation, DEFAULT_PIPELINE_SIZE)
+                continuation, pipelineSizer.getPipelineSize(PipelineOperation.RECORD_FUNCTION))
         .filterAsync(indexEntryRecordPair -> {
             final byte[] keyBytes = state.indexSubspace.pack(indexEntryRecordPair.getLeft().getKey());
             return state.transaction.get(keyBytes).thenApply(Objects::isNull);
-        }, DEFAULT_PIPELINE_SIZE)
+        }, pipelineSizer.getPipelineSize(PipelineOperation.INDEX_ASYNC_FILTER))
         .map(indexEntryKeyRecordPair ->
                 InvalidIndexEntry.newMissing(indexEntryKeyRecordPair.getLeft(), indexEntryKeyRecordPair.getRight()));
     }

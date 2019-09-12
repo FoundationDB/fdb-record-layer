@@ -2328,7 +2328,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void testIndexMissingValidation() throws Exception {
         final int nRecords = 10;
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context);
+            openSimpleRecordStore(context);
 
             for (int i = 0; i < nRecords; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -2345,7 +2345,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         Set<InvalidIndexEntry> expectedInvalidEntries = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             final Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
-            uncheckedOpenSimpleRecordStore(context);
+            openSimpleRecordStore(context);
 
             List<FDBStoredRecord<Message>> savedRecords = recordStore.scanRecords(
                     TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
@@ -2370,13 +2370,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBDatabaseRunner runner = fdb.newRunner()) {
             AtomicInteger generatorCount = new AtomicInteger();
-            // Set a scanned records limit to mock when the transaction is out of band.
+            // Set a scanned records limit to mock when the NoNextReason is out of band.
             RecordCursorIterator<InvalidIndexEntry> cursor = new AutoContinuingCursor<>(
                     runner,
                     (context, continuation) -> new LazyCursor<>(
                             FDBRecordStore.newBuilder()
                                     .setContext(context).setKeySpacePath(path).setMetaDataProvider(simpleMetaData(NO_HOOK))
-                                    .uncheckedOpenAsync()
+                                    .openAsync()
                                     .thenApply(currentRecordStore -> {
                                         generatorCount.getAndIncrement();
                                         final Index index = currentRecordStore.getRecordMetaData()
