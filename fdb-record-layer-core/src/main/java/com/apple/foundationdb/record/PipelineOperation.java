@@ -41,6 +41,8 @@ public class PipelineOperation {
     @Nonnull
     public static final PipelineOperation RECORD_ASYNC_FILTER = new PipelineOperation("RECORD_ASYNC_FILTER");
     @Nonnull
+    public static final PipelineOperation INDEX_ASYNC_FILTER = new PipelineOperation("INDEX_ASYNC_FILTER");
+    @Nonnull
     public static final PipelineOperation RECORD_FUNCTION = new PipelineOperation("RECORD_FUNCTION");
     @Nonnull
     public static final PipelineOperation RESOLVE_UNIQUENESS = new PipelineOperation("RESOLVE_UNIQUENESS");

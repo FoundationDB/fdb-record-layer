@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -145,6 +145,7 @@ public abstract class IndexMaintainer {
      * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
      * @return a cursor over invalid index entries including reasons
      */
+    @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public abstract RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
                                                                     @Nullable ScanProperties scanProperties);

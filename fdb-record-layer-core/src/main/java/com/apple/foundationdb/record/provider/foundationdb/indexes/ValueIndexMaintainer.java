@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.cursors.ConcatCursor;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -75,7 +76,17 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
                                                            @Nullable ScanProperties scanProperties) {
-        return validateOrphanEntries(continuation, scanProperties);
+        if (scanProperties == null) {
+            scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setReturnedRowLimit(Integer.MAX_VALUE)
+                    // For index entry validation, it does not hurt to have a weaker isolation.
+                    .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                    .build());
+        }
+        return new ConcatCursor<>(state.context, scanProperties,
+                (context, scanProperties1, continuation1) -> validateOrphanEntries(continuation1, scanProperties1),
+                (context, scanProperties2, continuation2) -> validateMissingEntries(continuation2, scanProperties2),
+                continuation);
     }
 
     @Override

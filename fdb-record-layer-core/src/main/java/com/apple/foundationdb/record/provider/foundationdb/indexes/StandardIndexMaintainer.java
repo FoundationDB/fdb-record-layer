@@ -20,18 +20,18 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -41,13 +41,13 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
@@ -62,13 +62,17 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -387,27 +391,56 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     /**
      * Validate entries in the index. It scans the index and checks if the record associated with each index entry exists.
      * @param continuation any continuation from a previous validation invocation
-     * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
+     * @param scanProperties skip, limit and other properties of the validation
      * @return a cursor over index entries that have no associated records including the reason
      */
     @Nonnull
     protected RecordCursor<InvalidIndexEntry> validateOrphanEntries(@Nullable byte[] continuation,
-                                                          @Nullable ScanProperties scanProperties) {
-        if (scanProperties == null) {
-            scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
-                    .setReturnedRowLimit(Integer.MAX_VALUE)
-                    // For orphan index entry validation, it does not hurt to have a weaker isolation.
-                    .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                    .build());
-        }
+                                                                    @Nonnull ScanProperties scanProperties) {
         return scan(IndexScanType.BY_VALUE, TupleRange.ALL, continuation, scanProperties)
                 .filterAsync(
                         indexEntry -> state.store
                                 .hasIndexEntryRecord(indexEntry, IsolationLevel.SNAPSHOT)
                                 .thenApply(has -> !has),
-                        FDBRecordStore.DEFAULT_PIPELINE_SIZE)
-                .map(indexEntry ->
-                        new InvalidIndexEntry(indexEntry, InvalidIndexEntry.Reasons.ORPHAN));
+                        state.store.getPipelineSizer().getPipelineSize(PipelineOperation.INDEX_ASYNC_FILTER))
+                .map(InvalidIndexEntry::newOrphan);
+    }
+
+    /**
+     * Validate entries in the index. It scans the records and checks if the index entries associated with each record
+     * exist. Note that it may not work for indexes on synthetic record types (e.g., join indexes).
+     * @param continuation any continuation from a previous validation invocation
+     * @param scanProperties skip, limit and other properties of the validation
+     * @return a cursor over records that have no associated index entries including the reason
+     */
+    @Nonnull
+    protected RecordCursor<InvalidIndexEntry> validateMissingEntries(@Nullable byte[] continuation,
+                                                                     @Nonnull ScanProperties scanProperties) {
+        final Collection<RecordType> recordTypes = state.store.getRecordMetaData().recordTypesForIndex(state.index);
+        final FDBRecordStoreBase.PipelineSizer pipelineSizer = state.store.getPipelineSizer();
+        return RecordCursor.flatMapPipelined(
+                cont -> state.store.scanRecords(TupleRange.ALL, cont, scanProperties)
+                        .filter(rec -> recordTypes.contains(rec.getRecordType())),
+                (record, cont) -> {
+                    List<IndexEntry> filteredIndexEntries = filteredIndexEntries(record);
+                    return RecordCursor.fromList(filteredIndexEntries == null ? Collections.emptyList() :
+                            filteredIndexEntries.stream()
+                                    .map(indexEntryWithoutPrimaryKey -> new IndexEntry(
+                                            indexEntryWithoutPrimaryKey.getIndex(),
+                                            indexEntryKey(indexEntryWithoutPrimaryKey.getKey(), record.getPrimaryKey()),
+                                            indexEntryWithoutPrimaryKey.getValue()
+                                    ))
+                                    .map(indexEntry -> Pair.of(indexEntry, record))
+                                    .collect(Collectors.toList()),
+                            cont);
+                },
+                continuation, pipelineSizer.getPipelineSize(PipelineOperation.RECORD_FUNCTION))
+        .filterAsync(indexEntryRecordPair -> {
+            final byte[] keyBytes = state.indexSubspace.pack(indexEntryRecordPair.getLeft().getKey());
+            return state.transaction.get(keyBytes).thenApply(Objects::isNull);
+        }, pipelineSizer.getPipelineSize(PipelineOperation.INDEX_ASYNC_FILTER))
+        .map(indexEntryKeyRecordPair ->
+                InvalidIndexEntry.newMissing(indexEntryKeyRecordPair.getLeft(), indexEntryKeyRecordPair.getRight()));
     }
 
     protected <M extends Message> void checkKeyValueSizes(@Nonnull FDBIndexableRecord<M> savedRecord,
