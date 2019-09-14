@@ -41,7 +41,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link FDBRecordVersion}.
@@ -62,16 +61,19 @@ public class FDBRecordVersionTest {
     public void complete() {
         FDBRecordVersion v1 = FDBRecordVersion.complete(VERSION_BYTES_ONE, 5);
         assertTrue(v1.isComplete());
+        assertEquals(1066L, v1.getDBVersion());
         assertArrayEquals(VERSION_BYTES_ONE, v1.getGlobalVersion());
         assertEquals(5, v1.getLocalVersion());
 
         FDBRecordVersion v2 = FDBRecordVersion.complete(VERSION_BYTES_FOUR);
         assertTrue(v2.isComplete());
+        assertEquals(1776L, v2.getDBVersion());
         assertArrayEquals(Arrays.copyOfRange(VERSION_BYTES_FOUR, 0, 10), v2.getGlobalVersion());
         assertEquals(0, v2.getLocalVersion());
 
         FDBRecordVersion v3 = FDBRecordVersion.complete(VERSION_BYTES_FIVE);
         assertTrue(v3.isComplete());
+        assertEquals(1776L, v3.getDBVersion());
         assertArrayEquals(Arrays.copyOfRange(VERSION_BYTES_FIVE, 0, 10), v3.getGlobalVersion());
         assertEquals(0xffff, v3.getLocalVersion());
     }
@@ -105,12 +107,8 @@ public class FDBRecordVersionTest {
     public void incomplete() {
         FDBRecordVersion v2 = FDBRecordVersion.incomplete(4);
         assertFalse(v2.isComplete());
-        try {
-            v2.getGlobalVersion();
-            fail("did not throw on incomplete call for global version");
-        } catch (FDBRecordVersion.IncompleteRecordVersionException e) {
-            // caught
-        }
+        assertThrows(FDBRecordVersion.IncompleteRecordVersionException.class, v2::getDBVersion);
+        assertThrows(FDBRecordVersion.IncompleteRecordVersionException.class, v2::getGlobalVersion);
         assertEquals(4, v2.getLocalVersion());
     }
 
