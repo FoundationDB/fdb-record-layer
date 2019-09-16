@@ -297,6 +297,13 @@ public class FDBDatabase {
 
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
+     *
+     * <p>
+     * If the logger context includes "uuid" as a key, the value associated with that key will be associated
+     * with the returned transaction as its debug identifier. See
+     * {@link #openContext(Map, FDBStoreTimer, WeakReadSemantics, FDBTransactionPriority, String)} for more details.
+     * </p>
+     *
      * @param mdcContext logger context to set in running threads
      * @param timer the timer to use for instrumentation
      * @return a new record context
@@ -310,11 +317,18 @@ public class FDBDatabase {
 
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
+     *
+     * <p>
+     * If the logger context includes "uuid" as a key, the value associated with that key will be associated
+     * with the returned transaction as its debug identifier. See
+     * {@link #openContext(Map, FDBStoreTimer, WeakReadSemantics, FDBTransactionPriority, String)} for more details.
+     * </p>
+     *
      * @param mdcContext logger context to set in running threads
      * @param timer the timer to use for instrumentation
      * @param weakReadSemantics allowable staleness information if caching read versions
      * @return a new record context
-     * @see Database#createTransaction
+     * @see Database#createTransaction()
      */
     @Nonnull
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
@@ -323,9 +337,15 @@ public class FDBDatabase {
         return openContext(mdcContext, timer, weakReadSemantics, FDBTransactionPriority.DEFAULT);
     }
 
-
     /**
      * Open a new record context with a new transaction begun on the underlying FDB database.
+     *
+     * <p>
+     * If the logger context includes "uuid" as a key, the value associated with that key will be associated
+     * with the returned transaction as its debug identifier. See
+     * {@link #openContext(Map, FDBStoreTimer, WeakReadSemantics, FDBTransactionPriority, String)} for more details.
+     * </p>
+     *
      * @param mdcContext logger context to set in running threads
      * @param timer the timer to use for instrumentation
      * @param weakReadSemantics allowable staleness information if caching read versions
@@ -334,13 +354,44 @@ public class FDBDatabase {
      * @see Database#createTransaction
      */
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
                                         @Nullable FDBStoreTimer timer,
                                         @Nullable WeakReadSemantics weakReadSemantics,
                                         @Nonnull FDBTransactionPriority priority) {
+        final String transactionId = mdcContext == null ? null : mdcContext.get("uuid");
+        return openContext(mdcContext, timer, weakReadSemantics, priority, transactionId);
+    }
+
+
+    /**
+     * Open a new record context with a new transaction begun on the underlying FDB database.
+     *
+     * <p>
+     * Note that other variants of this method will inspect the MDC context for the transaction ID by looking
+     * for an entry in the map with the key "uuid". This method will ignore whatever is in the MDC context
+     * and use the ID provided as a parameter instead. The transaction ID should typically consist solely of
+     * printable ASCII characters and should not exceed 100 bytes. The ID may be truncated or dropped if the ID will
+     * not fit in 100 bytes. See {@link FDBRecordContext#getTransactionId()} for more details.
+     * </p>
+     *
+     * @param mdcContext logger context to set in running threads
+     * @param timer the timer to use for instrumentation
+     * @param weakReadSemantics allowable staleness information if caching read versions
+     * @param priority the priority of the transaction being created
+     * @param transactionId the transaction ID to associate with this transaction
+     * @return a new record context
+     * @see Database#createTransaction
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
+                                        @Nullable FDBStoreTimer timer,
+                                        @Nullable WeakReadSemantics weakReadSemantics,
+                                        @Nonnull FDBTransactionPriority priority,
+                                        @Nullable String transactionId) {
         openFDB();
-        FDBRecordContext context = new FDBRecordContext(this, mdcContext, transactionIsTracedSupplier.get(), weakReadSemantics, priority);
+        FDBRecordContext context = new FDBRecordContext(this, mdcContext, transactionIsTracedSupplier.get(),
+                weakReadSemantics, priority, transactionId);
         if (timer != null) {
             context.setTimer(timer);
             timer.increment(FDBStoreTimer.Counts.OPEN_CONTEXT);

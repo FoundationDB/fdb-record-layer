@@ -38,6 +38,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.CharMatcher;
+import com.google.common.base.Utf8;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,12 +99,16 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     private static final String INTERNAL_COMMIT_HOOK_PREFIX = "@__";
     private static final String AFTER_COMMIT_HOOK_NAME = INTERNAL_COMMIT_HOOK_PREFIX + "afterCommit";
+    private static final int MAX_TR_ID_SIZE = 100;
 
     @Nullable
     private CompletableFuture<Long> readVersionFuture;
     private long readVersion = UNSET_VERSION;
     private long committedVersion = UNSET_VERSION;
     private long transactionCreateTime;
+    @Nullable
+    private final String transactionId;
+    private boolean logged;
     @Nullable
     private byte[] versionStamp;
     @Nonnull
@@ -126,18 +132,19 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
                                boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics,
-                               @Nonnull FDBTransactionPriority priority) {
+                               @Nonnull FDBTransactionPriority priority,
+                               @Nullable String transactionId) {
         super(fdb, fdb.createTransaction(initExecutor(fdb, mdcContext), mdcContext, transactionIsTraced));
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>();
         this.versionMutationCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
+        this.transactionId = getSanitizedId(transactionId);
 
-        if (transactionIsTraced) {
-            final String uuid = mdcContext == null ? null : mdcContext.get("uuid");
-            if (uuid != null) {
-                transaction.options().setDebugTransactionIdentifier(uuid);
-                transaction.options().setLogTransaction();
+        if (this.transactionId != null) {
+            ensureActive().options().setDebugTransactionIdentifier(this.transactionId);
+            if (transactionIsTraced) {
+                logTransaction();
             }
         }
 
@@ -163,6 +170,100 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
         this.weakReadSemantics = weakReadSemantics;
         this.dirtyStoreState = false;
+    }
+
+    @Nullable
+    private static String getSanitizedId(@Nullable String id) {
+        try {
+            if (id != null && Utf8.encodedLength(id) > MAX_TR_ID_SIZE) {
+                if (CharMatcher.ascii().matchesAllOf(id)) {
+                    // Most of the time, the string will be of ascii characters, so return a truncated ID based on length
+                    return id.substring(0, MAX_TR_ID_SIZE - 3) + "...";
+                } else {
+                    // In theory, we could try and split the UTF-16 string and find a string that fits, but that
+                    // is fraught with peril, not the least of which because one might accidentally split a low
+                    // surrogate/high surrogate pair.
+                    return null;
+                }
+            } else {
+                return id;
+            }
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get the ID used by FoundationDB to track this transaction. This can be used as a correlation key to correlate
+     * requests with their transactions. If this returns {@code null}, then no ID has been set. This means that
+     * it is unsafe to call {@link #logTransaction()} on this context if this method returns {@code null}.
+     *
+     * <p>
+     * This ID is used by FoundationDB internally in a few different places, including the transaction sample, large
+     * transaction monitoring, and client trace logs if transaction logging is enabled for that transaction. If the
+     * caller already has a notion of "request ID", then one strategy might be to set the transaction's ID to the
+     * initiating request's ID so that one can correlate requests and transactions.
+     *
+     * <p>
+     * The transaction ID is limited in size to 100 bytes when encoded as UTF-8. In general, most callers should
+     * limit IDs to printable ASCII characters (as those are the only characters that are easily readable in the
+     * client trace logs). If the provided ID exceeds 100 bytes, it will be truncated or possibly ignored if
+     * truncating the ID cannot be done safely.
+     * </p>
+     *
+     * <p>
+     * To set this ID, the user can call either {@link FDBDatabase#openContext(Map, FDBStoreTimer, FDBDatabase.WeakReadSemantics, FDBTransactionPriority, String)}
+     * and provided a non-{@code null} transaction ID as a parameter, or the user can call
+     * {@link FDBDatabase#openContext(Map, FDBStoreTimer)} or {@link FDBDatabase#openContext(Map, FDBStoreTimer, FDBDatabase.WeakReadSemantics)}
+     * and set the "uuid" key to the desired transaction ID in the MDC context. In either case, note that the
+     * transaction ID is limited in size to 100 bytes when encoded in UTF-8. In general, most callers should limit
+     * IDs to printable ASCII characters (as those are the only characters that are easily readable in the client trace
+     * logs). If the provided ID exceeds 100 bytes, it will be truncated or possibly ignored if truncating the ID
+     * cannot be done safely.
+     * </p>
+     *
+     * @return the ID used by FoundationDB to track this transaction or {@code null} if not set
+     * @see #logTransaction()
+     */
+    @Nullable
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    /**
+     * Write the details of this transaction to the FoundationDB client logs. Note that this operation does not do
+     * anything if the client has not been configured to emit logs. This should only really be used for debugging
+     * purposes, as the messages that are logged here can be rather verbose, and they include all read and written keys
+     * and values.
+     *
+     * <p>
+     * All of the transaction's entries will be tagged with this transaction's ID. If an ID has not been set, this
+     * method will throw a {@link RecordCoreException}. As a result, the user is encouraged to call
+     * {@link #getTransactionId()} before calling this method.
+     * </p>
+     *
+     * @see #getTransactionId()
+     * @see FDBDatabaseFactory#setTrace(String, String)
+     * @see com.apple.foundationdb.TransactionOptions#setLogTransaction()
+     */
+    public final void logTransaction() {
+        if (transactionId == null) {
+            throw new RecordCoreException("Cannot log transaction as ID is not set");
+        }
+        ensureActive().options().setLogTransaction();
+        logged = true;
+    }
+
+    /**
+     * Get whether the current transaction details are logged to the client trace logs. Essentially, this returns
+     * if the transaction has been traced or if the user has (successfully) called {@link #logTransaction()}.
+     * See {@link #logTransaction()} for more details.
+     *
+     * @return whether this transaction is logged to the client trace logs
+     * @see #logTransaction()
+     */
+    public boolean isLogged() {
+        return logged;
     }
 
     public boolean isClosed() {
