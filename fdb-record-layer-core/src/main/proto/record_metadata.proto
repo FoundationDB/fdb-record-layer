@@ -32,6 +32,13 @@ message DataStoreInfo {
   optional uint64 lastUpdateTime = 5;
   optional bool omit_unsplit_record_suffix = 6;
   optional bool cacheable = 7;
+
+  // Compatible with map<string, bytes> on the wire
+  message UserFieldEntry {
+    optional string key = 1;
+    optional bytes value = 2;
+  }
+  repeated UserFieldEntry user_field = 8;
 }
 
 message Index {

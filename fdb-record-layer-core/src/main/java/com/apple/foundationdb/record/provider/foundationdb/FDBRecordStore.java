@@ -97,6 +97,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -179,12 +180,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public static final int SAVE_VERSION_WITH_RECORD_FORMAT_VERSION = 6;
     // 7 - allow the record store state to be cached and invalidated with the meta-data version key
     public static final int CACHEABLE_STATE_FORMAT_VERSION = 7;
+    // 8 - add custom fields to store header
+    public static final int HEADER_USER_FIELDS_FORMAT_VERSION = 8;
 
     // The current code can read and write up to the format version below
-    public static final int MAX_SUPPORTED_FORMAT_VERSION = CACHEABLE_STATE_FORMAT_VERSION;
+    public static final int MAX_SUPPORTED_FORMAT_VERSION = HEADER_USER_FIELDS_FORMAT_VERSION;
 
-    // Record stores attempt to upgrade to this version
-    public static final int DEFAULT_FORMAT_VERSION = MAX_SUPPORTED_FORMAT_VERSION;
+    // By default, record stores attempt to upgrade to this version
+    // NOTE: Updating this can break certain users during upgrades.
+    // See: https://github.com/FoundationDB/fdb-record-layer/issues/709
+    public static final int DEFAULT_FORMAT_VERSION = CACHEABLE_STATE_FORMAT_VERSION;
 
     // These agree with the client's values. They could be tunable and even increased with knobs.
     public static final int KEY_SIZE_LIMIT = 10_000;
@@ -434,7 +439,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private FDBRecordVersion recordVersionForSave(@Nonnull RecordMetaData metaData, @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
         if (behavior.equals(VersionstampSaveBehavior.NO_VERSION)) {
             if (version != null) {
-                throw new RecordCoreException("Nonnull version supplied with a NO_VERSION behavior: " + version);
+                throw recordCoreException("Nonnull version supplied with a NO_VERSION behavior: " + version);
             }
             return null;
         }
@@ -700,7 +705,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         SyntheticRecordType<?> syntheticRecordType = getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(primaryKey.get(0));
         int nconstituents = syntheticRecordType.getConstituents().size();
         if (nconstituents != primaryKey.size() - 1) {
-            throw new RecordCoreException("Primary key does not have correct number of nested keys: " + primaryKey);
+            throw recordCoreException("Primary key does not have correct number of nested keys: " + primaryKey);
         }
         final Map<String, FDBStoredRecord<? extends Message>> constituents = new ConcurrentHashMap<>(nconstituents);
         final CompletableFuture<?>[] futures = new CompletableFuture<?>[nconstituents];
@@ -1164,7 +1169,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                               @Nullable byte[] continuation,
                                               @Nonnull ScanProperties scanProperties) {
         if (!isIndexReadable(index)) {
-            throw new RecordCoreException("Cannot scan non-readable index " + index.getName());
+            throw recordCoreException("Cannot scan non-readable index " + index.getName());
         }
         RecordCursor<IndexEntry> result = getIndexMaintainer(index)
                 .scan(scanType, range, continuation, scanProperties);
@@ -1345,7 +1350,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
             }
             if (recordTypeKeyComparison != null && !getRecordMetaData().primaryKeyHasRecordTypePrefix()) {
-                throw new RecordCoreException("record type version of deleteRecordsWhere can only be used when all record types have a type prefix");
+                throw recordCoreException("record type version of deleteRecordsWhere can only be used when all record types have a type prefix");
             }
 
             matcher = new QueryToKeyMatcher(component);
@@ -1389,7 +1394,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 if (evaluated == null) {
                     evaluated = match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY);
                 } else if (!evaluated.equals(match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY))) {
-                    throw new RecordCoreException("Primary key prefixes don't align",
+                    throw recordCoreException("Primary key prefixes don't align",
                             "initialPrefix", evaluated,
                             "secondPrefix", match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY),
                             "recordType", recordType.getName());
@@ -1407,7 +1412,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
                 final Key.Evaluated subkey = match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY);
                 if (!evaluated.equals(subkey)) {
-                    throw new RecordCoreException("Record count key prefix doesn't align",
+                    throw recordCoreException("Record count key prefix doesn't align",
                             "initialPrefix", evaluated,
                             "secondPrefix", match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY));
                 }
@@ -1429,8 +1434,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         canDelete = index.canDeleteWhere(matcher, evaluated);
                     } else {
                         if (recordMetaData.recordTypesForIndex(index.state.index).size() > 1) {
-                            throw new RecordCoreException("Index " + index.state.index.getName() +
-                                                          " applies to more record types than just " + recordType.getName());
+                            throw recordCoreException("Index " + index.state.index.getName() +
+                                                      " applies to more record types than just " + recordType.getName());
                         }
                         if (indexMatcher != null) {
                             canDelete = index.canDeleteWhere(indexMatcher, indexEvaluated);
@@ -1521,7 +1526,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
         if (getRecordMetaData().getRecordCountKey() != null) {
             if (key.getColumnSize() != value.size()) {
-                throw new RecordCoreException("key and value are not the same size");
+                throw recordCoreException("key and value are not the same size");
             }
             final ReadTransaction tr = context.readTransaction(true);
             final Tuple subkey = Tuple.from(RECORD_COUNT_KEY).addAll(value.toTupleAppropriateList());
@@ -1555,7 +1560,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.allOf(recordType.getRecordTypeKeyTuple()), IsolationLevel.SNAPSHOT)
                     .thenApply(tuple -> tuple.getLong(0));
         }
-        throw new RecordCoreException("Require a COUNT index on " + recordTypeName);
+        throw recordCoreException("Require a COUNT index on " + recordTypeName);
     }
 
     public static long decodeRecordCount(@Nullable byte[] bytes) {
@@ -1575,8 +1580,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                            @Nonnull IndexRecordFunction<T> indexRecordFunction,
                                                                                            @Nonnull FDBRecord<M> record) {
         return IndexFunctionHelper.indexMaintainerForRecordFunction(this, indexRecordFunction, record)
-                .orElseThrow(() -> new RecordCoreException("Record function " + indexRecordFunction +
-                                                           " requires appropriate index on " + record.getRecordType().getName()))
+                .orElseThrow(() -> recordCoreException("Record function " + indexRecordFunction +
+                                                       " requires appropriate index on " + record.getRecordType().getName()))
             .evaluateRecordFunction(evaluationContext, indexRecordFunction, record);
     }
 
@@ -1599,7 +1604,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             return (CompletableFuture<T>) loadRecordVersionAsync(record.getPrimaryKey()).orElse(CompletableFuture.completedFuture(null));
         } else {
-            throw new RecordCoreException("Unknown store function " + function.getName());
+            throw recordCoreException("Unknown store function " + function.getName());
         }
     }
 
@@ -1610,7 +1615,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nonnull TupleRange range,
                                                               @Nonnull IsolationLevel isolationLevel) {
         return IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, recordTypeNames)
-                .orElseThrow(() -> new RecordCoreException("Aggregate function " + aggregateFunction + " requires appropriate index"))
+                .orElseThrow(() -> recordCoreException("Aggregate function " + aggregateFunction + " requires appropriate index"))
                 .evaluateAggregateFunction(aggregateFunction, range, isolationLevel);
     }
 
@@ -1706,8 +1711,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
         return checkedRebuild.thenCompose(vignore -> {
             if (dirty[0]) {
-                RecordMetaDataProto.DataStoreInfo newStoreHeader = info.setLastUpdateTime(System.currentTimeMillis()).build();
-                return updateStoreHeaderAsync(ignore -> newStoreHeader).thenApply(vignore2 -> true);
+                return updateStoreHeaderAsync(ignore -> info).thenApply(vignore2 -> true);
             } else {
                 return AsyncUtil.READY_FALSE;
             }
@@ -1763,7 +1767,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             try {
                 info = RecordMetaDataProto.DataStoreInfo.parseFrom(firstKeyValue.getValue());
             } catch (InvalidProtocolBufferException ex) {
-                throw new RecordCoreStorageException("Error reading version", ex);
+                throw new RecordCoreStorageException("Error reading version", ex)
+                        .addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(context));
             }
         }
         checkStoreHeaderInternal(info, getContext(), getSubspaceProvider(), existenceCheck);
@@ -1928,7 +1933,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @VisibleForTesting
     protected void saveStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
         if (recordStoreStateRef.get() == null) {
-            throw new RecordCoreException("cannot update store header with a null record store state");
+            throw uninitializedStoreException("cannot update store header on an uninitialized store");
         }
         beginRecordStoreStateWrite();
         try {
@@ -1946,9 +1951,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private CompletableFuture<Void> updateStoreHeaderAsync(@Nonnull UnaryOperator<RecordMetaDataProto.DataStoreInfo> storeHeaderOperator) {
+    private CompletableFuture<Void> updateStoreHeaderAsync(@Nonnull UnaryOperator<RecordMetaDataProto.DataStoreInfo.Builder> storeHeaderMutator) {
         if (recordStoreStateRef.get() == null) {
-            return preloadRecordStoreStateAsync().thenCompose(vignore -> updateStoreHeaderAsync(storeHeaderOperator));
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> updateStoreHeaderAsync(storeHeaderMutator));
         }
         AtomicReference<RecordMetaDataProto.DataStoreInfo> oldStoreHeaderRef = new AtomicReference<>();
         AtomicReference<RecordMetaDataProto.DataStoreInfo> newStoreHeaderRef = new AtomicReference<>();
@@ -1959,7 +1964,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 recordStoreStateRef.updateAndGet(state -> {
                     RecordMetaDataProto.DataStoreInfo oldStoreHeader = state.getStoreHeader();
                     oldStoreHeaderRef.set(oldStoreHeader);
-                    RecordMetaDataProto.DataStoreInfo newStoreHeader = storeHeaderOperator.apply(oldStoreHeader);
+                    RecordMetaDataProto.DataStoreInfo.Builder storeHeaderBuilder = oldStoreHeader.toBuilder();
+                    storeHeaderBuilder = storeHeaderMutator.apply(storeHeaderBuilder);
+                    storeHeaderBuilder.setLastUpdateTime(System.currentTimeMillis());
+                    RecordMetaDataProto.DataStoreInfo newStoreHeader = storeHeaderBuilder.build();
                     newStoreHeaderRef.set(newStoreHeader);
                     state.setStoreHeader(newStoreHeader);
                     return state;
@@ -2057,22 +2065,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return preloadRecordStoreStateAsync().thenCompose(vignore -> setStateCacheabilityAsync(cacheable));
         }
         if (formatVersion < CACHEABLE_STATE_FORMAT_VERSION) {
-            throw new RecordCoreException("cannot mark record store state cacheable at format version " + formatVersion);
+            throw recordCoreException("cannot mark record store state cacheable at format version " + formatVersion);
         }
         if (isStateCacheableInternal() == cacheable) {
             return AsyncUtil.READY_FALSE;
         } else {
-            return updateStoreHeaderAsync(oldHeader -> oldHeader.toBuilder()
-                    .setCacheable(cacheable)
-                    .setLastUpdateTime(System.currentTimeMillis())
-                    .build()
-            ).thenApply(ignore -> true);
+            return updateStoreHeaderAsync(headerBuilder -> headerBuilder.setCacheable(cacheable))
+                    .thenApply(ignore -> true);
         }
     }
 
     /**
      * Set whether the store state is cacheable. This operation might block if the record store state has
-     * not yet been loaded. Use {@link #setStateCacheabilityAsync(boolean)} in asychronous contexts.
+     * not yet been loaded. Use {@link #setStateCacheabilityAsync(boolean)} in asynchronous contexts.
      *
      * @param cacheable whether this store's state should be cacheable
      * @return whether the record store state cacheability has changed
@@ -2084,15 +2089,222 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     private boolean isStateCacheableInternal() {
         if (recordStoreStateRef.get() == null) {
-            throw new RecordCoreException("cannot check record store state cacheability with null record store state");
+            throw uninitializedStoreException("cannot check record store state cacheability on uninitialized store");
         }
         return recordStoreStateRef.get().getStoreHeader().getCacheable();
+    }
+
+    private void validateCanAccessHeaderUserFields() {
+        if (formatVersion < HEADER_USER_FIELDS_FORMAT_VERSION) {
+            throw recordCoreException("cannot access header user fields at current format version",
+                    LogMessageKeys.FORMAT_VERSION, formatVersion);
+        }
+    }
+
+    /**
+     * Get the value of a user-settable field from the store header. Each of these fields are written into
+     * this record store's store header. This is loaded automatically by the record store as part of
+     * {@link Builder#createOrOpenAsync()} or one of its variants. This means that reading this
+     * information from the header does not require any additional communication with database assuming that
+     * the record store has already been initialized. As a result, this is not a blocking call.
+     *
+     * <p>
+     * Using this feature also requires that the record store be on format version {@link #HEADER_USER_FIELDS_FORMAT_VERSION}
+     * or higher. There is no change to the on-disk format version from the previous format version except that
+     * extra fields in the store header were added. No data migration is necessary to upgrade to that version if
+     * an existing store is on the previous format version, but the new version is used to prevent the user from serializing
+     * data and then not being able to read it from instances running an older version of the Record Layer.
+     * </p>
+     *
+     * @param userField the name of the user-settable field to read
+     * @return the value of that field in the header or {@code null} if it is unset
+     * @see #setHeaderUserFieldAsync(String, ByteString)
+     */
+    @Nullable
+    public ByteString getHeaderUserField(@Nonnull String userField) {
+        validateCanAccessHeaderUserFields();
+        if (recordStoreStateRef.get() == null) {
+            throw uninitializedStoreException("cannot get field from header on uninitialized store");
+        }
+        beginRecordStoreStateRead();
+        try {
+            RecordMetaDataProto.DataStoreInfo header = recordStoreStateRef.get().getStoreHeader();
+            for (RecordMetaDataProto.DataStoreInfo.UserFieldEntry userFieldEntry : header.getUserFieldList()) {
+                if (userFieldEntry.getKey().equals(userField)) {
+                    return userFieldEntry.getValue();
+                }
+            }
+            // Not found. Return null.
+            return null;
+        } finally {
+            endRecordStoreStateRead();
+        }
+    }
+
+    /**
+     * Set the value of a user-settable field in the store header. The store header contains meta-data that is then
+     * used by the Record Layer to determine information including what meta-data version was used the last time
+     * the record store was accessed. It is therefore loaded every time the record store is opened by the
+     * {@link Builder#createOrOpenAsync()} or one of its variants. The user may also elect
+     * to set fields to custom values that might be meaningful for their application. For example, if the user wishes
+     * to migrate from one record type to another, the user might include a field with a value that indicates whether
+     * that migration has completed.
+     *
+     * <p>
+     * Note that there are a few potential pitfalls that adopters of this API should be aware of:
+     * </p>
+     * <ul>
+     *     <li>
+     *         Because all operations to a single record store must read the store header, every time the
+     *         value is updated, any concurrent operations to the store will fail with a
+     *         {@link com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionConflictException FDBStoreTransactionConflictException}.
+     *         Therefore, this should only ever be used for data that are mutated at a very low rate.
+     *     </li>
+     *     <li>
+     *         As this data must be read every time the record store is created (which is at least once per
+     *         transaction), the value should not be too large. There is not at the moment a hard limit applied, but
+     *         a good rule of thumb may be to keep the total size from all user fields under a kilobyte.
+     *     </li>
+     * </ul>
+     *
+     * <p>
+     * The value of these fields are simple byte arrays, so the user is free to choose their own serialization
+     * format for the value included in this field. One recommended strategy is for the user to use Protobuf to
+     * serialize a message with possibly multiple keys and values, each with meaning to the user, and then to
+     * write it to a single user field (or a small number if appropriate). This decreases the total size of
+     * the user fields when compared to something like storing one user-field for each field (as the Protobuf
+     * serialization format is more compact), and it allows the user to follow standard Protobuf evolution
+     * guidelines as these fields evolve.
+     * </p>
+     *
+     * <p>
+     * Once set, the value of these fields can be retrieved by calling {@link #getHeaderUserField(String)}. They
+     * can be cleared by calling {@link #clearHeaderUserFieldAsync(String)}. Within a given transaction, updates
+     * to the header fields should be visible through {@code getHeaderUserField()} (that is, the header user fields
+     * support read-your-writes within a transaction), but the context associated with this store must be committed
+     * for other transactions to see the update.
+     * </p>
+     *
+     * <p>
+     * Using this feature also requires that the record store be on format version {@link #HEADER_USER_FIELDS_FORMAT_VERSION}
+     * or higher. There is no change to the on-disk format version from the previous format version except that
+     * extra fields in the store header were added. No data migration is necessary to upgrade to that version if
+     * an existing store is on the previous format version, but the new version is used to prevent the user from serializing
+     * data and then not being able to read it from instances running an older version of the Record Layer.
+     * </p>
+     *
+     * @param userField the name of the user-settable field to write
+     * @param value the value to set the field to
+     * @return a future that will be ready when setting the field has completed
+     * @see #getHeaderUserField(String)
+     */
+    @Nonnull
+    public CompletableFuture<Void> setHeaderUserFieldAsync(@Nonnull String userField, @Nonnull ByteString value) {
+        return updateStoreHeaderAsync(storeHeaderBuilder -> {
+            validateCanAccessHeaderUserFields();
+            boolean found = false;
+            for (RecordMetaDataProto.DataStoreInfo.UserFieldEntry.Builder userFieldEntryBuilder : storeHeaderBuilder.getUserFieldBuilderList()) {
+                if (userFieldEntryBuilder.getKey().equals(userField)) {
+                    userFieldEntryBuilder.setValue(value);
+                    found = true;
+                }
+            }
+            if (!found) {
+                storeHeaderBuilder.addUserFieldBuilder().setKey(userField).setValue(value);
+            }
+            return storeHeaderBuilder;
+        });
+    }
+
+    /**
+     * Set the value of a user-settable field in the store header. The provided byte array will be wrapped
+     * in a {@link ByteString} and then passed to {@link #setHeaderUserFieldAsync(String, ByteString)}. See that
+     * function for more details and for a list of caveats on using this function.
+     *
+     * @param userField the name of the user-settable field to write
+     * @param value the value to set the field to
+     * @return a future that will be ready when setting the field has completed
+     * @see #setHeaderUserFieldAsync(String, ByteString)
+     */
+    @Nonnull
+    public CompletableFuture<Void> setHeaderUserFieldAsync(@Nonnull String userField, @Nonnull byte[] value) {
+        return setHeaderUserFieldAsync(userField, ByteString.copyFrom(value));
+    }
+
+    /**
+     * Set the value of a user-settable field in the store header. This is a blocking version of
+     * {@link #setHeaderUserFieldAsync(String, ByteString)}. In most circumstances, this function should not be blocking,
+     * but it might if either the store header has not yet been loaded or in some circumstances if the meta-data
+     * is cacheable. It should therefore generally be avoided in asynchronous contexts to be safe.
+     *
+     * @param userField the name of the user-settable field to write
+     * @param value the value to set the field to
+     * @see #setHeaderUserFieldAsync(String, ByteString)
+     * @see #setStateCacheabilityAsync(boolean)
+     */
+    public void setHeaderUserField(@Nonnull String userField, @Nonnull ByteString value) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_EDIT_HEADER_USER_FIELD, setHeaderUserFieldAsync(userField, value));
+    }
+
+    /**
+     * Set the value of a user-settable field in the store header. This is a blocking version of
+     * {@link #setHeaderUserFieldAsync(String, byte[])}. In most circumstances, this function should not be blocking,
+     * but it might if either the store header has not yet been loaded or in some circumstances if the meta-data
+     * is cacheable. It should therefore generally be avoided in asynchronous contexts to be safe.
+     *
+     * @param userField the name of the user-settable field to write
+     * @param value the value to set the field to
+     * @see #setHeaderUserFieldAsync(String, ByteString)
+     * @see #setStateCacheabilityAsync(boolean)
+     */
+    public void setHeaderUserField(@Nonnull String userField, @Nonnull byte[] value) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_EDIT_HEADER_USER_FIELD, setHeaderUserFieldAsync(userField, value));
+    }
+
+    /**
+     * Clear the value of a user-settable field in the store header. This removes a field from the store header
+     * after it has been set by {@link #setHeaderUserFieldAsync(String, ByteString)}. This has the same caveats
+     * as that function. In particular, whenever this is called, all concurrent operations to the same record store
+     * will also fail with an
+     * {@link com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionConflictException FDBStoreTransactionConflictException}.
+     * As a result, one should avoid clearing these fields too often.
+     *
+     * @param userField the name of the user-settable field to clear
+     * @return a future that will be ready when the field has bean cleared
+     * @see #setHeaderUserFieldAsync(String, ByteString)
+     */
+    @Nonnull
+    public CompletableFuture<Void> clearHeaderUserFieldAsync(@Nonnull String userField) {
+        return updateStoreHeaderAsync(storeHeaderBuilder -> {
+            validateCanAccessHeaderUserFields();
+            for (int i = storeHeaderBuilder.getUserFieldCount() - 1; i >= 0; i--) {
+                RecordMetaDataProto.DataStoreInfo.UserFieldEntryOrBuilder userFieldEntry = storeHeaderBuilder.getUserFieldOrBuilder(i);
+                if (userFieldEntry.getKey().equals(userField)) {
+                    storeHeaderBuilder.removeUserField(i);
+                }
+            }
+            return storeHeaderBuilder;
+        });
+    }
+
+    /**
+     * Clear the value of a user-settable field in the store header. This is a blocking version of
+     * {@link #clearHeaderUserFieldAsync(String)}. In most circumstances, this function should not be blocking,
+     * but it might if either the store header has not yet been loaded or in some circumstances if the meta-data
+     * is cacheable. It should therefore generally be avoided in asynchronous contexts to be safe.
+     *
+     * @param userField the name of user-settable field to clear
+     * @see #clearHeaderUserFieldAsync(String)
+     * @see #setStateCacheabilityAsync(boolean)
+     */
+    public void clearHeaderUserField(@Nonnull String userField) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_EDIT_HEADER_USER_FIELD, clearHeaderUserFieldAsync(userField));
     }
 
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
         if (recordStoreStateRef.get() == null) {
-            throw new RecordCoreException("cannot update index state with a null record store state");
+            throw uninitializedStoreException("cannot update index state on an uninitialized store");
         }
         // This is generally called by someone who should already have a write lock, but adding them here
         // defensively shouldn't cause problems.
@@ -3128,7 +3340,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private void addConvertRecordVersions(@Nonnull List<CompletableFuture<Void>> work) {
         if (useOldVersionFormat()) {
-            throw new RecordCoreException("attempted to convert record versions when still using older format");
+            throw recordCoreException("attempted to convert record versions when still using older format");
         }
         final Subspace legacyVersionSubspace = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY));
 
@@ -3392,7 +3604,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         if (scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot()) {
             throw new RecordCoreArgumentException("Cannot repair record key split markers at SNAPSHOT isolation level")
-                    .addLogInfo(LogMessageKeys.SCAN_PROPERTIES, scanProperties);
+                    .addLogInfo(LogMessageKeys.SCAN_PROPERTIES, scanProperties)
+                    .addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(context));
         }
 
         final Subspace recordSubspace = recordsSubspace();
@@ -3476,6 +3689,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private boolean isMaybeVersion(Tuple recordKey) {
         Object suffix = recordKey.get(recordKey.size() - 1);
         return suffix instanceof Long && (((Long) suffix) == SplitHelper.RECORD_VERSION);
+    }
+
+    @Nonnull
+    private RecordCoreException recordCoreException(@Nonnull String msg) {
+        return new RecordCoreException(msg,
+                subspaceProvider.logKey(), subspaceProvider.toString(context));
+    }
+
+    @Nonnull
+    private RecordCoreException recordCoreException(@Nonnull String msg, Object...keysAndValues) {
+        RecordCoreException err = new RecordCoreException(msg, keysAndValues);
+        err.addLogInfo(subspaceProvider.logKey().toString(), subspaceProvider.toString(context));
+        return err;
+    }
+
+    @Nonnull
+    private UninitializedRecordStoreException uninitializedStoreException(@Nonnull String msg) {
+        return new UninitializedRecordStoreException(msg,
+                subspaceProvider.logKey(), subspaceProvider.toString(context));
     }
 
     @Nonnull
