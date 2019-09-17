@@ -43,18 +43,18 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Transaction IDs that would exceed the maximum FDB limit are now truncated or ignored instead of throwing an error [(Issue #705)](https://github.com/FoundationDB/fdb-record-layer/issues/705)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support validating missing index entries in index entry validation [(Issue #712)](https://github.com/FoundationDB/fdb-record-layer/issues/712)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The store header now supports allowing the user to set custom fields with application-specific information [(Issue #704)](https://github.com/FoundationDB/fdb-record-layer/issues/704)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,6 +63,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.84.0
+
+* **Bug fix** Transaction IDs that would exceed the maximum FDB limit are now truncated or ignored instead of throwing an error [(Issue #705)](https://github.com/FoundationDB/fdb-record-layer/issues/705)
+* **Feature** Support validating missing index entries in index entry validation [(Issue #712)](https://github.com/FoundationDB/fdb-record-layer/issues/712)
+* **Feature** The store header now supports allowing the user to set custom fields with application-specific information [(Issue #704)](https://github.com/FoundationDB/fdb-record-layer/issues/704)
 
 ### 2.8.83.0
 
