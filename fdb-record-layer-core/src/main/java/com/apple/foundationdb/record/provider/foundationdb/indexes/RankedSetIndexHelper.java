@@ -58,13 +58,24 @@ public class RankedSetIndexHelper {
         RANKED_SET_UPDATE("ranked set update");
 
         private final String title;
+        private String logKey;
         Events(String title) {
             this.title = title;
+        }
+
+        Events(String title, String logKey) {
+            this.title = title;
+            this.logKey = logKey;
         }
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        public String logKey() {
+            return logKey;
         }
     }
 

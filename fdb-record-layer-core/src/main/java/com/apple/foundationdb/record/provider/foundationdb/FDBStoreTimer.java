@@ -75,7 +75,7 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time taken loading a record store's {@code DataStoreInfo} header.*/
         LOAD_RECORD_STORE_INFO("load record store info"),
         /** The amount of time taken loading a record store's index meta-data. */
-        LOAD_RECORD_STORE_INDEX_META_DATA("load record store index meta-data"),
+        LOAD_RECORD_STORE_INDEX_META_DATA("load record store index meta-data", "ld_rs_idx_meta"),
         /** The amount of time taken getting the current version from a {@link MetaDataCache}. */
         GET_META_DATA_CACHE_VERSION("get meta-data cache version"),
         /** The amount of time taken getting cached meta-data from a {@link MetaDataCache}. */
@@ -178,13 +178,24 @@ public class FDBStoreTimer extends StoreTimer {
         TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory");
 
         private final String title;
+        private String logKey;
         Events(String title) {
             this.title = title;
+        }
+
+        Events(String title, String logKey) {
+            this.title = title;
+            this.logKey = logKey;
         }
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        public String logKey() {
+            return this.logKey;
         }
     }
 
@@ -212,14 +223,26 @@ public class FDBStoreTimer extends StoreTimer {
         RD_CACHE_DIRECTORY_SCAN("reverse directory cache hard miss, scanning directory subspace");
 
         private final String title;
+        private String logKey;
         DetailEvents(String title) {
             this.title = title;
+        }
+
+        DetailEvents(String title, String logKey) {
+            this.title = title;
+            this.logKey = logKey;
         }
 
         @Override
         public String title() {
             return title;
         }
+
+        @Override
+        public String logKey() {
+            return logKey;
+        }
+
     }
 
     /**
@@ -332,13 +355,24 @@ public class FDBStoreTimer extends StoreTimer {
         ;
 
         private final String title;
+        private String logKey;
         Waits(String title) {
             this.title = title;
+        }
+
+        Waits(String title, String logKey) {
+            this.title = title;
+            this.logKey = logKey;
         }
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        public String logKey() {
+            return logKey;
         }
     }
 
@@ -498,14 +532,26 @@ public class FDBStoreTimer extends StoreTimer {
 
         private final String title;
         private final boolean isSize;
+        private String logKey;
         Counts(String title, boolean isSize) {
             this.title = title;
             this.isSize = isSize;
         }
 
+        Counts(String title, boolean isSize, String logKey) {
+            this.title = title;
+            this.isSize = isSize;
+            this.logKey = logKey;
+        }
+
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        public String logKey() {
+            return logKey;
         }
 
         @Override

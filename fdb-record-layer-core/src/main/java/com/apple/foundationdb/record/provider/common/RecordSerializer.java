@@ -115,13 +115,24 @@ public interface RecordSerializer<M extends Message> {
         DECRYPT_SERIALIZED_RECORD("decrypt serialized record");
 
         private final String title;
+        private String logKey;
         Events(String title) {
             this.title = title;
+        }
+
+        Events(String title, String logKey) {
+            this.title = title;
+            this.logKey = logKey;
         }
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        public String logKey() {
+            return logKey;
         }
     }
 
@@ -135,6 +146,7 @@ public interface RecordSerializer<M extends Message> {
 
         private final String title;
         private final boolean isSize;
+        private String logKey;
 
         Counts(String title) {
             this(title, false);
@@ -145,9 +157,20 @@ public interface RecordSerializer<M extends Message> {
             this.isSize = false;
         }
 
+        Counts(String title, boolean isSize, String logKey) {
+            this.title = title;
+            this.isSize = false;
+            this.logKey = logKey;
+        }
+
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        public String logKey() {
+            return logKey;
         }
 
         @Override

@@ -167,6 +167,13 @@ public class StoreTimer {
          * @return the user-visible title
          */
         String title();
+
+        /**
+         * Get the logKey of this event for logging purposes.
+         *
+         * @return the key to use for logging
+         */
+        String logKey();
     }
 
     /**
