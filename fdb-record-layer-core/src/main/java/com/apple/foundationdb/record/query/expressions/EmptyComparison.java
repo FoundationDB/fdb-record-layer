@@ -45,7 +45,7 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
     private final boolean isEmpty;
 
     public EmptyComparison(@Nonnull String fieldName, boolean isEmpty) {
-        super(fieldName);
+        super(fieldName, false);
         this.isEmpty = isEmpty;
     }
 

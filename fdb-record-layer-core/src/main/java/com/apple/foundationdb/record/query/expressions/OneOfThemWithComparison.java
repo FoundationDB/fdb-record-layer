@@ -46,7 +46,11 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
     private final Comparisons.Comparison comparison;
 
     public OneOfThemWithComparison(@Nonnull String fieldName, @Nonnull Comparisons.Comparison comparison) {
-        super(fieldName);
+        this(fieldName, true, comparison);
+    }
+
+    public OneOfThemWithComparison(@Nonnull String fieldName, boolean emptyIsUnknown, @Nonnull Comparisons.Comparison comparison) {
+        super(fieldName, emptyIsUnknown);
         this.comparison = comparison;
     }
 

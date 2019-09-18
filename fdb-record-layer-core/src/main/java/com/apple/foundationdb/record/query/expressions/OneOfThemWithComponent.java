@@ -47,11 +47,19 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     private final ExpressionRef<QueryComponent> child;
 
     public OneOfThemWithComponent(@Nonnull String fieldName, @Nonnull QueryComponent child) {
-        this(fieldName, SingleExpressionRef.of(child));
+        this(fieldName, true, child);
     }
 
     public OneOfThemWithComponent(@Nonnull String fieldName, @Nonnull ExpressionRef<QueryComponent> child) {
-        super(fieldName);
+        this(fieldName, true, child);
+    }
+
+    public OneOfThemWithComponent(@Nonnull String fieldName, boolean emptyIsUnknown, @Nonnull QueryComponent child) {
+        this(fieldName, emptyIsUnknown, SingleExpressionRef.of(child));
+    }
+
+    public OneOfThemWithComponent(@Nonnull String fieldName, boolean emptyIsUnknown, @Nonnull ExpressionRef<QueryComponent> child) {
+        super(fieldName, emptyIsUnknown);
         this.child = child;
     }
 
