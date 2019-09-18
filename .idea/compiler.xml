@@ -54,12 +54,14 @@
       <module name="fdb-record-layer-core_integrationTest" target="1.8" />
       <module name="fdb-record-layer-core_main" target="1.8" />
       <module name="fdb-record-layer-core_test" target="1.8" />
-      <module name="fdb-record-layer-geophile_integrationTest" target="1.8" />
       <module name="fdb-record-layer-geophile_main" target="1.8" />
       <module name="fdb-record-layer-geophile_test" target="1.8" />
       <module name="fdb-record-layer-icu_integrationTest" target="1.8" />
       <module name="fdb-record-layer-icu_main" target="1.8" />
       <module name="fdb-record-layer-icu_test" target="1.8" />
+      <module name="fdb-record-layer-spatial_integrationTest" target="1.8" />
+      <module name="fdb-record-layer-spatial_main" target="1.8" />
+      <module name="fdb-record-layer-spatial_test" target="1.8" />
       <module name="fdb-record-layer_main" target="1.8" />
       <module name="fdb-record-layer_test" target="1.8" />
     </bytecodeTargetLevel>

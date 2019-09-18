@@ -1,11 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
-        <option name="delegatedBuild" value="true" />
-        <option name="testRunner" value="GRADLE" />
         <option name="distributionType" value="DEFAULT_WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
@@ -15,8 +12,8 @@
             <option value="$PROJECT_DIR$/fdb-extensions" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core-shaded" />
-            <option value="$PROJECT_DIR$/fdb-record-layer-geophile" />
             <option value="$PROJECT_DIR$/fdb-record-layer-icu" />
+            <option value="$PROJECT_DIR$/fdb-record-layer-spatial" />
           </set>
         </option>
         <option name="useAutoImport" value="true" />
