@@ -70,8 +70,7 @@ class GeophileBoxLatLonWithWraparound implements SpatialObject {
             return RegionComparison.REGION_OUTSIDE_OBJECT;
         } else if (cL == RegionComparison.REGION_INSIDE_OBJECT &&
                    cR == RegionComparison.REGION_INSIDE_OBJECT) {
-            assert false : region; // Can't be inside two disjoint boxes!
-            return null;
+            throw new IllegalStateException("Cannot be inside two disjoint boxes");
         } else {
             return RegionComparison.REGION_OVERLAPS_OBJECT;
         }

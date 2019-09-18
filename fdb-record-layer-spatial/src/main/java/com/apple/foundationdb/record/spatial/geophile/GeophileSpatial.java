@@ -46,7 +46,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:abbreviationaswordinname")    // Allow WKB, WKT
-public class GeophileSpatial {
+class GeophileSpatial {
     /*
       The lat/lon coordinate system is
 

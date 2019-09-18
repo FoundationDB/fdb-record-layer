@@ -29,8 +29,7 @@ import com.geophile.z.spatialobject.d2.Box;
  * Spatial objects for boxes with possible wraparound.
  */
 @API(API.Status.EXPERIMENTAL)
-public class GeophileBoxLatLon
-{
+public class GeophileBoxLatLon {
     private static final double CIRCLE = 360;
 
     private GeophileBoxLatLon() {
@@ -63,7 +62,8 @@ public class GeophileBoxLatLon
         }
     }
 
-    // Query boxes are specified as center point += delta, delta <= 360. This calculation can put us past min/max lon.
+    // Query boxes are specified as center point +- delta, where delta <= 360.
+    // This calculation can put us past min/max lon.
     private static double fixLon(double lon) {
         if (lon > GeophileSpatial.MAX_LON + CIRCLE || lon < GeophileSpatial.MIN_LON - CIRCLE) {
             throw new RecordCoreArgumentException(String.format("longitude %s", lon));

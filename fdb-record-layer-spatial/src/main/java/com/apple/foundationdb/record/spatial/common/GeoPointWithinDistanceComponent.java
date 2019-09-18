@@ -91,6 +91,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
         return point.isWithinDistance(center, distanceValue);
     }
 
+    @Nullable
     private Double getCoordinateField(@Nullable Message message, @Nonnull String fieldName) {
         if (message == null) {
             return null;

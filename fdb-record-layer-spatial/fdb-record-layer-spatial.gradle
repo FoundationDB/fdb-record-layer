@@ -59,8 +59,6 @@ test {
     }
 }
 
-// TODO: Make sure CC Attribution 4.0 is right someplace.
-
 def geonames_files = ['countryInfo.txt', 'cities15000.zip', 'shapes_all_low.zip']
 
 task downloadGeonames(type: de.undercouch.gradle.tasks.download.Download) {

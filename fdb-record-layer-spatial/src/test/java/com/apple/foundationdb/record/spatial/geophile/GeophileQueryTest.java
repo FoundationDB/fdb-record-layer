@@ -43,10 +43,10 @@ import com.apple.foundationdb.record.spatial.common.CoordinateValueOrParameter;
 import com.apple.foundationdb.record.spatial.common.GeoPointWithinDistanceComponent;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.base.Throwables;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matchers;
-import org.junit.Assert;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
@@ -74,8 +74,12 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasProperty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for Geophile indexes.
@@ -102,37 +106,42 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
 
     protected void loadCities(RecordMetaDataHook hook, int minPopulation) throws Exception {
         FDBRecordContext context = openContext();
-        openRecordStore(context, hook);
         int total = 0;
-        try (FileInputStream file = new FileInputStream(".out/cities15000.txt")) {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
-            String line;
-            int count = 0;
-            while ((line = reader.readLine()) != null) {
-                String[] split = line.split("\t");
-                if (Integer.parseInt(split[14]) < minPopulation) {
-                    continue;
+        try {
+            openRecordStore(context, hook);
+            try (FileInputStream file = new FileInputStream(".out/cities15000.txt")) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
+                String line;
+                int count = 0;
+                while ((line = reader.readLine()) != null) {
+                    String[] split = line.split("\t");
+                    if (Integer.parseInt(split[14]) < minPopulation) {
+                        continue;
+                    }
+                    TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
+                            .setGeoNameId(Integer.parseInt(split[0]))
+                            .setName(split[1])
+                            .setNameAscii(split[2])
+                            .setCountry(split[8]);
+                    cityBuilder.getLocationBuilder()
+                            .setLatitude(Double.parseDouble(split[4]))
+                            .setLongitude(Double.parseDouble(split[5]));
+                    recordStore.saveRecord(cityBuilder.build());
+                    count++;
+                    if (count > 100) {
+                        commit(context);
+                        context.close();
+                        total += count;
+                        count = 0;
+                        context = openContext();
+                        recordStore = recordStore.asBuilder().setContext(context).open();
+                    }
                 }
-                TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
-                        .setGeoNameId(Integer.parseInt(split[0]))
-                        .setName(split[1])
-                        .setNameAscii(split[2])
-                        .setCountry(split[8]);
-                cityBuilder.getLocationBuilder()
-                        .setLatitude(Double.parseDouble(split[4]))
-                        .setLongitude(Double.parseDouble(split[5]));
-                recordStore.saveRecord(cityBuilder.build());
-                count++;
-                if (count > 100) {
-                    commit(context);
-                    total += count;
-                    count = 0;
-                    context = openContext();
-                    recordStore = recordStore.asBuilder().setContext(context).open();
-                }
+                commit(context);
+                total += count;
             }
-            commit(context);
-            total += count;
+        } finally {
+            context.close();
         }
         LOGGER.info(String.format("Loaded %d cities", total));
     }
@@ -140,7 +149,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
     protected void loadCountries(RecordMetaDataHook hook, int minPopulation) throws Exception {
         int total = 0;
         try (FileInputStream file = new FileInputStream(".out/countryInfo.txt");
-             FDBRecordContext context = openContext()) {
+               FDBRecordContext context = openContext()) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
             openRecordStore(context, hook);
             String line;
@@ -166,32 +175,36 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
 
     protected void loadCountryShapes(RecordMetaDataHook hook) throws Exception {
         FDBRecordContext context = openContext();
-        openRecordStore(context, hook);
-        try (FileInputStream file = new FileInputStream(".out/shapes_all_low.txt")) {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
-            String line = reader.readLine();
-            int count = 0;
-            while ((line = reader.readLine()) != null) {
-                String[] split = line.split("\t");
-                FDBStoredRecord<Message> country = recordStore.loadRecord(Tuple.from(Integer.parseInt(split[0])));
-                if (country == null) {
-                    LOGGER.warn(String.format("country not found: %s", split[0]));
-                    continue;
+        try {
+            openRecordStore(context, hook);
+            try (FileInputStream file = new FileInputStream(".out/shapes_all_low.txt")) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
+                String line = reader.readLine();
+                int count = 0;
+                while ((line = reader.readLine()) != null) {
+                    String[] split = line.split("\t");
+                    FDBStoredRecord<Message> country = recordStore.loadRecord(Tuple.from(Integer.parseInt(split[0])));
+                    if (country == null) {
+                        LOGGER.warn(String.format("country not found: %s", split[0]));
+                        continue;
+                    }
+                    TestRecordsGeoProto.Country.Builder countryBuilder = TestRecordsGeoProto.Country.newBuilder()
+                            .mergeFrom(country.getRecord())
+                            .setShape(split[1]);
+                    recordStore.saveRecord(countryBuilder.build());
+                    count++;
+                    if (count > 100) {
+                        commit(context);
+                        context.close();
+                        context = openContext();
+                        recordStore = recordStore.asBuilder().setContext(context).open();
+                        count = 0;
+                    }
                 }
-                TestRecordsGeoProto.Country.Builder countryBuilder = TestRecordsGeoProto.Country.newBuilder()
-                        .mergeFrom(country.getRecord())
-                        .setShape(split[1]);
-                recordStore.saveRecord(countryBuilder.build());
-                count++;
-                if (count > 100) {
-                    commit(context);
-                    context = openContext();
-                    recordStore = recordStore.asBuilder().setContext(context).open();
-                    count = 0;
-                }
+                commit(context);
             }
         } finally {
-            commit(context);
+            context.close();
         }
     }
 
@@ -289,7 +302,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
             int given = timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN);
             int passed = timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_PASSED);
             int discarded = timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
-            assertTrue(passed > discarded, "Passed more than discarded");
+            assertThat("Should have passed more than discarded", passed, greaterThan(discarded));
             commit(context);
         }
 
@@ -368,7 +381,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
             }).join();
             commit(context);
         } catch (CompletionException ex) {
-            Assert.assertThat(ex.getCause(), Matchers.allOf(Matchers.instanceOf(FDBException.class), Matchers.hasProperty("code", Matchers.equalTo(1007))));
+            assertThat(Throwables.getRootCause(ex), allOf(Matchers.instanceOf(FDBException.class), hasProperty("code", equalTo(1007))));  // transaction_too_old
         } finally {
             LOGGER.info(String.format("match = %d, no match = %d, no overlap = %d, invalid geometry = %d",
                     stats[0], stats[1], stats[2], stats[3]));
