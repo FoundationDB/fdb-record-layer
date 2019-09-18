@@ -25,9 +25,12 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.BaseField;
 import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -124,6 +127,19 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
         return Collections.emptyIterator();
     }
 
+    @Nullable
+    @Override
+    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
+                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return null;
+    }
+
+    @Nullable
+    @Override
+    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext, @Nonnull ExpressionRef<QueryComponent> thisRef) {
+        return BaseField.unnestedWith(nestedContext, thisRef);
+    }
+
     @Override
     public int planHash() {
         return PlanHashable.objectsPlanHash(centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);
@@ -132,6 +148,11 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
     @Override
     public String toString() {
         return String.format("(%s,%s) WITHIN %s OF (%s,%s)", latitudeFieldName, longitudeFieldName, distance, centerLatitude, centerLongitude);
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return equals(otherExpression);
     }
 
     @Override

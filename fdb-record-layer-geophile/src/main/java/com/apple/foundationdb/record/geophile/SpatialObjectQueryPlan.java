@@ -179,6 +179,11 @@ public abstract class SpatialObjectQueryPlan implements RecordQueryPlanWithNoChi
     }
 
     @Override
+    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        return equals(otherExpression);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
