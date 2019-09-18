@@ -81,19 +81,19 @@ public class FDBRecordContextTest extends FDBTestBase {
 
         // There is a maximum length allowed on transaction IDs. Ensure that if the user-specified ID is too
         // long that that doesn't propagate its way down to FDB.
-        final String longString = Strings.repeat("id_", 200);
-        listBuilder.add(Pair.of(longString, longString.substring(0, 97) + "..."));
+        final String longString = Strings.repeat("id_", 2 * FDBRecordContext.MAX_TR_ID_SIZE);
+        listBuilder.add(Pair.of(longString, longString.substring(0, FDBRecordContext.MAX_TR_ID_SIZE - 3) + "..."));
 
         // Try a string with non-ASCII characters, though that isn't necessarily advised.
         final String nonAsciiString = "универсальный уникальный идентификатор";
-        assertThat(Utf8.encodedLength(nonAsciiString), lessThanOrEqualTo(100));
+        assertThat(Utf8.encodedLength(nonAsciiString), lessThanOrEqualTo(FDBRecordContext.MAX_TR_ID_SIZE));
         listBuilder.add(Pair.of(nonAsciiString, nonAsciiString));
 
         // A long string like this is not truncatable as it contains non-ASCII characters, so it should instead
         // be set to null by the sanitizer.
         final String longNonAsciiString = nonAsciiString + " " + nonAsciiString;
-        assertThat(longNonAsciiString.length(), lessThanOrEqualTo(100));
-        assertThat(Utf8.encodedLength(longNonAsciiString), greaterThan(100));
+        assertThat(longNonAsciiString.length(), lessThanOrEqualTo(FDBRecordContext.MAX_TR_ID_SIZE));
+        assertThat(Utf8.encodedLength(longNonAsciiString), greaterThan(FDBRecordContext.MAX_TR_ID_SIZE));
         listBuilder.add(Pair.of(longNonAsciiString, null));
         trIds = listBuilder.build();
     }

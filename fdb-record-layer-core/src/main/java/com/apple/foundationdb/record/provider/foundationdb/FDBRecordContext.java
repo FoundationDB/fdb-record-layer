@@ -47,6 +47,7 @@ import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
 import java.util.Arrays;
@@ -99,7 +100,29 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     private static final String INTERNAL_COMMIT_HOOK_PREFIX = "@__";
     private static final String AFTER_COMMIT_HOOK_NAME = INTERNAL_COMMIT_HOOK_PREFIX + "afterCommit";
-    private static final int MAX_TR_ID_SIZE = 100;
+
+    /**
+     * The maximum size for a transaction ID in bytes when serialized as UTF-8. This value is used to determine
+     * whether the transaction ID provided in
+     * {@link FDBDatabase#openContext(Map, FDBStoreTimer, FDBDatabase.WeakReadSemantics, FDBTransactionPriority, String)}
+     * should be truncated or dropped. Note that Java {@link String}s are encoded using UTF-16, so using
+     * {@link String#length()} is insufficient to know if the transaction ID will be too large if it contains
+     * any non-ASCII characters (though it is recommended that all transaction IDs be printable ASCII characters
+     * as those are the ones that render well in the logs). To get the size in UTF-8, one can serialize the
+     * string to UTF-8 using {@link String#getBytes(Charset)} or check its encoded size using
+     * {@link Utf8#encodedLength(CharSequence)} or an equivalent function.
+     *
+     * <p>
+     * Note that this limit is inherited by the Record Layer from the FoundationDB client. In particular, the
+     * {@link com.apple.foundationdb.TransactionOptions#setDebugTransactionIdentifier(String)} method will
+     * not accept IDs longer than 100 bytes in length.
+     * </p>
+     *
+     * @see #getTransactionId()
+     * @see FDBDatabase#openContext(Map, FDBStoreTimer, FDBDatabase.WeakReadSemantics, FDBTransactionPriority, String)
+     * @see com.apple.foundationdb.TransactionOptions#setDebugTransactionIdentifier(String)
+     */
+    public static final int MAX_TR_ID_SIZE = 100;
 
     @Nullable
     private CompletableFuture<Long> readVersionFuture;
