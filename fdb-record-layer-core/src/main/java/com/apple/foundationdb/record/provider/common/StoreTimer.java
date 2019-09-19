@@ -34,7 +34,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -448,15 +447,16 @@ public class StoreTimer {
         for (Map.Entry<Event, Counter> entry : counters.entrySet()) {
             Event event = entry.getKey();
             Counter counter = entry.getValue();
-            String prefix = event.logKey().toLowerCase(Locale.ROOT);
+            String prefix = event.logKey();
             result.put(prefix + "_count", counter.count.get());
             if (!(event instanceof Count)) {
                 result.put(prefix + "_micros", counter.timeNanos.get() / 1000);
             }
         }
+
         // now add recorded timeout events to map
         for (Event timeoutEvent : timeoutEvents) {
-            String timeoutPrefix = timeoutEvent.name().toLowerCase(Locale.ROOT);
+            String timeoutPrefix = timeoutEvent.logKey();
             result.put(timeoutPrefix + "_timeout_micros", getTimeoutTimeNanos(timeoutEvent) / 1000);
             result.put(timeoutPrefix + "_timeout_count", getTimeoutCount(timeoutEvent));
         }

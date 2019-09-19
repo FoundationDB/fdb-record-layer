@@ -40,6 +40,7 @@ import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -59,14 +60,14 @@ public class RankedSetIndexHelper {
 
         private final String title;
         private final String logKey;
-        Events(String title) {
-            this.title = title;
-            this.logKey = this.name();
-        }
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = logKey;
+            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
+        }
+
+        Events(String title) {
+            this(title, null);
         }
 
         @Override

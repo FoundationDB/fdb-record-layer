@@ -28,6 +28,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Locale;
 
 /**
  * A converter between a Protobuf record and a byte string stored in one or more values in the FDB key-value store.
@@ -116,15 +117,16 @@ public interface RecordSerializer<M extends Message> {
 
         private final String title;
         private final String logKey;
-        Events(String title) {
-            this.title = title;
-            this.logKey = this.name();
-        }
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = logKey;
+            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
         }
+
+        Events(String title) {
+            this(title, null);
+        }
+
 
         @Override
         public String title() {
@@ -150,20 +152,18 @@ public interface RecordSerializer<M extends Message> {
         private final boolean isSize;
         private final String logKey;
 
-        Counts(String title) {
-            this(title, false);
-        }
-
-        Counts(String title, boolean isSize) {
-            this.title = title;
-            this.isSize = false;
-            this.logKey = this.name();
-        }
-
         Counts(String title, boolean isSize, String logKey) {
             this.title = title;
             this.isSize = false;
-            this.logKey = logKey;
+            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
+        }
+
+        Counts(String title, boolean isSize) {
+            this(title, isSize, null);
+        }
+
+        Counts(String title) {
+            this(title, false, null);
         }
 
         @Override
