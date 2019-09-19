@@ -169,7 +169,10 @@ public class StoreTimer {
         String title();
 
         /**
-         * Get the logKey of this event for logging purposes.
+         * Get the key of this event for logging. This should be used with
+         * KeyValueLogMessages and other key-value based logging systems to
+         * log the values from instrumented events. These keys are not
+         * expected to change frequently.
          *
          * @return the key to use for logging
          */
@@ -445,7 +448,7 @@ public class StoreTimer {
         for (Map.Entry<Event, Counter> entry : counters.entrySet()) {
             Event event = entry.getKey();
             Counter counter = entry.getValue();
-            String prefix = event.name().toLowerCase(Locale.ROOT);
+            String prefix = event.logKey().toLowerCase(Locale.ROOT);
             result.put(prefix + "_count", counter.count.get());
             if (!(event instanceof Count)) {
                 result.put(prefix + "_micros", counter.timeNanos.get() / 1000);

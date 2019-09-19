@@ -175,6 +175,15 @@ public class FDBStoreTimerTest {
         assertThrows(RecordCoreArgumentException.class, () -> StoreTimer.getDifference(anotherStoreTimer, savedTimer));
     }
 
+    @Test
+    public void logKeyTest() {
+        // If log key has not been specified, 'logKey()' should return then '.name()' of the enum.
+        assertEquals(FDBStoreTimer.Events.COMMIT.logKey(), "COMMIT");
+
+        // If log key has been specified, 'logKey()' should return the specified log key.
+        assertEquals(FDBStoreTimer.Events.LOAD_RECORD_STORE_INDEX_META_DATA.logKey(), "ld_rs_idx_meta");
+    }
+
     private void setupBaseData() {
         subspace = fdb.run(context -> {
             KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit");

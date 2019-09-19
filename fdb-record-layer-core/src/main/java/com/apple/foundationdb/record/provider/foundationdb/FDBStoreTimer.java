@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDirectoryLayer;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
@@ -178,9 +179,10 @@ public class FDBStoreTimer extends StoreTimer {
         TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory");
 
         private final String title;
-        private String logKey;
+        private final String logKey;
         Events(String title) {
             this.title = title;
+            this.logKey = this.name();
         }
 
         Events(String title, String logKey) {
@@ -194,6 +196,7 @@ public class FDBStoreTimer extends StoreTimer {
         }
 
         @Override
+        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -223,9 +226,10 @@ public class FDBStoreTimer extends StoreTimer {
         RD_CACHE_DIRECTORY_SCAN("reverse directory cache hard miss, scanning directory subspace");
 
         private final String title;
-        private String logKey;
+        private final String logKey;
         DetailEvents(String title) {
             this.title = title;
+            this.logKey = this.name();
         }
 
         DetailEvents(String title, String logKey) {
@@ -239,8 +243,9 @@ public class FDBStoreTimer extends StoreTimer {
         }
 
         @Override
+        @Nonnull
         public String logKey() {
-            return logKey;
+            return this.logKey;
         }
 
     }
@@ -355,9 +360,10 @@ public class FDBStoreTimer extends StoreTimer {
         ;
 
         private final String title;
-        private String logKey;
+        private final String logKey;
         Waits(String title) {
             this.title = title;
+            this.logKey = this.name();
         }
 
         Waits(String title, String logKey) {
@@ -371,8 +377,9 @@ public class FDBStoreTimer extends StoreTimer {
         }
 
         @Override
+        @Nonnull
         public String logKey() {
-            return logKey;
+            return this.logKey;
         }
     }
 
@@ -532,10 +539,11 @@ public class FDBStoreTimer extends StoreTimer {
 
         private final String title;
         private final boolean isSize;
-        private String logKey;
+        private final String logKey;
         Counts(String title, boolean isSize) {
             this.title = title;
             this.isSize = isSize;
+            this.logKey = this.name();
         }
 
         Counts(String title, boolean isSize, String logKey) {
@@ -550,8 +558,9 @@ public class FDBStoreTimer extends StoreTimer {
         }
 
         @Override
+        @Nonnull
         public String logKey() {
-            return logKey;
+            return this.logKey;
         }
 
         @Override
