@@ -173,31 +173,7 @@ public class StoreTimer {
          * systems to log the values from instrumented events. These keys are
          * not expected to change frequently. They may, however, change
          * outside of any minor version change. Their values, therefore,
-         * should not be relied upon, other that for the logging purposes.
-         *
-         * By convention, the following abbreviations are recommended:
-         * build        : bld
-         * check        : chk
-         * count        : cnt
-         * create       : cr
-         * directory    : dir
-         * duplicate    : dup
-         * error        : err
-         * extended     : ext
-         * header       : hdr
-         * index        : idx
-         * keyspace     : ks
-         * leaderboard  : lbrd
-         * load         : ld
-         * mutate       : mut
-         * operation    : op
-         * query        : qry
-         * read         : rd
-         * record       : rec
-         * record_store : rs
-         * reverse      : rev
-         * statistics   : stats
-         * version      : ver
+         * should not be relied upon, other than for the logging purposes.
          *
          * @return the key to use for logging
          */

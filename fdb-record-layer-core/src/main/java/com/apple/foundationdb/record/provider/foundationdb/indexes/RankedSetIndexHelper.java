@@ -63,7 +63,7 @@ public class RankedSetIndexHelper {
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
+            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
         }
 
         Events(String title) {

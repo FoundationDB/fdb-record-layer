@@ -184,7 +184,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
+            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
         }
 
         Events(String title) {
@@ -232,7 +232,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         DetailEvents(String title, String logKey) {
             this.title = title;
-            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
+            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
         }
 
         DetailEvents(String title) {
@@ -367,7 +367,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         Waits(String title, String logKey) {
             this.title = title;
-            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
+            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
         }
 
         Waits(String title) {
@@ -547,7 +547,7 @@ public class FDBStoreTimer extends StoreTimer {
         Counts(String title, boolean isSize, String logKey) {
             this.title = title;
             this.isSize = isSize;
-            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
+            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
         }
 
         Counts(String title, boolean isSize) {

@@ -120,7 +120,7 @@ public interface RecordSerializer<M extends Message> {
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
+            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
         }
 
         Events(String title) {
@@ -155,7 +155,7 @@ public interface RecordSerializer<M extends Message> {
         Counts(String title, boolean isSize, String logKey) {
             this.title = title;
             this.isSize = false;
-            this.logKey = ((logKey != null) ? logKey : this.name()).toLowerCase(Locale.ROOT);
+            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
         }
 
         Counts(String title, boolean isSize) {
