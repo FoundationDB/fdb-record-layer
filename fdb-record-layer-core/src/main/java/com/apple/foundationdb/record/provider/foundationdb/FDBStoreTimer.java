@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDire
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.stream.Stream;
 
 /**
@@ -184,7 +183,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
+            this.logKey = logKey;
         }
 
         Events(String title) {
@@ -200,7 +199,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         @Nonnull
         public String logKey() {
-            return this.logKey;
+            return (this.logKey != null) ? this.logKey : Event.super.logKey();
         }
     }
 
@@ -232,7 +231,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         DetailEvents(String title, String logKey) {
             this.title = title;
-            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
+            this.logKey = logKey;
         }
 
         DetailEvents(String title) {
@@ -248,7 +247,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         @Nonnull
         public String logKey() {
-            return this.logKey;
+            return (this.logKey != null) ? this.logKey : StoreTimer.DetailEvent.super.logKey();
         }
 
     }
@@ -367,7 +366,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         Waits(String title, String logKey) {
             this.title = title;
-            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
+            this.logKey = logKey;
         }
 
         Waits(String title) {
@@ -382,7 +381,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         @Nonnull
         public String logKey() {
-            return this.logKey;
+            return (this.logKey != null) ? this.logKey : Wait.super.logKey();
         }
     }
 
@@ -547,7 +546,7 @@ public class FDBStoreTimer extends StoreTimer {
         Counts(String title, boolean isSize, String logKey) {
             this.title = title;
             this.isSize = isSize;
-            this.logKey = (logKey != null) ? logKey : this.name().toLowerCase(Locale.ROOT);
+            this.logKey = logKey;
         }
 
         Counts(String title, boolean isSize) {
@@ -562,7 +561,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         @Nonnull
         public String logKey() {
-            return this.logKey;
+            return (this.logKey != null) ? this.logKey : Count.super.logKey();
         }
 
         @Override
