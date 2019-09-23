@@ -55,9 +55,10 @@ public class Field {
     }
 
     /**
-     * If the associated field is a repeated one, this allows you to match against one of those values, the record will
-     * be returned if any one of the values returns true. The record may be returned more than once.
-     * @return an OneOfThem that can have further assertions called on it about the value of the given field.
+     * If the associated field is a repeated one, this allows you to match against one of the repeated values.
+     * The record will be returned if any one of the values returns {@code true}. The same record may be returned more than once.
+     * If the repeated field is empty, the match result will be UNKNOWN.
+     * @return an OneOfThem that can have further assertions called on it about the value of the given field
      */
     @Nonnull
     public OneOfThem oneOfThem() {
@@ -65,8 +66,8 @@ public class Field {
     }
 
     /**
-     * If the associated field is a repeated one, this allows you to match against one of those values, the record will
-     * be returned if any one of the values returns true. The record may be returned more than once.
+     * If the associated field is a repeated one, this allows you to match against one of the repeated values.
+     * The record will be returned if any one of the values returns {@code true}. The same record may be returned more than once.
      * @param emptyIsUnknown {@code true} if an empty repeated field should cause an UNKNOWN result instead of failing to match any (and so returning FALSE)
      * @return an OneOfThem that can have further assertions called on it about the value of the given field
      */

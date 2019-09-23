@@ -142,6 +142,18 @@ public class QueryExpressionTest {
         }
     };
 
+    @ParameterizedTest(name = "testOneOfThemEqualsValue [emptyIsUnknown = {0}]")
+    @BooleanSource
+    public void testOneOfThemEqualsValue(boolean emptyIsUnknown) throws Exception {
+        final TestScalarFieldAccess oneRepeatedValue = TestScalarFieldAccess.newBuilder()
+                .addRepeatMe("fishes")
+                .build();
+        final QueryComponent component = field("repeat_me").oneOfThem(emptyIsUnknown).equalsValue("fishes");
+        component.validate(TestScalarFieldAccess.getDescriptor());
+        final Boolean eval = evaluate(component, oneRepeatedValue);
+        assertEquals(Boolean.TRUE, eval);
+    }
+
     @ParameterizedTest(name = "testOneOfThemEqualsNoValues [emptyIsUnknown = {0}]")
     @BooleanSource
     public void testOneOfThemEqualsNoValues(boolean emptyIsUnknown) throws Exception {
