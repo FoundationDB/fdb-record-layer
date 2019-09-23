@@ -28,9 +28,9 @@ import com.apple.foundationdb.annotation.API;
 @API(API.Status.EXPERIMENTAL)
 public class GeophileIndexTypes {
     /**
-     * A geospatial index with latitude, longitude coordinates using Geophile.
+     * A (geo-)spatial index with using Geophile.
      */
-    public static final String GEOSPATIAL_GEOPHILE = "geospatial_geophile";
+    public static final String SPATIAL_GEOPHILE = "spatial_geophile";
 
     private GeophileIndexTypes() {
     }

@@ -43,23 +43,30 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyExpression {
+    public static final Space SPACE_LAT_LON = GeophileSpatial.createLatLonSpace();
+
+    private final Space space;
 
     protected GeophileSpatialFunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments) {
         super(name, arguments);
+        // TODO: How do we make this a part of the key expression? A naming convention?
+        this.space = SPACE_LAT_LON;
+    }
+
+    @Nonnull
+    public Space getSpace() {
+        return space;
     }
 
     @Nullable
-    protected abstract SpatialObject parseSpatialObject(@Nonnull Space space, @Nonnull Key.Evaluated arguments) throws ParseException;
+    protected abstract SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) throws ParseException;
 
     @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record, @Nullable Message message, @Nonnull Key.Evaluated arguments) {
-        // TODO: How might we really get this out of the index maintainer? From the evaluation context?
-        //  Or should it be part of the key expression itself?
-        Space space = GeophileIndexMaintainer.SPACE_LAT_LON;
         SpatialObject spatialObject;
         try {
-            spatialObject = parseSpatialObject(space, arguments);
+            spatialObject = parseSpatialObject(arguments);
         } catch (ParseException ex) {
             throw new RecordCoreException(ex);
         }
@@ -115,7 +122,7 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
 
         @Nullable
         @Override
-        protected SpatialObject parseSpatialObject(@Nonnull Space space, @Nonnull Key.Evaluated arguments) {
+        protected SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) {
             Double latitude = arguments.getNullableDouble(0);
             Double longitude = arguments.getNullableDouble(1);
             if (latitude == null || longitude == null) {
@@ -148,12 +155,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
 
         @Nullable
         @Override
-        protected SpatialObject parseSpatialObject(@Nonnull Space space, @Nonnull Key.Evaluated arguments) throws ParseException {
+        protected SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) throws ParseException {
             String json = arguments.getString(0);
             if (json == null) {
                 return null;
             } else {
-                return GeophileSpatial.deserializeGeoJson(space, json, shouldSwapLatLong(arguments));
+                return GeophileSpatial.deserializeGeoJson(getSpace(), json, shouldSwapLatLong(arguments));
             }
         }
     }
@@ -171,12 +178,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
 
         @Nullable
         @Override
-        protected SpatialObject parseSpatialObject(@Nonnull Space space, @Nonnull Key.Evaluated arguments) throws ParseException {
+        protected SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) throws ParseException {
             byte[] wkb = arguments.getObject(0, byte[].class);
             if (wkb == null) {
                 return null;
             } else {
-                return GeophileSpatial.deserializeWKB(space, wkb, shouldSwapLatLong(arguments));
+                return GeophileSpatial.deserializeWKB(getSpace(), wkb, shouldSwapLatLong(arguments));
             }
         }
     }
@@ -194,12 +201,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
 
         @Nullable
         @Override
-        protected SpatialObject parseSpatialObject(@Nonnull Space space, @Nonnull Key.Evaluated arguments) throws ParseException {
+        protected SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) throws ParseException {
             String wkt = arguments.getString(0);
             if (wkt == null) {
                 return null;
             } else {
-                return GeophileSpatial.deserializeWKT(space, wkt, shouldSwapLatLong(arguments));
+                return GeophileSpatial.deserializeWKT(getSpace(), wkt, shouldSwapLatLong(arguments));
             }
         }
     }

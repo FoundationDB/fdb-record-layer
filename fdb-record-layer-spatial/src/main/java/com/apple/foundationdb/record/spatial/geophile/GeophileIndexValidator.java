@@ -41,6 +41,6 @@ class GeophileIndexValidator extends IndexValidator {
         super.validate(metaDataValidator);
         validateNotGrouping();
         validateNotVersion();
-        // TODO: Validate something like that bottom-right child is SpatialFunctionKeyExpression.
+        GeophileIndexMaintainer.getSpatialFunction(index);
     }
 }

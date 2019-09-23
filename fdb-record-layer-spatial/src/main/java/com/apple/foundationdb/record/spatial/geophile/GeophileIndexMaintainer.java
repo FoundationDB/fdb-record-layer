@@ -27,12 +27,18 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithChild;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.geophile.z.Space;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * The index maintainer class for (geo-)spatial indexes.
@@ -40,15 +46,37 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.EXPERIMENTAL)
 public class GeophileIndexMaintainer extends StandardIndexMaintainer {
-    // TODO: In order to make this parametric on index options, there needs to be a way to pass it down
-    //  to the evaluation function.
-    public static final Space SPACE_LAT_LON = GeophileSpatial.createLatLonSpace();
     @Nonnull
     private final Space space;
 
     public GeophileIndexMaintainer(IndexMaintainerState state) {
         super(state);
-        this.space = SPACE_LAT_LON;
+        this.space = getSpatialFunction(state.index).getSpace();
+    }
+
+    // If the bottom-right child is GeophileSpatialFunctionKeyExpression, return it. Else error.
+    @Nonnull
+    static GeophileSpatialFunctionKeyExpression getSpatialFunction(@Nonnull Index index) {
+        KeyExpression rootKey = index.getRootExpression();
+        if (rootKey instanceof KeyWithValueExpression) {
+            rootKey = ((KeyWithValueExpression)rootKey).getKeyExpression();
+        }
+        final List<KeyExpression> components = rootKey.normalizeKeyForPositions();
+        final KeyExpression rightComponent = components.get(components.size() - 1);
+        KeyExpression bottomComponent = rightComponent;
+        while (true) {
+            if (bottomComponent instanceof GeophileSpatialFunctionKeyExpression) {
+                return (GeophileSpatialFunctionKeyExpression)bottomComponent;
+            }
+            if (bottomComponent instanceof KeyExpressionWithChild) {
+                bottomComponent = ((KeyExpressionWithChild)bottomComponent).getChild();
+                continue;
+            }
+            throw new KeyExpression.InvalidExpressionException(
+                    String.format("need spatial key expression for %s index", index.getType()),
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    LogMessageKeys.INDEX_KEY, index.getRootExpression());
+        }
     }
 
     @Nonnull
@@ -66,7 +94,5 @@ public class GeophileIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    // NOTE: does not use Index / SpatialIndex abstraction to get entries to store for evaluateIndex. That might be one way
-    //  to pass down the Space, but would make additional prefix keys more difficult.
-
+    // NOTE: does not use Geophile's own Index / SpatialIndex abstraction to get entries to store for evaluateIndex.
 }

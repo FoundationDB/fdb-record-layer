@@ -96,13 +96,13 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
             .nest(concatenateFields("latitude", "longitude"));
     protected static final Index CITY_LOCATION_INDEX = new Index("City$location",
             function(GeophileSpatialFunctionNames.GEOPHILE_POINT_Z, LOCATION_LAT_LONG),
-            GeophileIndexTypes.GEOSPATIAL_GEOPHILE);
+            GeophileIndexTypes.SPATIAL_GEOPHILE);
     protected static final Index CITY_LOCATION_COVERING_INDEX = new Index("City$location",
             keyWithValue(concat(function(GeophileSpatialFunctionNames.GEOPHILE_POINT_Z, LOCATION_LAT_LONG), LOCATION_LAT_LONG), 1),
-            GeophileIndexTypes.GEOSPATIAL_GEOPHILE);
+            GeophileIndexTypes.SPATIAL_GEOPHILE);
     protected static final Index COUNTRY_SHAPE_INDEX = new Index("Country$shape",
             function(GeophileSpatialFunctionNames.GEOPHILE_JSON_Z, concat(field("shape"), value(true))),
-            GeophileIndexTypes.GEOSPATIAL_GEOPHILE);
+            GeophileIndexTypes.SPATIAL_GEOPHILE);
 
     protected void loadCities(RecordMetaDataHook hook, int minPopulation) throws Exception {
         FDBRecordContext context = openContext();

@@ -37,8 +37,7 @@ import java.util.Arrays;
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.MAINTAINED)
 public class GeophileIndexMaintainerFactory implements IndexMaintainerFactory {
-    // TODO: Maybe SPATIAL, as well, with a different space.
-    static final String[] TYPES = { GeophileIndexTypes.GEOSPATIAL_GEOPHILE };
+    static final String[] TYPES = { GeophileIndexTypes.SPATIAL_GEOPHILE};
 
     @Override
     @Nonnull
