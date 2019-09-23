@@ -76,7 +76,7 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time taken loading a record store's {@code DataStoreInfo} header.*/
         LOAD_RECORD_STORE_INFO("load record store info"),
         /** The amount of time taken loading a record store's index meta-data. */
-        LOAD_RECORD_STORE_INDEX_META_DATA("load record store index meta-data", "ld_rs_idx_meta"),
+        LOAD_RECORD_STORE_INDEX_META_DATA("load record store index meta-data"),
         /** The amount of time taken getting the current version from a {@link MetaDataCache}. */
         GET_META_DATA_CACHE_VERSION("get meta-data cache version"),
         /** The amount of time taken getting cached meta-data from a {@link MetaDataCache}. */
@@ -183,7 +183,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = logKey;
+            this.logKey = (logKey != null) ? logKey : Event.super.logKey();
         }
 
         Events(String title) {
@@ -199,7 +199,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         @Nonnull
         public String logKey() {
-            return (this.logKey != null) ? this.logKey : Event.super.logKey();
+            return this.logKey;
         }
     }
 
@@ -231,7 +231,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         DetailEvents(String title, String logKey) {
             this.title = title;
-            this.logKey = logKey;
+            this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
 
         DetailEvents(String title) {
@@ -247,7 +247,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         @Nonnull
         public String logKey() {
-            return (this.logKey != null) ? this.logKey : StoreTimer.DetailEvent.super.logKey();
+            return this.logKey;
         }
 
     }
@@ -366,7 +366,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         Waits(String title, String logKey) {
             this.title = title;
-            this.logKey = logKey;
+            this.logKey = (logKey != null) ? logKey : Wait.super.logKey();
         }
 
         Waits(String title) {
@@ -381,7 +381,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         @Nonnull
         public String logKey() {
-            return (this.logKey != null) ? this.logKey : Wait.super.logKey();
+            return this.logKey;
         }
     }
 
@@ -546,7 +546,7 @@ public class FDBStoreTimer extends StoreTimer {
         Counts(String title, boolean isSize, String logKey) {
             this.title = title;
             this.isSize = isSize;
-            this.logKey = logKey;
+            this.logKey = (logKey != null) ? logKey : Count.super.logKey();
         }
 
         Counts(String title, boolean isSize) {
@@ -561,7 +561,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         @Nonnull
         public String logKey() {
-            return (this.logKey != null) ? this.logKey : Count.super.logKey();
+            return this.logKey;
         }
 
         @Override

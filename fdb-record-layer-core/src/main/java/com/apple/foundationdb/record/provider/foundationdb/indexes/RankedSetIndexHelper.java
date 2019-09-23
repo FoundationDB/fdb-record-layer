@@ -62,7 +62,7 @@ public class RankedSetIndexHelper {
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = logKey;
+            this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
 
         Events(String title) {
@@ -77,7 +77,7 @@ public class RankedSetIndexHelper {
         @Override
         @Nonnull
         public String logKey() {
-            return (this.logKey != null) ? this.logKey : StoreTimer.DetailEvent.super.logKey();
+            return this.logKey;
         }
     }
 
