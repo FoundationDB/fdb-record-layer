@@ -20,11 +20,12 @@
 
 package com.apple.foundationdb.record.spatial.geophile;
 
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.geophile.z.Space;
-import com.geophile.z.spatialobject.d2.Box;
 import com.geophile.z.SpatialObject;
 import com.geophile.z.space.Region;
 import com.geophile.z.space.RegionComparison;
+import com.geophile.z.spatialobject.d2.Box;
 
 import java.nio.ByteBuffer;
 
@@ -33,6 +34,10 @@ class GeophileBoxLatLonWithWraparound implements SpatialObject {
     private final Box right;
 
     public GeophileBoxLatLonWithWraparound(double latLo, double latHi, double lonLo, double lonHi) {
+        if (lonLo <= lonHi) {
+            throw new RecordCoreArgumentException(String.format("box does not wrap around: latLo = %s, latHi = %s, lonLo = %s, lonHi = %s",
+                    latLo, latHi, lonLo, lonHi));
+        }
         left = new Box(latLo, latHi, GeophileSpatial.MIN_LON, lonHi);
         right = new Box(latLo, latHi, lonLo, GeophileSpatial.MAX_LON);
     }

@@ -41,7 +41,7 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
- * Query spatial index for points (latitude, longitude) within a given distance of a given center.
+ * Query spatial index for points (latitude, longitude) within a given distance (inclusive) of a given center.
  */
 @API(API.Status.EXPERIMENTAL)
 public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQueryPlan {
