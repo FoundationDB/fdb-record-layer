@@ -67,7 +67,7 @@ public class Field {
     /**
      * If the associated field is a repeated one, this allows you to match against one of those values, the record will
      * be returned if any one of the values returns true. The record may be returned more than once.
-     * @param emptyIsUnknown {@code true} if an empty repeated field should cause an UNKNOWN result instead of failing to match any (and so returning FALSE).
+     * @param emptyIsUnknown {@code true} if an empty repeated field should cause an UNKNOWN result instead of failing to match any (and so returning FALSE)
      * @return an OneOfThem that can have further assertions called on it about the value of the given field.
      */
     @Nonnull
