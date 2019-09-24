@@ -166,7 +166,6 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
         valueRebuild(records, null);
     }
 
-
     @Test
     public void emptyRange() {
         valueRebuild(Collections.emptyList());

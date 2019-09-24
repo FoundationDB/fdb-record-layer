@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -45,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 
@@ -53,7 +55,9 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 /**
  * Test building rank indexes.
@@ -112,12 +116,20 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
 
-        LOGGER.info(KeyValueLogMessage.of("adding index and marking write-only", TestLogMessageKeys.INDEX, index));
+        LOGGER.info(KeyValueLogMessage.of("adding index", TestLogMessageKeys.INDEX, index));
         openSimpleMetaData(hook);
+
+        boolean wasReadableBeforeBuild;
         try (FDBRecordContext context = openContext()) {
-            recordStore.markIndexWriteOnly(index).join();
+            // Though it does not hurt, the caller of safe builds is not obliged to set the index state to write-only.
+            if (!safeBuild) {
+                LOGGER.info(KeyValueLogMessage.of("marking write-only", TestLogMessageKeys.INDEX, index));
+                recordStore.markIndexWriteOnly(index).join();
+            }
+            wasReadableBeforeBuild = recordStore.isIndexReadable(index);
             context.commit();
         }
+
         LOGGER.info(KeyValueLogMessage.of("creating online index builder",
                 TestLogMessageKeys.INDEX, index,
                 TestLogMessageKeys.RECORD_TYPES, metaData.recordTypesForIndex(index),
@@ -155,19 +167,36 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             CompletableFuture<Void> buildFuture;
             LOGGER.info(KeyValueLogMessage.of("building index",
                     TestLogMessageKeys.INDEX, index,
-                    TestLogMessageKeys.INDEX, agents,
+                    TestLogMessageKeys.AGENT, agents,
                     LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
                     TestLogMessageKeys.OVERLAP, overlap));
             if (agents == 1) {
-                buildFuture = indexBuilder.buildIndexAsync(false);
+                buildFuture = safeBuild ?
+                              indexBuilder.safelyBuildIndexAsync(false) :
+                              indexBuilder.buildIndexAsync(false);
             } else {
                 if (overlap) {
                     CompletableFuture<?>[] futures = new CompletableFuture<?>[agents];
                     for (int i = 0; i < agents; i++) {
-                        futures[i] = indexBuilder.buildIndexAsync(false);
+                        final int agent = i;
+                        futures[i] = safeBuild ?
+                                     indexBuilder.safelyBuildIndexAsync(false)
+                                               .exceptionally(exception -> {
+                                                   if (exception.getCause() instanceof SynchronizedSessionLockedException) {
+                                                       LOGGER.info(KeyValueLogMessage.of("an overlapped agent is omitted",
+                                                               TestLogMessageKeys.INDEX, index,
+                                                               TestLogMessageKeys.AGENT, agent), exception);
+                                                       return null;
+                                                   } else {
+                                                       throw new CompletionException(exception);
+                                                   }
+                                               }) :
+                                     indexBuilder.buildIndexAsync(false);
                     }
                     buildFuture = CompletableFuture.allOf(futures);
                 } else {
+                    // Safe builds do not support building ranges yet.
+                    assumeFalse(safeBuild);
                     buildFuture = indexBuilder.buildEndpoints().thenCompose(tupleRange -> {
                         if (tupleRange != null) {
                             long start = tupleRange.getLow().getLong(0);
@@ -226,7 +255,12 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         LOGGER.info(msg.toString());
 
         LOGGER.info(KeyValueLogMessage.of("running post build checks", TestLogMessageKeys.INDEX, index));
-        afterBuild.run();
+        // Do not check afterBuild if it is a safe build and the index was readable before build, because the tests may
+        // expect that it does not use the index in queries since the index is not readable yet, but the fact is that it
+        // uses the index in quereis since the index is readable.
+        if (!wasReadableBeforeBuild) {
+            afterBuild.run();
+        }
 
         LOGGER.info(KeyValueLogMessage.of("verifying range set emptiness", TestLogMessageKeys.INDEX, index));
         try (FDBRecordContext context = openContext()) {
@@ -238,7 +272,12 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
 
         LOGGER.info(KeyValueLogMessage.of("marking index readable", TestLogMessageKeys.INDEX, index));
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.markIndexReadable(index).join());
+            boolean updated = recordStore.markIndexReadable(index).join();
+            if (wasReadableBeforeBuild) {
+                assertFalse(updated);
+            } else {
+                assertTrue(updated);
+            }
             context.commit();
         }
         afterReadable.run();

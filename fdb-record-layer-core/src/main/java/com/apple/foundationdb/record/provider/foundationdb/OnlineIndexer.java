@@ -1054,29 +1054,36 @@ public class OnlineIndexer implements AutoCloseable {
     // TODO: It should support range build (for building index in parallel) as well.
     @Nonnull
     public CompletableFuture<Void> safelyBuildIndexAsync() {
+        return safelyBuildIndexAsync(true);
+    }
+
+    @VisibleForTesting
+    @Nonnull
+    CompletableFuture<Void> safelyBuildIndexAsync(boolean markReadable) {
         return runner
                 .runAsync(context -> openRecordStore(context).thenApply(store -> store.indexBuildLockSubspace(index)))
                 .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, DEFAULT_LEASE_LENGTH_MILLIS))
                 .thenCompose(synchronizedRunner -> {
                     this.synchronizedSessionRunner = synchronizedRunner;
-                    return buildIndexWithBuildOptionAsync();
+                    return buildIndexWithBuildOptionAsync(markReadable)
+                            .thenCompose(vignore -> synchronizedRunner.endSessionAsync());
                 });
     }
 
     @Nonnull
-    private CompletableFuture<Void> buildIndexWithBuildOptionAsync() {
-        return getSafeRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
+    private CompletableFuture<Void> buildIndexWithBuildOptionAsync(boolean markReadable) {
+        return getSafeRunner().runAsync(context -> openRecordStore(context).thenApply(store -> {
             IndexState indexState = store.getIndexState(index);
             if (shouldBuildIndex(indexState, buildOption)) {
                 if (!shouldNotClearExistingIndexEntries(indexState, buildOption)) {
                     store.clearIndexData(index);
                 }
                 store.markIndexWriteOnly(index);
-                return buildIndexAsync();
+                return true;
             } else {
-                return AsyncUtil.DONE;
+                return false;
             }
-        }));
+        })).thenCompose(shouldBuild -> shouldBuild ? buildIndexAsync(markReadable) : AsyncUtil.DONE);
     }
 
     @SuppressWarnings("fallthrough")
