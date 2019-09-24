@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -173,6 +174,39 @@ public class FDBStoreTimerTest {
         // invalid to subtract a snapshot timer from a timer it was not derived from
         StoreTimer anotherStoreTimer = new StoreTimer();
         assertThrows(RecordCoreArgumentException.class, () -> StoreTimer.getDifference(anotherStoreTimer, savedTimer));
+    }
+
+    private enum TestEvent implements StoreTimer.Event {
+
+        EVENT_WITH_LONG_NAME("An event with a very long name", "ShorterName"),
+        EVENT_WITH_SHORT_NAME("An event with a very short name", null);
+
+        private final String title;
+        private final String logKey;
+
+        TestEvent(@Nonnull String title, String logKey) {
+            this.title = title;
+            this.logKey = (logKey != null) ? logKey : StoreTimer.Event.super.logKey();
+        }
+        
+        @Override
+        public String title() {
+            return this.title;
+        }
+
+        @Override
+        public String logKey() {
+            return this.logKey;
+        }
+    }
+
+    @Test
+    public void logKeyTest() {
+        // If log key has not been specified, 'logKey()' should return then '.name()' of the enum.
+        assertEquals(TestEvent.EVENT_WITH_SHORT_NAME.logKey(), "event_with_short_name");
+
+        // If log key has been specified, 'logKey()' should return the specified log key.
+        assertEquals(TestEvent.EVENT_WITH_LONG_NAME.logKey(), "ShorterName");
     }
 
     private void setupBaseData() {

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDirectoryLayer;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
@@ -178,13 +179,27 @@ public class FDBStoreTimer extends StoreTimer {
         TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory");
 
         private final String title;
-        Events(String title) {
+        private final String logKey;
+
+        Events(String title, String logKey) {
             this.title = title;
+            this.logKey = (logKey != null) ? logKey : Event.super.logKey();
         }
+
+        Events(String title) {
+            this(title, null);
+        }
+
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        @Nonnull
+        public String logKey() {
+            return this.logKey;
         }
     }
 
@@ -212,14 +227,29 @@ public class FDBStoreTimer extends StoreTimer {
         RD_CACHE_DIRECTORY_SCAN("reverse directory cache hard miss, scanning directory subspace");
 
         private final String title;
-        DetailEvents(String title) {
+        private final String logKey;
+
+        DetailEvents(String title, String logKey) {
             this.title = title;
+            this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
+
+        DetailEvents(String title) {
+            this(title, null);
+        }
+
 
         @Override
         public String title() {
             return title;
         }
+
+        @Override
+        @Nonnull
+        public String logKey() {
+            return this.logKey;
+        }
+
     }
 
     /**
@@ -332,13 +362,26 @@ public class FDBStoreTimer extends StoreTimer {
         ;
 
         private final String title;
-        Waits(String title) {
+        private final String logKey;
+
+        Waits(String title, String logKey) {
             this.title = title;
+            this.logKey = (logKey != null) ? logKey : Wait.super.logKey();
+        }
+
+        Waits(String title) {
+            this(title, null);
         }
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        @Nonnull
+        public String logKey() {
+            return this.logKey;
         }
     }
 
@@ -498,14 +541,27 @@ public class FDBStoreTimer extends StoreTimer {
 
         private final String title;
         private final boolean isSize;
-        Counts(String title, boolean isSize) {
+        private final String logKey;
+
+        Counts(String title, boolean isSize, String logKey) {
             this.title = title;
             this.isSize = isSize;
+            this.logKey = (logKey != null) ? logKey : Count.super.logKey();
+        }
+
+        Counts(String title, boolean isSize) {
+            this(title, isSize, null);
         }
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        @Nonnull
+        public String logKey() {
+            return this.logKey;
         }
 
         @Override

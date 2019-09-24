@@ -115,13 +115,27 @@ public interface RecordSerializer<M extends Message> {
         DECRYPT_SERIALIZED_RECORD("decrypt serialized record");
 
         private final String title;
-        Events(String title) {
+        private final String logKey;
+
+        Events(String title, String logKey) {
             this.title = title;
+            this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
+
+        Events(String title) {
+            this(title, null);
+        }
+
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        @Nonnull
+        public String logKey() {
+            return this.logKey;
         }
     }
 
@@ -135,19 +149,31 @@ public interface RecordSerializer<M extends Message> {
 
         private final String title;
         private final boolean isSize;
+        private final String logKey;
 
-        Counts(String title) {
-            this(title, false);
+        Counts(String title, boolean isSize, String logKey) {
+            this.title = title;
+            this.isSize = false;
+            this.logKey = (logKey != null) ? logKey : StoreTimer.Count.super.logKey();
         }
 
         Counts(String title, boolean isSize) {
-            this.title = title;
-            this.isSize = false;
+            this(title, isSize, null);
+        }
+
+        Counts(String title) {
+            this(title, false, null);
         }
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        @Nonnull
+        public String logKey() {
+            return this.logKey;
         }
 
         @Override
