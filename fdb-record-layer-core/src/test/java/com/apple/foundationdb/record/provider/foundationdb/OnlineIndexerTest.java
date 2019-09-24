@@ -326,16 +326,23 @@ public class OnlineIndexerTest extends FDBTestBase {
                 .setMetaData(metaData)
                 .setIndex(index)
                 .setSubspace(subspace)
-                .setLimit(20)
-                .setMaxRetries(Integer.MAX_VALUE)
-                .setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100)
-                .setTimer(timer);
-        if (ThreadLocalRandom.current().nextBoolean()) {
-            // randomly enable the progress logging to ensure that it doesn't throw exceptions,
-            // or otherwise disrupt the build.
-            LOGGER.info("Setting progress log interval");
-            builder.setProgressLogIntervalMillis(0);
-        }
+                .setConfigLoader(old -> {
+                    if (old == null) {
+                        OnlineIndexer.Config.Builder conf = OnlineIndexer.Config.newBuilder()
+                                .setLimit(20)
+                                .setMaxRetries(Integer.MAX_VALUE)
+                                .setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
+                        if (ThreadLocalRandom.current().nextBoolean()) {
+                            // randomly enable the progress logging to ensure that it doesn't throw exceptions,
+                            // or otherwise disrupt the build.
+                            LOGGER.info("Setting progress log interval");
+                            conf.setProgressLogIntervalMillis(0);
+                        }
+                        return CompletableFuture.completedFuture(conf.build());
+                    } else {
+                        return CompletableFuture.completedFuture(old);
+                    }
+                }).setTimer(timer);
         if (ThreadLocalRandom.current().nextBoolean()) {
             LOGGER.info("Setting priority to DEFAULT");
             builder.setPriority(FDBTransactionPriority.DEFAULT);
@@ -2273,6 +2280,7 @@ public class OnlineIndexerTest extends FDBTestBase {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     void notReincreaseLimit() {
         // Non-retriable error that is in lessen work codes.
         Supplier<RuntimeException> createException =
@@ -2297,6 +2305,7 @@ public class OnlineIndexerTest extends FDBTestBase {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void reincreaseLimit() {
         // Non-retriable error that is in lessen work codes.
         Supplier<RuntimeException> createException =
@@ -2401,16 +2410,23 @@ public class OnlineIndexerTest extends FDBTestBase {
         queue.add(Pair.of(4L, null));
         Index index = runAsyncSetup();
 
-
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
-                .setLimit(100).setMaxRetries(queue.size() + 3).setRecordsPerSecond(10000)
-                .setIncreaseLimitAfter(10)
                 .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
                 .setMaxAttempts(3)
-                .setProgressLogIntervalMillis(30) // log some of the time, to make sure that doesn't impact things
-                .build()) {
-
+                .setConfigLoader(old -> {
+                    if (old == null) {
+                        return CompletableFuture.completedFuture(OnlineIndexer.Config.newBuilder()
+                                .setLimit(100)
+                                .setMaxRetries(queue.size() + 3)
+                                .setRecordsPerSecond(10000)
+                                .setIncreaseLimitAfter(10)
+                                .setProgressLogIntervalMillis(30)
+                                .build());
+                    } else {
+                        return CompletableFuture.completedFuture(old);
+                    }
+                }).build()) {
             AtomicInteger attempts = new AtomicInteger();
             attempts.set(0);
             AsyncUtil.whileTrue(() -> indexBuilder.buildAsync(
@@ -2618,6 +2634,27 @@ public class OnlineIndexerTest extends FDBTestBase {
             // When the index is readable:
             assertFalse(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadable())); // The status is not modified by markReadable.
             assertTrue(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt()));
+        }
+    }
+
+    @Test
+    public void testConfigLoader() {
+        Index index = runAsyncSetup();
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setConfigLoader(old ->
+                        CompletableFuture.completedFuture(OnlineIndexer.Config.newBuilder()
+                                .setLimit(100)
+                                .setMaxRetries(3)
+                                .setRecordsPerSecond(10000)
+                                .build()))
+                .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
+                .setMaxAttempts(2)
+                .build()) {
+            indexBuilder.runAsync(vignore -> AsyncUtil.DONE, Pair::of, null, null);
+            assertEquals(indexBuilder.getLimit(), 100);
+            assertEquals(indexBuilder.getConfig().getMaxRetries(), 3);
+            assertEquals(indexBuilder.getConfig().getRecordsPerSecond(), 10000);
         }
     }
 }

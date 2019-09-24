@@ -140,7 +140,7 @@ public class OnlineIndexer implements AutoCloseable {
     public static final int UNLIMITED = Integer.MAX_VALUE;
 
     /**
-     * If {@link Builder#getIncreaseLimitAfter()} is this value, the limit will not go back up, no matter how many
+     * If {@link OnlineIndexer.Builder#getIncreaseLimitAfter()} is this value, the limit will not go back up, no matter how many
      * successes there are.
      * This is the default value.
      */
@@ -162,16 +162,14 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final Collection<RecordType> recordTypes;
     @Nonnull private final TupleRange recordsRange;
 
-    private final int maxLimit;
-    private final int maxRetries;
-    private final int recordsPerSecond;
-    private final long progressLogIntervalMillis;
-    private final int increaseLimitAfter;
     /**
      * The current number of records to process in a single transaction, this may go up or down when using
-     * {@link #runAsync(Function, BiFunction, BiConsumer, List)}, but never above {@link #maxRetries}.
+     * {@link #runAsync(Function, BiFunction, BiConsumer, List)}, but never above {@link Config#limit}.
      */
     private int limit;
+    @Nullable private final Function<Config, CompletableFuture<Config>> configLoader;
+    @Nullable private Config config;
+
     /**
      * The number of successful transactions in a row as called by {@link #runAsync(Function, BiFunction, BiConsumer, List)}.
      */
@@ -186,6 +184,7 @@ public class OnlineIndexer implements AutoCloseable {
     private final boolean syntheticIndex;
 
     @SuppressWarnings("squid:S00107")
+    @Deprecated
     protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                             @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                             @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
@@ -195,12 +194,27 @@ public class OnlineIndexer implements AutoCloseable {
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
         this.recordTypes = recordTypes;
+        this.configLoader = null;
         this.limit = maxLimit;
-        this.maxLimit = maxLimit;
-        this.maxRetries = maxRetries;
-        this.recordsPerSecond = recordsPerSecond;
-        this.progressLogIntervalMillis = progressLogIntervalMillis;
-        this.increaseLimitAfter = increaseLimitAfter;
+        this.config = new Config(maxLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
+        this.syntheticIndex = syntheticIndex;
+        this.recordsRange = computeRecordsRange();
+        timeOfLastProgressLogMillis = System.currentTimeMillis();
+        totalRecordsScanned = new AtomicLong(0);
+    }
+
+    @SuppressWarnings("squid:S00107")
+    protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
+                            @Nonnull FDBRecordStore.Builder recordStoreBuilder,
+                            @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
+                            @Nonnull Function<Config, CompletableFuture<Config>> configLoader, boolean syntheticIndex) {
+        this.runner = runner;
+        this.recordStoreBuilder = recordStoreBuilder;
+        this.index = index;
+        this.recordTypes = recordTypes;
+        this.configLoader = configLoader;
+        this.config = new Config(DEFAULT_LIMIT, DEFAULT_MAX_RETRIES, DEFAULT_RECORDS_PER_SECOND, DEFAULT_PROGRESS_LOG_INTERVAL, DO_NOT_RE_INCREASE_LIMIT);
+        this.limit = DEFAULT_LIMIT;
         this.syntheticIndex = syntheticIndex;
         this.recordsRange = computeRecordsRange();
         timeOfLastProgressLogMillis = System.currentTimeMillis();
@@ -220,6 +234,16 @@ public class OnlineIndexer implements AutoCloseable {
             addLogInfo(LogMessageKeys.RANGE_START, start);
             addLogInfo(LogMessageKeys.RANGE_END, end);
         }
+    }
+
+    /**
+     * Get the current config parameters of the online indexer.
+     * @return the config parameters of the online indexer
+     */
+    @Nullable
+    @VisibleForTesting
+    public Config getConfig() {
+        return config;
     }
 
     /**
@@ -294,6 +318,14 @@ public class OnlineIndexer implements AutoCloseable {
         return recordStoreBuilder.copyBuilder().setContext(context).openAsync();
     }
 
+    private CompletableFuture<Config> loadConfig() {
+        if (configLoader != null) {
+            return configLoader.apply(config);
+        } else {
+            return CompletableFuture.completedFuture(config);
+        }
+    }
+
     @Override
     public void close() {
         runner.close();
@@ -332,8 +364,8 @@ public class OnlineIndexer implements AutoCloseable {
         AtomicInteger tries = new AtomicInteger(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
         AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
-
         AsyncUtil.whileTrue(() ->
+                loadConfig().thenAccept(conf -> config = conf).thenCompose(vignore ->
                 runner.runAsync(context -> openRecordStore(context).thenCompose(store -> {
                     if (!store.isIndexWriteOnly(index)) {
                         throw new RecordCoreStorageException("Attempted to build readable index",
@@ -348,7 +380,7 @@ public class OnlineIndexer implements AutoCloseable {
                     } else {
                         int currTries = tries.getAndIncrement();
                         FDBException fdbE = getFDBException(e);
-                        if (currTries < maxRetries && fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
+                        if (currTries < config.maxRetries && fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
                             if (handleLessenWork != null) {
                                 handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
                             }
@@ -359,14 +391,12 @@ public class OnlineIndexer implements AutoCloseable {
                             return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
                         }
                     }
-                }).thenCompose(Function.identity()), runner.getExecutor())
-                .whenComplete((vignore, e) -> {
+                }).thenCompose(Function.identity())), runner.getExecutor()).whenComplete((vignore, e) -> {
                     if (e != null) {
                         // Just update ret and ignore the returned future.
                         completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
                     }
                 });
-
         return ret;
     }
 
@@ -420,10 +450,10 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     private void tryToIncreaseLimit(@Nullable Throwable exception) {
-        if (increaseLimitAfter > 0) {
+        if (config.increaseLimitAfter > 0) {
             if (exception == null) {
                 successCount++;
-                if (successCount >= increaseLimitAfter && limit < maxLimit) {
+                if (successCount >= config.increaseLimitAfter && limit < config.maxLimit) {
                     increaseLimit();
                 }
             } else {
@@ -433,7 +463,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     private void increaseLimit() {
-        limit = Math.min(maxLimit, Math.max(limit + 1, (4 * limit) / 3));
+        limit = Math.min(config.maxLimit, Math.max(limit + 1, (4 * limit) / 3));
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("Re-increasing limit of online index build",
                             LogMessageKeys.INDEX_NAME, index.getName(),
@@ -660,7 +690,7 @@ public class OnlineIndexer implements AutoCloseable {
                                                         Tuple startTuple, Tuple endTuple, Tuple realEnd,
                                                         Throwable ex) {
         final RuntimeException unwrappedEx = ex == null ? null : runner.getDatabase().mapAsyncToSyncException(ex);
-        long toWait = (recordsPerSecond == UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
+        long toWait = (config.recordsPerSecond == UNLIMITED) ? 0 : 1000 * limit / config.recordsPerSecond;
         if (unwrappedEx == null) {
             if (realEnd != null && !realEnd.equals(endTuple)) {
                 // We didn't make it to the end. Continue on to the next item.
@@ -697,9 +727,9 @@ public class OnlineIndexer implements AutoCloseable {
 
     private void maybeLogBuildProgress(SubspaceProvider subspaceProvider, Tuple startTuple, Tuple endTuple, Tuple realEnd) {
         if (LOGGER.isInfoEnabled()
-                && (progressLogIntervalMillis > 0
-                    && System.currentTimeMillis() - timeOfLastProgressLogMillis > progressLogIntervalMillis)
-                || progressLogIntervalMillis == 0) {
+                && (config.progressLogIntervalMillis > 0
+                    && System.currentTimeMillis() - timeOfLastProgressLogMillis > config.progressLogIntervalMillis)
+                || config.progressLogIntervalMillis == 0) {
             LOGGER.info(KeyValueLogMessage.of("Built Range",
                             LogMessageKeys.INDEX_NAME, index.getName(),
                             LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
@@ -1158,6 +1188,167 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
+     * A class holder for the config parameters needed to rebuild an online index.
+     */
+    @API(API.Status.UNSTABLE)
+    public static class Config {
+        private final int maxLimit;
+        private final int maxRetries;
+        private final int recordsPerSecond;
+        private final long progressLogIntervalMillis;
+        private final int increaseLimitAfter;
+
+        public Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter) {
+            this.maxLimit = maxLimit;
+            this.maxRetries = maxRetries;
+            this.recordsPerSecond = recordsPerSecond;
+            this.progressLogIntervalMillis = progressLogIntervalMillis;
+            this.increaseLimitAfter = increaseLimitAfter;
+        }
+
+        /**
+         * Get the maximum number of records to process in one transaction.
+         * @return the maximum number of records to process in one transaction
+         */
+        public int getMaxLimit() {
+            return maxLimit;
+        }
+
+        /**
+         * Get the maximum number of times to retry a single range rebuild.
+         * @return the maximum number of times to retry a single range rebuild
+         */
+        public int getMaxRetries() {
+            return maxRetries;
+        }
+
+        /**
+         * Get the maximum number of records to process in a single second.
+         * @return the maximum number of records to process in a single second
+         */
+        public int getRecordsPerSecond() {
+            return recordsPerSecond;
+        }
+
+        /**
+         * Get the minimum time between successful progress logs when building across transactions.
+         * Negative will not log at all, 0 will log after every commit.
+         * @return the minimum time between successful progress logs in milliseconds
+         */
+        public long getProgressLogIntervalMillis() {
+            return progressLogIntervalMillis;
+        }
+
+        /**
+         * Get the number of successful range builds before re-increasing the number of records to process in a single
+         * transaction.
+         * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
+         * @return the number of successful range builds before increasing the number of records processed in a single
+         * transaction
+         */
+        public int getIncreaseLimitAfter() {
+            return increaseLimitAfter;
+        }
+
+        @Nonnull
+        public static Builder newBuilder() {
+            return new Builder();
+        }
+
+        /**
+         * A builder for {@link Config}. These are the configuration parameters used while rebuilding indexes.
+         */
+        @API(API.Status.UNSTABLE)
+        public static class Builder {
+            private int maxLimit = DEFAULT_LIMIT;
+            private int maxRetries = DEFAULT_MAX_RETRIES;
+            private int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
+            private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
+            private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
+
+            protected Builder() {
+
+            }
+
+            /**
+             * Set the maximum number of records to process in one transaction.
+             *
+             * The default limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
+             * @param limit the maximum number of records to process in one transaction
+             * @return this builder
+             */
+            @Nonnull
+            public Builder setLimit(int limit) {
+                this.maxLimit = limit;
+                return this;
+            }
+
+            /**
+             * Set the maximum number of times to retry a single range rebuild.
+             *
+             * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
+             * @param maxRetries the maximum number of times to retry a single range rebuild
+             * @return this builder
+             */
+            @Nonnull
+            public Builder setMaxRetries(int maxRetries) {
+                this.maxRetries = maxRetries;
+                return this;
+            }
+
+            /**
+             * Set the maximum number of records to process in a single second.
+             *
+             * The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
+             * @param recordsPerSecond the maximum number of records to process in a single second.
+             * @return this builder
+             */
+            @Nonnull
+            public Builder setRecordsPerSecond(int recordsPerSecond) {
+                this.recordsPerSecond = recordsPerSecond;
+                return this;
+            }
+
+
+            /**
+             * Set the minimum time between successful progress logs when building across transactions.
+             * Negative will not log at all, 0 will log after every commit.
+             *
+             * @param progressLogIntervalMillis the number of milliseconds to wait between successful logs
+             * @return this builder
+             */
+            @Nonnull
+            public Builder setProgressLogIntervalMillis(long progressLogIntervalMillis) {
+                this.progressLogIntervalMillis = progressLogIntervalMillis;
+                return this;
+            }
+
+            /**
+             * Set the number of successful range builds before re-increasing the number of records to process in a single
+             * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
+             * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
+             * @param increaseLimitAfter the number of successful range builds before increasing the number of records
+             * processed in a single transaction
+             * @return this builder
+             */
+            @Nonnull
+            public Builder setIncreaseLimitAfter(int increaseLimitAfter) {
+                this.increaseLimitAfter = increaseLimitAfter;
+                return this;
+            }
+
+            /**
+             * Build a {@link Config}.
+             * @return a new Config object needed by {@link OnlineIndexer}
+             */
+            @Nonnull
+            public Config build() {
+                return new Config(maxLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
+            }
+        }
+    }
+
+    /**
      * Builder for {@link OnlineIndexer}.
      *
      * <pre><code>
@@ -1180,6 +1371,8 @@ public class OnlineIndexer implements AutoCloseable {
         @Nullable
         protected Collection<RecordType> recordTypes;
 
+        @Nullable
+        protected Function<Config, CompletableFuture<Config>> configLoader = null;
         protected int limit = DEFAULT_LIMIT;
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
@@ -1323,6 +1516,29 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Get the function used by the online indexer to load the config parameters on fly.
+         * @return the supplier
+         */
+        @Nullable
+        public Function<Config, CompletableFuture<Config>> getConfigLoader() {
+            return configLoader;
+        }
+
+        /**
+         * Set the function used by the online indexer to load the config parameters on fly.
+         *
+         * Note the function is the recommended way of loading online index builder's parameters. The parameter values
+         * set by other deprecated setters (such as {@link #setLimit(int)} are overwritten when this function is set.
+         * @param configLoader the function
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setConfigLoader(@Nonnull Function<Config, CompletableFuture<Config>> configLoader) {
+            this.configLoader = configLoader;
+            return this;
+        }
+
+        /**
          * Get the maximum number of records to process in one transaction.
          * @return the maximum number of records to process in one transaction
          */
@@ -1334,6 +1550,8 @@ public class OnlineIndexer implements AutoCloseable {
          * Set the maximum number of records to process in one transaction.
          *
          * The default limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
          * @param limit the maximum number of records to process in one transaction
          * @return this builder
          */
@@ -1359,6 +1577,8 @@ public class OnlineIndexer implements AutoCloseable {
          * codes, such as {@code transaction_too_large}.
          *
          * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
          * @param maxRetries the maximum number of times to retry a single range rebuild
          * @return this builder
          */
@@ -1380,6 +1600,8 @@ public class OnlineIndexer implements AutoCloseable {
          * Set the maximum number of records to process in a single second.
          *
          * The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
          * @param recordsPerSecond the maximum number of records to process in a single second.
          * @return this builder
          */
@@ -1550,10 +1772,15 @@ public class OnlineIndexer implements AutoCloseable {
          * Set the number of successful range builds before re-increasing the number of records to process in a single
          * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
          * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
+         * <p>
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
+         * </p>
          * @param increaseLimitAfter the number of successful range builds before increasing the number of records
          * processed in a single transaction
          * @return this builder
          */
+        @Deprecated
         public Builder setIncreaseLimitAfter(int increaseLimitAfter) {
             this.increaseLimitAfter = increaseLimitAfter;
             return this;
@@ -1629,6 +1856,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @return the minimum time between successful progress logs in milliseconds
          * @see #setProgressLogIntervalMillis(long) for more information on the format of the log
          */
+        @Deprecated
         public long getProgressLogIntervalMillis() {
             return progressLogIntervalMillis;
         }
@@ -1655,9 +1883,15 @@ public class OnlineIndexer implements AutoCloseable {
          *     </p></li>
          * </ul>
          *
+         * <p>
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
+         * </p>
+         *
          * @param millis the number of milliseconds to wait between successful logs
          * @return this builder
          */
+        @Deprecated
         public Builder setProgressLogIntervalMillis(long millis) {
             progressLogIntervalMillis = millis;
             return this;
@@ -1764,7 +1998,10 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public OnlineIndexer build() {
             validate();
-            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, syntheticIndex);
+            return configLoader == null ?
+                   new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, syntheticIndex) :
+                   new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, syntheticIndex);
+
         }
 
         protected void validate() {
