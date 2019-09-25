@@ -176,6 +176,34 @@ public class StoreTimer {
          * outside of any minor version change. Their values, therefore,
          * should not be relied upon, other than for the logging purposes.
          *
+         * <pr>
+         * By convention, the following abbreviations are recommended:
+         * </pr>
+         * <ul>
+         * <li>build        : bld</li>
+         * <li>check        : chk</li>
+         * <li>count        : cnt</li>
+         * <li>create       : cr</li>
+         * <li>directory    : dir</li>
+         * <li>duplicate    : dup</li>
+         * <li>error        : err</li>
+         * <li>extended     : ext</li>
+         * <li>header       : hdr</li>
+         * <li>index        : idx</li>
+         * <li>keyspace     : ks</li>
+         * <li>leaderboard  : lbrd</li>
+         * <li>load         : ld</li>
+         * <li>mutate       : mut</li>
+         * <li>operation    : op</li>
+         * <li>query        : qry</li>
+         * <li>read         : rd</li>
+         * <li>record       : rec</li>
+         * <li>record_store : rs</li>
+         * <li>reverse      : rev</li>
+         * <li>statistics   : stats</li>
+         * <li>version      : ver</li>
+         * </ul>
+         *
          * @return the key to use for logging
          */
         default String logKey() {
