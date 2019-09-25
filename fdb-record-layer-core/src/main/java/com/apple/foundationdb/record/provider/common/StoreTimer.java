@@ -176,9 +176,9 @@ public class StoreTimer {
          * outside of any minor version change. Their values, therefore,
          * should not be relied upon, other than for the logging purposes.
          *
-         * <pr>
+         * <p>
          * By convention, the following abbreviations are recommended:
-         * </pr>
+         * </p>
          * <ul>
          * <li>build        : bld</li>
          * <li>check        : chk</li>
