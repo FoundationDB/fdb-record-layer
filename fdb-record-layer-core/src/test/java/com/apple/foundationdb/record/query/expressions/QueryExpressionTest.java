@@ -40,6 +40,8 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -140,13 +142,26 @@ public class QueryExpressionTest {
         }
     };
 
-    @Test
-    public void testOneOfThemEqualsNoValues() throws Exception {
+    @ParameterizedTest(name = "testOneOfThemEqualsValue [emptyMode = {0}]")
+    @EnumSource(Field.OneOfThemEmptyMode.class)
+    public void testOneOfThemEqualsValue(Field.OneOfThemEmptyMode emptyMode) throws Exception {
+        final TestScalarFieldAccess oneRepeatedValue = TestScalarFieldAccess.newBuilder()
+                .addRepeatMe("fishes")
+                .build();
+        final QueryComponent component = field("repeat_me").oneOfThem(emptyMode).equalsValue("fishes");
+        component.validate(TestScalarFieldAccess.getDescriptor());
+        final Boolean eval = evaluate(component, oneRepeatedValue);
+        assertEquals(Boolean.TRUE, eval);
+    }
+
+    @ParameterizedTest(name = "testOneOfThemEqualsNoValues [emptyMode = {0}]")
+    @EnumSource(Field.OneOfThemEmptyMode.class)
+    public void testOneOfThemEqualsNoValues(Field.OneOfThemEmptyMode emptyMode) throws Exception {
         final TestScalarFieldAccess noRepeatedValues = TestScalarFieldAccess.newBuilder().build();
-        final QueryComponent component = field("repeat_me").oneOfThem().equalsValue("fishes");
+        final QueryComponent component = field("repeat_me").oneOfThem(emptyMode).equalsValue("fishes");
         component.validate(TestScalarFieldAccess.getDescriptor());
         final Boolean eval = evaluate(component, noRepeatedValues);
-        assertNull(eval);
+        assertEquals(emptyMode == Field.OneOfThemEmptyMode.EMPTY_UNKNOWN ? null : Boolean.FALSE, eval);
     }
 
     @Test

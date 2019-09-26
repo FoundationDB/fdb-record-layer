@@ -44,6 +44,17 @@ public class Field {
     }
 
     /**
+     * How an empty / unset repeated field should be handled.
+     */
+    enum OneOfThemEmptyMode {
+        /** An empty repeated field causes {@code oneOfThem} predicates to return UNKNOWN, like a scalar NULL value. */
+        EMPTY_UNKNOWN,
+        /** An empty repeated field is treated like any other list, just with no elements, so none can match. */
+        EMPTY_NO_MATCHES
+        // TODO: A mode that depends on the nullability (versus field default value) of the record type's field in the descriptor / meta-data.
+    }
+
+    /**
      * If the associated field is a submessage, this allows you to match against the fields within that submessage.
      * The child is evaluated and validated in the context of this field, not the record containing this field.
      * @param child a component asserting about the content of the submessage in this field
@@ -55,13 +66,25 @@ public class Field {
     }
 
     /**
-     * If the associated field is a repeated one, this allows you to match against one of those values, the record will
-     * be returned if any one of the values returns true. The record may be returned more than once.
-     * @return an OneOfThem that can have further assertions called on it about the value of the given field.
+     * If the associated field is a repeated one, this allows you to match against one of the repeated values.
+     * The record will be returned if any one of the values returns {@code true}. The same record may be returned more than once.
+     * If the repeated field is empty, the match result will be UNKNOWN.
+     * @return an OneOfThem that can have further assertions called on it about the value of the given field
      */
     @Nonnull
     public OneOfThem oneOfThem() {
         return new OneOfThem(fieldName);
+    }
+
+    /**
+     * If the associated field is a repeated one, this allows you to match against one of the repeated values.
+     * The record will be returned if any one of the values returns {@code true}. The same record may be returned more than once.
+     * @param emptyMode whether an empty repeated field should cause an UNKNOWN result instead of failing to match any (and so returning FALSE)
+     * @return an OneOfThem that can have further assertions called on it about the value of the given field
+     */
+    @Nonnull
+    public OneOfThem oneOfThem(OneOfThemEmptyMode emptyMode) {
+        return new OneOfThem(fieldName, emptyMode);
     }
 
     /**

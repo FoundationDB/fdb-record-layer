@@ -29,15 +29,18 @@ import java.util.List;
 
 abstract class BaseRepeatedField extends BaseField {
 
-    public BaseRepeatedField(@Nonnull String fieldName) {
+    private final Field.OneOfThemEmptyMode emptyMode;
+
+    public BaseRepeatedField(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode) {
         super(fieldName);
+        this.emptyMode = emptyMode;
     }
 
     @Nullable
     @SuppressWarnings("unchecked")
     protected List<Object> getValues(@Nonnull MessageOrBuilder message) {
         final Descriptors.FieldDescriptor field = findFieldDescriptor(message);
-        if (message.getRepeatedFieldCount(field) == 0) {
+        if (emptyMode == Field.OneOfThemEmptyMode.EMPTY_UNKNOWN && message.getRepeatedFieldCount(field) == 0) {
             return null;
         } else {
             return (List<Object>) message.getField(field);
@@ -51,5 +54,30 @@ abstract class BaseRepeatedField extends BaseField {
             throw new Query.InvalidExpressionException("Expected repeated field, but it was scalar " + getFieldName());
         }
         return field;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof BaseRepeatedField)) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        BaseRepeatedField baseRepeatedField = (BaseRepeatedField) o;
+        return emptyMode == baseRepeatedField.emptyMode;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode() + emptyMode.hashCode();
+    }
+
+    @Override
+    public int planHash() {
+        return super.planHash() + emptyMode.ordinal();
     }
 }

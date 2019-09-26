@@ -36,9 +36,15 @@ import java.util.List;
 public class OneOfThem {
     @Nonnull
     private final String fieldName;
+    private final Field.OneOfThemEmptyMode emptyMode;
 
     public OneOfThem(@Nonnull String fieldName) {
+        this(fieldName, Field.OneOfThemEmptyMode.EMPTY_UNKNOWN);
+    }
+
+    public OneOfThem(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode) {
         this.fieldName = fieldName;
+        this.emptyMode = emptyMode;
     }
 
     /**
@@ -49,7 +55,7 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent matches(@Nonnull QueryComponent child) {
-        return new OneOfThemWithComponent(fieldName, child);
+        return new OneOfThemWithComponent(fieldName, emptyMode, child);
     }
 
     /**
@@ -60,7 +66,7 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent equalsValue(@Nonnull Object comparand) {
-        return new OneOfThemWithComparison(fieldName,
+        return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, comparand));
     }
 
@@ -72,7 +78,7 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent notEquals(@Nonnull Object comparand) {
-        return new OneOfThemWithComparison(fieldName,
+        return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, comparand));
     }
 
@@ -84,7 +90,7 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent greaterThan(@Nonnull Object comparand) {
-        return new OneOfThemWithComparison(fieldName,
+        return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, comparand));
     }
 
@@ -96,7 +102,7 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent greaterThanOrEquals(@Nonnull Object comparand) {
-        return new OneOfThemWithComparison(fieldName,
+        return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, comparand));
     }
 
@@ -108,7 +114,7 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent lessThan(@Nonnull Object comparand) {
-        return new OneOfThemWithComparison(fieldName,
+        return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, comparand));
     }
 
@@ -120,7 +126,7 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent lessThanOrEquals(@Nonnull Object comparand) {
-        return new OneOfThemWithComparison(fieldName,
+        return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, comparand));
     }
 
@@ -131,7 +137,7 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent startsWith(@Nonnull String comparand) {
-        return new OneOfThemWithComparison(fieldName,
+        return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, comparand));
     }
 
@@ -142,7 +148,8 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent in(@Nonnull List<?> comparand) {
-        return new OneOfThemWithComparison(fieldName, new Comparisons.ListComparison(Comparisons.Type.IN, comparand));
+        return new OneOfThemWithComparison(fieldName, emptyMode,
+                new Comparisons.ListComparison(Comparisons.Type.IN, comparand));
     }
 
     /**
@@ -152,7 +159,8 @@ public class OneOfThem {
      */
     @Nonnull
     public QueryComponent in(@Nonnull String param) {
-        return new OneOfThemWithComparison(fieldName, new Comparisons.ParameterComparison(Comparisons.Type.IN, param));
+        return new OneOfThemWithComparison(fieldName, emptyMode,
+                new Comparisons.ParameterComparison(Comparisons.Type.IN, param));
     }
 
     /**
@@ -167,7 +175,7 @@ public class OneOfThem {
      */
     @Nonnull
     public Text text() {
-        return new OneOfThemText(fieldName);
+        return new OneOfThemText(fieldName, emptyMode);
     }
 
     /**
@@ -182,7 +190,7 @@ public class OneOfThem {
      */
     @Nonnull
     public Text text(@Nullable String tokenizerName) {
-        return new OneOfThemText(fieldName, tokenizerName);
+        return new OneOfThemText(fieldName, emptyMode, tokenizerName);
     }
 
     /**
@@ -202,6 +210,6 @@ public class OneOfThem {
      */
     @Nonnull
     public Text text(@Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
-        return new OneOfThemText(fieldName, tokenizerName, defaultTokenizerName);
+        return new OneOfThemText(fieldName,  emptyMode, tokenizerName, defaultTokenizerName);
     }
 }
