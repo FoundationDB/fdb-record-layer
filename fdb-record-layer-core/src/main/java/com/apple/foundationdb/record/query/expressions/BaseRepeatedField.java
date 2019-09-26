@@ -29,18 +29,18 @@ import java.util.List;
 
 abstract class BaseRepeatedField extends BaseField {
 
-    private final boolean emptyIsUnknown;
+    private final Field.OneOfThemEmptyMode emptyMode;
 
-    public BaseRepeatedField(@Nonnull String fieldName, boolean emptyIsUnknown) {
+    public BaseRepeatedField(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode) {
         super(fieldName);
-        this.emptyIsUnknown = emptyIsUnknown;
+        this.emptyMode = emptyMode;
     }
 
     @Nullable
     @SuppressWarnings("unchecked")
     protected List<Object> getValues(@Nonnull MessageOrBuilder message) {
         final Descriptors.FieldDescriptor field = findFieldDescriptor(message);
-        if (emptyIsUnknown && message.getRepeatedFieldCount(field) == 0) {
+        if (emptyMode == Field.OneOfThemEmptyMode.EMPTY_UNKNOWN && message.getRepeatedFieldCount(field) == 0) {
             return null;
         } else {
             return (List<Object>) message.getField(field);
@@ -68,16 +68,16 @@ abstract class BaseRepeatedField extends BaseField {
             return false;
         }
         BaseRepeatedField baseRepeatedField = (BaseRepeatedField) o;
-        return emptyIsUnknown == baseRepeatedField.emptyIsUnknown;
+        return emptyMode == baseRepeatedField.emptyMode;
     }
 
     @Override
     public int hashCode() {
-        return super.hashCode() + (emptyIsUnknown ? 0 : 1);
+        return super.hashCode() + emptyMode.hashCode();
     }
 
     @Override
     public int planHash() {
-        return super.planHash() + (emptyIsUnknown ? 0 : 1);
+        return super.planHash() + emptyMode.ordinal();
     }
 }

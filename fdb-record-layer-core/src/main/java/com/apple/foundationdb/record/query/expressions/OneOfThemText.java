@@ -27,25 +27,25 @@ import javax.annotation.Nullable;
 class OneOfThemText extends Text {
     @Nonnull
     private final String fieldName;
-    private final boolean emptyIsUnknown;
+    private final Field.OneOfThemEmptyMode emptyMode;
 
-    OneOfThemText(@Nonnull String fieldName, boolean emptyIsUnknown) {
-        this(fieldName, emptyIsUnknown, null);
+    OneOfThemText(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode) {
+        this(fieldName, emptyMode, null);
     }
 
-    OneOfThemText(@Nonnull String fieldName, boolean emptyIsUnknown, @Nullable String tokenizerName) {
-        this(fieldName, emptyIsUnknown, tokenizerName, null);
+    OneOfThemText(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode, @Nullable String tokenizerName) {
+        this(fieldName, emptyMode, tokenizerName, null);
     }
 
-    OneOfThemText(@Nonnull String fieldName, boolean emptyIsUnknown, @Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
+    OneOfThemText(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode, @Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
         super(tokenizerName, defaultTokenizerName);
         this.fieldName = fieldName;
-        this.emptyIsUnknown = emptyIsUnknown;
+        this.emptyMode = emptyMode;
     }
 
     @Nonnull
     @Override
     ComponentWithComparison getComponent(@Nonnull Comparisons.Comparison comparison) {
-        return new OneOfThemWithComparison(fieldName, emptyIsUnknown, comparison);
+        return new OneOfThemWithComparison(fieldName, emptyMode, comparison);
     }
 }

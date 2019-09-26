@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -42,6 +41,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -142,26 +142,26 @@ public class QueryExpressionTest {
         }
     };
 
-    @ParameterizedTest(name = "testOneOfThemEqualsValue [emptyIsUnknown = {0}]")
-    @BooleanSource
-    public void testOneOfThemEqualsValue(boolean emptyIsUnknown) throws Exception {
+    @ParameterizedTest(name = "testOneOfThemEqualsValue [emptyMode = {0}]")
+    @EnumSource(Field.OneOfThemEmptyMode.class)
+    public void testOneOfThemEqualsValue(Field.OneOfThemEmptyMode emptyMode) throws Exception {
         final TestScalarFieldAccess oneRepeatedValue = TestScalarFieldAccess.newBuilder()
                 .addRepeatMe("fishes")
                 .build();
-        final QueryComponent component = field("repeat_me").oneOfThem(emptyIsUnknown).equalsValue("fishes");
+        final QueryComponent component = field("repeat_me").oneOfThem(emptyMode).equalsValue("fishes");
         component.validate(TestScalarFieldAccess.getDescriptor());
         final Boolean eval = evaluate(component, oneRepeatedValue);
         assertEquals(Boolean.TRUE, eval);
     }
 
-    @ParameterizedTest(name = "testOneOfThemEqualsNoValues [emptyIsUnknown = {0}]")
-    @BooleanSource
-    public void testOneOfThemEqualsNoValues(boolean emptyIsUnknown) throws Exception {
+    @ParameterizedTest(name = "testOneOfThemEqualsNoValues [emptyMode = {0}]")
+    @EnumSource(Field.OneOfThemEmptyMode.class)
+    public void testOneOfThemEqualsNoValues(Field.OneOfThemEmptyMode emptyMode) throws Exception {
         final TestScalarFieldAccess noRepeatedValues = TestScalarFieldAccess.newBuilder().build();
-        final QueryComponent component = field("repeat_me").oneOfThem(emptyIsUnknown).equalsValue("fishes");
+        final QueryComponent component = field("repeat_me").oneOfThem(emptyMode).equalsValue("fishes");
         component.validate(TestScalarFieldAccess.getDescriptor());
         final Boolean eval = evaluate(component, noRepeatedValues);
-        assertEquals(emptyIsUnknown ? null : Boolean.FALSE, eval);
+        assertEquals(emptyMode == Field.OneOfThemEmptyMode.EMPTY_UNKNOWN ? null : Boolean.FALSE, eval);
     }
 
     @Test
