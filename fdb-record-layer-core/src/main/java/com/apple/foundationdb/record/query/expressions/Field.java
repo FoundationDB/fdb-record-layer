@@ -46,7 +46,7 @@ public class Field {
     /**
      * How an empty / unset repeated field should be handled.
      */
-    enum OneOfThemEmptyMode {
+    public enum OneOfThemEmptyMode {
         /** An empty repeated field causes {@code oneOfThem} predicates to return UNKNOWN, like a scalar NULL value. */
         EMPTY_UNKNOWN,
         /** An empty repeated field is treated like any other list, just with no elements, so none can match. */
