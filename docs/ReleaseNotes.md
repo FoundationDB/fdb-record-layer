@@ -66,7 +66,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 ### 2.8.85.0
 
-* **Bug fix** `Field.oneOfThem(boolean emptyIsUnknown)` for when the repeated field can otherwise distinguish null or null behavior is not desired [(Issue #725)](https://github.com/FoundationDB/fdb-record-layer/issues/725)
+* **Bug fix** `Field.oneOfThem(OneOfThemEmptyMode mode)` for when the repeated field can otherwise distinguish null or null behavior is not desired [(Issue #725)](https://github.com/FoundationDB/fdb-record-layer/issues/725)
 * **Feature** `FDBRecordContext` now exposes the `MAX_TR_ID_SIZE` constant containing the maximum admissable length of a transaction ID [(Issue #721)](https://github.com/FoundationDB/fdb-record-layer/issues/721)
 
 ### 2.8.84.0
