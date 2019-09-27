@@ -78,6 +78,9 @@ public class NestedField extends BaseNestedField {
 
     @Override
     public QueryComponent withOtherChild(QueryComponent newChild) {
+        if (newChild == getChild()) {
+            return this;
+        }
         return new NestedField(getFieldName(), newChild);
     }
 

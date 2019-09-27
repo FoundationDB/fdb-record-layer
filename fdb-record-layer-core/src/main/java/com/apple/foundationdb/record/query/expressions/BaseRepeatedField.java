@@ -28,12 +28,17 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 abstract class BaseRepeatedField extends BaseField {
-
+    @Nonnull
     private final Field.OneOfThemEmptyMode emptyMode;
 
     public BaseRepeatedField(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode) {
         super(fieldName);
         this.emptyMode = emptyMode;
+    }
+
+    @Nonnull
+    public Field.OneOfThemEmptyMode getEmptyMode() {
+        return emptyMode;
     }
 
     @Nullable

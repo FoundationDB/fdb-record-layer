@@ -123,7 +123,10 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
 
     @Override
     public QueryComponent withOtherChild(QueryComponent newChild) {
-        return new OneOfThemWithComponent(getFieldName(), newChild);
+        if (newChild == getChild()) {
+            return this;
+        }
+        return new OneOfThemWithComponent(getFieldName(), getEmptyMode(), newChild);
     }
 
     @Override
