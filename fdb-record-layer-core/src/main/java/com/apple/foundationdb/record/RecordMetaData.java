@@ -221,6 +221,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Fetch an index by its name.
      * @param indexName the name of the index
      * @return the index
+     * @throws MetaDataException if the index is not found
      */
     @Nonnull
     public Index getIndex(@Nonnull String indexName) {
@@ -234,7 +235,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     /**
      * Fetch an index by its subspace tuple key.
      * @param indexSubspaceTupleKey the subspace tuple key of the index
-     * @return the index or null if not found
+     * @return the index or {@code null} if not found
      */
     @Nullable
     public Index getIndexByKey(@Nonnull Object indexSubspaceTupleKey) {

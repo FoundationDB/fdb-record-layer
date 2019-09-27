@@ -77,7 +77,6 @@ import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSeriali
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
-import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheEntry;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
@@ -121,8 +120,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -179,21 +178,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public static final int SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION = 5;
     // 6 - store record version at a split point within the record
     public static final int SAVE_VERSION_WITH_RECORD_FORMAT_VERSION = 6;
-    //
     // 7 - allow the record store state to be cached and invalidated with the meta-data version key
     public static final int CACHEABLE_STATE_FORMAT_VERSION = 7;
     // 8 - add custom fields to store header
     public static final int HEADER_USER_FIELDS_FORMAT_VERSION = 8;
-
-    // The current code can read and write up to the format version below
-    public static final int MAX_SUPPORTED_FORMAT_VERSION = HEADER_USER_FIELDS_FORMAT_VERSION;
-=======
-    // 7 - store index state using the index subspace key
-    public static final int SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION = 7;
+    // 9 - store index state using the index subspace key
+    public static final int SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION = 9;
 
     // The current code can read and write up to the format version below
     public static final int MAX_SUPPORTED_FORMAT_VERSION = SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION;
->>>>>>> Resolves #514: Store index state with subspace key
 
     // By default, record stores attempt to upgrade to this version
     // NOTE: Updating this can break certain users during upgrades.
@@ -234,6 +227,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected final RecordMetaDataProvider metaDataProvider;
 
     @Nonnull
+    private CompletableFuture<Void> metaDataPreloadFuture;
+
+    @Nonnull
     protected final AtomicReference<MutableRecordStoreState> recordStoreStateRef = new AtomicReference<>();
 
     @Nonnull
@@ -262,6 +258,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull SubspaceProvider subspaceProvider,
                              int formatVersion,
                              @Nonnull RecordMetaDataProvider metaDataProvider,
+                             @Nonnull CompletableFuture<Void> metaDataPreloadFuture,
                              @Nonnull RecordSerializer<Message> serializer,
                              @Nonnull IndexMaintainerRegistry indexMaintainerRegistry,
                              @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
@@ -270,6 +267,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
         this.metaDataProvider = metaDataProvider;
+        this.metaDataPreloadFuture = metaDataPreloadFuture;
         this.serializer = serializer;
         this.indexMaintainerRegistry = indexMaintainerRegistry;
         this.indexMaintenanceFilter = indexMaintenanceFilter;
@@ -337,6 +335,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     @Nonnull
     public RecordMetaData getRecordMetaData() {
+        // In most cases, this future was created by the meta-data provider itself. Blockig on it here, we can make sure
+        // that the provider does not create a new future.
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_META_DATA, metaDataPreloadFuture);
         return metaDataProvider.getRecordMetaData();
     }
 
@@ -1686,17 +1687,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
                                                    @Nonnull StoreExistenceCheck existenceCheck) {
-        return checkVersion(userVersionChecker, existenceCheck, AsyncUtil.DONE);
-    }
-
-    @Nonnull
-    private CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
-                                                    @Nonnull StoreExistenceCheck existenceCheck,
-                                                    @Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
         CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
-        CompletableFuture<FDBRecordStoreStateCacheEntry> cacheEntryFuture = metaDataPreloadFuture.thenCompose(vignore ->
-                getStoreStateCache().get(this, existenceCheck));
-        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = cacheEntryFuture.thenApply(storeInfo -> {
+        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck).thenApply(storeInfo -> {
             if (recordStoreStateRef.get() == null) {
                 recordStoreStateRef.compareAndSet(null, storeInfo.getRecordStoreState().toMutable());
             }
@@ -1725,7 +1717,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // on an unset boolean field results in getting back "false".)
             omitUnsplitRecordSuffix = info.getOmitUnsplitRecordSuffix();
         }
-        if (indexStateIsStoredInOldFormat(storeHeader)) {
+        if (indexStateIsStoredInOldFormat(storeHeader) && indexStateNeedsToUpgrade()) {
             // This store has the old index state that lived in common_record_store_prefix + (INDEX_STATE_SPACE_DEPRECATED, index's name) and must move to
             // common_record_store_prefix + (INDEX_STATE_SPACE, index's subspace key).
             upgradeIndexStates();
@@ -1746,11 +1738,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return storeHeader.hasFormatVersion() && storeHeader.getFormatVersion() < SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION;
     }
 
+    private boolean indexStateNeedsToUpgrade() {
+        return formatVersion >= SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION;
+    }
+
     private CompletableFuture<Void> upgradeIndexStates() {
         Transaction tr = ensureContextActive();
         if (recordStoreStateRef.get() == null) {
             // The record store state must have been loaded already. Do not attempt to preload it here.
-            throw new RecordCoreException("record store state is not loaded");
+            throw new UninitializedRecordStoreException("record store state is not loaded");
         }
         synchronized (this) {
             // This should be rare enough to handle synchronized.
@@ -2366,17 +2362,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             Transaction tr = context.ensureActive();
             if (IndexState.READABLE.equals(indexState)) {
-                if (indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader())) {
-                    tr.clear(indexStateSubspaceDeprecated().pack(index.getName()));
-                } else {
-                    tr.clear(indexStateSubspace().pack(index.getSubspaceTupleKey()));
-                }
+                tr.clear(getIndexStateKey(index));
             } else {
-                if (indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader())) {
-                    tr.set(indexStateSubspaceDeprecated().pack(index.getName()), Tuple.from(indexState.code()).pack());
-                } else {
-                    tr.set(indexStateSubspace().pack(index.getSubspaceTupleKey()), Tuple.from(indexState.code()).pack());
-                }
+                tr.set(getIndexStateKey(index), Tuple.from(indexState.code()).pack());
             }
             recordStoreStateRef.updateAndGet(state -> {
                 // See beginRecordStoreStateRead() on why setting state is done in updateAndGet().
@@ -2386,6 +2374,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } finally {
             endRecordStoreStateWrite();
         }
+    }
+
+    private byte[] getIndexStateKey(@Nonnull Index index) {
+        return indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader()) ?
+               indexStateSubspaceDeprecated().pack(index.getName()) : indexStateSubspace().pack(index.getSubspaceTupleKey());
     }
 
     @Nonnull
@@ -2740,12 +2733,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         if (index == null) {
                             // Unknown index. This can happen if an index is removed.
                             if (!getRecordMetaData().getFormerIndexes().stream().anyMatch(formerIndex -> formerIndex.getSubspaceTupleKey().equals(indexSubspaceTupleKey))) {
-                                final KeyValueLogMessage msg = KeyValueLogMessage.build("Unknown index found while loading record store state");
-                                if (LOGGER.isDebugEnabled()) {
-                                    LOGGER.debug(msg.toString());
-                                } else if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(msg.toString());
-                                }
+                                KeyValueLogMessage msg = KeyValueLogMessage.build("Unknown index found while loading record store state",
+                                        LogMessageKeys.SUBSPACE_KEY, indexSubspaceTupleKey);
+                                LOGGER.warn(msg.toString());
                             }
                             continue;
                         }
@@ -2838,6 +2828,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         try {
             return isIndexReadable(getRecordMetaData().getIndex(indexName));
         } catch (MetaDataException ex) {
+            // Ideally we should keep this as a MetaDataException or make it a RecordCoreArgumentException. However, lets
+            // continue remapping the exception to avoid breaking code that rely on catching the specific error type.
             throw new IllegalArgumentException(ex);
         }
     }
@@ -3817,6 +3809,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nullable
         private FDBMetaDataStore metaDataStore;
 
+        @Nonnull
+        private CompletableFuture<Void> metaDataPreloadFuture = AsyncUtil.DONE;
+
         @Nullable
         private FDBRecordContext context;
 
@@ -3857,6 +3852,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.serializer = other.serializer;
             this.formatVersion = other.formatVersion;
             this.metaDataProvider = other.metaDataProvider;
+            this.metaDataPreloadFuture = other.metaDataPreloadFuture;
             this.metaDataStore = other.metaDataStore;
             this.context = other.context;
             this.subspaceProvider = other.subspaceProvider;
@@ -3875,6 +3871,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.serializer = store.serializer;
             this.formatVersion = store.formatVersion;
             this.metaDataProvider = store.metaDataProvider;
+            this.metaDataPreloadFuture = store.metaDataPreloadFuture;
             this.context = store.context;
             this.subspaceProvider = store.subspaceProvider;
             this.indexMaintainerRegistry = store.indexMaintainerRegistry;
@@ -3919,6 +3916,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         public Builder setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider) {
             this.metaDataProvider = metaDataProvider;
             return this;
+        }
+
+        public void setMetaDataPreloadFuture(@Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
+            this.metaDataPreloadFuture = metaDataPreloadFuture;
         }
 
         @Override
@@ -4066,7 +4067,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (serializer == null) {
                 throw new RecordCoreException("serializer must be supplied");
             }
-            return new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
+            return new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(), metaDataPreloadFuture,
                     serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache);
         }
 
@@ -4074,11 +4075,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull
         public CompletableFuture<FDBRecordStore> uncheckedOpenAsync() {
             final CompletableFuture<Long> readVersionFuture = preloadReadVersion();
-            final CompletableFuture<Void> preloadMetaData = readVersionFuture.thenCompose(ignore -> preloadMetaData());
+            metaDataPreloadFuture = readVersionFuture.thenCompose(ignore -> preloadMetaData());
             FDBRecordStore recordStore = build();
             final CompletableFuture<Void> subspaceFuture = recordStore.preloadSubspaceAsync();
             final CompletableFuture<Void> loadStoreState = subspaceFuture.thenCompose(vignore -> recordStore.preloadRecordStoreStateAsync());
-            return CompletableFuture.allOf(preloadMetaData, loadStoreState).thenApply(vignore -> recordStore);
+            return CompletableFuture.allOf(metaDataPreloadFuture, loadStoreState).thenApply(vignore -> recordStore);
         }
 
         @Override
@@ -4087,9 +4088,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // Might be as many as four reads: meta-data store, keyspace path, store index state, store info header.
             // Try to do them as much in parallel as possible.
             final CompletableFuture<Long> readVersionFuture = preloadReadVersion();
-            final CompletableFuture<Void> preloadMetaData = readVersionFuture.thenCompose(ignore -> preloadMetaData());
+            metaDataPreloadFuture = readVersionFuture.thenCompose(ignore -> preloadMetaData());
             FDBRecordStore recordStore = build();
-            final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(userVersionChecker, existenceCheck, preloadMetaData);
+            final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(userVersionChecker, existenceCheck);
             return checkVersion.thenApply(vignore -> recordStore);
         }
 

@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestNoIndexesProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsIndexFilteringProto;
@@ -66,6 +65,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexE
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
@@ -1953,8 +1953,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest(name = "testChangeIndexDefinitionWriteOnly({0})")
-    @EnumSource(TestHelpers.BooleanEnum.class)
-    public void testChangeIndexDefinitionWriteOnly(TestHelpers.BooleanEnum changeIndexNameToo) throws Exception {
+    @BooleanSource
+    public void testChangeIndexDefinitionWriteOnly(boolean changeIndexNameToo) throws Exception {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
@@ -1985,7 +1985,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         RecordMetaData recordMetaData;
-        Index index = new Index(changeIndexNameToo.toBoolean() ? "index2" : "index", "num_value");
+        Index index = new Index(changeIndexNameToo ? "index2" : "index", "num_value");
         index.setSubspaceKey(1);
         try (FDBRecordContext context = openContext()) {
             // Change the definition of the "index" index to be on num_value instead.
@@ -1997,7 +1997,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // The changed index is again write-only because there are 300 records.
             assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
             assertEquals(1L, recordStore.getRecordMetaData().getIndex(index.getName()).getSubspaceKey());
-            if (changeIndexNameToo.toBoolean()) {
+            if (changeIndexNameToo) {
                 MetaDataException ex = assertThrows(MetaDataException.class, () -> recordMetaData.getIndex("index"));
                 assertEquals(ex.getMessage(), "Index index not defined");
             }
