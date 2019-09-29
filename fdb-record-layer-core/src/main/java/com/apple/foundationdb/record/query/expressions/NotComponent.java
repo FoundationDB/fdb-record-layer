@@ -105,6 +105,9 @@ public class NotComponent implements ComponentWithSingleChild {
 
     @Override
     public QueryComponent withOtherChild(QueryComponent newChild) {
+        if (newChild == getChild()) {
+            return this;
+        }
         return new NotComponent(newChild);
     }
 
