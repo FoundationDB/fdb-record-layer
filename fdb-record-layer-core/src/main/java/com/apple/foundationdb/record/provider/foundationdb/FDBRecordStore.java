@@ -758,12 +758,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     public Subspace indexStateSubspace() {
-        return getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
+        return indexStateSubspace(indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader()));
     }
 
     @Nonnull
-    public Subspace indexStateSubspaceDeprecated() {
-        return getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED));
+    @VisibleForTesting
+    public Subspace indexStateSubspace(boolean oldFormat) {
+        return oldFormat ? getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED)) :
+                           getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
+    }
+
+    @Nonnull
+    private byte[] getIndexStateKey(@Nonnull Index index) {
+        boolean oldFormat = indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader());
+        Subspace subspace = indexStateSubspace(oldFormat);
+        return oldFormat ? subspace.pack(index.getName()) : subspace.pack(index.getSubspaceTupleKey());
     }
 
     @Nonnull
@@ -1307,10 +1316,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         Transaction tr = ensureContextActive();
 
         // Clear out all data except for the store header key and the index state space.
-        // Those two subspaces are determined by the configuration of the record store rather then
+        // These subspaces are determined by the configuration of the record store rather then
         // the records.
-        Range oldIndexStateRange = indexStateSubspaceDeprecated().range();
-        Range indexStateRange = indexStateSubspace().range();
+        Range oldIndexStateRange = indexStateSubspace(true).range();
+        Range indexStateRange = indexStateSubspace(false).range();
         tr.clear(recordsSubspace().getKey(), oldIndexStateRange.begin);
         tr.clear(oldIndexStateRange.end, indexStateRange.begin);
         tr.clear(indexStateRange.end, getSubspace().range().end);
@@ -1754,9 +1763,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             MutableRecordStoreState recordStoreState = recordStoreStateRef.get();
             for (Map.Entry<String, IndexState> indexState : recordStoreState.getIndexStates().entrySet()) {
                 Index index = getRecordMetaData().getIndex(indexState.getKey());
-                tr.set(indexStateSubspace().pack(index.getSubspaceTupleKey()), Tuple.from(indexState.getValue().code()).pack());
+                tr.set(getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY)).pack(index.getSubspaceTupleKey()),
+                        Tuple.from(indexState.getValue().code()).pack());
             }
-            tr.clear(indexStateSubspaceDeprecated().range());
+            tr.clear(getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED)).range());
             endRecordStoreStateRead();
         }
         return AsyncUtil.DONE;
@@ -2376,11 +2386,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    private byte[] getIndexStateKey(@Nonnull Index index) {
-        return indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader()) ?
-               indexStateSubspaceDeprecated().pack(index.getName()) : indexStateSubspace().pack(index.getSubspaceTupleKey());
-    }
-
     @Nonnull
     private CompletableFuture<Boolean> markIndexNotReadable(@Nonnull String indexName, @Nonnull IndexState indexState) {
         if (recordStoreStateRef.get() == null) {
@@ -2707,8 +2712,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull IsolationLevel isolationLevel, @Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
         boolean oldFormat = indexStateIsStoredInOldFormat(storeHeader);
-        Subspace isSubspace = oldFormat ? getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED)) :
-                                          getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
+        Subspace isSubspace = indexStateSubspace(oldFormat);
         KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
                 .setContext(getContext())
                 .setRange(TupleRange.ALL)
@@ -2778,9 +2782,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             throw new MetaDataException("Index " + index.getName() + " does not exist in meta-data.");
         }
         Transaction tr = ensureContextActive();
-        byte[] oldIndexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED, index.getName()));
+        // TODO: We should stop putting read conflicts on both the old and new subspace, but there seems to be a
+        //  race resulting in test failures. Lets stay in the safe side and add read conflicts on both old and new keys.
+        byte[] oldIndexStateKey = indexStateSubspace(true).pack(index.getName());
         tr.addReadConflictKey(oldIndexStateKey);
-        byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, index.getSubspaceTupleKey()));
+        byte[] indexStateKey = indexStateSubspace(false).pack(index.getSubspaceTupleKey());
         tr.addReadConflictKey(indexStateKey);
     }
 
@@ -2789,9 +2795,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     private void addStoreStateReadConflict() {
         Transaction tr = ensureContextActive();
-        byte[] oldIndexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED));
+        // TODO: We should stop putting read conflicts on both the old and new subspace, but there seems to be a
+        //  race if read conflicts are not added on indexes' old and new states, resulting in test failures. Even though,
+        //  it's not proven to be the case for the entire range, lets stay in the safe side and add read conflicts on
+        //  both old and new keys.
+        byte[] oldIndexStateKey = indexStateSubspace(true).pack();
         tr.addReadConflictRange(oldIndexStateKey, ByteArrayUtil.strinc(oldIndexStateKey));
-        byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY));
+        byte[] indexStateKey = indexStateSubspace(false).pack();
         tr.addReadConflictRange(indexStateKey, ByteArrayUtil.strinc(indexStateKey));
     }
 
@@ -3495,9 +3505,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
         tr.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         tr.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        tr.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        tr.clear(indexStateSubspace(false).pack(formerIndex.getSubspaceTupleKey()));
         if (formerIndex.getFormerName() != null) {
-            tr.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED, formerIndex.getFormerName())));
+            tr.clear(indexStateSubspace(false).pack(formerIndex.getFormerName()));
         }
         tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
