@@ -327,21 +327,17 @@ public class OnlineIndexerTest extends FDBTestBase {
                 .setIndex(index)
                 .setSubspace(subspace)
                 .setConfigLoader(old -> {
-                    if (old == null) {
-                        OnlineIndexer.Config.Builder conf = OnlineIndexer.Config.newBuilder()
-                                .setLimit(20)
-                                .setMaxRetries(Integer.MAX_VALUE)
-                                .setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
-                        if (ThreadLocalRandom.current().nextBoolean()) {
-                            // randomly enable the progress logging to ensure that it doesn't throw exceptions,
-                            // or otherwise disrupt the build.
-                            LOGGER.info("Setting progress log interval");
-                            conf.setProgressLogIntervalMillis(0);
-                        }
-                        return CompletableFuture.completedFuture(conf.build());
-                    } else {
-                        return CompletableFuture.completedFuture(old);
+                    OnlineIndexer.Config.Builder conf = OnlineIndexer.Config.newBuilder()
+                            .setMaxLimit(20)
+                            .setMaxRetries(Integer.MAX_VALUE)
+                            .setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
+                    if (ThreadLocalRandom.current().nextBoolean()) {
+                        // randomly enable the progress logging to ensure that it doesn't throw exceptions,
+                        // or otherwise disrupt the build.
+                        LOGGER.info("Setting progress log interval");
+                        conf.setProgressLogIntervalMillis(0);
                     }
+                    return conf.build();
                 }).setTimer(timer);
         if (ThreadLocalRandom.current().nextBoolean()) {
             LOGGER.info("Setting priority to DEFAULT");
@@ -2280,7 +2276,6 @@ public class OnlineIndexerTest extends FDBTestBase {
     }
 
     @Test
-    @SuppressWarnings("deprecation")
     void notReincreaseLimit() {
         // Non-retriable error that is in lessen work codes.
         Supplier<RuntimeException> createException =
@@ -2305,7 +2300,6 @@ public class OnlineIndexerTest extends FDBTestBase {
     }
 
     @Test
-    @SuppressWarnings("deprecation")
     public void reincreaseLimit() {
         // Non-retriable error that is in lessen work codes.
         Supplier<RuntimeException> createException =
@@ -2414,19 +2408,14 @@ public class OnlineIndexerTest extends FDBTestBase {
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
                 .setMaxAttempts(3)
-                .setConfigLoader(old -> {
-                    if (old == null) {
-                        return CompletableFuture.completedFuture(OnlineIndexer.Config.newBuilder()
-                                .setLimit(100)
+                .setConfigLoader(old ->
+                        OnlineIndexer.Config.newBuilder()
+                                .setMaxLimit(100)
                                 .setMaxRetries(queue.size() + 3)
                                 .setRecordsPerSecond(10000)
                                 .setIncreaseLimitAfter(10)
                                 .setProgressLogIntervalMillis(30)
-                                .build());
-                    } else {
-                        return CompletableFuture.completedFuture(old);
-                    }
-                }).build()) {
+                                .build()).build()) {
             AtomicInteger attempts = new AtomicInteger();
             attempts.set(0);
             AsyncUtil.whileTrue(() -> indexBuilder.buildAsync(
@@ -2638,23 +2627,45 @@ public class OnlineIndexerTest extends FDBTestBase {
     }
 
     @Test
-    public void testConfigLoader() {
-        Index index = runAsyncSetup();
+    public void testConfigLoader() throws Exception {
+        final Index index = new Index("newIndex", field("num_value_unique"));
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.addIndex("MySimpleRecord", index);
+        };
+        openSimpleMetaData(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 0; i < 1000; i++) {
+                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValueUnique(i).build();
+                recordStore.saveRecord(record);
+            }
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            context.commit();
+        }
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final CompletableFuture<Void> future;
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setConfigLoader(old ->
-                        CompletableFuture.completedFuture(OnlineIndexer.Config.newBuilder()
-                                .setLimit(100)
+                        OnlineIndexer.Config.newBuilder()
+                                .setMaxLimit(old.getMaxLimit() - 1)
                                 .setMaxRetries(3)
                                 .setRecordsPerSecond(10000)
-                                .build()))
-                .setMdcContext(ImmutableMap.of("mdcKey", "my cool mdc value"))
+                                .build())
                 .setMaxAttempts(2)
                 .build()) {
-            indexBuilder.runAsync(vignore -> AsyncUtil.DONE, Pair::of, null, null);
-            assertEquals(indexBuilder.getLimit(), 100);
-            assertEquals(indexBuilder.getConfig().getMaxRetries(), 3);
-            assertEquals(indexBuilder.getConfig().getRecordsPerSecond(), 10000);
+            int limit = indexBuilder.getLimit();
+            future = indexBuilder.buildIndexAsync();
+            int pass = 0;
+            while (!future.isDone() && timer.getCount(FDBStoreTimer.Events.COMMIT) < 10 && pass++ < 100) {
+                assertThat("Should have invoked the configuration loader at least once", indexBuilder.getConfigLoaderInvocationCount(), greaterThan(0));
+                assertEquals(indexBuilder.getLimit(), limit - indexBuilder.getConfigLoaderInvocationCount());
+                assertEquals(indexBuilder.getConfig().getMaxRetries(), 3);
+                assertEquals(indexBuilder.getConfig().getRecordsPerSecond(), 10000);
+                Thread.sleep(100);
+            }
+            assertThat("Should have done several transactions in a few seconds", pass, lessThan(100));
         }
     }
 }

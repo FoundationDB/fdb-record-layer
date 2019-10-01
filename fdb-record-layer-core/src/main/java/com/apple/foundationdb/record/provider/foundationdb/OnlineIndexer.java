@@ -167,8 +167,9 @@ public class OnlineIndexer implements AutoCloseable {
      * {@link #runAsync(Function, BiFunction, BiConsumer, List)}, but never above {@link Config#limit}.
      */
     private int limit;
-    @Nullable private final Function<Config, CompletableFuture<Config>> configLoader;
-    @Nullable private Config config;
+    @Nonnull private final Function<Config, Config> configLoader;
+    @Nonnull private Config config;
+    private int configLoaderInvocationCount = 0;
 
     /**
      * The number of successful transactions in a row as called by {@link #runAsync(Function, BiFunction, BiConsumer, List)}.
@@ -184,36 +185,17 @@ public class OnlineIndexer implements AutoCloseable {
     private final boolean syntheticIndex;
 
     @SuppressWarnings("squid:S00107")
-    @Deprecated
-    protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
+    OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                             @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                             @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
-                            int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis,
-                            int increaseLimitAfter, boolean syntheticIndex) {
-        this.runner = runner;
-        this.recordStoreBuilder = recordStoreBuilder;
-        this.index = index;
-        this.recordTypes = recordTypes;
-        this.configLoader = null;
-        this.limit = maxLimit;
-        this.config = new Config(maxLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
-        this.syntheticIndex = syntheticIndex;
-        this.recordsRange = computeRecordsRange();
-        timeOfLastProgressLogMillis = System.currentTimeMillis();
-        totalRecordsScanned = new AtomicLong(0);
-    }
-
-    @SuppressWarnings("squid:S00107")
-    protected OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
-                            @Nonnull FDBRecordStore.Builder recordStoreBuilder,
-                            @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
-                            @Nonnull Function<Config, CompletableFuture<Config>> configLoader, boolean syntheticIndex) {
+                            @Nullable Function<Config, Config> configLoader, @Nonnull Config config,
+                            boolean syntheticIndex) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
         this.recordTypes = recordTypes;
         this.configLoader = configLoader;
-        this.config = new Config(DEFAULT_LIMIT, DEFAULT_MAX_RETRIES, DEFAULT_RECORDS_PER_SECOND, DEFAULT_PROGRESS_LOG_INTERVAL, DO_NOT_RE_INCREASE_LIMIT);
+        this.config = config;
         this.limit = DEFAULT_LIMIT;
         this.syntheticIndex = syntheticIndex;
         this.recordsRange = computeRecordsRange();
@@ -242,9 +224,19 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nullable
     @VisibleForTesting
-    public Config getConfig() {
+    Config getConfig() {
         return config;
     }
+
+    /**
+     * Get the number of times the configuration was loaded.
+     * @return the number of times the {@code configLoader} was invoked
+     */
+    @VisibleForTesting
+    int getConfigLoaderInvocationCount() {
+        return configLoaderInvocationCount;
+    }
+
 
     /**
      * Get the current number of records to process in one transaction.
@@ -318,11 +310,20 @@ public class OnlineIndexer implements AutoCloseable {
         return recordStoreBuilder.copyBuilder().setContext(context).openAsync();
     }
 
-    private CompletableFuture<Config> loadConfig() {
+    private void loadConfig() {
+        configLoaderInvocationCount++;
         if (configLoader != null) {
-            return configLoader.apply(config);
-        } else {
-            return CompletableFuture.completedFuture(config);
+            config = configLoader.apply(config);
+            if (limit > config.maxLimit) {
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(
+                            KeyValueLogMessage.build("Decreasing the limit to the new maxLimit.",
+                                    LogMessageKeys.INDEX_NAME, index.getName(),
+                                    LogMessageKeys.LIMIT, limit,
+                                    LogMessageKeys.MAX_LIMIT, config.maxLimit).toString());
+                }
+                limit = config.maxLimit;
+            }
         }
     }
 
@@ -364,39 +365,40 @@ public class OnlineIndexer implements AutoCloseable {
         AtomicInteger tries = new AtomicInteger(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
         AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
-        AsyncUtil.whileTrue(() ->
-                loadConfig().thenAccept(conf -> config = conf).thenCompose(vignore ->
-                runner.runAsync(context -> openRecordStore(context).thenCompose(store -> {
-                    if (!store.isIndexWriteOnly(index)) {
-                        throw new RecordCoreStorageException("Attempted to build readable index",
-                                LogMessageKeys.INDEX_NAME, index.getName(),
-                                recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
-                    }
-                    return function.apply(store);
-                }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
-                    if (e == null) {
-                        ret.complete(value);
-                        return AsyncUtil.READY_FALSE;
-                    } else {
-                        int currTries = tries.getAndIncrement();
-                        FDBException fdbE = getFDBException(e);
-                        if (currTries < config.maxRetries && fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
-                            if (handleLessenWork != null) {
-                                handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
-                            }
-                            long delay = (long)(Math.random() * toWait.get());
-                            toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
-                            return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
-                        } else {
-                            return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
+        AsyncUtil.whileTrue(() -> {
+            loadConfig();
+            return runner.runAsync(context -> openRecordStore(context).thenCompose(store -> {
+                if (!store.isIndexWriteOnly(index)) {
+                    throw new RecordCoreStorageException("Attempted to build readable index",
+                            LogMessageKeys.INDEX_NAME, index.getName(),
+                            recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
+                }
+                return function.apply(store);
+            }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
+                if (e == null) {
+                    ret.complete(value);
+                    return AsyncUtil.READY_FALSE;
+                } else {
+                    int currTries = tries.getAndIncrement();
+                    FDBException fdbE = getFDBException(e);
+                    if (currTries < config.maxRetries && fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
+                        if (handleLessenWork != null) {
+                            handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
                         }
+                        long delay = (long)(Math.random() * toWait.get());
+                        toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
+                        return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
+                    } else {
+                        return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
                     }
-                }).thenCompose(Function.identity())), runner.getExecutor()).whenComplete((vignore, e) -> {
-                    if (e != null) {
-                        // Just update ret and ignore the returned future.
-                        completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
-                    }
-                });
+                }
+            }).thenCompose(Function.identity());
+        }, runner.getExecutor()).whenComplete((vignore, e) -> {
+            if (e != null) {
+                // Just update ret and ignore the returned future.
+                completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
+            }
+        });
         return ret;
     }
 
@@ -1188,7 +1190,8 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * A class holder for the config parameters needed to rebuild an online index.
+     * A holder for the mutable configuration parameters needed to rebuild an online index. These parameters are
+     * designed to be safe to be updated while a build is running.
      */
     @API(API.Status.UNSTABLE)
     public static class Config {
@@ -1198,7 +1201,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final long progressLogIntervalMillis;
         private final int increaseLimitAfter;
 
-        public Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter) {
+        private Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter) {
             this.maxLimit = maxLimit;
             this.maxRetries = maxRetries;
             this.recordsPerSecond = recordsPerSecond;
@@ -1256,7 +1259,23 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * A builder for {@link Config}. These are the configuration parameters used while rebuilding indexes.
+         * To create a builder for the given config.
+         * @param config the config
+         * @return a {@link Config.Builder}
+         */
+        @Nonnull
+        public static Builder toBuilder(@Nonnull Config config) {
+            return newBuilder()
+                    .setMaxLimit(config.maxLimit)
+                    .setIncreaseLimitAfter(config.increaseLimitAfter)
+                    .setProgressLogIntervalMillis(config.progressLogIntervalMillis)
+                    .setRecordsPerSecond(config.recordsPerSecond)
+                    .setMaxRetries(config.maxRetries);
+        }
+
+        /**
+         * A builder for {@link Config}. These are the mutable configuration parameters used while building indexes and are
+         * designed to be safe to be updated while a build is running.
          */
         @API(API.Status.UNSTABLE)
         public static class Builder {
@@ -1278,7 +1297,7 @@ public class OnlineIndexer implements AutoCloseable {
              * @return this builder
              */
             @Nonnull
-            public Builder setLimit(int limit) {
+            public Builder setMaxLimit(int limit) {
                 this.maxLimit = limit;
                 return this;
             }
@@ -1325,7 +1344,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the number of successful range builds before re-increasing the number of records to process in a single
-             * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
+             * transaction. The number of records to process in a single transaction will never go above {@link #getMaxLimit()}.
              * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
              * @param increaseLimitAfter the number of successful range builds before increasing the number of records
              * processed in a single transaction
@@ -1372,7 +1391,7 @@ public class OnlineIndexer implements AutoCloseable {
         protected Collection<RecordType> recordTypes;
 
         @Nullable
-        protected Function<Config, CompletableFuture<Config>> configLoader = null;
+        protected Function<Config, Config> configLoader = null;
         protected int limit = DEFAULT_LIMIT;
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
@@ -1517,23 +1536,25 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Get the function used by the online indexer to load the config parameters on fly.
-         * @return the supplier
+         * @return the function
          */
         @Nullable
-        public Function<Config, CompletableFuture<Config>> getConfigLoader() {
+        public Function<Config, Config> getConfigLoader() {
             return configLoader;
         }
 
         /**
-         * Set the function used by the online indexer to load the config parameters on fly.
+         * Set the function used by the online indexer to load the mutable configuration parameters on fly.
          *
-         * Note the function is the recommended way of loading online index builder's parameters. The parameter values
-         * set by other deprecated setters (such as {@link #setLimit(int)} are overwritten when this function is set.
+         * <p>
+         * The loader is given the current configuration as input at the beginning of each transaction and
+         * should produce the configuration to use in the next transaction.
+         * </p>
          * @param configLoader the function
          * @return this builder
          */
         @Nonnull
-        public Builder setConfigLoader(@Nonnull Function<Config, CompletableFuture<Config>> configLoader) {
+        public Builder setConfigLoader(@Nonnull Function<Config, Config> configLoader) {
             this.configLoader = configLoader;
             return this;
         }
@@ -1780,7 +1801,6 @@ public class OnlineIndexer implements AutoCloseable {
          * processed in a single transaction
          * @return this builder
          */
-        @Deprecated
         public Builder setIncreaseLimitAfter(int increaseLimitAfter) {
             this.increaseLimitAfter = increaseLimitAfter;
             return this;
@@ -1856,7 +1876,6 @@ public class OnlineIndexer implements AutoCloseable {
          * @return the minimum time between successful progress logs in milliseconds
          * @see #setProgressLogIntervalMillis(long) for more information on the format of the log
          */
-        @Deprecated
         public long getProgressLogIntervalMillis() {
             return progressLogIntervalMillis;
         }
@@ -1891,7 +1910,6 @@ public class OnlineIndexer implements AutoCloseable {
          * @param millis the number of milliseconds to wait between successful logs
          * @return this builder
          */
-        @Deprecated
         public Builder setProgressLogIntervalMillis(long millis) {
             progressLogIntervalMillis = millis;
             return this;
@@ -1998,10 +2016,8 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public OnlineIndexer build() {
             validate();
-            return configLoader == null ?
-                   new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, syntheticIndex) :
-                   new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, syntheticIndex);
-
+            Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
+            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex);
         }
 
         protected void validate() {

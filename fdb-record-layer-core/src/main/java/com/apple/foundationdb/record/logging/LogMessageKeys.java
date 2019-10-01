@@ -207,6 +207,7 @@ public enum LogMessageKeys {
     RECORD_COUNT("record_count"),
     REBUILD_RECORD_COUNTS("rebuild_record_counts"),
     SCANNED_SO_FAR("scanned_so_far"),
+    MAX_LIMIT("max_limit"),
     NEXT_CONTINUATION("next_continuation"),
 
     // Log the name of the tokenizer used
