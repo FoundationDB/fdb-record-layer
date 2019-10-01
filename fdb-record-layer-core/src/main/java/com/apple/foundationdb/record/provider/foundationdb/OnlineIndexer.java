@@ -1300,7 +1300,7 @@ public class OnlineIndexer implements AutoCloseable {
              * Set the maximum number of records to process in a single second.
              *
              * The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
-             * @param recordsPerSecond the maximum number of records to process in a single second.
+             * @param recordsPerSecond the maximum number of records to process in a single second
              * @return this builder
              */
             @Nonnull
