@@ -758,7 +758,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     public Subspace indexStateSubspace() {
-        return indexStateSubspace(indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader()));
+        return indexStateSubspace(indexStateIsStoredInOldFormat());
     }
 
     @Nonnull
@@ -770,9 +770,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     private byte[] getIndexStateKey(@Nonnull Index index) {
-        boolean oldFormat = indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader());
+        boolean oldFormat = indexStateIsStoredInOldFormat();
         Subspace subspace = indexStateSubspace(oldFormat);
         return oldFormat ? subspace.pack(index.getName()) : subspace.pack(index.getSubspaceTupleKey());
+    }
+
+    private boolean indexStateIsStoredInOldFormat() {
+        if (recordStoreStateRef.get() == null) {
+            throw uninitializedStoreException("record store state is not loaded");
+        }
+        return indexStateIsStoredInOldFormat(recordStoreStateRef.get().getStoreHeader());
+    }
+
+    private boolean indexStateIsStoredInOldFormat(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
+        return storeHeader.hasFormatVersion() && storeHeader.getFormatVersion() < SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION;
     }
 
     @Nonnull
@@ -1726,11 +1737,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // on an unset boolean field results in getting back "false".)
             omitUnsplitRecordSuffix = info.getOmitUnsplitRecordSuffix();
         }
-        if (indexStateIsStoredInOldFormat(storeHeader) && indexStateNeedsToUpgrade()) {
-            // This store has the old index state that lived in common_record_store_prefix + (INDEX_STATE_SPACE_DEPRECATED, index's name) and must move to
-            // common_record_store_prefix + (INDEX_STATE_SPACE, index's subspace key).
-            upgradeIndexStates();
-        }
         final boolean[] dirty = new boolean[1];
         final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, oldUserVersion, oldMetaDataVersion, info, dirty);
         final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
@@ -1743,33 +1749,27 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
-    private boolean indexStateIsStoredInOldFormat(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
-        return storeHeader.hasFormatVersion() && storeHeader.getFormatVersion() < SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION;
-    }
-
-    private boolean indexStateNeedsToUpgrade() {
-        return formatVersion >= SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION;
-    }
-
-    private CompletableFuture<Void> upgradeIndexStates() {
+    private void upgradeIndexStates() {
         Transaction tr = ensureContextActive();
         if (recordStoreStateRef.get() == null) {
             // The record store state must have been loaded already. Do not attempt to preload it here.
-            throw new UninitializedRecordStoreException("record store state is not loaded");
+            throw uninitializedStoreException("record store state is not loaded");
         }
         synchronized (this) {
             // This should be rare enough to handle synchronized.
             beginRecordStoreStateRead();
-            MutableRecordStoreState recordStoreState = recordStoreStateRef.get();
-            for (Map.Entry<String, IndexState> indexState : recordStoreState.getIndexStates().entrySet()) {
-                Index index = getRecordMetaData().getIndex(indexState.getKey());
-                tr.set(getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY)).pack(index.getSubspaceTupleKey()),
-                        Tuple.from(indexState.getValue().code()).pack());
+            try {
+                MutableRecordStoreState recordStoreState = recordStoreStateRef.get();
+                for (Map.Entry<String, IndexState> indexState : recordStoreState.getIndexStates().entrySet()) {
+                    Index index = getRecordMetaData().getIndex(indexState.getKey());
+                    tr.set(getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY)).pack(index.getSubspaceTupleKey()),
+                            Tuple.from(indexState.getValue().code()).pack());
+                }
+                tr.clear(getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED)).range());
+            } finally {
+                endRecordStoreStateRead();
             }
-            tr.clear(getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY_DEPRECATED)).range());
-            endRecordStoreStateRead();
         }
-        return AsyncUtil.DONE;
     }
 
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker, int oldUserVersion, int oldMetaDataVersion,
@@ -3241,6 +3241,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
                 addConvertRecordVersions(work);
             }
+            if (oldFormatVersion < SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION && formatVersion >= SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION) {
+                // This store has the old index state that lived in common_record_store_prefix + (INDEX_STATE_SPACE_DEPRECATED, index's name) and must move to
+                // common_record_store_prefix + (INDEX_STATE_SPACE, index's subspace key).
+                upgradeIndexStates();
+            }
         }
 
         final boolean newStore = oldFormatVersion == 0;
@@ -3926,10 +3931,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         public Builder setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider) {
             this.metaDataProvider = metaDataProvider;
             return this;
-        }
-
-        public void setMetaDataPreloadFuture(@Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
-            this.metaDataPreloadFuture = metaDataPreloadFuture;
         }
 
         @Override
