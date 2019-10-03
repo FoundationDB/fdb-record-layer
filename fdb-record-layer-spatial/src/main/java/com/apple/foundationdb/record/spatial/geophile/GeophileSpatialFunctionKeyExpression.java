@@ -86,16 +86,6 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
     }
 
     @Override
-    public int getMinArguments() {
-        return 1;
-    }
-
-    @Override
-    public int getMaxArguments() {
-        return 2;
-    }
-
-    @Override
     public boolean createsDuplicates() {
         return true;
     }
@@ -163,6 +153,16 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
                 return GeophileSpatial.deserializeGeoJson(getSpace(), json, shouldSwapLatLong(arguments));
             }
         }
+
+        @Override
+        public int getMinArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 2;
+        }
     }
 
     /**
@@ -186,6 +186,16 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
                 return GeophileSpatial.deserializeWKB(getSpace(), wkb, shouldSwapLatLong(arguments));
             }
         }
+
+        @Override
+        public int getMinArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 2;
+        }
     }
 
     /**
@@ -208,6 +218,16 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
             } else {
                 return GeophileSpatial.deserializeWKT(getSpace(), wkt, shouldSwapLatLong(arguments));
             }
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 2;
         }
     }
 
