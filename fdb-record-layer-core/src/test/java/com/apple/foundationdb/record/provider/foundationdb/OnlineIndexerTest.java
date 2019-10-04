@@ -2648,7 +2648,7 @@ public class OnlineIndexerTest extends FDBTestBase {
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
                 .setConfigLoader(old ->
-                        OnlineIndexer.Config.newBuilder()
+                        old.toBuilder()
                                 .setMaxLimit(old.getMaxLimit() - 1)
                                 .setMaxRetries(3)
                                 .setRecordsPerSecond(10000)

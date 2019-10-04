@@ -188,7 +188,7 @@ public class OnlineIndexer implements AutoCloseable {
     OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                             @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                             @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
-                            @Nullable Function<Config, Config> configLoader, @Nonnull Config config,
+                            @Nonnull Function<Config, Config> configLoader, @Nonnull Config config,
                             boolean syntheticIndex) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
@@ -1260,17 +1260,16 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * To create a builder for the given config.
-         * @param config the config
          * @return a {@link Config.Builder}
          */
         @Nonnull
-        public static Builder toBuilder(@Nonnull Config config) {
-            return newBuilder()
-                    .setMaxLimit(config.maxLimit)
-                    .setIncreaseLimitAfter(config.increaseLimitAfter)
-                    .setProgressLogIntervalMillis(config.progressLogIntervalMillis)
-                    .setRecordsPerSecond(config.recordsPerSecond)
-                    .setMaxRetries(config.maxRetries);
+        public Builder toBuilder() {
+            return Config.newBuilder()
+                    .setMaxLimit(this.maxLimit)
+                    .setIncreaseLimitAfter(this.increaseLimitAfter)
+                    .setProgressLogIntervalMillis(this.progressLogIntervalMillis)
+                    .setRecordsPerSecond(this.recordsPerSecond)
+                    .setMaxRetries(this.maxRetries);
         }
 
         /**
@@ -1390,8 +1389,8 @@ public class OnlineIndexer implements AutoCloseable {
         @Nullable
         protected Collection<RecordType> recordTypes;
 
-        @Nullable
-        protected Function<Config, Config> configLoader = null;
+        @Nonnull
+        protected Function<Config, Config> configLoader = old -> old;
         protected int limit = DEFAULT_LIMIT;
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
