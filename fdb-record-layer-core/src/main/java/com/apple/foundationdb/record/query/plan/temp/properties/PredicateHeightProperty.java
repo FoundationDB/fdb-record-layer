@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -59,7 +60,7 @@ public class PredicateHeightProperty implements PlannerProperty<Integer> {
                 maxChildDepth = childDepth;
             }
         }
-        return maxChildDepth + (expression instanceof QueryComponent ? 1 : 0);
+        return maxChildDepth + (expression instanceof QueryPredicate ? 1 : 0);
     }
 
     @Nonnull

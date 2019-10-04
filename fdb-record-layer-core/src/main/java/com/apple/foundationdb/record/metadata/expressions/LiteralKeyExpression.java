@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -34,6 +36,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Expression to allow a static value to be utilized in a key expression.  This primary use case for this
@@ -90,6 +93,12 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     @Override
     public RecordMetaDataProto.Value toProto() throws SerializationException {
         return proto;
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        return this;
     }
 
     @Nonnull

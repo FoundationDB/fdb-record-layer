@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.predicates.match.PredicateMatchers;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -57,11 +58,10 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTup
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.queryComponentDescendant;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.queryPredicateDescendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -239,9 +239,13 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                 Query.field("school_name").equalsValue("Human University"))))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(Query.field("stats").matches(Query.field("school_name").equalsValue("Human University"))),
+        assertThat(plan, filter(Query.field("stats").matches(Query.field("school_name").equalsValue("Human University")),
                 indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([0],>"))))));
-        assertEquals(-417538532, plan.planHash());
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(-417538532, plan.planHash());
+        } else {
+            assertEquals(-1419776897, plan.planHash());
+        }
         assertEquals(Collections.singletonList(2L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 this::openNestedRecordStore,
                 TestHelpers::assertDiscardedNone));
@@ -257,11 +261,15 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 ))
                 .build();
         plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(Query.field("stats").matches(
+        assertThat(plan, filter(Query.field("stats").matches(
                 Query.and(Query.field("school_name").lessThan("University of Procrastination"),
-                        Query.field("hometown").startsWith("H")))),
+                        Query.field("hometown").startsWith("H"))),
                 indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([null],[1000]]"))))));
-        assertEquals(1700959433, plan.planHash());
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(1700959433, plan.planHash());
+        } else {
+            assertEquals(-1198378902, plan.planHash());
+        }
         assertEquals(Collections.singletonList(1L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 this::openNestedRecordStore,
                 TestHelpers::assertDiscardedNone));
@@ -298,15 +306,12 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         // verify that the value filter that can't be satisfied by the index isn't dropped from the filter expression
         assertThat(plan, filter(
-                queryComponentDescendant(equalTo(Query.field("value").notEquals("test"))),
+                queryPredicateDescendant(PredicateMatchers.field("map", "value").notEquals("test")),
                 primaryKeyDistinct(indexScan(allOf(indexName("key_index"), bounds(hasTupleString("[[1, alpha],[1, alpha]]")))))));
-        // The RecordQueryPlanner produces a plan with an equality predicate on "value", which isn't needed since it is
-        // satisfied by the index scan. The CascadesPlanner does not leave the extra predicate.
-        // As a result, there are two separate plan hashes that could be produced.
         if (planner instanceof RecordQueryPlanner) {
             assertEquals(-1406660101, plan.planHash());
         } else {
-            assertEquals(792093238, plan.planHash());
+            assertEquals(698662477, plan.planHash());
         }
     }
 

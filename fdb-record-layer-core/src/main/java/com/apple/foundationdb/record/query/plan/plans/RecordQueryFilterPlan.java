@@ -22,20 +22,13 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.PipelineOperation;
-import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,64 +39,51 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A query plan that filters out records from a child plan that do not satisfy a filter component.
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
+public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryFilterPlan.class);
 
     @Nonnull
-    private final ExpressionRef<RecordQueryPlan> inner;
-    @Nonnull
-    private final ExpressionRef<QueryComponent> filter;
-    @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> children;
-    @Nonnull
-    private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_FILTER_PLAN_GIVEN);
-    @Nonnull
-    private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_FILTER);
-    @Nonnull
-    private static final Set<StoreTimer.Count> successCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_PASSED, FDBStoreTimer.Counts.QUERY_FILTER_PLAN_PASSED);
-    @Nonnull
-    private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
+    private final QueryComponent filter;
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull QueryComponent filter) {
-        this(SingleExpressionRef.of(inner), SingleExpressionRef.of(filter));
+        this(SingleExpressionRef.of(inner), filter);
     }
 
-    public RecordQueryFilterPlan(@Nonnull ExpressionRef<RecordQueryPlan> inner, @Nonnull ExpressionRef<QueryComponent> filter) {
-        this.inner = inner;
+    public RecordQueryFilterPlan(@Nonnull ExpressionRef<RecordQueryPlan> inner,
+                                 @Nonnull QueryComponent filter) {
+        super(inner);
         this.filter = filter;
-        this.children = ImmutableList.of(inner, filter);
     }
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull List<QueryComponent> filters) {
         this(inner, filters.size() == 1 ? filters.get(0) : Query.and(filters));
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                         @Nonnull EvaluationContext context,
-                                                                         @Nullable byte[] continuation,
-                                                                         @Nonnull ExecuteProperties executeProperties) {
-        final RecordCursor<FDBQueriedRecord<M>> results = getInner().execute(store, context, continuation, executeProperties.clearSkipAndLimit());
+    protected boolean hasAsyncFilter() {
+        return filter.isAsync();
+    }
 
-        if (getFilter().isAsync()) {
-            return results
-                    .filterAsyncInstrumented(record -> getFilter().evalAsync(store, context, record),
-                            store.getPipelineSize(PipelineOperation.RECORD_ASYNC_FILTER),
-                            store.getTimer(), inCounts, duringEvents, successCounts, failureCounts)
-                    .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
-        } else {
-            return results
-                    .filterInstrumented(record -> getFilter().eval(store, context, record), store.getTimer(),
-                            inCounts, duringEvents, successCounts, failureCounts)
-                    .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
-        }
+    @Nullable
+    @Override
+    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store,
+                                                     @Nonnull EvaluationContext context,
+                                                     @Nullable FDBRecord<M> record) {
+        return filter.eval(store, context, record);
+    }
+
+    @Nullable
+    @Override
+    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store,
+                                                                             @Nonnull EvaluationContext context,
+                                                                             @Nullable FDBRecord<M> record) {
+        return filter.evalAsync(store, context, record);
     }
 
     @Override
@@ -115,7 +95,7 @@ public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
     @Override
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return children.iterator();
+        return Collections.emptyIterator();
     }
 
     @Nonnull
@@ -126,7 +106,8 @@ public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof RecordQueryFilterPlan;
+        return otherExpression instanceof RecordQueryFilterPlan &&
+               filter.equals(((RecordQueryFilterPlan)otherExpression).getFilter());
     }
 
     @Override
@@ -153,29 +134,8 @@ public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
     }
 
     @Nonnull
-    public RecordQueryPlan getInner() {
-        return inner.get();
-    }
-
-    @Nonnull
     public QueryComponent getFilter() {
-        return filter.get();
+        return filter;
     }
 
-    @Override
-    @Nonnull
-    public RecordQueryPlan getChild() {
-        return getInner();
-    }
-
-    @Override
-    public void logPlanStructure(StoreTimer timer) {
-        timer.increment(FDBStoreTimer.Counts.PLAN_FILTER);
-        getInner().logPlanStructure(timer);
-    }
-
-    @Override
-    public int getComplexity() {
-        return 1 + getInner().getComplexity();
-    }
 }

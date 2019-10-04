@@ -21,8 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.expressions.AndComponent;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
@@ -31,13 +29,15 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMa
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A simple rule that performs some basic Boolean normalization by flattening a nested {@link AndComponent} into a single,
+ * A simple rule that performs some basic Boolean normalization by flattening a nested {@link AndPredicate} into a single,
  * wider AND. This rule only attempts to remove a single {@code AndComponent}; it may be repeated if necessary.
  * For example, it would transform:
  * <code>
@@ -56,12 +56,12 @@ import java.util.List;
  * </code>
  */
 @API(API.Status.EXPERIMENTAL)
-public class FlattenNestedAndComponentRule extends PlannerRule<AndComponent> {
-    private static final ExpressionMatcher<ExpressionRef<QueryComponent>> andChildrenMatcher = ReferenceMatcher.anyRef();
-    private static final ReferenceMatcher<QueryComponent> otherInnerComponentsMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<AndComponent> root = TypeMatcher.of(AndComponent.class,
+public class FlattenNestedAndComponentRule extends PlannerRule<AndPredicate> {
+    private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> andChildrenMatcher = ReferenceMatcher.anyRef();
+    private static final ReferenceMatcher<QueryPredicate> otherInnerComponentsMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<AndPredicate> root = TypeMatcher.of(AndPredicate.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(
-                    TypeMatcher.of(AndComponent.class, AllChildrenMatcher.allMatching(andChildrenMatcher)),
+                    TypeMatcher.of(AndPredicate.class, AllChildrenMatcher.allMatching(andChildrenMatcher)),
                     otherInnerComponentsMatcher));
 
     public FlattenNestedAndComponentRule() {
@@ -70,11 +70,11 @@ public class FlattenNestedAndComponentRule extends PlannerRule<AndComponent> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        List<ExpressionRef<QueryComponent>> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
-        List<ExpressionRef<QueryComponent>> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
-        List<ExpressionRef<QueryComponent>> allConjuncts = new ArrayList<>(innerAndChildren);
+        List<ExpressionRef<QueryPredicate>> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
+        List<ExpressionRef<QueryPredicate>> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
+        List<ExpressionRef<QueryPredicate>> allConjuncts = new ArrayList<>(innerAndChildren);
         allConjuncts.addAll(otherOuterAndChildren);
 
-        call.yield(call.ref(new AndComponent(allConjuncts)));
+        call.yield(call.ref(new AndPredicate(allConjuncts)));
     }
 }

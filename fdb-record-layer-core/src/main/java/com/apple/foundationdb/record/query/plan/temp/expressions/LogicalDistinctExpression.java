@@ -22,13 +22,11 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Iterator;
 
 /**
@@ -60,26 +58,6 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     @Override
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(inner);
-    }
-
-    @Nullable
-    @Override
-    public ExpressionRef<RelationalPlannerExpression> asNestedWith(@Nonnull NestedContext nestedContext, @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
-        final ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);
-        if (nestedInner == null) {
-            return null;
-        }
-        return thisRef.getNewRefWith(new LogicalDistinctExpression(nestedInner));
-    }
-
-    @Nullable
-    @Override
-    public ExpressionRef<RelationalPlannerExpression> asUnnestedWith(@Nonnull NestedContext nestedContext, @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
-        final ExpressionRef<RelationalPlannerExpression> unnestedInner = nestedContext.getUnnestedRelationalPlannerExpression(inner);
-        if (unnestedInner == null) {
-            return null;
-        }
-        return thisRef.getNewRefWith(new LogicalDistinctExpression(unnestedInner));
     }
 
     @Override

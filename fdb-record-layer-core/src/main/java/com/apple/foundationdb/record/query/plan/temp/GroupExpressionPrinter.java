@@ -57,11 +57,11 @@ public class GroupExpressionPrinter {
     public String toString() {
         final StringBuilder builder = new StringBuilder();
         exploreGroup(rootGroup);
-        for (int i = 0; i < groups.size(); i++) {
+        for (ExpressionRef<? extends PlannerExpression> group : groups) {
             builder.append("Group ")
-                    .append(i)
+                    .append(group.hashCode())
                     .append(": [");
-            for (PlannerExpression member : groups.get(i).getMembers()) {
+            for (PlannerExpression member : group.getMembers()) {
                 Iterator<? extends ExpressionRef<? extends PlannerExpression>> children = member.getPlannerExpressionChildren();
                 if (!children.hasNext()) {
                     builder.append(member);
@@ -69,7 +69,7 @@ public class GroupExpressionPrinter {
                     builder.append(member.getClass().getSimpleName())
                             .append("{ ");
                     while (children.hasNext()) {
-                        builder.append(seenGroups.get(children.next()))
+                        builder.append(children.next().hashCode())
                                 .append(", ");
                     }
                     builder.append("}");

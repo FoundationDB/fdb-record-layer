@@ -71,6 +71,27 @@ import java.util.stream.Collectors;
 public class ComparisonRange {
     public static final ComparisonRange EMPTY = new ComparisonRange();
 
+    /**
+     * Comparison ranges can be divided into three types, with distinct planning behaviour:
+     * <ul>
+     *     <li>Empty ranges, to which any comparison can be added.</li>
+     *     <li>Equality ranges, to which only the same (equality) comparison can be added.</li>
+     *     <li>Inequality ranges, to which any other comparison can be added.</li>
+     * </ul>
+     * This behaviour is defined in {@link #tryToAdd(Comparisons.Comparison)}.
+     *
+     * <p>
+     * Furthermore, the planner uses this trichotomy of range types to determine other planning behaviour. For example,
+     * an index scan must involve (from left to right) any number of equality ranges on the fields, followed by a single,
+     * optional inequality range, followed by any number of empty ranges.
+     * </p>
+     */
+    public enum Type {
+        EMPTY,
+        EQUALITY,
+        INEQUALITY
+    }
+
     @Nullable
     private final Comparisons.Comparison equalityComparison;
     @Nullable
@@ -104,6 +125,17 @@ public class ComparisonRange {
     }
 
     @Nonnull
+    public Type getRangeType() {
+        if (isEmpty()) {
+            return Type.EMPTY;
+        } else if (isEquality()) {
+            return Type.EQUALITY;
+        } else {
+            return Type.INEQUALITY;
+        }
+    }
+
+    @Nonnull
     public Comparisons.Comparison getEqualityComparison() {
         if (equalityComparison == null) {
             throw new RecordCoreException("tried to get non-existent equality comparison from ComparisonRange");
@@ -121,23 +153,27 @@ public class ComparisonRange {
 
     @Nonnull
     public Optional<ComparisonRange> tryToAdd(@Nonnull Comparisons.Comparison comparison) {
-        // TODO This isn't actually right becuase of how ranges work. Specifically, we should check that an
-        // inequality comparison is compatible with the existing set of inequality comparisons (i.e., that they define
-        // a contiguous range) before adding it.
-        // However, this appears to be compatible with the AndWithThenPlanner.
         if (isEmpty()) {
             return from(comparison);
         } else if (isEquality() && getEqualityComparison().equals(comparison)) {
             return Optional.of(this);
-        } else if (isInequality() &&
-                ScanComparisons.getComparisonType(comparison).equals(ScanComparisons.ComparisonType.INEQUALITY)) {
-            if (inequalityComparisons.contains(comparison)) {
-                return Optional.of(this);
-            } else {
-                return Optional.of(new ComparisonRange(ImmutableList.<Comparisons.Comparison>builder()
-                        .addAll(inequalityComparisons)
-                        .add(comparison)
-                        .build()));
+        } else if (isInequality()) {
+            switch (ScanComparisons.getComparisonType(comparison)) {
+                case INEQUALITY:
+                    if (inequalityComparisons.contains(comparison)) {
+                        return Optional.of(this);
+                    } else {
+                        return Optional.of(new ComparisonRange(ImmutableList.<Comparisons.Comparison>builder()
+                                .addAll(inequalityComparisons)
+                                .add(comparison)
+                                .build()));
+                    }
+                case EQUALITY:
+                    // TODO normalize in this case
+                    break;
+                case NONE:
+                default:
+                    break;
             }
         }
         // TODO there are some subtle cases to handle. For example, != 3 and >= 3 is the same as > 3.

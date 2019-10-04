@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 
@@ -42,7 +43,7 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class, AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
-    private static final ExpressionMatcher<ExpressionRef<QueryComponent>> filterMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> filterMatcher = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
             filterMatcher, innerMatcher);
 
@@ -52,9 +53,11 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
+        final LogicalFilterExpression filterExpression = call.get(root);
         final RecordQueryPlan inner = call.get(innerMatcher);
-        final ExpressionRef<QueryComponent> filter = call.get(filterMatcher);
+        final ExpressionRef<QueryPredicate> filter = call.get(filterMatcher);
 
-        call.yield(SingleExpressionRef.of(new RecordQueryFilterPlan(call.ref(inner), filter)));
+        call.yield(SingleExpressionRef.of(
+                new RecordQueryPredicateFilterPlan(call.ref(inner), filterExpression.getBaseSource(), filter)));
     }
 }

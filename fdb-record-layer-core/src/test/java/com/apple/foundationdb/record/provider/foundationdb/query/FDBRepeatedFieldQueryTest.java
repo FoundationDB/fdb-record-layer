@@ -64,7 +64,6 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -151,7 +150,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("s1").oneOfThem().greaterThan("b"))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()), scan(unbounded())));
+        assertThat(plan, filter(query.getFilter(), scan(unbounded())));
         assertEquals(972152650, plan.planHash());
         assertEquals(Arrays.asList(1L), fetchResultValues(plan, TestRecords6Proto.MyRepeatedRecord.REC_NO_FIELD_NUMBER,
                 this::openDoublyRepeatedRecordStore,
@@ -166,7 +165,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         plan = planner.plan(query);
         assertThat(plan, union(
-                filter(equalTo(Query.field("s2").notEmpty()),
+                filter(Query.field("s2").notEmpty(),
                         indexScan(allOf(indexName("s1$concat"), bounds(hasTupleString("[[[aba]],[[aba]]]"))))),
                 indexScan(allOf(indexName("s1$concat"), bounds(hasTupleString("[[[aaa, bbb]],[[aaa, bbb]]]"))))));
         assertEquals(1376647244, plan.planHash());
@@ -315,7 +314,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("name").greaterThan("A"));
             RecordQuery query = builder.setRemoveDuplicates(false).build();
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("review_rating"), unbounded()))));
+            assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("review_rating"), unbounded()))));
             assertEquals(1381942688, plan.planHash());
             assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
@@ -323,7 +322,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
             query = builder.setRemoveDuplicates(true).build();
             plan = planner.plan(query);
-            assertThat(plan, filter(equalTo(query.getFilter()), primaryKeyDistinct(
+            assertThat(plan, filter(query.getFilter(), primaryKeyDistinct(
                     indexScan(allOf(indexName("review_rating"), unbounded())))));
             assertEquals(1381942689, plan.planHash());
             assertEquals(Arrays.asList(1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
@@ -337,7 +336,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("name").greaterThan("A"));
             RecordQuery query = builder.setRemoveDuplicates(false).build();
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("customers"), unbounded()))));
+            assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("customers"), unbounded()))));
             assertEquals(1833106833, plan.planHash());
             assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L, 1000L, 1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
@@ -345,7 +344,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
             query = builder.setRemoveDuplicates(true).build();
             plan = planner.plan(query);
-            assertThat(plan, filter(equalTo(query.getFilter()), primaryKeyDistinct(
+            assertThat(plan, filter(query.getFilter(), primaryKeyDistinct(
                     indexScan(allOf(indexName("customers"), unbounded())))));
             assertEquals(1833106834, plan.planHash());
             assertEquals(Arrays.asList(1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
@@ -603,7 +602,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(filter), scan(unbounded())));
+        assertThat(plan, filter(filter, scan(unbounded())));
 
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);

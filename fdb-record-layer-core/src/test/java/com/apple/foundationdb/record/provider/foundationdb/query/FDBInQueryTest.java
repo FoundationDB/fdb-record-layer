@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -107,7 +108,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").in(asList(0, 2)))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
+        assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(-1139367278, plan.planHash());
         assertEquals(67, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), anyOf(is(0), is(2))),
@@ -125,7 +126,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").in("valuesThree"))    // num_value_2 is i%3
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
+        assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(-1677754212, plan.planHash());
         assertEquals(33, querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valuesThree", asList(1, 3)),
@@ -212,7 +213,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.not(Query.field("num_value_3_indexed").in("valueThrees")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
+        assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(1667070490, plan.planHash());
         assertEquals(100, querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valueThrees", Collections.emptyList()),
@@ -259,7 +260,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         // IN join is cancelled on account of incompatible sorting.
-        assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
+        assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
         assertEquals(1775865786, plan.planHash());
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
@@ -299,7 +300,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
             assertEquals(-1813975352, plan.planHash());
         } else {
-            assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
+            assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
             assertEquals(1775865786, plan.planHash());
         }
 
@@ -376,7 +377,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         // Did not throw an exception
-        assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
+        assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
     }
 
     /**
@@ -763,7 +764,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         // TODO: IN join in filter can prevent index scan merging (https://github.com/FoundationDB/fdb-record-layer/issues/9)
         assertThat(plan, primaryKeyDistinct(unorderedUnion(
                 indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([null],[910])")))),
-                inValues(equalTo(Arrays.asList(0, 2)), filter(any(QueryComponent.class), indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>"))))))
+                inValues(equalTo(Arrays.asList(0, 2)), filter(any(QueryPredicate.class), indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>"))))))
         )));
         assertEquals(16, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> {
@@ -889,7 +890,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").in(ls))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()), descendant(scan(unbounded()))));
+        assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(-1139440895, plan.planHash());
         assertEquals(0, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty, (rec) -> {
         }));

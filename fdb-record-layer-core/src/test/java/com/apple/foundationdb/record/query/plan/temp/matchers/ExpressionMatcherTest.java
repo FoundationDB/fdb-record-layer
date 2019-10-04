@@ -22,11 +22,9 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
-import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
@@ -35,13 +33,20 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeSource;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -86,8 +91,11 @@ public class ExpressionMatcherTest {
     public void anyRefMatcher() {
         // create a matcher and expression to match
         ExpressionMatcher<ExpressionRef<PlannerExpression>> matcher = ReferenceMatcher.anyRef();
+        Source recordSource = new RecordTypeSource(Collections.singleton("MyRecordType"));
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
-                Query.field("test").equalsValue(5), new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
+                recordSource,
+                Query.field("test").equalsValue(5).normalizeForPlanner(recordSource, Function.identity()),
+                new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         // try to match to expression
         Optional<PlannerBindings> newBindings = root.bindTo(matcher).findFirst();
         // check the the bindings are what we expect, and that none of the existing ones were clobbered
@@ -176,26 +184,32 @@ public class ExpressionMatcherTest {
 
     @Test
     public void treeDescentWithMixedBindings() {
+        Source rootSource = new RecordTypeSource(Collections.singleton("MyRecordType"));
+
         // build a relatively complicated matcher
         ExpressionMatcher<ExpressionRef<PlannerExpression>> filterLeafMatcher = ReferenceMatcher.anyRef();
         ExpressionMatcher<ExpressionRef<PlannerExpression>> andChild1 = ReferenceMatcher.anyRef();
         ExpressionMatcher<ExpressionRef<PlannerExpression>> andChild2 = ReferenceMatcher.anyRef();
-        ExpressionMatcher<QueryComponent> andMatcher = TypeMatcher.of(AndComponent.class, andChild1, andChild2);
-        ExpressionMatcher<RecordQueryFilterPlan> filterPlanMatcher = TypeMatcher.of(RecordQueryFilterPlan.class,
-                filterLeafMatcher, andMatcher);
+        ExpressionMatcher<QueryPredicate> andMatcher = TypeMatcher.of(AndPredicate.class, andChild1, andChild2);
+        ExpressionMatcher<LogicalFilterExpression> filterPlanMatcher = TypeMatcher.of(LogicalFilterExpression.class,
+                andMatcher, filterLeafMatcher);
         ExpressionMatcher<RecordQueryScanPlan> scanMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
-        ExpressionMatcher<RecordQueryUnionPlan> matcher = TypeMatcher.of(RecordQueryUnionPlan.class,
+        ExpressionMatcher<LogicalUnorderedUnionExpression> matcher = TypeMatcher.of(LogicalUnorderedUnionExpression.class,
                 filterPlanMatcher, scanMatcher);
 
         // build a relatively complicated expression
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
-        RecordQueryFilterPlan filterPlan = new RecordQueryFilterPlan(
-                new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true),
-                Query.and(andBranch1, andBranch2));
+        LogicalFilterExpression filterPlan = new LogicalFilterExpression(rootSource,
+                Query.and(andBranch1, andBranch2).normalizeForPlanner(rootSource, Function.identity()),
+                new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true));
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
-                RecordQueryUnionPlan.from(filterPlan, scanPlan, EmptyKeyExpression.EMPTY, false));
+                new LogicalUnorderedUnionExpression(
+                        ImmutableList.of(SingleExpressionRef.of(filterPlan),
+                                SingleExpressionRef.of(scanPlan))));
+
+        assertTrue(filterPlan.bindTo(filterPlanMatcher).findFirst().isPresent());
 
         // try to bind
         Optional<PlannerBindings> possibleBindings = root.bindTo(matcher).findFirst();
@@ -206,8 +220,6 @@ public class ExpressionMatcherTest {
         assertEquals(filterPlan, bindings.get(filterPlanMatcher));
         assertEquals(scanPlan, bindings.get(scanMatcher));
         assertEquals(filterPlan.getFilter(), bindings.get(andMatcher));
-        assertEquals(andBranch1, bindings.get(andChild1).get()); // dereference
-        assertEquals(andBranch2, bindings.get(andChild2).get()); // dereference
         assertEquals(filterPlan.getInner(), bindings.get(filterLeafMatcher).get()); // dereference
     }
 }

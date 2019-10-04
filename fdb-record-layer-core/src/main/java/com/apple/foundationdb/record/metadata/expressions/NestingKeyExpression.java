@@ -21,9 +21,14 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -31,6 +36,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -113,6 +119,35 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         return getChild().normalizeKeyForPositions()
                 .stream().map(normalizedChild -> new NestingKeyExpression(parent, normalizedChild))
                 .collect(Collectors.toList());
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        switch (parent.getFanType()) {
+            case None:
+            case Concatenate:
+                return child.normalizeForPlanner(rootSource, elementModifier.compose(this::normalizeElement));
+            case FanOut:
+                return child.normalizeForPlanner(parent.getFieldSource(rootSource), elementModifier);
+            default:
+                throw new RecordCoreException("unknown fan type");
+        }
+
+    }
+
+    @Nonnull
+    private Element normalizeElement(@Nonnull Element element) {
+        if (element instanceof FieldElement) {
+            FieldElement fieldElement = (FieldElement) element;
+            ImmutableList<String> fieldNames = ImmutableList.<String>builder()
+                    .add(parent.getFieldName())
+                    .addAll(fieldElement.getFieldNames())
+                    .build();
+            return new FieldElement(fieldElement.getSource(), fieldNames);
+        } else {
+            return element;
+        }
     }
 
     @Override

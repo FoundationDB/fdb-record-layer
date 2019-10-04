@@ -88,6 +88,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.predicates.match.PredicateMatchers;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -1352,7 +1353,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private List<Long> querySimpleDocumentsWithScan(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(SIMPLE_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
-                    filter(equalTo(BooleanNormalizer.getDefaultInstance().normalize(filter)), typeFilter(contains(SIMPLE_DOC), PlanMatchers.scan(unbounded()))))
+                    filter(BooleanNormalizer.getDefaultInstance().normalize(filter), typeFilter(contains(SIMPLE_DOC), PlanMatchers.scan(unbounded()))))
                 .map(t -> t.getLong(0))
                 .asList()
                 .get();
@@ -1824,7 +1825,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(Query.and(filter1, Query.field("group").equalsValue(0L)))
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, filter(equalTo(Query.field("group").equalsValue(0L)),
+            assertThat(plan, filter(PredicateMatchers.field("group").equalsValue(0L),
                     textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
             assertEquals(-1328921799, plan.planHash());
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
@@ -1837,7 +1838,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .build();
             plan = planner.plan(query);
             System.out.println(plan.planHash());
-            assertThat(plan, filter(equalTo(Query.field("group").equalsValue(0L)),
+            assertThat(plan, filter(Query.field("group").equalsValue(0L),
                     primaryKeyDistinct(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
             assertEquals(-1110535141, plan.planHash());
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
@@ -1968,7 +1969,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     private List<Tuple> queryComplexDocumentsWithScan(@Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
-        final Matcher<RecordQueryPlan> planMatcher = filter(equalTo(textFilter),
+        final Matcher<RecordQueryPlan> planMatcher = filter(textFilter,
                 typeFilter(equalTo(Collections.singleton(COMPLEX_DOC)), PlanMatchers.scan(bounds(hasTupleString("[[" + group + "],[" + group + "]]")))));
         return queryComplexDocumentsWithPlan(Query.and(Query.field("group").equalsValue(group), textFilter), planHash, planMatcher);
     }
@@ -1989,7 +1990,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             if (skipFilterCheck) {
                 planMatcher = descendant(textPlanMatcher);
             } else {
-                planMatcher = descendant(filter(equalTo(additionalFilter), descendant(textPlanMatcher)));
+                planMatcher = descendant(filter(additionalFilter, descendant(textPlanMatcher)));
             }
             filter = Query.and(textFilter, additionalFilter, Query.field("group").equalsValue(group));
         } else {
@@ -2331,7 +2332,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private List<Long> queryMapDocumentsWithScan(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(MAP_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
-                filter(equalTo(filter), typeFilter(equalTo(Collections.singleton(MAP_DOC)), PlanMatchers.scan(unbounded()))))
+                filter(filter, typeFilter(equalTo(Collections.singleton(MAP_DOC)), PlanMatchers.scan(unbounded()))))
                 .map(t -> t.getLong(0))
                 .asList()
                 .get();
@@ -2422,7 +2423,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     ))
                     .build();
             RecordQueryPlan planWithAdditionalFilter = recordStore.planQuery(queryWithAdditionalFilter);
-            assertThat(planWithAdditionalFilter, filter(equalTo(Query.field("group").equalsValue(0L)), descendant(textIndexScan(anything()))));
+            assertThat(planWithAdditionalFilter, filter(Query.field("group").equalsValue(0L), descendant(textIndexScan(anything()))));
             List<Long> queryResults = recordStore.executeQuery(planWithAdditionalFilter).map(FDBQueriedRecord::getPrimaryKey).map(tuple -> tuple.getLong(0)).asList().join();
             assertEquals(Collections.singletonList(0L), queryResults);
 

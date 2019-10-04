@@ -32,8 +32,10 @@ import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -99,21 +101,15 @@ public class QueryExpressionTest {
             return 0;
         }
 
-        @Nullable
-        @Override
-        public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext, @Nonnull ExpressionRef<QueryComponent> thisRef) {
-            return null;
-        }
-
-        @Nullable
-        @Override
-        public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext, @Nonnull ExpressionRef<QueryComponent> thisRef) {
-            return null;
-        }
-
         @Override
         public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
             return false;
+        }
+
+        @Nonnull
+        @Override
+        public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+            throw new UnsupportedOperationException();
         }
     }
 

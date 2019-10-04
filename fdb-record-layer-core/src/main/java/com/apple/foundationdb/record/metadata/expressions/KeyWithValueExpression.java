@@ -24,12 +24,15 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * A <code>KeyWithValue</code> expression is a top level expression that takes as input an expression that
@@ -134,6 +137,12 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     @Override
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
         return RecordMetaDataProto.KeyExpression.newBuilder().setKeyWithValue(toProto()).build();
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        return new KeyWithValueExpression(innerKey.normalizeForPlanner(rootSource, elementModifier), splitPoint);
     }
 
     @Nonnull

@@ -52,7 +52,6 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unboun
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -76,7 +75,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 .setSort(field("str_value_indexed"), true)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()),
+        assertThat(plan, filter(query.getFilter(),
                 indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
         assertTrue(plan.isReverse());
         assertEquals(-384998859, plan.planHash());

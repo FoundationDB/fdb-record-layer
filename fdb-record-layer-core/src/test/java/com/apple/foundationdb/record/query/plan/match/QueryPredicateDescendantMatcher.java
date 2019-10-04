@@ -1,5 +1,5 @@
 /*
- * QueryComponentDescendantMatcher.java
+ * QueryPredicateDescendantMatcher.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.match;
 
-import com.apple.foundationdb.record.query.expressions.ComponentWithChildren;
-import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.predicates.AndOrPredicate;
+import com.apple.foundationdb.record.query.predicates.NotPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -33,24 +33,24 @@ import javax.annotation.Nonnull;
  * Matches any (non-strict) descendant of the query component with the given matcher. Note that a component is its own
  * non-strict descendant.
  */
-public class QueryComponentDescendantMatcher extends TypeSafeMatcher<QueryComponent> {
+public class QueryPredicateDescendantMatcher extends TypeSafeMatcher<QueryPredicate> {
     @Nonnull
-    private final Matcher<QueryComponent> matcher;
+    private final Matcher<QueryPredicate> matcher;
 
-    public QueryComponentDescendantMatcher(@Nonnull Matcher<QueryComponent> matcher) {
+    public QueryPredicateDescendantMatcher(@Nonnull Matcher<QueryPredicate> matcher) {
         this.matcher = matcher;
     }
 
     @Override
-    public boolean matchesSafely(@Nonnull QueryComponent component) {
+    public boolean matchesSafely(@Nonnull QueryPredicate component) {
         if (matcher.matches(component)) {
             return true;
         }
-        if (component instanceof ComponentWithSingleChild) {
-            return matchesSafely(((ComponentWithSingleChild)component).getChild());
+        if (component instanceof NotPredicate) {
+            return matchesSafely(((NotPredicate)component).getChild());
         }
-        if (component instanceof ComponentWithChildren) {
-            return ((ComponentWithChildren)component).getChildren().stream().anyMatch(this::matchesSafely);
+        if (component instanceof AndOrPredicate) {
+            return ((AndOrPredicate)component).getChildren().stream().anyMatch(this::matchesSafely);
         }
         return false;
     }

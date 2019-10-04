@@ -25,6 +25,9 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -33,6 +36,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -146,6 +150,16 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
         return RecordMetaDataProto.KeyExpression.newBuilder().setList(toProto()).build();
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        final ImmutableList.Builder<KeyExpression> normalizedChildren = ImmutableList.builder();
+        for (KeyExpression child : children) {
+            normalizedChildren.add(child.normalizeForPlanner(rootSource, elementModifier));
+        }
+        return new ListKeyExpression(normalizedChildren.build());
     }
 
     @Nonnull

@@ -25,13 +25,13 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.expressions.BaseField;
 import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.locationtech.jts.geom.Coordinate;
@@ -43,6 +43,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Query filter for points (latitude, longitude) within a given distance of a given center.
@@ -128,17 +129,10 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
         return Collections.emptyIterator();
     }
 
-    @Nullable
+    @Nonnull
     @Override
-    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
-                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        return null;
-    }
-
-    @Nullable
-    @Override
-    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext, @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        return BaseField.unnestedWith(nestedContext, thisRef);
+    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override

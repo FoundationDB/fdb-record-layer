@@ -26,6 +26,11 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
+import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.view.ValueElement;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -33,6 +38,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Take keys from a record field.
@@ -194,6 +200,33 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     @Override
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
         return RecordMetaDataProto.KeyExpression.newBuilder().setField(toProto()).build();
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        switch (fanType) {
+            case FanOut:
+                return new ElementKeyExpression(elementModifier.apply(new ValueElement(getFieldSource(rootSource))));
+            case None:
+                return new ElementKeyExpression(elementModifier.apply(new FieldElement(getFieldSource(rootSource), fieldName)));
+            case Concatenate:
+            default:
+        }
+        throw new UnsupportedOperationException();
+    }
+
+    @Nonnull
+    Source getFieldSource(@Nonnull Source rootSource) {
+        switch (fanType) {
+            case FanOut:
+                return new RepeatedFieldSource(rootSource, fieldName);
+            case Concatenate:
+            case None:
+                return rootSource;
+            default:
+                throw new RecordCoreException("unrecognized fan type");
+        }
     }
 
     @Nonnull

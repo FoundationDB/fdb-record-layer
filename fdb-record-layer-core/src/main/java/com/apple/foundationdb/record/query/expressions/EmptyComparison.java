@@ -25,8 +25,12 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -35,6 +39,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * A comparison to determine whether a repeated field is empty (has no occurrences).
@@ -86,12 +91,10 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
         return Collections.emptyIterator();
     }
 
-    @Nullable
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
-                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        return null;
+    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        return new ElementPredicate(elementModifier.apply(new FieldElement(rootSource, getFieldName())), Comparisons.LIST_EMPTY);
     }
 
     @Override

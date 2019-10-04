@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -56,6 +58,9 @@ public interface QueryableKeyExpression extends KeyExpression {
         }
         return key.getObject(0);
     }
+
+    @Nonnull
+    Element toElement(@Nonnull Source rootSource);
 
     /**
      * Get a function to be applied to the comparison operand before compairing it with the application of the key expression

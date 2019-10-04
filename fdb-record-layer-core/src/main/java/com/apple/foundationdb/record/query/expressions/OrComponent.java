@@ -25,11 +25,16 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * A {@link QueryComponent} that is satisfied when any of its child components is satisfied.
@@ -74,6 +79,12 @@ public class OrComponent extends AndOrComponent {
     @Override
     public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
         return otherExpression instanceof OrComponent;
+    }
+
+    @Nonnull
+    @Override
+    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        return OrPredicate.from(normalizeChildrenForPlanner(rootSource, elementModifier));
     }
 
     @Override

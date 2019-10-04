@@ -23,16 +23,12 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
+import com.apple.foundationdb.record.query.plan.temp.view.MessageValue;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -62,25 +58,7 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
         if (message == null) {
             return null;
         }
-        final Descriptors.FieldDescriptor field = findFieldDescriptor(message);
-        if (field.isRepeated()) {
-            int count = message.getRepeatedFieldCount(field);
-            List<Object> list = new ArrayList<>(count);
-            for (int i = 0; i < count; i++) {
-                list.add(message.getRepeatedField(field, i));
-            }
-            return list;
-        }
-        if (field.hasDefaultValue() || message.hasField(field)) {
-            if (field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE &&
-                    TupleFieldsHelper.isTupleField(field.getMessageType())) {
-                return TupleFieldsHelper.fromProto((Message)message.getField(field), field.getMessageType());
-            } else {
-                return message.getField(field);
-            }
-        } else {
-            return null;
-        }
+        return MessageValue.getFieldOnMessage(message, fieldName);
     }
 
     @Nonnull
@@ -120,14 +98,6 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
         return fieldName;
     }
 
-    @Nullable
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
-                                                        @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        return unnestedWith(nestedContext, thisRef);
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -148,18 +118,5 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
     @Override
     public int planHash() {
         return fieldName.hashCode();
-    }
-
-    @Nonnull
-    @API(API.Status.EXPERIMENTAL)
-    public static ExpressionRef<QueryComponent> unnestedWith(@Nonnull NestedContext nestedContext,
-                                                             @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        final QueryComponent nest;
-        if (nestedContext.isParentFieldFannedOut()) {
-            nest = new OneOfThemWithComponent(nestedContext.getParentField().getFieldName(), thisRef);
-        } else {
-            nest = new NestedField(nestedContext.getParentField().getFieldName(), thisRef);
-        }
-        return thisRef.getNewRefWith(nest);
     }
 }

@@ -27,8 +27,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeElement;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -38,6 +42,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A {@link QueryComponent} that implements checking for a given record type.
@@ -90,18 +95,10 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         return Collections.emptyIterator();
     }
 
-    @Nullable
+    @Nonnull
     @Override
-    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
-                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        return thisRef;
-    }
-
-    @Nullable
-    @Override
-    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
-                                                        @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        return thisRef;
+    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        return new ElementPredicate(new RecordTypeElement(rootSource), comparison);
     }
 
     @Override

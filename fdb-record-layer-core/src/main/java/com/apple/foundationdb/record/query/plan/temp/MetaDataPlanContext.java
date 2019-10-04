@@ -50,6 +50,8 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
+    private final Set<String> recordTypes;
+    @Nonnull
     private final BiMap<Index, String> indexes;
     @Nonnull
     private final BiMap<String, Index> indexesByName;
@@ -71,7 +73,9 @@ public class MetaDataPlanContext implements PlanContext {
             if (query.getRecordTypes().isEmpty()) { // ALL_TYPES
                 commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
                 greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(metaData.getRecordTypes().values());
+                this.recordTypes = metaData.getRecordTypes().keySet();
             } else {
+                this.recordTypes = ImmutableSet.copyOf(query.getRecordTypes());
                 final List<RecordType> recordTypes = query.getRecordTypes().stream().map(metaData::getRecordType).collect(Collectors.toList());
                 greatestPrimaryKeyWidth = getGreatestPrimaryKeyWidth(recordTypes);
                 if (recordTypes.size() == 1) {
@@ -103,19 +107,21 @@ public class MetaDataPlanContext implements PlanContext {
 
         ImmutableSet.Builder<IndexEntrySource> builder = ImmutableSet.builder();
         if (commonPrimaryKey != null) {
-            builder.add(IndexEntrySource.fromCommonPrimaryKey(commonPrimaryKey));
+            builder.add(IndexEntrySource.fromCommonPrimaryKey(recordTypes, commonPrimaryKey));
         }
         for (Index index : indexList) {
             indexes.put(index, index.getName());
-            builder.add(IndexEntrySource.fromIndex(index));
+            builder.add(IndexEntrySource.fromIndex(metaData.recordTypesForIndex(index), index));
         }
         indexEntrySources = builder.build();
     }
 
-    private MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState,
-                                @Nonnull BiMap<Index, String> indexes, @Nonnull ImmutableSet<IndexEntrySource> indexEntrySources,
+    private MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull Set<String> recordTypes,
+                                @Nonnull RecordStoreState recordStoreState, @Nonnull BiMap<Index, String> indexes,
+                                @Nonnull ImmutableSet<IndexEntrySource> indexEntrySources,
                                 @Nonnull KeyExpression commonPrimaryKey, int greatestPrimaryKeyWidth) {
         this.metaData = metaData;
+        this.recordTypes = recordTypes;
         this.recordStoreState = recordStoreState;
         this.indexes = indexes;
         this.indexesByName = indexes.inverse();
@@ -148,6 +154,11 @@ public class MetaDataPlanContext implements PlanContext {
         return greatestPrimaryKeyWidth;
     }
 
+    @Override
+    @Nonnull
+    public Set<String> getRecordTypes() {
+        return recordTypes;
+    }
 
     @Override
     @Nonnull
@@ -178,22 +189,6 @@ public class MetaDataPlanContext implements PlanContext {
     public RecordMetaData getMetaData() {
         return metaData;
     }
-
-    @Nonnull
-    @Override
-    public PlanContext asNestedWith(@Nonnull NestedContext nestedContext) {
-        // Only adjust the index entry sources.
-        final ImmutableSet.Builder<IndexEntrySource> nestedSources = ImmutableSet.builder();
-        for (IndexEntrySource source : indexEntrySources) {
-            final IndexEntrySource nestedSource = source.asNestedWith(nestedContext);
-            if (nestedSource != null) {
-                nestedSources.add(nestedSource);
-            }
-        }
-        return new MetaDataPlanContext(metaData, recordStoreState, indexes, nestedSources.build(),
-                commonPrimaryKey, greatestPrimaryKeyWidth);
-    }
-
 
     @Nonnull
     private List<Index> readableOf(@Nonnull List<Index> indexes) {

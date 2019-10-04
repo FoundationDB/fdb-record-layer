@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.BaseKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -31,6 +33,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * A dummy class for use within unit tests to check paths within the code base that are supposed
@@ -66,6 +69,12 @@ public class UnknownKeyExpression extends BaseKeyExpression {
     @Override
     public int getColumnSize() {
         return 1;
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull

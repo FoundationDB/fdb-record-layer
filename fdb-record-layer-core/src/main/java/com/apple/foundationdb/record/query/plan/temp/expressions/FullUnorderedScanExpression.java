@@ -22,11 +22,9 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
 
@@ -35,8 +33,7 @@ import java.util.Iterator;
  * of a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan} with
  * {@link com.apple.foundationdb.record.query.plan.ScanComparisons#EMPTY}. Unlike a
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}, a {@code FullUnorderedScanExpression}
- * is not implicitly ordered by the primary key and thus can be nested/unnested freely with respect to any
- * {@link NestedContext}.
+ * is not implicitly ordered by the primary key.
  *
  * <p>
  * This expression is useful as the source of records for the initial planner expression produced from a
@@ -49,18 +46,6 @@ public class FullUnorderedScanExpression implements RelationalPlannerExpression 
     @Override
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Collections.emptyIterator();
-    }
-
-    @Nullable
-    @Override
-    public ExpressionRef<RelationalPlannerExpression> asNestedWith(@Nonnull NestedContext nestedContext, @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
-        return thisRef;
-    }
-
-    @Nullable
-    @Override
-    public ExpressionRef<RelationalPlannerExpression> asUnnestedWith(@Nonnull NestedContext nestedContext, @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
-        return thisRef;
     }
 
     @Override

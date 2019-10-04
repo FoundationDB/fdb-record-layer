@@ -25,7 +25,9 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
@@ -86,40 +88,14 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
         return getChildren().stream().anyMatch(QueryComponent::isAsync);
     }
 
-    @Nullable
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
-                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        // An AndComponent has an exactly equivalent form within a NestedContext if and only if all of its children are
-        // nested under the context's parent.
-        if (nestedContext.isParentFieldFannedOut()) {
-            // If the parent field is fanned out, then we can only place a single conjunct in the context even if all
-            // of them share a common parent because each separate fan out iterates through the repeated children
-            // independently. Concretely, the expressions
-            //     and(field("p", FanType.FanOut).matches(field("a").equals("foo")),
-            //         field("p", FanType.Fanout).matches(field("b").equals("bar")))
-            // and
-            //     field("p", FanType.FanOut).matches(and(field("a").equals("foo"), field("b").equals("bar")))
-            // are not the same.
-            return null;
-        }
-        ImmutableList.Builder<ExpressionRef<QueryComponent>> operandRefs = ImmutableList.builder();
-        for (ExpressionRef<QueryComponent> operandRef : getChildrenRefs()) {
-            final ExpressionRef<QueryComponent> nestedOperandRef = nestedContext.getNestedQueryComponent(operandRef);
-            if (nestedOperandRef == null) {
-                return null;
-            }
-            operandRefs.add(nestedOperandRef);
-        }
-        return thisRef.getNewRefWith(new AndComponent(operandRefs.build()));
-    }
-
     @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public ExpressionRef<QueryComponent> asUnnestedWith(@Nonnull NestedContext nestedContext,
-                                                        @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        return BaseField.unnestedWith(nestedContext, thisRef);
+    protected List<QueryPredicate> normalizeChildrenForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementMapper) {
+        ImmutableList.Builder<QueryPredicate> children = ImmutableList.builder();
+
+        // Maybe do with refs instead?
+        for (QueryComponent child : getChildren()) {
+            children.add(child.normalizeForPlanner(rootSource, elementMapper));
+        }
+        return children.build();
     }
 }

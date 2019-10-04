@@ -43,11 +43,14 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.predicates.match.PredicateMatchers;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -78,7 +81,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -182,7 +184,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, union(
-                    filter(equalTo(Query.field("name").notNull()),
+                    filter(Query.field("name").notNull(),
                             indexScan(allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("([null],[[0, 1, 2]]]"))))),
                     indexScan(allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("[[[0, 1, 3]],>"))))));
             assertEquals(1352435039, plan.planHash());
@@ -284,7 +286,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("num_value_2").equalsValue(0))
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, filter(equalTo(query.getFilter()), typeFilter(anything(), scan(unbounded()))));
+            assertThat(plan, filter(query.getFilter(), typeFilter(anything(), scan(unbounded()))));
             assertEquals(913370522, plan.planHash());
             continuation = null;
             retrieved = new ArrayList<>(50);
@@ -601,8 +603,13 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRemoveDuplicates(true)
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, filter(equalTo(query.getFilter()),
-                    typeFilter(containsInAnyOrder("MultiRecordTwo", "MultiRecordThree"), scan(unbounded()))));
+            Matcher<RecordQueryPlan> sharedInnerPlan = typeFilter(containsInAnyOrder("MultiRecordTwo", "MultiRecordThree"), scan(unbounded()));
+            if (plan instanceof RecordQueryFilterPlan) {
+                assertThat(plan, filter(query.getFilter(), sharedInnerPlan));
+            } else {
+                assertThat(plan, filter(PredicateMatchers.valueFrom(PredicateMatchers.repeatedField("element")).greaterThan("A"),
+                        typeFilter(containsInAnyOrder("MultiRecordTwo", "MultiRecordThree"), scan(unbounded()))));
+            }
             assertEquals(1808059644, plan.planHash());
             assertEquals(Arrays.asList(800L, 1776L),
                     recordStore.executeQuery(plan)
@@ -619,7 +626,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             plan = planner.plan(query);
             if (planner instanceof RecordQueryPlanner) {
                 // RecordQueryPlanner doesn't notice that the requested record type match the record types for onetwo$element.
-                assertThat(plan, filter(equalTo(query.getFilter()),
+                assertThat(plan, filter(query.getFilter(),
                         typeFilter(containsInAnyOrder("MultiRecordOne", "MultiRecordTwo"), scan(unbounded()))));
                 assertEquals(-663593392, plan.planHash());
             } else {
@@ -758,7 +765,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(cnf)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(cnf), anything()));
+        assertThat(plan, filter(cnf, anything()));
     }
 
     /**
@@ -785,7 +792,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(cnf)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(cnf), anything()));
+        assertThat(plan, filter(cnf, anything()));
     }
 
 }
