@@ -29,14 +29,14 @@ import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForA
 import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndComponentRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithFieldWithComparisonRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FindIndexForComponentWithComparisonRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressionToScanPlanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctFieldWithComparisonIntoExistingIndexScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushComponentWithComparisonIntoExistingScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctComponentWithComparisonIntoExistingScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctFilterBelowFilterRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PushFieldWithComparisonIntoExistingIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushTypeFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveNestedContextRule;
@@ -65,9 +65,9 @@ public class PlannerRuleSet {
     private static final List<PlannerRule<? extends PlannerExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
             new SortToIndexRule(),
-            new FilterWithFieldWithComparisonRule(),
-            new PushFieldWithComparisonIntoExistingIndexScanRule(),
-            new PushConjunctFieldWithComparisonIntoExistingIndexScanRule(),
+            new FindIndexForComponentWithComparisonRule(),
+            new PushComponentWithComparisonIntoExistingScanRule(),
+            new PushConjunctComponentWithComparisonIntoExistingScanRule(),
             new RemoveRedundantTypeFilterRule(),
             new FindPossibleIndexForAndComponentRule(),
             new OrToUnorderedUnionRule(),

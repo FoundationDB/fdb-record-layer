@@ -51,11 +51,9 @@ public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnorderedUni
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final List<RecordQueryPlan> planChildren = call.getBindings().getAll(childMatcher);
         call.yield(call.ref(RecordQueryUnorderedUnionPlan.from(planChildren)));
-        return ChangesMade.MADE_CHANGES;
     }
 }

@@ -114,7 +114,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that multi-type record queries can scan multi-type indexes.
      * Verify that single-type record queries can scan multi-type indexes with a type filter.
      */
-    @DualPlannerTest
+    @Test
     public void testMultiRecordTypeIndexScan() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);

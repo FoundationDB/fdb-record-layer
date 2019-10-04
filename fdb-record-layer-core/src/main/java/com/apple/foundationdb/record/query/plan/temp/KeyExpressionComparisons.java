@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.google.common.collect.ImmutableList;
@@ -141,6 +142,10 @@ public class KeyExpressionComparisons {
         return root.getUnmatchedFieldCount();
     }
 
+    public boolean hasUnmatchedFieldCreatingDuplicates() {
+        return root.hasUnmatchedFieldCreatingDuplicates();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -218,6 +223,9 @@ public class KeyExpressionComparisons {
                     return MatchedComparisonType.MATCHED;
                 }
             }
+            if (keyExpression instanceof NestingKeyExpression) {
+                return children.get(0).getMatchedComparisonType();
+            }
             // TODO support other possible key expressions here
             return MatchedComparisonType.NOT_MATCHED;
         }
@@ -246,23 +254,29 @@ public class KeyExpressionComparisons {
         public Optional<KeyExpressionWithComparison> matchWith(@Nonnull ComponentWithComparison component) {
             if (keyExpression instanceof ThenKeyExpression) {
                 return matchWithThen(component);
-            }
-            if (keyExpression instanceof GroupingKeyExpression) {
+            } else if (keyExpression instanceof GroupingKeyExpression) {
                 return children.get(0).matchWith(component).map(this::withChild);
-            }
-            if (keyExpression instanceof KeyWithValueExpression) {
+            } else if (keyExpression instanceof KeyWithValueExpression) {
                 return children.get(0).matchWith(component).map(this::withChild);
-            }
-            if (keyExpression instanceof FieldKeyExpression && component instanceof FieldWithComparison) {
-                FieldWithComparison fieldWithComparison = (FieldWithComparison) component;
-                if (fieldWithComparison.getFieldName().equals(((FieldKeyExpression)keyExpression).getFieldName())) {
-                    return comparison.tryToAdd(fieldWithComparison.getComparison()).map(this::withComparison);
+            } else if (keyExpression instanceof FieldKeyExpression) {
+                FieldKeyExpression fieldKeyExpression = (FieldKeyExpression)keyExpression;
+                if (fieldKeyExpression.getFanType().equals(KeyExpression.FanType.None) &&
+                        component instanceof FieldWithComparison) {
+                    FieldWithComparison fieldWithComparison = (FieldWithComparison)component;
+                    if (fieldWithComparison.getFieldName().equals(fieldKeyExpression.getFieldName())) {
+                        return comparison.tryToAdd(fieldWithComparison.getComparison()).map(this::withComparison);
+                    }
+                } else if (fieldKeyExpression.getFanType().equals(KeyExpression.FanType.FanOut) &&
+                           component instanceof OneOfThemWithComparison) {
+                    OneOfThemWithComparison oneOfThemWithComparison = (OneOfThemWithComparison)component;
+                    if (oneOfThemWithComparison.getFieldName().equals(((FieldKeyExpression)keyExpression).getFieldName())) {
+                        return comparison.tryToAdd(oneOfThemWithComparison.getComparison()).map(this::withComparison);
+                    }
                 }
-                return Optional.empty();
-            }
-            if (keyExpression instanceof RecordTypeKeyExpression && component instanceof RecordTypeKeyComparison) {
+            } else if (keyExpression instanceof RecordTypeKeyExpression && component instanceof RecordTypeKeyComparison) {
                 return comparison.tryToAdd(component.getComparison()).map(this::withComparison);
             }
+
             return Optional.empty();
         }
 
@@ -476,6 +490,21 @@ public class KeyExpressionComparisons {
                 return children.stream().mapToInt(KeyExpressionWithComparison::getUnmatchedFieldCount).sum();
             }
             return 0;
+        }
+
+        public boolean hasUnmatchedFieldCreatingDuplicates() {
+            if (keyExpression instanceof ThenKeyExpression) {
+                return children.stream().anyMatch(KeyExpressionWithComparison::hasUnmatchedFieldCreatingDuplicates);
+            }
+
+            if (keyExpression instanceof KeyExpressionWithoutChildren ||
+                    keyExpression instanceof NestingKeyExpression) {
+                return keyExpression.createsDuplicates() &&
+                       getMatchedComparisonType().equals(MatchedComparisonType.NOT_MATCHED);
+            }
+
+            // As a fall back, return true if the current key expression produces duplicates _at all_.
+            return keyExpression.createsDuplicates();
         }
 
         public static KeyExpressionWithComparison from(@Nonnull KeyExpressionComparisons root, @Nonnull KeyExpression keyExpression) {

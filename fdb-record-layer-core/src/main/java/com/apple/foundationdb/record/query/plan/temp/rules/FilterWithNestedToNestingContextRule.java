@@ -53,9 +53,8 @@ public class FilterWithNestedToNestingContextRule extends PlannerRule<LogicalFil
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final ExpressionRef<RelationalPlannerExpression> inner = call.get(innerMatcher);
         final NestedField nestedField = call.get(nestedFieldMatcher);
         final ExpressionRef<QueryComponent> nestedFilter = call.get(nestedFilterMatcher);
@@ -66,8 +65,6 @@ public class FilterWithNestedToNestingContextRule extends PlannerRule<LogicalFil
         if (nestedInner != null) {
             call.yield(call.ref(new NestedContextExpression(nestedContext,
                     new LogicalFilterExpression(nestedFilter, nestedInner))));
-            return ChangesMade.MADE_CHANGES;
         }
-        return ChangesMade.NO_CHANGE;
     }
 }

@@ -50,13 +50,11 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final RecordQueryPlan inner = call.get(innerMatcher);
         final ExpressionRef<QueryComponent> filter = call.get(filterMatcher);
 
         call.yield(SingleExpressionRef.of(new RecordQueryFilterPlan(call.ref(inner), filter)));
-        return ChangesMade.MADE_CHANGES;
     }
 }

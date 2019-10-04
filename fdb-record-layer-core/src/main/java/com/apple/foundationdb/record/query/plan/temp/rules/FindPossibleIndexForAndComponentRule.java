@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
+import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -43,12 +44,12 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * A rule that finds all indexes that could implement one of the {@link FieldWithComparison} conjuncts of an AND filter,
- * leaving all the other filters (of any type, including other fields) as a residual filter.
+ * A rule that finds all indexes that could implement one of the {@link ComponentWithComparison} conjuncts of an AND
+ * filter, leaving all the other filters (of any type, including other fields) as a residual filter.
  */
 @API(API.Status.EXPERIMENTAL)
 public class FindPossibleIndexForAndComponentRule extends PlannerRule<LogicalFilterExpression> {
-    private static ExpressionMatcher<FieldWithComparison> fieldMatcher = TypeMatcher.of(FieldWithComparison.class);
+    private static ExpressionMatcher<ComponentWithComparison> fieldMatcher = TypeMatcher.of(FieldWithComparison.class);
     private static ReferenceMatcher<QueryComponent> residualFieldsMatcher = ReferenceMatcher.anyRef();
     private static ExpressionMatcher<AndComponent> andFilterMatcher = TypeMatcher.of(AndComponent.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(fieldMatcher, residualFieldsMatcher));
@@ -60,11 +61,9 @@ public class FindPossibleIndexForAndComponentRule extends PlannerRule<LogicalFil
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
-        FieldWithComparison field = call.getBindings().get(fieldMatcher);
-        ChangesMade madeChanges = ChangesMade.NO_CHANGE;
+    public void onMatch(@Nonnull PlannerRuleCall call) {
+        ComponentWithComparison field = call.getBindings().get(fieldMatcher);
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
             final KeyExpressionComparisons keyComparisons = indexEntrySource.getEmptyComparisons();
             final Optional<KeyExpressionComparisons> matchedKeyComparisons = keyComparisons.matchWith(field);
@@ -79,10 +78,7 @@ public class FindPossibleIndexForAndComponentRule extends PlannerRule<LogicalFil
                 call.yield(call.ref(new LogicalFilterExpression(residualFilter,
                         call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
                                 matchedKeyComparisons.get(), false)))));
-                madeChanges = ChangesMade.MADE_CHANGES;
             }
         }
-
-        return madeChanges;
     }
 }

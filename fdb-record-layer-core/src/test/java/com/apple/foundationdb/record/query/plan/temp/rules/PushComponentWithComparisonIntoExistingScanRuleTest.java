@@ -1,5 +1,5 @@
 /*
- * PushFieldWithComparisonIntoExistingIndexScanRuleTest.java
+ * PushComponentWithComparisonIntoExistingScanRuleTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -46,8 +46,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Test that the rule can push a filter on a simple equality down into a compatibly ordered index.
  */
-public class PushFieldWithComparisonIntoExistingIndexScanRuleTest {
-    private static PlannerRule<LogicalFilterExpression> rule = new PushFieldWithComparisonIntoExistingIndexScanRule();
+public class PushComponentWithComparisonIntoExistingScanRuleTest {
+    private static PlannerRule<LogicalFilterExpression> rule = new PushComponentWithComparisonIntoExistingScanRule();
     private static Index singleFieldIndex = new Index("singleField", field("aField"));
     private static IndexEntrySource singleFieldIndexEntrySource = IndexEntrySource.fromIndex(singleFieldIndex);
     private static Index concatIndex = new Index("concat", concat(field("aField"), field("anotherField")));

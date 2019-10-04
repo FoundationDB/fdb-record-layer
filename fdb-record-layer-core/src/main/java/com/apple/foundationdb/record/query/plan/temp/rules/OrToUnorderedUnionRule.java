@@ -58,9 +58,8 @@ public class OrToUnorderedUnionRule extends PlannerRule<LogicalFilterExpression>
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final ExpressionRef<RelationalPlannerExpression> inner = call.get(innerMatcher);
         final List<ExpressionRef<QueryComponent>> children = call.getBindings().getAll(childMatcher);
         List<ExpressionRef<RelationalPlannerExpression>> relationalExpressionRefs = new ArrayList<>(children.size());
@@ -68,6 +67,5 @@ public class OrToUnorderedUnionRule extends PlannerRule<LogicalFilterExpression>
             relationalExpressionRefs.add(call.ref(new LogicalFilterExpression(child, inner)));
         }
         call.yield(SingleExpressionRef.of(new LogicalUnorderedUnionExpression(relationalExpressionRefs)));
-        return ChangesMade.MADE_CHANGES;
     }
 }
