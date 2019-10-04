@@ -101,6 +101,8 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer.DEFAULT_PROGRESS_LOG_INTERVAL;
+import static com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer.DO_NOT_RE_INCREASE_LIMIT;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThan;
@@ -2663,6 +2665,8 @@ public class OnlineIndexerTest extends FDBTestBase {
                 assertEquals(indexBuilder.getLimit(), limit - indexBuilder.getConfigLoaderInvocationCount());
                 assertEquals(indexBuilder.getConfig().getMaxRetries(), 3);
                 assertEquals(indexBuilder.getConfig().getRecordsPerSecond(), 10000);
+                assertEquals(indexBuilder.getConfig().getProgressLogIntervalMillis(), DEFAULT_PROGRESS_LOG_INTERVAL);
+                assertEquals(indexBuilder.getConfig().getIncreaseLimitAfter(), DO_NOT_RE_INCREASE_LIMIT);
                 Thread.sleep(100);
             }
             assertThat("Should have done several transactions in a few seconds", pass, lessThan(100));
