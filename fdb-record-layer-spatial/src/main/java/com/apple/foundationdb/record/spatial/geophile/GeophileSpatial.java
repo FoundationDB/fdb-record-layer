@@ -53,8 +53,8 @@ class GeophileSpatial {
       - latitude: -90.0 to +90.0
       - longitude: -180.0 to 180.0 with wraparound
 
-      The interleave pattern is [lon, lat, lon, lat, ..., lon], reflecting the fact that longitude covers a numeric range
-      twice that of latitude.
+      The interleave pattern is [lon, lat, lon, lat, ..., lon]. Longitude covers a numeric range twice that of latitude,
+      so gets an extra bit. The default interleave would then otherwise be [lat, lon, ..., lat, lon, lon].
     */
 
     public static final int LAT_LON_DIMENSIONS = 2;
@@ -64,6 +64,7 @@ class GeophileSpatial {
     public static final double MAX_LON = 180;
     private static final int LAT_BITS = 28;
     private static final int LON_BITS = 29;
+    private static final CoordinateSequenceFilter SWAPPING_FILTER = new SwappingFilter();
 
     private GeophileSpatial() {
     }
@@ -229,26 +230,27 @@ class GeophileSpatial {
      * @return the transformed geometry
      */
     public static Geometry swapLatLong(@Nonnull Geometry geometry) {
-        geometry.apply(new CoordinateSequenceFilter() {
-            @Override
-            public void filter(CoordinateSequence seq, int i) {
-                double x = seq.getCoordinate(i).x;
-                double y = seq.getCoordinate(i).y;
-                seq.setOrdinate(i, 0, y);
-                seq.setOrdinate(i, 1, x);
-            }
-
-            @Override
-            public boolean isGeometryChanged() {
-                return true;
-            }
-
-            @Override
-            public boolean isDone() {
-                return false;
-            }
-        });
+        geometry.apply(SWAPPING_FILTER);
         return geometry;
     }
 
+    private static class SwappingFilter implements CoordinateSequenceFilter {
+        @Override
+        public void filter(CoordinateSequence seq, int i) {
+            double x = seq.getCoordinate(i).x;
+            double y = seq.getCoordinate(i).y;
+            seq.setOrdinate(i, 0, y);
+            seq.setOrdinate(i, 1, x);
+        }
+
+        @Override
+        public boolean isGeometryChanged() {
+            return true;
+        }
+
+        @Override
+        public boolean isDone() {
+            return false;
+        }
+    }
 }

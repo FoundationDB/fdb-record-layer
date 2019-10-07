@@ -49,6 +49,10 @@ class GeophileCoveringPointRecord extends GeophileRecordImpl {
         return spatialObject;
     }
 
+    // The inherited methods work fine; they take into account the state we want (spatialObject is derived) and require matching classes.
+    // However, without these overrides, SpotBugs complains about EQ_DOESNT_OVERRIDE_EQUALS: Class doesn't override equals in superclass.
+    // With them, PMD complains. Pick one and override the other's warning.
+
     @Override
     @SuppressWarnings("PMD.UselessOverridingMethod")
     public boolean equals(Object o) {

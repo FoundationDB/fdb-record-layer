@@ -67,15 +67,15 @@ class GeophileBoxLatLonWithWraparound implements SpatialObject {
     public RegionComparison compare(Region region) {
         RegionComparison cL = left.compare(region);
         RegionComparison cR = right.compare(region);
-        if (cL == RegionComparison.REGION_INSIDE_OBJECT ||
+        if (cL == RegionComparison.REGION_INSIDE_OBJECT &&
                 cR == RegionComparison.REGION_INSIDE_OBJECT) {
+            throw new IllegalStateException("Cannot be inside two disjoint boxes");
+        } else if (cL == RegionComparison.REGION_INSIDE_OBJECT ||
+                       cR == RegionComparison.REGION_INSIDE_OBJECT) {
             return RegionComparison.REGION_INSIDE_OBJECT;
         } else if (cL == RegionComparison.REGION_OUTSIDE_OBJECT &&
-                   cR == RegionComparison.REGION_OUTSIDE_OBJECT) {
+                       cR == RegionComparison.REGION_OUTSIDE_OBJECT) {
             return RegionComparison.REGION_OUTSIDE_OBJECT;
-        } else if (cL == RegionComparison.REGION_INSIDE_OBJECT &&
-                   cR == RegionComparison.REGION_INSIDE_OBJECT) {
-            throw new IllegalStateException("Cannot be inside two disjoint boxes");
         } else {
             return RegionComparison.REGION_OVERLAPS_OBJECT;
         }

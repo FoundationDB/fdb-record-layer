@@ -31,7 +31,7 @@ import java.util.Objects;
  * A X / Y coordinate value expressed as a constant value or the name of a parameter.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class CoordinateValueOrParameter implements PlanHashable {
+public abstract class DoubleValueOrParameter implements PlanHashable {
     /**
      * Get the current value from the query bindings.
      * @param context the query context
@@ -45,8 +45,8 @@ public abstract class CoordinateValueOrParameter implements PlanHashable {
      * @return a new coordinate using the given value
      */
     @Nonnull
-    public static CoordinateValueOrParameter value(double value) {
-        return new CoordinateValue(value);
+    public static DoubleValueOrParameter value(double value) {
+        return new DoubleValue(value);
     }
 
     /**
@@ -55,14 +55,14 @@ public abstract class CoordinateValueOrParameter implements PlanHashable {
      * @return a new coordinate using the given parameter
      */
     @Nonnull
-    public static CoordinateValueOrParameter parameter(@Nonnull String parameter) {
-        return new CoordinateParameter(parameter);
+    public static DoubleValueOrParameter parameter(@Nonnull String parameter) {
+        return new DoubleParameter(parameter);
     }
 
-    static class CoordinateValue extends CoordinateValueOrParameter {
+    static class DoubleValue extends DoubleValueOrParameter {
         private final double value;
 
-        CoordinateValue(double value) {
+        DoubleValue(double value) {
             this.value = value;
         }
 
@@ -89,7 +89,7 @@ public abstract class CoordinateValueOrParameter implements PlanHashable {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            CoordinateValue that = (CoordinateValue)o;
+            DoubleValue that = (DoubleValue)o;
             return Double.compare(that.value, value) == 0;
         }
 
@@ -99,11 +99,11 @@ public abstract class CoordinateValueOrParameter implements PlanHashable {
         }
     }
 
-    static class CoordinateParameter extends CoordinateValueOrParameter {
+    static class DoubleParameter extends DoubleValueOrParameter {
         @Nonnull
         private final String parameter;
 
-        CoordinateParameter(@Nonnull String parameter) {
+        DoubleParameter(@Nonnull String parameter) {
             this.parameter = parameter;
         }
 
@@ -130,7 +130,7 @@ public abstract class CoordinateValueOrParameter implements PlanHashable {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            CoordinateParameter that = (CoordinateParameter)o;
+            DoubleParameter that = (DoubleParameter)o;
             return parameter.equals(that.parameter);
         }
 

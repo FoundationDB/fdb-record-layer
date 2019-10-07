@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.spatial.common.CoordinateValueOrParameter;
+import com.apple.foundationdb.record.spatial.common.DoubleValueOrParameter;
 import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.SpatialJoin;
 import com.geophile.z.SpatialObject;
@@ -46,15 +46,15 @@ import java.util.function.BiFunction;
 @API(API.Status.EXPERIMENTAL)
 public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQueryPlan {
     @Nonnull
-    private final CoordinateValueOrParameter centerLatitude;
+    private final DoubleValueOrParameter centerLatitude;
     @Nonnull
-    private final CoordinateValueOrParameter centerLongitude;
+    private final DoubleValueOrParameter centerLongitude;
     @Nonnull
-    private final CoordinateValueOrParameter distance;
+    private final DoubleValueOrParameter distance;
     private final boolean covering;
 
-    public GeophilePointWithinDistanceQueryPlan(@Nonnull CoordinateValueOrParameter centerLatitude, @Nonnull CoordinateValueOrParameter centerLongitude,
-                                                @Nonnull CoordinateValueOrParameter distance,
+    public GeophilePointWithinDistanceQueryPlan(@Nonnull DoubleValueOrParameter centerLatitude, @Nonnull DoubleValueOrParameter centerLongitude,
+                                                @Nonnull DoubleValueOrParameter distance,
                                                 @Nonnull String indexName, @Nonnull ScanComparisons prefixComparisons, boolean covering) {
         super(indexName, prefixComparisons);
         this.centerLatitude = centerLatitude;

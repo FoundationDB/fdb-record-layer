@@ -50,11 +50,11 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren {
     @Nonnull
-    private final CoordinateValueOrParameter centerLatitude;
+    private final DoubleValueOrParameter centerLatitude;
     @Nonnull
-    private final CoordinateValueOrParameter centerLongitude;
+    private final DoubleValueOrParameter centerLongitude;
     @Nonnull
-    private final CoordinateValueOrParameter distance;
+    private final DoubleValueOrParameter distance;
     @Nonnull
     private final String latitudeFieldName;
     @Nonnull
@@ -62,8 +62,8 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
     @Nonnull
     private final GeometryFactory geometryFactory = new GeometryFactory();
 
-    public GeoPointWithinDistanceComponent(@Nonnull CoordinateValueOrParameter centerLatitude, @Nonnull CoordinateValueOrParameter centerLongitude,
-                                           @Nonnull CoordinateValueOrParameter distance,
+    public GeoPointWithinDistanceComponent(@Nonnull DoubleValueOrParameter centerLatitude, @Nonnull DoubleValueOrParameter centerLongitude,
+                                           @Nonnull DoubleValueOrParameter distance,
                                            @Nonnull String latitudeFieldName, @Nonnull String longitudeFieldName) {
         this.centerLatitude = centerLatitude;
         this.centerLongitude = centerLongitude;

@@ -39,7 +39,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
-import com.apple.foundationdb.record.spatial.common.CoordinateValueOrParameter;
+import com.apple.foundationdb.record.spatial.common.DoubleValueOrParameter;
 import com.apple.foundationdb.record.spatial.common.GeoPointWithinDistanceComponent;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -212,9 +212,9 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
     protected RecordQueryPlan distanceFilter(double distance, RecordQueryPlan input) {
         return new RecordQueryFilterPlan(input,
                 Query.field("location").matches(new GeoPointWithinDistanceComponent(
-                        CoordinateValueOrParameter.parameter("center_latitude"),
-                        CoordinateValueOrParameter.parameter("center_longitude"),
-                        CoordinateValueOrParameter.value(distance),
+                        DoubleValueOrParameter.parameter("center_latitude"),
+                        DoubleValueOrParameter.parameter("center_longitude"),
+                        DoubleValueOrParameter.value(distance),
                         "latitude", "longitude")));
     }
 
@@ -229,9 +229,9 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     protected RecordQueryPlan distanceSpatialQuery(double distance, boolean covering) {
         RecordQueryPlan spatialQuery = new GeophilePointWithinDistanceQueryPlan(
-                        CoordinateValueOrParameter.parameter("center_latitude"),
-                        CoordinateValueOrParameter.parameter("center_longitude"),
-                        CoordinateValueOrParameter.value(distance),
+                        DoubleValueOrParameter.parameter("center_latitude"),
+                        DoubleValueOrParameter.parameter("center_longitude"),
+                        DoubleValueOrParameter.value(distance),
                         "City$location", ScanComparisons.EMPTY, covering);
         if (covering) {
             return spatialQuery;
