@@ -65,6 +65,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializationException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCacheFactory;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -3769,7 +3771,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        // Now upgrade with the renamed index. This must fail.
+        // Now upgrade the meta-data with the renamed index. This will pass, the old index will report READABLE, because it's not found.
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder renamedBuilder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             Index renamedIndex = new Index("index_renamed", "rec_no");
@@ -3780,11 +3782,93 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             recordStore = renamedStoreBuilder.setContext(context)
                     .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
                     .open();
-            // TODO: This is a bug. Querying the state of the index with the old and new names returns different states due to caching.
             assertEquals(IndexState.DISABLED, recordStore.getRecordStoreState().getState(renamedIndex.getName())); // renamed index
-            assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(index.getName())); // old index state
+            assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(index.getName())); // old index state is not found
             commit(context);
         }
-
     }
+
+    @Test
+    public void testIndexStateiMetaDataVersionStampCache() throws Exception {
+        MetaDataVersionStampStoreStateCacheFactory metaDataVersionStampCacheFactory = MetaDataVersionStampStoreStateCacheFactory.newInstance();
+        FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
+        try {
+            fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+            byte[] metaDataVersionStamp;
+
+            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
+            FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder().setMetaDataProvider(builder).setKeySpacePath(path);
+            Index index = new Index("index", "rec_no");
+            index.setSubspaceKey(1);
+            builder.addIndex("MySimpleRecord", index);
+
+            // Open the store; save the meta-data
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder.setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1)
+                        .setContext(context)
+                        .create();
+                assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+                assertTrue(recordStore.setStateCacheability(true));
+                metaDataVersionStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+                assertNotNull(metaDataVersionStamp);
+                commit(context);
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder.setContext(context)
+                        .setFormatVersion(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1)
+                        .open();
+                assertEquals(FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+                assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                recordStore.markIndexDisabled(index.getName());
+                verifyOldAndNewIndexState(context, index, IndexState.DISABLED, FDBRecordStore.SAVE_INDEX_STATE_WITH_SUBSPACE_KEY_FORMAT_VERSION - 1);
+                commit(context);
+            }
+
+            // Now upgrade. The index state must upgrade.
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder.setContext(context)
+                        .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                        .open();
+                assertNull(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                verifyOldAndNewIndexState(context, index, IndexState.DISABLED, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+                commit(context);
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder.setContext(context)
+                        .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                        .open();
+                metaDataVersionStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+                assertNotNull(metaDataVersionStamp);
+                verifyOldAndNewIndexState(context, index, IndexState.DISABLED, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+                commit(context);
+            }
+
+            // TODO: This is a bug. Querying the state of the index with the old and new names returns different states due to caching.
+            //  See https://github.com/FoundationDB/fdb-record-layer/issues/733
+            try (FDBRecordContext context = openContext()) {
+                final RecordMetaDataBuilder renamedBuilder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
+                Index renamedIndex = new Index("index_renamed", "rec_no");
+                renamedIndex.setSubspaceKey(1);
+                renamedBuilder.addIndex("MySimpleRecord", renamedIndex);
+                renamedBuilder.setVersion(builder.getVersion());
+                FDBRecordStore.Builder renamedStoreBuilder = FDBRecordStore.newBuilder().setMetaDataProvider(renamedBuilder).setKeySpacePath(path);
+                recordStore = renamedStoreBuilder.setContext(context)
+                        .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                        .open();
+                assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
+                assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(renamedIndex.getName()));
+                assertEquals(IndexState.DISABLED, recordStore.getRecordStoreState().getState(index.getName()));
+                byte[] oldIndexKey = recordStore.indexStateSubspace(true).pack(index.getName());
+                assertNull(context.ensureActive().get(oldIndexKey).join());
+                byte[] newIndexKey = recordStore.indexStateSubspace().pack(index.getSubspaceTupleKey());
+                assertEquals(Tuple.fromBytes(context.ensureActive().get(newIndexKey).join()).get(0), IndexState.DISABLED.code());
+                commit(context);
+            }
+        } finally {
+            fdb.setStoreStateCache(origStoreStateCache);
+        }
+    }
+
 }
