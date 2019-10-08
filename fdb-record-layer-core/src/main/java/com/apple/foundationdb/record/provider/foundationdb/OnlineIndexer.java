@@ -196,7 +196,7 @@ public class OnlineIndexer implements AutoCloseable {
         this.recordTypes = recordTypes;
         this.configLoader = configLoader;
         this.config = config;
-        this.limit = DEFAULT_LIMIT;
+        this.limit = config.maxLimit;
         this.syntheticIndex = syntheticIndex;
         this.recordsRange = computeRecordsRange();
         timeOfLastProgressLogMillis = System.currentTimeMillis();
@@ -222,7 +222,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Get the current config parameters of the online indexer.
      * @return the config parameters of the online indexer
      */
-    @Nullable
+    @Nonnull
     @VisibleForTesting
     Config getConfig() {
         return config;
