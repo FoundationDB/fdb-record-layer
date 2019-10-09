@@ -43,7 +43,7 @@ We draw inspiration from the Apache Software Foundation's informal motto:
 and their emphasis on meritocratic rules. You'll also observe that some initial 
 community structure is [inspired by the Swift community](https://swift.org/community/#community-structure).
 
-The project technical lead is Ben Collins (bbc@apple.com).
+The project technical lead is Evan Tschannen (ejt@apple.com).
 
 Members of the Apple FoundationDB team are part of the initial core committers helping 
 review individual contributions; you'll see them commenting on your pull requests. 

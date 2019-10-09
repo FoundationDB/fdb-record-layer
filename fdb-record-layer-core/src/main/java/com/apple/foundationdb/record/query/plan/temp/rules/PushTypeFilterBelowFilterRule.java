@@ -53,15 +53,13 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
         final ExpressionRef<QueryComponent> filter = call.get(filterMatcher);
         final Collection<String> recordTypes = call.get(root).getRecordTypes();
 
         call.yield(SingleExpressionRef.of(new RecordQueryFilterPlan(
                 SingleExpressionRef.of(new RecordQueryTypeFilterPlan(inner, recordTypes)), filter)));
-        return ChangesMade.MADE_CHANGES;
     }
 }

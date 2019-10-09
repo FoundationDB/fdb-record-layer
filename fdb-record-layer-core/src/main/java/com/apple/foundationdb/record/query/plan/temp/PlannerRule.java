@@ -76,22 +76,11 @@ public abstract class PlannerRule<T extends PlannerExpression> {
         this.matcher = matcher;
     }
 
-    @Nonnull
-    public abstract ChangesMade onMatch(@Nonnull PlannerRuleCall call);
+    public abstract void onMatch(@Nonnull PlannerRuleCall call);
 
     @Nonnull
     public ExpressionMatcher<T> getMatcher() {
         return matcher;
-    }
-
-    /**
-     * An enum to describe the results of the rule's {@link #onMatch(PlannerRuleCall)} method. {@code ChangesMade} is
-     * an enum rather than a boolean so that we can extend the degree to which rules report what they did to the planner
-     * in the future without needing to update too many rules.
-     */
-    public enum ChangesMade {
-        NO_CHANGE,
-        MADE_CHANGES
     }
 
     @Override

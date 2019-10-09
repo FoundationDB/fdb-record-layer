@@ -61,22 +61,18 @@ public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalSortExpression logicalSort = call.get(root);
         final KeyExpressionComparisons requestedSort = logicalSort.getSort();
         final boolean reverse = call.get(root).isReverse();
 
-        ChangesMade madeChanges = ChangesMade.NO_CHANGE;
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
             final KeyExpressionComparisons sortExpression = indexEntrySource.getEmptyComparisons();
             if (sortExpression.supportsSortOrder(requestedSort)) {
                 call.yield(call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
                         sortExpression, reverse)));
-                madeChanges = ChangesMade.MADE_CHANGES;
             }
         }
-        return madeChanges;
     }
 }

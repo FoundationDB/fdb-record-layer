@@ -343,6 +343,9 @@ public class CascadesPlanner implements QueryPlanner {
             if (!group.containsExactly(expression)) { // expression is gone
                 return;
             }
+            if (logger.isTraceEnabled()) {
+                logger.trace("Bindings: " +  expression.bindTo(rule.getMatcher()).count());
+            }
             expression.bindTo(rule.getMatcher()).map(bindings -> new CascadesRuleCall(context, rule, group, bindings))
                     .forEach(this::executeRuleCall);
         }

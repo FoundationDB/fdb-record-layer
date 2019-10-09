@@ -48,7 +48,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -70,11 +69,13 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
@@ -153,7 +154,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("secondary").equalsValue(byteString(0, 1, 3)))
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, indexScan(Matchers.allOf(indexName("ByteStringRecord$secondary"),
+            assertThat(plan, indexScan(allOf(indexName("ByteStringRecord$secondary"),
                     bounds(hasTupleString("[[[0, 1, 3]],[[0, 1, 3]]]")))));
             assertEquals(-1357153726, plan.planHash());
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
@@ -182,8 +183,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, union(
                     filter(equalTo(Query.field("name").notNull()),
-                            indexScan(Matchers.allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("([null],[[0, 1, 2]]]"))))),
-                    indexScan(Matchers.allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("[[[0, 1, 3]],>"))))));
+                            indexScan(allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("([null],[[0, 1, 2]]]"))))),
+                    indexScan(allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("[[[0, 1, 3]],>"))))));
             assertEquals(1352435039, plan.planHash());
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 int count = 0;
@@ -251,7 +252,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("str_value_indexed").equalsValue("odd"))
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, indexScan(Matchers.allOf(indexName("MySimpleRecord$str_value_indexed"),
+            assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"),
                     bounds(hasTupleString("[[odd],[odd]]")))));
             assertEquals(-1917280682, plan.planHash());
             continuation = null;
@@ -376,7 +377,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").equalsParameter("2")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(Matchers.allOf(
+        assertThat(plan, indexScan(allOf(
                 indexName("multi_index"),
                 bounds(hasTupleString("[EQUALS $1, EQUALS $2]")))));
         assertEquals(584809367, plan.planHash());
@@ -616,14 +617,20 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRemoveDuplicates(true)
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, filter(equalTo(query.getFilter()),
-                    typeFilter(containsInAnyOrder("MultiRecordOne", "MultiRecordTwo"), scan(unbounded()))));
-            assertEquals(-663593392, plan.planHash());
-            assertEquals(Arrays.asList(948L, 1066L, 1776L),
-                    recordStore.executeQuery(plan)
+            if (planner instanceof RecordQueryPlanner) {
+                // RecordQueryPlanner doesn't notice that the requested record type match the record types for onetwo$element.
+                assertThat(plan, filter(equalTo(query.getFilter()),
+                        typeFilter(containsInAnyOrder("MultiRecordOne", "MultiRecordTwo"), scan(unbounded()))));
+                assertEquals(-663593392, plan.planHash());
+            } else {
+                // Cascades planner correctly identifies that the requested record types match the index onetwo$element.
+                assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("onetwo$element"), bounds(hasTupleString("([A],>"))))));
+            }
+            assertThat(recordStore.executeQuery(plan)
                             .map(FDBQueriedRecord::getRecord)
                             .map(message -> message.getField(message.getDescriptorForType().findFieldByNumber(1)))
-                            .asList().join());
+                            .asList().join(),
+                    containsInAnyOrder(948L, 1066L, 1776L));
             // TOOD add a performance test here, but doing it before refactoring would be a lot of extra work
         }
     }
@@ -652,7 +659,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_3_indexed").lessThan(2))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan(Matchers.allOf(indexName("MySimpleRecord$num_value_3_indexed"),
+        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("([null],[2])")))));
         assertEquals(-699045510, plan.planHash());
 
@@ -725,7 +732,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("fint32").isNull())
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, indexScan(Matchers.allOf(indexName("MyFieldsRecord$fint32"),
+            assertThat(plan, indexScan(allOf(indexName("MyFieldsRecord$fint32"),
                     bounds(hasTupleString("[[null],[null]]")))));
             assertEquals(uuids.subList(3, 4), recordStore.executeQuery(plan).map(r -> r.getPrimaryKey().getUUID(0)).asList().join());
         }

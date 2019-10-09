@@ -1,5 +1,5 @@
 /*
- * FilterWithFieldWithComparisonRule.java
+ * FindIndexForComponentWithComparisonRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
@@ -44,22 +44,21 @@ import java.util.Optional;
  * Like the {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner}
  */
 @API(API.Status.EXPERIMENTAL)
-public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<FieldWithComparison> filterMatcher = TypeMatcher.of(FieldWithComparison.class);
+public class FindIndexForComponentWithComparisonRule extends PlannerRule<LogicalFilterExpression> {
+    private static final ExpressionMatcher<ComponentWithComparison> filterMatcher = TypeMatcher.of(ComponentWithComparison.class);
     private static final ExpressionMatcher<FullUnorderedScanExpression> scanMatcher = TypeMatcher.of(FullUnorderedScanExpression.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, filterMatcher, scanMatcher);
 
-    public FilterWithFieldWithComparisonRule() {
+    public FindIndexForComponentWithComparisonRule() {
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
-        final FieldWithComparison singleField = call.get(filterMatcher);
+    public void onMatch(@Nonnull PlannerRuleCall call) {
+        final ComponentWithComparison singleField = call.get(filterMatcher);
         if (ScanComparisons.getComparisonType(singleField.getComparison()).equals(ScanComparisons.ComparisonType.NONE)) {
             // This comparison cannot be accomplished with a single scan.
-            return ChangesMade.NO_CHANGE;
+            return;
         }
 
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
@@ -68,10 +67,7 @@ public class FilterWithFieldWithComparisonRule extends PlannerRule<LogicalFilter
             if (matchedComparisons.isPresent()) {
                 call.yield(call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
                         matchedComparisons.get(), false)));
-                return ChangesMade.MADE_CHANGES;
             }
         }
-        // couldn't find an index
-        return ChangesMade.NO_CHANGE;
     }
 }

@@ -46,17 +46,13 @@ public class RemoveNestedContextRule extends PlannerRule<NestedContextExpression
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final NestedContextExpression context = call.get(root);
         final NestedContext nestedContext = context.getNestedContext();
         final ExpressionRef<RelationalPlannerExpression> unnestedInner = nestedContext.getUnnestedRelationalPlannerExpression(call.get(innerMatcher));
-        if (unnestedInner == null) {
-            return ChangesMade.NO_CHANGE;
-        } else {
+        if (unnestedInner != null) {
             call.yield(unnestedInner);
-            return ChangesMade.MADE_CHANGES;
         }
     }
 }

@@ -50,14 +50,12 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
         super(root);
     }
 
-    @Nonnull
     @Override
-    public ChangesMade onMatch(@Nonnull PlannerRuleCall call) {
+    public void onMatch(@Nonnull PlannerRuleCall call) {
         final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
         final ExpressionRef<QueryComponent> filter = call.get(filterMatcher);
 
         call.yield(call.ref(new RecordQueryFilterPlan(
                 call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(inner)), filter)));
-        return ChangesMade.MADE_CHANGES;
     }
 }

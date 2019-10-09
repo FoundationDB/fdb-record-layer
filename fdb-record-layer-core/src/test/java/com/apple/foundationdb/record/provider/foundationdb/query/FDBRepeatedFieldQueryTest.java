@@ -400,7 +400,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that repeated fields can be retrieved using indexes.
      * Verify that demanding unique values forces a distinctness plan at the end.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexQuery7() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -454,7 +454,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * includes the repeated field, because repeated introduces duplicates and index entries are ordered by second field
      * and so cannot be deduplicated without additional space.
      */
-    @Test
+    @DualPlannerTest
     public void testPrefixRepeated() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.addIndex("MySimpleRecord", "prefix_repeated", concat(field("num_value_2"), field("repeater", FanType.FanOut)));
@@ -515,7 +515,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an index on a repeated field isn't used for normal scans.
      */
-    @Test
+    @DualPlannerTest
     public void testOnlyRepeatIndex() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
@@ -556,7 +556,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * query also includes the repeated field, because repeated introduces duplicates and index entries are ordered by
      * second field and so cannot be deduplicated without additional space.
      */
-    @Test
+    @DualPlannerTest
     public void testPrefixRepeatedNested() throws Exception {
         final RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")
