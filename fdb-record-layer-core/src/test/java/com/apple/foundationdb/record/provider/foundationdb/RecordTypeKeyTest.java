@@ -33,22 +33,35 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertThrows;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -73,7 +86,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for record type key in primary keys.
  */
 @Tag(Tags.RequiresFDB)
-public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
+public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
+
+    public static final RecordMetaDataHook BASIC_HOOK = metaData -> {
+        final RecordTypeBuilder t1 = metaData.getRecordType("MySimpleRecord");
+        final RecordTypeBuilder t2 = metaData.getRecordType("MyOtherRecord");
+        final KeyExpression pkey = concat(recordType(), field("rec_no"));
+        t1.setPrimaryKey(pkey);
+        t2.setPrimaryKey(pkey);
+        metaData.removeIndex(COUNT_INDEX.getName());
+        metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
+        metaData.addUniversalIndex(new Index("countByRecordType", GroupingKeyExpression.of(empty(), recordType()), IndexTypes.COUNT));
+    };
 
     @Test
     public void testExplicitKeys() throws Exception {
@@ -139,17 +163,6 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
             return null;
         });
     }
-
-    static final RecordMetaDataHook BASIC_HOOK = metaData -> {
-        final RecordTypeBuilder t1 = metaData.getRecordType("MySimpleRecord");
-        final RecordTypeBuilder t2 = metaData.getRecordType("MyOtherRecord");
-        final KeyExpression pkey = concat(recordType(), field("rec_no"));
-        t1.setPrimaryKey(pkey);
-        t2.setPrimaryKey(pkey);
-        metaData.removeIndex(COUNT_INDEX.getName());
-        metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
-        metaData.addUniversalIndex(new Index("countByRecordType", GroupingKeyExpression.of(empty(), recordType()), IndexTypes.COUNT));
-    };
 
     @Test
     public void testWriteRead() throws Exception {
@@ -221,6 +234,37 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    @Disabled
+    public void testIndexScanOnSecondColumn() throws Exception {
+        final Index index = new Index("recno-type", concat(field("num_value_2"), recordType()));
+        RecordMetaDataHook hook = metaData -> {
+            BASIC_HOOK.apply(metaData);
+            metaData.addUniversalIndex(index);
+        };
+
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.field("num_value_2").equalsValue(2))
+                    .build();
+            // RecordQueryPlan plan = planner.plan(query);
+            ScanComparisons comparison = new ScanComparisons(Arrays.asList(
+                    new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2),
+                    new RecordTypeKeyComparison("MySimpleRecord").getComparison()
+            ), Collections.emptySet());
+            RecordQueryPlan plan = new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_VALUE, comparison, false);
+
+            assertEquals(recs.subList(1, 2), recordStore.executeQuery(query)
+                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+            assertThat(plan, indexScan(allOf(indexName(index.getName()), bounds(hasTupleString("[EQUALS 2, IS MySimpleRecord]")))));
+        }
+    }
+
+    @Test
     public void testSinglyBoundedScan() throws Exception {
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
 
@@ -259,6 +303,137 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
             assertThat(plan, scan(bounds(anyOf(
                     hasTupleString("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"),
                     hasTupleString("[IS MySimpleRecord, [LESS_THAN 500 && GREATER_THAN 200]]")))));
+        }
+    }
+
+    /**
+     * Returns arguments for the tests with sorts. This returns a pair of arguments with the first
+     * argument being the field to sort on and the second field being whether to sort in forward or
+     * reverse order.
+     * @return a stream of arguments to use for parameterized tests with sorts
+     */
+    @Nonnull
+    static Stream<Arguments> sortArgs() {
+        // Sorts should be plannable on the primary key if (1) the sort is on the full primary key
+        // or (2) if the sort is on just the second column of the primary key as the fact that the query
+        // is on a single record type restricts the first column to a single value.
+        return Stream.of(concat(recordType(), field("rec_no")), field("rec_no"))
+                .flatMap(sortExpr -> Stream.of(Arguments.of(sortExpr, false), Arguments.of(sortExpr, true)));
+    }
+
+    @ParameterizedTest(name = "testDoublyBoundedScanWithSort [sortExpr = {0}, reverse = {1}]")
+    @MethodSource("sortArgs")
+    public void testDoublyBoundedScanWithSort(@Nonnull KeyExpression sortExpr, boolean reverse) throws Exception {
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.and(
+                            Query.field("rec_no").greaterThan(200L),
+                            Query.field("rec_no").lessThan(500L)))
+                    .setSort(sortExpr, reverse)
+                    .build();
+            final RecordQueryPlan plan = planner.plan(query);
+
+            List<FDBStoredRecord<Message>> expectedResults = recs.subList(1, 2);
+            if (reverse) {
+                expectedResults = Lists.reverse(expectedResults);
+            }
+            assertEquals(expectedResults, recordStore.executeQuery(query)
+                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+            // This is currently broken on concat(recordType(), field("rec_no")).
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/744
+            Assumptions.assumeTrue(sortExpr.getColumnSize() == 1,
+                    "sort not correctly planned yet if record type is in sort expression");
+            assertThat(plan, scan(bounds(anyOf(
+                    hasTupleString("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"),
+                    hasTupleString("[IS MySimpleRecord, [LESS_THAN 500 && GREATER_THAN 200]]")))));
+        }
+    }
+
+    /**
+     * Test whether sorts on the primary key work when restricted to a single record type. This should
+     * scan over only the records in question (because of the record type restriction).
+     *
+     * <p>
+     * This test is currently disabled as the planner is not yet sophisticated enough to handle this case.
+     * See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/744">Issue #744</a> for more details.
+     * </p>
+     *
+     * @param sortExpr the expression to sort by
+     * @param reverse whether to sort in reverse
+     */
+    @ParameterizedTest(name = "testSortOnSingleRecordType [sortExpr = {0}, reverse = {1}]")
+    @MethodSource("sortArgs")
+    @Disabled
+    public void testSortOnSingleRecordType(@Nonnull KeyExpression sortExpr, boolean reverse) throws Exception {
+        List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, BASIC_HOOK);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setSort(sortExpr, reverse)
+                    .build();
+            final RecordQueryPlan plan = planner.plan(query);
+
+            List<FDBStoredRecord<Message>> expectedResults = recs.subList(0, 2);
+            if (reverse) {
+                expectedResults = Lists.reverse(expectedResults);
+            }
+            assertEquals(expectedResults, recordStore.executeQuery(query)
+                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+            assertThat(plan, scan(bounds(hasTupleString("[IS MySimpleRecord"))));
+        }
+    }
+
+
+    @ParameterizedTest(name = "testSortOnSingleRecordType [sortExpr = {0}, reverse = {1}]")
+    @MethodSource("sortArgs")
+    @Disabled
+    public void testSortOnIndexWithComparisonOnSecondColumn(@Nonnull KeyExpression sortExpr, boolean reverse) throws Exception {
+        final Index index = new Index("recno-type", concat(field("num_value_2"), recordType()));
+        RecordMetaDataHook hook = metaData -> {
+            BASIC_HOOK.apply(metaData);
+            metaData.addUniversalIndex(index);
+        };
+
+        // Save an additional record which matches the predicate in order to ensure the reverse parameter of the
+        // query is honored (as the additional record allows forward and reverse scans to be distinguished)
+        final List<FDBStoredRecord<Message>> recs = saveSomeRecords(hook);
+        FDBStoredRecord<Message> additionalRecord;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066)
+                    .setNumValue2(2)
+                    .build();
+            FDBStoredRecord<Message> storedRecord = recordStore.saveRecord(record);
+            commit(context);
+            additionalRecord = storedRecord.withCommittedVersion(context.getVersionStamp());
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.field("num_value_2").equalsValue(2))
+                    .setSort(sortExpr, reverse)
+                    .build();
+            final RecordQueryPlan plan = planner.plan(query);
+
+            List<FDBStoredRecord<Message>> expectedResults = Arrays.asList(recs.get(1), additionalRecord);
+            if (reverse) {
+                expectedResults = Lists.reverse(expectedResults);
+            }
+            assertEquals(expectedResults, recordStore.executeQuery(query)
+                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+            assertThat(plan, indexScan(allOf(indexName(index.getName()), bounds(hasTupleString("[EQUALS 2, IS MySimpleRecord]")))));
         }
     }
 
@@ -479,16 +654,19 @@ public class RecordTypeKeyTest extends FDBRecordStoreTestBase {
             rec1Builder.setRecNo(123);
             rec1Builder.setStrValueIndexed("abc");
             rec1Builder.setNumValue3Indexed(1);
+            rec1Builder.setNumValue2(1);
             recs.add(recordStore.saveRecord(rec1Builder.build()));
 
             rec1Builder.setRecNo(456);
             rec1Builder.setStrValueIndexed("xyz");
             rec1Builder.setNumValue3Indexed(2);
+            rec1Builder.setNumValue2(2);
             recs.add(recordStore.saveRecord(rec1Builder.build()));
 
             TestRecords1Proto.MyOtherRecord.Builder rec2Builder = TestRecords1Proto.MyOtherRecord.newBuilder();
             rec2Builder.setRecNo(123);
             rec2Builder.setNumValue3Indexed(2);
+            rec2Builder.setNumValue2(2);
             recs.add(recordStore.saveRecord(rec2Builder.build()));
 
             context.commit();
