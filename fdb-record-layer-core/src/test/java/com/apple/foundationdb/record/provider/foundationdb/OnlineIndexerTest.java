@@ -96,7 +96,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
             tr.clear(Range.startsWith(recordStore.indexSubspace(index).pack()));
             tr.clear(recordStore.indexSecondarySubspace(index).range());
             tr.clear(recordStore.indexRangeSubspace(index).range());
-            tr.clear(recordStore.indexBuildLockSubspace(index).range());
+            tr.clear(recordStore.indexBuildSubspace(index).range());
             return null;
         });
     }

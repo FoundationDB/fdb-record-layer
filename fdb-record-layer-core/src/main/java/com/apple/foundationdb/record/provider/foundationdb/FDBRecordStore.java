@@ -207,7 +207,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected static final Object INDEX_RANGE_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_RANGE_SPACE.key();
     protected static final Object INDEX_UNIQUENESS_VIOLATIONS_KEY = FDBRecordStoreKeyspace.INDEX_UNIQUENESS_VIOLATIONS_SPACE.key();
     protected static final Object RECORD_VERSION_KEY = FDBRecordStoreKeyspace.RECORD_VERSION_SPACE.key();
-    protected static final Object INDEX_BUILD_LOCK_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_BUILD_LOCK_SPACE.key();
+    protected static final Object INDEX_BUILD_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key();
 
     @SuppressWarnings("squid:S2386")
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
@@ -781,13 +781,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Subspace for index in which to place a lock for online index build.
+     * Subspace for index to store information for online index build.
+     * @param index the index to retrieve the build information for
+     * @return the subspace for the build information of the given index
+     */
+    @Nonnull
+    Subspace indexBuildSubspace(@Nonnull Index index) {
+        return getSubspace().subspace(Tuple.from(INDEX_BUILD_SPACE_KEY, index.getSubspaceTupleKey()));
+    }
+
+    /**
+     * Subspace for index in which to place a lock for online index build. This lock prevents multiple workers
+     * from attempting to build the same index at the same time.
      * @param index the index to get the lock subspace for
      * @return the subspace for the lock of the given index
      */
     @Nonnull
-    public Subspace indexBuildLockSubspace(@Nonnull Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_BUILD_LOCK_SPACE_KEY, index.getSubspaceTupleKey()));
+    Subspace indexBuildLockSubspace(@Nonnull Index index) {
+        return indexBuildSubspace(index).subspace(Tuple.from(0L));
     }
 
 
@@ -2776,12 +2787,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the state of the given index
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @Nonnull
     public IndexState getIndexState(@Nonnull Index index) {
         return getIndexState(index.getName());
     }
 
     /**
-     * Determine if the index with the given name is readable for this record store.
+     * Get the state of the index with the given name for this record store.
      * This method will not perform any queries to the underlying database and instead
      * satisfies the answer based on the in-memory cache of store state.
      *
@@ -2789,6 +2801,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the state of the given index
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @Nonnull
     public IndexState getIndexState(@Nonnull String indexName) {
         addIndexStateReadConflict(indexName);
         return getRecordStoreState().getState(indexName);

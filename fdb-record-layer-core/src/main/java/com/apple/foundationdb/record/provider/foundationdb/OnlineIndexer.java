@@ -191,7 +191,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     private final boolean syntheticIndex;
 
-    private final BuildOption buildOption;
+    @Nonnull private final IndexStatePrecondition indexStatePrecondition;
 
     @SuppressWarnings("squid:S00107")
     OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
@@ -199,7 +199,7 @@ public class OnlineIndexer implements AutoCloseable {
                             @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
                             @Nonnull Function<Config, Config> configLoader, @Nonnull Config config,
                             boolean syntheticIndex,
-                            @Nonnull BuildOption buildOption) {
+                            @Nonnull IndexStatePrecondition indexStatePrecondition) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
@@ -208,7 +208,7 @@ public class OnlineIndexer implements AutoCloseable {
         this.config = config;
         this.limit = config.maxLimit;
         this.syntheticIndex = syntheticIndex;
-        this.buildOption = buildOption;
+        this.indexStatePrecondition = indexStatePrecondition;
 
         this.recordsRange = computeRecordsRange();
         timeOfLastProgressLogMillis = System.currentTimeMillis();
@@ -382,7 +382,7 @@ public class OnlineIndexer implements AutoCloseable {
         AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
         AsyncUtil.whileTrue(() -> {
             loadConfig();
-            return getSafeRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
+            return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
                 if (!store.isIndexWriteOnly(index)) {
                     throw new RecordCoreStorageException("Attempted to build readable index",
                             LogMessageKeys.INDEX_NAME, index.getName(),
@@ -408,7 +408,7 @@ public class OnlineIndexer implements AutoCloseable {
                     }
                 }
             }).thenCompose(Function.identity());
-        }, getSafeRunner().getExecutor()).whenComplete((vignore, e) -> {
+        }, getRunner().getExecutor()).whenComplete((vignore, e) -> {
             if (e != null) {
                 // Just update ret and ignore the returned future.
                 completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
@@ -421,7 +421,7 @@ public class OnlineIndexer implements AutoCloseable {
         if (e instanceof LoggableException) {
             ((LoggableException)e).addLogInfo(additionalLogMessageKeyValues.toArray());
         }
-        ret.completeExceptionally(getSafeRunner().getDatabase().mapAsyncToSyncException(e));
+        ret.completeExceptionally(getRunner().getDatabase().mapAsyncToSyncException(e));
         return AsyncUtil.READY_FALSE;
     }
 
@@ -515,7 +515,7 @@ public class OnlineIndexer implements AutoCloseable {
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(range, null, scanProperties);
         final AtomicBoolean empty = new AtomicBoolean(true);
-        final FDBStoreTimer timer = getSafeRunner().getTimer();
+        final FDBStoreTimer timer = getRunner().getTimer();
 
         final SyntheticRecordFromStoredRecordPlan syntheticPlan;
         if (syntheticIndex) {
@@ -669,7 +669,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull
     private CompletableFuture<Void> buildRange(@Nonnull SubspaceProvider subspaceProvider, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return getSafeRunner().runAsync(context -> context.getReadVersionAsync().thenCompose(vignore ->
+        return getRunner().runAsync(context -> context.getReadVersionAsync().thenCompose(vignore ->
                 subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
                     RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
                     byte[] startBytes = packOrNull(convertOrNull(start));
@@ -698,7 +698,7 @@ public class OnlineIndexer implements AutoCloseable {
             return buildUnbuiltRange(startTuple, endTuple)
                     .handle((realEnd, ex) -> handleBuiltRange(subspaceProvider, subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
                     .thenCompose(Function.identity());
-        }, getSafeRunner().getExecutor());
+        }, getRunner().getExecutor());
     }
 
     @Nonnull
@@ -706,7 +706,7 @@ public class OnlineIndexer implements AutoCloseable {
                                                         RangeSet rangeSet, Queue<Range> rangeDeque,
                                                         Tuple startTuple, Tuple endTuple, Tuple realEnd,
                                                         Throwable ex) {
-        final RuntimeException unwrappedEx = ex == null ? null : getSafeRunner().getDatabase().mapAsyncToSyncException(ex);
+        final RuntimeException unwrappedEx = ex == null ? null : getRunner().getDatabase().mapAsyncToSyncException(ex);
         long toWait = (config.recordsPerSecond == UNLIMITED) ? 0 : 1000 * limit / config.recordsPerSecond;
         if (unwrappedEx == null) {
             if (realEnd != null && !realEnd.equals(endTuple)) {
@@ -723,7 +723,7 @@ public class OnlineIndexer implements AutoCloseable {
             Throwable cause = unwrappedEx;
             while (cause != null) {
                 if (cause instanceof RecordBuiltRangeException) {
-                    return rangeSet.missingRanges(getSafeRunner().getDatabase().database(), startTuple.pack(), endTuple.pack())
+                    return rangeSet.missingRanges(getRunner().getDatabase().database(), startTuple.pack(), endTuple.pack())
                             .thenCompose(list -> {
                                 rangeDeque.addAll(list);
                                 return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS);
@@ -994,48 +994,6 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * This defines in which situation the index should be built. {@link #BUILD_IF_DISABLED},
-     * {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY}, {@link #BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY}, and
-     * {@link #BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY_OR_READABLE} are sorted in a way that each one is more exhaustive
-     * than the ones before it.
-     * <p>
-     * In which, {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} is recommended if there is no reason to believe
-     * current index data is corrupted.
-     * </p>
-     */
-    public enum BuildOption {
-        /**
-         * Only build if the index is disabled.
-         */
-        BUILD_IF_DISABLED,
-        /**
-         * Build if the index is disabled; Continue build if the index is write-only.
-         * <p>
-         * Recommended. This should be sufficient if current index data is not corrupted.
-         * </p>
-         */
-        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY,
-        /**
-         * Build if the index is disabled; Rebuild if the index is write-only.
-         */
-        BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY,
-        /**
-         * Rebuild the index anyway.
-         */
-        BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY_OR_READABLE,
-        /**
-         * Build if the index is disabled; Continue build if the index is write-only, but rebuild if the index is
-         * readable.
-         * <p>
-         * This option should not be considered. It does not make much sense in any use case can be thought of. It is
-         * provided just for completeness.
-         * </p>
-         */
-        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_READABLE,
-    }
-
-
-    /**
      * Builds an index across multiple transactions safely. It differs from {@link #buildIndexAsync()} in two ways:
      * <ul>
      *     <li>
@@ -1043,7 +1001,7 @@ public class OnlineIndexer implements AutoCloseable {
      *         there is another runner actively working on the same index.
      *     </li>
      *     <li>
-     *         It checks and updates index states and clear index data respecting the {@link BuildOption}. So there is
+     *         It checks and updates index states and clear index data respecting the {@link IndexStatePrecondition}. So there is
      *         no need to change the index states or clear existing index data before invoking this method.
      *     </li>
      * </ul>
@@ -1066,16 +1024,16 @@ public class OnlineIndexer implements AutoCloseable {
                 .thenCompose(synchronizedRunner -> {
                     this.synchronizedSessionRunner = synchronizedRunner;
                     return buildIndexWithBuildOptionAsync(markReadable)
-                            .thenCompose(vignore -> synchronizedRunner.endSessionAsync());
+                            .whenComplete((vignore, e) -> synchronizedRunner.endSessionAsync());
                 });
     }
 
     @Nonnull
     private CompletableFuture<Void> buildIndexWithBuildOptionAsync(boolean markReadable) {
-        return getSafeRunner().runAsync(context -> openRecordStore(context).thenApply(store -> {
+        return getRunner().runAsync(context -> openRecordStore(context).thenApply(store -> {
             IndexState indexState = store.getIndexState(index);
-            if (shouldBuildIndex(indexState, buildOption)) {
-                if (!shouldNotClearExistingIndexEntries(indexState, buildOption)) {
+            if (shouldBuildIndex(indexState, indexStatePrecondition)) {
+                if (!shouldNotClearExistingIndexEntries(indexState, indexStatePrecondition)) {
                     store.clearIndexData(index);
                 }
                 store.markIndexWriteOnly(index);
@@ -1087,8 +1045,8 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @SuppressWarnings("fallthrough")
-    private boolean shouldBuildIndex(@Nonnull IndexState indexState, @Nonnull BuildOption buildOption) {
-        switch (buildOption) {
+    private boolean shouldBuildIndex(@Nonnull IndexState indexState, @Nonnull IndexStatePrecondition indexStatePrecondition) {
+        switch (indexStatePrecondition) {
             case BUILD_IF_DISABLED:
                 return indexState == IndexState.DISABLED;
 
@@ -1096,22 +1054,20 @@ public class OnlineIndexer implements AutoCloseable {
             case BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY:
                 return indexState == IndexState.DISABLED || indexState == IndexState.WRITE_ONLY;
 
-            case BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY_OR_READABLE:
-            case BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_READABLE:
+            case FORCE_BUILD:
                 return true;
 
             default:
-                throw new RecordCoreException("unknown build option " + buildOption);
+                throw new RecordCoreException("unknown build option " + indexStatePrecondition);
         }
     }
 
     private boolean shouldNotClearExistingIndexEntries(@Nonnull IndexState indexState,
-                                                       @Nonnull BuildOption buildOption) {
+                                                       @Nonnull IndexStatePrecondition indexStatePrecondition) {
         // If the index state is DISABLED, it is expected that there is no existing index entry. But we would like
         // to clear it anyway to play safe.
         return indexState == IndexState.WRITE_ONLY &&
-               (buildOption == BuildOption.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY ||
-                buildOption == BuildOption.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_READABLE);
+               indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY;
     }
 
     /**
@@ -1135,7 +1091,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         if (markReadable) {
             return buildFuture.thenCompose(vignore ->
-                getSafeRunner().runAsync(context -> openRecordStore(context)
+                getRunner().runAsync(context -> openRecordStore(context)
                         .thenCompose(store -> store.markIndexReadable(index))
                         .thenApply(ignore -> null))
             );
@@ -1188,7 +1144,7 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public List<Pair<Tuple, Tuple>> splitIndexBuildRange(int minSplit, int maxSplit) {
-        TupleRange originalRange = getSafeRunner().asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());
+        TupleRange originalRange = getRunner().asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());
 
         // There is no range needing to be built.
         if (originalRange == null) {
@@ -1233,7 +1189,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     private List<Tuple> getPrimaryKeyBoundaries(TupleRange tupleRange) {
-        List<Tuple> boundaries = getSafeRunner().run(context -> {
+        List<Tuple> boundaries = getRunner().run(context -> {
             context.getReadVersion(); // for instrumentation reasons
             RecordCursor<Tuple> cursor = recordStoreBuilder.copyBuilder().setContext(context).open()
                     .getPrimaryKeyBoundaries(tupleRange.getLow(), tupleRange.getHigh());
@@ -1259,7 +1215,7 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<Boolean> markReadableIfBuilt() {
-        return getSafeRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
+        return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
             return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
                     .thenCompose(hasNext -> {
@@ -1284,7 +1240,7 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<Boolean> markReadable() {
-        return getSafeRunner().runAsync(context -> openRecordStore(context)
+        return getRunner().runAsync(context -> openRecordStore(context)
                 .thenCompose(store -> store.markIndexReadable(index)));
     }
 
@@ -1316,7 +1272,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @API(API.Status.INTERNAL)
     public <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
-        return getSafeRunner().asyncToSync(event, async);
+        return getRunner().asyncToSync(event, async);
     }
 
     @API(API.Status.INTERNAL)
@@ -1325,7 +1281,7 @@ public class OnlineIndexer implements AutoCloseable {
         return totalRecordsScanned.get();
     }
 
-    private FDBDatabaseRunner getSafeRunner() {
+    private FDBDatabaseRunner getRunner() {
         if (synchronizedSessionRunner != null) {
             return synchronizedSessionRunner;
         } else {
@@ -1541,7 +1497,7 @@ public class OnlineIndexer implements AutoCloseable {
         private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
         private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
         protected boolean syntheticIndex;
-        private BuildOption buildOption = BuildOption.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY;
+        private IndexStatePrecondition indexStatePrecondition = IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY;
 
         protected Builder() {
         }
@@ -2155,13 +2111,13 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Set the build option. Normally this is {@link BuildOption#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY}.
-         * @see BuildOption
-         * @param buildOpttion build option to use
+         * Set the build option. Normally this is {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY}.
+         * @see IndexStatePrecondition
+         * @param indexStatePrecondition build option to use
          * @return this builder
          */
-        public Builder setBuildOption(@Nonnull BuildOption buildOpttion) {
-            this.buildOption = buildOpttion;
+        public Builder setIndexStatePrecondition(@Nonnull IndexStatePrecondition indexStatePrecondition) {
+            this.indexStatePrecondition = indexStatePrecondition;
             return this;
         }
 
@@ -2172,7 +2128,7 @@ public class OnlineIndexer implements AutoCloseable {
         public OnlineIndexer build() {
             validate();
             Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
-            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex, buildOption);
+            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex, indexStatePrecondition);
         }
 
         protected void validate() {
@@ -2240,4 +2196,35 @@ public class OnlineIndexer implements AutoCloseable {
         return newBuilder().setRecordStore(recordStore).setIndex(index).build();
     }
 
+    /**
+     * This defines in which situations the index should be built. {@link #BUILD_IF_DISABLED},
+     * {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY}, {@link #BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY}, and
+     * {@link #FORCE_BUILD} are sorted in a way that each one is going to build
+     * the index more or equal completely than the ones before it.
+     * <p>
+     * Of these, {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} is recommended if there is no reason to believe
+     * current index data is corrupted.
+     * </p>
+     */
+    public enum IndexStatePrecondition {
+        /**
+         * Only build if the index is disabled.
+         */
+        BUILD_IF_DISABLED,
+        /**
+         * Build if the index is disabled; Continue build if the index is write-only.
+         * <p>
+         * Recommended. This should be sufficient if current index data is not corrupted.
+         * </p>
+         */
+        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY,
+        /**
+         * Build if the index is disabled; Rebuild if the index is write-only.
+         */
+        BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY,
+        /**
+         * Rebuild the index anyway, no matter it it disabled or write-only or readable.
+         */
+        FORCE_BUILD,
+    }
 }

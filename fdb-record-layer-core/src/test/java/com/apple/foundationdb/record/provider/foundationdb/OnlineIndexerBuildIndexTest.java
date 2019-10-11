@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 /**
- * Test building rank indexes.
+ * A base class for testing building indexes with {@link OnlineIndexer#buildIndex()} (or similar APIs).
  */
 abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerBuildIndexTest.class);
@@ -182,6 +182,8 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                         futures[i] = safeBuild ?
                                      indexBuilder.safelyBuildIndexAsync(false)
                                                .exceptionally(exception -> {
+                                                   // (agents - 1) of the agents should stop with SynchronizedSessionLockedException
+                                                   // because the other one is already working on building the index.
                                                    if (exception.getCause() instanceof SynchronizedSessionLockedException) {
                                                        LOGGER.info(KeyValueLogMessage.of("an overlapped agent is omitted",
                                                                TestLogMessageKeys.INDEX, index,
