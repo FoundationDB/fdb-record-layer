@@ -791,18 +791,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Subspace for index in which to place a lock for online index build. This lock prevents multiple workers
-     * from attempting to build the same index at the same time.
-     * @param index the index to get the lock subspace for
-     * @return the subspace for the lock of the given index
-     */
-    @Nonnull
-    Subspace indexBuildLockSubspace(@Nonnull Index index) {
-        return indexBuildSubspace(index).subspace(Tuple.from(0L));
-    }
-
-
-    /**
      * Get the maintainer for a given index.
      * @param index the required index
      * @return the maintainer for the given index

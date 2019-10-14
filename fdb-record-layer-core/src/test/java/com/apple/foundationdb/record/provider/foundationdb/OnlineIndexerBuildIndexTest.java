@@ -162,6 +162,10 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             LOGGER.info("Setting weak read semantics");
             builder.setWeakReadSemantics(new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true));
         }
+        if (!safeBuild) {
+            builder.setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY);
+            builder.setUseSynchronizedSession(false);
+        }
 
         try (OnlineIndexer indexBuilder = builder.build()) {
             CompletableFuture<Void> buildFuture;
@@ -171,21 +175,19 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
                     TestLogMessageKeys.OVERLAP, overlap));
             if (agents == 1) {
-                buildFuture = safeBuild ?
-                              indexBuilder.safelyBuildIndexAsync(false) :
-                              indexBuilder.buildIndexAsync(false);
+                buildFuture = indexBuilder.buildIndexAsync(false);
             } else {
                 if (overlap) {
                     CompletableFuture<?>[] futures = new CompletableFuture<?>[agents];
                     for (int i = 0; i < agents; i++) {
                         final int agent = i;
                         futures[i] = safeBuild ?
-                                     indexBuilder.safelyBuildIndexAsync(false)
+                                     indexBuilder.buildIndexAsync(false)
                                                .exceptionally(exception -> {
                                                    // (agents - 1) of the agents should stop with SynchronizedSessionLockedException
                                                    // because the other one is already working on building the index.
                                                    if (exception.getCause() instanceof SynchronizedSessionLockedException) {
-                                                       LOGGER.info(KeyValueLogMessage.of("an overlapped agent is omitted",
+                                                       LOGGER.info(KeyValueLogMessage.of("Detected another worker processing this index",
                                                                TestLogMessageKeys.INDEX, index,
                                                                TestLogMessageKeys.AGENT, agent), exception);
                                                        return null;
