@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -48,6 +49,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -203,6 +205,53 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 assertEquals(2, count);
                 assertDiscardedNone(context);
             }
+        }
+    }
+
+    /**
+     * Test that queries with strings with weird unicode sequences that have different comparison values when using
+     * the standard Java comparator and when using comparison by a string's UTF-8 representation (i.e., by Unicode
+     * codepoint) return the same results regardless of whether indexes are used or not. Discrepancies in the results
+     * can arise.
+     *
+     * <p>
+     * This test is currently disabled as the current implementation does not handle this discrepancy correctly.
+     * See: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/754">Issue #754</a>.
+     * </p>
+     */
+    @Disabled
+    @DualPlannerTest
+    public void queryUtf8String() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, null);
+            TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setStrValueIndexed("🥑")
+                    .build();
+            recordStore.saveRecord(record);
+
+            QueryComponent filter = Query.field("str_value_indexed").greaterThan("＄"); // note use of full width dollar sign: U+FF04
+
+            // Query using the index
+            RecordQuery query1 = RecordQuery.newBuilder()
+                    .setFilter(filter)
+                    .setRecordType("MySimpleRecord")
+                    .build();
+            RecordQueryPlan plan1 = planner.plan(query1);
+            assertThat(plan1, indexScan("MySimpleRecord$str_value_indexed"));
+            List<Message> records1 = recordStore.executeQuery(plan1).map(FDBRecord::getRecord).asList().get();
+            assertEquals(Collections.singletonList(record), records1);
+
+            // Query without using the index to force a residual filter
+            RecordQuery query2 = RecordQuery.newBuilder()
+                    .setFilter(filter)
+                    .setRecordType("MySimpleRecord")
+                    .setAllowedIndexes(Collections.emptyList())
+                    .build();
+            RecordQueryPlan plan2 = planner.plan(query2);
+            assertThat(plan2, filter(equalTo(filter), typeFilter(contains("MySimpleRecord"), scan(unbounded()))));
+            List<Message> records2 = recordStore.executeQuery(plan2).map(FDBRecord::getRecord).asList().get();
+            assertEquals(records1, records2);
         }
     }
 
