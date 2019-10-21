@@ -43,12 +43,33 @@ public class FDBStoreTimer extends StoreTimer {
         PERFORM_NO_OP("perform no-op"),
         /**
          * The amount of time taken to get a read version when explicitly called.
-         * This includes any injected latency added before issuing the request.
+         * This metric is recorded only if the transaction is not conducted at batch priority.
+         * This includes any injected latency by the client before issuing the request.
          * @see #INJECTED_GET_READ_VERSION_LATENCY
+         * @see FDBTransactionPriority
          */
         GET_READ_VERSION("get read version"),
         /**
-         * The amount of time injected prior to getting a read version.
+         * The amount of time taken to get a read version for batch priority transactions.
+         * This is a separate metric from {@link #GET_READ_VERSION} (which is recorded on non-batch
+         * priority transactions) because the performance of batch priority read reversion requests are
+         * is requested to be significantly different than the performance of non-batch priority
+         * requests. This is because the read version request is the primary mechanism by which the
+         * FoundationDB cluster can introduce back pressure, and the cluster will favor higher priority
+         * transactions over lower priority transactions.
+         *
+         * <p>
+         * Like {@link #GET_READ_VERSION}, this includes any latency injected by the client
+         * before issuing the request.
+         * </p>
+         *
+         * @see #GET_READ_VERSION
+         * @see #INJECTED_GET_READ_VERSION_LATENCY
+         * @see FDBTransactionPriority
+         */
+        BATCH_GET_READ_VERSION("batch priority get read version"),
+        /**
+         * The amount of time injected by the client prior to getting a read version.
          * @see FDBDatabase#injectLatency(FDBLatencySource)
          */
         INJECTED_GET_READ_VERSION_LATENCY("injected get read version latency"),

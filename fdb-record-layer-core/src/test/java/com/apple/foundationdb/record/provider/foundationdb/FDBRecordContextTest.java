@@ -314,6 +314,16 @@ public class FDBRecordContextTest extends FDBTestBase {
         }
     }
 
+    @Test
+    public void getReadVersionAtBatch() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = fdb.openContext(null, timer, null, FDBTransactionPriority.BATCH)) {
+            context.getReadVersion();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.BATCH_GET_READ_VERSION));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION));
+        }
+    }
+
     @ParameterizedTest(name = "setTrIdThroughMdc [traced = {0}]")
     @BooleanSource
     public void setTrIdThroughMdc(boolean traced) {
