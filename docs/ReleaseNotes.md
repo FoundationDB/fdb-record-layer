@@ -40,7 +40,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking bug fix** Protobuf serialization of `LiteralKeyExpression` is now correct for `Long`s and `byte[]`s. [(Issue #756)](https://github.com/FoundationDB/fdb-record-layer/issues/756)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
