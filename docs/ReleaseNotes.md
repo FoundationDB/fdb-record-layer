@@ -40,7 +40,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // begin next release
 ### NEXT_RELEASE
 
-* **Breaking bug fix** Protobuf serialization of `LiteralKeyExpression` is now correct for `Long`s and `byte[]`s. [(Issue #756)](https://github.com/FoundationDB/fdb-record-layer/issues/756)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -50,11 +50,11 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Fetch the config parameters of online indexer in the beginning of each transaction [(Issue #731)](https://github.com/FoundationDB/fdb-record-layer/issues/731)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** `FDBRecordVersion` now has a `getDBVersion` method for extracting the database commit version [(Issue #718)](https://github.com/FoundationDB/fdb-record-layer/issues/718)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,6 +63,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.88.0
+
+* **Breaking bug fix** Protobuf serialization of `LiteralKeyExpression` is now correct for `Long`s and `byte[]`s. [(Issue #756)](https://github.com/FoundationDB/fdb-record-layer/issues/756)
+* **Feature** Fetch the config parameters of online indexer in the beginning of each transaction [(Issue #731)](https://github.com/FoundationDB/fdb-record-layer/issues/731)
+* **Feature** `FDBRecordVersion` now has a `getDBVersion` method for extracting the database commit version [(Issue #718)](https://github.com/FoundationDB/fdb-record-layer/issues/718)
 
 ### 2.8.87.0
 
