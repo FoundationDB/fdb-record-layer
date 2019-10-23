@@ -19,6 +19,7 @@
  */
 
 apply from: rootProject.file('gradle/proto.gradle')
+apply from: rootProject.file('gradle/publishing.gradle')
 if (!hasProperty('coreNotStrict')) {
     apply from: rootProject.file('gradle/strict.gradle')
 }
@@ -78,4 +79,14 @@ task unzipGeonames(dependsOn: downloadGeonames, type: Copy) {
 
 if (!skipSlow) {
     test.dependsOn unzipGeonames
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Spatial index support for fdb-record-layer'
+            }
+        }
+    }
 }
