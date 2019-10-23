@@ -56,7 +56,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Building indexes with `OnlineIndexer` has now been changed to be safer and simpler. One can set `indexStatePrecondition` to `ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY` and set `useSynchronizedSession` to `false` to makes the indexer follow the same behavior as before if necessary. [(Issue #727)](https://github.com/FoundationDB/fdb-record-layer/issues/727)
+* **Breaking change** Building indexes with `OnlineIndexer` has now been changed to be safer and simpler. One can set `indexStatePrecondition` to `ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY` and set `useSynchronizedSession` to `false` to make the indexer follow the same behavior as before if necessary. [(Issue #727)](https://github.com/FoundationDB/fdb-record-layer/issues/727)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

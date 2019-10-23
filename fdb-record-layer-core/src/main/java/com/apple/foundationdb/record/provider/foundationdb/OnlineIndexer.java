@@ -665,7 +665,12 @@ public class OnlineIndexer implements AutoCloseable {
      * it can't make any progress or errors out on a non-retriable error like <code>transaction_too_large</code>,
      * this method will actually decrease the limit so that less work is attempted each transaction. It will
      * also rate limit itself as to not make too many requests per second.
-     *
+     * <p>
+     * Note that it does not have the protections (synchronized sessions and index state precondition) which are imposed
+     * on {@link #buildIndexAsync()} (or its variations), but it does use the created synchronized session if a
+     * {@link #buildIndexAsync()} is running on the {@link OnlineIndexer} simultaneously or this range build is used as
+     * part of {@link #buildIndexAsync()} internally.
+     * </p>
      * @param start the (inclusive) beginning primary key of the range to build (or <code>null</code> to go from the beginning)
      * @param end the (exclusive) end primary key of the range to build (or <code>null</code> to go to the end)
      * @return a future that will be ready when the build has completed
@@ -1013,8 +1018,8 @@ public class OnlineIndexer implements AutoCloseable {
      * </p>
      * <p>
      * One may consider to set the index state precondition to {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY}
-     * and {@link OnlineIndexer.Builder#setUseSynchronizedSession(boolean)}} to {@code false}, which makes the indexer
-     * follow the same behavior as before. But it is not recommended.
+     * and {@link OnlineIndexer.Builder#setUseSynchronizedSession(boolean)} to {@code false}, which makes the indexer
+     * follow the same behavior as before version 2.8.90.0. But it is not recommended.
      * </p>
      * @return a future that will be ready when the build has completed
      * @throws com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException the build is stopped
@@ -1036,9 +1041,17 @@ public class OnlineIndexer implements AutoCloseable {
                 .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)))
                 .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, leaseLengthMills))
                 .thenCompose(synchronizedRunner -> {
+                    if (this.synchronizedSessionRunner != null) {
+                        throw new RecordCoreException("another synchronized session is running on the indexer");
+                    }
                     this.synchronizedSessionRunner = synchronizedRunner;
                     return handleStateAndDoBuildIndexAsync(markReadable)
-                            .whenComplete((vignore, e) -> synchronizedRunner.endSessionAsync());
+                            .whenComplete((vignore, e) -> {
+                                synchronizedRunner.endSessionAsync();
+                                if (this.synchronizedSessionRunner == synchronizedRunner) {
+                                    this.synchronizedSessionRunner = null;
+                                }
+                            });
                 });
     }
 
@@ -2114,12 +2127,13 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Set the build option. Normally this should be {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY}
-         * if the index is not corrupted.
+         * Set how should {@link #buildIndexAsync()} (or its variations) build the index based on its state. Normally
+         * this should be {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} if the index is
+         * not corrupted.
          * <p>
-         * One may consider to set it to {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY} and
+         * One may consider setting it to {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY} and
          * {@link #setUseSynchronizedSession(boolean)} to {@code false}, which makes the indexer follow the same behavior
-         * as before. But it is not recommended.
+         * as before version 2.8.90.0. But it is not recommended.
          * </p>
          * @see IndexStatePrecondition
          * @param indexStatePrecondition build option to use
@@ -2131,13 +2145,13 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Set whether or not use a synchronized session when using {@link #buildIndex()} (or its variations) to build
+         * Set whether or not to use a synchronized session when using {@link #buildIndexAsync()} (or its variations) to build
          * the index across multiple transactions. Synchronized sessions help build index in a resource efficient way.
          * Normally this should be {@code true}.
          * <p>
-         * One may consider to set it to {@code false} and {@link #setUseSynchronizedSession(boolean)} to
-         * {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY} , which makes the indexer follow the
-         * same behavior as before. But it is not recommended.
+         * One may consider setting it to {@code false} and {@link #setUseSynchronizedSession(boolean)} to
+         * {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY}, which makes the indexer follow the
+         * same behavior as before version 2.8.90.0. But it is not recommended.
          * </p>
          * @see SynchronizedSessionRunner
          * @param useSynchronizedSession use synchronize session if true, otherwise false
@@ -2268,9 +2282,9 @@ public class OnlineIndexer implements AutoCloseable {
         FORCE_BUILD,
         /**
          * Error if the index is disabled, or continue to build if the index is write only. To use this option to build
-         * an index, one should mark the index to write-only and clear existing index entries beforehand. this option
-         * is provided to make {@link #buildIndex()} behave same as what it did before, which is not recommended.
-         * {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} should be adopted instead.
+         * an index, one should mark the index as write-only and clear existing index entries before building. This
+         * option is provided to make {@link #buildIndexAsync()} (or its variations) behave same as what it did before
+         * version 2.8.90.0, which is not recommended. {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} should be adopted instead.
          */
         ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY,
     }
