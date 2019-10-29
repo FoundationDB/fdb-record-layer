@@ -51,11 +51,10 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Store index states by index subspace key [(Issue #514)](https://github.com/FoundationDB/fdb-record-layer/issues/514)
-* **Feature** Fetch the config parameters of online indexer in the beginning of each transaction [(Issue #731)](https://github.com/FoundationDB/fdb-record-layer/issues/731)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** `FDBRecordVersion` now has a `getDBVersion` method for extracting the database commit version [(Issue #718)](https://github.com/FoundationDB/fdb-record-layer/issues/718)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -64,6 +63,16 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.89.0
+
+* **Feature** SubspaceProviderByKeySpacePath can return the KeySpacePath[(Issue #759)](https://github.com/FoundationDB/fdb-record-layer/issues/759)
+
+### 2.8.88.0
+
+* **Breaking bug fix** Protobuf serialization of `LiteralKeyExpression` is now correct for `Long`s and `byte[]`s. [(Issue #756)](https://github.com/FoundationDB/fdb-record-layer/issues/756)
+* **Feature** Fetch the config parameters of online indexer in the beginning of each transaction [(Issue #731)](https://github.com/FoundationDB/fdb-record-layer/issues/731)
+* **Feature** `FDBRecordVersion` now has a `getDBVersion` method for extracting the database commit version [(Issue #718)](https://github.com/FoundationDB/fdb-record-layer/issues/718)
 
 ### 2.8.87.0
 

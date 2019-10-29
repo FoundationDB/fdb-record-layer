@@ -48,15 +48,18 @@
       <module name="fdb-extensions_integrationTest" target="1.8" />
       <module name="fdb-extensions_main" target="1.8" />
       <module name="fdb-extensions_test" target="1.8" />
-      <module name="fdb-record-layer-icu_integrationTest" target="1.8" />
-      <module name="fdb-record-layer-icu_main" target="1.8" />
-      <module name="fdb-record-layer-icu_test" target="1.8" />
       <module name="fdb-record-layer-core-shaded_integrationTest" target="1.8" />
       <module name="fdb-record-layer-core-shaded_main" target="1.8" />
       <module name="fdb-record-layer-core-shaded_test" target="1.8" />
       <module name="fdb-record-layer-core_integrationTest" target="1.8" />
       <module name="fdb-record-layer-core_main" target="1.8" />
       <module name="fdb-record-layer-core_test" target="1.8" />
+      <module name="fdb-record-layer-icu_integrationTest" target="1.8" />
+      <module name="fdb-record-layer-icu_main" target="1.8" />
+      <module name="fdb-record-layer-icu_test" target="1.8" />
+      <module name="fdb-record-layer-spatial_integrationTest" target="1.8" />
+      <module name="fdb-record-layer-spatial_main" target="1.8" />
+      <module name="fdb-record-layer-spatial_test" target="1.8" />
       <module name="fdb-record-layer_main" target="1.8" />
       <module name="fdb-record-layer_test" target="1.8" />
     </bytecodeTargetLevel>

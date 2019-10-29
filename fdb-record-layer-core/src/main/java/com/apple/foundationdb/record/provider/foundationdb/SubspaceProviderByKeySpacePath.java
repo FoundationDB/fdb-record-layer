@@ -49,6 +49,11 @@ public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
     }
 
     @Nonnull
+    public KeySpacePath getKeySpacePath() {
+        return keySpacePath;
+    }
+
+    @Nonnull
     @Override
     public Subspace getSubspace(@Nonnull FDBRecordContext context) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync(context));

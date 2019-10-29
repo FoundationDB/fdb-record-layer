@@ -1,0 +1,92 @@
+/*
+ * fdb-record-layer-spatial.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: rootProject.file('gradle/proto.gradle')
+apply from: rootProject.file('gradle/publishing.gradle')
+if (!hasProperty('coreNotStrict')) {
+    apply from: rootProject.file('gradle/strict.gradle')
+}
+
+def coreProject = ":${ext.coreProjectName}"
+dependencies {
+    compile project(coreProject)
+    compile "org.locationtech.jts.io:jts-io-common:${jtsVersion}"
+    compile "com.geophile:geophile:${geophileVersion}"
+    compile "com.google.protobuf:protobuf-java:${protobufVersion}"
+    compile "org.slf4j:slf4j-api:${slf4jVersion}"
+    compile "org.slf4j:jul-to-slf4j:${slf4jVersion}"
+    compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
+    compileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
+    annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
+
+    testCompile project(path: coreProject, configuration: 'tests')
+    testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
+    testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
+    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
+    testRuntime "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testCompile "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+}
+
+def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'
+def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
+test {
+    useJUnitPlatform {
+        if (skipFDB) {
+            excludeTags 'RequiresFDB'
+        }
+        if (skipSlow) {
+            excludeTags 'Slow'
+        }
+    }
+}
+
+def geonames_files = ['countryInfo.txt', 'cities15000.zip', 'shapes_all_low.zip']
+
+task downloadGeonames(type: de.undercouch.gradle.tasks.download.Download) {
+    src geonames_files.collect { file -> "http://download.geonames.org/export/dump/${file}" }
+    dest buildDir
+    overwrite false         // Don't need the very latest.
+}
+
+task unzipGeonames(dependsOn: downloadGeonames, type: Copy) {
+    into buildDir
+    geonames_files.each { file ->
+        if (file.endsWith('.zip')) {
+            from zipTree(new File(buildDir, file))
+        }
+    }
+}
+
+if (!skipSlow) {
+    test.dependsOn unzipGeonames
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            pom {
+                description = 'Spatial index support for fdb-record-layer'
+            }
+        }
+    }
+}
