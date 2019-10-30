@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorTest;
+import com.apple.foundationdb.record.cursors.CursorTestUtils;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.TestLogMessageKeys;
@@ -35,10 +36,13 @@ import com.google.common.collect.Iterators;
 import com.google.common.hash.BloomFilter;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -74,18 +78,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ProbableIntersectionCursorTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProbableIntersectionCursorTest.class);
 
-    @Nonnull
-    private <T, C extends RecordCursor<T>> List<Function<byte[], RecordCursor<T>>> cursorsToFunctions(@Nonnull List<C> cursors) {
-        return cursors.stream()
-                .map(cursor -> (Function<byte[], RecordCursor<T>>)(bignore -> cursor))
-                .collect(Collectors.toList());
-    }
+    // Compute expected list state. This assumes that there are no false positives, which is good enough for most
+    // tests given that the Bloom filters are precise enough at low cardinalities.
+    private static <T> List<T> computeIntersection(@Nonnull List<List<T>> lists) {
+        final List<T> intersection = new ArrayList<>();
+        final List<Set<T>> seenResults = Stream.generate(HashSet<T>::new).limit(lists.size()).collect(Collectors.toList());
+        final int maxSize = lists.stream().mapToInt(List::size).max().getAsInt();
+        for (int i = 0; i < maxSize; i++) {
+            for (int j = 0; j < lists.size(); j++) {
+                List<T> list = lists.get(j);
+                if (i >= list.size()) {
+                    continue;
+                }
+                final T value = list.get(i);
 
-    @Nonnull
-    private <T, L extends List<T>> List<Function<byte[], RecordCursor<T>>> listsToFunctions(@Nonnull List<L> lists) {
-        return lists.stream()
-                .map(list -> (Function<byte[], RecordCursor<T>>)(continuation -> RecordCursor.fromList(list, continuation)))
-                .collect(Collectors.toList());
+                // See if this value has already been encountered by all other values
+                boolean inAll = true;
+                for (int k = 0; k < lists.size(); k++) {
+                    if (k != j && !seenResults.get(k).contains(value)) {
+                        inAll = false;
+                    }
+                }
+                if (inAll && !intersection.contains(value)) {
+                    intersection.add(value);
+                }
+
+                // Add it to the seen set so that future results can know of it
+                seenResults.get(j).add(value);
+            }
+        }
+        return intersection;
     }
 
     /**
@@ -147,7 +169,7 @@ public class ProbableIntersectionCursorTest {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final List<Integer> list1 = Arrays.asList(10, 2, 5, 6, 8, 19, 0);
         final List<Integer> list2 = Arrays.asList( 9, 1, 3, 5, 2, 4, 8, 3);
-        final List<Function<byte[], RecordCursor<Integer>>> cursorFuncs = listsToFunctions(Arrays.asList(list1, list2));
+        final List<Function<byte[], RecordCursor<Integer>>> cursorFuncs = CursorTestUtils.cursorFunctionsFromLists(Arrays.asList(list1, list2));
         final Function<byte[], ProbableIntersectionCursor<Integer>> intersectionCursorFunction = continuation ->
                 ProbableIntersectionCursor.create(Collections::singletonList, cursorFuncs, continuation, timer);
 
@@ -265,7 +287,7 @@ public class ProbableIntersectionCursorTest {
     public void noNextReasons() {
         // Both one out of band limit reached
         RecordCursor<Integer> cursor = ProbableIntersectionCursor.create(Collections::singletonList,
-                cursorsToFunctions(Arrays.asList(
+                CursorTestUtils.cursorFunctionsFromCursors(Arrays.asList(
                         new RecordCursorTest.FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(1, 4, 3, 7, 9)), 3),
                         new RecordCursorTest.FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(3, 7, 8, 4, 1)), 2)
                 )),
@@ -275,7 +297,7 @@ public class ProbableIntersectionCursorTest {
 
         // One in-band limit reached, one out of band
         cursor = ProbableIntersectionCursor.create(Collections::singletonList,
-                cursorsToFunctions(Arrays.asList(
+                CursorTestUtils.cursorFunctionsFromCursors(Arrays.asList(
                         new RecordCursorTest.FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(1, 4, 3, 7, 9)), 3),
                         RecordCursor.fromList(Arrays.asList(3, 7, 8, 4, 1)).limitRowsTo(2)
                 )),
@@ -285,7 +307,7 @@ public class ProbableIntersectionCursorTest {
 
         // Both in-band limit reached
         cursor = ProbableIntersectionCursor.create(Collections::singletonList,
-                cursorsToFunctions(Arrays.asList(
+                CursorTestUtils.cursorFunctionsFromCursors(Arrays.asList(
                         RecordCursor.fromList(Arrays.asList(1, 4, 3, 7, 9)).limitRowsTo(3),
                         RecordCursor.fromList(Arrays.asList(3, 7, 8, 4, 1)).limitRowsTo(2)
                 )),
@@ -295,7 +317,7 @@ public class ProbableIntersectionCursorTest {
 
         // One out-of-band limit reached, one exhausted
         cursor = ProbableIntersectionCursor.create(Collections::singletonList,
-                cursorsToFunctions(Arrays.asList(
+                CursorTestUtils.cursorFunctionsFromCursors(Arrays.asList(
                         new RecordCursorTest.FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(1, 4, 3, 7, 9)), 3),
                         RecordCursor.fromList(Arrays.asList(3, 7, 8, 4, 1))
                 )),
@@ -305,7 +327,7 @@ public class ProbableIntersectionCursorTest {
 
         // One in band limit reached, one exhausted
         cursor = ProbableIntersectionCursor.create(Collections::singletonList,
-                cursorsToFunctions(Arrays.asList(
+                CursorTestUtils.cursorFunctionsFromCursors(Arrays.asList(
                         RecordCursor.fromList(Arrays.asList(1, 4, 3, 7, 9)).limitRowsTo(3),
                         RecordCursor.fromList(Arrays.asList(3, 7, 8, 4, 1))
                 )),
@@ -315,7 +337,7 @@ public class ProbableIntersectionCursorTest {
 
         // Both exhausted
         cursor = ProbableIntersectionCursor.create(Collections::singletonList,
-                cursorsToFunctions(Arrays.asList(
+                CursorTestUtils.cursorFunctionsFromCursors(Arrays.asList(
                         RecordCursor.fromList(Arrays.asList(1, 4, 3, 7, 9)),
                         RecordCursor.fromList(Arrays.asList(3, 7, 8, 4, 1))
                 )),
@@ -392,5 +414,47 @@ public class ProbableIntersectionCursorTest {
         assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, cursorResult.getNoNextReason());
 
         assertThat(timer.getCount(FDBStoreTimer.Events.QUERY_INTERSECTION), lessThanOrEqualTo(5));
+    }
+
+    /**
+     * Validate that the probable intersection cursor predictably orders values predictably across continuation boundaries.
+     * In particular, this generates random lists and then makes sure that the order from running those lists through the
+     * intersection cursor is the same as the order one would expect by going round robin through the different lists.
+     * It stops and resumes every so often, and it applies limits to the individual child cursors in order to try and create
+     * more situations where a cursor is stopped.
+     *
+     * @param limit the number of elements to wait after
+     */
+    @ParameterizedTest(name = "stopAndResume [limit = {0}]")
+    @ValueSource(ints = {1, 2, 3, 7})
+    public void stopAndResume(int limit) {
+        final Random r = new Random(0x5ca1ab1e);
+        final int iters = 100;
+
+        for (int itr = 0; itr < iters; itr++) {
+            final List<Integer> list1 = IntStream.generate(() -> r.nextInt(50)).limit(100).boxed().collect(Collectors.toList());
+            final List<Integer> list2 = IntStream.generate(() -> r.nextInt(50)).limit(170).boxed().collect(Collectors.toList());
+            final List<Integer> list3 = IntStream.generate(() -> r.nextInt(50)).limit(75).boxed().collect(Collectors.toList());
+            final List<List<Integer>> lists = Arrays.asList(list1, list2, list3);
+            final List<Integer> expectedResults = computeIntersection(lists);
+
+            // Produce functions which randomly apply limits to their child cursors. Each one will have a limit of at least 1 to ensure that progress is made
+            final List<Function<byte[], RecordCursor<Integer>>> cursorFunctions = lists.stream()
+                    .map(list -> (Function<byte[], RecordCursor<Integer>>)(childContinuation -> RecordCursor.fromList(list, childContinuation).limitRowsTo(r.nextInt(limit) + 1)))
+                    .collect(Collectors.toList());
+            final Function<byte[], ProbableIntersectionCursor<Integer>> cursorFunction = continuation -> ProbableIntersectionCursor.create(
+                    Collections::singletonList,
+                    cursorFunctions,
+                    continuation,
+                    null
+            );
+            // Collect values in batches but remove duplicates, which may pop up across continuation boundaries
+            final Set<Integer> resultSet = new HashSet<>();
+            final List<Integer> results = CursorTestUtils.toListInBatches(cursorFunction, limit).stream()
+                    .filter(resultSet::add)
+                    .collect(Collectors.toList());
+
+            assertEquals(expectedResults, results, "results mismatch when resumed stopping every " + limit + " elements");
+        }
     }
 }

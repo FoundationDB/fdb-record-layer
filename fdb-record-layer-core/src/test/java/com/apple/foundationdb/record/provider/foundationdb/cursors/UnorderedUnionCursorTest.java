@@ -25,9 +25,11 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorTest;
+import com.apple.foundationdb.record.cursors.CursorTestUtils;
 import com.apple.foundationdb.record.cursors.FirableCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -44,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -63,28 +66,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class UnorderedUnionCursorTest extends FDBTestBase {
 
     @Nonnull
-    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromLists(@Nonnull List<List<T>> lists) {
-        return lists.stream()
-                .map(list -> (Function<byte[], RecordCursor<T>>)((byte[] continuation) -> RecordCursor.fromList(list, continuation)))
-                .collect(Collectors.toList());
-    }
-
-    @Nonnull
-    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromCursors(@Nonnull List<? extends RecordCursor<T>> cursors) {
-        return cursors.stream()
-                .map(cursor -> (Function<byte[], RecordCursor<T>>)((byte[] ignore) -> cursor))
-                .collect(Collectors.toList());
+    private static <T> List<T> computeUnion(@Nonnull List<List<T>> lists) {
+        // Expected results are created by interleaving the various lists in a round robin fashion
+        final List<T> union = new ArrayList<>(lists.stream().mapToInt(List::size).sum());
+        final int maxSize = lists.stream().mapToInt(List::size).max().getAsInt();
+        for (int i = 0; i < maxSize; i++) {
+            for (List<T> list : lists) {
+                if (i < list.size()) {
+                    union.add(list.get(i));
+                }
+            }
+        }
+        return union;
     }
 
     @Test
     public void basicUnion() throws ExecutionException, InterruptedException {
-        final List<Integer> expectedResults = Arrays.asList(0, 401, 2, 100, 201, 302, 200, 1, 102, 3);
         final List<List<Integer>> elems = Arrays.asList(
                 Arrays.asList(0, 100, 200),
                 Arrays.asList(401, 201, 1, 3),
                 Arrays.asList(2, 302, 102)
         );
-        final UnorderedUnionCursor<Integer> cursor = UnorderedUnionCursor.create(functionsFromLists(elems), null, null);
+        final List<Integer> expectedResults = computeUnion(elems);
+        final UnorderedUnionCursor<Integer> cursor = UnorderedUnionCursor.create(CursorTestUtils.cursorFunctionsFromLists(elems), null, null);
         List<Integer> results = cursor.asList().get();
         assertEquals(expectedResults, results);
         RecordCursorResult<Integer> noNextResult = cursor.getNext();
@@ -94,13 +98,16 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
 
     @Test
     public void roundRobin() {
-        final List<Integer> expectedResults = Arrays.asList(0, 401, 2, 100, 201, 302, 200, 1, 102);
-        final List<FirableCursor<Integer>> cursors = Arrays.asList(
-                new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 100, 200))),
-                new FirableCursor<>(RecordCursor.fromList(Arrays.asList(401, 201, 1))),
-                new FirableCursor<>(RecordCursor.fromList(Arrays.asList(2, 302, 102)))
+        final List<List<Integer>> elems = Arrays.asList(
+                Arrays.asList(0, 100, 200),
+                Arrays.asList(401, 201, 1),
+                Arrays.asList(2, 302, 102)
         );
-        final RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        final List<FirableCursor<Integer>> cursors = elems.stream()
+                .map(list -> new FirableCursor<>(RecordCursor.fromList(list)))
+                .collect(Collectors.toList());
+        final List<Integer> expectedResults = computeUnion(elems);
+        final RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(CursorTestUtils.cursorFunctionsFromCursors(cursors), null, null).asIterator();
         Iterator<Integer> expectedIterator = expectedResults.iterator();
         int currentCursor = 0;
         while (expectedIterator.hasNext()) {
@@ -121,7 +128,7 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)))
         );
-        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(CursorTestUtils.cursorFunctionsFromCursors(cursors), null, null).asIterator();
         cursors.get(0).fireAll();
         assertEquals(0, (int)cursor.next());
         cursors.get(1).fire();
@@ -138,7 +145,7 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)))
         );
-        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(CursorTestUtils.cursorFunctionsFromCursors(cursors), null, null).asIterator();
         cursors.get(0).fire();
         assertEquals(0, (int)cursor.next());
         cursors.get(0).fireAll();
@@ -155,7 +162,7 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1, 2)).limitRowsTo(2)),
                 new FirableCursor<>(RecordCursor.fromList(Collections.singletonList(3)))
         );
-        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(CursorTestUtils.cursorFunctionsFromCursors(cursors), null, null).asIterator();
         cursors.get(0).fire();
         assertEquals(0, (int)cursor.next());
         cursors.get(1).fire();
@@ -175,7 +182,7 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
                 new FirableCursor<>(new RecordCursorTest.FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)), 1, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED))
         );
-        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(CursorTestUtils.cursorFunctionsFromCursors(cursors), null, null).asIterator();
         cursors.get(1).fire();
         cursors.get(0).fireAll();
         assertEquals(0, (int)cursor.next());
@@ -188,17 +195,17 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
     @ValueSource(ints = {1, 3, 5})
     @ParameterizedTest(name = "basicContinuation() [limit = {0}]")
     public void basicContinuation(int limit) {
-        final List<Integer> expectedResults = Arrays.asList(0, 6, 2, 3, 4, 8, 5, 1, 7);
         final List<List<Integer>> elems = Arrays.asList(
                 Arrays.asList(0, 3, 5),
                 Arrays.asList(6, 4, 1),
                 Arrays.asList(2, 8, 7)
         );
+        final List<Integer> expectedResults = computeUnion(elems);
         byte[] continuation = null;
         boolean done = false;
         List<Integer> results = new ArrayList<>();
         while (!done) {
-            RecordCursor<Integer> cursor = UnorderedUnionCursor.create(functionsFromLists(elems), continuation, null).limitRowsTo(limit);
+            RecordCursor<Integer> cursor = UnorderedUnionCursor.create(CursorTestUtils.cursorFunctionsFromLists(elems), continuation, null).limitRowsTo(limit);
             cursor.forEach(results::add).join();
             RecordCursorResult<Integer> noNextResult = cursor.getNext();
             continuation = noNextResult.getContinuation().toBytes();
@@ -269,5 +276,55 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
         assertFalse(cursorResult.hasNext());
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursorResult.getNoNextReason());
         assertThat(timer.getCount(FDBStoreTimer.Events.QUERY_INTERSECTION), lessThanOrEqualTo(5));
+    }
+
+    /**
+     * Ensure that starting and stopping we always get the same set of results.
+     */
+    @ParameterizedTest(name = "stopAndResume [limit = {0}]")
+    @ValueSource(ints = {1, 2, 3, 4, 7})
+    public void stopAndResume(int limit) {
+        final List<Integer> list1 = Arrays.asList(1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144);
+        final List<Integer> list2 = Arrays.asList(2, 1, 3, 4, 7, 11, 18, 29, 47, 76, 123);
+        final List<Integer> list3 = Arrays.asList(2308, 4261, 6569, 10830, 17399, 28229);
+        final List<List<Integer>> lists = Arrays.asList(list1, list2, list3);
+        final List<Integer> expectedResults = computeUnion(lists);
+
+        // Consume the cursor in batches of "limit".
+        final Function<byte[], UnorderedUnionCursor<Integer>> cursorFunction = continuation -> UnorderedUnionCursor.create(
+                CursorTestUtils.cursorFunctionsFromLists(lists),
+                continuation,
+                null
+        );
+        final List<Integer> results = CursorTestUtils.toListInBatches(cursorFunction, limit);
+
+        assertEquals(expectedResults, results, "results mismatch when resumed stopping every " + limit + " elements");
+    }
+
+    @ParameterizedTest(name = "resumeAsFlatMapChild [limit = {0}]")
+    @ValueSource(ints = {1, 2, 3, 4, 7})
+    public void resumeAsFlatMapChild(int limit) {
+        final List<Integer> bigList = IntStream.range(0, 10).boxed().collect(Collectors.toList());
+        final List<Integer> list1 = Arrays.asList(1, 2, 3);
+        final List<Integer> list2 = Arrays.asList(4, 5, 6);
+        final List<Integer> list3 = Arrays.asList(7, 8, 9);
+        final List<List<Integer>> lists = Arrays.asList(list1, list2, list3);
+        final List<Integer> expectedResults = computeUnion(lists).stream()
+                .flatMap(i -> bigList.subList(i, bigList.size()).stream())
+                .collect(Collectors.toList());
+
+        // Map each element of the union to a subrange of the list, then consume the result in batches of "limit"
+        final Function<byte[], RecordCursor<Integer>> unionCursorFunction = continuation ->
+                UnorderedUnionCursor.create(CursorTestUtils.cursorFunctionsFromLists(lists), continuation, null);
+        final Function<byte[], RecordCursor<Integer>> flatMapCursorFunction = continuation -> RecordCursor.flatMapPipelined(
+                unionCursorFunction,
+                (i, childContinuation) -> RecordCursor.fromList(bigList.subList(i, bigList.size()), childContinuation),
+                i -> Tuple.from(i).pack(),
+                continuation,
+                2
+        );
+        final List<Integer> results = CursorTestUtils.toListInBatches(flatMapCursorFunction, limit);
+
+        assertEquals(results, expectedResults);
     }
 }

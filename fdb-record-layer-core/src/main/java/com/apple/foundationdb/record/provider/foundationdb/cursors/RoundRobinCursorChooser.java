@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursorResult;
 
 import javax.annotation.Nonnull;
@@ -39,6 +40,14 @@ class RoundRobinCursorChooser<T> {
     private int nextStatePos;
 
     RoundRobinCursorChooser(@Nonnull List<? extends MergeCursorState<T>> cursorStates, int nextStatePos) {
+        if (cursorStates.isEmpty()) {
+            // This should only be supplied with a non-empty list as the union and intersection cursors that
+            // use it only operate on two or more cursor streams, but validate here to be sure
+            throw new RecordCoreArgumentException("round robin chooser created over an  empty cursor list");
+        }
+        if (nextStatePos < 0 || nextStatePos >= cursorStates.size()) {
+            throw new RecordCoreArgumentException("next cursor state to choose is out of bounds");
+        }
         this.cursorStates = cursorStates;
         this.nextStatePos = nextStatePos;
     }
@@ -57,6 +66,8 @@ class RoundRobinCursorChooser<T> {
     /**
      * Choose the next state (using the round-robin policy). It will skip over any states that it
      * knows are exhausted (though the future itself may correspond to an exhausted state if incomplete).
+     * If a child cursor completes exceptionally, then this will return the exceptionally completed future
+     * when it the the child is encountered going round the round robin.
      *
      * @return a future from the next cursor state or {@code null} if all cursors are known to be exhausted
      */
@@ -65,6 +76,8 @@ class RoundRobinCursorChooser<T> {
         int initialPos = nextStatePos;
         MergeCursorState<T> nextState = cursorStates.get(nextStatePos);
         while (MoreAsyncUtil.isCompletedNormally(nextState.getOnNextFuture())) {
+            // Note that the future did not complete exceptionally here because of the isCompletedNormally
+            // check. Exceptional futures will be returned outside this loop.
             final RecordCursorResult<T> resultState = nextState.getResult();
             if (!resultState.hasNext() && resultState.getNoNextReason().isSourceExhausted()) {
                 advance();
