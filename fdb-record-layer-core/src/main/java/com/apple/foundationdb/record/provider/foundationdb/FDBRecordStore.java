@@ -207,6 +207,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected static final Object INDEX_RANGE_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_RANGE_SPACE.key();
     protected static final Object INDEX_UNIQUENESS_VIOLATIONS_KEY = FDBRecordStoreKeyspace.INDEX_UNIQUENESS_VIOLATIONS_SPACE.key();
     protected static final Object RECORD_VERSION_KEY = FDBRecordStoreKeyspace.RECORD_VERSION_SPACE.key();
+    protected static final Object INDEX_BUILD_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key();
 
     @SuppressWarnings("squid:S2386")
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
@@ -777,6 +778,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public Subspace indexUniquenessViolationsSubspace(@Nonnull Index index) {
         return getSubspace().subspace(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, index.getSubspaceTupleKey()));
+    }
+
+    /**
+     * Subspace for index to store information for online index build.
+     * @param index the index to retrieve the build information for
+     * @return the subspace for the build information of the given index
+     */
+    @Nonnull
+    Subspace indexBuildSubspace(@Nonnull Index index) {
+        return getSubspace().subspace(Tuple.from(INDEX_BUILD_SPACE_KEY, index.getSubspaceTupleKey()));
     }
 
     /**
@@ -2753,9 +2764,35 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.addReadConflictRange(indexStateKey, ByteArrayUtil.strinc(indexStateKey));
     }
 
-    private boolean checkIndexState(@Nonnull String indexName, @Nonnull IndexState indexState) {
+    /**
+     * Get the state of the index for this record store. This method will not perform
+     * any queries to the underlying database and instead satisfies the answer based on the
+     * in-memory cache of store state. However, if another operation in a different transaction
+     * happens concurrently that changes the index's state, operations using the same {@link FDBRecordContext}
+     * as this record store will fail to commit due to conflicts.
+     *
+     * @param index the index to check for the state
+     * @return the state of the given index
+     * @throws IllegalArgumentException if no index in the metadata has the same name as this index
+     */
+    @Nonnull
+    public IndexState getIndexState(@Nonnull Index index) {
+        return getIndexState(index.getName());
+    }
+
+    /**
+     * Get the state of the index with the given name for this record store.
+     * This method will not perform any queries to the underlying database and instead
+     * satisfies the answer based on the in-memory cache of store state.
+     *
+     * @param indexName the name of the index to check for the state
+     * @return the state of the given index
+     * @throws IllegalArgumentException if no index in the metadata has the given name
+     */
+    @Nonnull
+    public IndexState getIndexState(@Nonnull String indexName) {
         addIndexStateReadConflict(indexName);
-        return getRecordStoreState().getState(indexName).equals(indexState);
+        return getRecordStoreState().getState(indexName);
     }
 
     /**
@@ -2783,7 +2820,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     public boolean isIndexReadable(@Nonnull String indexName) {
-        return checkIndexState(indexName, IndexState.READABLE);
+        return getIndexState(indexName).equals(IndexState.READABLE);
     }
 
     /**
@@ -2811,7 +2848,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     public boolean isIndexWriteOnly(@Nonnull String indexName) {
-        return checkIndexState(indexName, IndexState.WRITE_ONLY);
+        return getIndexState(indexName).equals(IndexState.WRITE_ONLY);
     }
 
     /**
@@ -2839,7 +2876,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     public boolean isIndexDisabled(@Nonnull String indexName) {
-        return checkIndexState(indexName, IndexState.DISABLED);
+        return getIndexState(indexName).equals(IndexState.DISABLED);
     }
 
     // Remove any indexes that do not match the filter.
