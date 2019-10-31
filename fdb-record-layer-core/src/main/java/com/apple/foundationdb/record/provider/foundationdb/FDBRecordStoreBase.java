@@ -582,6 +582,52 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     /**
+     * Add a read conflict as if one had read the record with the given primary key. This will cause this transaction
+     * to fail (with a {@link com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionConflictException})
+     * if a concurrent transaction modifies the record with the provided primary key. This call however does not require
+     * performing any reads against the database, so it is faster and cheaper to perform than a real read. Note also that
+     * read-only operations are not checked for conflicts, so if this method is called, but the transaction performs
+     * no mutations, the transaction will never be failed with the above exception. Note also that this does not
+     * check that a record with this primary key actually exists in the database.
+     *
+     * <p>
+     * One use case is that this can be used to promote a read from {@link IsolationLevel#SNAPSHOT} to
+     * {@link IsolationLevel#SERIALIZABLE}. For example, if one performs a query at {@link IsolationLevel#SNAPSHOT} and
+     * then uses a subset of the records to determine a few other writes, then one can add conflicts to <em>only</em>
+     * the records actually used. For example, if one
+     * </p>
+     *
+     * <p>
+     * This method should be used with care and is advised only for those users who need extra control over conflict
+     * ranges.
+     * </p>
+     *
+     * @param primaryKey the primary key of the record to add a read conflict on
+     * @see com.apple.foundationdb.Transaction#addReadConflictRange(byte[], byte[])
+     */
+    void addRecordReadConflict(@Nonnull final Tuple primaryKey);
+
+    /**
+     * Add a write conflict as if one had modified the record with the given primary key. This will cause any concurrent
+     * transactions to fail (with a {@link com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionConflictException})
+     * if they read the record with the provided primary key. This call however does not require performing any writes
+     * against the database, so it is faster and cheaper to perform than a real write. Note that this does not check
+     * if a record with this primary key actually exists in the database, and it does not update any indexes associated
+     * with the record. In this way, it is identical (in terms of conflicts) with overwriting the given record with itself,
+     * though it will not induce any disk I/O or cause any {@linkplain com.apple.foundationdb.Transaction#watch(byte[]) watches}
+     * on the modified keys to fire.
+     *
+     * <p>
+     * This method should be used with care and is advised only for those users who need extra control over conflict
+     * ranges.
+     * </p>
+     *
+     * @param primaryKey the primary key of the record to add a write conflict on
+     * @see com.apple.foundationdb.Transaction#addWriteConflictRange(byte[], byte[])
+     */
+    void addRecordWriteConflict(@Nonnull final Tuple primaryKey);
+
+    /**
      * Scan the records in the database.
      *
      * @param continuation any continuation from a previous scan

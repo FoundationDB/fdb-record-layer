@@ -1053,6 +1053,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix);
     }
 
+    @Nonnull
+    private Range getRangeForRecord(@Nonnull Tuple primaryKey) {
+        return TupleRange.allOf(primaryKey).toRange(recordsSubspace());
+    }
+
+    @Override
+    public void addRecordReadConflict(@Nonnull Tuple primaryKey) {
+        final Range recordRange = getRangeForRecord(primaryKey);
+        ensureContextActive().addReadConflictRange(recordRange.begin, recordRange.end);
+    }
+
+    @Override
+    public void addRecordWriteConflict(@Nonnull Tuple primaryKey) {
+        final Range recordRange = getRangeForRecord(primaryKey);
+        ensureContextActive().addWriteConflictRange(recordRange.begin, recordRange.end);
+    }
+
     /**
      * Asynchronously read a record from the database.
      * @param primaryKey the key for the record to be loaded

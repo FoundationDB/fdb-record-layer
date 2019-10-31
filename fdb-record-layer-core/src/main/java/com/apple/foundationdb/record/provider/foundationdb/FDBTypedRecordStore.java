@@ -140,6 +140,16 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         return untypedStore.recordExistsAsync(primaryKey, isolationLevel);
     }
 
+    @Override
+    public void addRecordReadConflict(@Nonnull Tuple primaryKey) {
+        untypedStore.addRecordReadConflict(primaryKey);
+    }
+
+    @Override
+    public void addRecordWriteConflict(@Nonnull Tuple primaryKey) {
+        untypedStore.addRecordWriteConflict(primaryKey);
+    }
+
     @Nonnull
     @Override
     public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
