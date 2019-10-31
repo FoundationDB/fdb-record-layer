@@ -24,8 +24,11 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -49,16 +52,103 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexS
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Tests of the planner's ability to coalesce redundant and adjacent filters.
  */
 @Tag(Tags.RequiresFDB)
 public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
+
+    /**
+     * Validate that a query for all values within a given range on an indexed field will be coalesced
+     * into a single query on that field.
+     */
+    @DualPlannerTest
+    public void simpleRangeCoalesce() throws Exception {
+        complexQuerySetup(NO_HOOK);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(
+                        Query.field("num_value_3_indexed").greaterThanOrEquals(0),
+                        Query.field("num_value_3_indexed").lessThanOrEquals(1)
+                ))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[1]]")))));
+        assertEquals(1869980849, plan.planHash());
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            int i = 0;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(rec.getRecord());
+                    assertThat(myrec.getNumValue3Indexed(), allOf(greaterThanOrEqualTo(0), lessThanOrEqualTo(1)));
+                    assertThat(myrec.getRecNo() % 5, allOf(greaterThanOrEqualTo(0L), lessThanOrEqualTo(1L)));
+                    i++;
+                }
+            }
+            assertEquals(40, i);
+            assertDiscardedNone(context);
+        }
+    }
+
+    /**
+     * Validate that a query for all values within a given range of versions will be coalesced into a single scan.
+     * This is similar to the {@link #simpleRangeCoalesce()} test above, but it is for version key expressions in
+     * particular.
+     */
+    @Test
+    public void versionRangeCoalesce() throws Exception {
+        Index versionIndex = new Index("MySimpleRecord$version", VersionKeyExpression.VERSION, IndexTypes.VERSION);
+        RecordMetaDataHook hook = metaData -> {
+            metaData.setStoreRecordVersions(true);
+            metaData.addIndex("MySimpleRecord", versionIndex);
+        };
+
+        complexQuerySetup(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            long readVersion = context.getReadVersion();
+            FDBRecordVersion lowBoundary = FDBRecordVersion.firstInDBVersion(0);
+            FDBRecordVersion highBoundary = FDBRecordVersion.lastInDBVersion(readVersion);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.and(
+                            Query.version().greaterThan(lowBoundary),
+                            Query.version().lessThan(highBoundary)
+                    ))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            assertThat(plan, indexScan(allOf(indexName(versionIndex.getName()), bounds(hasTupleString("([" + lowBoundary.toVersionstamp() + "],[" + highBoundary.toVersionstamp() + "])")))));
+            // NOTE: the plan hash is not validated here as that can change between executions as it includes the current read version
+
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                int i = 0;
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBRecordVersion version = rec.getVersion();
+                    assertNotNull(version);
+                    assertThat(version, allOf(lessThan(highBoundary), greaterThan(lowBoundary)));
+                    i++;
+                }
+                assertEquals(100, i);
+                assertDiscardedNone(context);
+            }
+        }
+    }
+
     /**
      * Verify that the planner removes duplicate filters.
      * TODO We currently don't. Update this test when it gets implemented.
@@ -90,7 +180,8 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
                     assertEquals("even", myrec.getStrValueIndexed());
-                    assertTrue((myrec.getNumValue3Indexed() % 5) == 3);
+                    assertEquals(3, myrec.getNumValue3Indexed());
+                    assertEquals(3, myrec.getRecNo() % 5);
                     i++;
                 }
             }
@@ -121,7 +212,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
         List<String> bounds = Arrays.asList("GREATER_THAN_OR_EQUALS 3", "LESS_THAN_OR_EQUALS 4", "GREATER_THAN 0");
         Collection<List<String>> combinations = Collections2.permutations(bounds);
         assertThat(plan, indexScan(allOf(indexName("multi_index"),
-                bounds(anyOf(Collections2.permutations(bounds).stream()
+                bounds(anyOf(combinations.stream()
                         .map(ls -> hasTupleString("[EQUALS $str, [" + String.join(" && ", ls) + "]]"))
                         .collect(Collectors.toList()))))));
         assertEquals(241654378, plan.planHash());

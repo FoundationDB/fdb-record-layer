@@ -367,6 +367,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 //   * size of row.
                 //   * need for type filtering if row scan with multiple types.
                 if (bestPlan == null || p.score > bestPlan.score ||
+                        p.unsatisfiedFilters.size() < bestPlan.unsatisfiedFilters.size() ||
                         (p.score == bestPlan.score && compareIndexes(planContext, index, bestIndex) > 0)) {
                     bestPlan = p;
                     bestIndex = index;
@@ -801,41 +802,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             return planAndWithNesting(candidateScan, (NestingKeyExpression)index, filter, sort);
         } else if (index instanceof ThenKeyExpression) {
             return new AndWithThenPlanner(candidateScan, (ThenKeyExpression)index, filter, sort).plan();
-        } else if (!(index instanceof FieldKeyExpression || index instanceof VersionKeyExpression)) {
-            return null;
+        } else {
+            return new AndWithThenPlanner(candidateScan, Collections.singletonList(index), filter, sort).plan();
         }
-
-        List<QueryComponent> unsatisfiedFilters = new ArrayList<>(filter.getChildren());
-        for (QueryComponent filterChild : filter.getChildren()) {
-            QueryComponent filterComponent = candidateScan.planContext.rankComparisons.planComparisonSubstitute(filterChild);
-            ScoredPlan plan = null;
-            if (index instanceof FieldKeyExpression && filterComponent instanceof FieldWithComparison) {
-                FieldWithComparison fieldWithComparison = (FieldWithComparison)filterComponent;
-                plan = planFieldWithComparison(candidateScan, index,
-                        fieldWithComparison, sort);
-                if (plan != null) {
-                    unsatisfiedFilters.remove(filterChild);
-                    return plan.withUnsatisfiedFilters(unsatisfiedFilters);
-                }
-            } else if (index instanceof VersionKeyExpression &&
-                       filterComponent instanceof QueryRecordFunctionWithComparison
-                       && ((QueryRecordFunctionWithComparison)filterComponent).getFunction().getName().equals(FunctionNames.VERSION)) {
-                QueryRecordFunctionWithComparison functionComparison = (QueryRecordFunctionWithComparison)filterComponent;
-                plan = planVersion(candidateScan, index, functionComparison, sort);
-            } else if (filterComponent instanceof QueryKeyExpressionWithComparison) {
-                plan = planQueryKeyExpressionWithComparison(candidateScan, index, (QueryKeyExpressionWithComparison)filterComponent, sort);
-                if (plan != null) {
-                    unsatisfiedFilters.remove(filterChild);
-                    return plan.withUnsatisfiedFilters(unsatisfiedFilters);
-                }
-            }
-
-            if (plan != null) {
-                unsatisfiedFilters.remove(filterChild);
-                return plan.withUnsatisfiedFilters(unsatisfiedFilters);
-            }
-        }
-        return null;
     }
 
     @Nullable
@@ -1572,9 +1541,31 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
+    /**
+     * Mini-planner for handling the way that queries with multiple filters ("ands") on indexes with multiple components
+     * ("thens"). This handles things like matching comparisons to the different columns of the index and then combining
+     * them into a single scan, as well as validating that the sort is matched correctly.
+     *
+     * <p>
+     * In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
+     * like (1) a single filter on a compound index and (2) multiple filters on a single index. This is because those
+     * cases end up having more-or-less the same logic as the multi-field cases.
+     * </p>
+     */
     private class AndWithThenPlanner {
-        @Nonnull
+        /**
+         * The original root expression on the index or {@code null} if the index actually has only a single column.
+         */
+        @Nullable
         private final ThenKeyExpression index;
+        /**
+         * The children of the root expression or a single key expression if the index actually has only a single column.
+         */
+        @Nonnull
+        private final List<KeyExpression> indexChildren;
+        /**
+         * The children of the {@link AndComponent} or a single filter if the query is actually on a single component.
+         */
         @Nonnull
         private final List<QueryComponent> filters;
         @Nullable
@@ -1619,7 +1610,25 @@ public class RecordQueryPlanner implements QueryPlanner {
                                   @Nonnull ThenKeyExpression index,
                                   @Nonnull List<QueryComponent> filters,
                                   @Nullable KeyExpression sort) {
+            this (candidateScan, index, index.getChildren(), filters, sort);
+        }
+
+        @SpotBugsSuppressWarnings(value = {"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION"}, justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                  @Nonnull List<KeyExpression> indexChildren,
+                                  @Nonnull AndComponent filter,
+                                  @Nullable KeyExpression sort) {
+            this(candidateScan, null, indexChildren, filter.getChildren(), sort);
+        }
+
+        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        private AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                   @Nullable ThenKeyExpression index,
+                                   @Nonnull List<KeyExpression> indexChildren,
+                                   @Nonnull List<QueryComponent> filters,
+                                   @Nullable KeyExpression sort) {
             this.index = index;
+            this.indexChildren = indexChildren;
             this.filters = filters;
             this.sort = sort;
             this.candidateScan = candidateScan;
@@ -1631,7 +1640,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         public ScoredPlan plan() {
             setupPlanState();
             boolean doneComparing = false;
-            for (KeyExpression child : index.getChildren()) {
+            for (KeyExpression child : indexChildren) {
                 if (!doneComparing) {
                     planChild(child);
                     if (!comparisons.isEquality() || !foundComparison) {
@@ -1660,7 +1669,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             boolean createsDuplicates = false;
             if (candidateScan.index != null) {
                 createsDuplicates = candidateScan.index.getRootExpression().createsDuplicates();
-                if (createsDuplicates && index.createsDuplicatesAfter(comparisons.size())) {
+                if (createsDuplicates && index != null && index.createsDuplicatesAfter(comparisons.size())) {
                     // If fields after we stopped comparing create duplicates, they might be empty, so that a record
                     // that otherwise matches the comparisons would be absent from the index entirely.
                     return null;
