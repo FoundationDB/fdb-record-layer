@@ -135,6 +135,8 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query) {
+        query.validate(metaData);
+
         final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query);
         planPartial(context, RelationalPlannerExpression.fromRecordQuery(query));
 

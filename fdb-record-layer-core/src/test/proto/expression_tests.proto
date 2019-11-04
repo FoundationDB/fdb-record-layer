@@ -31,6 +31,16 @@ message TestScalarFieldAccess {
   repeated string repeat_me = 2;
   optional bytes bytes_field = 3;
   optional UUID uuid_field = 4;
+  optional bool bool_field = 5;
+  optional float float_field = 6;
+  optional double double_field = 7;
+
+  enum Suit {
+    HEARTS = 0;
+    SCUBA = 1;
+    LAW = 2;
+  }
+  optional Suit enum_field = 8;
 }
 
 message NestedField {

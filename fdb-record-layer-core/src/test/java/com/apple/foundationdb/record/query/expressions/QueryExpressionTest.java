@@ -41,7 +41,9 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -214,6 +216,122 @@ public class QueryExpressionTest {
         { "abc IS NULL", "field", "abc", Comparisons.Type.IS_NULL, null, Boolean.FALSE },
         { "abc NOT NULL", "field", "abc", Comparisons.Type.NOT_NULL, null, Boolean.TRUE },
         { "null NOT NULL", "field", null, Comparisons.Type.NOT_NULL, null, Boolean.FALSE },
+        {"null (bool) IS NULL", "bool_field", null, Comparisons.Type.IS_NULL, null, Boolean.TRUE},
+        {"false IS NULL", "bool_field", false, Comparisons.Type.IS_NULL, null, Boolean.FALSE},
+        {"true IS NULL", "bool_field", true, Comparisons.Type.IS_NULL, null, Boolean.FALSE},
+        {"true > false", "bool_field", true, Comparisons.Type.GREATER_THAN, false, Boolean.TRUE},
+        {"true < false", "bool_field", true, Comparisons.Type.LESS_THAN, false, Boolean.FALSE},
+        {"true >= false", "bool_field", true, Comparisons.Type.GREATER_THAN_OR_EQUALS, false, Boolean.TRUE},
+        {"true <= false", "bool_field", true, Comparisons.Type.LESS_THAN_OR_EQUALS, false, Boolean.FALSE},
+        {"false > true", "bool_field", false, Comparisons.Type.GREATER_THAN, true, Boolean.FALSE},
+        {"false < true", "bool_field", false, Comparisons.Type.LESS_THAN, true, Boolean.TRUE},
+        {"false >= true", "bool_field", false, Comparisons.Type.GREATER_THAN_OR_EQUALS, true, Boolean.FALSE},
+        {"false <= true", "bool_field", false, Comparisons.Type.LESS_THAN_OR_EQUALS, true, Boolean.TRUE},
+        {"true == false", "bool_field", true, Comparisons.Type.EQUALS, false, Boolean.FALSE},
+        {"true != false", "bool_field", true, Comparisons.Type.NOT_EQUALS, false, Boolean.TRUE},
+        {"false == false", "bool_field", false, Comparisons.Type.EQUALS, false, Boolean.TRUE},
+        {"false != false", "bool_field", false, Comparisons.Type.NOT_EQUALS, false, Boolean.FALSE},
+        {"false < false", "bool_field", false, Comparisons.Type.LESS_THAN, false, Boolean.FALSE},
+        {"false <= false", "bool_field", false, Comparisons.Type.LESS_THAN_OR_EQUALS, false, Boolean.TRUE},
+        {"false > false", "bool_field", false, Comparisons.Type.GREATER_THAN, false, Boolean.FALSE},
+        {"false >= false", "bool_field", false, Comparisons.Type.GREATER_THAN_OR_EQUALS, false, Boolean.TRUE},
+        {"true == true", "bool_field", true, Comparisons.Type.EQUALS, true, Boolean.TRUE},
+        {"true != true", "bool_field", true, Comparisons.Type.NOT_EQUALS, true, Boolean.FALSE},
+        {"true < true", "bool_field", true, Comparisons.Type.LESS_THAN, true, Boolean.FALSE},
+        {"true <= true", "bool_field", true, Comparisons.Type.LESS_THAN_OR_EQUALS, true, Boolean.TRUE},
+        {"true > true", "bool_field", true, Comparisons.Type.GREATER_THAN, true, Boolean.FALSE},
+        {"true >= true", "bool_field", true, Comparisons.Type.GREATER_THAN_OR_EQUALS, true, Boolean.TRUE},
+        {"null (float) IS NULL", "float_field", null, Comparisons.Type.IS_NULL, null, Boolean.TRUE},
+        {"0.0f IS NULL", "float_field", 0.0f, Comparisons.Type.IS_NULL, null, Boolean.FALSE},
+        {"6.02f == 6.02f", "float_field", 6.02f, Comparisons.Type.EQUALS, 6.02f, Boolean.TRUE},
+        {"6.02f != 6.02f", "float_field", 6.02f, Comparisons.Type.NOT_EQUALS, 6.02f, Boolean.FALSE},
+        {"6.02f < 6.02f", "float_field", 6.02f, Comparisons.Type.LESS_THAN, 6.02f, Boolean.FALSE},
+        {"6.02f <= 6.02f", "float_field", 6.02f, Comparisons.Type.LESS_THAN_OR_EQUALS, 6.02f, Boolean.TRUE},
+        {"6.02f > 6.02f", "float_field", 6.02f, Comparisons.Type.GREATER_THAN, 6.02f, Boolean.FALSE},
+        {"6.02f >= 6.02f", "float_field", 6.02f, Comparisons.Type.GREATER_THAN_OR_EQUALS, 6.02f, Boolean.TRUE},
+        {"3.14f == 2.72f", "float_field", 3.14f, Comparisons.Type.EQUALS, 2.72f, Boolean.FALSE},
+        {"3.14f != 2.72f", "float_field", 3.14f, Comparisons.Type.NOT_EQUALS, 2.72f, Boolean.TRUE},
+        {"3.14f < 2.72f", "float_field", 3.14f, Comparisons.Type.LESS_THAN, 2.72f, Boolean.FALSE},
+        {"3.14f <= 2.72f", "float_field", 3.14f, Comparisons.Type.LESS_THAN_OR_EQUALS, 2.72f, Boolean.FALSE},
+        {"3.14f > 2.72f", "float_field", 3.14f, Comparisons.Type.GREATER_THAN, 2.72f, Boolean.TRUE},
+        {"3.14f >= 2.72f", "float_field", 3.14f, Comparisons.Type.GREATER_THAN_OR_EQUALS, 2.72f, Boolean.TRUE},
+        {"2.72f < -3.14f", "float_field", 2.72f, Comparisons.Type.LESS_THAN, -3.14f, Boolean.FALSE},
+        {"2.72f <= -3.14f", "float_field", 2.72f, Comparisons.Type.LESS_THAN_OR_EQUALS, -3.14f, Boolean.FALSE},
+        {"2.72f > -3.14f", "float_field", 2.72f, Comparisons.Type.GREATER_THAN, -3.14f, Boolean.TRUE},
+        {"2.72f >= -3.14f", "float_field", 2.72f, Comparisons.Type.GREATER_THAN_OR_EQUALS, -3.14f, Boolean.TRUE},
+        {"0.0f == -0.0f", "float_field", 0.0f, Comparisons.Type.EQUALS, -0.0f, Boolean.FALSE},
+        {"0.0f != -0.0f", "float_field", 0.0f, Comparisons.Type.NOT_EQUALS, -0.0f, Boolean.TRUE},
+        {"0.0f < -0.0f", "float_field", 0.0f, Comparisons.Type.LESS_THAN, -0.0f, Boolean.FALSE},
+        {"0.0f > -0.0f", "float_field", 0.0f, Comparisons.Type.GREATER_THAN, -0.0f, Boolean.TRUE},
+        {"3.14f < Inf", "float_field", 3.14f, Comparisons.Type.LESS_THAN, Float.POSITIVE_INFINITY, Boolean.TRUE},
+        {"3.14f > Inf", "float_field", 3.14f, Comparisons.Type.GREATER_THAN, Float.POSITIVE_INFINITY, Boolean.FALSE},
+        {"3.14f < -Inf", "float_field", 3.14f, Comparisons.Type.LESS_THAN, Float.NEGATIVE_INFINITY, Boolean.FALSE},
+        {"3.14f > -Inf", "float_field", 3.14f, Comparisons.Type.GREATER_THAN, Float.NEGATIVE_INFINITY, Boolean.TRUE},
+        {"3.14f < NaN", "float_field", 3.14f, Comparisons.Type.LESS_THAN, Float.NaN, Boolean.TRUE},
+        {"3.14f > NaN", "float_field", 3.14f, Comparisons.Type.GREATER_THAN, Float.NaN, Boolean.FALSE},
+        {"Inf < NaN (float)", "float_field", Float.POSITIVE_INFINITY, Comparisons.Type.LESS_THAN, Float.NaN, Boolean.TRUE},
+        {"Inf > NaN (float)", "float_field", Float.POSITIVE_INFINITY, Comparisons.Type.GREATER_THAN, Float.NaN, Boolean.FALSE},
+        {"NaN < Inf (float)", "float_field", Float.NaN, Comparisons.Type.LESS_THAN, Float.POSITIVE_INFINITY, Boolean.FALSE},
+        {"NaN > Inf (float)", "float_field", Float.NaN, Comparisons.Type.GREATER_THAN, Float.POSITIVE_INFINITY, Boolean.TRUE},
+        {"NaN == NaN (float)", "float_field", Float.NaN, Comparisons.Type.EQUALS, Float.NaN, Boolean.TRUE},
+        {"null (double) IS NULL", "double_field", null, Comparisons.Type.IS_NULL, null, Boolean.TRUE},
+        {"0.0 IS NULL", "double_field", 0.0, Comparisons.Type.IS_NULL, null, Boolean.FALSE},
+        {"6.02 == 6.02", "double_field", 6.02, Comparisons.Type.EQUALS, 6.02, Boolean.TRUE},
+        {"6.02 != 6.02", "double_field", 6.02, Comparisons.Type.NOT_EQUALS, 6.02, Boolean.FALSE},
+        {"6.02 < 6.02", "double_field", 6.02, Comparisons.Type.LESS_THAN, 6.02, Boolean.FALSE},
+        {"6.02 <= 6.02", "double_field", 6.02, Comparisons.Type.LESS_THAN_OR_EQUALS, 6.02, Boolean.TRUE},
+        {"6.02 > 6.02", "double_field", 6.02, Comparisons.Type.GREATER_THAN, 6.02, Boolean.FALSE},
+        {"6.02 >= 6.02", "double_field", 6.02, Comparisons.Type.GREATER_THAN_OR_EQUALS, 6.02, Boolean.TRUE},
+        {"3.14 == 2.72", "double_field", 3.14, Comparisons.Type.EQUALS, 2.72, Boolean.FALSE},
+        {"3.14 != 2.72", "double_field", 3.14, Comparisons.Type.NOT_EQUALS, 2.72, Boolean.TRUE},
+        {"3.14 < 2.72", "double_field", 3.14, Comparisons.Type.LESS_THAN, 2.72, Boolean.FALSE},
+        {"3.14 <= 2.72", "double_field", 3.14, Comparisons.Type.LESS_THAN_OR_EQUALS, 2.72, Boolean.FALSE},
+        {"3.14 > 2.72", "double_field", 3.14, Comparisons.Type.GREATER_THAN, 2.72, Boolean.TRUE},
+        {"3.14 >= 2.72", "double_field", 3.14, Comparisons.Type.GREATER_THAN_OR_EQUALS, 2.72, Boolean.TRUE},
+        {"2.72 < -3.14", "double_field", 2.72, Comparisons.Type.LESS_THAN, -3.14, Boolean.FALSE},
+        {"2.72 <= -3.14", "double_field", 2.72, Comparisons.Type.LESS_THAN_OR_EQUALS, -3.14, Boolean.FALSE},
+        {"2.72 > -3.14", "double_field", 2.72, Comparisons.Type.GREATER_THAN, -3.14, Boolean.TRUE},
+        {"2.72 >= -3.14", "double_field", 2.72, Comparisons.Type.GREATER_THAN_OR_EQUALS, -3.14, Boolean.TRUE},
+        {"0.0 == -0.0", "double_field", 0.0, Comparisons.Type.EQUALS, -0.0, Boolean.FALSE},
+        {"0.0 != -0.0", "double_field", 0.0, Comparisons.Type.NOT_EQUALS, -0.0, Boolean.TRUE},
+        {"0.0 < -0.0", "double_field", 0.0, Comparisons.Type.LESS_THAN, -0.0, Boolean.FALSE},
+        {"0.0 > -0.0", "double_field", 0.0, Comparisons.Type.GREATER_THAN, -0.0, Boolean.TRUE},
+        {"3.14 < Inf", "double_field", 3.14, Comparisons.Type.LESS_THAN, Double.POSITIVE_INFINITY, Boolean.TRUE},
+        {"3.14 > Inf", "double_field", 3.14, Comparisons.Type.GREATER_THAN, Double.POSITIVE_INFINITY, Boolean.FALSE},
+        {"3.14 < -Inf", "double_field", 3.14, Comparisons.Type.LESS_THAN, Double.NEGATIVE_INFINITY, Boolean.FALSE},
+        {"3.14 > -Inf", "double_field", 3.14, Comparisons.Type.GREATER_THAN, Double.NEGATIVE_INFINITY, Boolean.TRUE},
+        {"3.14 < NaN", "double_field", 3.14, Comparisons.Type.LESS_THAN, Double.NaN, Boolean.TRUE},
+        {"3.14 > NaN", "double_field", 3.14, Comparisons.Type.GREATER_THAN, Double.NaN, Boolean.FALSE},
+        {"Inf < NaN", "double_field", Double.POSITIVE_INFINITY, Comparisons.Type.LESS_THAN, Double.NaN, Boolean.TRUE},
+        {"Inf > NaN", "double_field", Double.POSITIVE_INFINITY, Comparisons.Type.GREATER_THAN, Double.NaN, Boolean.FALSE},
+        {"NaN < Inf", "double_field", Double.NaN, Comparisons.Type.LESS_THAN, Double.POSITIVE_INFINITY, Boolean.FALSE},
+        {"NaN > Inf", "double_field", Double.NaN, Comparisons.Type.GREATER_THAN, Double.POSITIVE_INFINITY, Boolean.TRUE},
+        {"NaN == NaN", "double_field", Double.NaN, Comparisons.Type.EQUALS, Double.NaN, Boolean.TRUE},
+        {"null (enum) IS NULL", "enum_field", null, Comparisons.Type.IS_NULL, null, Boolean.TRUE},
+        {"Suit.HEARTS IS NULL", "enum_field", TestScalarFieldAccess.Suit.HEARTS.getValueDescriptor(), Comparisons.Type.IS_NULL, null, Boolean.FALSE},
+        {"Suit.SCUBA IS NULL", "enum_field", TestScalarFieldAccess.Suit.SCUBA.getValueDescriptor(), Comparisons.Type.IS_NULL, null, Boolean.FALSE},
+        {"Suit.HEARTS == Suit.SCUBA", "enum_field", TestScalarFieldAccess.Suit.HEARTS.getValueDescriptor(), Comparisons.Type.EQUALS, TestScalarFieldAccess.Suit.SCUBA, Boolean.FALSE},
+        {"Suit.HEARTS != Suit.SCUBA", "enum_field", TestScalarFieldAccess.Suit.HEARTS.getValueDescriptor(), Comparisons.Type.NOT_EQUALS, TestScalarFieldAccess.Suit.SCUBA, Boolean.TRUE},
+        {"Suit.LAW == Suit.LAW", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.EQUALS, TestScalarFieldAccess.Suit.LAW, Boolean.TRUE},
+        {"Suit.LAW != Suit.LAW", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.NOT_EQUALS, TestScalarFieldAccess.Suit.LAW, Boolean.FALSE},
+        {"Suit.SCUBA < Suit.LAW", "enum_field", TestScalarFieldAccess.Suit.SCUBA.getValueDescriptor(), Comparisons.Type.LESS_THAN, TestScalarFieldAccess.Suit.LAW, Boolean.TRUE},
+        {"Suit.SCUBA < Suit.LAW (value descriptor)", "enum_field", TestScalarFieldAccess.Suit.SCUBA.getValueDescriptor(), Comparisons.Type.LESS_THAN, TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Boolean.TRUE},
+        {"Suit.SCUBA < Suit.LAW (proto value descriptor)", "enum_field", TestScalarFieldAccess.Suit.SCUBA.getValueDescriptor(), Comparisons.Type.LESS_THAN, TestScalarFieldAccess.Suit.LAW.getValueDescriptor().toProto(), Boolean.TRUE},
+        {"Suit.SCUBA < Suit.LAW (proto value descriptor builder)", "enum_field", TestScalarFieldAccess.Suit.SCUBA.getValueDescriptor(), Comparisons.Type.LESS_THAN, TestScalarFieldAccess.Suit.LAW.getValueDescriptor().toProto().toBuilder(), Boolean.TRUE},
+        {"Suit.SCUBA < Suit.LAW (number)", "enum_field", TestScalarFieldAccess.Suit.SCUBA.getValueDescriptor(), Comparisons.Type.LESS_THAN, TestScalarFieldAccess.Suit.LAW.getNumber(), Boolean.TRUE},
+        {"Suit.HEARTS < Suit.LAW", "enum_field", TestScalarFieldAccess.Suit.HEARTS.getValueDescriptor(), Comparisons.Type.LESS_THAN, TestScalarFieldAccess.Suit.LAW, Boolean.TRUE},
+        {"Suit.LAW < Suit.SCUBA", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.LESS_THAN, TestScalarFieldAccess.Suit.SCUBA, Boolean.FALSE},
+        {"Suit.LAW < Suit.HEARTS", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.LESS_THAN, TestScalarFieldAccess.Suit.HEARTS, Boolean.FALSE},
+        {"Suit.LAW < Suit.LAW", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.LESS_THAN, TestScalarFieldAccess.Suit.LAW, Boolean.FALSE},
+        {"Suit.LAW <= Suit.SCUBA", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.LESS_THAN_OR_EQUALS, TestScalarFieldAccess.Suit.SCUBA, Boolean.FALSE},
+        {"Suit.LAW <= Suit.HEARTS", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.LESS_THAN_OR_EQUALS, TestScalarFieldAccess.Suit.HEARTS, Boolean.FALSE},
+        {"Suit.LAW <= Suit.LAW", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.LESS_THAN_OR_EQUALS, TestScalarFieldAccess.Suit.LAW, Boolean.TRUE},
+        {"Suit.LAW > Suit.SCUBA", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.GREATER_THAN, TestScalarFieldAccess.Suit.SCUBA, Boolean.TRUE},
+        {"Suit.LAW > Suit.HEARTS", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.GREATER_THAN, TestScalarFieldAccess.Suit.HEARTS, Boolean.TRUE},
+        {"Suit.LAW > Suit.LAW", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.GREATER_THAN, TestScalarFieldAccess.Suit.LAW, Boolean.FALSE},
+        {"Suit.LAW >= Suit.SCUBA", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.GREATER_THAN, TestScalarFieldAccess.Suit.SCUBA, Boolean.TRUE},
+        {"Suit.LAW >= Suit.HEARTS", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.GREATER_THAN, TestScalarFieldAccess.Suit.HEARTS, Boolean.TRUE},
+        {"Suit.LAW >= Suit.LAW", "enum_field", TestScalarFieldAccess.Suit.LAW.getValueDescriptor(), Comparisons.Type.GREATER_THAN_OR_EQUALS, TestScalarFieldAccess.Suit.LAW, Boolean.TRUE},
         { "\\xde\\xad\\xc0\\xde == \\xde\\xad\\xc0\\xde", "bytes_field", DEADC0DE, Comparisons.Type.EQUALS, DEADC0DE, Boolean.TRUE},
         { "\\xde\\xad\\xc0\\xde == \\x1e\\xe7", "bytes_field", DEADC0DE, Comparisons.Type.EQUALS, LEET, Boolean.FALSE},
         { "\\xde\\xad\\xc0\\xde == ``", "bytes_field", DEADC0DE, Comparisons.Type.EQUALS, EMPTY_BYTES, Boolean.FALSE},
@@ -339,15 +457,15 @@ public class QueryExpressionTest {
         { "70000000-0001-0002-0003-000000000004 < 80000000-0001-0002-0003-000000000004", "uuid_field", UUID.fromString("70000000-0001-0002-0003-000000000004"), Comparisons.Type.LESS_THAN, UUID.fromString("80000000-0001-0002-0003-000000000004"), Boolean.TRUE }
     };
 
-    @Test
-    public void testComparisons() throws Exception {
-        for (Object[] test : COMPARISON_TESTS) {
-            testComparison((String)test[0], (String)test[1], test[2], (Comparisons.Type)test[3], test[4], (Boolean)test[5]);
-        }
+    @Nonnull
+    static Stream<Arguments> testComparisonArgs() {
+        return Stream.of(COMPARISON_TESTS).map(Arguments::of);
     }
 
     @SuppressWarnings("unchecked")
-    protected void testComparison(String name, String field, Object val1, Comparisons.Type type, Object val2, Boolean expected) throws Exception {
+    @ParameterizedTest(name = "testComparison [name = {0}]")
+    @MethodSource("testComparisonArgs")
+    protected void testComparison(String name, String field, Object val1, Comparisons.Type type, Object val2, Boolean expected) {
         final TestScalarFieldAccess.Builder rec = createRecord(field, val1);
         try {
             final Comparisons.Comparison comparison;

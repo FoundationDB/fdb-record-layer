@@ -40,6 +40,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.Internal;
@@ -142,6 +143,24 @@ public class Comparisons {
         }
     }
 
+    private static boolean isEnum(@Nonnull Object obj) {
+        return obj instanceof Descriptors.EnumValueDescriptor
+               || obj instanceof DescriptorProtos.EnumValueDescriptorProtoOrBuilder
+               || obj instanceof ProtocolMessageEnum;
+    }
+
+    private static int getEnumNumber(@Nonnull Object obj) {
+        if (obj instanceof Descriptors.EnumValueDescriptor) {
+            return ((Descriptors.EnumValueDescriptor)obj).getNumber();
+        } else if (obj instanceof DescriptorProtos.EnumValueDescriptorProtoOrBuilder) {
+            return ((DescriptorProtos.EnumValueDescriptorProtoOrBuilder)obj).getNumber();
+        } else if (obj instanceof ProtocolMessageEnum) {
+            return ((ProtocolMessageEnum)obj).getNumber();
+        } else {
+            throw new RecordCoreArgumentException("Tried to extract enum number from non-enum type: " + obj.getClass());
+        }
+    }
+
     @SuppressWarnings("rawtypes")
     private static Comparable toComparable(@Nullable Object obj) {
         if (obj == null) {
@@ -153,6 +172,8 @@ public class Comparisons {
         } else if (obj instanceof UUID) {
             UUID uuid = (UUID)obj;
             return new UnsignedUUID(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+        } else if (isEnum(obj)) {
+            return getEnumNumber(obj);
         } else if (obj instanceof Comparable) {
             return (Comparable) obj;
         } else {
@@ -168,6 +189,8 @@ public class Comparisons {
             return obj;
         } else if (obj instanceof byte[]) {
             return ByteString.copyFrom((byte[])obj);
+        } else if (isEnum(obj)) {
+            return getEnumNumber(obj);
         } else if (obj instanceof Comparable) {
             return obj;
         } else if (obj instanceof List) {

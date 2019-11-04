@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -50,7 +51,11 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -59,6 +64,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
@@ -78,6 +84,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -455,7 +462,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, indexScan("color"));
+        int redNumber = TestRecordsEnumProto.MyShapeRecord.Color.RED_VALUE;
+        assertThat(plan, indexScan(allOf(indexName("color"), bounds(hasTupleString("[[" + redNumber + "],[" + redNumber + "]]")))));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(1393755963, plan.planHash());
 
@@ -474,6 +482,68 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(9, i);
             assertDiscardedNone(context);
         }
+    }
+
+    /**
+     * Verify that queries on enums work even without the right index.
+     */
+    @DualPlannerTest
+    public void enumFieldsWithoutIndex() throws Exception {
+        setupEnumShapes(NO_HOOK);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyShapeRecord")
+                .setFilter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(equalTo(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED)), scan(unbounded())));
+        assertEquals(-2147229803, plan.planHash());
+
+        try (FDBRecordContext context = openContext()) {
+            openEnumRecordStore(context, NO_HOOK);
+            int i = 0;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecordsEnumProto.MyShapeRecord.Builder shapeRec = TestRecordsEnumProto.MyShapeRecord.newBuilder();
+                    shapeRec.mergeFrom(rec.getRecord());
+                    assertEquals(TestRecordsEnumProto.MyShapeRecord.Color.RED, shapeRec.getColor());
+                    i++;
+                }
+            }
+            assertEquals(9, i);
+            assertDiscardedAtMost(18, context);
+        }
+    }
+
+    @Nonnull
+    static Stream<Arguments> wrongEnumTypeArgs() {
+        return Stream.of(
+                TestRecordsEnumProto.MyShapeRecord.Color.RED.getValueDescriptor(),
+                TestRecordsEnumProto.MyShapeRecord.Color.RED.getValueDescriptor().toProto(),
+                TestRecordsEnumProto.MyShapeRecord.Color.RED.getValueDescriptor().toProto().toBuilder(),
+                TestRecordsEnumProto.MyShapeRecord.Color.RED.getNumber()
+        ).flatMap(obj -> Stream.of(Arguments.of(obj, false), Arguments.of(obj, true)));
+    }
+
+    @DualPlannerTest
+    @ParameterizedTest
+    @MethodSource("wrongEnumTypeArgs")
+    public void enumFieldsWithWrongTypes(Object comparandValue, boolean addIndex) throws Exception {
+        RecordMetaDataHook hook;
+        if (addIndex) {
+            hook = metaData -> metaData.addIndex("MyShapeRecord", new Index("color", field("color")));
+        } else {
+            hook = NO_HOOK;
+        }
+        setupEnumShapes(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyShapeRecord")
+                .setFilter(Query.field("color").equalsValue(comparandValue))
+                .build();
+        RecordCoreException e = assertThrows(RecordCoreException.class, () -> planner.plan(query));
+        assertThat(e.getMessage(), containsString("Comparison value of incorrect type"));
     }
 
     @DualPlannerTest
