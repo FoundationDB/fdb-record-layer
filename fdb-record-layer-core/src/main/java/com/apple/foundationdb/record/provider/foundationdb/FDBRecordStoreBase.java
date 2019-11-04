@@ -594,7 +594,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * One use case is that this can be used to promote a read from {@link IsolationLevel#SNAPSHOT} to
      * {@link IsolationLevel#SERIALIZABLE}. For example, if one performs a query at {@link IsolationLevel#SNAPSHOT} and
      * then uses a subset of the records to determine a few other writes, then one can add conflicts to <em>only</em>
-     * the records actually used. For example, if one
+     * the records actually used.
      * </p>
      *
      * <p>
