@@ -130,7 +130,7 @@ def build(release=False, proto2=False, proto3=False, publish=False):
 
     if proto2:
         # Make with protobuf 2.
-        success = run_gradle(2, 'clean', 'build', 'destructiveTest',
+        success = run_gradle(2, 'clean', ':fdb-record-layer-spatial:build', 'destructiveTest',
                                 '-PreleaseBuild={0}'.format('true' if release else 'false'))
         if not success:
             return False
@@ -147,7 +147,7 @@ def build(release=False, proto2=False, proto3=False, publish=False):
 
     if proto3:
         # Make with protobuf 3.
-        success = run_gradle(3, 'build', 'destructiveTest', '-PcoreNotStrict',
+        success = run_gradle(3, ':fdb-record-layer-spatial-pb3:build', 'destructiveTest', '-PcoreNotStrict',
                                 '-PreleaseBuild={0}'.format('true' if release else 'false'),
                                 '-PpublishBuild={0}'.format('true' if publish else 'false'))
         if not success:
