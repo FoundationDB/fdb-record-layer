@@ -82,7 +82,9 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,6 +106,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -496,6 +499,58 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             // Make sure pre-loading a non-existing record doesn't fail
             recordStore.preloadRecordAsync(Tuple.from(1L, 2L, 3L, 4L));
         }
+    }
+
+    @Nonnull
+    static Stream<Arguments> formatVersionAndSplitArgs() {
+        return Stream.of(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1, FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                .flatMap(formatVersion -> Stream.of(Arguments.of(formatVersion, false), Arguments.of(formatVersion, true)));
+    }
+
+    private void checkForConflicts(int formatVersion, boolean splitLongRecords, @Nonnull Consumer<FDBRecordStore> operation1, @Nonnull Consumer<FDBRecordStore> operation2) throws Exception {
+        final RecordMetaDataHook hook = metaData -> metaData.setSplitLongRecords(splitLongRecords);
+        final FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            // Ensure the store is created here to avoid conflicts on the store header
+            // and ensure that the format version to the parameter given
+            uncheckedOpenSimpleRecordStore(context, hook);
+            storeBuilder = recordStore.asBuilder().setFormatVersion(formatVersion);
+            storeBuilder.create();
+            commit(context);
+        }
+        try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
+            FDBRecordStore store1 = storeBuilder.copyBuilder().setContext(context1).open();
+            FDBRecordStore store2 = storeBuilder.copyBuilder().setContext(context2).open();
+
+            operation1.accept(store1);
+            operation2.accept(store2);
+
+            commit(context1);
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context2::commit,
+                    "second transaction did not fail with a conflict when the format version was " + formatVersion + " and long records were" + (splitLongRecords ? "" : " not") + " split");
+        }
+    }
+
+    @ParameterizedTest(name = "recordReadConflict [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionAndSplitArgs")
+    public void recordReadConflict(int formatVersion, boolean splitLongRecords) throws Exception {
+        checkForConflicts(formatVersion, splitLongRecords,
+                store1 -> store1.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build()),
+                store2 -> {
+                    store2.addRecordReadConflict(Tuple.from(1066L));
+                    store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build());
+                });
+    }
+
+    @ParameterizedTest(name = "recordWriteConflict [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionAndSplitArgs")
+    public void recordWriteConflict(int formatVersion, boolean splitLongRecords) throws Exception {
+        checkForConflicts(formatVersion, splitLongRecords,
+                store1 -> store1.addRecordWriteConflict(Tuple.from(1066L)),
+                store2 -> {
+                    store2.loadRecord(Tuple.from(1066L));
+                    store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build());
+                });
     }
 
     @Test

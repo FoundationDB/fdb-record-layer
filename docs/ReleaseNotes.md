@@ -53,7 +53,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Feature** Support building indexes online in a safer and simpler way [(Issue #727)](https://github.com/FoundationDB/fdb-record-layer/issues/727)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Read and write conflict ranges can now be added on individual records [(Issue #767)](https://github.com/FoundationDB/fdb-record-layer/issues/767)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Building indexes with `OnlineIndexer` has now been changed to be safer and simpler. One can set `indexStatePrecondition` to `ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY` and set `useSynchronizedSession` to `false` to make the indexer follow the same behavior as before if necessary. [(Issue #727)](https://github.com/FoundationDB/fdb-record-layer/issues/727)
