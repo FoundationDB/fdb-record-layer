@@ -391,10 +391,12 @@ public class OnlineIndexer implements AutoCloseable {
         AsyncUtil.whileTrue(() -> {
             loadConfig();
             return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
-                if (!store.isIndexWriteOnly(index)) {
-                    throw new RecordCoreStorageException("Attempted to build readable index",
+                IndexState indexState = store.getIndexState(index);
+                if (indexState != IndexState.WRITE_ONLY) {
+                    throw new RecordCoreStorageException("Attempted to build non-write-only index",
                             LogMessageKeys.INDEX_NAME, index.getName(),
-                            recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context));
+                            recordStoreBuilder.getSubspaceProvider().logKey(), recordStoreBuilder.getSubspaceProvider().toString(context),
+                            LogMessageKeys.INDEX_STATE, indexState);
                 }
                 return function.apply(store);
             }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
@@ -1065,16 +1067,15 @@ public class OnlineIndexer implements AutoCloseable {
         if (indexStatePrecondition == IndexStatePrecondition.ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY) {
             return doBuildIndexAsync(markReadable);
         }
-        return getRunner().runAsync(context -> openRecordStore(context).thenApply(store -> {
+        return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             IndexState indexState = store.getIndexState(index);
             if (shouldBuildIndex(indexState, indexStatePrecondition)) {
                 if (!shouldNotClearExistingIndexEntries(indexState, indexStatePrecondition)) {
                     store.clearIndexData(index);
                 }
-                store.markIndexWriteOnly(index);
-                return true;
+                return store.markIndexWriteOnly(index).thenApply(vignore -> true);
             } else {
-                return false;
+                return AsyncUtil.READY_FALSE;
             }
         })).thenCompose(shouldBuild -> shouldBuild ? doBuildIndexAsync(markReadable) : AsyncUtil.DONE);
     }

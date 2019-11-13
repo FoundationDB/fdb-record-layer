@@ -101,6 +101,7 @@ public enum LogMessageKeys {
     DNF_SIZE_LIMIT("dnf_size_limit"),
     // index-related keys
     INDEX_NAME("index_name"),
+    INDEX_STATE("index_state"),
     VALUE_KEY("value_key"),
     PRIMARY_KEY("primary_key"),
     VALUE("value"),
