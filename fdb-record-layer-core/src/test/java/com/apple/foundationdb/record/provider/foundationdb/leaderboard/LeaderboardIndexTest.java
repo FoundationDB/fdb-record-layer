@@ -68,6 +68,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -1087,6 +1088,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
             assertEquals(4L, leaderboards.evaluateAggregateFunction(leaderboards.timeWindowRankForScore(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, -1), Tuple.from("game-1", Long.MIN_VALUE + 1)).get(0));
             assertEquals(4L, leaderboards.evaluateAggregateFunction(leaderboards.timeWindowRankForScore(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, -1), Tuple.from("game-1", Long.MIN_VALUE)).get(0));
+            assertEquals(4L, leaderboards.evaluateAggregateFunction(leaderboards.timeWindowRankForScore(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, -1), Tuple.from("game-1", BigInteger.valueOf(Long.MIN_VALUE).subtract(BigInteger.ONE))).get(0));
         }
         try (FDBRecordContext context = openContext()) {
             leaderboards.openRecordStore(context, false);
