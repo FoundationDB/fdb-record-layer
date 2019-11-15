@@ -97,7 +97,7 @@ public class TupleHelpers {
     /**
      * Negate a number used as an element of a {@link Tuple}.
      * @param number the number to be negated
-     * @return a negated number suitable for use in a new {@link Tuple}.
+     * @return a negated number suitable for use in a new {@link Tuple}
      */
     public static Number negate(@Nonnull Number number) {
         if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
