@@ -1079,6 +1079,28 @@ public class LeaderboardIndexTest extends FDBTestBase {
     }
 
     @Test
+    public void mostNegativeHighScoreFirst() {
+        Leaderboards leaderboards = new FlatLeaderboards();
+        basicSetup(leaderboards, true);
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+
+            assertEquals(4L, leaderboards.evaluateAggregateFunction(leaderboards.timeWindowRankForScore(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, -1), Tuple.from("game-1", Long.MIN_VALUE + 1)).get(0));
+            assertEquals(4L, leaderboards.evaluateAggregateFunction(leaderboards.timeWindowRankForScore(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, -1), Tuple.from("game-1", Long.MIN_VALUE)).get(0));
+        }
+        try (FDBRecordContext context = openContext()) {
+            leaderboards.openRecordStore(context, false);
+            leaderboards.recordStore.deleteRecord(leaderboards.findByName("helen").getPrimaryKey());
+            leaderboards.addScores("helen", "game-1", Long.MIN_VALUE, 10101, 888);
+
+            TupleRange game_1 = TupleRange.allOf(Tuple.from("game-1"));
+            assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector", "helen"),
+                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                            .map(leaderboards::getName).asList().join());
+        }
+    }
+
+    @Test
     public void subDirectoryLow() {
         subDirectory(false);
     }
