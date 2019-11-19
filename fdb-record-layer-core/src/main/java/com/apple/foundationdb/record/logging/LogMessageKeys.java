@@ -132,6 +132,12 @@ public enum LogMessageKeys {
     NEW_STORE("new_store"),
     RECORDS_WHILE_BUILDING("records_while_building"),
     DOCUMENT("document"),
+    SESSION_ID("session_id"),
+    INDEX_STATE_PRECONDITION("index_state_precondition"),
+    INITIAL_INDEX_STATE("initial_index_state"),
+    SHOULD_BUILD_INDEX("do_build_index"),
+    SHOULD_CLEAR_EXISTING_DATA("clear_existing_data"),
+    SHOULD_MARK_READABLE("should_mark_readable"),
 
     // comparisons
     COMPARISON_VALUE("comparison_value"),

@@ -1035,20 +1035,30 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
+        KeyValueLogMessage message = KeyValueLogMessage.build("online build index",
+                LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
         if (!useSynchronizedSession) {
+            message.addKeyAndValue(LogMessageKeys.SESSION_ID, "none");
             synchronizedSessionRunner = null;
-            return handleStateAndDoBuildIndexAsync(markReadable);
+            return handleStateAndDoBuildIndexAsync(markReadable, message);
         }
         return runner
                 .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)))
                 .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, leaseLengthMills))
                 .thenCompose(synchronizedRunner -> {
                     if (this.synchronizedSessionRunner != null) {
-                        throw new RecordCoreException("another synchronized session is running on the indexer");
+                        throw new RecordCoreException("another synchronized session is running on the indexer",
+                                LogMessageKeys.SESSION_ID, this.synchronizedSessionRunner.getSessionId());
                     }
                     this.synchronizedSessionRunner = synchronizedRunner;
-                    return handleStateAndDoBuildIndexAsync(markReadable)
-                            .whenComplete((vignore, e) -> {
+                    message.addKeyAndValue(LogMessageKeys.SESSION_ID, synchronizedRunner.getSessionId());
+                    return handleStateAndDoBuildIndexAsync(markReadable, message)
+                            .whenComplete((vignore, ex) -> {
+                                if (LOGGER.isWarnEnabled() && (ex != null)) {
+                                    LOGGER.warn(message.toString(), ex);
+                                } else if (LOGGER.isInfoEnabled()) {
+                                    LOGGER.info(message.toString());
+                                }
                                 synchronizedRunner.endSessionAsync();
                                 if (this.synchronizedSessionRunner == synchronizedRunner) {
                                     this.synchronizedSessionRunner = null;
@@ -1063,14 +1073,21 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private CompletableFuture<Void> handleStateAndDoBuildIndexAsync(boolean markReadable) {
+    private CompletableFuture<Void> handleStateAndDoBuildIndexAsync(boolean markReadable, KeyValueLogMessage message) {
+        message.addKeyAndValue(LogMessageKeys.INDEX_STATE_PRECONDITION, indexStatePrecondition);
         if (indexStatePrecondition == IndexStatePrecondition.ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY) {
+            message.addKeyAndValue(LogMessageKeys.SHOULD_BUILD_INDEX, true);
             return doBuildIndexAsync(markReadable);
         }
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             IndexState indexState = store.getIndexState(index);
-            if (shouldBuildIndex(indexState, indexStatePrecondition)) {
-                if (!shouldNotClearExistingIndexEntries(indexState, indexStatePrecondition)) {
+            boolean shouldBuild = shouldBuildIndex(indexState, indexStatePrecondition);
+            message.addKeyAndValue(LogMessageKeys.INITIAL_INDEX_STATE, indexState);
+            message.addKeyAndValue(LogMessageKeys.SHOULD_BUILD_INDEX, shouldBuild);
+            if (shouldBuild) {
+                boolean shouldClear = shouldClearExistingIndexEntries(indexState, indexStatePrecondition);
+                message.addKeyAndValue(LogMessageKeys.SHOULD_CLEAR_EXISTING_DATA, shouldClear);
+                if (shouldClear) {
                     store.clearIndexData(index);
                 }
                 return store.markIndexWriteOnly(index).thenApply(vignore -> true);
@@ -1098,12 +1115,12 @@ public class OnlineIndexer implements AutoCloseable {
         }
     }
 
-    private boolean shouldNotClearExistingIndexEntries(@Nonnull IndexState indexState,
-                                                       @Nonnull IndexStatePrecondition indexStatePrecondition) {
+    private boolean shouldClearExistingIndexEntries(@Nonnull IndexState indexState,
+                                                    @Nonnull IndexStatePrecondition indexStatePrecondition) {
         // If the index state is DISABLED, it is expected that there is no existing index entry. But we would like
         // to clear it anyway to play safe.
-        return indexState == IndexState.WRITE_ONLY &&
-               indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY;
+        return !(indexState != IndexState.WRITE_ONLY &&
+                 indexStatePrecondition != IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY);
     }
 
     @Nonnull
