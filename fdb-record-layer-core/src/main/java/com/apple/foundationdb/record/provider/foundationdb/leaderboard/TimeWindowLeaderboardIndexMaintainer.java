@@ -307,7 +307,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
      * @return a new entry with the score negated
      */
     protected static Tuple negateScoreForHighScoreFirst(@Nonnull Tuple entry, int position) {
-        return TupleHelpers.set(entry, position, - entry.getLong(position));
+        return TupleHelpers.set(entry, position, TupleHelpers.negate((Number)entry.get(position)));
     }
 
     @Nonnull

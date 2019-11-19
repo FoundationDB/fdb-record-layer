@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.math.BigInteger;
 import java.util.List;
 
 /**
@@ -91,6 +92,34 @@ public class TupleHelpers {
         } else {
             return t2 != null && (t1 == t2 || compare(t1, t2) == 0);
         }
+    }
+
+    /**
+     * Negate a number used as an element of a {@link Tuple}.
+     * @param number the number to be negated
+     * @return a negated number suitable for use in a new {@link Tuple}
+     */
+    public static Number negate(@Nonnull Number number) {
+        if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
+            long l = number.longValue();
+            if (l == Long.MIN_VALUE) {  // The only long whose negation is not a long.
+                return BigInteger.valueOf(l).negate();
+            } else {
+                return - l;
+            }
+        }
+        if (number instanceof BigInteger) {
+            BigInteger n = ((BigInteger)number).negate();
+            if (n.equals(BigInteger.valueOf(Long.MIN_VALUE))) {
+                return Long.MIN_VALUE;  // The normal form of this number.
+            } else {
+                return n;
+            }
+        }
+        if (number instanceof Double || number instanceof Float) {
+            return - number.doubleValue();
+        }
+        throw new IllegalArgumentException("Not an allowed number type from a Tuple: " + number.getClass());
     }
 
     private TupleHelpers() {
