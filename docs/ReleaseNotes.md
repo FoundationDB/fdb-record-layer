@@ -6,6 +6,10 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 2.9
 
+### Breaking Changes
+
+This version of the Record Layer requires a FoundationDB server version of at least version 6.2. Attempting to connect to older versions may result in the client hanging when attempting to connect to the database.
+
 <!--
 // begin next release
 ### NEXT_RELEASE
@@ -25,7 +29,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Requires a minimum FoundationDB client and server version of 6.2 [(Issue #702)](https://github.com/FoundationDB/fdb-record-layer/issues/702)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
