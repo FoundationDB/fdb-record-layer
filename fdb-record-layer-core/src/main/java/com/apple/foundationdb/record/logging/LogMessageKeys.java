@@ -138,6 +138,7 @@ public enum LogMessageKeys {
     SHOULD_BUILD_INDEX("do_build_index"),
     SHOULD_CLEAR_EXISTING_DATA("clear_existing_data"),
     SHOULD_MARK_READABLE("should_mark_readable"),
+    RESULT("result"),
 
     // comparisons
     COMPARISON_VALUE("comparison_value"),

@@ -1035,36 +1035,42 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
-        KeyValueLogMessage message = KeyValueLogMessage.build("online build index",
+        KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
                 LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
-        if (!useSynchronizedSession) {
+        final CompletableFuture<Void> buildIndexAsyncFuture;
+        if (useSynchronizedSession) {
+            buildIndexAsyncFuture = runner
+                    .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)))
+                    .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, leaseLengthMills))
+                    .thenCompose(synchronizedRunner -> {
+                        if (this.synchronizedSessionRunner != null) {
+                            throw new RecordCoreException("another synchronized session is running on the indexer",
+                                    LogMessageKeys.SESSION_ID, this.synchronizedSessionRunner.getSessionId());
+                        }
+                        this.synchronizedSessionRunner = synchronizedRunner;
+                        message.addKeyAndValue(LogMessageKeys.SESSION_ID, synchronizedRunner.getSessionId());
+                        return handleStateAndDoBuildIndexAsync(markReadable, message)
+                                .whenComplete((vignore, ex) -> {
+                                    synchronizedRunner.endSessionAsync();
+                                    if (this.synchronizedSessionRunner == synchronizedRunner) {
+                                        this.synchronizedSessionRunner = null;
+                                    }
+                                });
+                    });
+        } else {
             message.addKeyAndValue(LogMessageKeys.SESSION_ID, "none");
             synchronizedSessionRunner = null;
-            return handleStateAndDoBuildIndexAsync(markReadable, message);
+            buildIndexAsyncFuture = handleStateAndDoBuildIndexAsync(markReadable, message);
         }
-        return runner
-                .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)))
-                .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, leaseLengthMills))
-                .thenCompose(synchronizedRunner -> {
-                    if (this.synchronizedSessionRunner != null) {
-                        throw new RecordCoreException("another synchronized session is running on the indexer",
-                                LogMessageKeys.SESSION_ID, this.synchronizedSessionRunner.getSessionId());
-                    }
-                    this.synchronizedSessionRunner = synchronizedRunner;
-                    message.addKeyAndValue(LogMessageKeys.SESSION_ID, synchronizedRunner.getSessionId());
-                    return handleStateAndDoBuildIndexAsync(markReadable, message)
-                            .whenComplete((vignore, ex) -> {
-                                if (LOGGER.isWarnEnabled() && (ex != null)) {
-                                    LOGGER.warn(message.toString(), ex);
-                                } else if (LOGGER.isInfoEnabled()) {
-                                    LOGGER.info(message.toString());
-                                }
-                                synchronizedRunner.endSessionAsync();
-                                if (this.synchronizedSessionRunner == synchronizedRunner) {
-                                    this.synchronizedSessionRunner = null;
-                                }
-                            });
-                });
+        return buildIndexAsyncFuture.whenComplete((vignore, ex) -> {
+            if (LOGGER.isWarnEnabled() && (ex != null)) {
+                message.addKeyAndValue(LogMessageKeys.RESULT, "failure");
+                LOGGER.warn(message.toString(), ex);
+            } else if (LOGGER.isInfoEnabled()) {
+                message.addKeyAndValue(LogMessageKeys.RESULT, "success");
+                LOGGER.info(message.toString());
+            }
+        });
     }
 
     @Nonnull
@@ -1119,8 +1125,7 @@ public class OnlineIndexer implements AutoCloseable {
                                                     @Nonnull IndexStatePrecondition indexStatePrecondition) {
         // If the index state is DISABLED, it is expected that there is no existing index entry. But we would like
         // to clear it anyway to play safe.
-        return !(indexState != IndexState.WRITE_ONLY &&
-                 indexStatePrecondition != IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY);
+        return !(indexState == IndexState.WRITE_ONLY && indexStatePrecondition.isContinueIfWriteOnly());
     }
 
     @Nonnull
@@ -2282,28 +2287,39 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Only build if the index is disabled.
          */
-        BUILD_IF_DISABLED,
+        BUILD_IF_DISABLED(false),
         /**
          * Build if the index is disabled; Continue build if the index is write-only.
          * <p>
          * Recommended. This should be sufficient if current index data is not corrupted.
          * </p>
          */
-        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY,
+        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY(true),
         /**
          * Build if the index is disabled; Rebuild if the index is write-only.
          */
-        BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY,
+        BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY(false),
         /**
          * Rebuild the index anyway, no matter it it disabled or write-only or readable.
          */
-        FORCE_BUILD,
+        FORCE_BUILD(false),
         /**
          * Error if the index is disabled, or continue to build if the index is write only. To use this option to build
          * an index, one should mark the index as write-only and clear existing index entries before building. This
          * option is provided to make {@link #buildIndexAsync()} (or its variations) behave same as what it did before
          * version 2.8.90.0, which is not recommended. {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} should be adopted instead.
          */
-        ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY,
+        ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY(true),
+        ;
+
+        private boolean continueIfWriteOnly;
+
+        IndexStatePrecondition(boolean continueIfWriteOnly) {
+            this.continueIfWriteOnly = continueIfWriteOnly;
+        }
+
+        public boolean isContinueIfWriteOnly() {
+            return continueIfWriteOnly;
+        }
     }
 }
