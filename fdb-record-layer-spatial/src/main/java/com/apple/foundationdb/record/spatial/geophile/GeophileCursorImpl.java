@@ -23,15 +23,16 @@ package com.apple.foundationdb.record.spatial.geophile;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.Cursor;
+import com.geophile.z.async.CursorAsync;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 /**
@@ -54,7 +55,7 @@ import java.util.function.BiFunction;
  * <li>restart continuation / Z value for each side</li>
  * </ul>
  */
-class GeophileCursorImpl extends Cursor<GeophileRecordImpl> {
+class GeophileCursorImpl extends CursorAsync<GeophileRecordImpl> {
     @Nonnull
     private final IndexMaintainer indexMaintainer;
     @Nullable
@@ -73,17 +74,17 @@ class GeophileCursorImpl extends Cursor<GeophileRecordImpl> {
 
     @Nullable
     @Override
-    public GeophileRecordImpl next() throws InterruptedException {
+    public CompletableFuture<GeophileRecordImpl> next() {
         if (recordCursor == null) {
             throw new IllegalStateException("cannot call next before goTo");
         }
-        // For now, using synchronous API.
-        RecordCursorResult<IndexEntry> next = recordCursor.getNext();
-        if (next.hasNext()) {
-            return recordFunction.apply(next.get(), prefix);
-        } else {
-            return null;
-        }
+        return recordCursor.onNext().thenApply(next -> {
+            if (next.hasNext()) {
+                return recordFunction.apply(next.get(), prefix);
+            } else {
+                return null;
+            }
+        });
     }
 
     @Override
@@ -95,10 +96,5 @@ class GeophileCursorImpl extends Cursor<GeophileRecordImpl> {
             range = range.prepend(prefix);
         }
         recordCursor = indexMaintainer.scan(GeophileScanTypes.GO_TO_Z, range, null, ScanProperties.FORWARD_SCAN);
-    }
-
-    @Override
-    public boolean deleteCurrent() {
-        throw new UnsupportedOperationException("delete not supported");
     }
 }

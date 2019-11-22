@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.geophile.z.SpatialIndex;
-import com.geophile.z.SpatialJoin;
+import com.geophile.z.async.SpatialIndexAsync;
+import com.geophile.z.async.SpatialJoinAsync;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -63,10 +63,10 @@ public class GeophileSpatialIndexJoinPlan {
 
     @Nonnull
     public <M extends Message> RecordCursor<Pair<FDBIndexedRecord<M>, FDBIndexedRecord<M>>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
-        final SpatialJoin spatialJoin = SpatialJoin.newSpatialJoin(SpatialJoin.Duplicates.INCLUDE);
-        final GeophileSpatialJoin geophileSpatialJoin = new GeophileSpatialJoin(spatialJoin, store.getUntypedRecordStore(), context);
-        final SpatialIndex<GeophileRecordImpl> leftSpatialIndex = geophileSpatialJoin.getSpatialIndex(leftIndexName, leftPrefixComparisons);
-        final SpatialIndex<GeophileRecordImpl> rightSpatialIndex = geophileSpatialJoin.getSpatialIndex(rightIndexName, rightPrefixComparisons);
+        final SpatialJoinAsync<GeophileRecordImpl, GeophileRecordImpl> spatialJoin = SpatialJoinAsync.newSpatialJoin(SpatialJoinAsync.Duplicates.INCLUDE);
+        final GeophileSpatialJoin<GeophileRecordImpl, GeophileRecordImpl> geophileSpatialJoin = new GeophileSpatialJoin<>(spatialJoin, store.getUntypedRecordStore(), context);
+        final SpatialIndexAsync<GeophileRecordImpl> leftSpatialIndex = geophileSpatialJoin.getSpatialIndex(leftIndexName, leftPrefixComparisons);
+        final SpatialIndexAsync<GeophileRecordImpl> rightSpatialIndex = geophileSpatialJoin.getSpatialIndex(rightIndexName, rightPrefixComparisons);
         return fetchIndexRecords(store, geophileSpatialJoin.recordCursor(leftSpatialIndex, rightSpatialIndex));
     }
 

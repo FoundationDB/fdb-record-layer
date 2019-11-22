@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.spatial.geophile;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.tuple.Tuple;
-import com.geophile.z.Cursor;
 import com.geophile.z.Index;
-import com.geophile.z.Record;
+import com.geophile.z.async.CursorAsync;
+import com.geophile.z.async.IndexAsync;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -34,7 +34,7 @@ import java.util.function.BiFunction;
 /**
  * Adapt {@link GeophileIndexMaintainer} to Geophile {@link Index}.
  */
-class GeophileIndexImpl extends Index<GeophileRecordImpl> {
+class GeophileIndexImpl extends IndexAsync<GeophileRecordImpl> {
     @Nonnull
     private final IndexMaintainer indexMaintainer;
     @Nullable
@@ -50,28 +50,13 @@ class GeophileIndexImpl extends Index<GeophileRecordImpl> {
     }
 
     @Override
-    public void add(GeophileRecordImpl record) {
-        throw new UnsupportedOperationException("add not supported");
-    }
-
-    @Override
-    public boolean remove(long z, Record.Filter<GeophileRecordImpl> filter) {
-        throw new UnsupportedOperationException("remove not supported");
-    }
-
-    @Override
-    public Cursor<GeophileRecordImpl> cursor() {
+    public CursorAsync<GeophileRecordImpl> cursorAsync() {
         return new GeophileCursorImpl(this, indexMaintainer, prefix, recordFunction);
     }
 
     @Override
     public GeophileRecordImpl newRecord() {
         return new GeophileRecordImpl(null, null);
-    }
-
-    @Override
-    public boolean blindUpdates() {
-        return false;
     }
 
     @Override

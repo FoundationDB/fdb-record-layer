@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.spatial.common.DoubleValueOrParameter;
 import com.apple.foundationdb.tuple.Tuple;
-import com.geophile.z.SpatialJoin;
 import com.geophile.z.SpatialObject;
+import com.geophile.z.async.SpatialJoinAsync;
 import com.geophile.z.index.RecordWithSpatialObject;
 import com.geophile.z.spatialobject.d2.Point;
 import com.google.common.collect.ImmutableList;
@@ -87,7 +87,7 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
 
     @Nullable
     @Override
-    protected SpatialJoin.Filter<RecordWithSpatialObject, GeophileRecordImpl> getFilter(@Nonnull EvaluationContext context) {
+    protected SpatialJoinAsync.Filter<RecordWithSpatialObject, GeophileRecordImpl> getFilter(@Nonnull EvaluationContext context) {
         if (covering) {
             Double distanceValue = distance.getValue(context);
             Double centerLatitudeValue = centerLatitude.getValue(context);

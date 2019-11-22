@@ -36,9 +36,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChild
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.tuple.Tuple;
-import com.geophile.z.SpatialIndex;
-import com.geophile.z.SpatialJoin;
 import com.geophile.z.SpatialObject;
+import com.geophile.z.async.SpatialIndexAsync;
+import com.geophile.z.async.SpatialJoinAsync;
 import com.geophile.z.index.RecordWithSpatialObject;
 import com.google.protobuf.Message;
 
@@ -86,7 +86,7 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
      */
     @Nullable
     @SuppressWarnings("PMD.EmptyMethodInAbstractClassShouldBeAbstract") // null is a reasonable default
-    protected SpatialJoin.Filter<RecordWithSpatialObject, GeophileRecordImpl> getFilter(@Nonnull EvaluationContext context) {
+    protected SpatialJoinAsync.Filter<RecordWithSpatialObject, GeophileRecordImpl> getFilter(@Nonnull EvaluationContext context) {
         return null;
     }
 
@@ -130,9 +130,9 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
         if (spatialObject == null) {
             return RecordCursor.empty();
         }
-        final SpatialJoin spatialJoin = SpatialJoin.newSpatialJoin(SpatialJoin.Duplicates.INCLUDE, getFilter(context));
-        final GeophileSpatialJoin geophileSpatialJoin = new GeophileSpatialJoin(spatialJoin, store.getUntypedRecordStore(), context);
-        final SpatialIndex<GeophileRecordImpl> spatialIndex = geophileSpatialJoin.getSpatialIndex(indexName, prefixComparisons, getRecordFunction());
+        final SpatialJoinAsync<RecordWithSpatialObject, GeophileRecordImpl> spatialJoin = SpatialJoinAsync.newSpatialJoin(SpatialJoinAsync.Duplicates.INCLUDE, getFilter(context));
+        final GeophileSpatialJoin<RecordWithSpatialObject, GeophileRecordImpl> geophileSpatialJoin = new GeophileSpatialJoin<>(spatialJoin, store.getUntypedRecordStore(), context);
+        final SpatialIndexAsync<GeophileRecordImpl> spatialIndex = geophileSpatialJoin.getSpatialIndex(indexName, prefixComparisons, getRecordFunction());
         return geophileSpatialJoin.recordCursor(spatialObject, spatialIndex);
     }
 
