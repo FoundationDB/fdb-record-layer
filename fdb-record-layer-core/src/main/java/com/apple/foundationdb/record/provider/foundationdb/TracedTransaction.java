@@ -174,6 +174,11 @@ public class TracedTransaction implements Transaction {
     }
 
     @Override
+    public CompletableFuture<Long> getApproximateSize() {
+        return transaction.getApproximateSize();
+    }
+
+    @Override
     public CompletableFuture<Transaction> onError(Throwable e) {
         return transaction.onError(e);
     }

@@ -55,7 +55,7 @@ public class FDBDatabaseFactory {
      * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver} retrieval requests.
      */
     public static final int DEFAULT_DIRECTORY_CACHE_SIZE = 5000;
-    private static final int API_VERSION = 610;
+    private static final int API_VERSION = 620;
 
     @Nonnull
     private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactory();
