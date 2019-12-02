@@ -188,6 +188,24 @@ public class SynchronizedSession {
         });
     }
 
+    /**
+     * End any session by releasing the lock no matter this session holds the lock or not.
+     * @param tr transaction to use
+     */
+    public void forceReleaseLock(@Nonnull Transaction tr) {
+        forceReleaseLock(tr, lockSubspace);
+    }
+
+    /**
+     * End any active session on the given lock by releasing the lock. A later transaction from that session should be
+     * able to check the lock and fail with {@link SynchronizedSessionLockedException}.
+     * @param tr transaction to use
+     * @param lockSubspace the lock whose active session needs to be ended
+     */
+    public static void forceReleaseLock(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
+        tr.clear(lockSubspace.range());
+    }
+
     private CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr) {
         return tr.get(lockSessionIdSubspaceKey)
                 .thenApply(value -> value == null ? null : Tuple.fromBytes(value).getUUID(0));

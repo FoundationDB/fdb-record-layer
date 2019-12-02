@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.S
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LoggableException;
@@ -1009,6 +1010,27 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
+     * Stop any ongoing online index build (only if it uses synchronized sessions) by forcefully release
+     * the lock.
+     */
+    public void stopOngoingOnlineIndexBuilds() {
+        runner.run(context -> openRecordStore(context).thenApply(recordStore -> {
+            stopOngoingOnlineIndexBuilds(recordStore, index);
+            return null;
+        }));
+    }
+
+    /**
+     * Stop any ongoing online index build (only if it uses synchronized sessions) by forcefully release
+     * the lock.
+     * @param recordStore record store whose index builds need to be stopped
+     * @param index the index whose builds need to be stopped
+     */
+    public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
+        SynchronizedSession.forceReleaseLock(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
+    }
+
+    /**
      * Builds an index across multiple transactions.
      * <p>
      * If it is set to use synchronized sessions, it stops with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
@@ -1074,7 +1096,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private Subspace indexBuildLockSubspace(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+    private static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStore store, @Nonnull Index index) {
         return store.indexBuildSubspace(index).subspace(Tuple.from(INDEX_BUILD_LOCK_KEY));
     }
 
