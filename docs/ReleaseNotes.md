@@ -41,7 +41,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Indexes not marked as write-only before being built online [(Issue #773)](https://github.com/FoundationDB/fdb-record-layer/issues/773)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,6 +63,10 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.93.0
+
+* **Bug fix** Indexes not marked as write-only before being built online [(Issue #773)](https://github.com/FoundationDB/fdb-record-layer/issues/773)
 
 ### 2.8.91.0
 
