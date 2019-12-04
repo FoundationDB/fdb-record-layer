@@ -85,6 +85,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Builds an index online, i.e., concurrently with other database operations. In order to minimize
@@ -1072,19 +1073,9 @@ public class OnlineIndexer implements AutoCloseable {
                     .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)))
                     .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, leaseLengthMills))
                     .thenCompose(synchronizedRunner -> {
-                        if (this.synchronizedSessionRunner != null) {
-                            throw new RecordCoreException("another synchronized session is running on the indexer",
-                                    LogMessageKeys.SESSION_ID, this.synchronizedSessionRunner.getSessionId());
-                        }
-                        this.synchronizedSessionRunner = synchronizedRunner;
                         message.addKeyAndValue(LogMessageKeys.SESSION_ID, synchronizedRunner.getSessionId());
-                        return handleStateAndDoBuildIndexAsync(markReadable, message)
-                                .whenComplete((vignore, ex) -> {
-                                    synchronizedRunner.endSessionAsync();
-                                    if (this.synchronizedSessionRunner == synchronizedRunner) {
-                                        this.synchronizedSessionRunner = null;
-                                    }
-                                });
+                        return runWithSynchronizedRunnerAndEndSession(synchronizedRunner,
+                                () -> handleStateAndDoBuildIndexAsync(markReadable, message));
                     });
         } else {
             message.addKeyAndValue(LogMessageKeys.SESSION_ID, "none");
@@ -1100,6 +1091,35 @@ public class OnlineIndexer implements AutoCloseable {
                 LOGGER.info(message.toString());
             }
         });
+    }
+
+    private <T> CompletableFuture<T> runWithSynchronizedRunnerAndEndSession(
+            @Nonnull SynchronizedSessionRunner newSynchronizedRunner, @Nonnull Supplier<CompletableFuture<T>> runnable) {
+        if (this.synchronizedSessionRunner == null) {
+            this.synchronizedSessionRunner = newSynchronizedRunner;
+            return AsyncUtil.composeHandle(runnable.get(), (result, ex) -> {
+                if (this.synchronizedSessionRunner == newSynchronizedRunner) {
+                    this.synchronizedSessionRunner = null;
+                } else {
+                    LOGGER.warn(KeyValueLogMessage.of("synchronizedSessionRunner was modified during the run",
+                            LogMessageKeys.SESSION_ID, newSynchronizedRunner.getSessionId(),
+                            LogMessageKeys.INDEXER_SESSION_ID, this.synchronizedSessionRunner == null ? null : this.synchronizedSessionRunner.getSessionId()));
+                }
+                return newSynchronizedRunner.endSessionAsync().thenApply(vigore -> {
+                    if (ex == null) {
+                        return result;
+                    } else {
+                        throw new RuntimeException(ex);
+                    }
+                });
+            });
+        } else {
+            return newSynchronizedRunner.endSessionAsync().thenApply(vignore -> {
+                throw new RecordCoreException("another synchronized session is running on the indexer",
+                        LogMessageKeys.SESSION_ID, newSynchronizedRunner.getSessionId(),
+                        LogMessageKeys.INDEXER_SESSION_ID, this.synchronizedSessionRunner.getSessionId());
+            });
+        }
     }
 
     @Nonnull

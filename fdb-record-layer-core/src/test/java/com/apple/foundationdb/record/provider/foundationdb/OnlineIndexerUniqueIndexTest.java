@@ -74,7 +74,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
-                RuntimeException runE = FDBExceptions.wrapException(e);
+                RuntimeException runE = wrapInnerException(e);
                 assertNotNull(runE);
                 assertThat(runE, instanceOf(RecordIndexUniquenessViolation.class));
                 return null;
@@ -96,7 +96,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             }
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
-                RuntimeException runE = FDBExceptions.wrapException(e);
+                RuntimeException runE = wrapInnerException(e);
                 assertNotNull(runE);
                 assertThat(runE, instanceOf(RecordIndexUniquenessViolation.class));
                 return null;
@@ -128,7 +128,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
-                RuntimeException runE = FDBExceptions.wrapException(e);
+                RuntimeException runE = wrapInnerException(e);
                 assertNotNull(runE);
                 assertThat(runE, instanceOf(RecordIndexUniquenessViolation.class));
                 return null;
@@ -170,7 +170,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             }
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
-                RuntimeException runE = FDBExceptions.wrapException(e);
+                RuntimeException runE = wrapInnerException(e);
                 assertNotNull(runE);
                 assertThat(runE, instanceOf(RecordIndexUniquenessViolation.class));
                 return null;
@@ -242,7 +242,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             }
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
-                RuntimeException runE = FDBExceptions.wrapException(e);
+                RuntimeException runE = wrapInnerException(e);
                 assertNotNull(runE);
                 assertThat(runE, instanceOf(RecordIndexUniquenessViolation.class));
                 return null;
@@ -282,7 +282,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                     context.commit();
                     context2.commitAsync().handle((ignore, e) -> {
                         assertNotNull(e);
-                        RuntimeException runE = FDBExceptions.wrapException(e);
+                        RuntimeException runE = wrapInnerException(e);
                         assertThat(runE, instanceOf(RecordCoreRetriableTransactionException.class));
                         assertNotNull(runE.getCause());
                         assertThat(runE.getCause(), instanceOf(FDBException.class));
@@ -304,7 +304,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             }
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
-                RuntimeException runE = FDBExceptions.wrapException(e);
+                RuntimeException runE = wrapInnerException(e);
                 assertNotNull(runE);
                 assertThat(runE, instanceOf(RecordIndexUniquenessViolation.class));
                 return null;
@@ -335,7 +335,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexBuilder.buildIndexAsync().handle((ignore, e) -> {
                 assertNotNull(e);
-                RuntimeException runE = FDBExceptions.wrapException(e);
+                RuntimeException runE = wrapInnerException(e);
                 assertNotNull(runE);
                 assertThat(runE, instanceOf(RecordIndexUniquenessViolation.class));
                 return null;
@@ -364,5 +364,11 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             recordStore.markIndexReadable(index).join();
             context.commit();
         }
+    }
+
+    private RuntimeException wrapInnerException(Throwable e) {
+        RuntimeException outerRunE = FDBExceptions.wrapException(e);
+        assertNotNull(outerRunE);
+        return FDBExceptions.wrapException(outerRunE.getCause());
     }
 }
