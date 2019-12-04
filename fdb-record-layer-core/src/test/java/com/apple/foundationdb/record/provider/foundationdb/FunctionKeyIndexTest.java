@@ -59,11 +59,18 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -274,7 +281,8 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         // planner has no idea how to plan a query on a function index as of this writing (besides, the
         // function call doesn't appear in the query anyway) and (b) that the planner doesn't throw
         // an exception or do something wonky as a result of the presence of this index.
-        assertEquals("Index(normal_index [[abd],>) | str_value LESS_THAN_OR_EQUALS abg", plan.toString());
+        assertThat(plan, indexScan(allOf(indexName(normalIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
+        assertEquals(1189784448, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, funcIndex, normalIndex);
@@ -290,6 +298,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
                 }
             }
             assertEquals(3, count);
+            assertDiscardedNone(context);
         }
     }
 
