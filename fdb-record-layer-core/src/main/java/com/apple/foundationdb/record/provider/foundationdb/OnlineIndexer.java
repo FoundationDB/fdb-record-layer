@@ -1010,24 +1010,31 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Stop any ongoing online index build (only if it uses synchronized sessions) by forcefully release
+     * Stop any ongoing online index build (only if it uses {@link SynchronizedSession}s) by forcefully releasing
      * the lock.
+     * @return a future that will be ready when the lock is released
+     * @see SynchronizedSession#endAnySession(Transaction, Subspace)
      */
-    public void stopOngoingOnlineIndexBuilds() {
-        runner.run(context -> openRecordStore(context).thenApply(recordStore -> {
-            stopOngoingOnlineIndexBuilds(recordStore, index);
-            return null;
-        }));
+    public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
+        return runner.runAsync(context -> openRecordStore(context).thenAccept(recordStore ->
+                stopOngoingOnlineIndexBuilds(recordStore, index)));
     }
 
     /**
-     * Stop any ongoing online index build (only if it uses synchronized sessions) by forcefully release
+     * Synchronous/blocking version of {@link #stopOngoingOnlineIndexBuildsAsync()}.
+     */
+    public void stopOngoingOnlineIndexBuilds() {
+        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_STOP_ONLINE_INDEX_BUILD, stopOngoingOnlineIndexBuildsAsync());
+    }
+
+    /**
+     * Stop any ongoing online index build (only if it uses {@link SynchronizedSession}s) by forcefully releasing
      * the lock.
      * @param recordStore record store whose index builds need to be stopped
      * @param index the index whose builds need to be stopped
      */
     public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
-        SynchronizedSession.forceReleaseLock(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
+        SynchronizedSession.endAnySession(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
     }
 
     /**

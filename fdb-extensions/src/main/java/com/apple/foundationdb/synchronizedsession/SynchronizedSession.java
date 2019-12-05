@@ -189,20 +189,30 @@ public class SynchronizedSession {
     }
 
     /**
-     * End any session by releasing the lock no matter this session holds the lock or not.
+     * End any active session on the lock subspace by releasing the lock no matter whether this session holds the lock
+     * or not.
+     * <p>
+     * It only takes place when the given transaction is committed. It will only be enforced when the other processes
+     * holding the lock go to check the lease in later transactions, where they will fail with
+     * {@link SynchronizedSessionLockedException}.
+     * </p>
      * @param tr transaction to use
      */
-    public void forceReleaseLock(@Nonnull Transaction tr) {
-        forceReleaseLock(tr, lockSubspace);
+    public void endAnySession(@Nonnull Transaction tr) {
+        endAnySession(tr, lockSubspace);
     }
 
     /**
-     * End any active session on the given lock by releasing the lock. A later transaction from that session should be
-     * able to check the lock and fail with {@link SynchronizedSessionLockedException}.
+     * End any active session on the given lock subspace by releasing the lock.
+     * <p>
+     * It only takes place when the given transaction is committed. It will only be enforced when the other processes
+     * holding the lock go to check the lease in later transactions, where they will fail with
+     * {@link SynchronizedSessionLockedException}.
+     * </p>
      * @param tr transaction to use
      * @param lockSubspace the lock whose active session needs to be ended
      */
-    public static void forceReleaseLock(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
+    public static void endAnySession(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
         tr.clear(lockSubspace.range());
     }
 

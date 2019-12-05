@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.synchronizedsession;
 
-
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -168,16 +166,14 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     }
 
     /**
-     * Releases the lock to end any synchronized session on it, no matter the current session holds the lock or not.
-     * <p>
-     * A {@link SynchronizedSessionRunner} or {@link SynchronizedSession} is not necessary for this purpose, as one can
-     * simply use the static version {@link SynchronizedSession#forceReleaseLock(Transaction, Subspace)}.
-     * </p>
+     * Releases the lock to end any synchronized session on the same lock subspace, no matter whether the current
+     * session holds the lock or not.
      * @return a future that will return {@code null} when the session is ended
+     * @see SynchronizedSession#endAnySession(Transaction, Subspace)
      */
     public CompletableFuture<Void> endAnySessionAsync() {
         return underlying.runAsync(context -> {
-            session.forceReleaseLock(context.ensureActive());
+            session.endAnySession(context.ensureActive());
             return AsyncUtil.DONE;
         });
     }
