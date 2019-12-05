@@ -184,26 +184,29 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
 
     @Test
     public void clearSession() {
-        try (SynchronizedSessionRunner session1Runner1 = newRunnerStartSession(lockSubspace1)) {
-            checkActive(session1Runner1);
+        try (SynchronizedSessionRunner session1Runner = newRunnerStartSession(lockSubspace1)) {
+            checkActive(session1Runner);
 
-            session1Runner1.endSession();
+            session1Runner.endSession();
 
             // Runners of the current session should not be able to work (neither existing runner nor newly created runner).
-            assertFailedContinueSession(session1Runner1);
-            assertFailedJoinSession(lockSubspace1, session1Runner1.getSessionId());
+            assertFailedContinueSession(session1Runner);
+            assertFailedJoinSession(lockSubspace1, session1Runner.getSessionId());
 
             // The new session should be able to be created and used right away.
             try (SynchronizedSessionRunner session2Runner = newRunnerStartSession(lockSubspace1)) {
                 checkActive(session2Runner);
 
                 // This call should no nothing because Session 1 has ended.
-                session1Runner1.endSession();
-
+                session1Runner.endSession();
                 // Make sure manually ending Session 1 does not clear the current lock.
                 checkActive(session2Runner);
 
-                session2Runner.endSession();
+                // Use session1Runner to end eny active session (i.e. Session 2 here) even Session 1 has ended.
+                session1Runner.endAnySession();
+                // Check Session 2 is ended.
+                assertFailedContinueSession(session2Runner);
+                assertFailedJoinSession(lockSubspace1, session2Runner.getSessionId());
             }
         }
     }

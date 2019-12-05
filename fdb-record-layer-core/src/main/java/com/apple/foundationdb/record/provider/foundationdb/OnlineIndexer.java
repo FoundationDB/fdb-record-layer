@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.S
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LoggableException;
@@ -1009,6 +1010,34 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
+     * Stop any ongoing online index build (only if it uses {@link SynchronizedSession}s) by forcefully releasing
+     * the lock.
+     * @return a future that will be ready when the lock is released
+     * @see SynchronizedSession#endAnySession(Transaction, Subspace)
+     */
+    public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
+        return runner.runAsync(context -> openRecordStore(context).thenAccept(recordStore ->
+                stopOngoingOnlineIndexBuilds(recordStore, index)));
+    }
+
+    /**
+     * Synchronous/blocking version of {@link #stopOngoingOnlineIndexBuildsAsync()}.
+     */
+    public void stopOngoingOnlineIndexBuilds() {
+        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_STOP_ONLINE_INDEX_BUILD, stopOngoingOnlineIndexBuildsAsync());
+    }
+
+    /**
+     * Stop any ongoing online index build (only if it uses {@link SynchronizedSession}s) by forcefully releasing
+     * the lock.
+     * @param recordStore record store whose index builds need to be stopped
+     * @param index the index whose builds need to be stopped
+     */
+    public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
+        SynchronizedSession.endAnySession(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
+    }
+
+    /**
      * Builds an index across multiple transactions.
      * <p>
      * If it is set to use synchronized sessions, it stops with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
@@ -1074,7 +1103,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private Subspace indexBuildLockSubspace(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+    private static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStore store, @Nonnull Index index) {
         return store.indexBuildSubspace(index).subspace(Tuple.from(INDEX_BUILD_LOCK_KEY));
     }
 
