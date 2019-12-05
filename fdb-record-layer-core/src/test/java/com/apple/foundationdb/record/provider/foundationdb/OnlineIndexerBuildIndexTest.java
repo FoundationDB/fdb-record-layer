@@ -226,6 +226,12 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     });
                 }
             }
+            if (safeBuild) {
+                buildFuture = MoreMoreAsyncUtil.composeWhenComplete(
+                        buildFuture,
+                        (result, ex) -> indexBuilder.checkNoOngoingOnlineIndexBuildsAsync().thenApply(vignore -> result),
+                        fdb);
+            }
 
             if (recordsWhileBuilding != null && recordsWhileBuilding.size() > 0) {
                 int i = 0;

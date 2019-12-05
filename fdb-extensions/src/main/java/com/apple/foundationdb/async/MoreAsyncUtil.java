@@ -858,6 +858,33 @@ public class MoreAsyncUtil {
     }
 
     /**
+     * Compose a handler bi-function to the result of a future. Unlike the
+     * {@link AsyncUtil#composeHandle(CompletableFuture, BiFunction)}, which completes exceptionally only when the
+     * <code>handler</code> completes exceptionally, it completes exceptionally even if the supplied action itself
+     * (<code>future</code>) encounters an exception.
+     * @param future future to compose the handler onto
+     * @param handler handler bi-function to compose onto the passed future
+     * @param exceptionMapper function for mapping the underlying exception to a {@link RuntimeException}
+     * @param <V> return type of original future
+     * @param <T> return type of final future
+     * @return future with same completion properties as the future returned by the handler
+     * @see AsyncUtil#composeHandle(CompletableFuture, BiFunction)
+     */
+    public static <V, T> CompletableFuture<T> composeWhenComplete(
+            @Nonnull CompletableFuture<V> future,
+            @Nonnull BiFunction<V,Throwable,? extends CompletableFuture<T>> handler,
+            @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
+        return AsyncUtil.composeHandle(future, (result, ex) -> handler.apply(result, ex)
+                .thenApply(handlerResult -> {
+                    if (ex == null) {
+                        return handlerResult;
+                    } else {
+                        throw exceptionMapper == null ? new RuntimeException(ex) : exceptionMapper.apply(ex);
+                    }
+                }));
+    }
+
+    /**
      * A {@code Boolean} function that is always true.
      * @param <T> the type of the (ignored) argument to the function
      */

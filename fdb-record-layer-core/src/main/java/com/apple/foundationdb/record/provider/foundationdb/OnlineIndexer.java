@@ -1038,6 +1038,17 @@ public class OnlineIndexer implements AutoCloseable {
         SynchronizedSession.endAnySession(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
     }
 
+    @VisibleForTesting
+    CompletableFuture<Void> checkNoOngoingOnlineIndexBuildsAsync() {
+        return runner
+                .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)))
+                .thenCompose(lockSubspace ->
+                        // It will throw {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
+                        // if there are ongoing online index builds.
+                        runner.startSynchronizedSessionAsync(lockSubspace, leaseLengthMills))
+                .thenCompose(SynchronizedSessionRunner::endSessionAsync);
+    }
+
     /**
      * Builds an index across multiple transactions.
      * <p>
@@ -1095,29 +1106,25 @@ public class OnlineIndexer implements AutoCloseable {
 
     private <T> CompletableFuture<T> runWithSynchronizedRunnerAndEndSession(
             @Nonnull SynchronizedSessionRunner newSynchronizedRunner, @Nonnull Supplier<CompletableFuture<T>> runnable) {
-        if (this.synchronizedSessionRunner == null) {
+        final SynchronizedSessionRunner currentSynchronizedRunner1 = this.synchronizedSessionRunner;
+        if (currentSynchronizedRunner1 == null) {
             this.synchronizedSessionRunner = newSynchronizedRunner;
-            return AsyncUtil.composeHandle(runnable.get(), (result, ex) -> {
-                if (this.synchronizedSessionRunner == newSynchronizedRunner) {
+            return MoreMoreAsyncUtil.composeWhenComplete(runnable.get(), (result, ex) -> {
+                final SynchronizedSessionRunner currentSynchronizedRunner2 = this.synchronizedSessionRunner;
+                if (newSynchronizedRunner.equals(currentSynchronizedRunner2)) {
                     this.synchronizedSessionRunner = null;
                 } else {
                     LOGGER.warn(KeyValueLogMessage.of("synchronizedSessionRunner was modified during the run",
                             LogMessageKeys.SESSION_ID, newSynchronizedRunner.getSessionId(),
-                            LogMessageKeys.INDEXER_SESSION_ID, this.synchronizedSessionRunner == null ? null : this.synchronizedSessionRunner.getSessionId()));
+                            LogMessageKeys.INDEXER_SESSION_ID, currentSynchronizedRunner2 == null ? null : currentSynchronizedRunner2.getSessionId()));
                 }
-                return newSynchronizedRunner.endSessionAsync().thenApply(vigore -> {
-                    if (ex == null) {
-                        return result;
-                    } else {
-                        throw new RuntimeException(ex);
-                    }
-                });
-            });
+                return newSynchronizedRunner.endSessionAsync().thenApply(vignore -> result);
+            }, getRunner().getDatabase());
         } else {
             return newSynchronizedRunner.endSessionAsync().thenApply(vignore -> {
                 throw new RecordCoreException("another synchronized session is running on the indexer",
                         LogMessageKeys.SESSION_ID, newSynchronizedRunner.getSessionId(),
-                        LogMessageKeys.INDEXER_SESSION_ID, this.synchronizedSessionRunner.getSessionId());
+                        LogMessageKeys.INDEXER_SESSION_ID, currentSynchronizedRunner1.getSessionId());
             });
         }
     }
