@@ -270,16 +270,17 @@ public class SplitHelper {
         if (!splitLongRecords && missingUnsplitRecordSuffix) {
             return loadUnsplitLegacy(tr, context, subspace, key, sizeInfo);
         }
-
         // Even if long records are not split, then unless we are using the old format, it might be the case
         // that there is a record version associated with this key, hence the range read.
         // It is still better to do a range read in that case than two point reads (probably).
         final long startTime = System.nanoTime();
-        final byte[] keyBytes = subspace.pack(key);
-        final AsyncIterable<KeyValue> rangeScan = tr.getRange(Range.startsWith(keyBytes), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL);
+        final Subspace recordSubspace = subspace.subspace(key);
+        // Note that recordSubspace.range() includes only keys that are a strict prefix of recordSubspace.pack(). This means
+        // it excludes recordSubspace.pack() itself as well as any keys that are greater than or equal to recordSubspace.pack() + \xff.
+        final AsyncIterable<KeyValue> rangeScan = tr.getRange(recordSubspace.range(), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL);
         final AsyncIterator<KeyValue> rangeIter = rangeScan.iterator();
         context.instrument(FDBStoreTimer.DetailEvents.GET_RECORD_RANGE_RAW_FIRST_CHUNK, rangeIter.onHasNext(), startTime);
-        return new SingleKeyUnsplitter(context, key, new Subspace(keyBytes), rangeIter, sizeInfo).run(context.getExecutor());
+        return new SingleKeyUnsplitter(context, key, recordSubspace, rangeIter, sizeInfo).run(context.getExecutor());
     }
 
     // Old save behavior prior to SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION
