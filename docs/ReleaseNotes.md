@@ -41,16 +41,16 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Two inequality predicates on a single field index will now be planned as a single range scan on the index [(Issue #765)](https://github.com/FoundationDB/fdb-record-layer/issues/765)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Primary keys where one key contained a string or byte array that was a prefix of another could lead to deserialization errors when loading [(Issue #782)](https://github.com/FoundationDB/fdb-record-layer/issues/782)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support forcefully releasing synchronized session locks and stopping ongoing online index builds [(Issue #748)](https://github.com/FoundationDB/fdb-record-layer/issues/748)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,6 +63,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.94.0
+
+* **Bug fix** Two inequality predicates on a single field index will now be planned as a single range scan on the index [(Issue #765)](https://github.com/FoundationDB/fdb-record-layer/issues/765)
+* **Bug fix** Primary keys where one key contained a string or byte array that was a prefix of another could lead to deserialization errors when loading [(Issue #782)](https://github.com/FoundationDB/fdb-record-layer/issues/782)
+* **Feature** Support forcefully releasing synchronized session locks and stopping ongoing online index builds [(Issue #748)](https://github.com/FoundationDB/fdb-record-layer/issues/748)
 
 ### 2.8.93.0
 
