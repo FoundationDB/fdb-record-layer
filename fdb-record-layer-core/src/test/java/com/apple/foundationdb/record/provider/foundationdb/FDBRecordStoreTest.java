@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -65,9 +66,11 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializationException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -113,12 +116,17 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.DELETE_INDEX_ENTRY;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Events.SAVE_INDEX_ENTRY;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.startsWith;
@@ -551,6 +559,96 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     store2.loadRecord(Tuple.from(1066L));
                     store2.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build());
                 });
+    }
+
+    /**
+     * If there are two primary keys that overlap in the just the right way, then one can have the representation
+     * of one record's primary key be a strict prefix of the other record's. With older versions of the Record Layer,
+     * this could lead to problems where attempting to load the record with the shorter key would also read data for
+     * the record with the longer key. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/782">Issue #782</a>.
+     *
+     * <p>
+     * This test is parameterized by format version because the fix involves being more particular about the range that
+     * is scanned. In particular, the scan range is now only over those keys which are strict prefixes of the primary
+     * key. This is fine as long as there aren't any data stored at that key. Prior to {@link FDBRecordStore#SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION},
+     * there could be data in that key was not true if {@code splitLongRecords} was {@code false}. Parameterizing here
+     * tests those older configurations.
+     * </p>
+     *
+     * @param formatVersion format version to use when running the test
+     * @param splitLongRecords whether the test should split long records or not
+     */
+    @ParameterizedTest(name = "prefixPrimaryKeysWithNullByteAfterPrefix [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionAndSplitArgs")
+    public void prefixPrimaryKeysWithNullByteAfterPrefix(int formatVersion, boolean splitLongRecords) throws Exception {
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.setSplitLongRecords(splitLongRecords);
+            metaData.getRecordType("MySimpleRecord").setPrimaryKey(field("str_value_indexed"));
+        };
+        final FDBRecordStore.Builder storeBuilder;
+        // The primary key for record1 is a prefix of the primary key for record2, and the first byte in record2's primary
+        // key is a null byte. Because FDB's Tuple layer null terminates its representation of strings, this means that
+        // the keys used to store record1 forms a prefix of the keys storing record2. However, the null byte should be
+        // escaped in such a way that it is possible to read only the keys for record1. This is necessary to properly load
+        // the record by primary key.
+        final TestRecords1Proto.MySimpleRecord record1 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setStrValueIndexed("foo")
+                .setNumValue3Indexed(1066)
+                .build();
+        final TestRecords1Proto.MySimpleRecord record2 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setStrValueIndexed("foo\0bar")
+                .setNumValue3Indexed(1415)
+                .build();
+        // Save the two records
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, hook);
+            storeBuilder = recordStore.asBuilder().setFormatVersion(formatVersion);
+            final FDBRecordStore store = storeBuilder.create();
+            store.saveRecord(record1);
+            store.saveRecord(record2);
+            commit(context);
+        }
+        // Load by scanning records
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = storeBuilder.setContext(context).open();
+            final List<FDBStoredRecord<Message>> records = store.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get();
+            assertThat(records, hasSize(2));
+            assertEquals(record1, records.get(0).getRecord());
+            assertEquals(record2, records.get(1).getRecord());
+        }
+        // Load by primary key
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = storeBuilder.setContext(context).open();
+            FDBStoredRecord<Message> storedRecord1 = store.loadRecord(Tuple.from(record1.getStrValueIndexed()));
+            assertNotNull(storedRecord1, "record1 was missing");
+            assertEquals(record1, storedRecord1.getRecord());
+
+            FDBStoredRecord<Message> storedRecord2 = store.loadRecord(Tuple.from(record2.getStrValueIndexed()));
+            assertNotNull(storedRecord2, "record2 was missing");
+            assertEquals(record2, storedRecord2.getRecord());
+        }
+        // Load by query
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = storeBuilder.setContext(context).open();
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.field("num_value_3_indexed").equalsParameter("num"))
+                    .build();
+            final RecordQueryPlan plan = store.planQuery(query);
+            assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[EQUALS $num]")))));
+
+            // Record 1
+            List<FDBQueriedRecord<Message>> record1List = plan.execute(store, EvaluationContext.forBinding("num", 1066)).asList().get();
+            assertThat(record1List, hasSize(1));
+            FDBQueriedRecord<Message> queriedRecord1 = record1List.get(0);
+            assertEquals(record1, queriedRecord1.getRecord());
+
+            // Record 2
+            List<FDBQueriedRecord<Message>> record2List = plan.execute(store, EvaluationContext.forBinding("num", 1415)).asList().get();
+            assertThat(record2List, hasSize(1));
+            FDBQueriedRecord<Message> queriedRecord2 = record2List.get(0);
+            assertEquals(record2, queriedRecord2.getRecord());
+        }
     }
 
     @Test
