@@ -1109,7 +1109,7 @@ public class OnlineIndexer implements AutoCloseable {
         final SynchronizedSessionRunner currentSynchronizedRunner1 = this.synchronizedSessionRunner;
         if (currentSynchronizedRunner1 == null) {
             this.synchronizedSessionRunner = newSynchronizedRunner;
-            return MoreMoreAsyncUtil.composeWhenComplete(runnable.get(), (result, ex) -> {
+            return MoreAsyncUtil.composeWhenComplete(runnable.get(), (result, ex) -> {
                 final SynchronizedSessionRunner currentSynchronizedRunner2 = this.synchronizedSessionRunner;
                 if (newSynchronizedRunner.equals(currentSynchronizedRunner2)) {
                     this.synchronizedSessionRunner = null;
@@ -1118,8 +1118,8 @@ public class OnlineIndexer implements AutoCloseable {
                             LogMessageKeys.SESSION_ID, newSynchronizedRunner.getSessionId(),
                             LogMessageKeys.INDEXER_SESSION_ID, currentSynchronizedRunner2 == null ? null : currentSynchronizedRunner2.getSessionId()));
                 }
-                return newSynchronizedRunner.endSessionAsync().thenApply(vignore -> result);
-            }, getRunner().getDatabase());
+                return newSynchronizedRunner.endSessionAsync();
+            }, getRunner().getDatabase()::mapAsyncToSyncException);
         } else {
             return newSynchronizedRunner.endSessionAsync().thenApply(vignore -> {
                 throw new RecordCoreException("another synchronized session is running on the indexer",

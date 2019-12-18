@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -227,10 +228,10 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 }
             }
             if (safeBuild) {
-                buildFuture = MoreMoreAsyncUtil.composeWhenComplete(
+                buildFuture = MoreAsyncUtil.composeWhenComplete(
                         buildFuture,
-                        (result, ex) -> indexBuilder.checkNoOngoingOnlineIndexBuildsAsync().thenApply(vignore -> result),
-                        fdb);
+                        (result, ex) -> indexBuilder.checkNoOngoingOnlineIndexBuildsAsync(),
+                        fdb::mapAsyncToSyncException);
             }
 
             if (recordsWhileBuilding != null && recordsWhileBuilding.size() > 0) {
