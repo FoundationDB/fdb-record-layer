@@ -133,6 +133,7 @@ public enum LogMessageKeys {
     RECORDS_WHILE_BUILDING("records_while_building"),
     DOCUMENT("document"),
     SESSION_ID("session_id"),
+    INDEXER_SESSION_ID("indexer_session_id"),
     INDEX_STATE_PRECONDITION("index_state_precondition"),
     INITIAL_INDEX_STATE("initial_index_state"),
     SHOULD_BUILD_INDEX("do_build_index"),
