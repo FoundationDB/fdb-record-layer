@@ -27,8 +27,8 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
@@ -43,14 +43,13 @@ import com.google.common.base.Utf8;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
-import java.util.LinkedHashMap;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1005,54 +1004,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     protected static Executor initExecutor(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext) {
         if (mdcContext == null) {
-            return fdb.getExecutor();
+            return fdb.newContextExecutor();
         } else {
-            return new ContextRestoringExecutor(fdb.getExecutor(), mdcContext);
-        }
-    }
-
-    static class ContextRestoringExecutor implements Executor {
-        @Nonnull
-        private final Executor delegate;
-        @Nonnull
-        private final Map<String, String> mdcContext;
-
-        public ContextRestoringExecutor(@Nonnull Executor delegate, @Nonnull Map<String, String> mdcContext) {
-            this.delegate = delegate;
-            this.mdcContext = mdcContext;
-        }
-
-        @Override
-        public void execute(Runnable task) {
-            if (!(task instanceof ContextRestoringRunnable)) {
-                task = new ContextRestoringRunnable(task, mdcContext);
-            }
-            delegate.execute(task);
-        }
-
-        @Nonnull
-        public Map<String, String> getMdcContext() {
-            return mdcContext;
-        }
-    }
-
-    static class ContextRestoringRunnable implements Runnable {
-        private final Runnable delegate;
-        private final Map<String, String> mdcContext;
-
-        public ContextRestoringRunnable(@Nonnull Runnable delegate, @Nonnull Map<String, String> mdcContext) {
-            this.delegate = delegate;
-            this.mdcContext = mdcContext;
-        }
-
-        @Override
-        public void run() {
-            try {
-                restoreMdc(mdcContext);
-                delegate.run();
-            } finally {
-                clearMdc(mdcContext);
-            }
+            return new ContextRestoringExecutor(fdb.newContextExecutor(), mdcContext);
         }
     }
 
@@ -1062,19 +1016,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             return ((ContextRestoringExecutor)getExecutor()).getMdcContext();
         } else {
             return null;
-        }
-    }
-
-    static void restoreMdc(@Nonnull Map<String, String> mdcContext) {
-        MDC.clear();
-        for (Map.Entry<String, String> entry : mdcContext.entrySet()) {
-            MDC.put(entry.getKey(), entry.getValue());
-        }
-    }
-
-    static void clearMdc(@Nonnull Map<String, String> mdcContext) {
-        for (String key : mdcContext.keySet()) {
-            MDC.remove(key);
         }
     }
 

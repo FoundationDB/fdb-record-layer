@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.TaskNotifyingExecutor;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.subspace.Subspace;
@@ -45,6 +46,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -100,6 +103,7 @@ public class FDBRecordContextTest extends FDBTestBase {
 
     @BeforeEach
     public void getFDB() {
+        FDBDatabaseFactory.instance().clear();
         fdb = FDBDatabaseFactory.instance().getDatabase();
     }
 
@@ -416,6 +420,63 @@ public class FDBRecordContextTest extends FDBTestBase {
             Subspace fakeSubspace = new Subspace(Tuple.from(UUID.randomUUID()));
             context.ensureActive().addWriteConflictRange(fakeSubspace.range().begin, fakeSubspace.range().end);
             context.commit();
+        }
+    }
+
+    @Test
+    public void contextExecutor() {
+        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        final int myThreadId = ThreadId.get();
+
+        try {
+            factory.setContextExecutor(exec -> new ThreadIdRestoringExecutor(exec, myThreadId));
+            factory.clear();
+
+            FDBDatabase database = factory.getDatabase();
+            try (FDBRecordContext context = database.openContext()) {
+                context.ensureActive().get(new byte[] { 0 }).thenAccept( value -> {
+                    assertEquals(myThreadId, ThreadId.get());
+                }).join();
+            }
+        } finally {
+            factory.setContextExecutor(exec -> exec);
+        }
+    }
+
+    static class ThreadIdRestoringExecutor extends TaskNotifyingExecutor {
+        private int threadId;
+
+        public ThreadIdRestoringExecutor(@Nonnull Executor executor, int threadId) {
+            super(executor);
+            this.threadId = threadId;
+        }
+
+        @Override
+        public void beforeTask() {
+            ThreadId.set(threadId);
+        }
+
+        @Override
+        public void afterTask() {
+        }
+    }
+
+    private static class ThreadId {
+        private static final AtomicInteger nextId = new AtomicInteger(0);
+
+        private static final ThreadLocal<Integer> threadId =
+                new ThreadLocal<Integer>() {
+                    @Override protected Integer initialValue() {
+                        return nextId.getAndIncrement();
+                    }
+                };
+
+        public static int get() {
+            return threadId.get();
+        }
+
+        private static void set(int id) {
+            threadId.set(id);
         }
     }
 }
