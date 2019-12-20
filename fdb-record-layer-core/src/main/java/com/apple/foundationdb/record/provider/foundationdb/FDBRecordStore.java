@@ -994,10 +994,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final LoggableException ex2 = new RecordCoreException("Failed to deserialize record", ex);
             ex2.addLogInfo(
                     subspaceProvider.logKey(), subspaceProvider.toString(context),
-                    LogMessageKeys.PRIMARY_KEY, primaryKey);
+                    LogMessageKeys.PRIMARY_KEY, primaryKey,
+                    LogMessageKeys.META_DATA_VERSION, metaData.getVersion());
             if (LOGGER.isDebugEnabled()) {
-                ex2.addLogInfo("serialized", ByteArrayUtil2.loggable(serialized),
-                        "descriptor", metaData.getUnionDescriptor().getFile().toProto());
+                ex2.addLogInfo("serialized", ByteArrayUtil2.loggable(serialized));
+            }
+            if (LOGGER.isTraceEnabled()) {
+                ex2.addLogInfo("descriptor", metaData.getUnionDescriptor().getFile().toProto());
             }
             throw ex2;
         }
