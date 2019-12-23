@@ -372,7 +372,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             final Map<String, String> outer = ThreadContext.getContext();
             final ImmutableMap<String, String> restored = ImmutableMap.of("restored", "Platypus");
 
-            FDBDatabaseFactory.instance().setExecutor(new FDBRecordContext.ContextRestoringExecutor(
+            FDBDatabaseFactory.instance().setExecutor(new ContextRestoringExecutor(
                     new ForkJoinPool(2), ImmutableMap.of("executor", "Water Bear")));
             AtomicInteger attempts = new AtomicInteger(0);
             final FDBDatabaseRunner runner = new FDBDatabaseRunnerImpl(database, null, restored);

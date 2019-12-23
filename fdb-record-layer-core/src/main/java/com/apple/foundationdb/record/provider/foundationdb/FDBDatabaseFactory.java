@@ -67,7 +67,12 @@ public class FDBDatabaseFactory {
 
     @Nullable
     private Executor networkExecutor = null;
+
+    @Nonnull
     private Executor executor = ForkJoinPool.commonPool();
+
+    @Nonnull
+    private Function<Executor, Executor> contextExecutor = Function.identity();
 
     @Nullable
     private FDB fdb;
@@ -153,8 +158,33 @@ public class FDBDatabaseFactory {
         return executor;
     }
 
+    /**
+     * Sets the executor that will be used for all asynchronous tasks that are produced from operations initiated
+     * from databases produced from this factory.
+     *
+     * @param executor the executor to be used for asynchronous task completion
+     */
     public void setExecutor(@Nonnull Executor executor) {
         this.executor = executor;
+    }
+
+    /**
+     * Provides a function that will be invoked when a {@link FDBRecordContext} is created, taking as input the
+     * {@code Executor} that is configured for the database, returning the {@code Executor} that will be used
+     * to execute all asynchronous completions produced from the {@code FDBRecordContext}. An example use case
+     * for this function is to ensure that {@code ThreadLocal} variables that are present in the thread that
+     * creates the {@code FDBRecordContext} will be made present in the executor threads that are executing tasks.
+     *
+     * @param contextExecutor function to produce an executor to be used for all tasks executed on behalf of a
+     *   specific record context
+     */
+    public void setContextExecutor(@Nonnull Function<Executor, Executor> contextExecutor) {
+        this.contextExecutor = contextExecutor;
+    }
+
+    @Nonnull
+    protected Executor newContextExecutor() {
+        return contextExecutor.apply(getExecutor());
     }
 
     public synchronized void shutdown() {

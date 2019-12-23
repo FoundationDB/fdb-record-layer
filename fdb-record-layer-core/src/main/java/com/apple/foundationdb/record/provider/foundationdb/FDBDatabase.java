@@ -699,6 +699,11 @@ public class FDBDatabase {
         return factory.getExecutor();
     }
 
+    @Nonnull
+    protected Executor newContextExecutor() {
+        return factory.newContextExecutor();
+    }
+
     public Transaction createTransaction(Executor executor, @Nullable Map<String, String> mdcContext, boolean transactionIsTraced) {
         Transaction transaction = database.createTransaction(executor);
         if (transactionIsTraced) {
