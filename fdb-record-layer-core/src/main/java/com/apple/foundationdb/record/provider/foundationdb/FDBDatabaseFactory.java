@@ -72,7 +72,7 @@ public class FDBDatabaseFactory {
     private Executor executor = ForkJoinPool.commonPool();
 
     @Nonnull
-    private Function<Executor, Executor> contextExecutor = exec -> exec;
+    private Function<Executor, Executor> contextExecutor = Function.identity();
 
     @Nullable
     private FDB fdb;

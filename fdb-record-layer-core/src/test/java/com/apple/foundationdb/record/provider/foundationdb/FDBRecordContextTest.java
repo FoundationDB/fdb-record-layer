@@ -439,7 +439,7 @@ public class FDBRecordContextTest extends FDBTestBase {
                 }).join();
             }
         } finally {
-            factory.setContextExecutor(exec -> exec);
+            factory.setContextExecutor(Function.identity());
         }
     }
 

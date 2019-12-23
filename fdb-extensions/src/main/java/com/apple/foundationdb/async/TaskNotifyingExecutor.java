@@ -44,7 +44,7 @@ public abstract class TaskNotifyingExecutor implements Executor {
         if (task instanceof Notifier) {
             delegate.execute(task);
         } else {
-            delegate.execute(new Notifier( task));
+            delegate.execute(new Notifier(task));
         }
     }
 
