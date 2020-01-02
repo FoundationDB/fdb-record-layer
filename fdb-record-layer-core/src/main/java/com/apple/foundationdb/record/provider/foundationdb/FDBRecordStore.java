@@ -2073,10 +2073,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index) {
-        return markIndexWriteOnly(index).thenApply(changed -> {
-            clearIndexData(index);
-            return null;
-        });
+        return markIndexWriteOnly(index)
+                .thenRun(() -> clearIndexData(index));
     }
 
     /**
@@ -3089,7 +3087,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
 
-        return markIndexReadable(index).thenApply(b -> null);
+        return markIndexReadable(index)
+                .thenRun(() -> clearIndexData(index));
     }
 
     /**
