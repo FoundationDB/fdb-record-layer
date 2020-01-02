@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.ReadTransactionContext;
@@ -289,6 +290,23 @@ public class RankedSetIndexHelper {
             }
         }
 
+        @Override
+        protected CompletableFuture<Void> addLevelZeroKey(Transaction tr, byte[] key, int level) {
+            CompletableFuture<Void> result = super.addLevelZeroKey(tr, key, level);
+            return context.instrument(FDBStoreTimer.DetailEvents.RANKED_SET_ADD_LEVEL_ZERO_KEY, result);
+        }
+
+        @Override
+        protected CompletableFuture<Void> addIncrementLevelKey(Transaction tr, byte[] key, int level) {
+            CompletableFuture<Void> result = super.addIncrementLevelKey(tr, key, level);
+            return context.instrument(FDBStoreTimer.DetailEvents.RANKED_SET_ADD_INCREMENT_LEVEL_KEY, result);
+        }
+
+        @Override
+        protected CompletableFuture<Void> addInsertLevelKey(Transaction tr, byte[] key, int level) {
+            CompletableFuture<Void> result = super.addInsertLevelKey(tr, key, level);
+            return context.instrument(FDBStoreTimer.DetailEvents.RANKED_SET_ADD_INSERT_LEVEL_KEY, result);
+        }
     }
 
 }

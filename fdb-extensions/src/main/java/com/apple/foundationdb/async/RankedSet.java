@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async;
 
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
@@ -157,36 +158,47 @@ public class RankedSet {
                         int level = li;
                         CompletableFuture<Void> future;
                         if (level == 0) {
-                            tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(1));
-                            future = DONE;
+                            future = addLevelZeroKey(tr, key, level);
                         } else if ((keyHash & LEVEL_FAN_VALUES[level]) != 0) {
-                            future = getPreviousKey(tr, level, key).thenApply(prevKey -> {
-                                tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKey)), encodeLong(1));
-                                return null;
-                            });
+                            future = addIncrementLevelKey(tr, key, level);
                         } else {
                             // Insert into this level by looking at the count of the previous key in the level
                             // and recounting the next lower level to correct the counts.
                             // Must complete lower levels first for count to be accurate.
                             future = AsyncUtil.whenAll(futures);
                             futures = new ArrayList<>(nlevels - li);
-                            future = future.thenCompose(vignore ->
-                                getPreviousKey(tr, level, key).thenCompose(prevKey -> {
-                                    CompletableFuture<Long> prevCount = tr.get(subspace.pack(Tuple.from(level, prevKey))).thenApply(RankedSet::decodeLong);
-                                    CompletableFuture<Long> newPrevCount = countRange(tr, level - 1, prevKey, key);
-                                    return CompletableFuture.allOf(prevCount, newPrevCount)
-                                        .thenApply(vignore2 -> {
-                                            long count = prevCount.join() - newPrevCount.join() + 1;
-                                            tr.set(subspace.pack(Tuple.from(level, prevKey)), encodeLong(newPrevCount.join()));
-                                            tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(count));
-                                            return null;
-                                        });
-                                }));
+                            future = future.thenCompose(vignore -> addInsertLevelKey(tr, key, level));
                         }
                         futures.add(future);
                     }
                     return AsyncUtil.whenAll(futures).thenApply(vignore -> true);
                 }));
+    }
+
+    protected CompletableFuture<Void> addLevelZeroKey(Transaction tr, byte[] key, int level) {
+        tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(1));
+        return DONE;
+    }
+
+    protected CompletableFuture<Void> addIncrementLevelKey(Transaction tr, byte[] key, int level) {
+        return getPreviousKey(tr, level, key).thenApply(prevKey -> {
+            tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKey)), encodeLong(1));
+            return null;
+        });
+    }
+
+    protected CompletableFuture<Void> addInsertLevelKey(Transaction tr, byte[] key, int level) {
+        return getPreviousKey(tr, level, key).thenCompose(prevKey -> {
+            CompletableFuture<Long> prevCount = tr.get(subspace.pack(Tuple.from(level, prevKey))).thenApply(RankedSet::decodeLong);
+            CompletableFuture<Long> newPrevCount = countRange(tr, level - 1, prevKey, key);
+            return CompletableFuture.allOf(prevCount, newPrevCount)
+                    .thenApply(vignore2 -> {
+                        long count = prevCount.join() - newPrevCount.join() + 1;
+                        tr.set(subspace.pack(Tuple.from(level, prevKey)), encodeLong(newPrevCount.join()));
+                        tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(count));
+                        return null;
+                    });
+        });
     }
 
     /**
