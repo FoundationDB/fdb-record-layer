@@ -242,6 +242,12 @@ public class FDBStoreTimer extends StoreTimer {
         RANKED_SET_NEXT_LOOKUP_KEY("ranked set next lookup key"),
         /** The amount of time spent checking for a key in a {@link com.apple.foundationdb.async.RankedSet} skip list. */
         RANKED_SET_CONTAINS("ranked set contains"),
+        /** The amount of time spent adding to the finest level of a {@link com.apple.foundationdb.async.RankedSet} skip list. */
+        RANKED_SET_ADD_LEVEL_ZERO_KEY("ranked set add level 0 key"),
+        /** The amount of time spent incrementing an existing level key of a {@link com.apple.foundationdb.async.RankedSet} skip list. */
+        RANKED_SET_ADD_INCREMENT_LEVEL_KEY("ranked set add increment level key"),
+        /** The amount of time spent incrementing an splitting a level of a {@link com.apple.foundationdb.async.RankedSet} skip list by inserting another key. */
+        RANKED_SET_ADD_INSERT_LEVEL_KEY("ranked set add insert level key"),
         /** The amount of time spent reading the lock state of a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver}. */
         RESOLVER_STATE_READ("read resolver state"),
         /** The amount of time spent scanning the directory subspace after a hard miss in {@link FDBReverseDirectoryCache}. */
