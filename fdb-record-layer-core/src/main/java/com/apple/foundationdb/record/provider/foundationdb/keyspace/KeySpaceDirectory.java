@@ -389,7 +389,7 @@ public class KeySpaceDirectory {
     public KeySpaceDirectory getSubdirectory(@Nonnull String name) {
         KeySpaceDirectory dir = subdirsByName.get(name);
         if (dir == null) {
-            throw new NoSuchDirectoryException(getName(), name);
+            throw new NoSuchDirectoryException(this, name);
         }
         return dir;
     }
@@ -733,6 +733,28 @@ public class KeySpaceDirectory {
             default:
                 throw new RecordCoreException("Unexpected key type " + o1Type);
         }
+    }
+
+    /**
+     * Returns the path that leads up to this directory (including this directory), and returns it as a string
+     * that looks something like a filesystem path.
+     *
+     * @return the path to this directory as a string
+     */
+    public String toPathString() {
+        StringBuilder sb = new StringBuilder();
+        appendPath(sb, this);
+        return sb.toString();
+    }
+
+    private void appendPath(StringBuilder sb, KeySpaceDirectory dir) {
+        @Nullable
+        KeySpaceDirectory parent = dir.getParent();
+
+        if (parent != null) {
+            appendPath(sb, parent);
+        }
+        sb.append("/").append(dir.getName());
     }
 
     @Override
