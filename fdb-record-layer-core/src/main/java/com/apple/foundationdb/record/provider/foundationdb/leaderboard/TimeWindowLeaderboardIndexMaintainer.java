@@ -575,7 +575,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                         state.update();
                         return null;
                     })
-                    .thenCompose(vignore -> state.checkRebuild())
+                    .thenCompose(vignore -> state.checkOverlappingChanged())
                     .thenCompose(vignore -> state.save())
                     .thenApply(vignore -> state.getResult());
             event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_UPDATE_DIRECTORY;
@@ -699,19 +699,23 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             }
         }
 
-        public CompletableFuture<Void> checkRebuild() {
-            if (changed && isRebuildConditional()) {
+        public CompletableFuture<Void> checkOverlappingChanged() {
+            if (changed) {
                 return state.transaction.get(state.indexSubspace.getKey()).thenApply(maxBytes -> {
                     if (maxBytes != null) {
                         final long latestEntryTimestamp = AtomicMutation.Standard.decodeSignedLong(maxBytes);
                         // If some record has been added since last rebuild that is after the start of a newly
                         // added time window, we have to index existing records, which we currently do by rebuilding.
                         if (latestEntryTimestamp >= earliestAddedStartTimestamp) {
-                            rebuild = true;
-                            LOGGER.info(KeyValueLogMessage.of("rebuilding leaderboard index due to overlapping existing record",
-                                            LogMessageKeys.LATEST_ENTRY_TIMESTAMP, latestEntryTimestamp,
-                                            LogMessageKeys.EARLIEST_ADDED_START_TIMESTAMP, earliestAddedStartTimestamp,
-                                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
+                            if (isRebuildConditional()) {
+                                rebuild = true;
+                            }
+                            LOGGER.info(KeyValueLogMessage.of(rebuild ?
+                                                              "rebuilding leaderboard index due to overlapping existing record" :
+                                                              "need to rebuild leaderboard index due to overlapping existing record",
+                                    LogMessageKeys.LATEST_ENTRY_TIMESTAMP, latestEntryTimestamp,
+                                    LogMessageKeys.EARLIEST_ADDED_START_TIMESTAMP, earliestAddedStartTimestamp,
+                                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
                             if (getTimer() != null) {
                                 getTimer().increment(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED);
                             }
