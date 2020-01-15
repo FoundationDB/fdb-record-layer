@@ -53,8 +53,8 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Emit `TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED` whenever rebuild needed due to overlapping, not just when rebuilding immediately [(Issue #799)](https://github.com/FoundationDB/fdb-record-layer/issues/799)
-* **Feature** Clear existing index data when `rebuildIndexWithNoRecord` [(Issue #794)](https://github.com/FoundationDB/fdb-record-layer/issues/794)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,6 +63,11 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.97.0
+
+* **Feature** Emit `TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED` whenever rebuild needed due to overlapping, not just when rebuilding immediately [(Issue #799)](https://github.com/FoundationDB/fdb-record-layer/issues/799)
+* **Feature** Clear existing index data when `rebuildIndexWithNoRecord` [(Issue #794)](https://github.com/FoundationDB/fdb-record-layer/issues/794)
 
 ### 2.8.96.0
 
