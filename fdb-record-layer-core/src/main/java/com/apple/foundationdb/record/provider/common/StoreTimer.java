@@ -81,6 +81,29 @@ public class StoreTimer {
         }
     }
 
+    public static void checkContributionCycles(@Nonnull Stream<Event> events) {
+        events.forEach(event -> {
+            if (!event.contributesTo().isEmpty()) {
+                Set<String> seen = new HashSet<>();
+                seen.add(event.name());
+                checkContributionCycles(seen, event.contributesTo());
+            }
+        });
+    }
+
+    public static void checkContributionCycles(@Nonnull Set<String> seen, @Nonnull Collection<Event> events) {
+        events.forEach(event -> {
+            if (seen.contains(event.name())) {
+                throw new RecordCoreException("Event contribution cycle detected: " + event.name());
+            }
+            seen.add(event.name());
+
+            if (!event.contributesTo().isEmpty()) {
+                checkContributionCycles(seen, event.contributesTo());
+            }
+        });
+    }
+
     /**
      * Subtracts counts and times recorded by a snapshot of a timer returning a new timer representing the difference.
      * <p>
@@ -167,6 +190,17 @@ public class StoreTimer {
          * @return the user-visible title
          */
         String title();
+
+        /**
+         * Returns the set of events that should be updated when this event is updated. Aggregate metrics
+         * may be synthesized from individual, more detailed, metrics by having each of the detailed metrics
+         * contribute to a single aggregate metric.
+         *
+         * @return the set of events that should be updated when this event is updated
+         */
+        default Collection<Event> contributesTo() {
+            return Collections.emptyList();
+        }
 
         /**
          * Get the key of this event for logging. This should be used with
@@ -297,6 +331,13 @@ public class StoreTimer {
      */
     public void record(Event event, long timeDifferenceNanos) {
         getCounter(counters, event, true).record(timeDifferenceNanos);
+
+        final Collection<Event> contributesTo = event.contributesTo();
+        if (!contributesTo.isEmpty()) {
+            for (Event contributeToEvent : contributesTo) {
+                record(contributeToEvent, timeDifferenceNanos);
+            }
+        }
     }
 
     /**
@@ -375,7 +416,18 @@ public class StoreTimer {
      * @param amount the number of times the event occurred
      */
     public void increment(Count event, int amount) {
+        incrementEvent(event, amount);
+    }
+
+    private void incrementEvent(Event event, int amount) {
         getCounter(counters, event, true).increment(amount);
+
+        final Collection<Event> contributesTo = event.contributesTo();
+        if (!contributesTo.isEmpty()) {
+            for (Event contributeToEvent : contributesTo) {
+                incrementEvent(contributeToEvent, amount);
+            }
+        }
     }
 
     /**

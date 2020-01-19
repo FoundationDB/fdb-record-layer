@@ -24,9 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDirectoryLayer;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.stream.Stream;
 
 /**
@@ -39,6 +42,17 @@ public class FDBStoreTimer extends StoreTimer {
      * Ordinary top-level events which surround a single body of code.
      */
     public enum Events implements Event {
+        // ****** AGGREGATE METRICS *********
+        /** Total number and duration of commits. */
+        COMMITS("commits"),
+        /** Total count of read operations performed. */
+        READS("reads"),
+        /** Total count of writes operations performed. */
+        WRITES("writes"),
+        /** Total count of delete (clean) operations performed. */
+        DELETES("deletes"),
+        // ****** END AGGREGATE METRICS *********
+
         /** The amount of time taken performing a no-op. */
         PERFORM_NO_OP("perform no-op"),
         /**
@@ -78,7 +92,8 @@ public class FDBStoreTimer extends StoreTimer {
          * This includes any injected latency added before issuing the request and any time spent performing pre-commit checks.
          * @see #INJECTED_COMMIT_LATENCY
          */
-        COMMIT("commit transaction"),
+        COMMIT("commit transaction",
+                COMMITS),
         /**
          * The amount of time injected into committing transactions.
          * @see FDBDatabase#injectLatency(FDBLatencySource)
@@ -87,17 +102,23 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time taken committing transactions that did not actually have any writes. */
         COMMIT_READ_ONLY("commit read-only transaction"),
         /** The amount of time taken committing transactions that did not succeed. */
-        COMMIT_FAILURE("commit transaction with failure"),
+        COMMIT_FAILURE("commit transaction with failure",
+                COMMITS),
         /** The amount of time taken persisting meta-data to a {@link FDBMetaDataStore}. */
-        SAVE_META_DATA("save meta-data"),
+        SAVE_META_DATA("save meta-data",
+                WRITES),
         /** The amount of time taken loading meta-data from a {@link FDBMetaDataStore}. */
-        LOAD_META_DATA("load meta-data"),
+        LOAD_META_DATA("load meta-data",
+                READS),
         /** The amount of time taken loading a record store's {@link com.apple.foundationdb.record.RecordStoreState} listing store-specific information. */
-        LOAD_RECORD_STORE_STATE("load record store state"),
+        LOAD_RECORD_STORE_STATE("load record store state",
+                READS),
         /** The amount of time taken loading a record store's {@code DataStoreInfo} header.*/
-        LOAD_RECORD_STORE_INFO("load record store info"),
+        LOAD_RECORD_STORE_INFO("load record store info",
+                READS),
         /** The amount of time taken loading a record store's index meta-data. */
-        LOAD_RECORD_STORE_INDEX_META_DATA("load record store index meta-data"),
+        LOAD_RECORD_STORE_INDEX_META_DATA("load record store index meta-data",
+                READS),
         /** The amount of time taken getting the current version from a {@link MetaDataCache}. */
         GET_META_DATA_CACHE_VERSION("get meta-data cache version"),
         /** The amount of time taken getting cached meta-data from a {@link MetaDataCache}. */
@@ -107,42 +128,52 @@ public class FDBStoreTimer extends StoreTimer {
          * This time includes serialization and secondary index maintenance as well as writing to the current transaction
          * for later committing.
          */
-        SAVE_RECORD("save record"),
+        SAVE_RECORD("save record",
+                WRITES),
         /**
          * The amount of time taken loading records.
          * This time includes fetching from the database and deserialization.
          */
-        LOAD_RECORD("load record"),
+        LOAD_RECORD("load record",
+                READS),
         /** The amount of time taken loading record versions. */
-        LOAD_RECORD_VERSION("load record version"),
+        LOAD_RECORD_VERSION("load record version",
+                READS),
         /** The amount of time taken scanning records directly without any index. */
-        SCAN_RECORDS("scan records"),
+        SCAN_RECORDS("scan records",
+                READS),
         /**
          * The amount of time taken scanning the entries of an index.
          * An ordinary index scan from a query will entail both an index entry scan and {@link #LOAD_RECORD} for each record pointed to by an index entry.
          */
-        SCAN_INDEX_KEYS("scan index"),
+        SCAN_INDEX_KEYS("scan index",
+                READS),
         /**
          * The amount of time taken deleting records.
          * This time includes secondary index maintenance as well as writing to the current transaction
          * for later committing.
          */
-        DELETE_RECORD("delete record"),
+        DELETE_RECORD("delete record",
+                DELETES),
         // TODO: Are these index maintenance related ones really DetailEvents?
         /** The amount of time spent maintaining an index when the entire record is skipped by the {@link IndexMaintenanceFilter}. */
         SKIP_INDEX_RECORD("skip index record"),
         /** The amount of time spent maintaining an index when an entry is skipped by the {@link IndexMaintenanceFilter}. */
         SKIP_INDEX_ENTRY("skip index entry"),
         /** The amount of time spent saving an entry to a secondary index. */
-        SAVE_INDEX_ENTRY("save index entry"),
+        SAVE_INDEX_ENTRY("save index entry",
+                WRITES),
         /** The amount of time spent deleting an entry from a secondary index. */
-        DELETE_INDEX_ENTRY("delete index entry"),
+        DELETE_INDEX_ENTRY("delete index entry",
+                DELETES),
         /** The amount of time spent updating an entry in an atomic mutation index. */
-        MUTATE_INDEX_ENTRY("mutate index entry"),
+        MUTATE_INDEX_ENTRY("mutate index entry",
+                WRITES),
         /** The amount of time spent deleting an entry from a secondary index. */
         REBUILD_INDEX("rebuild index"),
         /** The amount of time spent clearing the space taken by an index that has been removed from the meta-data. */
-        REMOVE_FORMER_INDEX("remove former index"),
+        REMOVE_FORMER_INDEX("remove former index",
+                DELETES),
         /** The amount of time spent counting records for the deprecated record count key. */
         RECOUNT_RECORDS("recount records"),
         /** The amount of time spent checking an index for duplicate entries to preserve uniqueness. */
@@ -153,25 +184,34 @@ public class FDBStoreTimer extends StoreTimer {
          */
         CHECK_VERSION("check meta-data version"),
         /** The amount of time spent reading an entry from a directory layer. */
-        DIRECTORY_READ("directory read"),
+        DIRECTORY_READ("directory read",
+                READS),
         /** The amount of time spent reading an entry from a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedDirectoryLayer}. */
-        SCOPED_DIRECTORY_LAYER_READ("read the value from the scoped directory layer"),
+        SCOPED_DIRECTORY_LAYER_READ("read the value from the scoped directory layer",
+                READS),
         /** The amount of time spent adding a new entry to a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedDirectoryLayer}. */
-        SCOPED_DIRECTORY_LAYER_CREATE("create the value in the scoped directory layer"),
+        SCOPED_DIRECTORY_LAYER_CREATE("create the value in the scoped directory layer",
+                WRITES),
         /** The amount of time spent reading an entry from an {@link ExtendedDirectoryLayer}. */
-        EXTENDED_DIRECTORY_LAYER_READ("read the value from the extended directory layer"),
+        EXTENDED_DIRECTORY_LAYER_READ("read the value from the extended directory layer",
+                READS),
         /** The amount of time spent adding a new entry to an {@link ExtendedDirectoryLayer}. */
-        EXTENDED_DIRECTORY_LAYER_CREATE("create the value in the extended directory layer"),
+        EXTENDED_DIRECTORY_LAYER_CREATE("create the value in the extended directory layer",
+                WRITES),
         /** The amount of time spent reading an entry from a {@link com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer}. */
-        INTERNING_LAYER_READ("read the value from the interning layer"),
+        INTERNING_LAYER_READ("read the value from the interning layer",
+                READS),
         /** The amount of time spent adding a new entry to a {@link com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer}. */
-        INTERNING_LAYER_CREATE("create the value in the interning layer"),
+        INTERNING_LAYER_CREATE("create the value in the interning layer",
+                WRITES),
         /** The amount of time spent loading boundary keys. */
-        LOAD_BOUNDARY_KEYS("load boundary keys"),
+        LOAD_BOUNDARY_KEYS("load boundary keys",
+                READS),
         /** The amount of time spent computing boundary keys. */
         COMPUTE_BOUNDARY_KEYS("compute boundary keys"),
         /** The amount of time spent reading a sample key to measure read latency. */
-        READ_SAMPLE_KEY("read sample key"),
+        READ_SAMPLE_KEY("read sample key",
+                READS),
         /** The amount of time spent planning a query. */
         PLAN_QUERY("plan query"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} as part of executing a query. */
@@ -189,32 +229,47 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan} as part of executing a query. */
         QUERY_PK_DISTINCT("compare record primary key for distinct"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardDirectoryOperation}. */
-        TIME_WINDOW_LEADERBOARD_GET_DIRECTORY("leaderboard get directory"),
+        TIME_WINDOW_LEADERBOARD_GET_DIRECTORY("leaderboard get directory",
+                READS),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardWindowUpdate}. */
-        TIME_WINDOW_LEADERBOARD_UPDATE_DIRECTORY("leaderboard update directory"),
+        TIME_WINDOW_LEADERBOARD_UPDATE_DIRECTORY("leaderboard update directory",
+                WRITES),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardScoreTrim}. */
-        TIME_WINDOW_LEADERBOARD_TRIM_SCORES("leaderboard trim scores"),
+        TIME_WINDOW_LEADERBOARD_TRIM_SCORES("leaderboard trim scores",
+                WRITES),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSubDirectoryOperation}. */
-        TIME_WINDOW_LEADERBOARD_GET_SUB_DIRECTORY("leaderboard get sub-directory"),
+        TIME_WINDOW_LEADERBOARD_GET_SUB_DIRECTORY("leaderboard get sub-directory",
+                READS),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSaveSubDirectory}. */
-        TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory");
+        TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory",
+                WRITES),
+        /** The total number of timeouts from calls to asyncToSync. */
+        TIMEOUTS("timeouts"),
+        ;
 
         private final String title;
         private final String logKey;
+        private final Collection<Event> coontributesTo;
 
-        Events(String title, String logKey) {
+        Events(@Nonnull String title, @Nullable String logKey, @Nonnull Events...contributesTo) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : Event.super.logKey();
+            this.coontributesTo = ImmutableList.copyOf(contributesTo);
         }
 
-        Events(String title) {
-            this(title, null);
+        Events(@Nonnull String title, @Nonnull Events...contributesTo) {
+            this(title, null, contributesTo);
         }
-
 
         @Override
+        @Nonnull
         public String title() {
             return title;
+        }
+
+        @Override
+        public Collection<Event> contributesTo() {
+            return contributesTo();
         }
 
         @Override
@@ -418,6 +473,15 @@ public class FDBStoreTimer extends StoreTimer {
      * Standard {@link Count} events.
      */
     public enum Counts implements Count {
+        // ****** AGGREGATE METRICS *********
+        /** Total number of bytes read. */
+        BYTES_READ("bytes read", true),
+        /** Total number of bytes written. */
+        BYTES_WRITTEN("bytes written", true),
+        /** Total number of bytes deleted. */
+        BYTES_DELETED("bytes deleted", true),
+        // ****** END AGGREGATE METRICS *********
+
         /** The number of times a record context is opened. */
         OPEN_CONTEXT("open record context", false),
         /** The number of times a record context is closed. */
@@ -431,9 +495,11 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of record key-value pairs saved. */
         SAVE_RECORD_KEY("number of record keys saved", false),
         /** The size of keys for record key-value pairs saved. */
-        SAVE_RECORD_KEY_BYTES("number of record key bytes saved", true),
+        SAVE_RECORD_KEY_BYTES("number of record key bytes saved", true,
+                BYTES_WRITTEN),
         /** The size of values for record key-value pairs saved. */
-        SAVE_RECORD_VALUE_BYTES("number of record value bytes saved", true),
+        SAVE_RECORD_VALUE_BYTES("number of record value bytes saved", true,
+                BYTES_WRITTEN),
         /** The number of entries (e.g., key-value pairs or text index entries) loaded by a scan. */
         LOAD_SCAN_ENTRY("number of entries loaded by some scan", false),
         /** The number of key-value pairs loaded by a range scan. */
@@ -443,41 +509,54 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of record key-value pairs loaded. */
         LOAD_RECORD_KEY("number of record keys loaded", false),
         /** The size of keys for record key-value pairs loaded. */
-        LOAD_RECORD_KEY_BYTES("number of record key bytes loaded", true),
+        LOAD_RECORD_KEY_BYTES("number of record key bytes loaded", true,
+                BYTES_READ),
         /** The size of values for record key-value pairs loaded. */
-        LOAD_RECORD_VALUE_BYTES("number of record value bytes loaded", true),
+        LOAD_RECORD_VALUE_BYTES("number of record value bytes loaded", true,
+                BYTES_READ),
         /** The number of index key-value pairs saved. */
         SAVE_INDEX_KEY("number of index keys saved", false),
         /** The size of keys for index key-value pairs saved. */
-        SAVE_INDEX_KEY_BYTES("number of index key bytes saved", true),
+        SAVE_INDEX_KEY_BYTES("number of index key bytes saved", true,
+                BYTES_WRITTEN),
         /** The size of values for index key-value pairs saved. */
-        SAVE_INDEX_VALUE_BYTES("number of index value bytes saved", true),
+        SAVE_INDEX_VALUE_BYTES("number of index value bytes saved", true,
+                BYTES_WRITTEN),
         /** The number of index key-value pairs loaded. */
         LOAD_INDEX_KEY("number of index keys loaded", false),
         /** The size of keys for index key-value pairs loaded. */
-        LOAD_INDEX_KEY_BYTES("number of index key bytes loaded", true),
+        LOAD_INDEX_KEY_BYTES("number of index key bytes loaded", true,
+                BYTES_READ),
         /** The size of values for index key-value pairs loaded. */
-        LOAD_INDEX_VALUE_BYTES("number of index value bytes loaded", true),
+        LOAD_INDEX_VALUE_BYTES("number of index value bytes loaded", true,
+                BYTES_READ),
         /** The number of index state key-value pairs loaded. */
         LOAD_STORE_STATE_KEY("number of store state keys loaded", false),
         /** The size of keys for index state key-value pairs loaded. */
-        LOAD_STORE_STATE_KEY_BYTES("number of store state key bytes loaded", true),
+        LOAD_STORE_STATE_KEY_BYTES("number of store state key bytes loaded", true,
+                BYTES_READ),
         /** The size of values for index state key-value pairs loaded. */
-        LOAD_STORE_STATE_VALUE_BYTES("number of store state value bytes loaded", true),
+        LOAD_STORE_STATE_VALUE_BYTES("number of store state value bytes loaded", true,
+                BYTES_READ),
         /** The number of record key-value pairs deleted. */
         DELETE_RECORD_KEY("number of record keys deleted", false),
         /** The size of keys for record key-value pairs deleted. */
-        DELETE_RECORD_KEY_BYTES("number of record key bytes deleted", true),
+        DELETE_RECORD_KEY_BYTES("number of record key bytes deleted", true,
+                BYTES_DELETED),
         /** The size of values for record key-value pairs deleted. */
-        DELETE_RECORD_VALUE_BYTES("number of record value bytes deleted", true),
+        DELETE_RECORD_VALUE_BYTES("number of record value bytes deleted", true,
+                BYTES_DELETED),
         /** The number of index key-value pairs deleted. */
         DELETE_INDEX_KEY("number of index keys deleted", false),
         /** The size of keys for index key-value pairs deleted. */
-        DELETE_INDEX_KEY_BYTES("number of index key bytes deleted", true),
+        DELETE_INDEX_KEY_BYTES("number of index key bytes deleted", true,
+                BYTES_DELETED),
         /** The size of values for index key-value pairs deleted. */
-        DELETE_INDEX_VALUE_BYTES("number of index value bytes deleted", true),
+        DELETE_INDEX_VALUE_BYTES("number of index value bytes deleted", true,
+                BYTES_DELETED),
         /** The previous size of values for record key-value pairs that are updated. */
-        REPLACE_RECORD_VALUE_BYTES("number of record value bytes replaced", true),
+        REPLACE_RECORD_VALUE_BYTES("number of record value bytes replaced", true,
+                BYTES_DELETED),
         /** The number of reverse directory cache misses.  */
         REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT("number of persistent cache misses", false),
         /** The number of reverse directory cache hits.  */
@@ -571,20 +650,27 @@ public class FDBStoreTimer extends StoreTimer {
         private final String title;
         private final boolean isSize;
         private final String logKey;
+        private final Collection<Event> contributesTo;
 
-        Counts(String title, boolean isSize, String logKey) {
+        Counts(@Nonnull String title, boolean isSize, @Nullable String logKey, @Nonnull Counts...contributesTo) {
             this.title = title;
             this.isSize = isSize;
             this.logKey = (logKey != null) ? logKey : Count.super.logKey();
+            this.contributesTo = ImmutableList.copyOf(contributesTo);
         }
 
-        Counts(String title, boolean isSize) {
-            this(title, isSize, null);
+        Counts(@Nonnull String title, boolean isSize, @Nonnull Counts...contributesTo) {
+            this(title, isSize, null, contributesTo);
         }
 
         @Override
         public String title() {
             return title;
+        }
+
+        @Override
+        public Collection<Event> contributesTo() {
+            return contributesTo;
         }
 
         @Override
@@ -611,9 +697,17 @@ public class FDBStoreTimer extends StoreTimer {
 
     static {
         checkEventNameUniqueness(possibleEvents());
+        checkContributionCycles(possibleEvents());
     }
 
     public FDBStoreTimer() {
         super();
+    }
+
+    @Override
+    public void recordTimeout(Wait event, long startTime) {
+        final long totalNanos = System.nanoTime() - startTime;
+        getCounter(counters, Events.TIMEOUTS, true).record(totalNanos);
+        getCounter(timeoutCounters, event, true).record(totalNanos);
     }
 }
