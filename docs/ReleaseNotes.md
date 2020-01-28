@@ -40,7 +40,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Revert #794 until #489 is worked out. (Fixes potentially index entry lose if two metadata updates happen in different record stores over the same data in the same transaction.) [(Issue #808)](https://github.com/FoundationDB/fdb-record-layer/issues/808)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
