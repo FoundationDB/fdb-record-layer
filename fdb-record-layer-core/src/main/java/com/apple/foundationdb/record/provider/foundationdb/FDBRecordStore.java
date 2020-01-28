@@ -3087,8 +3087,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
 
-        return markIndexReadable(index)
-                .thenRun(() -> clearIndexData(index));
+        return markIndexReadable(index).thenApply(b -> null);
     }
 
     /**
