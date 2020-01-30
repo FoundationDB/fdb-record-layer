@@ -40,12 +40,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Revert #794 until #489 is worked out. (Fixes potentially index entry lose if two metadata updates happen in different record stores over the same data in the same transaction.) [(Issue #808)](https://github.com/FoundationDB/fdb-record-layer/issues/808)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improved loggings for `OnlineIndexer` and `FDBDatabaseRunner` [(Issue #810)](https://github.com/FoundationDB/fdb-record-layer/issues/810)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,6 +63,11 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.98.0
+
+* **Bug fix** Revert #794 until #489 is worked out. (Fixes potentially index entry lose if two metadata updates happen in different record stores over the same data in the same transaction.) [(Issue #808)](https://github.com/FoundationDB/fdb-record-layer/issues/808)
+* **Performance** Improved loggings for `OnlineIndexer` and `FDBDatabaseRunner` [(Issue #810)](https://github.com/FoundationDB/fdb-record-layer/issues/810)
 
 ### 2.8.97.0
 
