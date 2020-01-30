@@ -382,7 +382,7 @@ public class OnlineIndexer implements AutoCloseable {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.INDEX_NAME, index.getName(),
                 LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                "online_indexer_id", onlineIndexerId));
+                LogMessageKeys.INDEXER_ID, onlineIndexerId));
         if (additionalLogMessageKeyValues != null) {
             onlineIndexerLogMessageKeyValues.addAll(additionalLogMessageKeyValues);
         }
@@ -414,6 +414,15 @@ public class OnlineIndexer implements AutoCloseable {
                         }
                         long delay = (long)(Math.random() * toWait.get());
                         toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
+                        if (LOGGER.isWarnEnabled()) {
+                            final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
+                                    LogMessageKeys.INDEXER_CURR_RETRY, currTries,
+                                    LogMessageKeys.INDEXER_MAX_RETRIES, config.maxRetries,
+                                    LogMessageKeys.DELAY, delay,
+                                    LogMessageKeys.LIMIT, limit);
+                            message.addKeysAndValues(onlineIndexerLogMessageKeyValues);
+                            LOGGER.warn(message.toString(), e);
+                        }
                         return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
                     } else {
                         return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
@@ -473,8 +482,7 @@ public class OnlineIndexer implements AutoCloseable {
             if (additionalLogMessageKeyValues != null) {
                 message.addKeysAndValues(additionalLogMessageKeyValues);
             }
-            LOGGER.info(message.toString(),
-                    fdbException);
+            LOGGER.info(message.toString(), fdbException);
         }
     }
 
@@ -771,7 +779,8 @@ public class OnlineIndexer implements AutoCloseable {
                             LogMessageKeys.START_TUPLE, startTuple,
                             LogMessageKeys.END_TUPLE, endTuple,
                             LogMessageKeys.REAL_END, realEnd,
-                            LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get()));
+                            LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get()),
+                            LogMessageKeys.INDEXER_ID, onlineIndexerId);
             timeOfLastProgressLogMillis = System.currentTimeMillis();
         }
     }

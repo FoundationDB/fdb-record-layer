@@ -227,7 +227,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     private class RunRetriable<T> {
-        private int tries = 0;
+        private int currAttempt = 0;
         private long currDelay = getInitialDelayMillis();
         @Nullable private FDBRecordContext context;
         @Nullable T retVal = null;
@@ -272,14 +272,14 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                     t = t.getCause();
                 }
 
-                if (tries + 1 < getMaxAttempts() && retry) {
+                if (currAttempt + 1 < getMaxAttempts() && retry) {
                     long delay = (long)(Math.random() * currDelay);
 
                     if (LOGGER.isWarnEnabled()) {
                         final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying FDB Exception",
                                                                 LogMessageKeys.MESSAGE, fdbMessage,
                                                                 LogMessageKeys.CODE, code,
-                                                                LogMessageKeys.TRIES, tries,
+                                                                LogMessageKeys.CURR_ATTEMPT, currAttempt,
                                                                 LogMessageKeys.MAX_ATTEMPTS, getMaxAttempts(),
                                                                 LogMessageKeys.DELAY, delay);
                         if (additionalLogMessageKeyValues != null) {
@@ -290,7 +290,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                     CompletableFuture<Void> future = MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS);
                     addFutureToCompleteExceptionally(future);
                     return future.thenApply(vignore -> {
-                        tries += 1;
+                        currAttempt += 1;
                         currDelay = Math.max(Math.min(delay * 2, getMaxDelayMillis()), getMinDelayMillis());
                         return true;
                     });
