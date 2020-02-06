@@ -28,6 +28,7 @@ import com.google.protobuf.MessageOrBuilder;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -47,18 +48,18 @@ public class RepeatedFieldSource extends Source {
     @Nonnull
     private final Source source;
     @Nonnull
-    private final String fieldName;
+    private final List<String> fieldNames;
 
-    public RepeatedFieldSource(@Nonnull Source source, @Nonnull String fieldName) {
+    public RepeatedFieldSource(@Nonnull Source source, @Nonnull List<String> fieldNames) {
         this.source = source;
-        this.fieldName = fieldName;
+        this.fieldNames = fieldNames;
 
         this.source.addDependentSource(this);
     }
 
     @Nonnull
-    public String getFieldName() {
-        return fieldName;
+    public List<String> getFieldNames() {
+        return fieldNames;
     }
 
     @Override
@@ -74,7 +75,7 @@ public class RepeatedFieldSource extends Source {
     public boolean supportsSourceIn(@Nonnull ViewExpressionComparisons comparisons, @Nonnull Source other) {
         return !comparisons.hasComparison(this) &&
                other instanceof RepeatedFieldSource &&
-               fieldName.equals(((RepeatedFieldSource)other).fieldName) &&
+               fieldNames.equals(((RepeatedFieldSource)other).fieldNames) &&
                source.supportsSourceIn(comparisons, ((RepeatedFieldSource)other).source);
     }
 
@@ -86,7 +87,7 @@ public class RepeatedFieldSource extends Source {
         }
         final Source mappedChild = source.withSourceMappedInto(originalSource, duplicateSource);
         if (!source.equals(mappedChild)) {
-            return new RepeatedFieldSource(mappedChild, fieldName);
+            return new RepeatedFieldSource(mappedChild, fieldNames);
         }
         return this;
     }
@@ -99,7 +100,29 @@ public class RepeatedFieldSource extends Source {
             throw new RecordCoreException("cannot evaluate repeated field source against non-message type");
         }
         MessageOrBuilder parentMessage = (MessageOrBuilder) parentValue;
-        Descriptors.FieldDescriptor field = MessageValue.findFieldDescriptorOnMessage(parentMessage, fieldName);
+        Descriptors.FieldDescriptor field = null;
+        String fieldName = "";
+        final Iterator<String> iterator = fieldNames.iterator();
+        while (iterator.hasNext()) {
+            fieldName = iterator.next();
+            field = MessageValue.findFieldDescriptorOnMessage(parentMessage, fieldName);
+
+            if (field.isRepeated()) {
+                if (iterator.hasNext()) {
+                    // Found a repeated field that isn't the last one.
+                    throw new RecordCoreException("cannot evaluate a nested repeated field with an internal repeated field.")
+                            .addLogInfo("fieldNames", fieldNames)
+                            .addLogInfo("illegalRepatedName", fieldName);
+                }
+            } else {
+                parentValue = parentMessage.getField(field);
+                if (!(parentValue instanceof MessageOrBuilder)) {
+                    throw new RecordCoreException("cannot evaluate repeated field source against non-message type");
+                }
+                parentMessage = (MessageOrBuilder) parentValue;
+            }
+        }
+
         if (!field.isRepeated()) {
             throw new RecordCoreException("cannot evaluate repeated field source against non-repeated field " + fieldName);
         }
@@ -112,6 +135,6 @@ public class RepeatedFieldSource extends Source {
 
     @Override
     public String toString() {
-        return source.toString() + "." + fieldName + "@" + Integer.toHexString(hashCode());
+        return source.toString() + "." + String.join(".", fieldNames) + "@" + Integer.toHexString(hashCode());
     }
 }

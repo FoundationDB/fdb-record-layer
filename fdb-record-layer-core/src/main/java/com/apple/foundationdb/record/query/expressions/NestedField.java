@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
@@ -37,8 +35,8 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * A {@link QueryComponent} that evaluates a nested component against a {@link com.google.protobuf.Message}-valued field.
@@ -97,22 +95,12 @@ public class NestedField extends BaseNestedField {
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
-        return childComponent.get().normalizeForPlanner(rootSource, elementModifier.compose(this::normalizeElement));
-    }
-
-    @Nonnull
-    private Element normalizeElement(@Nonnull Element element) {
-        if (element instanceof FieldElement) {
-            FieldElement fieldElement = (FieldElement) element;
-            ImmutableList<String> fieldNames = ImmutableList.<String>builder()
-                    .add(getFieldName())
-                    .addAll(fieldElement.getFieldNames())
-                    .build();
-            return new FieldElement(fieldElement.getSource(), fieldNames);
-        } else {
-            return element;
-        }
+    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+        ImmutableList<String> fieldNames = ImmutableList.<String>builder()
+                .addAll(fieldNamePrefix)
+                .add(getFieldName())
+                .build();
+        return childComponent.get().normalizeForPlanner(rootSource, fieldNames);
     }
 
     @Override

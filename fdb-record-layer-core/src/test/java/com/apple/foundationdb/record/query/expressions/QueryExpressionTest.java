@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.test.Tags;
@@ -108,7 +107,7 @@ public class QueryExpressionTest {
 
         @Nonnull
         @Override
-        public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+        public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
     }

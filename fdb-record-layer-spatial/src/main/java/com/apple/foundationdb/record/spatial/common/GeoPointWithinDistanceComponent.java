@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.protobuf.Descriptors;
@@ -42,8 +41,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * Query filter for points (latitude, longitude) within a given distance of a given center.
@@ -131,7 +130,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException("not yet implemented");
     }
 

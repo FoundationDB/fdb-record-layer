@@ -26,11 +26,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -38,8 +38,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * A comparison to determine whether a repeated field is empty (has no occurrences).
@@ -93,8 +93,12 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
-        return new ElementPredicate(elementModifier.apply(new FieldElement(rootSource, getFieldName())), Comparisons.LIST_EMPTY);
+    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+        List<String> fieldNames = ImmutableList.<String>builder()
+                .addAll(fieldNamePrefix)
+                .add(getFieldName())
+                .build();
+        return new ElementPredicate(new FieldElement(rootSource, fieldNames), Comparisons.LIST_EMPTY);
     }
 
     @Override

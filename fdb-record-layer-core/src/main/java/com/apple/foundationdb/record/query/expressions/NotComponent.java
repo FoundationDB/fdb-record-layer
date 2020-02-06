@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -38,9 +37,9 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 /**
  * A {@link QueryComponent} that is satisfied when its child component is not satisfied.
@@ -152,7 +151,7 @@ public class NotComponent implements ComponentWithSingleChild {
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
-        return new NotPredicate(child.get().normalizeForPlanner(rootSource, elementModifier));
+    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+        return new NotPredicate(child.get().normalizeForPlanner(rootSource, fieldNamePrefix));
     }
 }

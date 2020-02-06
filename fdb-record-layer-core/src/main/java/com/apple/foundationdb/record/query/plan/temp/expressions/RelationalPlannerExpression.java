@@ -29,9 +29,9 @@ import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.function.Function;
 
 import javax.annotation.Nonnull;
 
@@ -56,13 +56,13 @@ public interface RelationalPlannerExpression extends PlannerExpression {
         final Source baseSource = builder.buildBaseSource();
         if (query.getSort() != null) {
             List<Element> normalizedSort = query.getSort()
-                    .normalizeForPlanner(baseSource, Function.identity())
+                    .normalizeForPlanner(baseSource, Collections.emptyList())
                     .flattenForPlanner();
             expression = new LogicalSortExpression(normalizedSort, query.isSortReverse(), expression);
         }
 
         if (query.getFilter() != null) {
-            final QueryPredicate normalized = query.getFilter().normalizeForPlanner(baseSource, Function.identity());
+            final QueryPredicate normalized = query.getFilter().normalizeForPlanner(baseSource);
             expression = new LogicalFilterExpression(baseSource, normalized, expression);
         }
 

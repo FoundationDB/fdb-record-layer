@@ -306,12 +306,12 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         // verify that the value filter that can't be satisfied by the index isn't dropped from the filter expression
         assertThat(plan, filter(
-                queryPredicateDescendant(PredicateMatchers.field("map", "value").notEquals("test")),
+                queryPredicateDescendant(PredicateMatchers.field("value").notEquals("test")),
                 primaryKeyDistinct(indexScan(allOf(indexName("key_index"), bounds(hasTupleString("[[1, alpha],[1, alpha]]")))))));
         if (planner instanceof RecordQueryPlanner) {
             assertEquals(-1406660101, plan.planHash());
         } else {
-            assertEquals(698662477, plan.planHash());
+            assertEquals(695317608, plan.planHash());
         }
     }
 

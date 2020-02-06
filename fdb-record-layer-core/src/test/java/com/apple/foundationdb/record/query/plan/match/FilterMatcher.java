@@ -29,7 +29,6 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
 import javax.annotation.Nonnull;
-import java.util.function.Function;
 
 /**
  * Plan matcher for a filter applied to a child plan matcher.
@@ -48,7 +47,7 @@ public class FilterMatcher extends PlanMatcherWithChild {
         final QueryPredicate predicate;
         if (plan instanceof RecordQueryFilterPlan) {
             predicate = ((RecordQueryFilterPlan)plan).getFilter()
-                    .normalizeForPlanner(PredicateMatchers.BlankSource.INSTANCE, Function.identity());
+                    .normalizeForPlanner(PredicateMatchers.BlankSource.INSTANCE);
         } else if (plan instanceof RecordQueryPredicateFilterPlan) {
             predicate = ((RecordQueryPredicateFilterPlan)plan).getFilter();
         } else {

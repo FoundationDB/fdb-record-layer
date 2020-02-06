@@ -34,17 +34,16 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * A key expression that derives its values from an {@link Element}.
  *
  * <p>
  * This key expression is only used in the "planner normalized" key expressions produced by
- * {@link #normalizeForPlanner(Source, Function)} and is meant to make it easy for methods such as
+ * {@link KeyExpression#normalizeForPlanner(Source, List)} and is meant to make it easy for methods such as
  * {@link com.apple.foundationdb.record.query.plan.temp.view.ViewExpression#fromIndexDefinition}
  * to interpret a key expression without dealing with complex rules for nesting and fan-out.
- * @see KeyExpression#normalizeForPlanner(Source, Function)
+ * @see KeyExpression#normalizeForPlanner(Source, List)
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -63,7 +62,7 @@ public class ElementKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
         throw new RecordCoreException("element key expression is already normalized");
     }
 

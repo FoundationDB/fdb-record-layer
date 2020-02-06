@@ -30,7 +30,6 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
 import javax.annotation.Nonnull;
-import java.util.function.Function;
 
 /**
  * A specialized Hamcrest matcher that recognizes both {@link RecordQueryFilterPlan}s and the {@link QueryComponent}s
@@ -44,7 +43,7 @@ import java.util.function.Function;
  * <p>
  * Note that this matcher must store a {@link QueryComponent} rather than a {@link QueryPredicate} or
  * {@code Matcher<QueryComponent>} because it must be able to convert it to an equivalent {@code QueryPredicate} using
- * the {@link QueryComponent#normalizeForPlanner(Source, Function)} method.
+ * the {@link QueryComponent#normalizeForPlanner(Source, java.util.List)} method.
  * </p>
  */
 public class FilterMatcherWithComponent extends PlanMatcherWithChild {
@@ -62,7 +61,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
             return component.equals(((RecordQueryFilterPlan)plan).getFilter()) && super.matchesSafely(plan);
         } else if (plan instanceof RecordQueryPredicateFilterPlan) {
             QueryPredicate predicate = ((RecordQueryPredicateFilterPlan)plan).getFilter();
-            return predicate.equals(component.normalizeForPlanner(((RecordQueryPredicateFilterPlan)plan).getBaseSource(), Function.identity()))
+            return predicate.equals(component.normalizeForPlanner(((RecordQueryPredicateFilterPlan)plan).getBaseSource()))
                     && super.matchesSafely(plan);
         } else {
             return false;

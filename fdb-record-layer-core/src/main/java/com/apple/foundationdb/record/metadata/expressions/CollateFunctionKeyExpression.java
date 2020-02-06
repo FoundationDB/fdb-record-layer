@@ -176,7 +176,7 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
     @Nonnull
     @Override
     public Element toElement(@Nonnull Source rootSource) {
-        return normalizeForPlanner(rootSource, Function.identity()).flattenForPlanner().get(0);
+        return normalizeForPlanner(rootSource, Collections.emptyList()).flattenForPlanner().get(0);
     }
 
     @Nullable

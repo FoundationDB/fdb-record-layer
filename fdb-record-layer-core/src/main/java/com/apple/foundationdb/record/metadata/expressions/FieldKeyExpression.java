@@ -26,11 +26,11 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
 import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.ValueElement;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -38,7 +38,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * Take keys from a record field.
@@ -204,12 +203,16 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+        final List<String> fieldNames = ImmutableList.<String>builder()
+                .addAll(fieldNamePrefix)
+                .add(fieldName)
+                .build();
         switch (fanType) {
             case FanOut:
-                return new ElementKeyExpression(elementModifier.apply(new ValueElement(getFieldSource(rootSource))));
+                return new ElementKeyExpression(new ValueElement(new RepeatedFieldSource(rootSource, fieldNames)));
             case None:
-                return new ElementKeyExpression(elementModifier.apply(new FieldElement(getFieldSource(rootSource), fieldName)));
+                return new ElementKeyExpression(new FieldElement(rootSource, fieldNames));
             case Concatenate:
             default:
         }
@@ -217,10 +220,14 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Nonnull
-    Source getFieldSource(@Nonnull Source rootSource) {
+    Source getFieldSource(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+        final List<String> fieldNames = ImmutableList.<String>builder()
+                .addAll(fieldNamePrefix)
+                .add(fieldName)
+                .build();
         switch (fanType) {
             case FanOut:
-                return new RepeatedFieldSource(rootSource, fieldName);
+                return new RepeatedFieldSource(rootSource, fieldNames);
             case Concatenate:
             case None:
                 return rootSource;

@@ -35,7 +35,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * Interface for expressions that evaluate to keys.
@@ -218,18 +217,18 @@ public interface KeyExpression extends PlanHashable {
      * </p>
      *
      * <p>
-     * This normalization process requires tracking some state. For example, the name of a nested field is available
+     * This normalization process requires tracking some state since the name of a nested field is available
      * only at the relevant {@link FieldKeyExpression}, but that information is necessary to construct the
      * {@link ElementKeyExpression} at the leaves of the sub-tree rooted at the {@link NestingKeyExpression}. This
-     * extra information is tracked in the given {@code elementModifier}.
+     * extra information is tracked in the {@code fieldNamePrefix}.
      * </p>
      * @param rootSource the source representing the input stream of the key expression
-     * @param elementModifier a function that should modify any element in an {@link ElementKeyExpression} in this sub-tree
+     * @param fieldNamePrefix the (non-repeated) field names on the path from the most recent source to this part of the key expression
      * @return a new key expression that has only {@link ElementKeyExpression}s at its leaves
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier);
+    KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix);
 
     /**
      * Returns the number of version columns produced by this key expression.

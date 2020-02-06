@@ -42,7 +42,6 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -68,7 +67,7 @@ public class PushElementWithComparisonIntoExistingScanRuleTest {
                                                               @Nonnull RelationalPlannerExpression inner) {
         return new LogicalFilterExpression(
                 baseSource,
-                queryComponent.normalizeForPlanner(baseSource, Function.identity()),
+                queryComponent.normalizeForPlanner(baseSource),
                 inner);
     }
 

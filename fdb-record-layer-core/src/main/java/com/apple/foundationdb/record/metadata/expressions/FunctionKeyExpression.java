@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -42,7 +41,6 @@ import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 /**
  * A <code>FunctionKeyExpression</code> is a {@link KeyExpression} that is dynamically loaded and defined by a
@@ -247,7 +245,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException(); // must be implemented by each extender
     }
 

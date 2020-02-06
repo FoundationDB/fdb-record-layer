@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -38,8 +37,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * A {@link QueryComponent} that implements a {@link Comparisons.Comparison} against a {@link QueryableKeyExpression}.
@@ -86,8 +85,8 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
-        return new ElementPredicate(elementModifier.apply(keyExpression.toElement(rootSource)), comparison);
+    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+        return new ElementPredicate(keyExpression.toElement(rootSource), comparison);
     }
 
     @Override

@@ -34,8 +34,9 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 /**
  * Base component interface for checking whether a given record matches a query.
@@ -148,17 +149,30 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * Convert this query component into an equivalent {@link QueryPredicate} by pushing all information about nested
      * and repeated fields to {@link Element}s inside of {@link com.apple.foundationdb.record.query.predicates.ElementPredicate}s.
      *
-     * <p>
-     * This normalization process requires tracking some state. For example, the name of a nested field is available
-     * only at the relevant {@link NestedField}, but that information is necessary to construct the
-     * {@link com.apple.foundationdb.record.query.predicates.ElementPredicate} at the leaves of the sub-tree rooted at
-     * that nested field. This extra information is tracked in the given {@code elementModifier}.
-     * </p>
      * @param rootSource the source representing the input stream of the key expression
-     * @param elementModifier a function that should modify any element in an {@link com.apple.foundationdb.record.query.predicates.ElementPredicate} in this sub-tree
      * @return an equivalent query predicate
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier);
+    default QueryPredicate normalizeForPlanner(@Nonnull Source rootSource) {
+        return normalizeForPlanner(rootSource, Collections.emptyList());
+    }
+
+    /**
+     * Convert this query component into an equivalent {@link QueryPredicate} by pushing all information about nested
+     * and repeated fields to {@link Element}s inside of {@link com.apple.foundationdb.record.query.predicates.ElementPredicate}s.
+     *
+     * <p>
+     * This normalization process requires tracking some state: the name of a nested field is available
+     * only at the relevant {@link NestedField}, but that information is necessary to construct the
+     * {@link com.apple.foundationdb.record.query.predicates.ElementPredicate} at the leaves of the sub-tree rooted at
+     * that nested field. This extra information is tracked in the given {@code fieldNamePrefix}.
+     * </p>
+     * @param rootSource the source representing the input stream of the key expression
+     * @param fieldNamePrefix the (non-repeated) field names on the path from the most recent source to this part of the query component
+     * @return an equivalent query predicate
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix);
 }

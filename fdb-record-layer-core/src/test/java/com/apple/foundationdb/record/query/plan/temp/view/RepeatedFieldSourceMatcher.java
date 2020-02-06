@@ -24,25 +24,31 @@ import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * A Hamcrest matcher that checks whether a particular {@link Source} is a {@link RepeatedFieldSource}.
  */
 public class RepeatedFieldSourceMatcher extends TypeSafeMatcher<Source> {
     @Nonnull
-    private final String fieldName;
+    private final List<String> fieldNames;
 
     public RepeatedFieldSourceMatcher(@Nonnull String fieldName) {
-        this.fieldName = fieldName;
+        this(Collections.singletonList(fieldName));
+    }
+
+    public RepeatedFieldSourceMatcher(@Nonnull List<String> fieldNames) {
+        this.fieldNames = fieldNames;
     }
 
     @Override
     protected boolean matchesSafely(Source source) {
-        return source instanceof RepeatedFieldSource && ((RepeatedFieldSource)source).getFieldName().equals(fieldName);
+        return source instanceof RepeatedFieldSource && ((RepeatedFieldSource)source).getFieldNames().equals(fieldNames);
     }
 
     @Override
     public void describeTo(Description description) {
-        description.appendText(fieldName);
+        description.appendText(String.join(".", fieldNames));
     }
 }

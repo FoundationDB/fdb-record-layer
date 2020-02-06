@@ -30,8 +30,8 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * An abstraction that represents a stream of values that can be represented as tuple-encoding keys and binary values
@@ -96,7 +96,7 @@ public class ViewExpression {
             }
 
             final KeyExpression normalizedForPlanner = rootExpression.normalizeForPlanner(builder.buildBaseSource(),
-                    Function.identity());
+                    Collections.emptyList());
 
             if (normalizedForPlanner instanceof KeyWithValueExpression) { // Handle covering indexes.
                 final KeyWithValueExpression keyWithValueExpression = (KeyWithValueExpression) normalizedForPlanner;

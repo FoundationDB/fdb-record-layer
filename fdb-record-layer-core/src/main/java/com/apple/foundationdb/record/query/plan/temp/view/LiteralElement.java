@@ -30,6 +30,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * A value representing a single, static value of type {@code T}.
+ * @param <T> the type of the static value
+ */
 public class LiteralElement<T> implements Element {
     @Nullable
     private final T value;

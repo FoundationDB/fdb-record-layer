@@ -36,7 +36,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -194,10 +193,10 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
+    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
         final ImmutableList.Builder<KeyExpression> normalizedChildren = ImmutableList.builder();
         for (KeyExpression child : children) {
-            normalizedChildren.add(child.normalizeForPlanner(rootSource, elementModifier));
+            normalizedChildren.add(child.normalizeForPlanner(rootSource, fieldNamePrefix));
         }
         return new ThenKeyExpression(normalizedChildren.build());
     }

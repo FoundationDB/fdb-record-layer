@@ -46,7 +46,6 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -94,7 +93,7 @@ public class ExpressionMatcherTest {
         Source recordSource = new RecordTypeSource(Collections.singleton("MyRecordType"));
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
                 recordSource,
-                Query.field("test").equalsValue(5).normalizeForPlanner(recordSource, Function.identity()),
+                Query.field("test").equalsValue(5).normalizeForPlanner(recordSource),
                 new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         // try to match to expression
         Optional<PlannerBindings> newBindings = root.bindTo(matcher).findFirst();
@@ -201,7 +200,7 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         LogicalFilterExpression filterPlan = new LogicalFilterExpression(rootSource,
-                Query.and(andBranch1, andBranch2).normalizeForPlanner(rootSource, Function.identity()),
+                Query.and(andBranch1, andBranch2).normalizeForPlanner(rootSource),
                 new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true));
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(

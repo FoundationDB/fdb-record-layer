@@ -39,7 +39,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
-import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,7 +59,7 @@ public class CombineFilterRuleTest {
                                                               @Nonnull RelationalPlannerExpression inner) {
         return new LogicalFilterExpression(
                 baseSource,
-                queryComponent.normalizeForPlanner(baseSource, Function.identity()),
+                queryComponent.normalizeForPlanner(baseSource),
                 inner);
     }
 
