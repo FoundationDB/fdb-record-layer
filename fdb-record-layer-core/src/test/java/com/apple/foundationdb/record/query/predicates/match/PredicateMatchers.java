@@ -61,8 +61,8 @@ public class PredicateMatchers {
         return new RepeatedFieldSourceMatcher(fieldName);
     }
 
-    public static Matcher<QueryPredicate> and(@Nonnull Collection<Matcher<QueryPredicate>> childMatchers) {
-        return new AndPredicateMatcher(childMatchers);
+    public static Matcher<QueryPredicate> and(@Nonnull Matcher<Collection<QueryPredicate>> childrenMatcher) {
+        return new AndPredicateMatcher(childrenMatcher);
     }
 
     public static Matcher<QueryPredicate> equivalentTo(@Nonnull QueryComponent component) {

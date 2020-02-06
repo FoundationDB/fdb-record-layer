@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.FunctionElement;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -249,8 +248,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     @Nonnull
     @Override
     public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
-        List<Element> normalizedArguments = arguments.normalizeForPlanner(rootSource, elementModifier).flattenForPlanner();
-        return new ElementKeyExpression(new FunctionElement(getName(), normalizedArguments));
+        throw new UnsupportedOperationException(); // must be implemented by each extender
     }
 
     @Override

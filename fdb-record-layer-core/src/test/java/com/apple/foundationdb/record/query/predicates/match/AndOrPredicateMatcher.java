@@ -28,18 +28,16 @@ import org.hamcrest.TypeSafeMatcher;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Iterator;
 
 /**
  * A base class with common logic for the {@link AndPredicateMatcher} and {@link AndOrPredicateMatcher}.
  */
 abstract class AndOrPredicateMatcher extends TypeSafeMatcher<QueryPredicate> {
     @Nonnull
-    private final Collection<Matcher<QueryPredicate>> childMatchers;
+    private final Matcher<Collection<QueryPredicate>> childrenMatchers;
 
-    protected AndOrPredicateMatcher(@Nonnull Collection<Matcher<QueryPredicate>> childMatchers) {
-        this.childMatchers = childMatchers;
+    protected AndOrPredicateMatcher(@Nonnull Matcher<Collection<QueryPredicate>> childrenMatchers) {
+        this.childrenMatchers = childrenMatchers;
     }
 
     @Override
@@ -47,29 +45,11 @@ abstract class AndOrPredicateMatcher extends TypeSafeMatcher<QueryPredicate> {
         if (!(predicate instanceof AndOrPredicate)) {
             return false;
         }
-        Collection<Matcher<QueryPredicate>> remaining = new HashSet<>(childMatchers);
-        for (QueryPredicate child : ((AndOrPredicate)predicate).getChildren()) {
-            for (Matcher<QueryPredicate> matcher : remaining) {
-                if (matcher.matches(child)) {
-                    remaining.remove(matcher);
-                    break;
-                }
-            }
-        }
-        return remaining.isEmpty();
+        return childrenMatchers.matches(((AndOrPredicate)predicate).getChildren());
     }
 
     @Override
     public void describeTo(Description description) {
-        Iterator<Matcher<QueryPredicate>> matchIterator = childMatchers.iterator();
-        if (!matchIterator.hasNext()) {
-            return;
-        }
-
-        matchIterator.next().describeTo(description);
-        while (matchIterator.hasNext()) {
-            description.appendText(", ");
-            matchIterator.next().describeTo(description);
-        }
+        childrenMatchers.describeTo(description);
     }
 }

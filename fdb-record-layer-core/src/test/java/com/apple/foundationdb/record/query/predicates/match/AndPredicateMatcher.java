@@ -32,7 +32,7 @@ import java.util.Collection;
  * A Hamcrest matcher for the presence of an {@link AndPredicate}.
  */
 public class AndPredicateMatcher extends AndOrPredicateMatcher {
-    public AndPredicateMatcher(@Nonnull Collection<Matcher<QueryPredicate>> childMatchers) {
+    public AndPredicateMatcher(@Nonnull Matcher<Collection<QueryPredicate>> childMatchers) {
         super(childMatchers);
     }
 

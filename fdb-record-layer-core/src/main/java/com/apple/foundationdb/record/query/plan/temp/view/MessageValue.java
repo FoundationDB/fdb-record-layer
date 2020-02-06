@@ -90,7 +90,7 @@ public class MessageValue {
     }
 
     @Nonnull
-    static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
         if (field == null) {
             throw new Query.InvalidExpressionException("Missing field " + fieldName);

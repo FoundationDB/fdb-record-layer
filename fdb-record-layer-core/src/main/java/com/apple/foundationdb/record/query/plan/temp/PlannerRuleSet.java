@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithElementWithComparisonRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndComponentRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndComponentRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndPredicateRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndPredicateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
@@ -57,7 +57,7 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public class PlannerRuleSet {
     private static final List<PlannerRule<? extends PlannerExpression>> NORMALIZATION_RULES = ImmutableList.of(
-            new FlattenNestedAndComponentRule()
+            new FlattenNestedAndPredicateRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
@@ -67,7 +67,7 @@ public class PlannerRuleSet {
             new PushElementWithComparisonIntoExistingScanRule(),
             new PushConjunctElementWithComparisonIntoExistingScanRule(),
             new RemoveRedundantTypeFilterRule(),
-            new FindPossibleIndexForAndComponentRule(),
+            new FindPossibleIndexForAndPredicateRule(),
             new OrToUnorderedUnionRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = ImmutableList.of(

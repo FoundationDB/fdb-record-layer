@@ -1,5 +1,5 @@
 /*
- * FlattenNestedAndComponentRule.java
+ * FlattenNestedAndPredicateRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -56,7 +56,7 @@ import java.util.List;
  * </code>
  */
 @API(API.Status.EXPERIMENTAL)
-public class FlattenNestedAndComponentRule extends PlannerRule<AndPredicate> {
+public class FlattenNestedAndPredicateRule extends PlannerRule<AndPredicate> {
     private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> andChildrenMatcher = ReferenceMatcher.anyRef();
     private static final ReferenceMatcher<QueryPredicate> otherInnerComponentsMatcher = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<AndPredicate> root = TypeMatcher.of(AndPredicate.class,
@@ -64,7 +64,7 @@ public class FlattenNestedAndComponentRule extends PlannerRule<AndPredicate> {
                     TypeMatcher.of(AndPredicate.class, AllChildrenMatcher.allMatching(andChildrenMatcher)),
                     otherInnerComponentsMatcher));
 
-    public FlattenNestedAndComponentRule() {
+    public FlattenNestedAndPredicateRule() {
         super(root);
     }
 

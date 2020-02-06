@@ -120,7 +120,7 @@ public class ViewExpressionComparisons {
             if (!incremental.isPresent()) {
                 return incremental;
             }
-            incremental = incremental.get().matchWith(new ElementPredicate(element, Comparisons.SORT)); // TODO inefficient
+            incremental = incremental.get().matchWith(new ElementPredicate(element, SortComparison.SORT)); // TODO inefficient
         }
         return incremental;
     }

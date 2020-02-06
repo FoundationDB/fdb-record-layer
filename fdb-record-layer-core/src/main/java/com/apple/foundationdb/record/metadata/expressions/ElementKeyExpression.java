@@ -87,7 +87,7 @@ public class ElementKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Override
     public boolean createsDuplicates() {
-        return false;
+        throw new UnsupportedOperationException();
     }
 
     @Override

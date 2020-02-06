@@ -46,11 +46,7 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
 
     @Nonnull
     protected Descriptors.FieldDescriptor findFieldDescriptor(@Nonnull MessageOrBuilder message) {
-        final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
-        if (field == null) {
-            throw new Query.InvalidExpressionException("Missing field " + fieldName);
-        }
-        return field;
+        return MessageValue.findFieldDescriptorOnMessage(message, fieldName);
     }
 
     @Nullable

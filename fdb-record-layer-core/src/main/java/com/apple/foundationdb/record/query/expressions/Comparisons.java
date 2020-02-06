@@ -67,15 +67,6 @@ import java.util.UUID;
 public class Comparisons {
     public static final Comparison LIST_EMPTY = new ListComparison(Type.EQUALS, Collections.emptyList());
 
-    /**
-     * A "comparison" that represents a sort on the given field, based on the observation that the planner can generally
-     * treat a requested sort order as a pair of comparisons requiring the field to be greater than "negative infinity"
-     * and less than "positive infinity".
-     *
-     * @see com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons
-     */
-    public static final Comparison SORT = new SortComparison();
-
     private Comparisons() {
     }
 
@@ -1468,46 +1459,4 @@ public class Comparisons {
             return String.format("%s(%s) %s", getType().name(), strict ? "strictly" : "approximately", typelessString());
         }
     }
-
-    private static class SortComparison implements Comparison {
-        @Nullable
-        @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            return Boolean.TRUE;
-        }
-
-        @Override
-        public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
-        }
-
-        @Nonnull
-        @Override
-        public Type getType() {
-            return Type.SORT;
-        }
-
-        @Nullable
-        @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
-            return null;
-        }
-
-        @Nullable
-        @Override
-        public Object getComparand() {
-            return null;
-        }
-
-        @Nonnull
-        @Override
-        public String typelessString() {
-            return "SORT";
-        }
-
-        @Override
-        public int planHash() {
-            return 0;
-        }
-    }
-
 }

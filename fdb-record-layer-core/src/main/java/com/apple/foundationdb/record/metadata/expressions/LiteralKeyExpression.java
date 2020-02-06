@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.LiteralElement;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
@@ -98,7 +99,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     @Nonnull
     @Override
     public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull Function<Element, Element> elementModifier) {
-        return this;
+        return new ElementKeyExpression(new LiteralElement<>(value));
     }
 
     @Nonnull

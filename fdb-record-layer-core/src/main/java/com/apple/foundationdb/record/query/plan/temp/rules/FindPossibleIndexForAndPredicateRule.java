@@ -1,5 +1,5 @@
 /*
- * FindPossibleIndexForAndComponentRule.java
+ * FindPossibleIndexForAndPredicateRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -48,7 +48,7 @@ import java.util.Optional;
  * filter, leaving all the other filters (of any type, including other fields) as a residual filter.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FindPossibleIndexForAndComponentRule extends PlannerRule<LogicalFilterExpression> {
+public class FindPossibleIndexForAndPredicateRule extends PlannerRule<LogicalFilterExpression> {
     private static ExpressionMatcher<ElementPredicate> fieldMatcher = TypeMatcher.of(ElementPredicate.class);
     private static ReferenceMatcher<QueryPredicate> residualFieldsMatcher = ReferenceMatcher.anyRef();
     private static ExpressionMatcher<AndPredicate> andFilterMatcher = TypeMatcher.of(AndPredicate.class,
@@ -57,7 +57,7 @@ public class FindPossibleIndexForAndComponentRule extends PlannerRule<LogicalFil
     private static ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
             andFilterMatcher, scanMatcher);
 
-    public FindPossibleIndexForAndComponentRule() {
+    public FindPossibleIndexForAndPredicateRule() {
         super(root);
     }
 

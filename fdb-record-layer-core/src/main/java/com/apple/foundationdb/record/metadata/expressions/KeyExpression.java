@@ -200,6 +200,7 @@ public interface KeyExpression extends PlanHashable {
      * @see ElementKeyExpression#flattenForPlanner()
      * @see ThenKeyExpression#flattenForPlanner()
      */
+    @API(API.Status.EXPERIMENTAL)
     @Nonnull
     default List<Element> flattenForPlanner() {
         throw new RecordCoreException("illegal non-element expression");
