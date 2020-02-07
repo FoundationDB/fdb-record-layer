@@ -53,7 +53,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Feature** Fix test to show when function index queries work [(Issue #810)](https://github.com/FoundationDB/fdb-record-layer/issues/810)
 * **Feature** Support for aggregate performance metrics [(Issue #801)](https://github.com/FoundationDB/fdb-record-layer/issues/801)
 * **Feature** Support tracking index build progress by `IndexBuildState` [(Issue #817)](https://github.com/FoundationDB/fdb-record-layer/issues/817)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** System keyspace client log parsing [(Issue #816)](https://github.com/FoundationDB/fdb-record-layer/issues/816)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
