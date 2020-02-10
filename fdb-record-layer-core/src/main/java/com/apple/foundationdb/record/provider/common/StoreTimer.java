@@ -203,7 +203,7 @@ public class StoreTimer {
      * An identifier for occurrences that need to be timed.
      */
     public interface Event {
-        Map<String, Map<Event, String>> logKeySuffixCache = new ConcurrentHashMap<>();
+        Map<String, Map<Event, String>> LOG_KEY_SUFFIX_CACHE = new ConcurrentHashMap<>();
 
         /**
          * Get the name of this event for machine processing.
@@ -240,7 +240,7 @@ public class StoreTimer {
          * @return the log key with suffix appended
          */
         default String logKeyWithSuffix(@Nonnull String suffix) {
-            return logKeySuffixCache.computeIfAbsent(suffix, ignoredPostfix -> new ConcurrentHashMap<>())
+            return LOG_KEY_SUFFIX_CACHE.computeIfAbsent(suffix, ignoredPostfix -> new ConcurrentHashMap<>())
                     .computeIfAbsent(this, event -> event.logKey() + suffix);
         }
     }

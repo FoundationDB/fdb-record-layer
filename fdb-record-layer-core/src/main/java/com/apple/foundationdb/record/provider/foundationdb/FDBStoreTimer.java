@@ -759,6 +759,11 @@ public class FDBStoreTimer extends StoreTimer {
         }
     }
 
+    protected static final Set<Aggregate> ALL_AGGREGATES = new ImmutableSet.Builder<Aggregate>()
+            .add(EventAggregates.values())
+            .add(CountAggregates.values())
+            .build();
+
     protected static Stream<Event> possibleEvents() {
         return Stream.of(
                 Events.values(),
@@ -770,11 +775,6 @@ public class FDBStoreTimer extends StoreTimer {
                 RecordSerializer.Events.values()
         ).flatMap(Arrays::stream);
     }
-
-    protected static Set<Aggregate> ALL_AGGREGATES = new ImmutableSet.Builder<Aggregate>()
-            .add(EventAggregates.values())
-            .add(CountAggregates.values())
-            .build();
 
     static {
         checkEventNameUniqueness(possibleEvents());
