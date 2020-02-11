@@ -2897,6 +2897,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return getIndexState(indexName).equals(IndexState.DISABLED);
     }
 
+    /**
+     * Get the progress of building the given index.
+     * @param index the index to check the index build state
+     * @return a future that completes to the progress of building the given index
+     * @see IndexBuildState
+     */
+    public CompletableFuture<IndexBuildState> getIndexBuildStateAsync(Index index) {
+        return IndexBuildState.getIndexBuildStateAsync(this, index);
+    }
+
     // Remove any indexes that do not match the filter.
     // NOTE: This assumes that the filter will not filter out any indexes if all indexes are readable.
     private List<Index> sanitizeIndexes(@Nonnull List<Index> indexes, @Nonnull Predicate<Index> filter) {
@@ -3477,6 +3487,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(indexSecondarySubspace(index).range());
         tr.clear(indexRangeSubspace(index).range());
         tr.clear(indexUniquenessViolationsSubspace(index).range());
+        // Under the index build subspace, there are two lower level subsapces.
+        // We are not supposed to clear the lock subspace, which is used to run online index jobs which may invoke this
+        // method.
+        // But we should clear the scanned records subspace, which, roughly speaking, counts how many records of this
+        // store are covered in index range subspace.
+        tr.clear(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).range());
     }
 
     public void removeFormerIndex(FormerIndex formerIndex) {

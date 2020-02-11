@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -57,6 +58,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
@@ -255,6 +257,18 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             if (recordsWhileBuilding != null && recordsWhileBuilding.size() > 0) {
                 additionalScans += (long)recordsWhileBuilding.size();
             }
+
+            if (!wasReadableBeforeBuild) {
+                try (FDBRecordContext context = openContext()) {
+                    IndexBuildState indexBuildState = context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_INDEX_BUILD_STATES,
+                            IndexBuildState.getIndexBuildStateAsync(recordStore, index));
+                    assertEquals(IndexState.WRITE_ONLY, indexBuildState.getIndexState());
+                    assertEquals(indexBuilder.getTotalRecordsScanned(), indexBuildState.getRecordsScanned());
+                    // Count index is not defined so we cannot lean the records in total from it.
+                    assertNull(indexBuildState.getRecordsInTotal());
+                }
+            }
+
             assertThat(indexBuilder.getTotalRecordsScanned(),
                     allOf(
                             greaterThanOrEqualTo((long)records.size()),

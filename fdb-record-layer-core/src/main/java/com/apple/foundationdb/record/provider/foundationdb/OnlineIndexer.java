@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.Transaction;
@@ -163,6 +164,7 @@ public class OnlineIndexer implements AutoCloseable {
     private static final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(1004, 1007, 1020, 1031, 2002, 2101));
 
     private static final Object INDEX_BUILD_LOCK_KEY = 0L;
+    private static final Object INDEX_BUILD_SCANNED_RECORDS = 1L;
 
     @Nonnull private UUID onlineIndexerId = UUID.randomUUID();
 
@@ -198,6 +200,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final IndexStatePrecondition indexStatePrecondition;
     private final boolean useSynchronizedSession;
     private final long leaseLengthMills;
+    private final boolean trackProgress;
 
     @SuppressWarnings("squid:S00107")
     OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
@@ -207,7 +210,8 @@ public class OnlineIndexer implements AutoCloseable {
                   boolean syntheticIndex,
                   @Nonnull IndexStatePrecondition indexStatePrecondition,
                   boolean useSynchronizedSession,
-                  long leaseLengthMillis) {
+                  long leaseLengthMillis,
+                  boolean trackProgress) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
@@ -219,6 +223,7 @@ public class OnlineIndexer implements AutoCloseable {
         this.indexStatePrecondition = indexStatePrecondition;
         this.useSynchronizedSession = useSynchronizedSession;
         this.leaseLengthMills = leaseLengthMillis;
+        this.trackProgress = trackProgress;
 
         this.recordsRange = computeRecordsRange();
         timeOfLastProgressLogMillis = System.currentTimeMillis();
@@ -523,6 +528,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull TupleRange range,
                                                     boolean respectLimit, @Nullable AtomicLong recordsScanned) {
+        final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
         if (store.getRecordMetaData() != recordStoreBuilder.getMetaDataProvider().getRecordMetaData()) {
             throw new MetaDataException("Store does not have the same metadata");
         }
@@ -559,6 +565,11 @@ public class OnlineIndexer implements AutoCloseable {
             }
             if (recordsScanned != null) {
                 recordsScanned.incrementAndGet();
+            }
+            if (trackProgress) {
+                // Add one to the number of records successfully scanned and processed.
+                store.context.ensureActive().mutate(
+                        MutationType.ADD, scannedRecordsSubspace.getKey(), FDBRecordStore.LITTLE_ENDIAN_INT64_ONE);
             }
             if (recordTypes.contains(rec.getRecordType())) {
                 if (timer != null) {
@@ -891,13 +902,12 @@ public class OnlineIndexer implements AutoCloseable {
         Transaction tr = store.ensureContextActive();
         store.clearIndexData(index);
 
-        // Clear the associated range set and make it instead equal to
+        // Clear the associated range set (done as part of clearIndexData above) and make it instead equal to
         // the complete range. This isn't super necessary, but it is done
         // to avoid (1) concurrent OnlineIndexBuilders doing more work and
         // (2) to allow for write-only indexes to continue to do the right thing.
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-        CompletableFuture<Boolean> rangeFuture = rangeSet.clear(tr)
-                .thenCompose(vignore -> rangeSet.insertRange(tr, null, null));
+        CompletableFuture<Boolean> rangeFuture = rangeSet.insertRange(tr, null, null);
 
         // Rebuild the index by going through all of the records in a transaction.
         AtomicReference<TupleRange> rangeToGo = new AtomicReference<>(recordsRange);
@@ -1144,6 +1154,11 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
+    protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+        return store.indexBuildSubspace(index).subspace(Tuple.from(INDEX_BUILD_SCANNED_RECORDS));
+    }
+
+    @Nonnull
     private CompletableFuture<Void> handleStateAndDoBuildIndexAsync(boolean markReadable, KeyValueLogMessage message) {
         message.addKeyAndValue(LogMessageKeys.INDEX_STATE_PRECONDITION, indexStatePrecondition);
         if (indexStatePrecondition == IndexStatePrecondition.ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY) {
@@ -1379,6 +1394,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @API(API.Status.INTERNAL)
     @VisibleForTesting
+    // Public could use IndexBuildState.getTotalRecordsScanned instead.
     long getTotalRecordsScanned() {
         return totalRecordsScanned.get();
     }
@@ -1597,6 +1613,8 @@ public class OnlineIndexer implements AutoCloseable {
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
         private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
+        // TODO: Maybe the performance impact of this is low enough to be always enabled?
+        private boolean trackProgress = true;
         private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
         protected boolean syntheticIndex = false;
         private IndexStatePrecondition indexStatePrecondition = IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY;
@@ -2120,6 +2138,19 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Set whether or not to track the index build progress by updating the number of records successfully scanned
+         * and processed. The progress is persisted in {@link #indexBuildScannedRecordsSubspace(FDBRecordStore, Index)}
+         * which can be accessed by {@link IndexBuildState#getIndexBuildStateAsync(FDBRecordStore, Index)}, comparing
+         * to the records scanned information in progress log which cannot be accessed programmatically.
+         * @param trackProgress track progress if true, otherwise false
+         * @return this builder
+         */
+        public Builder setTrackProgress(boolean trackProgress) {
+            this.trackProgress = trackProgress;
+            return this;
+        }
+
+        /**
          * Set the {@link IndexMaintenanceFilter} to use while building the index.
          *
          * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
@@ -2270,7 +2301,7 @@ public class OnlineIndexer implements AutoCloseable {
             validate();
             Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
             return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex,
-                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis);
+                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress);
         }
 
         protected void validate() {
