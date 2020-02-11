@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.SplitKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -937,7 +938,7 @@ public class KeyExpressionTest {
     /**
      * Function that computes substring.
      */
-    public static class SubstrFunction extends FunctionKeyExpression {
+    public static class SubstrFunction extends FunctionKeyExpression implements QueryableKeyExpression {
         public SubstrFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
         }
