@@ -21,14 +21,15 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.AggregateFunctionNotSupported;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -47,6 +48,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
@@ -234,22 +236,17 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
             recordStore.saveRecord(recBuilder.build());
 
-            try {
-                recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
-                        new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), sumIndex.getName()),
-                        TupleRange.ALL, IsolationLevel.SERIALIZABLE).get();
-                fail("Was not stopped from reading write-only index.");
-            } catch (RecordCoreException e) {
-                assertEquals("Aggregate function value3sum.sum(Field { 'num_value_3_indexed' None} group 1) requires appropriate index", e.getMessage());
-            }
-            try {
-                recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
-                        new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), maxIndex.getName()),
-                        TupleRange.ALL, IsolationLevel.SERIALIZABLE).get();
-                fail("Was not stopped from reading write-only index.");
-            } catch (RecordCoreException e) {
-                assertEquals("Aggregate function value3max.max_ever(Field { 'num_value_3_indexed' None} group 1) requires appropriate index", e.getMessage());
-            }
+            assertThrowsAggregateFunctionNotSupported(() ->
+                            recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                    new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), sumIndex.getName()),
+                                    TupleRange.ALL, IsolationLevel.SERIALIZABLE).get(),
+                    "value3sum.sum(Field { 'num_value_3_indexed' None} group 1)");
+
+            assertThrowsAggregateFunctionNotSupported(() ->
+                            recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                    new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), maxIndex.getName()),
+                                    TupleRange.ALL, IsolationLevel.SERIALIZABLE).get(),
+                    "value3max.max_ever(Field { 'num_value_3_indexed' None} group 1)");
 
             commit(context);
         }
@@ -309,22 +306,17 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
             recordStore.saveRecord(recBuilder.build());
 
-            try {
-                recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
-                        new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), sumIndex.getName()),
-                        TupleRange.ALL, IsolationLevel.SERIALIZABLE).get();
-                fail("Was not stopped from reading disabled index.");
-            } catch (RecordCoreException e) {
-                assertEquals("Aggregate function value3sum.sum(Field { 'num_value_3_indexed' None} group 1) requires appropriate index", e.getMessage());
-            }
-            try {
-                recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
-                        new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), maxIndex.getName()),
-                        TupleRange.ALL, IsolationLevel.SERIALIZABLE).get();
-                fail("Was not stopped from reading disabled index.");
-            } catch (RecordCoreException e) {
-                assertEquals("Aggregate function value3max.max_ever(Field { 'num_value_3_indexed' None} group 1) requires appropriate index", e.getMessage());
-            }
+            assertThrowsAggregateFunctionNotSupported(() ->
+                            recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                    new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), sumIndex.getName()),
+                                    TupleRange.ALL, IsolationLevel.SERIALIZABLE).get(),
+                    "value3sum.sum(Field { 'num_value_3_indexed' None} group 1)");
+
+            assertThrowsAggregateFunctionNotSupported(() ->
+                            recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                    new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), maxIndex.getName()),
+                                    TupleRange.ALL, IsolationLevel.SERIALIZABLE).get(),
+                    "value3max.max_ever(Field { 'num_value_3_indexed' None} group 1)");
 
             commit(context);
         }
@@ -352,6 +344,16 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(100L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
                     new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), maxIndex.getName()),
                     TupleRange.ALL, IsolationLevel.SERIALIZABLE).get().getLong(0));
+        }
+    }
+
+    public static void assertThrowsAggregateFunctionNotSupported(Callable<?> callable, String aggregateFunction) throws Exception {
+        try {
+            callable.call();
+            fail("Was not stopped from reading unsupported index.");
+        } catch (AggregateFunctionNotSupported e) {
+            assertEquals("Aggregate function requires appropriate index", e.getMessage());
+            assertEquals(aggregateFunction, e.getLogInfo().get(LogMessageKeys.FUNCTION.toString()).toString());
         }
     }
 

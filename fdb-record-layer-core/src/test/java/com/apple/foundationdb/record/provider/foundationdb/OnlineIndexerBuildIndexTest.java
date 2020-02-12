@@ -122,14 +122,15 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         LOGGER.info(KeyValueLogMessage.of("adding index", TestLogMessageKeys.INDEX, index));
         openSimpleMetaData(hook);
 
-        boolean wasReadableBeforeBuild;
+        final boolean isAlwaysReadable;
         try (FDBRecordContext context = openContext()) {
-            // Though it does not hurt, the caller of safe builds is not obliged to set the index state to write-only.
+            // If it is a safe build, it should work without setting the index state to write-only, which will be taken
+            // care of by OnlineIndexer.
             if (!safeBuild) {
                 LOGGER.info(KeyValueLogMessage.of("marking write-only", TestLogMessageKeys.INDEX, index));
                 recordStore.markIndexWriteOnly(index).join();
             }
-            wasReadableBeforeBuild = recordStore.isIndexReadable(index);
+            isAlwaysReadable = safeBuild && recordStore.isIndexReadable(index);
             context.commit();
         }
 
@@ -258,13 +259,16 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 additionalScans += (long)recordsWhileBuilding.size();
             }
 
-            if (!wasReadableBeforeBuild) {
-                try (FDBRecordContext context = openContext()) {
-                    IndexBuildState indexBuildState = context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_INDEX_BUILD_STATES,
-                            IndexBuildState.getIndexBuildStateAsync(recordStore, index));
-                    assertEquals(IndexState.WRITE_ONLY, indexBuildState.getIndexState());
+            try (FDBRecordContext context = openContext()) {
+                IndexBuildState indexBuildState = context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_INDEX_BUILD_STATES,
+                        IndexBuildState.getIndexBuildStateAsync(recordStore, index));
+                IndexState indexState = indexBuildState.getIndexState();
+                if (isAlwaysReadable) {
+                    assertEquals(IndexState.READABLE, indexState);
+                } else {
+                    assertEquals(IndexState.WRITE_ONLY, indexState);
                     assertEquals(indexBuilder.getTotalRecordsScanned(), indexBuildState.getRecordsScanned());
-                    // Count index is not defined so we cannot lean the records in total from it.
+                    // Count index is not defined so we cannot determine the records in total from it.
                     assertNull(indexBuildState.getRecordsInTotal());
                 }
             }
@@ -283,7 +287,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         // Do not check afterBuild if it is a safe build and the index was readable before build, because the tests may
         // expect that it does not use the index in queries since the index is not readable yet, but the fact is that it
         // uses the index in quereis since the index is readable.
-        if (!wasReadableBeforeBuild) {
+        if (!isAlwaysReadable) {
             afterBuild.run();
         }
 
@@ -298,7 +302,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         LOGGER.info(KeyValueLogMessage.of("marking index readable", TestLogMessageKeys.INDEX, index));
         try (FDBRecordContext context = openContext()) {
             boolean updated = recordStore.markIndexReadable(index).join();
-            if (wasReadableBeforeBuild) {
+            if (isAlwaysReadable) {
                 assertFalse(updated);
             } else {
                 assertTrue(updated);

@@ -1149,13 +1149,14 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        return store.indexBuildSubspace(index).subspace(Tuple.from(INDEX_BUILD_LOCK_KEY));
+    private static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return store.getUntypedRecordStore().indexBuildSubspace(index).subspace(Tuple.from(INDEX_BUILD_LOCK_KEY));
     }
 
     @Nonnull
-    protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        return store.indexBuildSubspace(index).subspace(Tuple.from(INDEX_BUILD_SCANNED_RECORDS));
+    protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return store.getUntypedRecordStore().indexBuildSubspace(index)
+                .subspace(Tuple.from(INDEX_BUILD_SCANNED_RECORDS));
     }
 
     @Nonnull
@@ -2139,9 +2140,11 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set whether or not to track the index build progress by updating the number of records successfully scanned
-         * and processed. The progress is persisted in {@link #indexBuildScannedRecordsSubspace(FDBRecordStore, Index)}
-         * which can be accessed by {@link IndexBuildState#getIndexBuildStateAsync(FDBRecordStore, Index)}, comparing
-         * to the records scanned information in progress log which cannot be accessed programmatically.
+         * and processed. The progress is persisted in {@link #indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
+         * which can be accessed by {@link IndexBuildState#getIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
+         * <p>
+         * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
+         * </p>
          * @param trackProgress track progress if true, otherwise false
          * @return this builder
          */

@@ -22,13 +22,13 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.query.FDBRestrictedIndexQueryTest;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -45,6 +45,7 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test building sum indexes.
@@ -76,11 +77,14 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
             @SuppressWarnings("try")
             @Override
             public void run() {
-                Index indexToUse = metaData.getIndex(index.getName());
+                metaData.getIndex(index.getName());
                 try (FDBRecordContext context = openContext()) {
-                    recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"), aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT);
-                } catch (RecordCoreException e) {
-                    assertEquals("Aggregate function newSumIndex.sum(Field { 'num_value_2' None} group 1) requires appropriate index", e.getMessage());
+                    FDBRestrictedIndexQueryTest.assertThrowsAggregateFunctionNotSupported(() ->
+                                    recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                            aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT),
+                            "newSumIndex.sum(Field { 'num_value_2' None} group 1)");
+                } catch (Exception e) {
+                    fail();
                 }
             }
         };

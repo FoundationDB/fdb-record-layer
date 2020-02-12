@@ -32,6 +32,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.AggregateFunctionNotSupported;
 import com.apple.foundationdb.record.ByteScanLimiter;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -120,8 +121,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -1646,7 +1647,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nonnull TupleRange range,
                                                               @Nonnull IsolationLevel isolationLevel) {
         return IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, recordTypeNames)
-                .orElseThrow(() -> recordCoreException("Aggregate function " + aggregateFunction + " requires appropriate index"))
+                .orElseThrow(() ->
+                        new AggregateFunctionNotSupported("Aggregate function requires appropriate index",
+                                LogMessageKeys.FUNCTION, aggregateFunction,
+                                subspaceProvider.logKey(), subspaceProvider.toString(context)))
                 .evaluateAggregateFunction(aggregateFunction, range, isolationLevel);
     }
 
