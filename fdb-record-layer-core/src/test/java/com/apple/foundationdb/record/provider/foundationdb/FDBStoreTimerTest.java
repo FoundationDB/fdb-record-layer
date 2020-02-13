@@ -219,7 +219,6 @@ public class FDBStoreTimerTest {
         // I don't want this test to fail if new aggregates are added, but do want to verify that the
         // getAggregates() at least does return some of the expected aggregates.
         assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.EventAggregates.COMMITS));
-        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.EventAggregates.READS));
         assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_READ));
         assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_WRITTEN));
 
