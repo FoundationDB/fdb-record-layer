@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.subspace.Subspace;
@@ -34,7 +33,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +45,6 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.core.Is.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -95,28 +92,6 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
                 assertThat("resolver sees all mappings in directory layer", values.get(name), is(resolvedValue));
             }
         }
-    }
-
-    @Test
-    public void testReverseLookupScansAndEmitsMetric() {
-        final DirectoryLayer directoryLayer = DirectoryLayer.getDefault();
-        final String key = "a-key-created-with-dir-layer-" + random.nextLong();
-        long value;
-        // Add a value with the FDB DirectoryLayer, this will not populate the reverse cache subspace
-        try (FDBRecordContext context = database.openContext()) {
-            final byte[] valueBytes = directoryLayer.create(context.ensureActive(), Collections.singletonList(key)).join().getKey();
-            Tuple dirTuple = Tuple.fromBytes(valueBytes);
-            assertEquals(1, dirTuple.size(), "one element in directory layer subspace tuple");
-            value = dirTuple.getLong(0);
-            context.commit();
-        }
-
-        FDBStoreTimer timer = new FDBStoreTimer();
-        String foundKey = globalScope.reverseLookup(timer, value).join();
-        assertThat("we find the original key", foundKey, is(key));
-        assertEquals(0, globalScope.getDatabase().getReverseDirectoryCache().getPersistentCacheHitCount());
-        assertEquals(1, globalScope.getDatabase().getReverseDirectoryCache().getPersistentCacheMissCount());
-        assertThat("metric is emitted for the scan", timer.getCount(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN), is(1));
     }
 
     @Test
