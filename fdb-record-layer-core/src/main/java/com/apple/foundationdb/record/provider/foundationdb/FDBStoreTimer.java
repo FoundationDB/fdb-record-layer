@@ -24,9 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDirectoryLayer;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -113,7 +116,11 @@ public class FDBStoreTimer extends StoreTimer {
          * This time includes fetching from the database and deserialization.
          */
         LOAD_RECORD("load record"),
-        /** The amount of time taken loading record versions. */
+        /**
+         * The amount of time taken loading record versions.
+         * @deprecated this is no longer published
+         */
+        @Deprecated
         LOAD_RECORD_VERSION("load record version"),
         /** The amount of time taken scanning records directly without any index. */
         SCAN_RECORDS("scan records"),
@@ -168,7 +175,11 @@ public class FDBStoreTimer extends StoreTimer {
         INTERNING_LAYER_CREATE("create the value in the interning layer"),
         /** The amount of time spent loading boundary keys. */
         LOAD_BOUNDARY_KEYS("load boundary keys"),
-        /** The amount of time spent computing boundary keys. */
+        /**
+         * The amount of time spent computing boundary keys.
+         * @deprecated this is no longer used
+         */
+        @Deprecated
         COMPUTE_BOUNDARY_KEYS("compute boundary keys"),
         /** The amount of time spent reading a sample key to measure read latency. */
         READ_SAMPLE_KEY("read sample key"),
@@ -197,7 +208,10 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSubDirectoryOperation}. */
         TIME_WINDOW_LEADERBOARD_GET_SUB_DIRECTORY("leaderboard get sub-directory"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSaveSubDirectory}. */
-        TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory");
+        TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory"),
+        /** The total number of timeouts that have happened during asyncToSync and their durations. */
+        TIMEOUTS("timeouts")
+        ;
 
         private final String title;
         private final String logKey;
@@ -221,6 +235,50 @@ public class FDBStoreTimer extends StoreTimer {
         @Nonnull
         public String logKey() {
             return this.logKey;
+        }
+    }
+
+    /**
+     * An aggregate over other count events.
+     */
+    public enum EventAggregates implements Aggregate, Event {
+        COMMITS("commits",
+                Events.COMMIT,
+                Events.COMMIT_FAILURE),
+        ;
+        @Nonnull
+        private final String title;
+        @Nonnull
+        private final String logKey;
+        @Nonnull
+        private final Event[] events;
+
+        EventAggregates(@Nonnull String title, @Nonnull Event...events) {
+            this(title, null, events);
+        }
+
+        EventAggregates(@Nonnull String title, @Nullable String logKey, @Nonnull Event...events) {
+            this.title = title;
+            this.logKey = (logKey != null) ? logKey : Aggregate.super.logKey();
+            this.events = validate(events);
+        }
+
+        @Override
+        @Nonnull
+        public String title() {
+            return title;
+        }
+
+        @Override
+        @Nonnull
+        public String logKey() {
+            return this.logKey;
+        }
+
+        @Nullable
+        @Override
+        public Counter compute(@Nonnull StoreTimer storeTimer) {
+            return compute(storeTimer, events);
         }
     }
 
@@ -599,12 +657,95 @@ public class FDBStoreTimer extends StoreTimer {
         }
     }
 
+    /**
+     * An aggregate over other count events.
+     */
+    public enum CountAggregates implements Aggregate, Count {
+        BYTES_READ("bytes read",
+                Counts.LOAD_RECORD_KEY_BYTES,
+                Counts.LOAD_RECORD_VALUE_BYTES,
+                Counts.LOAD_INDEX_KEY_BYTES,
+                Counts.LOAD_INDEX_VALUE_BYTES,
+                Counts.LOAD_STORE_STATE_KEY_BYTES,
+                Counts.LOAD_STORE_STATE_VALUE_BYTES
+        ),
+        BYTES_WRITTEN("bytes written",
+                Counts.SAVE_RECORD_KEY_BYTES,
+                Counts.SAVE_RECORD_VALUE_BYTES,
+                Counts.SAVE_INDEX_KEY_BYTES,
+                Counts.SAVE_INDEX_VALUE_BYTES
+        ),
+        BYTES_DELETED("bytes deleted",
+                Counts.DELETE_INDEX_KEY_BYTES,
+                Counts.DELETE_INDEX_VALUE_BYTES,
+                Counts.DELETE_RECORD_KEY_BYTES,
+                Counts.DELETE_RECORD_VALUE_BYTES,
+                // The size of a record that was replaced by another record. The other record will be accounted
+                // for in the BYTES_WRITTEN, so BYTES_WRITTEN - BYTES_DELETED should be an accurate(-ish) reflection
+                // of on-disk delta.
+                Counts.REPLACE_RECORD_VALUE_BYTES
+        ),
+        ;
+        @Nonnull
+        private final String title;
+        private final boolean isSize;
+        @Nonnull
+        private final String logKey;
+        @Nonnull
+        private final Count[] events;
+
+        CountAggregates(@Nonnull String title, @Nonnull Count...events) {
+            this(title, null, events);
+        }
+
+        CountAggregates(@Nonnull String title, @Nullable String logKey, @Nonnull Count...events) {
+            this.title = title;
+            this.logKey = (logKey != null) ? logKey : Aggregate.super.logKey();
+            this.events = validate((first, other) -> {
+                if (first.isSize() != other.isSize()) {
+                    throw new IllegalArgumentException("All counts must have the same isSize()");
+                }
+            }, events);
+            this.isSize = events[0].isSize();
+        }
+
+        @Override
+        @Nonnull
+        public String title() {
+            return title;
+        }
+
+        @Override
+        @Nonnull
+        public String logKey() {
+            return this.logKey;
+        }
+
+        @Nullable
+        @Override
+        public Counter compute(@Nonnull StoreTimer storeTimer) {
+            return compute(storeTimer, events);
+        }
+
+        @Override
+        public boolean isSize() {
+            return isSize;
+        }
+    }
+
+    protected static final Set<Aggregate> ALL_AGGREGATES = new ImmutableSet.Builder<Aggregate>()
+            .add(EventAggregates.values())
+            .add(CountAggregates.values())
+            .build();
+
     protected static Stream<Event> possibleEvents() {
         return Stream.of(
                 Events.values(),
+                EventAggregates.values(),
                 DetailEvents.values(),
                 Waits.values(),
                 Counts.values(),
+                CountAggregates.values(),
                 RecordSerializer.Events.values()
         ).flatMap(Arrays::stream);
     }
@@ -615,5 +756,18 @@ public class FDBStoreTimer extends StoreTimer {
 
     public FDBStoreTimer() {
         super();
+    }
+
+    @Override
+    @Nonnull
+    public Set<Aggregate> getAggregates() {
+        return ALL_AGGREGATES;
+    }
+
+    @Override
+    public void recordTimeout(Wait event, long startTime) {
+        final long totalNanos = System.nanoTime() - startTime;
+        getCounter(Events.TIMEOUTS, true).record(totalNanos);
+        getTimeoutCounter(event, true).record(totalNanos);
     }
 }

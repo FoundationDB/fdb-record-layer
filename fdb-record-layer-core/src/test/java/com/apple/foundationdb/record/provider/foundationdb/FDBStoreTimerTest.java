@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
@@ -46,6 +47,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -207,6 +210,48 @@ public class FDBStoreTimerTest {
 
         // If log key has been specified, 'logKey()' should return the specified log key.
         assertEquals(TestEvent.EVENT_WITH_LONG_NAME.logKey(), "ShorterName");
+    }
+
+    @Test
+    public void testAggregateMetrics() {
+        FDBStoreTimer storeTimer = new FDBStoreTimer();
+
+        // I don't want this test to fail if new aggregates are added, but do want to verify that the
+        // getAggregates() at least does return some of the expected aggregates.
+        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.EventAggregates.COMMITS));
+        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_READ));
+        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_WRITTEN));
+
+        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, 20);
+        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, 20);
+        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, 11);
+        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, 97);
+        storeTimer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, 44);
+        storeTimer.increment(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, 287);
+
+        assertNotNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_WRITTEN));
+        assertEquals(479, storeTimer.getCount(FDBStoreTimer.CountAggregates.BYTES_WRITTEN),
+                "Incorrect aggregate count for BYTES_WRITTEN");
+        assertEquals(0, storeTimer.getTimeNanos(FDBStoreTimer.CountAggregates.BYTES_WRITTEN),
+                "Incorrect aggregate time for BYTES_WRITTEN");
+        assertNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_READ));
+        assertEquals(0, storeTimer.getCount(FDBStoreTimer.CountAggregates.BYTES_READ),
+                "BYTES_READ should be zero");
+
+        storeTimer.record(FDBStoreTimer.Events.COMMIT, 2_300_000L);
+        storeTimer.record(FDBStoreTimer.Events.COMMIT, 1_001_726L);
+        storeTimer.record(FDBStoreTimer.Events.COMMIT_FAILURE, 312_423L);
+
+        assertNotNull(storeTimer.getCounter(FDBStoreTimer.EventAggregates.COMMITS));
+        assertEquals(3_614_149L, storeTimer.getTimeNanos(FDBStoreTimer.EventAggregates.COMMITS),
+                "Incorrect aggregate time for COMMITS");
+        assertEquals(3, storeTimer.getCount(FDBStoreTimer.EventAggregates.COMMITS),
+                "Incorrect aggregate count for COMMITS");
+
+        // Aggregate counters are immutable.
+        assertThrows(RecordCoreException.class, () -> {
+            storeTimer.getCounter(FDBStoreTimer.EventAggregates.COMMITS).increment(44);
+        });
     }
 
     private void setupBaseData() {
