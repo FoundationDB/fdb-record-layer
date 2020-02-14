@@ -1614,7 +1614,7 @@ public class OnlineIndexer implements AutoCloseable {
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
         private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
-        // TODO: Maybe the performance impact of this is low enough to be always enabled?
+        // Maybe the performance impact of this is low enough to be always enabled?
         private boolean trackProgress = true;
         private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
         protected boolean syntheticIndex = false;
@@ -2141,7 +2141,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Set whether or not to track the index build progress by updating the number of records successfully scanned
          * and processed. The progress is persisted in {@link #indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
-         * which can be accessed by {@link IndexBuildState#getIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
+         * which can be accessed by {@link IndexBuildState#loadIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
          * <p>
          * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
          * </p>

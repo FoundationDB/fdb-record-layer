@@ -261,7 +261,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
 
             try (FDBRecordContext context = openContext()) {
                 IndexBuildState indexBuildState = context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_INDEX_BUILD_STATES,
-                        IndexBuildState.getIndexBuildStateAsync(recordStore, index));
+                        IndexBuildState.loadIndexBuildStateAsync(recordStore, index));
                 IndexState indexState = indexBuildState.getIndexState();
                 if (isAlwaysReadable) {
                     assertEquals(IndexState.READABLE, indexState);

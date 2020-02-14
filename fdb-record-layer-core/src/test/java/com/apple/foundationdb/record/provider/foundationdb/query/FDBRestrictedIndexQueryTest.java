@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.async.RangeSet;
-import com.apple.foundationdb.record.AggregateFunctionNotSupported;
+import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
@@ -45,10 +45,10 @@ import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Callable;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
@@ -63,8 +63,8 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests related to planning/execution with restricted (disabled, write-only, read-only, prohibited, etc.) indexes.
@@ -347,14 +347,10 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    public static void assertThrowsAggregateFunctionNotSupported(Callable<?> callable, String aggregateFunction) throws Exception {
-        try {
-            callable.call();
-            fail("Was not stopped from reading unsupported index.");
-        } catch (AggregateFunctionNotSupported e) {
-            assertEquals("Aggregate function requires appropriate index", e.getMessage());
-            assertEquals(aggregateFunction, e.getLogInfo().get(LogMessageKeys.FUNCTION.toString()).toString());
-        }
+    public static void assertThrowsAggregateFunctionNotSupported(Executable executable, String aggregateFunction) {
+        final AggregateFunctionNotSupportedException e = assertThrows(AggregateFunctionNotSupportedException.class, executable);
+        assertEquals("Aggregate function requires appropriate index", e.getMessage());
+        assertEquals(aggregateFunction, e.getLogInfo().get(LogMessageKeys.FUNCTION.toString()).toString());
     }
 
     /**

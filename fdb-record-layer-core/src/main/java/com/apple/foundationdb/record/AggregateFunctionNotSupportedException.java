@@ -27,8 +27,8 @@ import javax.annotation.Nullable;
  * Exception thrown when an aggregate function is not supported.
  */
 @SuppressWarnings("serial")
-public class AggregateFunctionNotSupported extends RecordCoreException {
-    public AggregateFunctionNotSupported(@Nonnull String msg, @Nullable Object... keyValues) {
+public class AggregateFunctionNotSupportedException extends RecordCoreException {
+    public AggregateFunctionNotSupportedException(@Nonnull String msg, @Nullable Object... keyValues) {
         super(msg, keyValues);
     }
 }

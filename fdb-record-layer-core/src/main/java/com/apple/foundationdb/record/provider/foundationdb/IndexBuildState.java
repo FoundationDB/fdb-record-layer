@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.AggregateFunctionNotSupported;
+import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.metadata.Index;
 
@@ -32,7 +32,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A class that contains the build progress of a given index in a given record store.
  * <p>
- * It first contains {@link IndexState}. If the state is {@link IndexState#WRITE_ONLY}, it will also contains the number
+ * It first contains {@link IndexState}. If the state is {@link IndexState#WRITE_ONLY}, it will also contain the number
  * of records scanned and the estimated total number of records that need to be scanned.
  * </p>
  * <p>
@@ -48,7 +48,7 @@ import java.util.concurrent.CompletableFuture;
  *     <li> Records in total uses the number of all records in the store. In some cases, the real number of records
  *     that need to be scanned is less than this.</li>
  * </ul>
- * @see #getIndexBuildStateAsync(FDBRecordStoreBase, Index)
+ * @see #loadIndexBuildStateAsync(FDBRecordStoreBase, Index)
  */
 @API(API.Status.UNSTABLE)
 public class IndexBuildState {
@@ -60,13 +60,13 @@ public class IndexBuildState {
     private final Long recordsInTotal;
 
     /**
-     * Get the build progress ({@link IndexBuildState}) of the given index in the given record store asynchronously.
+     * Load the build progress ({@link IndexBuildState}) of the given index in the given record store asynchronously.
      * @param store the record store containing the index
      * @param index the index needed to be checked
      * @return a future that completes to the index build state
      */
     @Nonnull
-    public static CompletableFuture<IndexBuildState> getIndexBuildStateAsync(FDBRecordStoreBase<?> store, Index index) {
+    public static CompletableFuture<IndexBuildState> loadIndexBuildStateAsync(FDBRecordStoreBase<?> store, Index index) {
         IndexState indexState = store.getUntypedRecordStore().getIndexState(index);
         if (indexState != IndexState.WRITE_ONLY) {
             return CompletableFuture.completedFuture(new IndexBuildState(indexState));
@@ -74,17 +74,17 @@ public class IndexBuildState {
         CompletableFuture<Long> recordsInTotalFuture;
         try {
             recordsInTotalFuture = store.getSnapshotRecordCount();
-        } catch (AggregateFunctionNotSupported ex) {
+        } catch (AggregateFunctionNotSupportedException ex) {
             // getSnapshotRecordCount failed, very likely it is because there is no suitable COUNT type index
             // defined.
             recordsInTotalFuture = CompletableFuture.completedFuture(null);
         }
-        return getRecordsScannedAsync(store, index).thenCombine(recordsInTotalFuture,
+        return loadRecordsScannedAsync(store, index).thenCombine(recordsInTotalFuture,
                 (scannedRecords, recordsInTotal) -> new IndexBuildState(indexState, scannedRecords, recordsInTotal));
     }
 
     /**
-     * Get the number of records successfully scanned and processed during the online index build process
+     * Load the number of records successfully scanned and processed during the online index build process
      * asynchronously.
      * <p>
      * If the {@link OnlineIndexer} has been configured to disable tracking progress (by setting
@@ -96,7 +96,7 @@ public class IndexBuildState {
      * @return a future that completes to the total records scanned
      */
     @Nonnull
-    public static CompletableFuture<Long> getRecordsScannedAsync(FDBRecordStoreBase<?> store, Index index) {
+    public static CompletableFuture<Long> loadRecordsScannedAsync(FDBRecordStoreBase<?> store, Index index) {
         return store.getContext().ensureActive()
                 .get(OnlineIndexer.indexBuildScannedRecordsSubspace(store, index).getKey())
                 .thenApply(FDBRecordStore::decodeRecordCount);
@@ -125,7 +125,7 @@ public class IndexBuildState {
      * See {@link IndexBuildState} if this is used with {@link #getRecordsInTotal()} to track the index build progress.
      * </p>
      * @return the number of scanned records
-     * @see #getRecordsScannedAsync(FDBRecordStoreBase, Index)
+     * @see #loadRecordsScannedAsync(FDBRecordStoreBase, Index)
      */
     @Nullable
     public Long getRecordsScanned() {

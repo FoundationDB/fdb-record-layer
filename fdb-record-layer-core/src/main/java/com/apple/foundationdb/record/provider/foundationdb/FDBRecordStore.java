@@ -32,7 +32,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
-import com.apple.foundationdb.record.AggregateFunctionNotSupported;
+import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.ByteScanLimiter;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -1648,7 +1648,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nonnull IsolationLevel isolationLevel) {
         return IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, recordTypeNames)
                 .orElseThrow(() ->
-                        new AggregateFunctionNotSupported("Aggregate function requires appropriate index",
+                        new AggregateFunctionNotSupportedException("Aggregate function requires appropriate index",
                                 LogMessageKeys.FUNCTION, aggregateFunction,
                                 subspaceProvider.logKey(), subspaceProvider.toString(context)))
                 .evaluateAggregateFunction(aggregateFunction, range, isolationLevel);
@@ -2908,7 +2908,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see IndexBuildState
      */
     public CompletableFuture<IndexBuildState> getIndexBuildStateAsync(Index index) {
-        return IndexBuildState.getIndexBuildStateAsync(this, index);
+        return IndexBuildState.loadIndexBuildStateAsync(this, index);
     }
 
     // Remove any indexes that do not match the filter.
