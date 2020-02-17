@@ -23,7 +23,7 @@ package com.apple.foundationdb.clientlog;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -52,7 +52,7 @@ public class VersionFromTimestamp {
     }
 
     /**
-     * Get the last version from the timekeeper before the given timestamp.
+     * Get the last version from the timekeeper at or before the given timestamp.
      * @param tr an open transaction
      * @param timestamp the wall-clock time
      * @return a future that completes with the recorded version that comes immediately before the target time
@@ -63,7 +63,7 @@ public class VersionFromTimestamp {
     }
 
     /**
-     * Get the last version from the timekeeper after the given timestamp.
+     * Get the first version from the timekeeper at or after the given timestamp.
      * @param tr an open transaction
      * @param timestamp the wall-clock time
      * @return a future that completes with the recorded version that comes immediately after the target time

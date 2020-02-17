@@ -1,9 +1,9 @@
 /*
- * TupleEventCountTree.java
+ * TupleKeyCountTree.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.clientlog;
+package com.apple.foundationdb.clientlog;
 
-import com.apple.foundationdb.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 
@@ -89,7 +89,10 @@ public class TupleKeyCountTree {
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Object getObject() {
-        return object == UNPARSEABLE ? null : object;
+        if (object == UNPARSEABLE) {
+            throw new IllegalStateException("node does not have a parseable object");
+        }
+        return object;
     }
 
     /**
@@ -128,7 +131,7 @@ public class TupleKeyCountTree {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    protected synchronized void addInternal(@Nonnull List<Object> items, int itemPosition, @Nonnull byte[] bytes, int bytePosition) {
+    private synchronized void addInternal(@Nonnull List<Object> items, int itemPosition, @Nonnull byte[] bytes, int bytePosition) {
         count++;
         if (itemPosition < items.size()) {
             final Object childObject = items.get(itemPosition);

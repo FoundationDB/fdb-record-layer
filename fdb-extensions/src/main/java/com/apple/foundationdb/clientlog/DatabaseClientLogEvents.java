@@ -1,9 +1,9 @@
 /*
- * FDBDatabaseClientLogEvents.java
+ * DatabaseClientLogEvents.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,34 +18,31 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.clientlog;
+package com.apple.foundationdb.clientlog;
 
+import com.apple.foundationdb.Database;
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionOptions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.clientlog.FDBClientLogEvents;
-import com.apple.foundationdb.clientlog.VersionFromTimestamp;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.time.Instant;
-import java.time.ZonedDateTime;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 
 /**
  * Parse client latency events from system keyspace.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FDBDatabaseClientLogEvents {
+public class DatabaseClientLogEvents {
     @Nonnull
     private byte[] startKey;
     @Nonnull
@@ -62,10 +59,10 @@ public class FDBDatabaseClientLogEvents {
      */
     @FunctionalInterface
     public interface RecordEventConsumer {
-        CompletableFuture<Void> accept(@Nonnull FDBRecordContext context, @Nonnull FDBClientLogEvents.Event event);
+        CompletableFuture<Void> accept(@Nonnull Transaction tr, @Nonnull FDBClientLogEvents.Event event);
     }
     
-    private FDBDatabaseClientLogEvents(@Nonnull byte[] startKey, @Nonnull byte[] endKey) {
+    private DatabaseClientLogEvents(@Nonnull byte[] startKey, @Nonnull byte[] endKey) {
         this.startKey = startKey;
         this.endKey = endKey;
     }
@@ -90,35 +87,39 @@ public class FDBDatabaseClientLogEvents {
 
     protected static class EventRunner implements FDBClientLogEvents.EventConsumer {
         @Nonnull
-        private final FDBDatabase database;
+        private final Database database;
+        @Nonnull
+        private final Executor executor;
         @Nullable
-        private FDBRecordContext context;
+        private Transaction tr;
         @Nonnull
         private final RecordEventConsumer callback;
         @Nullable
-        private FDBDatabaseClientLogEvents events;
+        private DatabaseClientLogEvents events;
         @Nullable
-        private final Function<FDBRecordContext, CompletableFuture<Pair<Long, Long>>> versionRangeProducer;
+        private final Function<ReadTransaction, CompletableFuture<Long[]>> versionRangeProducer;
         private int eventCount;
         private final int eventCountLimit;
         private long startTimeMillis = System.currentTimeMillis();
         private final long timeLimitMillis;
         private boolean limitReached;
 
-        public EventRunner(@Nonnull FDBDatabase database, @Nonnull RecordEventConsumer callback,
-                           @Nonnull Function<FDBRecordContext, CompletableFuture<Pair<Long, Long>>> versionRangeProducer,
+        public EventRunner(@Nonnull Database database, @Nonnull Executor executor, @Nonnull RecordEventConsumer callback,
+                           @Nonnull Function<ReadTransaction, CompletableFuture<Long[]>> versionRangeProducer,
                            int eventCountLimit, long timeLimitMillis) {
             this.database = database;
+            this.executor = executor;
             this.callback = callback;
             this.versionRangeProducer = versionRangeProducer;
             this.eventCountLimit = eventCountLimit;
             this.timeLimitMillis = timeLimitMillis;
         }
 
-        public EventRunner(@Nonnull FDBDatabase database, @Nonnull RecordEventConsumer callback,
-                           @Nonnull FDBDatabaseClientLogEvents events,
+        public EventRunner(@Nonnull Database database, @Nonnull Executor executor, @Nonnull RecordEventConsumer callback,
+                           @Nonnull DatabaseClientLogEvents events,
                            int eventCountLimit, long timeLimitMillis) {
             this.database = database;
+            this.executor = executor;
             this.callback = callback;
             this.events = events;
             this.versionRangeProducer = null;
@@ -126,7 +127,7 @@ public class FDBDatabaseClientLogEvents {
             this.timeLimitMillis = timeLimitMillis;
         }
 
-        public CompletableFuture<FDBDatabaseClientLogEvents> run() {
+        public CompletableFuture<DatabaseClientLogEvents> run() {
             return AsyncUtil.whileTrue(this::loop).thenApply(vignore -> {
                 events.updateForRun(eventCount, limitReached);
                 return events;
@@ -134,17 +135,17 @@ public class FDBDatabaseClientLogEvents {
         }
 
         private CompletableFuture<Boolean> loop() {
-            context = database.openContext();
-            final TransactionOptions transactionOptions = context.ensureActive().options();
-            transactionOptions.setAccessSystemKeys();
+            tr = database.createTransaction(executor);
+            final TransactionOptions transactionOptions = tr.options();
+            transactionOptions.setReadSystemKeys();
             transactionOptions.setReadLockAware();
             if (events == null) {
-                return versionRangeProducer.apply(context).thenCompose(versions -> {
-                    final Long startVersion = versions.getLeft();
+                return versionRangeProducer.apply(tr).thenCompose(versions -> {
+                    final Long startVersion = versions[0];
                     final byte[] startKey = startVersion == null ? FDBClientLogEvents.EVENT_KEY_PREFIX : FDBClientLogEvents.eventKeyForVersion(startVersion);
-                    final Long endVersion = versions.getRight();
+                    final Long endVersion = versions[1];
                     final byte[] endKey = endVersion == null ? ByteArrayUtil.strinc(FDBClientLogEvents.EVENT_KEY_PREFIX) : FDBClientLogEvents.eventKeyForVersion(endVersion);
-                    events = new FDBDatabaseClientLogEvents(startKey, endKey);
+                    events = new DatabaseClientLogEvents(startKey, endKey);
                     return loopBody();
                 });
             } else {
@@ -153,21 +154,20 @@ public class FDBDatabaseClientLogEvents {
         }
 
         private CompletableFuture<Boolean> loopBody() {
-            final AsyncIterable<KeyValue> range = events.getRange(context);
+            final AsyncIterable<KeyValue> range = events.getRange(tr);
             return FDBClientLogEvents.forEachEvent(range, this).thenApply(lastProcessedKey -> {
                 events.updateForTransaction(lastProcessedKey);
                 return false;   // Return to caller if range processed or limit reached.
             }).handle((b, t) -> {
-                if (context != null) {
-                    context.close();
-                    context = null;
+                if (tr != null) {
+                    tr.close();
+                    tr = null;
                 }
                 if (t != null) {
-                    final RuntimeException ex = FDBExceptions.wrapException(t);
-                    if (ex instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
-                        return true;    // Continue with new transaction when too old.
+                    if (t instanceof FDBException && ((FDBException)t).isRetryable()) {
+                        return true;    // Continue with new transaction when too old (or too new).
                     } else {
-                        throw ex;
+                        throw t instanceof RuntimeException ? (RuntimeException)t : new RuntimeException(t);
                     }
                 } else {
                     return b;
@@ -179,7 +179,7 @@ public class FDBDatabaseClientLogEvents {
         public CompletableFuture<Void> accept(FDBClientLogEvents.Event event) {
             eventCount++;
             events.updateForEvent(event.getStartTimestamp());
-            return callback.accept(context, event);
+            return callback.accept(tr, event);
         }
 
         @Override
@@ -191,8 +191,8 @@ public class FDBDatabaseClientLogEvents {
         }
     }
 
-    private AsyncIterable<KeyValue> getRange(@Nonnull FDBRecordContext context) {
-        return context.ensureActive().getRange(startKey, endKey);
+    private AsyncIterable<KeyValue> getRange(@Nonnull ReadTransaction tr) {
+        return tr.getRange(startKey, endKey);
     }
 
     private void updateForEvent(@Nonnull Instant eventTimestamp) {
@@ -216,11 +216,11 @@ public class FDBDatabaseClientLogEvents {
     }
 
     @Nonnull
-    public static CompletableFuture<FDBDatabaseClientLogEvents> forEachEvent(@Nonnull FDBDatabase database,
-                                                                             @Nonnull RecordEventConsumer callback,
-                                                                             @Nonnull Function<FDBRecordContext, CompletableFuture<Pair<Long, Long>>> versionRangeProducer,
-                                                                             int eventCountLimit, long timeLimitMillis) {
-        final EventRunner runner = new EventRunner(database, callback, versionRangeProducer,
+    public static CompletableFuture<DatabaseClientLogEvents> forEachEvent(@Nonnull Database database, @Nonnull Executor executor,
+                                                                          @Nonnull RecordEventConsumer callback,
+                                                                          @Nonnull Function<ReadTransaction, CompletableFuture<Long[]>> versionRangeProducer,
+                                                                          int eventCountLimit, long timeLimitMillis) {
+        final EventRunner runner = new EventRunner(database, executor, callback, versionRangeProducer,
                                                    eventCountLimit, timeLimitMillis);
         return runner.run();
     }
@@ -228,6 +228,7 @@ public class FDBDatabaseClientLogEvents {
     /**
      * Apply a callback to client latency events recorded in the given database between two commit versions.
      * @param database the database to open and read events from
+     * @param executor executor to use when running transactions
      * @param callback the callback to apply
      * @param startVersion the starting commit version
      * @param endVersion the exclusive end version
@@ -236,16 +237,19 @@ public class FDBDatabaseClientLogEvents {
      * @return a future which completes when the version range has been processed by the callback with an object that can be used to resume the scan
      */
     @Nonnull
-    public static CompletableFuture<FDBDatabaseClientLogEvents> forEachEventBetweenVersions(@Nonnull FDBDatabase database,
-                                                                                            @Nonnull RecordEventConsumer callback,
-                                                                                            @Nullable Long startVersion, @Nullable Long endVersion,
-                                                                                            int eventCountLimit, long timeLimitMillis) {
-        return forEachEvent(database, callback, cignore -> CompletableFuture.completedFuture(Pair.of(startVersion, endVersion)), eventCountLimit, timeLimitMillis);
+    public static CompletableFuture<DatabaseClientLogEvents> forEachEventBetweenVersions(@Nonnull Database database, @Nonnull Executor executor,
+                                                                                         @Nonnull RecordEventConsumer callback,
+                                                                                         @Nullable Long startVersion, @Nullable Long endVersion,
+                                                                                         int eventCountLimit, long timeLimitMillis) {
+        return forEachEvent(database, executor, callback,
+                tignore -> CompletableFuture.completedFuture(new Long[] { startVersion, endVersion }),
+                eventCountLimit, timeLimitMillis);
     }
 
     /**
      * Apply a callback to client latency events recorded in the given database between two commit versions.
      * @param database the database to open and read events from
+     * @param executor executor to use when running transactions
      * @param callback the callback to apply
      * @param startTimestamp the starting wall-clock time
      * @param endTimestamp the exclusive end time
@@ -254,16 +258,16 @@ public class FDBDatabaseClientLogEvents {
      * @return a future which completes when the version range has been processed by the callback with an object that can be used to resume the scan
      */
     @Nonnull
-    public static CompletableFuture<FDBDatabaseClientLogEvents> forEachEventBetweenTimestamps(@Nonnull FDBDatabase database,
-                                                                                              @Nonnull RecordEventConsumer callback,
-                                                                                              @Nullable Instant startTimestamp, @Nullable Instant endTimestamp,
-                                                                                              int eventCountLimit, long timeLimitMillis) {
-        return forEachEvent(database, callback, context -> {
+    public static CompletableFuture<DatabaseClientLogEvents> forEachEventBetweenTimestamps(@Nonnull Database database, @Nonnull Executor executor,
+                                                                                           @Nonnull RecordEventConsumer callback,
+                                                                                           @Nullable Instant startTimestamp, @Nullable Instant endTimestamp,
+                                                                                           int eventCountLimit, long timeLimitMillis) {
+        return forEachEvent(database, executor, callback, tr -> {
             final CompletableFuture<Long> startVersion = startTimestamp == null ? CompletableFuture.completedFuture(null) :
-                                                         VersionFromTimestamp.lastVersionBefore(context.readTransaction(false), startTimestamp);
+                                                         VersionFromTimestamp.lastVersionBefore(tr, startTimestamp);
             final CompletableFuture<Long> endVersion = endTimestamp == null ? CompletableFuture.completedFuture(null) :
-                                                       VersionFromTimestamp.nextVersionAfter(context.readTransaction(false), endTimestamp);
-            return startVersion.thenCombine(endVersion, Pair::of);
+                                                       VersionFromTimestamp.nextVersionAfter(tr, endTimestamp);
+            return startVersion.thenCombine(endVersion, (s, e) -> new Long[] { s, e });
         },
                 eventCountLimit, timeLimitMillis);
     }
@@ -271,38 +275,17 @@ public class FDBDatabaseClientLogEvents {
     /**
      * Apply a callback to client latency events following an early return due to reaching a limit.
      * @param database the database to open and read events from
+     * @param executor executor to use when running transactions
      * @param callback the callback to apply
      * @param eventCountLimit the maximum number of events to process before returning
      * @param timeLimitMillis the maximum time to process before returning
      * @return a future which completes when the version range has been processed by the callback with an object that can be used to resume the scan again
      */
-    public CompletableFuture<FDBDatabaseClientLogEvents> forEachEventContinued(@Nonnull FDBDatabase database,
-                                                                               @Nonnull RecordEventConsumer callback,
-                                                                               int eventCountLimit, long timeLimitMillis) {
-        final EventRunner runner = new EventRunner(database, callback, this,
+    public CompletableFuture<DatabaseClientLogEvents> forEachEventContinued(@Nonnull Database database, @Nonnull Executor executor,
+                                                                            @Nonnull RecordEventConsumer callback,
+                                                                            int eventCountLimit, long timeLimitMillis) {
+        final EventRunner runner = new EventRunner(database, executor, callback, this,
                                                    eventCountLimit, timeLimitMillis);
         return runner.run();
-    }
-
-    @SuppressWarnings("PMD.SystemPrintln")
-    public static void main(String[] args) {
-        String cluster = null;
-        Instant start = null;
-        Instant end = null;
-        if (args.length > 0) {
-            cluster = args[0];
-        }
-        if (args.length > 1) {
-            start = ZonedDateTime.parse(args[1]).toInstant();
-        }
-        if (args.length > 2) {
-            end = ZonedDateTime.parse(args[2]).toInstant();
-        }
-        FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(cluster);
-        RecordEventConsumer consumer = (context, event) -> {
-            System.out.println(event);
-            return AsyncUtil.DONE;
-        };
-        forEachEventBetweenTimestamps(database, consumer, start, end, Integer.MAX_VALUE, Long.MAX_VALUE).join();
     }
 }

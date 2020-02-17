@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.clientlog;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.clientlog.TupleKeyCountTree;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;

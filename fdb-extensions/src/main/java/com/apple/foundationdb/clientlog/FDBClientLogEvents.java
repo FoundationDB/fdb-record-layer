@@ -23,7 +23,7 @@ package com.apple.foundationdb.clientlog;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
@@ -674,7 +674,7 @@ public class FDBClientLogEvents {
                     splitPosition = 1;
                 } else if (chunkNumber == splitPosition && Arrays.equals(transactionId, splitId)) {
                     if (splitBuffer.remaining() < keyValue.getValue().length) {
-                        final ByteBuffer newBuffer = ByteBuffer.allocate(splitBuffer.remaining() + keyValue.getValue().length);
+                        final ByteBuffer newBuffer = ByteBuffer.allocate(splitBuffer.position() + keyValue.getValue().length);
                         splitBuffer.flip();
                         newBuffer.put(splitBuffer);
                         splitBuffer = newBuffer;

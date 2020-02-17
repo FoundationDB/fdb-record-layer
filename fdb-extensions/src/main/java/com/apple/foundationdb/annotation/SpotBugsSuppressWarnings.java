@@ -18,9 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb;
-
-import com.apple.foundationdb.annotation.API;
+package com.apple.foundationdb.annotation;
 
 /**
  * Suppress warnings from FindBugs / SpotBugs tools.
