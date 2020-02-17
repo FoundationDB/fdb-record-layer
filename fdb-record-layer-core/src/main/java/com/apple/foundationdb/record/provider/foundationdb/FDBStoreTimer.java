@@ -387,8 +387,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_SCAN_RECORDS("wait for scan records"),
         /** Wait for a indexed record scan. */
         WAIT_SCAN_INDEX_RECORDS("wait for scan index records"),
-        /** Wait for getting index build states. */
-        WAIT_GET_INDEX_BUILD_STATES("wait for getting index build states"),
+        /** Wait for getting index build state. */
+        WAIT_GET_INDEX_BUILD_STATE("wait for getting index build state"),
         /** Wait for query execution to complete. */
         WAIT_EXECUTE_QUERY("wait for execute query"),
         /** Wait for a reverse directory scan. */

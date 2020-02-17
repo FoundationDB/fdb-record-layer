@@ -554,6 +554,7 @@ public class OnlineIndexer implements AutoCloseable {
             syntheticPlan = null;
         }
 
+        AtomicLong recordsScannedCounter = new AtomicLong();
         // Note: This runs all of the updates in serial in order to not invoke a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
@@ -563,14 +564,7 @@ public class OnlineIndexer implements AutoCloseable {
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
             }
-            if (recordsScanned != null) {
-                recordsScanned.incrementAndGet();
-            }
-            if (trackProgress) {
-                // Add one to the number of records successfully scanned and processed.
-                store.context.ensureActive().mutate(
-                        MutationType.ADD, scannedRecordsSubspace.getKey(), FDBRecordStore.LITTLE_ENDIAN_INT64_ONE);
-            }
+            recordsScannedCounter.incrementAndGet();
             if (recordTypes.contains(rec.getRecordType())) {
                 if (timer != null) {
                     timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
@@ -585,6 +579,14 @@ public class OnlineIndexer implements AutoCloseable {
                 return AsyncUtil.DONE;
             }
         }).thenCompose(noNextResult -> {
+            long recordsScannedInTransaction = recordsScannedCounter.get();
+            if (recordsScanned != null) {
+                recordsScanned.addAndGet(recordsScannedInTransaction);
+            }
+            if (trackProgress) {
+                store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
+                        FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
+            }
             byte[] nextCont = empty.get() ? null : noNextResult.getContinuation().toBytes();
             if (nextCont == null) {
                 return CompletableFuture.completedFuture(null);

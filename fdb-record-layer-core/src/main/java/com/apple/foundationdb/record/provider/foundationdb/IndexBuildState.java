@@ -42,7 +42,7 @@ import java.util.concurrent.CompletableFuture;
  * <ul>
  *     <li> If the {@link OnlineIndexer} has been configured to disable tracking progress (by setting
  *     {@link OnlineIndexer.Builder#setTrackProgress(boolean)} to {@code false}), then {@link #getRecordsScanned()} will
- *     not reflect the actual number of records scanned. </li>
+ *     not include the records scanned by that {@link OnlineIndexer}. </li>
  *     <li> Records added or deleted during the index build progress are not included in records scanned but are in
  *     records in total. </li>
  *     <li> Records in total uses the number of all records in the store. In some cases, the real number of records
@@ -89,7 +89,7 @@ public class IndexBuildState {
      * <p>
      * If the {@link OnlineIndexer} has been configured to disable tracking progress (by setting
      * {@link OnlineIndexer.Builder#setTrackProgress(boolean)} to {@code false}), then the number returned will not
-     * reflect the actual number of records scanned.
+     * include the records scanned by that {@link OnlineIndexer}.
      * </p>
      * @param store the record store containing the index
      * @param index the index needed to be checked
@@ -116,7 +116,7 @@ public class IndexBuildState {
      * <p>
      * If the {@link OnlineIndexer} has been configured to disable tracking progress (by setting
      * {@link OnlineIndexer.Builder#setTrackProgress(boolean)} to {@code false}), then the number returned will not
-     * reflect the actual number of records scanned.
+     * include the records scanned by that {@link OnlineIndexer}.
      * </p>
      * <p>
      * The returned value should be ignored if the index state is not {@link IndexState#WRITE_ONLY}.

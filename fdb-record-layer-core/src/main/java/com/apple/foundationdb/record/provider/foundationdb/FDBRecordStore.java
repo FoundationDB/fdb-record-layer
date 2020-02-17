@@ -1595,6 +1595,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         throw recordCoreException("Require a COUNT index on " + recordTypeName);
     }
 
+    static byte[] encodeRecordCount(long count) {
+        return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
+    }
+
     public static long decodeRecordCount(@Nullable byte[] bytes) {
         return bytes == null ? 0 : ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
     }
@@ -3491,11 +3495,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(indexSecondarySubspace(index).range());
         tr.clear(indexRangeSubspace(index).range());
         tr.clear(indexUniquenessViolationsSubspace(index).range());
-        // Under the index build subspace, there are two lower level subsapces.
-        // We are not supposed to clear the lock subspace, which is used to run online index jobs which may invoke this
-        // method.
-        // But we should clear the scanned records subspace, which, roughly speaking, counts how many records of this
-        // store are covered in index range subspace.
+        // Under the index build subspace, there are two lower level subspaces, the lock space and the scanned records
+        // subspace. We are not supposed to clear the lock subspace, which is used to run online index jobs which may
+        // invoke this method. But we should clear the scanned records subspace, which, roughly speaking, counts how
+        // many records of this store are covered in index range subspace.
         tr.clear(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).range());
     }
 
