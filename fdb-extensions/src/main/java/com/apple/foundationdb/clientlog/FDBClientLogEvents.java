@@ -126,7 +126,7 @@ public class FDBClientLogEvents {
         }
 
         /**
-         * Get start timestamp formatted for the local zone.
+         * Get start timestamp formatted for the local time zone.
          * @return a printable timestamp
          */
         public String getStartTimestampString() {
