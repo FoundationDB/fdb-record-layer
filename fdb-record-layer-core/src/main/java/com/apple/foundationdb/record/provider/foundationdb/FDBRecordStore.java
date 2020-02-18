@@ -32,6 +32,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.ByteScanLimiter;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -120,8 +121,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -1594,6 +1595,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         throw recordCoreException("Require a COUNT index on " + recordTypeName);
     }
 
+    static byte[] encodeRecordCount(long count) {
+        return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
+    }
+
     public static long decodeRecordCount(@Nullable byte[] bytes) {
         return bytes == null ? 0 : ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
     }
@@ -1646,7 +1651,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nonnull TupleRange range,
                                                               @Nonnull IsolationLevel isolationLevel) {
         return IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, recordTypeNames)
-                .orElseThrow(() -> recordCoreException("Aggregate function " + aggregateFunction + " requires appropriate index"))
+                .orElseThrow(() ->
+                        new AggregateFunctionNotSupportedException("Aggregate function requires appropriate index",
+                                LogMessageKeys.FUNCTION, aggregateFunction,
+                                subspaceProvider.logKey(), subspaceProvider.toString(context)))
                 .evaluateAggregateFunction(aggregateFunction, range, isolationLevel);
     }
 
@@ -2897,6 +2905,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return getIndexState(indexName).equals(IndexState.DISABLED);
     }
 
+    /**
+     * Get the progress of building the given index.
+     * @param index the index to check the index build state
+     * @return a future that completes to the progress of building the given index
+     * @see IndexBuildState
+     */
+    public CompletableFuture<IndexBuildState> getIndexBuildStateAsync(Index index) {
+        return IndexBuildState.loadIndexBuildStateAsync(this, index);
+    }
+
     // Remove any indexes that do not match the filter.
     // NOTE: This assumes that the filter will not filter out any indexes if all indexes are readable.
     private List<Index> sanitizeIndexes(@Nonnull List<Index> indexes, @Nonnull Predicate<Index> filter) {
@@ -3477,6 +3495,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(indexSecondarySubspace(index).range());
         tr.clear(indexRangeSubspace(index).range());
         tr.clear(indexUniquenessViolationsSubspace(index).range());
+        // Under the index build subspace, there are two lower level subspaces, the lock space and the scanned records
+        // subspace. We are not supposed to clear the lock subspace, which is used to run online index jobs which may
+        // invoke this method. But we should clear the scanned records subspace, which, roughly speaking, counts how
+        // many records of this store are covered in index range subspace.
+        tr.clear(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).range());
     }
 
     public void removeFormerIndex(FormerIndex formerIndex) {
