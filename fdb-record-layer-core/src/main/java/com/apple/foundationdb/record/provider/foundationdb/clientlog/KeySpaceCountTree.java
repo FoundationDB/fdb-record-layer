@@ -85,7 +85,7 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
 
     protected CompletableFuture<Void> resolvePathValue(@Nonnull FDBRecordContext context,
                                                        @Nonnull KeySpaceDirectory parentDirectory, @Nullable ResolvedKeySpacePath parentPath) {
-        if (resolvedPath != null) {
+        if (resolvedPath != null || !hasObject()) {
             return AsyncUtil.DONE;
         }
         try {
