@@ -227,6 +227,22 @@ public class KeySpaceDirectory {
     }
 
     /**
+     * Iterates over the subdirectories of this directory looking for one that is compatible with the given value.
+     * @param context the database context
+     * @param parent the parent path element
+     * @param value the child value to be resolved
+     * @return a future that completes with the matching keyspace path
+     * @throws RecordCoreArgumentException if no compatible child can be found
+     */
+    @Nonnull
+    public CompletableFuture<ResolvedKeySpacePath> findChildForValue(@Nonnull FDBRecordContext context,
+                                                                     @Nullable ResolvedKeySpacePath parent,
+                                                                     @Nullable Object value) {
+        final Tuple key = Tuple.from(value);
+        return findChildForKey(context, parent, key, 1, 0);
+    }
+
+    /**
      * Iterates over the subdirectories of this directory looking for one that is compatible with the
      * <code>key</code> tuple, starting at position <code>keyIndex</code>.
      * If the key size is less than the actual key length, the path remainder will reflect

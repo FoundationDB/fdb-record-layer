@@ -236,38 +236,6 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
     }
 
     @Test
-    public void testPersistentCacheMissPopulatesReverseCache() {
-        final Random random = new Random();
-        final String name = "dir_" + Math.abs(random.nextInt());
-        final Long id;
-        try (FDBRecordContext context = openContext()) {
-            Transaction tr = context.ensureActive();
-            // need to use the FDB DirectoryLayer to bypass LocatableResolver which populates the reverse directory cache automatically
-            id = Tuple.fromBytes(DirectoryLayer.getDefault().createOrOpen(tr, Collections.singletonList(name)).join().getKey()).getLong(0);
-            commit(context);
-        }
-
-        ScopedValue<Long> scopedId = globalScope.wrap(id);
-        FDBStoreTimer timer = new FDBStoreTimer();
-        String nameFromLookup = fdb.getReverseDirectoryCache().get(timer, scopedId).join()
-                .orElseThrow(() -> new AssertionError("lookup should return a name"));
-        assertThat(nameFromLookup, is(name));
-        assertEquals(fdb.getReverseDirectoryCache().getPersistentCacheMissCount(), 1);
-        assertEquals(fdb.getReverseDirectoryCache().getPersistentCacheHitCount(), 0);
-        assertThat("it performs a scan of the directory layer",
-                timer.getCount(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN), is(1));
-
-        timer.reset();
-        String secondLookup = fdb.getReverseDirectoryCache().get(timer, scopedId).join()
-                .orElseThrow(() -> new AssertionError("lookup should return a name"));
-        assertThat(secondLookup, is(name));
-        assertEquals(fdb.getReverseDirectoryCache().getPersistentCacheMissCount(), 1);
-        assertEquals(fdb.getReverseDirectoryCache().getPersistentCacheHitCount(), 1);
-        assertThat("it does not need to scan",
-                timer.getCount(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN), is(0));
-    }
-
-    @Test
     public void testGetInReverseCacheSubspace() {
         final Random random = new Random();
         final String name = "dir_" + Math.abs(random.nextInt());
