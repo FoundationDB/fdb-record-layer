@@ -58,7 +58,7 @@ public class DatabaseClientLogEvents {
      * A callback with the current transaction.
      */
     @FunctionalInterface
-    public interface RecordEventConsumer {
+    public interface EventConsumer {
         CompletableFuture<Void> accept(@Nonnull Transaction tr, @Nonnull FDBClientLogEvents.Event event);
     }
     
@@ -93,7 +93,7 @@ public class DatabaseClientLogEvents {
         @Nullable
         private Transaction tr;
         @Nonnull
-        private final RecordEventConsumer callback;
+        private final EventConsumer callback;
         @Nullable
         private DatabaseClientLogEvents events;
         @Nullable
@@ -104,7 +104,7 @@ public class DatabaseClientLogEvents {
         private final long timeLimitMillis;
         private boolean limitReached;
 
-        public EventRunner(@Nonnull Database database, @Nonnull Executor executor, @Nonnull RecordEventConsumer callback,
+        public EventRunner(@Nonnull Database database, @Nonnull Executor executor, @Nonnull EventConsumer callback,
                            @Nonnull Function<ReadTransaction, CompletableFuture<Long[]>> versionRangeProducer,
                            int eventCountLimit, long timeLimitMillis) {
             this.database = database;
@@ -115,7 +115,7 @@ public class DatabaseClientLogEvents {
             this.timeLimitMillis = timeLimitMillis;
         }
 
-        public EventRunner(@Nonnull Database database, @Nonnull Executor executor, @Nonnull RecordEventConsumer callback,
+        public EventRunner(@Nonnull Database database, @Nonnull Executor executor, @Nonnull EventConsumer callback,
                            @Nonnull DatabaseClientLogEvents events,
                            int eventCountLimit, long timeLimitMillis) {
             this.database = database;
@@ -217,7 +217,7 @@ public class DatabaseClientLogEvents {
 
     @Nonnull
     public static CompletableFuture<DatabaseClientLogEvents> forEachEvent(@Nonnull Database database, @Nonnull Executor executor,
-                                                                          @Nonnull RecordEventConsumer callback,
+                                                                          @Nonnull EventConsumer callback,
                                                                           @Nonnull Function<ReadTransaction, CompletableFuture<Long[]>> versionRangeProducer,
                                                                           int eventCountLimit, long timeLimitMillis) {
         final EventRunner runner = new EventRunner(database, executor, callback, versionRangeProducer,
@@ -238,7 +238,7 @@ public class DatabaseClientLogEvents {
      */
     @Nonnull
     public static CompletableFuture<DatabaseClientLogEvents> forEachEventBetweenVersions(@Nonnull Database database, @Nonnull Executor executor,
-                                                                                         @Nonnull RecordEventConsumer callback,
+                                                                                         @Nonnull EventConsumer callback,
                                                                                          @Nullable Long startVersion, @Nullable Long endVersion,
                                                                                          int eventCountLimit, long timeLimitMillis) {
         return forEachEvent(database, executor, callback,
@@ -259,7 +259,7 @@ public class DatabaseClientLogEvents {
      */
     @Nonnull
     public static CompletableFuture<DatabaseClientLogEvents> forEachEventBetweenTimestamps(@Nonnull Database database, @Nonnull Executor executor,
-                                                                                           @Nonnull RecordEventConsumer callback,
+                                                                                           @Nonnull EventConsumer callback,
                                                                                            @Nullable Instant startTimestamp, @Nullable Instant endTimestamp,
                                                                                            int eventCountLimit, long timeLimitMillis) {
         return forEachEvent(database, executor, callback, tr -> {
@@ -282,7 +282,7 @@ public class DatabaseClientLogEvents {
      * @return a future which completes when the version range has been processed by the callback with an object that can be used to resume the scan again
      */
     public CompletableFuture<DatabaseClientLogEvents> forEachEventContinued(@Nonnull Database database, @Nonnull Executor executor,
-                                                                            @Nonnull RecordEventConsumer callback,
+                                                                            @Nonnull EventConsumer callback,
                                                                             int eventCountLimit, long timeLimitMillis) {
         final EventRunner runner = new EventRunner(database, executor, callback, this,
                                                    eventCountLimit, timeLimitMillis);

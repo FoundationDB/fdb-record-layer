@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Count tuple-encoded keys into {@link TupleKeyCountTree}.
  */
-public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.RecordEventConsumer {
+public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.EventConsumer {
     @Nonnull
     private final TupleKeyCountTree root;
     private final boolean countReads;

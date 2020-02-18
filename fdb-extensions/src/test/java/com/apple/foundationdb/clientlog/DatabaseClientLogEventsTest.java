@@ -47,7 +47,7 @@ class DatabaseClientLogEventsTest {
         FDB fdb = FDB.selectAPIVersion(600);
         Database database = fdb.open(cluster);
         Executor executor = database.getExecutor();
-        DatabaseClientLogEvents.RecordEventConsumer consumer = (tr, event) -> {
+        DatabaseClientLogEvents.EventConsumer consumer = (tr, event) -> {
             System.out.println(event);
             return AsyncUtil.DONE;
         };
