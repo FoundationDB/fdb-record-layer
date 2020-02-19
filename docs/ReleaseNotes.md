@@ -64,6 +64,9 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // end next release
 -->
 
+### 2.8.100.0
+
+
 ### 2.8.99.0
 
 * **Bug fix** Remove reverse directory cache scan fallback [(Issue #821)](https://github.com/FoundationDB/fdb-record-layer/issues/821)
