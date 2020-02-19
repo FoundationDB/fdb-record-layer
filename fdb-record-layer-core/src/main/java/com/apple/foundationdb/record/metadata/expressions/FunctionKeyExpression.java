@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.function.BiFunction;
 
@@ -330,10 +331,12 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     public static class Registry {
         private static final Registry INSTANCE = new Registry();
 
-        private final Map<String, Builder> functions;
+        @Nullable
+        private volatile Map<String, Builder> functions;
 
         private Registry() {
-            functions = initRegistry();
+            // Will be initialized the first time a builder is requested
+            functions = null;
         }
 
         @Nonnull
@@ -342,21 +345,49 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
         }
 
         public Optional<Builder> getBuilder(String name) {
-            return Optional.ofNullable(functions.get(name));
+            Map<String, Builder> registry = initOrGetRegistry();
+            return Optional.ofNullable(registry.get(name));
         }
 
-        private static Map<String, Builder> initRegistry() {
-            Map<String, Builder> functions = new HashMap<>();
-            for (Factory factory : ServiceLoader.load(Factory.class)) {
-                for (Builder function : factory.getBuilders()) {
-                    if (functions.containsKey(function.getName())) {
-                        throw new RecordCoreException("Function already defined").addLogInfo(
-                                LogMessageKeys.FUNCTION, function.getName());
-                    }
-                    functions.put(function.getName(), function);
+        @Nonnull
+        private Map<String, Builder> initOrGetRegistry() {
+            // The reference to the registry is copied into a local variable to avoid referencing the
+            // volatile multiple times
+            Map<String, Builder> currRegistry = functions;
+            if (currRegistry != null) {
+                return currRegistry;
+            }
+            synchronized (this) {
+                currRegistry = functions;
+                if (currRegistry == null) {
+                    // Create the registry
+                    Map<String, Builder> newRegistry = initRegistry();
+                    functions = newRegistry;
+                    return newRegistry;
+                } else {
+                    // Another thread created the registry for us
+                    return currRegistry;
                 }
             }
-            return functions;
+        }
+
+        @Nonnull
+        private static Map<String, Builder> initRegistry() {
+            try {
+                Map<String, Builder> functions = new HashMap<>();
+                for (Factory factory : ServiceLoader.load(Factory.class)) {
+                    for (Builder function : factory.getBuilders()) {
+                        if (functions.containsKey(function.getName())) {
+                            throw new RecordCoreException("Function already defined").addLogInfo(
+                                    LogMessageKeys.FUNCTION, function.getName());
+                        }
+                        functions.put(function.getName(), function);
+                    }
+                }
+                return functions;
+            } catch (ServiceConfigurationError err) {
+                throw new RecordCoreException("Unable to load all defined FunctionKeyExpressions", err);
+            }
         }
     }
 }
