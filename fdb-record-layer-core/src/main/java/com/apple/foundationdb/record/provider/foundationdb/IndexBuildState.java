@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.Index;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -160,6 +161,25 @@ public class IndexBuildState {
         }
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        IndexBuildState that = (IndexBuildState)o;
+        return indexState == that.indexState &&
+               Objects.equals(recordsScanned, that.recordsScanned) &&
+               Objects.equals(recordsInTotal, that.recordsInTotal);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(indexState, recordsScanned, recordsInTotal);
     }
 
     private IndexBuildState(IndexState indexState, @Nullable Long recordsScanned, @Nullable Long recordsInTotal) {
