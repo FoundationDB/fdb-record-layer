@@ -41,9 +41,9 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** If the `FunctionKeyExpression.Registry` fails to initialize, then the error is now propagated to the user when a function is requested [(Issue #826)](https://github.com/FoundationDB/fdb-record-layer/issues/826)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** COMMIT_READ_ONLY not part of COMMITS aggregate [(Issue #830)](https://github.com/FoundationDB/fdb-record-layer/issues/830)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,6 +63,11 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.101.0
+
+* **Bug fix** If the `FunctionKeyExpression.Registry` fails to initialize, then the error is now propagated to the user when a function is requested [(Issue #826)](https://github.com/FoundationDB/fdb-record-layer/issues/826)
+* **Bug fix** COMMIT_READ_ONLY not part of COMMITS aggregate [(Issue #830)](https://github.com/FoundationDB/fdb-record-layer/issues/830)
 
 ### 2.8.100.0
 
