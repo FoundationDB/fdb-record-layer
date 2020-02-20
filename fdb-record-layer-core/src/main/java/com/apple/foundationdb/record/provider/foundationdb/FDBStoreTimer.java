@@ -244,7 +244,8 @@ public class FDBStoreTimer extends StoreTimer {
     public enum EventAggregates implements Aggregate, Event {
         COMMITS("commits",
                 Events.COMMIT,
-                Events.COMMIT_FAILURE),
+                Events.COMMIT_FAILURE,
+                Events.COMMIT_READ_ONLY),
         ;
         @Nonnull
         private final String title;
