@@ -119,7 +119,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
 
     @Override
     public boolean hasLoadBykeys() {
-        return false;
+        return true;
     }
 
     @Nonnull
