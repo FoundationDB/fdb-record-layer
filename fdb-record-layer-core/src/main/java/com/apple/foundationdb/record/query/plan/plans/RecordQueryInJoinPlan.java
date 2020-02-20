@@ -43,7 +43,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A query plan that executes a child plan once for each of the elements of some {@code IN} list.
@@ -103,27 +102,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     public boolean isSorted() {
         return sortValuesNeeded;
-    }
-
-    @Override
-    public boolean hasRecordScan() {
-        return getInner().hasRecordScan();
-    }
-
-    @Override
-    public boolean hasFullRecordScan() {
-        return getInner().hasFullRecordScan();
-    }
-
-    @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
-        return getInner().hasIndexScan(indexName);
-    }
-
-    @Nonnull
-    @Override
-    public Set<String> getUsedIndexes() {
-        return getInner().getUsedIndexes();
     }
 
     @Nonnull

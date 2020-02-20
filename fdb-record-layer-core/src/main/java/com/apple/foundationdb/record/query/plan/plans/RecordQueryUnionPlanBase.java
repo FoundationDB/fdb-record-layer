@@ -39,11 +39,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -102,21 +100,6 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
         return reverse;
     }
 
-    @Override
-    public boolean hasRecordScan() {
-        return getChildStream().anyMatch(RecordQueryPlan::hasRecordScan);
-    }
-
-    @Override
-    public boolean hasFullRecordScan() {
-        return getChildStream().anyMatch(RecordQueryPlan::hasFullRecordScan);
-    }
-
-    @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
-        return getChildStream().anyMatch(child -> child.hasIndexScan(indexName));
-    }
-
     @Nonnull
     private Stream<RecordQueryPlan> getChildStream() {
         return children.stream().map(ExpressionRef::get);
@@ -126,16 +109,6 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     @Nonnull
     public List<RecordQueryPlan> getChildren() {
         return getChildStream().collect(Collectors.toList());
-    }
-
-    @Nonnull
-    @Override
-    public Set<String> getUsedIndexes() {
-        HashSet<String> usedIndexes = new HashSet<>();
-        for (ExpressionRef<RecordQueryPlan> child : children) {
-            usedIndexes.addAll(child.get().getUsedIndexes());
-        }
-        return usedIndexes;
     }
 
     @Nonnull

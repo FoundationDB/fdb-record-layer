@@ -124,6 +124,11 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
         return getChild().getUsedIndexes();
     }
 
+    @Override
+    public boolean hasLoadBykeys() {
+        return false;
+    }
+
     @Nonnull
     @Override
     public String toString() {

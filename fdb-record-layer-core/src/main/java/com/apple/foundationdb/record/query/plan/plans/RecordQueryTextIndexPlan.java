@@ -113,6 +113,11 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex {
     }
 
     @Override
+    public boolean hasLoadBykeys() {
+        return false;
+    }
+
+    @Override
     public void logPlanStructure(StoreTimer timer) {
         timer.increment(FDBStoreTimer.Counts.PLAN_INDEX);
     }

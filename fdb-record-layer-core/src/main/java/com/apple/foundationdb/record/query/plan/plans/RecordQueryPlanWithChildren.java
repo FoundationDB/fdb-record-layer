@@ -23,9 +23,42 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
 
+import javax.annotation.Nonnull;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * A query plan with child plans.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithChildren extends RecordQueryPlan, RelationalExpressionWithChildren {
+    @Override
+    default boolean hasRecordScan() {
+        return getChildren().stream().anyMatch(RecordQueryPlan::hasRecordScan);
+    }
+
+    @Override
+    default boolean hasFullRecordScan() {
+        return getChildren().stream().anyMatch(RecordQueryPlan::hasFullRecordScan);
+    }
+
+    @Override
+    default boolean hasIndexScan(@Nonnull String indexName) {
+        return getChildren().stream().anyMatch(p -> p.hasIndexScan(indexName));
+    }
+
+    @Nonnull
+    @Override
+    default Set<String> getUsedIndexes() {
+        final Set<String> result = new HashSet<>();
+        for (RecordQueryPlan child : getChildren()) {
+            result.addAll(child.getUsedIndexes());
+        }
+        return result;
+    }
+
+    @Override
+    default boolean hasLoadBykeys() {
+        return getChildren().stream().anyMatch(RecordQueryPlan::hasLoadBykeys);
+    }
 }
