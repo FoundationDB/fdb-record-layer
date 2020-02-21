@@ -71,7 +71,7 @@ public enum LogMessageKeys {
     PROVIDED_KEY("provided_key"),
     PROVIDED_VALUE("provided_value"),
     LIST_FROM("list_from"),
-    SUBDIR_NAME("subdir_name"),
+    SUBDIRECTORY("subdirectory"),
     RANGE("range"),
     RANGE_VALUE_TYPE("range_value_type"),
     EXPECTED_VALUE_TYPE("expected_value_type"),
@@ -143,6 +143,7 @@ public enum LogMessageKeys {
     RESULT("result"),
     INDEXER_CURR_RETRY("indexer_curr_retry"),
     INDEXER_MAX_RETRIES("indexer_max_retries"),
+    DIRECTOY("directory"),
 
     // comparisons
     COMPARISON_VALUE("comparison_value"),
