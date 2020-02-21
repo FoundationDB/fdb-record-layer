@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -64,14 +65,24 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
 
             @Override
             public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
+                // Allow changing from unspecified to the default (or vice versa), but not otherwise.
                 if (changedOptions.contains(IndexOptions.RANK_NLEVELS)) {
-                    int oldLevels = RankIndexMaintainer.getNLevels(oldIndex);
-                    int newLevels = RankIndexMaintainer.getNLevels(index);
+                    int oldLevels = RankedSetIndexHelper.getNLevels(oldIndex);
+                    int newLevels = RankedSetIndexHelper.getNLevels(index);
                     if (oldLevels != newLevels) {
                         throw new MetaDataException("rank levels changed",
                                 LogMessageKeys.INDEX_NAME, index.getName());
                     }
                     changedOptions.remove(IndexOptions.RANK_NLEVELS);
+                }
+                if (changedOptions.contains(IndexOptions.RANK_HASH_FUNCTION)) {
+                    RankedSet.HashFunction oldFunction = RankedSetIndexHelper.getHashFunction(oldIndex);
+                    RankedSet.HashFunction newFunction = RankedSetIndexHelper.getHashFunction(index);
+                    if (!oldFunction.equals(newFunction)) {
+                        throw new MetaDataException("rank hash function changed",
+                                LogMessageKeys.INDEX_NAME, index.getName());
+                    }
+                    changedOptions.remove(IndexOptions.RANK_HASH_FUNCTION);
                 }
                 super.validateChangedOptions(oldIndex, changedOptions);
             }
