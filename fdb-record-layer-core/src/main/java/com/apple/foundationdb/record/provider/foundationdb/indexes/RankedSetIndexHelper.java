@@ -40,8 +40,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hashing;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,44 +52,6 @@ import java.util.concurrent.CompletableFuture;
 public class RankedSetIndexHelper {
     public static final Tuple COMPARISON_SKIPPED_SCORE = Tuple.from(Comparisons.COMPARISON_SKIPPED_BINDING);
 
-    public static final RankedSet.HashFunction MURMUR3_HASH_FUNCTION = new GuavaHashFunction(Hashing.murmur3_32());
-
-    /**
-     * Use {@code com.google.common.hash.HashFunction}s as {@code RankedSet.HashFunction}s.
-     */
-    public static class GuavaHashFunction implements RankedSet.HashFunction {
-        @Nonnull
-        private final HashFunction guava;
-
-        public GuavaHashFunction(HashFunction guava) {
-            this.guava = guava;
-        }
-
-        @Override
-        public int hash(byte[] key) {
-            return guava.hashBytes(key).asInt();
-        }
-    }
-
-    /**
-     * Known hash functions available as index options.
-     */
-    public enum HashFunctionNames {
-        JDK(RankedSet.JDK_ARRAY_HASH),
-        CRC(RankedSet.CRC_HASH),
-        MURMUR3(MURMUR3_HASH_FUNCTION);
-
-        private final RankedSet.HashFunction hashFunction;
-
-        HashFunctionNames(RankedSet.HashFunction hashFunction) {
-            this.hashFunction = hashFunction;
-        }
-
-        public RankedSet.HashFunction getHashFunction() {
-            return hashFunction;
-        }
-    }
-
     public static int getNLevels(@Nonnull Index index) {
         String nlevelsOption = index.getOption(IndexOptions.RANK_NLEVELS);
         return nlevelsOption == null ? RankedSet.DEFAULT_LEVELS : Integer.parseInt(nlevelsOption);
@@ -99,7 +59,7 @@ public class RankedSetIndexHelper {
 
     public static RankedSet.HashFunction getHashFunction(@Nonnull Index index) {
         String hashFunctionOption = index.getOption(IndexOptions.RANK_HASH_FUNCTION);
-        return hashFunctionOption == null ? RankedSet.DEFAULT_HASH_FUNCTION : HashFunctionNames.valueOf(hashFunctionOption).getHashFunction();
+        return hashFunctionOption == null ? RankedSet.DEFAULT_HASH_FUNCTION : RankedSetHashFunctions.getHashFunction(hashFunctionOption);
     }
 
     /**

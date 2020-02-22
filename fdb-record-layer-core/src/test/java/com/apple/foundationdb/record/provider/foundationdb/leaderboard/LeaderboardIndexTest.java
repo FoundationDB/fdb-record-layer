@@ -51,7 +51,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetHashFunctions;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -365,7 +365,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
             metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD,
-                    Collections.singletonMap(IndexOptions.RANK_HASH_FUNCTION, RankedSetIndexHelper.HashFunctionNames.MURMUR3.name())));
+                    Collections.singletonMap(IndexOptions.RANK_HASH_FUNCTION, RankedSetHashFunctions.MURMUR3)));
         }
     }
 
