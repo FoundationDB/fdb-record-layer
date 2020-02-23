@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -84,15 +85,13 @@ public class FDBStoreTimerTest {
         // see the timer counts from some onNext calls
         FDBStoreTimer latestTimer = context.getTimer();
         StoreTimerSnapshot savedTimer;
-        CompletableFuture<RecordCursorResult<KeyValue>> fkvr;
-        RecordCursorResult<KeyValue> kvr;
         StoreTimer diffTimer;
 
         // get a snapshot from latestTimer before advancing cursor
         savedTimer = StoreTimerSnapshot.from(latestTimer);
 
         // advance the cursor once
-        kvr = kvc.onNext().join();
+        kvc.onNext().join();
 
         // the diff from latestTimer minus savedTimer will have the timer cost from the single cursor advance
         diffTimer = StoreTimer.getDifference(latestTimer, savedTimer);
@@ -109,7 +108,7 @@ public class FDBStoreTimerTest {
         // advance the cursor more times
         final int numAdvances = 5;
         for (int i = 0; i < numAdvances; i++) {
-            kvr = kvc.onNext().join();
+            kvc.onNext().join();
         }
 
         // the diff from latestTimer and savedTimer will have the timer cost from the subsequent cursor advances
@@ -177,6 +176,47 @@ public class FDBStoreTimerTest {
         // invalid to subtract a snapshot timer from a timer it was not derived from
         StoreTimer anotherStoreTimer = new StoreTimer();
         assertThrows(RecordCoreArgumentException.class, () -> StoreTimer.getDifference(anotherStoreTimer, savedTimer));
+    }
+
+    @Test
+    public void unchangedMetricsExcludedFromSnapshotDifference() {
+        StoreTimer timer = new FDBStoreTimer();
+
+        timer.increment(FDBStoreTimer.Counts.CREATE_RECORD_STORE);
+        timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
+        timer.record(FDBStoreTimer.Events.CHECK_VERSION, 1L);
+        timer.record(FDBStoreTimer.Events.DIRECTORY_READ, 3L);
+
+        StoreTimerSnapshot snapshot = StoreTimerSnapshot.from(timer);
+
+        timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
+        timer.record(FDBStoreTimer.Events.DIRECTORY_READ, 7L);
+
+        StoreTimer diff = StoreTimer.getDifference(timer, snapshot);
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.CREATE_RECORD_STORE), Matchers.nullValue());
+        assertThat(diff.getCounter(FDBStoreTimer.Events.CHECK_VERSION), Matchers.nullValue());
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getTimeNanos(), Matchers.is(0L));
+        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getTimeNanos(), Matchers.is(7L));
+    }
+
+    @Test
+    public void newMetricsAddedToSnapshotDifference() {
+        StoreTimer timer = new FDBStoreTimer();
+
+        timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
+
+        StoreTimerSnapshot snapshot = StoreTimerSnapshot.from(timer);
+
+        timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
+        timer.record(FDBStoreTimer.Events.DIRECTORY_READ, 7L);
+
+        StoreTimer diff = StoreTimer.getDifference(timer, snapshot);
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getTimeNanos(), Matchers.is(0L));
+        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getTimeNanos(), Matchers.is(7L));
     }
 
     private enum TestEvent implements StoreTimer.Event {
