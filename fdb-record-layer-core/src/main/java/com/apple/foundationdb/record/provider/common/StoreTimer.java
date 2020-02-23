@@ -108,38 +108,35 @@ public class StoreTimer {
         }
 
         StoreTimer resultTimer = new StoreTimer();
-        timer.counters.entrySet()
-                .stream()
-                .forEach(entry -> {
-                    int count = 0;
-                    long time = 0L;
-                    if (timerSnapshot.containsCounter(entry.getKey())) {
-                        count = timerSnapshot.getCounterSnapshot(entry.getKey()).getCount();
-                        time = timerSnapshot.getCounterSnapshot(entry.getKey()).getTimeNanos();
-                    }
-                    Counter diffCounter = new Counter();
-                    diffCounter.count.set(entry.getValue().count.get() - count);
-                    diffCounter.timeNanos.set(entry.getValue().timeNanos.get() - time);
-                    resultTimer.counters.put(entry.getKey(), diffCounter);
-                });
-        timer.timeoutCounters.entrySet()
-                .stream()
-                .forEach(entry -> {
-                    int count = 0;
-                    long time = 0L;
-                    if (timerSnapshot.containsTimeoutCounter(entry.getKey())) {
-                        count = timerSnapshot.getTimeoutCounterSnapshot(entry.getKey()).getCount();
-                        time = timerSnapshot.getTimeoutCounterSnapshot(entry.getKey()).getTimeNanos();
-                    }
-                    Counter diffCounter = new Counter();
-                    diffCounter.count.set(entry.getValue().count.get() - count);
-                    diffCounter.timeNanos.set(entry.getValue().timeNanos.get() - time);
-                    resultTimer.timeoutCounters.put(entry.getKey(), diffCounter);
-                });
+        computeDifference(timer.counters, timerSnapshot.getCounters(), resultTimer.counters);
+        computeDifference(timer.timeoutCounters, timerSnapshot.getTimeoutCounters(), resultTimer.timeoutCounters);
 
         //subtracting out the snapshot has effectively made the snapshot time the last reset time
         timerSnapshot.setResetTime(resultTimer);
         return resultTimer;
+    }
+
+    private static void computeDifference(@Nonnull Map<Event, Counter> timerCounters,
+                                          @Nonnull Map<Event, StoreTimerSnapshot.CounterSnapshot> snapShotCounters,
+                                          @Nonnull Map<Event, Counter> differenceCounters) {
+        for (Map.Entry<Event, Counter> entry : timerCounters.entrySet()) {
+            final Event event = entry.getKey();
+            final Counter counter = entry.getValue();
+
+            @Nullable final StoreTimerSnapshot.CounterSnapshot snapShotCounter = snapShotCounters.get(event);
+
+            // Add events that appeared in the store timer since the snapshot
+            if (snapShotCounter == null) {
+                differenceCounters.put(event, new Counter(counter));
+            } else {
+                int count = counter.getCount() - snapShotCounter.getCount();
+
+                // Do not add events that weren't changed since the snapshot
+                if (count > 0) {
+                    differenceCounters.put(event, new Counter(count, counter.getTimeNanos() - snapShotCounter.getTimeNanos()));
+                }
+            }
+        }
     }
 
     /**
@@ -369,15 +366,33 @@ public class StoreTimer {
      * Contains the number of occurrences and cummulative time spent on an associated {@link StoreTimer.Event}.
      */
     public static class Counter {
-        private final AtomicLong timeNanos = new AtomicLong();
-        private final AtomicInteger count = new AtomicInteger();
+        private final AtomicLong timeNanos;
+        private final AtomicInteger count;
         private boolean immutable;
 
         private Counter() {
             this(false);
         }
 
+        private Counter(Counter counter) {
+            this(counter, false);
+        }
+
+        private Counter(Counter counter, boolean immutable) {
+            this(counter.getCount(), counter.getTimeNanos(), immutable);
+        }
+
         private Counter(boolean immutable) {
+            this(0, 0L, immutable);
+        }
+
+        private Counter(int count, long timeNanos) {
+            this(count, timeNanos, false);
+        }
+
+        private Counter(int count, long timeNanos, boolean immutable) {
+            this.count = new AtomicInteger(count);
+            this.timeNanos = new AtomicLong(timeNanos);
             this.immutable = immutable;
         }
 
