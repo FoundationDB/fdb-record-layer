@@ -33,9 +33,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -78,16 +76,13 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.MAINTAINED)
 public class RankIndexMaintainer extends StandardIndexMaintainer {
+    private final RankedSet.HashFunction hashFunction;
     private final int nlevels;
-
-    static int getNLevels(@Nonnull Index index) {
-        String nlevelsOption = index.getOption(IndexOptions.RANK_NLEVELS);
-        return nlevelsOption == null ? RankedSet.DEFAULT_LEVELS : Integer.parseInt(nlevelsOption);
-    }
 
     public RankIndexMaintainer(IndexMaintainerState state) {
         super(state);
-        this.nlevels = getNLevels(state.index);
+        this.nlevels = RankedSetIndexHelper.getNLevels(state.index);
+        this.hashFunction = RankedSetIndexHelper.getHashFunction(state.index);
     }
 
     @Nonnull
@@ -103,7 +98,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
         }
         final Subspace extraSubspace = getSecondarySubspace();
         final CompletableFuture<TupleRange> scoreRangeFuture = RankedSetIndexHelper.rankRangeToScoreRange(state,
-                getGroupingCount(), extraSubspace, nlevels, rankRange);
+                getGroupingCount(), extraSubspace, hashFunction, nlevels, rankRange);
         return RecordCursor.mapFuture(getExecutor(), scoreRangeFuture, continuation,
                 (scoreRange, scoreContinuation) -> {
                     if (scoreRange == null) {
@@ -134,7 +129,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
                 rankSubspace = extraSubspace;
                 scoreKey = indexEntry.getKey();
             }
-            futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace, nlevels, indexEntry.getKey(),
+            futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace, hashFunction, nlevels, indexEntry.getKey(),
                     scoreKey, remove));
         }
         return AsyncUtil.whenAll(futures);
@@ -170,7 +165,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
             rankSubspace = rankSubspace.subspace(prefix);
             scoreValue = Tuple.fromList(scoreValue.getItems().subList(groupPrefixSize, scoreValue.size()));
         }
-        RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, nlevels);
+        RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, hashFunction, nlevels);
         return RankedSetIndexHelper.rankForScore(state, rankedSet, scoreValue, true);
     }
 
@@ -249,7 +244,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
             rankSubspace = rankSubspace.subspace(TupleHelpers.subTuple(values, 0, groupingCount));
             values = TupleHelpers.subTuple(values, groupingCount, values.size());
         }
-        final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, nlevels);
+        final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, hashFunction, nlevels);
         return function.apply(rankedSet, values);
     }
 

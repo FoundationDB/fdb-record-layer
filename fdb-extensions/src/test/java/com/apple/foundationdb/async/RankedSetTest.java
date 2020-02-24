@@ -57,6 +57,8 @@ public class RankedSetTest extends FDBTestBase {
     private Database db;
     private Subspace rsSubspace;
 
+    private RankedSet.HashFunction hashFunction = RankedSet.DEFAULT_HASH_FUNCTION;
+    private int levels = RankedSet.DEFAULT_LEVELS;
     private static final boolean TRACE = false;
 
     @BeforeEach
@@ -76,17 +78,34 @@ public class RankedSetTest extends FDBTestBase {
     }
 
     @Test
-    public void simple() throws Exception {
-        RankedSet rs = newRankedSet();
+    public void basic() throws Exception {
+        basicOperations(RankedSet.DEFAULT_HASH_FUNCTION, RankedSet.DEFAULT_HASH_FUNCTION);
+    }
+
+    @Test
+    public void basicCrc() throws Exception {
+        basicOperations(RankedSet.CRC_HASH, RankedSet.CRC_HASH);
+    }
+
+    @Test
+    public void basicChange() throws Exception {
+        basicOperations(RankedSet.JDK_ARRAY_HASH, RankedSet.CRC_HASH);
+    }
+
+    private void basicOperations(RankedSet.HashFunction firstHashFunction, RankedSet.HashFunction secondHashFunction) {
+        byte[][] keys = new byte[100][];
+        for (int i = 0; i < 100; ++i) {
+            keys[i] = Tuple.from(String.valueOf((char)i)).pack();
+        }
         db.run(tr -> {
-            byte[][] keys = new byte[100][];
-            for (int i = 0; i < 100; ++i) {
-                keys[i] = Tuple.from(String.valueOf((char)i)).pack();
-            }
+            hashFunction = firstHashFunction;
+            RankedSet rs = newRankedSet();
             for (byte[] k : keys) {
                 boolean wasNew = rs.add(tr, k).join();
                 assertTrue(wasNew);
             }
+            hashFunction = secondHashFunction;
+            rs = newRankedSet();
             for (int i = 0; i < keys.length; ++i) {
                 long rank = rs.rank(tr, keys[i]).join();
                 assertEquals(i, rank);
@@ -94,6 +113,10 @@ public class RankedSetTest extends FDBTestBase {
             for (int i = 0; i < keys.length; ++i) {
                 byte[] nth = rs.getNth(tr, i).join();
                 assertArrayEquals(keys[i], nth);
+            }
+            for (byte[] k : keys) {
+                boolean wasOld = rs.remove(tr, k).join();
+                assertTrue(wasOld);
             }
             return null;
         });
@@ -209,7 +232,7 @@ public class RankedSetTest extends FDBTestBase {
     //
 
     private RankedSet newRankedSet() {
-        RankedSet result = new RankedSet(rsSubspace, ForkJoinPool.commonPool());
+        RankedSet result = new RankedSet(rsSubspace, ForkJoinPool.commonPool(), hashFunction, levels);
         result.init(db).join();
         return result;
     }

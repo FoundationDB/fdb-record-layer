@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.async;
 
-import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
@@ -29,7 +27,9 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.StreamingMode;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.zip.CRC32;
 
 import static com.apple.foundationdb.async.AsyncUtil.DONE;
 import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
@@ -75,6 +76,34 @@ import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
  */
 @API(API.Status.MAINTAINED)
 public class RankedSet {
+    /**
+     * Hash using the JDK's default byte array hash.
+     *
+     * This hash does not have great distribution for certain values with low entropy.
+     */
+    public static final HashFunction JDK_ARRAY_HASH = Arrays::hashCode;
+
+    /**
+     * Hash using 32-bit CRC.
+     *
+     * Although not designed for hashing, this does often give better distribution than {@link #JDK_ARRAY_HASH}.
+     */
+    public static final HashFunction CRC_HASH = new HashFunction() {
+        @Override
+        public int hash(byte[] key) {
+            final CRC32 crc = new CRC32();
+            crc.update(key);
+            return (int)crc.getValue();
+        }
+    };
+
+    /**
+     * The default hash function to use.
+     *
+     * For reasons of compatibility with existing data, this defaults to the JDK's array hash.
+     */
+    public static final HashFunction DEFAULT_HASH_FUNCTION = JDK_ARRAY_HASH;
+
     private static final int LEVEL_FAN_POW = 4;
     private static final int[] LEVEL_FAN_VALUES; // 2^(l * FAN) - 1 per level
     public static final int MAX_LEVELS = Integer.SIZE / LEVEL_FAN_POW;
@@ -82,6 +111,7 @@ public class RankedSet {
 
     protected final Subspace subspace;
     protected final Executor executor;
+    protected final HashFunction hashFunction;
     protected final int nlevels;
 
     static {
@@ -103,23 +133,40 @@ public class RankedSet {
     }
 
     /**
+     * Function to compute the hash used to determine which levels a key value splits on.
+     *
+     * Changing the hash function used for an existing {@code RankedSet} will tend to misbalance it but will not break
+     * it, in that existing entries can be counted and removed.
+     */
+    @FunctionalInterface
+    public interface HashFunction {
+        int hash(byte[] key);
+    }
+
+    /**
      * Initialize a new ranked set.
      * @param subspace the subspace where the ranked set is stored
      * @param executor an executor to use when running asynchronous tasks
+     * @param hashFunction hash function to use to determine which levels a key splits on
      * @param nlevels number of skip list levels to maintain
      */
-    public RankedSet(Subspace subspace, Executor executor, int nlevels) {
+    public RankedSet(Subspace subspace, Executor executor, HashFunction hashFunction, int nlevels) {
         if (nlevels < 2 || nlevels > MAX_LEVELS) {
             throw new IllegalArgumentException("levels must be between 2 and " + MAX_LEVELS);
         }
 
         this.subspace = subspace;
         this.executor = executor;
+        this.hashFunction = hashFunction;
         this.nlevels = nlevels;
     }
 
+    public RankedSet(Subspace subspace, Executor executor, int nlevels) {
+        this(subspace, executor, DEFAULT_HASH_FUNCTION, nlevels);
+    }
+
     public RankedSet(Subspace subspace, Executor executor) {
-        this(subspace, executor, DEFAULT_LEVELS);
+        this(subspace, executor, DEFAULT_HASH_FUNCTION, DEFAULT_LEVELS);
     }
 
     public CompletableFuture<Void> init(TransactionContext tc) {
@@ -144,9 +191,7 @@ public class RankedSet {
     public CompletableFuture<Boolean> add(TransactionContext tc, byte[] key) {
         checkKey(key);
         // Use the hash of the key, instead a p value and randomLevel. The key is likely Tuple-encoded.
-        // Java's byte-array hash tends to be slow at filling up the high bits of the integer, but level masks
-        // take nibbles from the right as well.
-        long keyHash = hashKey(key);
+        long keyHash = hashFunction.hash(key);
         return tc.runAsync(tr ->
             containsCheckedKey(tr, key)
                 .thenCompose(exists -> {
@@ -482,7 +527,7 @@ public class RankedSet {
                             List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
                             for (int li = 0; li < nlevels; ++li) {
                                 int level = li;
-                                // This could be optimized with hash (?? Comment from Ruby version)
+                                // This could be optimized to check the hash for which levels should have this key.
                                 byte[] k = subspace.pack(Tuple.from(level, key));
 
                                 CompletableFuture<Void> future;
@@ -502,6 +547,7 @@ public class RankedSet {
                                                 byte[] c = cf.join();
                                                 long countChange = -1;
                                                 if (c != null) {
+                                                    // Give back additional count from the key we are erasing to the neighbor.
                                                     countChange += decodeLong(c);
                                                     tr.clear(k);
                                                 }
@@ -615,10 +661,6 @@ public class RankedSet {
                             return prevk;
                         }));
         return kf.thenApply(prevk -> subspace.unpack(prevk).getBytes(1));
-    }
-
-    private long hashKey(byte[] k) {
-        return Arrays.hashCode(k);
     }
 
     private CompletableFuture<Void> initLevels(TransactionContext tc) {

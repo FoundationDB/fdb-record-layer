@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -50,6 +51,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetHashFunctions;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -362,7 +364,8 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
+            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD,
+                    Collections.singletonMap(IndexOptions.RANK_HASH_FUNCTION, RankedSetHashFunctions.MURMUR3)));
         }
     }
 

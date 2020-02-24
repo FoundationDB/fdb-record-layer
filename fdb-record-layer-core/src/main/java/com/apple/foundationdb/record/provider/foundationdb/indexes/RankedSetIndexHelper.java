@@ -20,16 +20,18 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.ReadTransactionContext;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionContext;
@@ -49,6 +51,16 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.INTERNAL)
 public class RankedSetIndexHelper {
     public static final Tuple COMPARISON_SKIPPED_SCORE = Tuple.from(Comparisons.COMPARISON_SKIPPED_BINDING);
+
+    public static int getNLevels(@Nonnull Index index) {
+        String nlevelsOption = index.getOption(IndexOptions.RANK_NLEVELS);
+        return nlevelsOption == null ? RankedSet.DEFAULT_LEVELS : Integer.parseInt(nlevelsOption);
+    }
+
+    public static RankedSet.HashFunction getHashFunction(@Nonnull Index index) {
+        String hashFunctionOption = index.getOption(IndexOptions.RANK_HASH_FUNCTION);
+        return hashFunctionOption == null ? RankedSet.DEFAULT_HASH_FUNCTION : RankedSetHashFunctions.getHashFunction(hashFunctionOption);
+    }
 
     /**
      * Instrumentation events specific to rank index maintenance.
@@ -89,6 +101,7 @@ public class RankedSetIndexHelper {
     public static CompletableFuture<TupleRange> rankRangeToScoreRange(@Nonnull IndexMaintainerState state,
                                                                       int groupPrefixSize,
                                                                       @Nonnull Subspace rankSubspace,
+                                                                      @Nonnull RankedSet.HashFunction hashFunction,
                                                                       int nlevels,
                                                                       @Nonnull TupleRange rankRange) {
         final Tuple prefix = groupPrefix(groupPrefixSize, rankRange, rankSubspace);
@@ -117,7 +130,7 @@ public class RankedSetIndexHelper {
             return CompletableFuture.completedFuture(TupleRange.allOf(prefix));
         }
 
-        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, nlevels);
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, hashFunction, nlevels);
         return init(state, rankedSet).thenCompose(v -> {
             CompletableFuture<Tuple> lowScoreFuture = scoreForRank(state, rankedSet, startFromBeginning ? 0L : lowRankNum, null);
             CompletableFuture<Tuple> highScoreFuture = scoreForRank(state, rankedSet, highRankNum, null);
@@ -220,11 +233,12 @@ public class RankedSetIndexHelper {
     @Nonnull
     public static CompletableFuture<Void> updateRankedSet(@Nonnull IndexMaintainerState state,
                                                           @Nonnull Subspace rankSubspace,
+                                                          @Nonnull RankedSet.HashFunction hashFunction,
                                                           int nlevels,
                                                           @Nonnull Tuple valueKey,
                                                           @Nonnull Tuple scoreKey,
                                                           boolean remove) {
-        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, nlevels);
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, hashFunction, nlevels);
         final byte[] score = scoreKey.pack();
         CompletableFuture<Void> result = init(state, rankedSet).thenCompose(v -> {
             if (remove) {
@@ -259,8 +273,9 @@ public class RankedSetIndexHelper {
 
         public InstrumentedRankedSet(@Nonnull IndexMaintainerState state,
                                      @Nonnull Subspace rankSubspace,
+                                     @Nonnull HashFunction hashFunction,
                                      int nlevels) {
-            super(rankSubspace, state.context.getExecutor(), nlevels);
+            super(rankSubspace, state.context.getExecutor(), hashFunction, nlevels);
             this.context = state.context;
         }
 

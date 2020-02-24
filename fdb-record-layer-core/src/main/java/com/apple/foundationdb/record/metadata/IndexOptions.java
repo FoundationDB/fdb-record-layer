@@ -89,6 +89,13 @@ public class IndexOptions {
      */
     public static final String RANK_NLEVELS = "rankNLevels";
 
+    /**
+     * The hash function to use in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
+     *
+     * The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_HASH_FUNCTION}.
+     */
+    public static final String RANK_HASH_FUNCTION = "rankHashFunction";
+
     private IndexOptions() {
     }
 }
