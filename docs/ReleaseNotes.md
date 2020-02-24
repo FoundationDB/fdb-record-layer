@@ -40,12 +40,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** NoSuchDirectoryException should include full directory path [(Issue #797)](https://github.com/FoundationDB/fdb-record-layer/issues/797)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** StoreTimer.getDifference() should not return unchanged metrics [(Issue #832)](https://github.com/FoundationDB/fdb-record-layer/issues/832)
-* **Performance** Allow setting hash function used by `RankedSet` [(Issue #828)](https://github.com/FoundationDB/fdb-record-layer/issues/828)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,6 +63,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.102.0
+
+* **Bug fix** NoSuchDirectoryException should include full directory path [(Issue #797)](https://github.com/FoundationDB/fdb-record-layer/issues/797)
+* **Bug fix** StoreTimer.getDifference() should not return unchanged metrics [(Issue #832)](https://github.com/FoundationDB/fdb-record-layer/issues/832)
+* **Performance** Allow setting hash function used by `RankedSet` [(Issue #828)](https://github.com/FoundationDB/fdb-record-layer/issues/828)
 
 ### 2.8.101.0
 
