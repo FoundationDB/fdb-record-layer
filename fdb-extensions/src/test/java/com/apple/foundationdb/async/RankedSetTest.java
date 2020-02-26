@@ -45,6 +45,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,8 +58,7 @@ public class RankedSetTest extends FDBTestBase {
     private Database db;
     private Subspace rsSubspace;
 
-    private RankedSet.HashFunction hashFunction = RankedSet.DEFAULT_HASH_FUNCTION;
-    private int levels = RankedSet.DEFAULT_LEVELS;
+    private RankedSet.Config config = RankedSet.DEFAULT_CONFIG;
     private static final boolean TRACE = false;
 
     @BeforeEach
@@ -98,13 +98,14 @@ public class RankedSetTest extends FDBTestBase {
             keys[i] = Tuple.from(String.valueOf((char)i)).pack();
         }
         db.run(tr -> {
-            hashFunction = firstHashFunction;
+            config = RankedSet.newConfigBuilder().setHashFunction(firstHashFunction).build();
             RankedSet rs = newRankedSet();
             for (byte[] k : keys) {
                 boolean wasNew = rs.add(tr, k).join();
                 assertTrue(wasNew);
             }
-            hashFunction = secondHashFunction;
+            assertFalse(rs.add(tr, keys[10]).join());
+            config = RankedSet.newConfigBuilder().setHashFunction(secondHashFunction).build();
             rs = newRankedSet();
             for (int i = 0; i < keys.length; ++i) {
                 long rank = rs.rank(tr, keys[i]).join();
@@ -118,6 +119,7 @@ public class RankedSetTest extends FDBTestBase {
                 boolean wasOld = rs.remove(tr, k).join();
                 assertTrue(wasOld);
             }
+            assertFalse(rs.remove(tr, keys[20]).join());
             return null;
         });
     }
@@ -232,7 +234,7 @@ public class RankedSetTest extends FDBTestBase {
     //
 
     private RankedSet newRankedSet() {
-        RankedSet result = new RankedSet(rsSubspace, ForkJoinPool.commonPool(), hashFunction, levels);
+        RankedSet result = new RankedSet(rsSubspace, ForkJoinPool.commonPool(), config);
         result.init(db).join();
         return result;
     }

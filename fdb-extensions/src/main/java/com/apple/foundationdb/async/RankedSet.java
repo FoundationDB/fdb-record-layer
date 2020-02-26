@@ -108,11 +108,11 @@ public class RankedSet {
     private static final int[] LEVEL_FAN_VALUES; // 2^(l * FAN) - 1 per level
     public static final int MAX_LEVELS = Integer.SIZE / LEVEL_FAN_POW;
     public static final int DEFAULT_LEVELS = 6;
+    public static final Config DEFAULT_CONFIG = new Config();
 
     protected final Subspace subspace;
     protected final Executor executor;
-    protected final HashFunction hashFunction;
-    protected final int nlevels;
+    protected final Config config;
 
     static {
         LEVEL_FAN_VALUES = new int[MAX_LEVELS];
@@ -144,29 +144,124 @@ public class RankedSet {
     }
 
     /**
+     * Configuration settings for a {@link RankedSet}.
+     */
+    public static class Config {
+        private final HashFunction hashFunction;
+        private final int nlevels;
+
+        protected Config() {
+            this.hashFunction = DEFAULT_HASH_FUNCTION;
+            this.nlevels = DEFAULT_LEVELS;
+        }
+
+        protected Config(HashFunction hashFunction, int nlevels) {
+            this.hashFunction = hashFunction;
+            this.nlevels = nlevels;
+        }
+
+        /**
+         * Get the hash function to use.
+         * @return a {@link HashFunction} used to convert keys to a bit mask used to determine level splits in the skip list
+         */
+        public HashFunction getHashFunction() {
+            return hashFunction;
+        }
+
+        /**
+         * Get the number of levels to use.
+         * @return the number of levels in the skip list
+         */
+        public int getNLevels() {
+            return nlevels;
+        }
+    }
+
+
+    /**
+     * Builder for {@link Config}.
+     *
+     * @see #newConfigBuilder
+     */
+    public static class ConfigBuilder {
+        private HashFunction hashFunction = DEFAULT_HASH_FUNCTION;
+        private int nlevels = DEFAULT_LEVELS;
+
+        protected ConfigBuilder() {
+        }
+
+        public HashFunction getHashFunction() {
+            return hashFunction;
+        }
+
+        /**
+         * Set the hash function to use.
+         *
+         * It is possible to change the hash function of an existing ranked set, although this is not recommended since the distribution in the skip list may
+         * become uneven as a result.
+         * @param hashFunction the hash function to use
+         * @return this builder
+         */
+        public ConfigBuilder setHashFunction(HashFunction hashFunction) {
+            this.hashFunction = hashFunction;
+            return this;
+        }
+
+        public int getNLevels() {
+            return nlevels;
+        }
+
+        /**
+         * Set the hash function to use.
+         *
+         * It is not currently possible to change the number of levels for an existing ranked set.
+         * @param nlevels the number of levels to use
+         * @return this builder
+         */
+        public ConfigBuilder setNLevels(int nlevels) {
+            if (nlevels < 2 || nlevels > MAX_LEVELS) {
+                throw new IllegalArgumentException("levels must be between 2 and " + MAX_LEVELS);
+            }
+            this.nlevels = nlevels;
+            return this;
+        }
+
+        public Config build() {
+            return new Config(hashFunction, nlevels);
+        }
+    }
+
+    /**
+     * Start building a {@link Config}.
+     * @return a new {@code Config} that can be altered and then built for use with a {@link RankedSet}
+     * @see ConfigBuilder#build
+     */
+    public static ConfigBuilder newConfigBuilder() {
+        return new ConfigBuilder();
+    }
+
+    /**
      * Initialize a new ranked set.
      * @param subspace the subspace where the ranked set is stored
      * @param executor an executor to use when running asynchronous tasks
-     * @param hashFunction hash function to use to determine which levels a key splits on
-     * @param nlevels number of skip list levels to maintain
+     * @param config configuration to use
      */
-    public RankedSet(Subspace subspace, Executor executor, HashFunction hashFunction, int nlevels) {
-        if (nlevels < 2 || nlevels > MAX_LEVELS) {
-            throw new IllegalArgumentException("levels must be between 2 and " + MAX_LEVELS);
-        }
-
+    public RankedSet(Subspace subspace, Executor executor, Config config) {
         this.subspace = subspace;
         this.executor = executor;
-        this.hashFunction = hashFunction;
-        this.nlevels = nlevels;
+        this.config = config;
+    }
+
+    public RankedSet(Subspace subspace, Executor executor, HashFunction hashFunction, int nlevels) {
+        this(subspace, executor, newConfigBuilder().setHashFunction(hashFunction).setNLevels(nlevels).build());
     }
 
     public RankedSet(Subspace subspace, Executor executor, int nlevels) {
-        this(subspace, executor, DEFAULT_HASH_FUNCTION, nlevels);
+        this(subspace, executor, newConfigBuilder().setNLevels(nlevels).build());
     }
 
     public RankedSet(Subspace subspace, Executor executor) {
-        this(subspace, executor, DEFAULT_HASH_FUNCTION, DEFAULT_LEVELS);
+        this(subspace, executor, DEFAULT_CONFIG);
     }
 
     public CompletableFuture<Void> init(TransactionContext tc) {
@@ -191,13 +286,14 @@ public class RankedSet {
     public CompletableFuture<Boolean> add(TransactionContext tc, byte[] key) {
         checkKey(key);
         // Use the hash of the key, instead a p value and randomLevel. The key is likely Tuple-encoded.
-        final long keyHash = hashFunction.hash(key);
+        final long keyHash = config.getHashFunction().hash(key);
         return tc.runAsync(tr ->
             countCheckedKey(tr, key)
                 .thenCompose(count -> {
                     if (count != null && count > 0) {
                         return READY_FALSE;
                     }
+                    final int nlevels = config.getNLevels();
                     List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
                     for (int li = 0; li < nlevels; ++li) {
                         final int level = li;
@@ -260,6 +356,7 @@ public class RankedSet {
                             if (count == null || count <= 0) {
                                 return READY_FALSE;
                             }
+                            final int nlevels = config.getNLevels();
                             final List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
                             for (int li = 0; li < nlevels; ++li) {
                                 final int level = li;
@@ -328,7 +425,7 @@ public class RankedSet {
     class NthLookup implements Lookup {
         private long rank;
         private byte[] key = EMPTY_ARRAY;
-        private int level = nlevels;
+        private int level = config.getNLevels();
         private Subspace levelSubspace;
         private AsyncIterator<KeyValue> asyncIterator = null;
 
@@ -432,7 +529,7 @@ public class RankedSet {
      * @return a future that is complete when the deeper levels have been loaded
      */
     public CompletableFuture<Void> preloadForLookup(ReadTransaction tr) {
-        return tr.getRange(subspace.range(), nlevels, true).asList().thenApply(l -> null);
+        return tr.getRange(subspace.range(), config.getNLevels(), true).asList().thenApply(l -> null);
     }
 
     protected CompletableFuture<Boolean> nextLookup(Lookup lookup, ReadTransaction tr) {
@@ -456,7 +553,7 @@ public class RankedSet {
         private byte[] rankKey = EMPTY_ARRAY;
         private long rank = 0;
         private Subspace levelSubspace;
-        private int level = nlevels;
+        private int level = config.getNLevels();
         private AsyncIterator<KeyValue> asyncIterator = null;
         private long lastCount;
 
@@ -567,7 +664,7 @@ public class RankedSet {
      * @return a future that completes to the number of items in the set
      */
     public CompletableFuture<Long> size(ReadTransactionContext tc) {
-        Range r = subspace.get(nlevels - 1).range();
+        Range r = subspace.get(config.getNLevels() - 1).range();
         return tc.readAsync(tr -> AsyncUtil.mapIterable(tr.getRange(r), keyValue -> decodeLong(keyValue.getValue()))
                 .asList()
                 .thenApply(longs -> longs.stream().reduce(0L, Long::sum)));
@@ -575,6 +672,7 @@ public class RankedSet {
 
     protected Consistency checkConsistency(ReadTransactionContext tc) {
         return tc.read(tr -> {
+            final int nlevels = config.getNLevels();
             for (int level = 1; level < nlevels; ++level) {
                 byte[] prevKey = null;
                 long prevCount = 0;
@@ -603,7 +701,8 @@ public class RankedSet {
 
     protected String toDebugString(ReadTransactionContext tc) {
         return tc.read(tr -> {
-            StringBuilder str = new StringBuilder();
+            final StringBuilder str = new StringBuilder();
+            final int nlevels = config.getNLevels();
             for (int level = 0; level < nlevels; ++level) {
                 if (level > 0) {
                     str.setLength(str.length() - 2);
@@ -665,7 +764,8 @@ public class RankedSet {
 
     private CompletableFuture<Void> initLevels(TransactionContext tc) {
         return tc.runAsync(tr -> {
-            List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
+            final int nlevels = config.getNLevels();
+            final List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
             // TODO: Add a way to change the number of levels in a ranked set that already exists (https://github.com/FoundationDB/fdb-record-layer/issues/141)
             for (int level = 0; level < nlevels; ++level) {
                 byte[] k = subspace.pack(Tuple.from(level, EMPTY_ARRAY));
