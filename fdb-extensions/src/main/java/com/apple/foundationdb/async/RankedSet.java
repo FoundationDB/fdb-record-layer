@@ -191,7 +191,7 @@ public class RankedSet {
     public CompletableFuture<Boolean> add(TransactionContext tc, byte[] key) {
         checkKey(key);
         // Use the hash of the key, instead a p value and randomLevel. The key is likely Tuple-encoded.
-        long keyHash = hashFunction.hash(key);
+        final long keyHash = hashFunction.hash(key);
         return tc.runAsync(tr ->
             containsCheckedKey(tr, key)
                 .thenCompose(exists -> {
@@ -200,7 +200,7 @@ public class RankedSet {
                     }
                     List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
                     for (int li = 0; li < nlevels; ++li) {
-                        int level = li;
+                        final int level = li;
                         CompletableFuture<Void> future;
                         if (level == 0) {
                             future = addLevelZeroKey(tr, key, level);
@@ -244,6 +244,57 @@ public class RankedSet {
                         return null;
                     });
         });
+    }
+
+    /**
+     * Removes a key from the set.
+     * @param tc the transaction to use to access the database
+     * @param key the key to remove
+     * @return a future that completes to {@code true} if the key was present before this operation
+     */
+    public CompletableFuture<Boolean> remove(TransactionContext tc, byte[] key) {
+        checkKey(key);
+        return tc.runAsync(tr ->
+                containsCheckedKey(tr, key)
+                        .thenCompose(exists -> {
+                            if (!exists) {
+                                return READY_FALSE;
+                            }
+                            final List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
+                            for (int li = 0; li < nlevels; ++li) {
+                                final int level = li;
+                                // This could be optimized to check the hash for which levels should have this key.
+                                final byte[] k = subspace.pack(Tuple.from(level, key));
+
+                                final CompletableFuture<Void> future;
+                                final CompletableFuture<byte[]> cf = tr.get(k);
+
+                                if (level == 0) {
+                                    future = cf.thenApply(c -> {
+                                        if (c != null) {
+                                            tr.clear(k);
+                                        }
+                                        return null;
+                                    });
+                                } else {
+                                    final CompletableFuture<byte[]> prevKeyF = getPreviousKey(tr, level, key);
+                                    future = CompletableFuture.allOf(cf, prevKeyF)
+                                            .thenApply(vignore -> {
+                                                final byte[] c = cf.join();
+                                                long countChange = -1;
+                                                if (c != null) {
+                                                    // Give back additional count from the key we are erasing to the neighbor.
+                                                    countChange += decodeLong(c);
+                                                    tr.clear(k);
+                                                }
+                                                tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKeyF.join())), encodeLong(countChange));
+                                                return null;
+                                            });
+                                }
+                                futures.add(future);
+                            }
+                            return AsyncUtil.whenAll(futures).thenApply(vignore -> true);
+                        }));
     }
 
     /**
@@ -508,57 +559,6 @@ public class RankedSet {
     private CompletableFuture<Long> rankLookup(ReadTransaction tr, byte[] key, boolean keyShouldBePresent) {
         RankLookup rank = new RankLookup(key, keyShouldBePresent);
         return AsyncUtil.whileTrue(() -> nextLookup(rank, tr), executor).thenApply(vignore -> rank.getRank());
-    }
-
-    /**
-     * Removes a key from the set.
-     * @param tc the transaction to use to access the database
-     * @param key the key to remove
-     * @return a future that completes to {@code true} if the key was present before this operation
-     */
-    public CompletableFuture<Boolean> remove(TransactionContext tc, byte[] key) {
-        checkKey(key);
-        return tc.runAsync(tr ->
-                containsCheckedKey(tr, key)
-                        .thenCompose(exists -> {
-                            if (!exists) {
-                                return READY_FALSE;
-                            }
-                            List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
-                            for (int li = 0; li < nlevels; ++li) {
-                                int level = li;
-                                // This could be optimized to check the hash for which levels should have this key.
-                                byte[] k = subspace.pack(Tuple.from(level, key));
-
-                                CompletableFuture<Void> future;
-                                CompletableFuture<byte[]> cf = tr.get(k);
-
-                                if (level == 0) {
-                                    future = cf.thenApply(c -> {
-                                        if (c != null) {
-                                            tr.clear(k);
-                                        }
-                                        return null;
-                                    });
-                                } else {
-                                    CompletableFuture<byte[]> prevKeyF = getPreviousKey(tr, level, key);
-                                    future = CompletableFuture.allOf(cf, prevKeyF)
-                                            .thenApply(vignore -> {
-                                                byte[] c = cf.join();
-                                                long countChange = -1;
-                                                if (c != null) {
-                                                    // Give back additional count from the key we are erasing to the neighbor.
-                                                    countChange += decodeLong(c);
-                                                    tr.clear(k);
-                                                }
-                                                tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKeyF.join())), encodeLong(countChange));
-                                                return null;
-                                            });
-                                }
-                                futures.add(future);
-                            }
-                            return AsyncUtil.whenAll(futures).thenApply(vignore -> true);
-                        }));
     }
 
     /**
