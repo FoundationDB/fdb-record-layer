@@ -532,13 +532,8 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         ExecuteProperties adjustedExecuteProperties = withAdjustedLimit.getExecuteProperties();
 
         // Callback for updating the byte scan limit
-        final Consumer<KeyValue> callback;
         final ByteScanLimiter byteScanLimiter = adjustedExecuteProperties.getState().getByteScanLimiter();
-        if (byteScanLimiter == null) {
-            callback = null;
-        } else {
-            callback = keyValue -> byteScanLimiter.registerScannedBytes(keyValue.getKey().length + keyValue.getValue().length);
-        }
+        final Consumer<KeyValue> callback = keyValue -> byteScanLimiter.registerScannedBytes(keyValue.getKey().length + keyValue.getValue().length);
 
         BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> iterator = BUNCHED_MAP.scanMulti(
                 state.context.readTransaction(adjustedExecuteProperties.getIsolationLevel().isSnapshot()),

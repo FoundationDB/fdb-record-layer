@@ -32,6 +32,12 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @API(API.Status.INTERNAL)
 public class ByteScanLimiter {
+    /**
+     * Value that indicates that the scan limiter should effectively be used purely for tracking the number of
+     * bytes scanned without actually enforcing a limit.
+     */
+    public static final long UNLIMITED = Long.MAX_VALUE;
+
     private final long originalLimit;
     private final AtomicLong bytesRemaining;
 
@@ -51,11 +57,20 @@ public class ByteScanLimiter {
     }
 
     /**
+     * Return whether or not this limiter has an actual limit.
+     *
+     * @return {@code true} if the limiter is enforcing a limit.
+     */
+    public boolean isUnlimited() {
+        return this.originalLimit == UNLIMITED;
+    }
+
+    /**
      * Atomically check whether the number of remaining bytes is at least 0.
      * @return {@code true} if the remaining count is at least 0 and {@code false} if it is less than 0
      */
     public boolean hasBytesRemaining() {
-        return bytesRemaining.get() > 0;
+        return bytesRemaining.get() > 0 || originalLimit == UNLIMITED;
     }
 
     /**
@@ -76,8 +91,54 @@ public class ByteScanLimiter {
         return originalLimit;
     }
 
+    /**
+     * Returns the number of bytes that have been scanned thus far.
+     *
+     * @return the number of bytes that have been scanned
+     */
+    public long getBytesScanned() {
+        return originalLimit - bytesRemaining.get();
+    }
+
     @Override
     public String toString() {
         return String.format("ByteScanLimiter(%d limit, %d left)", originalLimit, bytesRemaining.get());
+    }
+
+    /**
+     * A non-tracking, non-enforcing limiter.
+     */
+    protected static class Untracked extends ByteScanLimiter {
+        public static final Untracked INSTANCE = new Untracked();
+
+        private Untracked() {
+            super(UNLIMITED);
+        }
+
+        @Nonnull
+        @Override
+        public ByteScanLimiter reset() {
+            return this;
+        }
+
+        @Override
+        public boolean hasBytesRemaining() {
+            return true;
+        }
+
+        @Override
+        public void registerScannedBytes(long bytes) {
+            // IGNORED
+        }
+
+        @Override
+        public long getLimit() {
+            return UNLIMITED;
+        }
+
+        @Override
+        public long getBytesScanned() {
+            return 0L;
+        }
     }
 }

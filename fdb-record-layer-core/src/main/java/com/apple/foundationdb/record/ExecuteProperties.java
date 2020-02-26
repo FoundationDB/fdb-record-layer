@@ -141,7 +141,7 @@ public class ExecuteProperties {
      */
     public int getScannedRecordsLimit() {
         final RecordScanLimiter recordScanLimiter = getState().getRecordScanLimiter();
-        return recordScanLimiter == null ? Integer.MAX_VALUE : recordScanLimiter.getLimit();
+        return recordScanLimiter.isUnlimited() ? Integer.MAX_VALUE : recordScanLimiter.getLimit();
     }
 
     /**
@@ -152,7 +152,7 @@ public class ExecuteProperties {
      */
     public long getScannedBytesLimit() {
         final ByteScanLimiter byteScanLimiter = getState().getByteScanLimiter();
-        return byteScanLimiter == null ? Long.MAX_VALUE : byteScanLimiter.getLimit();
+        return byteScanLimiter.isUnlimited() ? Long.MAX_VALUE : byteScanLimiter.getLimit();
     }
 
     @Nonnull
@@ -263,9 +263,11 @@ public class ExecuteProperties {
         if (other.timeLimit != UNLIMITED_TIME) {
             builder.setTimeLimit(other.timeLimit);
         }
-        if (other.state.getRecordScanLimiter() != null) {
+
+        if (!other.state.getRecordScanLimiter().isUnlimited() || !other.state.getByteScanLimiter().isUnlimited()) {
             builder.setState(other.state);
         }
+
         return builder.build();
     }
 

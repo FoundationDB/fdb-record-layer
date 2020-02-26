@@ -32,6 +32,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @API(API.Status.MAINTAINED)
 public class RecordScanLimiter {
+    /**
+     * Value that indicates that the scan limiter should effectively be used purely for tracking the number of
+     * records scanned without actually enforcing a limit.
+     */
+    public static final int UNLIMITED = Integer.MAX_VALUE;
+
     private final int originalLimit;
     private final AtomicInteger allowedRecordScansRemaining;
 
@@ -50,11 +56,23 @@ public class RecordScanLimiter {
     }
 
     /**
+     * Return whether or not this limiter has an actual limit.
+     *
+     * @return {@code true} if the limiter is enforcing a limit.
+     */
+    public boolean isUnlimited() {
+        return this.originalLimit == UNLIMITED;
+    }
+
+    /**
      * Atomically decrement the counter and return false if falls below 0.
      * @return <code>true</code> if the remaining count is at least 0, and <code>false</code> if it is less than 0
      */
     public boolean tryRecordScan() {
-        return allowedRecordScansRemaining.getAndDecrement() > 0;
+        int remaining = allowedRecordScansRemaining.getAndDecrement();
+
+        // Realistically we should never able to scan MAX_INT records in a single transaction, but you never know...
+        return remaining > 0 || originalLimit == UNLIMITED;
     }
 
     /**
@@ -67,9 +85,45 @@ public class RecordScanLimiter {
         return originalLimit;
     }
 
+    /**
+     * Returns the number of records that have been scanned thus far.
+     *
+     * @return the number of records that have been scanned
+     */
+    public int getRecordsScanned() {
+        return originalLimit - allowedRecordScansRemaining.get();
+    }
+
     @Override
     public String toString() {
         return String.format("RecordScanLimiter(%d limit, %d left)", originalLimit, allowedRecordScansRemaining.get());
+    }
+
+    /**
+     * A non-tracking, non-enforcing limiter.
+     */
+    protected static class Untracked extends RecordScanLimiter {
+        public static final Untracked INSTANCE = new Untracked();
+
+        private Untracked() {
+            super(UNLIMITED);
+        }
+
+        @Nonnull
+        @Override
+        public RecordScanLimiter reset() {
+            return this;
+        }
+
+        @Override
+        public boolean tryRecordScan() {
+            return true;
+        }
+
+        @Override
+        public int getRecordsScanned() {
+            return 0;
+        }
     }
 }
 

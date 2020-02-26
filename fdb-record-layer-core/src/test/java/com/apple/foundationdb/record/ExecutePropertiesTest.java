@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -82,9 +81,9 @@ public class ExecutePropertiesTest {
     public void testGetNoLimits() {
         assertEquals(ExecuteProperties.UNLIMITED_TIME, ExecuteProperties.SERIAL_EXECUTE.getTimeLimit());
         assertEquals(Integer.MAX_VALUE, ExecuteProperties.SERIAL_EXECUTE.getScannedRecordsLimit());
-        assertNull(ExecuteProperties.SERIAL_EXECUTE.getState().getRecordScanLimiter());
+        assertTrue(ExecuteProperties.SERIAL_EXECUTE.getState().getRecordScanLimiter().isUnlimited());
         assertEquals(Long.MAX_VALUE, ExecuteProperties.SERIAL_EXECUTE.getScannedBytesLimit());
-        assertNull(ExecuteProperties.SERIAL_EXECUTE.getState().getByteScanLimiter());
+        assertTrue(ExecuteProperties.SERIAL_EXECUTE.getState().getByteScanLimiter().isUnlimited());
         assertEquals(Transaction.ROW_LIMIT_UNLIMITED, ExecuteProperties.SERIAL_EXECUTE.getReturnedRowLimit());
         assertEquals(Integer.MAX_VALUE, ExecuteProperties.SERIAL_EXECUTE.getReturnedRowLimitOrMax());
     }
