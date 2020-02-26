@@ -52,14 +52,20 @@ import java.util.concurrent.CompletableFuture;
 public class RankedSetIndexHelper {
     public static final Tuple COMPARISON_SKIPPED_SCORE = Tuple.from(Comparisons.COMPARISON_SKIPPED_BINDING);
 
-    public static int getNLevels(@Nonnull Index index) {
-        String nlevelsOption = index.getOption(IndexOptions.RANK_NLEVELS);
-        return nlevelsOption == null ? RankedSet.DEFAULT_LEVELS : Integer.parseInt(nlevelsOption);
-    }
-
-    public static RankedSet.HashFunction getHashFunction(@Nonnull Index index) {
+    /**
+     * Parse standard options into {@link RankedSet.ConfigBuilder}.
+     */
+    public static RankedSet.ConfigBuilder getConfigBuilder(@Nonnull Index index) {
+        RankedSet.ConfigBuilder builder = RankedSet.newConfigBuilder();
         String hashFunctionOption = index.getOption(IndexOptions.RANK_HASH_FUNCTION);
-        return hashFunctionOption == null ? RankedSet.DEFAULT_HASH_FUNCTION : RankedSetHashFunctions.getHashFunction(hashFunctionOption);
+        if (hashFunctionOption != null) {
+            builder.setHashFunction(RankedSetHashFunctions.getHashFunction(hashFunctionOption));
+        }
+        String nlevelsOption = index.getOption(IndexOptions.RANK_NLEVELS);
+        if (nlevelsOption != null) {
+            builder.setNLevels(Integer.parseInt(nlevelsOption));
+        }
+        return builder;
     }
 
     /**
@@ -101,8 +107,7 @@ public class RankedSetIndexHelper {
     public static CompletableFuture<TupleRange> rankRangeToScoreRange(@Nonnull IndexMaintainerState state,
                                                                       int groupPrefixSize,
                                                                       @Nonnull Subspace rankSubspace,
-                                                                      @Nonnull RankedSet.HashFunction hashFunction,
-                                                                      int nlevels,
+                                                                      @Nonnull RankedSet.Config config,
                                                                       @Nonnull TupleRange rankRange) {
         final Tuple prefix = groupPrefix(groupPrefixSize, rankRange, rankSubspace);
         if (prefix != null) {
@@ -130,7 +135,7 @@ public class RankedSetIndexHelper {
             return CompletableFuture.completedFuture(TupleRange.allOf(prefix));
         }
 
-        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, hashFunction, nlevels);
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, config);
         return init(state, rankedSet).thenCompose(v -> {
             CompletableFuture<Tuple> lowScoreFuture = scoreForRank(state, rankedSet, startFromBeginning ? 0L : lowRankNum, null);
             CompletableFuture<Tuple> highScoreFuture = scoreForRank(state, rankedSet, highRankNum, null);
@@ -233,12 +238,11 @@ public class RankedSetIndexHelper {
     @Nonnull
     public static CompletableFuture<Void> updateRankedSet(@Nonnull IndexMaintainerState state,
                                                           @Nonnull Subspace rankSubspace,
-                                                          @Nonnull RankedSet.HashFunction hashFunction,
-                                                          int nlevels,
+                                                          @Nonnull RankedSet.Config config,
                                                           @Nonnull Tuple valueKey,
                                                           @Nonnull Tuple scoreKey,
                                                           boolean remove) {
-        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, hashFunction, nlevels);
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, config);
         final byte[] score = scoreKey.pack();
         CompletableFuture<Void> result = init(state, rankedSet).thenCompose(v -> {
             if (remove) {
@@ -273,9 +277,8 @@ public class RankedSetIndexHelper {
 
         public InstrumentedRankedSet(@Nonnull IndexMaintainerState state,
                                      @Nonnull Subspace rankSubspace,
-                                     @Nonnull HashFunction hashFunction,
-                                     int nlevels) {
-            super(rankSubspace, state.context.getExecutor(), hashFunction, nlevels);
+                                     @Nonnull Config config) {
+            super(rankSubspace, state.context.getExecutor(), config);
             this.context = state.context;
         }
 

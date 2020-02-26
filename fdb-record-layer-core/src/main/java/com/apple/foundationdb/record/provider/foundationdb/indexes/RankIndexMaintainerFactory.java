@@ -65,24 +65,24 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
 
             @Override
             public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
-                // Allow changing from unspecified to the default (or vice versa), but not otherwise.
-                if (changedOptions.contains(IndexOptions.RANK_NLEVELS)) {
-                    int oldLevels = RankedSetIndexHelper.getNLevels(oldIndex);
-                    int newLevels = RankedSetIndexHelper.getNLevels(index);
-                    if (oldLevels != newLevels) {
-                        throw new MetaDataException("rank levels changed",
-                                LogMessageKeys.INDEX_NAME, index.getName());
+                if (!changedOptions.isEmpty()) {
+                    // Allow changing from unspecified to the default (or vice versa), but not otherwise.
+                    RankedSet.ConfigBuilder oldOptions = RankedSetIndexHelper.getConfigBuilder(oldIndex);
+                    RankedSet.ConfigBuilder newOptions = RankedSetIndexHelper.getConfigBuilder(index);
+                    if (changedOptions.contains(IndexOptions.RANK_NLEVELS)) {
+                        if (oldOptions.getNLevels() != newOptions.getNLevels()) {
+                            throw new MetaDataException("rank levels changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RANK_NLEVELS);
                     }
-                    changedOptions.remove(IndexOptions.RANK_NLEVELS);
-                }
-                if (changedOptions.contains(IndexOptions.RANK_HASH_FUNCTION)) {
-                    RankedSet.HashFunction oldFunction = RankedSetIndexHelper.getHashFunction(oldIndex);
-                    RankedSet.HashFunction newFunction = RankedSetIndexHelper.getHashFunction(index);
-                    if (!oldFunction.equals(newFunction)) {
-                        throw new MetaDataException("rank hash function changed",
-                                LogMessageKeys.INDEX_NAME, index.getName());
+                    if (changedOptions.contains(IndexOptions.RANK_HASH_FUNCTION)) {
+                        if (!oldOptions.getHashFunction().equals(newOptions.getHashFunction())) {
+                            throw new MetaDataException("rank hash function changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RANK_HASH_FUNCTION);
                     }
-                    changedOptions.remove(IndexOptions.RANK_HASH_FUNCTION);
                 }
                 super.validateChangedOptions(oldIndex, changedOptions);
             }
