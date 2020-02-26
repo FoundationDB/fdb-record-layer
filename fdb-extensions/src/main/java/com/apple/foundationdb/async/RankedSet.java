@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import java.util.zip.CRC32;
 
 import static com.apple.foundationdb.async.AsyncUtil.DONE;
@@ -149,15 +150,18 @@ public class RankedSet {
     public static class Config {
         private final HashFunction hashFunction;
         private final int nlevels;
+        private final boolean countDuplicates;
 
         protected Config() {
             this.hashFunction = DEFAULT_HASH_FUNCTION;
             this.nlevels = DEFAULT_LEVELS;
+            this.countDuplicates = false;
         }
 
-        protected Config(HashFunction hashFunction, int nlevels) {
+        protected Config(HashFunction hashFunction, int nlevels, boolean countDuplicates) {
             this.hashFunction = hashFunction;
             this.nlevels = nlevels;
+            this.countDuplicates = countDuplicates;
         }
 
         /**
@@ -175,6 +179,14 @@ public class RankedSet {
         public int getNLevels() {
             return nlevels;
         }
+
+        /**
+         * Get whether duplicate entries increase ranks below them.
+         * @return {@code true} if duplicates are counted separately
+         */
+        public boolean isCountDuplicates() {
+            return countDuplicates;
+        }
     }
 
 
@@ -186,6 +198,7 @@ public class RankedSet {
     public static class ConfigBuilder {
         private HashFunction hashFunction = DEFAULT_HASH_FUNCTION;
         private int nlevels = DEFAULT_LEVELS;
+        private boolean countDuplicates = false;
 
         protected ConfigBuilder() {
         }
@@ -226,8 +239,24 @@ public class RankedSet {
             return this;
         }
 
+        public boolean isCountDuplicates() {
+            return countDuplicates;
+        }
+
+        /**
+         * Set whether to count duplicate keys separately.
+         *
+         * If duplicate keys are counted separately, ranks after them are increased by the number of duplicates.
+         * @param countDuplicates whether to count duplicates
+         * @return this builder
+         */
+        public ConfigBuilder setCountDuplicates(boolean countDuplicates) {
+            this.countDuplicates = countDuplicates;
+            return this;
+        }
+
         public Config build() {
-            return new Config(hashFunction, nlevels);
+            return new Config(hashFunction, nlevels, countDuplicates);
         }
     }
 
@@ -279,9 +308,13 @@ public class RankedSet {
 
     /**
      * Add a key to the set.
+     *
+     * If {@link Config#isCountDuplicates} is {@code false} and {@code key} is already present, the return value is {@code false}.
+     * If {@link Config#isCountDuplicates} is {@code true}, the return value is never {@code false} and a duplicate will
+     * cause all {@link #rank}s below it to increase by one.
      * @param tc the transaction to use to access the database
      * @param key the key to add
-     * @return a future that completes to {@code true} if the key was not already present
+     * @return a future that completes to {@code true} if the ranked set was modified
      */
     public CompletableFuture<Boolean> add(TransactionContext tc, byte[] key) {
         checkKey(key);
@@ -290,7 +323,8 @@ public class RankedSet {
         return tc.runAsync(tr ->
             countCheckedKey(tr, key)
                 .thenCompose(count -> {
-                    if (count != null && count > 0) {
+                    final boolean duplicate = count != null && count > 0;
+                    if (duplicate && !config.isCountDuplicates()) {
                         return READY_FALSE;
                     }
                     final int nlevels = config.getNLevels();
@@ -299,9 +333,9 @@ public class RankedSet {
                         final int level = li;
                         CompletableFuture<Void> future;
                         if (level == 0) {
-                            future = addLevelZeroKey(tr, key, level);
-                        } else if ((keyHash & LEVEL_FAN_VALUES[level]) != 0) {
-                            future = addIncrementLevelKey(tr, key, level);
+                            future = addLevelZeroKey(tr, key, level, duplicate);
+                        } else if (duplicate || (keyHash & LEVEL_FAN_VALUES[level]) != 0) {
+                            future = addIncrementLevelKey(tr, key, level, duplicate);
                         } else {
                             // Insert into this level by looking at the count of the previous key in the level
                             // and recounting the next lower level to correct the counts.
@@ -316,20 +350,26 @@ public class RankedSet {
                 }));
     }
 
-    protected CompletableFuture<Void> addLevelZeroKey(Transaction tr, byte[] key, int level) {
-        tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(1));
+    protected CompletableFuture<Void> addLevelZeroKey(Transaction tr, byte[] key, int level, boolean increment) {
+        final byte[] k = subspace.pack(Tuple.from(level, key));
+        final byte[] v = encodeLong(1);
+        if (increment) {
+            tr.mutate(MutationType.ADD, k, v);
+        } else {
+            tr.set(k, v);
+        }
         return DONE;
     }
 
-    protected CompletableFuture<Void> addIncrementLevelKey(Transaction tr, byte[] key, int level) {
-        return getPreviousKey(tr, level, key).thenApply(prevKey -> {
+    protected CompletableFuture<Void> addIncrementLevelKey(Transaction tr, byte[] key, int level, boolean orEqual) {
+        return getPreviousKey(tr, level, key, orEqual).thenApply(prevKey -> {
             tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKey)), encodeLong(1));
             return null;
         });
     }
 
     protected CompletableFuture<Void> addInsertLevelKey(Transaction tr, byte[] key, int level) {
-        return getPreviousKey(tr, level, key).thenCompose(prevKey -> {
+        return getPreviousKey(tr, level, key, false).thenCompose(prevKey -> {
             CompletableFuture<Long> prevCount = tr.get(subspace.pack(Tuple.from(level, prevKey))).thenApply(RankedSet::decodeLong);
             CompletableFuture<Long> newPrevCount = countRange(tr, level - 1, prevKey, key);
             return CompletableFuture.allOf(prevCount, newPrevCount)
@@ -346,7 +386,7 @@ public class RankedSet {
      * Removes a key from the set.
      * @param tc the transaction to use to access the database
      * @param key the key to remove
-     * @return a future that completes to {@code true} if the key was present before this operation
+     * @return a future that completes to {@code true} if the set was modified, that is, if the key was present before this operation
      */
     public CompletableFuture<Boolean> remove(TransactionContext tc, byte[] key) {
         checkKey(key);
@@ -356,37 +396,59 @@ public class RankedSet {
                             if (count == null || count <= 0) {
                                 return READY_FALSE;
                             }
+                            // This works even if the current set does not track duplicates but duplicates were added
+                            // earlier by one that did.
+                            final boolean duplicate = count > 1;
                             final int nlevels = config.getNLevels();
                             final List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
                             for (int li = 0; li < nlevels; ++li) {
                                 final int level = li;
-                                // This could be optimized to check the hash for which levels should have this key.
-                                final byte[] k = subspace.pack(Tuple.from(level, key));
 
                                 final CompletableFuture<Void> future;
-                                final CompletableFuture<byte[]> cf = tr.get(k);
 
-                                if (level == 0) {
-                                    future = cf.thenApply(c -> {
-                                        if (c != null) {
-                                            tr.clear(k);
-                                        }
+                                if (duplicate) {
+                                    // Always subtract one, never clearing a key. It is possible for this to leave
+                                    // a key with a count of zero, if duplicates were inserted with different hash functions.
+                                    Function<byte[], Void> decrement = k -> {
+                                        tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, k)), encodeLong(-1));
                                         return null;
-                                    });
+                                    };
+                                    if (level == 0) {
+                                        decrement.apply(key);
+                                        future = DONE;
+                                    } else {
+                                        future = getPreviousKey(tr, level, key, true).thenApply(decrement);
+                                    }
                                 } else {
-                                    final CompletableFuture<byte[]> prevKeyF = getPreviousKey(tr, level, key);
-                                    future = CompletableFuture.allOf(cf, prevKeyF)
-                                            .thenApply(vignore -> {
-                                                final byte[] c = cf.join();
-                                                long countChange = -1;
-                                                if (c != null) {
-                                                    // Give back additional count from the key we are erasing to the neighbor.
-                                                    countChange += decodeLong(c);
-                                                    tr.clear(k);
-                                                }
-                                                tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKeyF.join())), encodeLong(countChange));
-                                                return null;
-                                            });
+                                    // This could be optimized to check the hash for which levels should have this key.
+                                    // That would require that the hash function never changes, though.
+                                    // This allows for it to change, with the distribution perhaps getting a little uneven
+                                    // as a result. It even allows for the hash function to return a random number.
+                                    final byte[] k = subspace.pack(Tuple.from(level, key));
+                                    final CompletableFuture<byte[]> cf = tr.get(k);
+
+                                    if (level == 0) {
+                                        future = cf.thenApply(c -> {
+                                            if (c != null) {
+                                                tr.clear(k);
+                                            }
+                                            return null;
+                                        });
+                                    } else {
+                                        final CompletableFuture<byte[]> prevKeyF = getPreviousKey(tr, level, key, false);
+                                        future = CompletableFuture.allOf(cf, prevKeyF)
+                                                .thenApply(vignore -> {
+                                                    final byte[] c = cf.join();
+                                                    long countChange = -1;
+                                                    if (c != null) {
+                                                        // Give back additional count from the key we are erasing to the neighbor.
+                                                        countChange += decodeLong(c);
+                                                        tr.clear(k);
+                                                    }
+                                                    tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKeyF.join())), encodeLong(countChange));
+                                                    return null;
+                                                });
+                                    }
                                 }
                                 futures.add(future);
                             }
@@ -418,6 +480,19 @@ public class RankedSet {
         return countCheckedKey(tc, key).thenApply(c -> c != null && c > 0);
     }
 
+    /**
+     * Count the number of occurrences of a key in the set.
+     * @param tc the transaction to use to access the database
+     * @param key the key to check for
+     * @return a future that completes to {@code 0} if the key is not present in the ranked set or
+     * {@code 1} if the key is present in the ranked set and duplicates are not counted or
+     * the number of occurrences if duplicated are counted separately
+     */
+    public CompletableFuture<Long> count(ReadTransactionContext tc, byte[] key) {
+        checkKey(key);
+        return countCheckedKey(tc, key).thenApply(c -> c == null ? Long.valueOf(0) : c);
+    }
+
     private CompletableFuture<Long> countCheckedKey(ReadTransactionContext tc, byte[] key) {
         return tc.readAsync(tr -> tr.get(subspace.pack(Tuple.from(0, key))).thenApply(b -> b == null ? null : decodeLong(b)));
     }
@@ -444,7 +519,9 @@ public class RankedSet {
                 level--;
                 if (level < 0) {
                     // Down to finest level without finding enough.
-                    key = null;
+                    if (!config.isCountDuplicates()) {
+                        key = null;
+                    }
                     return READY_FALSE;
                 }
                 levelSubspace = subspace.get(level);
@@ -742,19 +819,21 @@ public class RankedSet {
                         .thenApply(longs -> longs.stream().reduce(0L, Long::sum)));
     }
 
-    private CompletableFuture<byte[]> getPreviousKey(TransactionContext tc, int level, byte[] key) {
+    // Get the key before this one at the given level.
+    // If orEqual is given, then an exactly matching key is also considered. This is only used when the key is known
+    // to be a duplicate or an existing key and so should do whatever it did.
+    private CompletableFuture<byte[]> getPreviousKey(TransactionContext tc, int level, byte[] key, boolean orEqual) {
         byte[] k = subspace.pack(Tuple.from(level, key));
         CompletableFuture<byte[]> kf = tc.run(tr ->
-                tr.snapshot()
-                        .getRange(KeySelector.lastLessThan(k), KeySelector.firstGreaterOrEqual(k), 1)
-                        .asList()
-                        .thenApply(kvs -> {
-                            byte[] prevk = kvs.get(0).getKey();
-                            // If another key were inserted after between this and the target key,
-                            // it wouldn't be the one we should increment any more.
-                            // But do not conflict when key itself is incremented.
-                            byte[] exclusiveBegin = ByteArrayUtil.join(prevk, ZERO_ARRAY);
-                            tr.addReadConflictRange(exclusiveBegin, k);
+                tr.snapshot().getKey(orEqual ? KeySelector.lastLessOrEqual(k) : KeySelector.lastLessThan(k))
+                        .thenApply(prevk -> {
+                            if (!orEqual || !Arrays.equals(prevk, k)) {
+                                // If another key were inserted after between this and the target key,
+                                // it wouldn't be the one we should increment any more.
+                                // But do not conflict when key itself is incremented.
+                                byte[] exclusiveBegin = ByteArrayUtil.join(prevk, ZERO_ARRAY);
+                                tr.addReadConflictRange(exclusiveBegin, k);
+                            }
                             // Do conflict if key is removed entirely.
                             tr.addReadConflictKey(subspace.pack(Tuple.from(0, subspace.unpack(prevk).getBytes(1))));
                             return prevk;
