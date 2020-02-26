@@ -54,6 +54,8 @@ public class RankedSetIndexHelper {
 
     /**
      * Parse standard options into {@link RankedSet.ConfigBuilder}.
+     * @param index the index definition to get options from
+     * @return a builder for config options
      */
     public static RankedSet.ConfigBuilder getConfigBuilder(@Nonnull Index index) {
         RankedSet.ConfigBuilder builder = RankedSet.newConfigBuilder();
@@ -64,6 +66,10 @@ public class RankedSetIndexHelper {
         String nlevelsOption = index.getOption(IndexOptions.RANK_NLEVELS);
         if (nlevelsOption != null) {
             builder.setNLevels(Integer.parseInt(nlevelsOption));
+        }
+        String duplicatesOption = index.getOption(IndexOptions.RANK_COUNT_DUPLICATES);
+        if (duplicatesOption != null) {
+            builder.setCountDuplicates(Boolean.parseBoolean(duplicatesOption));
         }
         return builder;
     }
@@ -246,27 +252,31 @@ public class RankedSetIndexHelper {
         final byte[] score = scoreKey.pack();
         CompletableFuture<Void> result = init(state, rankedSet).thenCompose(v -> {
             if (remove) {
-                // If no one else has this score, remove from ranked set.
-                return state.transaction.getRange(state.indexSubspace.range(valueKey)).iterator().onHasNext().thenCompose(hasNext -> {
-                    if (hasNext) {
-                        return AsyncUtil.DONE;
-                    } else {
-                        return rankedSet.remove(state.transaction, score).thenApply(exists -> {
-                            // It is okay if the score isn't in the ranked set yet if the index is
-                            // write only because this means that the score just hasn't yet
-                            // been added by some record. We still want the conflict ranges, though.
-                            if (!exists && !state.store.isIndexWriteOnly(state.index)) {
-                                throw new RecordCoreException("Score was not present in ranked set.");
-                            }
-                            return null;
-                        });
-                    }
-                });
+                if (config.isCountDuplicates()) {
+                    // Decrement count and possibly remove.
+                    return removeFromRankedSet(state, rankedSet, score);
+                } else {
+                    // If no one else has this score, remove from ranked set.
+                    return state.transaction.getRange(state.indexSubspace.range(valueKey)).iterator().onHasNext()
+                            .thenCompose(hasNext -> hasNext ? AsyncUtil.DONE : removeFromRankedSet(state, rankedSet, score));
+                }
             } else {
                 return rankedSet.add(state.transaction, score).thenApply(added -> null);
             }
         });
         return state.store.instrument(Events.RANKED_SET_UPDATE, result);
+    }
+
+    private static CompletableFuture<Void> removeFromRankedSet(@Nonnull IndexMaintainerState state, @Nonnull RankedSet rankedSet, @Nonnull byte[] score) {
+        return rankedSet.remove(state.transaction, score).thenApply(exists -> {
+            // It is okay if the score isn't in the ranked set yet if the index is
+            // write only because this means that the score just hasn't yet
+            // been added by some record. We still want the conflict ranges, though.
+            if (!exists && !state.store.isIndexWriteOnly(state.index)) {
+                throw new RecordCoreException("Score was not present in ranked set.");
+            }
+            return null;
+        });
     }
 
     /**
