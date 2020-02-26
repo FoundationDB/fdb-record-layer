@@ -179,7 +179,7 @@ public class RankedSet {
      * @return {@code true} if this ranked set needs to be initialized
      */
     public CompletableFuture<Boolean> initNeeded(ReadTransactionContext tc) {
-        return containsCheckedKey(tc, EMPTY_ARRAY).thenApply(b -> !b);
+        return countCheckedKey(tc, EMPTY_ARRAY).thenApply(Objects::isNull);
     }
 
     /**
@@ -193,9 +193,9 @@ public class RankedSet {
         // Use the hash of the key, instead a p value and randomLevel. The key is likely Tuple-encoded.
         final long keyHash = hashFunction.hash(key);
         return tc.runAsync(tr ->
-            containsCheckedKey(tr, key)
-                .thenCompose(exists -> {
-                    if (exists) {
+            countCheckedKey(tr, key)
+                .thenCompose(count -> {
+                    if (count != null && count > 0) {
                         return READY_FALSE;
                     }
                     List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
@@ -255,9 +255,9 @@ public class RankedSet {
     public CompletableFuture<Boolean> remove(TransactionContext tc, byte[] key) {
         checkKey(key);
         return tc.runAsync(tr ->
-                containsCheckedKey(tr, key)
-                        .thenCompose(exists -> {
-                            if (!exists) {
+                countCheckedKey(tr, key)
+                        .thenCompose(count -> {
+                            if (count == null || count <= 0) {
                                 return READY_FALSE;
                             }
                             final List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
@@ -318,11 +318,11 @@ public class RankedSet {
      */
     public CompletableFuture<Boolean> contains(ReadTransactionContext tc, byte[] key) {
         checkKey(key);
-        return containsCheckedKey(tc, key);
+        return countCheckedKey(tc, key).thenApply(c -> c != null && c > 0);
     }
 
-    private CompletableFuture<Boolean> containsCheckedKey(ReadTransactionContext tc, byte[] key) {
-        return tc.readAsync(tr -> tr.get(subspace.pack(Tuple.from(0, key))).thenApply(Objects::nonNull));
+    private CompletableFuture<Long> countCheckedKey(ReadTransactionContext tc, byte[] key) {
+        return tc.readAsync(tr -> tr.get(subspace.pack(Tuple.from(0, key))).thenApply(b -> b == null ? null : decodeLong(b)));
     }
 
     class NthLookup implements Lookup {
@@ -544,8 +544,8 @@ public class RankedSet {
         checkKey(key);
         return tc.readAsync(tr -> {
             if (nullIfMissing) {
-                return containsCheckedKey(tr, key).thenCompose(exists -> {
-                    if (!exists) {
+                return countCheckedKey(tr, key).thenCompose(count -> {
+                    if (count == null || count <= 0) {
                         return CompletableFuture.completedFuture(null);
                     }
                     return rankLookup(tr, key, true);
