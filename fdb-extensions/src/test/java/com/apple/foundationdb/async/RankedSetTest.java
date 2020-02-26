@@ -125,6 +125,48 @@ public class RankedSetTest extends FDBTestBase {
     }
 
     @Test
+    public void duplicates() {
+        byte[][] keys = new byte[10][];
+        for (int i = 0; i < 10; ++i) {
+            keys[i] = Tuple.from(i).pack();
+        }
+        config = RankedSet.newConfigBuilder().setCountDuplicates(true).build();
+        db.run(tr -> {
+            RankedSet rs = newRankedSet();
+            for (int i = 0; i < keys.length; ++i) {
+                for (int j = 1; j <= i + 1; j++) {
+                    boolean wasNew = rs.add(tr, keys[i]).join();
+                    assertTrue(wasNew);
+                }
+            }
+            long size = rs.size(tr).join();
+            assertEquals(10 * 11 / 2, size);
+            for (int i = 0; i < keys.length; ++i) {
+                long count = rs.count(tr, keys[i]).join();
+                assertEquals(i + 1, count);
+            }
+            for (int i = 0, n = 0; i < keys.length; ++i, n += i) {
+                long rank = rs.rank(tr, keys[i]).join();
+                assertEquals(n, rank);
+            }
+            for (int i = 0, n = 0; i < keys.length; ++i) {
+                for (int j = 1; j <= i + 1; j++) {
+                    byte[] nth = rs.getNth(tr, n).join();
+                    assertArrayEquals(keys[i], nth);    // Same key number of occurrences times.
+                    n++;
+                }
+            }
+            for (int i = 0; i < keys.length; ++i) {
+                for (int j = 1; j <= i + 2; j++) {
+                    boolean wasOld = rs.remove(tr, keys[i]).join();
+                    assertEquals(j <= i + 1, wasOld);
+                }
+            }
+            return null;
+        });
+    }
+
+    @Test
     public void concurrentAdd() throws Exception {
         // 20 does go onto level 1, 30 and 40 do not. There should be no reason for them to conflict on level 0.
         RankedSet rs = newRankedSet();

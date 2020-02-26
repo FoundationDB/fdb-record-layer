@@ -309,14 +309,14 @@ public class RankedSetIndexHelper {
         }
 
         @Override
-        protected CompletableFuture<Void> addLevelZeroKey(Transaction tr, byte[] key, int level) {
-            CompletableFuture<Void> result = super.addLevelZeroKey(tr, key, level);
+        protected CompletableFuture<Void> addLevelZeroKey(Transaction tr, byte[] key, int level, boolean increment) {
+            CompletableFuture<Void> result = super.addLevelZeroKey(tr, key, level, increment);
             return context.instrument(FDBStoreTimer.DetailEvents.RANKED_SET_ADD_LEVEL_ZERO_KEY, result);
         }
 
         @Override
-        protected CompletableFuture<Void> addIncrementLevelKey(Transaction tr, byte[] key, int level) {
-            CompletableFuture<Void> result = super.addIncrementLevelKey(tr, key, level);
+        protected CompletableFuture<Void> addIncrementLevelKey(Transaction tr, byte[] key, int level, boolean orEqual) {
+            CompletableFuture<Void> result = super.addIncrementLevelKey(tr, key, level, orEqual);
             return context.instrument(FDBStoreTimer.DetailEvents.RANKED_SET_ADD_INCREMENT_LEVEL_KEY, result);
         }
 
