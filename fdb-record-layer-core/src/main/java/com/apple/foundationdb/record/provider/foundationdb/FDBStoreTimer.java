@@ -661,9 +661,28 @@ public class FDBStoreTimer extends StoreTimer {
     }
 
     /**
-     * An aggregate over other count events.
+     * An aggregate over other count events. Note that most of these events come in two varieties, one which measures
+     * the number of occurrences of some operation and one which measures the number of bytes touched by that operation.
+     * For example, {@link #READS} tracks the number of key-value pairs read and {@link #BYTES_READ} tracks the number
+     * of bytes read by such an operation. If there is an instrumented event (e.g., a query) that reads 10 key-value
+     * pairs, each with 100 byte keys and 1,000 byte values, then the {@link #READS} metric will return 10 and the
+     * {@link #BYTES_READ} metric will return 11,000.
      */
     public enum CountAggregates implements Aggregate, Count {
+        /**
+         * The number of reads. This represents the number of key-value pairs read in events instrumented by an
+         * {@link FDBStoreTimer}.
+         */
+        READS("reads",
+                Counts.LOAD_RECORD_KEY,
+                Counts.LOAD_INDEX_KEY,
+                Counts.LOAD_TEXT_ENTRY, // unfortunately, can only get number of reads from a text scan, but not bytes
+                Counts.LOAD_STORE_STATE_KEY
+        ),
+        /**
+         * The number of bytes read. This represents the number of bytes read in all events instrumented by an
+         * {@link FDBStoreTimer}.
+         */
         BYTES_READ("bytes read",
                 Counts.LOAD_RECORD_KEY_BYTES,
                 Counts.LOAD_RECORD_VALUE_BYTES,
@@ -672,17 +691,42 @@ public class FDBStoreTimer extends StoreTimer {
                 Counts.LOAD_STORE_STATE_KEY_BYTES,
                 Counts.LOAD_STORE_STATE_VALUE_BYTES
         ),
+        /**
+         * The number of writes. This does not include deletes, and it represents the number of key-value pairs
+         * written or updated by all events instrumented by an {@link FDBStoreTimer}.
+         */
+        WRITES("writes",
+                Counts.SAVE_RECORD_KEY,
+                Counts.SAVE_INDEX_KEY,
+                Counts.CREATE_RECORD_STORE
+        ),
+        /**
+         * The number of bytes written. This does not include deletes, and it represents the number of bytes
+         * written in all events instrumented by an {@link FDBStoreTimer}.
+         */
         BYTES_WRITTEN("bytes written",
                 Counts.SAVE_RECORD_KEY_BYTES,
                 Counts.SAVE_RECORD_VALUE_BYTES,
                 Counts.SAVE_INDEX_KEY_BYTES,
                 Counts.SAVE_INDEX_VALUE_BYTES
         ),
+        /**
+         * The number of deletes. This represents the number of key-value pairs cleared by all events
+         * instrumented by an {@link FDBStoreTimer}.
+         */
+        DELETES("deletes",
+                Counts.DELETE_RECORD_KEY,
+                Counts.DELETE_INDEX_KEY
+        ),
+        /**
+         * The number of bytes deleted. This represents the number of bytes cleared by all events
+         * instrumented by an {@link FDBStoreTimer}.
+         */
         BYTES_DELETED("bytes deleted",
-                Counts.DELETE_INDEX_KEY_BYTES,
-                Counts.DELETE_INDEX_VALUE_BYTES,
                 Counts.DELETE_RECORD_KEY_BYTES,
                 Counts.DELETE_RECORD_VALUE_BYTES,
+                Counts.DELETE_INDEX_KEY_BYTES,
+                Counts.DELETE_INDEX_VALUE_BYTES,
                 // The size of a record that was replaced by another record. The other record will be accounted
                 // for in the BYTES_WRITTEN, so BYTES_WRITTEN - BYTES_DELETED should be an accurate(-ish) reflection
                 // of on-disk delta.
