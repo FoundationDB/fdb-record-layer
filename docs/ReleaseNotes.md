@@ -55,7 +55,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Feature** Expose bytes/records scanned through `ExecuteState` [(Issue #835)](https://github.com/FoundationDB/fdb-record-layer/issues/835)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** `ByteScanLimiter` and `RecordScanLimiter` are now interfaces. Instances with various concrete behavior are constructed through factory classes. [(PR #836)](https://github.com/FoundationDB/fdb-record-layer/pull/836)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -708,4 +708,3 @@ The capability and reliability of text queries on more sophisticated indexes has
 ### 2.1.10.0
 
 * **Feature** A new record type key expression allows for structuring data in a record store more akin to how tables are stored in a traditional relational database [(Issue #27)](https://github.com/FoundationDB/fdb-record-layer/issues/27)
-
