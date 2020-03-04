@@ -112,8 +112,8 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
-        return new GroupingKeyExpression(wholeKey.normalizeForPlanner(rootSource, fieldNamePrefix), groupedCount);
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new GroupingKeyExpression(wholeKey.normalizeForPlanner(source, fieldNamePrefix), groupedCount);
     }
 
     @Override

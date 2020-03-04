@@ -112,12 +112,12 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return new ElementPredicate(new FieldElement(rootSource, fieldNames), comparison);
+        return new ElementPredicate(new FieldElement(source, fieldNames), comparison);
     }
 
     @Override

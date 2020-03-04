@@ -78,10 +78,10 @@ public class ComparisonRange {
      *     <li>Equality ranges, to which only the same (equality) comparison can be added.</li>
      *     <li>Inequality ranges, to which any other comparison can be added.</li>
      * </ul>
-     * This behaviour is defined in {@link #tryToAdd(Comparisons.Comparison)}.
+     * This behavior is defined in {@link #tryToAdd(Comparisons.Comparison)}.
      *
      * <p>
-     * Furthermore, the planner uses this trichotomy of range types to determine other planning behaviour. For example,
+     * Furthermore, the planner uses this trichotomy of range types to determine other planning behavior. For example,
      * an index scan must involve (from left to right) any number of equality ranges on the fields, followed by a single,
      * optional inequality range, followed by any number of empty ranges.
      * </p>

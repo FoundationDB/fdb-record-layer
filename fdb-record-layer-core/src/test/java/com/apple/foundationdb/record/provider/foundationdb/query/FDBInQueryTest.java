@@ -344,7 +344,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
             assertEquals(651476052, plan.planHash());
         } else {
-            assertThat(plan, filter(equalTo(Query.field("num_value_3_indexed").in(inList)), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([bar],[foo])"))))));
+            assertThat(plan, filter(Query.field("num_value_3_indexed").in(inList), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([bar],[foo])"))))));
             assertEquals(-1681846586, plan.planHash());
         }
 

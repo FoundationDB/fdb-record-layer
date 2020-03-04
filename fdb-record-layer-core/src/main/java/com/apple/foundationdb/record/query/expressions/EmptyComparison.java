@@ -93,12 +93,12 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return new ElementPredicate(new FieldElement(rootSource, fieldNames), Comparisons.LIST_EMPTY);
+        return new ElementPredicate(new FieldElement(source, fieldNames), Comparisons.LIST_EMPTY);
     }
 
     @Override

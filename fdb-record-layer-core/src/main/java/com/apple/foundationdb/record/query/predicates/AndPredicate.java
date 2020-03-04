@@ -64,15 +64,16 @@ public class AndPredicate extends AndOrPredicate {
     @Override
     public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                             @Nonnull SourceEntry sourceEntry) {
+        Boolean defaultValue = Boolean.TRUE;
         for (QueryPredicate child : getChildren()) {
             final Boolean val = child.eval(store, context, sourceEntry);
             if (val == null) {
-                return null;
+                defaultValue = null;
             } else if (!val) {
                 return false;
             }
         }
-        return true;
+        return defaultValue;
     }
 
     @Override

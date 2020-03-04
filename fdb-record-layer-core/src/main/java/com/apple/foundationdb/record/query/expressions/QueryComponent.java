@@ -149,7 +149,7 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * Convert this query component into an equivalent {@link QueryPredicate} by pushing all information about nested
      * and repeated fields to {@link Element}s inside of {@link com.apple.foundationdb.record.query.predicates.ElementPredicate}s.
      *
-     * @param rootSource the source representing the input stream of the key expression
+     * @param rootSource the source representing the input stream of the query component
      * @return an equivalent query predicate
      */
     @API(API.Status.EXPERIMENTAL)
@@ -168,11 +168,11 @@ public interface QueryComponent extends PlanHashable, PlannerExpression {
      * {@link com.apple.foundationdb.record.query.predicates.ElementPredicate} at the leaves of the sub-tree rooted at
      * that nested field. This extra information is tracked in the given {@code fieldNamePrefix}.
      * </p>
-     * @param rootSource the source representing the input stream of the key expression
+     * @param source the source representing the input stream of the key expression
      * @param fieldNamePrefix the (non-repeated) field names on the path from the most recent source to this part of the query component
      * @return an equivalent query predicate
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix);
+    QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
 }

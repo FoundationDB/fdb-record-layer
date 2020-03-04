@@ -35,11 +35,11 @@ import java.util.Set;
  *
  * <p>
  * An element is the atom of a FoundationDB tuple, and therefore has a representation as a byte string with a defined
- * total order (i.e., an order where {@code a <= b} and {@code b <= a} implies that {@code a == b}). Elements generate
- * the values that can be used to define the projection, predicate, sort order, or grouping of a view expression.
- * Since elements must be usable in FoundationDB tuples, they are also the fundamental unit of key planning operations
- * such as incremental index selection. Many, but not all, elements reference a {@link Source} which identifies what
- * streams of data will generate them.
+ * total order (i.e., an order where {@code a <= b} and {@code b <= a} implies that {@code a == b}, and where either
+ * {@code a <= b} or {@code b <= a}). Elements generate the values that can be used to define the projection, predicate,
+ * sort order, or grouping of a view expression. Since elements must be usable in FoundationDB tuples, they are also
+ * the fundamental unit of key planning operations such as incremental index selection. Many, but not all, elements
+ * reference a {@link Source} which identifies what streams of data will generate them.
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)

@@ -38,6 +38,14 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class MessageValue {
+    /**
+     * Get the value of the (nested) field on the path from the message defined by {@code fieldNames}.
+     * The given field names define a path through the nested structure of the given message; this method traverses
+     * that path and returns the value at the leaf, using the return semantics of {@link #getFieldOnMessage(MessageOrBuilder, String)}.
+     * @param message a message
+     * @param fieldNames a list of field names defining a path starting at {@code message}
+     * @return the value at the end of hte path
+     */
     @Nullable
     public static Object getFieldValue(@Nonnull MessageOrBuilder message, @Nonnull List<String> fieldNames) {
         if (fieldNames.isEmpty()) {
@@ -45,7 +53,7 @@ public class MessageValue {
         }
         MessageOrBuilder current = message;
         int fieldNamesIndex;
-        // Notice that the upper bound is fieldNames.size() - 2!
+        // Notice that up to fieldNames.size() - 2 are calling getFieldMessageOnMessage, and fieldNames.size() - 1 is calling getFieldOnMessage
         for (fieldNamesIndex = 0; fieldNamesIndex < fieldNames.size() - 1; fieldNamesIndex++) {
             current = getFieldMessageOnMessage(current, fieldNames.get(fieldNamesIndex));
             if (current == null) {
@@ -55,6 +63,14 @@ public class MessageValue {
         return getFieldOnMessage(current, fieldNames.get(fieldNames.size() - 1));
     }
 
+    /**
+     * Get the value of the field with the given field name on the given message.
+     * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
+     * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
+     * @param message a message or builder to extract the field from
+     * @param fieldName the field to extract
+     * @return the value of the field as described above
+     */
     @Nullable
     public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldName);

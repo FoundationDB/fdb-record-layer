@@ -64,7 +64,7 @@ public class VersionElement implements Element {
     @Nullable
     @Override
     public Object eval(@Nonnull SourceEntry sourceEntry) {
-        return null; // TODO
+        throw new UnsupportedOperationException("Cannot evaluate version elements yet");
     }
 
     @Override

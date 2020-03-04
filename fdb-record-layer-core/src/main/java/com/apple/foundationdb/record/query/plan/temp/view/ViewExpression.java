@@ -60,12 +60,15 @@ import java.util.List;
 public class ViewExpression {
     @Nonnull
     private final List<Element> select;
-    @Nullable
-    private final QueryPredicate predicate;
     @Nonnull
     private final Source rootSource;
     @Nonnull
     private final List<Element> orderBy;
+
+    // Note that predicate is null when used for index selection. It is included for completeness since future uses
+    // of ViewExpression (e.g., as a query intermediate representation for queries with joins) will likely use it.
+    @Nullable
+    private final QueryPredicate predicate;
 
     public ViewExpression(@Nonnull List<Element> select, @Nullable QueryPredicate predicate, @Nonnull Source rootSource, @Nonnull List<Element> orderBy) {
         this.select = select;
@@ -106,6 +109,7 @@ public class ViewExpression {
                 keyWithValueExpression.getValueExpression()
                         .flattenForPlanner()
                         .forEach(builder::addSelectElement);
+                // TODO add other branches to handle other special cases, such as grouping key expressions.
             } else {
                 normalizedForPlanner.flattenForPlanner().forEach(builder::addTupleElement);
             }

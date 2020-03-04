@@ -51,8 +51,8 @@ public class LogicalToPhysicalScanRule extends PlannerRule<IndexEntrySourceScanE
         final IndexEntrySource indexEntrySource = logical.getIndexEntrySource();
 
         if (indexEntrySource.isIndexScan()) {
-            // If fields after we stopped comparing create duplicates, they might be empty, so that a record
-            // that otherwise matches the comparisons would be absent from the index entirely.
+            // If fields after we stopped comparing introduced a new source, that source might produce no entires,
+            // so that a record that otherwise matches the comparisons would be absent from the index entirely.
             // We only know that we are done matching predicates when we convert to a physical scan, so we check here.
             if (!logical.getComparisons().hasOrderBySourceWithoutComparison()) {
                 call.yield(call.ref(new RecordQueryIndexPlan(indexEntrySource.getIndexName(), logical.getScanType(),

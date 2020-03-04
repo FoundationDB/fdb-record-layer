@@ -544,6 +544,7 @@ public class Comparisons {
         TEXT_CONTAINS_PREFIX,
         TEXT_CONTAINS_ALL_PREFIXES,
         TEXT_CONTAINS_ANY_PREFIX,
+        @API(API.Status.EXPERIMENTAL)
         SORT(false);
 
         private final boolean isEquality;

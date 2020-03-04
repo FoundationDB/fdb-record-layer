@@ -95,12 +95,12 @@ public class NestedField extends BaseNestedField {
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         ImmutableList<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return childComponent.get().normalizeForPlanner(rootSource, fieldNames);
+        return childComponent.get().normalizeForPlanner(source, fieldNames);
     }
 
     @Override

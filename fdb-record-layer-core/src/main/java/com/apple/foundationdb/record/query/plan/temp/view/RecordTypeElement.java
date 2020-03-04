@@ -90,6 +90,6 @@ public class RecordTypeElement extends ElementWithSingleSource {
 
     @Override
     public int planHash() {
-        return 2;
+        return 2; // To match RecordTypeKeyExpression.planHas()
     }
 }

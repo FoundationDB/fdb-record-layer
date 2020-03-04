@@ -203,16 +203,16 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
                 .build();
         switch (fanType) {
             case FanOut:
-                return new ElementKeyExpression(new ValueElement(new RepeatedFieldSource(rootSource, fieldNames)));
+                return new ElementKeyExpression(new ValueElement(new RepeatedFieldSource(source, fieldNames)));
             case None:
-                return new ElementKeyExpression(new FieldElement(rootSource, fieldNames));
+                return new ElementKeyExpression(new FieldElement(source, fieldNames));
             case Concatenate:
             default:
         }

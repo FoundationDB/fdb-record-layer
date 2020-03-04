@@ -107,13 +107,13 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final RepeatedFieldSource source = new RepeatedFieldSource(rootSource, fieldNames);
-        return new ElementPredicate(new ValueElement(source), comparison);
+        final RepeatedFieldSource repeatedSource = new RepeatedFieldSource(source, fieldNames);
+        return new ElementPredicate(new ValueElement(repeatedSource), comparison);
     }
 
     @Override

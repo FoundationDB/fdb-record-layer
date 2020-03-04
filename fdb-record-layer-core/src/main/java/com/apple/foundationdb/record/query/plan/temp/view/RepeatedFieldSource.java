@@ -28,6 +28,7 @@ import com.google.protobuf.MessageOrBuilder;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -50,6 +51,10 @@ public class RepeatedFieldSource extends Source {
     @Nonnull
     private final List<String> fieldNames;
 
+    public RepeatedFieldSource(@Nonnull Source source, @Nonnull String fieldName) {
+        this(source, Collections.singletonList(fieldName));
+    }
+
     public RepeatedFieldSource(@Nonnull Source source, @Nonnull List<String> fieldNames) {
         this.source = source;
         this.fieldNames = fieldNames;
@@ -69,6 +74,11 @@ public class RepeatedFieldSource extends Source {
                 .addAll(parentSources)
                 .add(source)
                 .build();
+    }
+
+    @Nonnull
+    public Source getParent() {
+        return source;
     }
 
     @Override

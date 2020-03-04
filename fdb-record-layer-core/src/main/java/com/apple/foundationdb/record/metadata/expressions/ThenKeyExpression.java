@@ -193,10 +193,10 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         final ImmutableList.Builder<KeyExpression> normalizedChildren = ImmutableList.builder();
         for (KeyExpression child : children) {
-            normalizedChildren.add(child.normalizeForPlanner(rootSource, fieldNamePrefix));
+            normalizedChildren.add(child.normalizeForPlanner(source, fieldNamePrefix));
         }
         return new ThenKeyExpression(normalizedChildren.build());
     }

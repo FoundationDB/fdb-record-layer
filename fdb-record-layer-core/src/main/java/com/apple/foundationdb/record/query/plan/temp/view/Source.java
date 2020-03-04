@@ -69,7 +69,7 @@ public abstract class Source {
 
     /**
      * Get the set of all sources of ancestor's of this source, include this source itself.
-     * @return a set of the sources of all (exclusive) ancestors of this source
+     * @return a set of the sources of all (inclusive) ancestors of this source
      */
     public abstract Set<Source> getSources();
 
@@ -125,5 +125,20 @@ public abstract class Source {
             entries = entries.flatMap(dependentSource::evalSourceEntriesFor);
         }
         return entries;
+    }
+
+    /**
+     * Override of equality to ensure that sources are compared using reference equality.
+     * @param other the other object
+     * @return whether the two objects are the same object
+     */
+    @Override
+    public final boolean equals(Object other) {
+        return this == other;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
     }
 }

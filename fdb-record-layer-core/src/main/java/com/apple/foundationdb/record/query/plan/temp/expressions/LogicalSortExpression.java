@@ -53,10 +53,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     }
 
     public LogicalSortExpression(@Nonnull List<Element> grouping, @Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalPlannerExpression inner) {
-        this.grouping = grouping;
-        this.sort = sort;
-        this.reverse = reverse;
-        this.inner = SingleExpressionRef.of(inner);
+        this(grouping, sort, reverse, SingleExpressionRef.of(inner));
     }
 
 

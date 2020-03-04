@@ -42,6 +42,9 @@ import java.util.Map;
 @API(API.Status.EXPERIMENTAL)
 public class SourceEntry {
     @Nonnull
+    public static final SourceEntry EMPTY = new SourceEntry(Collections.emptyMap());
+
+    @Nonnull
     private final Map<Source, Object> sourceValues;
 
     private SourceEntry(@Nonnull Map<Source, Object> sourceValues) {
@@ -50,6 +53,9 @@ public class SourceEntry {
 
     @Nonnull
     public Object getValueFor(@Nonnull Source source) {
+        if (!(sourceValues.containsKey(source))) {
+            throw new UnsupportedOperationException("tried to get source that is not present");
+        }
         return sourceValues.get(source);
     }
 

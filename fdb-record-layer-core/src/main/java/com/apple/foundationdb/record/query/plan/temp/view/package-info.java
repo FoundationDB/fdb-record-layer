@@ -22,10 +22,10 @@
  * Classes related to the {@link com.apple.foundationdb.record.query.plan.temp.view.ViewExpression} abstraction.
  *
  * <p>
- * A view expression is an abstraction that represents a stream of values that can be represented as tuple-encoding keys
- * and binary values in FoundationDB. View expressions are quite general, and can represent a large variety of index
+ * A view expression is an abstraction that represents a stream of values that can be represented as tuple-encoded keys
+ * and binary values in FoundationDB. View expressions are quite general and can represent a large variety of index
  * structures and even queries. However, because they are <em>defined</em> by their close relationship to the FDB
- * tuple layer encoding, they are extremely useful for many query planing operations, such as incremental index
+ * tuple layer encoding, they are extremely useful for many query planning operations, such as incremental index
  * selection (for example, see {@link com.apple.foundationdb.record.query.plan.temp.rules.PushElementWithComparisonIntoExistingScanRule}).
  * </p>
  *

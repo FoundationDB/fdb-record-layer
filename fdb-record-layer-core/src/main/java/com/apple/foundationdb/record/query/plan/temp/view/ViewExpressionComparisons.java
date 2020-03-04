@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp.view;
 
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
@@ -58,7 +57,6 @@ import java.util.stream.Collectors;
  * Boolean operations and other complexities does not belong in {@code ViewExpressionComparisons}.
  * </p>
  */
-
 public class ViewExpressionComparisons {
     @Nonnull
     private final ViewExpression viewExpression;

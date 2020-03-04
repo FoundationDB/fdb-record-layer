@@ -222,13 +222,13 @@ public interface KeyExpression extends PlanHashable {
      * {@link ElementKeyExpression} at the leaves of the sub-tree rooted at the {@link NestingKeyExpression}. This
      * extra information is tracked in the {@code fieldNamePrefix}.
      * </p>
-     * @param rootSource the source representing the input stream of the key expression
+     * @param source the source representing the input stream of the key expression
      * @param fieldNamePrefix the (non-repeated) field names on the path from the most recent source to this part of the key expression
      * @return a new key expression that has only {@link ElementKeyExpression}s at its leaves
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix);
+    KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
 
     /**
      * Returns the number of version columns produced by this key expression.

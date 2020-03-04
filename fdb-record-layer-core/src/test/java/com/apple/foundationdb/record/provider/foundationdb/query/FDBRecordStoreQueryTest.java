@@ -608,7 +608,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 assertThat(plan, filter(query.getFilter(), sharedInnerPlan));
             } else {
                 assertThat(plan, filter(PredicateMatchers.valueFrom(PredicateMatchers.repeatedField("element")).greaterThan("A"),
-                        typeFilter(containsInAnyOrder("MultiRecordTwo", "MultiRecordThree"), scan(unbounded()))));
+                        sharedInnerPlan));
             }
             assertEquals(1808059644, plan.planHash());
             assertEquals(Arrays.asList(800L, 1776L),

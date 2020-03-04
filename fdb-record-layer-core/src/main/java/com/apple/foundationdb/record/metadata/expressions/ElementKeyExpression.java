@@ -62,7 +62,7 @@ public class ElementKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         throw new RecordCoreException("element key expression is already normalized");
     }
 

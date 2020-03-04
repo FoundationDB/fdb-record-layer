@@ -151,7 +151,7 @@ public class NotComponent implements ComponentWithSingleChild {
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
-        return new NotPredicate(child.get().normalizeForPlanner(rootSource, fieldNamePrefix));
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new NotPredicate(child.get().normalizeForPlanner(source, fieldNamePrefix));
     }
 }

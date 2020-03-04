@@ -139,8 +139,8 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
-        return new KeyWithValueExpression(innerKey.normalizeForPlanner(rootSource, fieldNamePrefix), splitPoint);
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new KeyWithValueExpression(innerKey.normalizeForPlanner(source, fieldNamePrefix), splitPoint);
     }
 
     @Nonnull

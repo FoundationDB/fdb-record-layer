@@ -85,8 +85,8 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
-        return new ElementPredicate(keyExpression.toElement(rootSource), comparison);
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new ElementPredicate(keyExpression.toElement(source), comparison);
     }
 
     @Override

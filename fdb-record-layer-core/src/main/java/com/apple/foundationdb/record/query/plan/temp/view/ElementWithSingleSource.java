@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp.view;
 
-import com.google.common.collect.ImmutableSet;
-
 import javax.annotation.Nonnull;
 import java.util.Set;
 
@@ -43,10 +41,6 @@ abstract class ElementWithSingleSource implements Element {
 
     @Override
     public Set<Source> getAncestralSources() {
-        final Set<Source> parentSources = source.getSources();
-        return ImmutableSet.<Source>builderWithExpectedSize(parentSources.size() + 1)
-                .addAll(parentSources)
-                .add(source)
-                .build();
+        return source.getSources();
     }
 }

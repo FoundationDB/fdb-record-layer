@@ -121,7 +121,7 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         switch (parent.getFanType()) {
             case None:
             case Concatenate:
@@ -130,9 +130,9 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
                         .add(parent.getFieldName())
                         .build();
 
-                return child.normalizeForPlanner(rootSource, newPrefix);
+                return child.normalizeForPlanner(source, newPrefix);
             case FanOut:
-                return child.normalizeForPlanner(parent.getFieldSource(rootSource, fieldNamePrefix), Collections.emptyList());
+                return child.normalizeForPlanner(parent.getFieldSource(source, fieldNamePrefix), Collections.emptyList());
             default:
                 throw new RecordCoreException("unknown fan type");
         }

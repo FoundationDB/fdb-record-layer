@@ -83,8 +83,8 @@ public class AndComponent extends AndOrComponent {
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
-        return AndPredicate.from(normalizeChildrenForPlanner(rootSource, fieldNamePrefix));
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return AndPredicate.from(normalizeChildrenForPlanner(source, fieldNamePrefix));
     }
 
     @Override

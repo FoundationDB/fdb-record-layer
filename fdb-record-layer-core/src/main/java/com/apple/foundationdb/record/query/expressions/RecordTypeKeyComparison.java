@@ -96,8 +96,8 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
-        return new ElementPredicate(new RecordTypeElement(rootSource), comparison);
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new ElementPredicate(new RecordTypeElement(source), comparison);
     }
 
     @Override

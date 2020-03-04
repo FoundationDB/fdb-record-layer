@@ -76,7 +76,7 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         return this;
     }
 

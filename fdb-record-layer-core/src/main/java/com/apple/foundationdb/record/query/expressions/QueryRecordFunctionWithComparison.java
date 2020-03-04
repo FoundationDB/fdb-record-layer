@@ -113,7 +113,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException();
     }
 

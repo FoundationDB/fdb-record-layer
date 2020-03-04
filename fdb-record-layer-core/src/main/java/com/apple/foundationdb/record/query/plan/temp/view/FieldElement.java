@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.MessageOrBuilder;
 
 import javax.annotation.Nonnull;
@@ -33,7 +32,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * An element that extracts a single, non-repeated field (at an arbitrary nesting depth) from a source.
@@ -60,16 +58,6 @@ public class FieldElement extends ElementWithSingleSource {
     @Nonnull
     public List<String> getFieldNames() {
         return fieldNames;
-    }
-
-    @Nonnull
-    @Override
-    public Set<Source> getAncestralSources() {
-        final Set<Source> parentSources = source.getSources();
-        return ImmutableSet.<Source>builderWithExpectedSize(parentSources.size() + 1)
-                .addAll(parentSources)
-                .add(source)
-                .build();
     }
 
     @Nonnull

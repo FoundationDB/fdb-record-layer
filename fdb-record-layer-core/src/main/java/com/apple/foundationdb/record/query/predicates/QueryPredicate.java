@@ -52,7 +52,7 @@ import javax.annotation.Nullable;
  *         {@link com.apple.foundationdb.record.query.plan.temp.view.Source}s to values. The predicate can be evaluated
  *         on a nested record by specifying a complex {@code Source}, such as
  *         {@link com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource}. All sources are evaluated
- *         to produce a stream of source entries before any predicates are evaluted.
+ *         to produce a stream of source entries before any predicates are evaluated.
  *     </li>
  * </ul>
  *

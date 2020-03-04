@@ -36,6 +36,10 @@ public class RecordTypeSource extends Source {
     @Nonnull
     private final Set<String> recordTypeNames;
 
+    public RecordTypeSource(@Nonnull String recordTypeName) {
+        this(Collections.singleton(recordTypeName));
+    }
+
     public RecordTypeSource(@Nonnull Set<String> recordTypeNames) {
         super();
         this.recordTypeNames = recordTypeNames;

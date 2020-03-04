@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
- * A rule that pushes an sort into a compatibly-ordered index scan, including one with existing comparisons
+ * A rule that pushes a sort into a compatibly-ordered index scan, including one with existing comparisons
  * (from filters or other sort orders) that might affect whether the index is compatibly ordered.
  */
 @API(API.Status.EXPERIMENTAL)
