@@ -39,7 +39,7 @@ public class ExecuteState {
     /**
      * An execute state with no scan limits.
      */
-    public static final ExecuteState NO_LIMITS = new ExecuteState(RecordScanLimiter.Untracked.INSTANCE, ByteScanLimiter.Untracked.INSTANCE);
+    public static final ExecuteState NO_LIMITS = new ExecuteState(RecordScanLimiterFactory.untracked(), ByteScanLimiterFactory.untracked());
 
     /**
      * An empty execute state with no scan limits.
@@ -62,8 +62,8 @@ public class ExecuteState {
      *     number of bytes may be scanned
      */
     public ExecuteState(@Nullable RecordScanLimiter recordScanLimiter, @Nullable ByteScanLimiter byteScanLimiter) {
-        this.recordScanLimiter = recordScanLimiter == null ? new RecordScanLimiter(RecordScanLimiter.UNLIMITED) : recordScanLimiter;
-        this.byteScanLimiter = byteScanLimiter == null ? new ByteScanLimiter(ByteScanLimiter.UNLIMITED) : byteScanLimiter;
+        this.recordScanLimiter = recordScanLimiter == null ? RecordScanLimiterFactory.tracking() : recordScanLimiter;
+        this.byteScanLimiter = byteScanLimiter == null ? ByteScanLimiterFactory.tracking() : byteScanLimiter;
     }
 
     /**
@@ -77,11 +77,8 @@ public class ExecuteState {
         this(recordScanLimiter, null);
     }
 
-    /**
-     * Creates an execute state that enforces no limits.
-     */
     public ExecuteState() {
-        this(null, null);
+        this(RecordScanLimiterFactory.tracking(), ByteScanLimiterFactory.tracking());
     }
 
     /**

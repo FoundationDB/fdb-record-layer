@@ -48,6 +48,7 @@ public class ExecuteProperties {
      */
     public static final ExecuteProperties SERIAL_EXECUTE = ExecuteProperties.newBuilder()
             .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+            .setState(ExecuteState.NO_LIMITS)
             .build();
 
     // the isolation level at which the scan takes place
@@ -141,7 +142,7 @@ public class ExecuteProperties {
      */
     public int getScannedRecordsLimit() {
         final RecordScanLimiter recordScanLimiter = getState().getRecordScanLimiter();
-        return recordScanLimiter.isUnlimited() ? Integer.MAX_VALUE : recordScanLimiter.getLimit();
+        return !recordScanLimiter.isEnforcing() ? Integer.MAX_VALUE : recordScanLimiter.getLimit();
     }
 
     /**
@@ -152,7 +153,7 @@ public class ExecuteProperties {
      */
     public long getScannedBytesLimit() {
         final ByteScanLimiter byteScanLimiter = getState().getByteScanLimiter();
-        return byteScanLimiter.isUnlimited() ? Long.MAX_VALUE : byteScanLimiter.getLimit();
+        return !byteScanLimiter.isEnforcing() ? Long.MAX_VALUE : byteScanLimiter.getLimit();
     }
 
     @Nonnull
@@ -264,7 +265,7 @@ public class ExecuteProperties {
             builder.setTimeLimit(other.timeLimit);
         }
 
-        if (!other.state.getRecordScanLimiter().isUnlimited() || !other.state.getByteScanLimiter().isUnlimited()) {
+        if (other.state.getRecordScanLimiter().isEnforcing() || other.state.getByteScanLimiter().isEnforcing()) {
             builder.setState(other.state);
         }
 
@@ -525,13 +526,13 @@ public class ExecuteProperties {
             if (executeState != null) {
                 state = executeState;
             } else if (scannedRecordsLimit == Integer.MAX_VALUE && scannedBytesLimit == Long.MAX_VALUE) {
-                state = ExecuteState.NO_LIMITS;
+                state = new ExecuteState(RecordScanLimiterFactory.tracking(), ByteScanLimiterFactory.tracking());
             } else if (scannedBytesLimit == Long.MAX_VALUE) {
-                state = new ExecuteState(new RecordScanLimiter(scannedRecordsLimit), null);
+                state = new ExecuteState(RecordScanLimiterFactory.enforce(scannedRecordsLimit), ByteScanLimiterFactory.tracking());
             } else if (scannedRecordsLimit == Integer.MAX_VALUE) {
-                state = new ExecuteState(null, new ByteScanLimiter(scannedBytesLimit));
+                state = new ExecuteState(RecordScanLimiterFactory.tracking(), ByteScanLimiterFactory.enforce(scannedBytesLimit));
             } else {
-                state = new ExecuteState(new RecordScanLimiter(scannedRecordsLimit), new ByteScanLimiter(scannedBytesLimit));
+                state = new ExecuteState(RecordScanLimiterFactory.enforce(scannedRecordsLimit), ByteScanLimiterFactory.enforce(scannedBytesLimit));
             }
             return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode);
         }

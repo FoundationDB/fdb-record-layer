@@ -23,7 +23,6 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Track the number of bytes scanned up to some limit, after which record scans should not be allowed.
@@ -31,55 +30,33 @@ import java.util.concurrent.atomic.AtomicLong;
  * @see ExecuteState#getByteScanLimiter()
  */
 @API(API.Status.INTERNAL)
-public class ByteScanLimiter {
-    /**
-     * Value that indicates that the scan limiter should effectively be used purely for tracking the number of
-     * bytes scanned without actually enforcing a limit.
-     */
-    public static final long UNLIMITED = Long.MAX_VALUE;
-
-    private final long originalLimit;
-    private final AtomicLong bytesRemaining;
-
-    public ByteScanLimiter(long limit) {
-        originalLimit = limit;
-        bytesRemaining = new AtomicLong(limit);
-    }
-
+public interface ByteScanLimiter {
     /**
      * Create a new {@code ByteScanLimiter} with this limiter's original limit, ignoring any calls to
      * {@link #hasBytesRemaining()} and {@link #registerScannedBytes(long)}.
      * @return a new {@code ByteScanLimiter} with this limiter's original limit
      */
     @Nonnull
-    public ByteScanLimiter reset() {
-        return new ByteScanLimiter(originalLimit);
-    }
+    ByteScanLimiter reset();
 
     /**
-     * Return whether or not this limiter has an actual limit.
+     * Return whether or not this limiter is actully enforcing the limit (vs one that simply tracks resource consumption).
      *
      * @return {@code true} if the limiter is enforcing a limit.
      */
-    public boolean isUnlimited() {
-        return this.originalLimit == UNLIMITED;
-    }
+    boolean isEnforcing();
 
     /**
      * Atomically check whether the number of remaining bytes is at least 0.
      * @return {@code true} if the remaining count is at least 0 and {@code false} if it is less than 0
      */
-    public boolean hasBytesRemaining() {
-        return bytesRemaining.get() > 0 || originalLimit == UNLIMITED;
-    }
+    boolean hasBytesRemaining();
 
     /**
      * Atomically decrement the number of remaining bytes by the given number of bytes.
      * @param bytes the number of bytes to register
      */
-    public void registerScannedBytes(long bytes) {
-        bytesRemaining.addAndGet(-bytes);
-    }
+    void registerScannedBytes(long bytes);
 
     /**
      * Get the byte scan limit. In particular, this will return the target
@@ -87,58 +64,12 @@ public class ByteScanLimiter {
      *
      * @return the byte scan limit being enforced
      */
-    public long getLimit() {
-        return originalLimit;
-    }
+    long getLimit();
 
     /**
      * Returns the number of bytes that have been scanned thus far.
      *
      * @return the number of bytes that have been scanned
      */
-    public long getBytesScanned() {
-        return originalLimit - bytesRemaining.get();
-    }
-
-    @Override
-    public String toString() {
-        return String.format("ByteScanLimiter(%d limit, %d left)", originalLimit, bytesRemaining.get());
-    }
-
-    /**
-     * A non-tracking, non-enforcing limiter.
-     */
-    protected static class Untracked extends ByteScanLimiter {
-        public static final Untracked INSTANCE = new Untracked();
-
-        private Untracked() {
-            super(UNLIMITED);
-        }
-
-        @Nonnull
-        @Override
-        public ByteScanLimiter reset() {
-            return this;
-        }
-
-        @Override
-        public boolean hasBytesRemaining() {
-            return true;
-        }
-
-        @Override
-        public void registerScannedBytes(long bytes) {
-            // IGNORED
-        }
-
-        @Override
-        public long getLimit() {
-            return UNLIMITED;
-        }
-
-        @Override
-        public long getBytesScanned() {
-            return 0L;
-        }
-    }
+    long getBytesScanned();
 }
