@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -515,7 +514,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         indexes.removeIf(query.hasAllowedIndexes() ?
                 index -> !query.getAllowedIndexes().contains(index.getName()) :
-                index -> !index.getBooleanOption(IndexOptions.ALLOWED_FOR_QUERY_OPTION, true));
+                index -> !query.getIndexQueryabilityFilter().isQueryable(index));
 
         return new PlanContext(query, indexes, commonPrimaryKey);
     }

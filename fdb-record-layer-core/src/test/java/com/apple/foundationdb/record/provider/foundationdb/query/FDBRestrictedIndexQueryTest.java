@@ -462,4 +462,53 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertFalse(plan2.hasRecordScan(), "should not use record scan");
         assertEquals(-1692774119, plan2.planHash());
     }
+
+    /**
+     * Verify that the query planner uses the specified {@link com.apple.foundationdb.record.query.IndexQueryabilityFilter}.
+     * If both allowed indexes and a queryability filter are set, verify that the planner uses the allowed indexes.
+     */
+    @DualPlannerTest
+    public void indexQueryabilityFilter() {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.removeIndex("MySimpleRecord$str_value_indexed");
+            metaData.addIndex("MySimpleRecord", new Index("limited_str_value_index", field("str_value_indexed"),
+                    Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.NOT_ALLOWED_FOR_QUERY_OPTIONS));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+            commit(context);
+        }
+
+        RecordQuery query1 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("str_value_indexed").equalsValue("abc"))
+                .build();
+        RecordQueryPlan plan1 = planner.plan(query1);
+        assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("limited_str_value_index")));
+        assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
+        assertEquals(-223683738, plan1.planHash());
+
+        RecordQuery query2 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("str_value_indexed").equalsValue("abc"))
+                .setIndexQueryabilityFilter(index -> true)
+                .build();
+        RecordQueryPlan plan2 = planner.plan(query2);
+        assertThat("explicitly use any index", plan2, descendant(indexScan("limited_str_value_index")));
+        assertFalse(plan2.hasRecordScan(), "should not use record scan");
+        assertEquals(-1573180774, plan2.planHash());
+
+        RecordQuery query3 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("str_value_indexed").equalsValue("abc"))
+                .setIndexQueryabilityFilter(index -> false)
+                .setAllowedIndex("limited_str_value_index")
+                .build();
+        RecordQueryPlan plan3 = planner.plan(query3);
+        assertThat("should use allowed index despite index queryability filter", plan3, descendant(indexScan("limited_str_value_index")));
+        assertFalse(plan3.hasRecordScan(), "should not use record scan");
+        assertEquals(-1573180774, plan2.planHash());
+    }
 }

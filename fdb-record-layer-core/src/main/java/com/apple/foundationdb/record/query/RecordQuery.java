@@ -54,6 +54,8 @@ public class RecordQuery {
     private final Collection<String> recordTypes;
     @Nullable
     private final Collection<String> allowedIndexes;
+    @Nonnull
+    private final IndexQueryabilityFilter queryabilityFilter;
     @Nullable
     private final QueryComponent filter;
     @Nullable
@@ -65,6 +67,7 @@ public class RecordQuery {
 
     private RecordQuery(@Nonnull Collection<String> recordTypes,
                         @Nullable Collection<String> allowedIndexes,
+                        @Nonnull IndexQueryabilityFilter queryabilityFilter,
                         @Nullable QueryComponent filter,
                         @Nullable KeyExpression sort,
                         boolean sortReverse,
@@ -72,6 +75,7 @@ public class RecordQuery {
                         @Nullable List<KeyExpression> requiredResults) {
         this.recordTypes = recordTypes;
         this.allowedIndexes = allowedIndexes;
+        this.queryabilityFilter = queryabilityFilter;
         this.filter = filter;
         this.sort = sort;
         this.sortReverse = sortReverse;
@@ -91,6 +95,12 @@ public class RecordQuery {
     @Nullable
     public Collection<String> getAllowedIndexes() {
         return allowedIndexes;
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    public IndexQueryabilityFilter getIndexQueryabilityFilter() {
+        return queryabilityFilter;
     }
 
     @Nullable
@@ -174,6 +184,8 @@ public class RecordQuery {
         private Collection<String> recordTypes = ALL_TYPES;
         @Nullable
         private Collection<String> allowedIndexes = null;
+        @Nonnull
+        private IndexQueryabilityFilter queryabilityFilter = IndexQueryabilityFilter.DEFAULT;
         @Nullable
         private QueryComponent filter = null;
         @Nullable
@@ -189,6 +201,7 @@ public class RecordQuery {
         protected Builder(RecordQuery query) {
             this.recordTypes = query.recordTypes;
             this.allowedIndexes = query.allowedIndexes;
+            this.queryabilityFilter = query.queryabilityFilter;
             this.filter = query.filter;
             this.sort = query.sort;
             this.sortReverse = query.sortReverse;
@@ -197,7 +210,8 @@ public class RecordQuery {
         }
 
         public RecordQuery build() {
-            return new RecordQuery(recordTypes, allowedIndexes, filter, sort, sortReverse, removeDuplicates, requiredResults);
+            return new RecordQuery(recordTypes, allowedIndexes, queryabilityFilter,
+                    filter, sort, sortReverse, removeDuplicates, requiredResults);
         }
 
         @Nonnull
@@ -219,6 +233,12 @@ public class RecordQuery {
             return allowedIndexes;
         }
 
+        /**
+         * Define the indexes that the planner can consider when planning the query.
+         * If set, the allowed indexes override the index queryability filter.
+         * @param allowedIndexes a collection of index names
+         * @return this builder
+         */
         public Builder setAllowedIndexes(@Nullable Collection<String> allowedIndexes) {
             this.allowedIndexes = allowedIndexes;
             return this;
@@ -226,6 +246,18 @@ public class RecordQuery {
 
         public Builder setAllowedIndex(@Nullable String allowedIndex) {
             return setAllowedIndexes(Collections.singleton(allowedIndex));
+        }
+
+        /**
+         * Set a function that defines whether each index should be used by the query planner.
+         * Note that if allowed indexes are used then the queryability filter is ignored.
+         * The default index queryability filter is {@link IndexQueryabilityFilter#DEFAULT}.
+         * @param queryabilityFilter a queryability filter to use
+         * @return this builder
+         */
+        public Builder setIndexQueryabilityFilter(@Nonnull IndexQueryabilityFilter queryabilityFilter) {
+            this.queryabilityFilter = queryabilityFilter;
+            return this;
         }
 
         @Nullable
