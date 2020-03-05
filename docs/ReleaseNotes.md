@@ -52,12 +52,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add an index queryability function to `RecordQuery` [(Issue #841)](https://github.com/FoundationDB/fdb-record-layer/issues/841)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Expose bytes/records scanned through `ExecuteState` [(Issue #835)](https://github.com/FoundationDB/fdb-record-layer/issues/835)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** `ByteScanLimiter` and `RecordScanLimiter` are now interfaces. Instances with various concrete behavior are constructed through factory classes. [(PR #836)](https://github.com/FoundationDB/fdb-record-layer/pull/836)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -65,6 +65,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.103.0
+
+* **Feature** Add an index queryability function to `RecordQuery` [(Issue #841)](https://github.com/FoundationDB/fdb-record-layer/issues/841)
+* **Feature** Expose bytes/records scanned through `ExecuteState` [(Issue #835)](https://github.com/FoundationDB/fdb-record-layer/issues/835)
+* **Breaking change** `ByteScanLimiter` and `RecordScanLimiter` are now interfaces. Instances with various concrete behavior are constructed through factory classes. [(PR #836)](https://github.com/FoundationDB/fdb-record-layer/pull/836)
 
 ### 2.8.102.0
 
