@@ -243,7 +243,7 @@ public class StoreTimer {
     }
 
     /**
-     * An aggregate event is an event whos value is computed over the value of another set of events.
+     * An aggregate event is an event whose value is computed over the value of another set of events.
      */
     public interface Aggregate extends Event {
         /**
