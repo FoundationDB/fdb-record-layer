@@ -259,21 +259,33 @@ public class FDBStoreTimerTest {
         // I don't want this test to fail if new aggregates are added, but do want to verify that the
         // getAggregates() at least does return some of the expected aggregates.
         assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.EventAggregates.COMMITS));
+        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.READS));
         assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_READ));
+        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.WRITES));
         assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_WRITTEN));
 
+        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_KEY, 2);
         storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, 20);
         storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, 20);
         storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, 11);
         storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, 97);
+        storeTimer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY, 4);
         storeTimer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, 44);
         storeTimer.increment(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, 287);
 
+        assertNotNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.WRITES));
+        assertEquals(6, storeTimer.getCount(FDBStoreTimer.CountAggregates.WRITES),
+                "Incorrect aggregate count for WRITES");
         assertNotNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_WRITTEN));
         assertEquals(479, storeTimer.getCount(FDBStoreTimer.CountAggregates.BYTES_WRITTEN),
                 "Incorrect aggregate count for BYTES_WRITTEN");
+        assertEquals(0, storeTimer.getTimeNanos(FDBStoreTimer.CountAggregates.WRITES),
+                "Incorrect aggregate time for WRITES");
         assertEquals(0, storeTimer.getTimeNanos(FDBStoreTimer.CountAggregates.BYTES_WRITTEN),
                 "Incorrect aggregate time for BYTES_WRITTEN");
+        assertNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.READS));
+        assertEquals(0, storeTimer.getCount(FDBStoreTimer.CountAggregates.READS),
+                "READS should be zero");
         assertNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_READ));
         assertEquals(0, storeTimer.getCount(FDBStoreTimer.CountAggregates.BYTES_READ),
                 "BYTES_READ should be zero");
