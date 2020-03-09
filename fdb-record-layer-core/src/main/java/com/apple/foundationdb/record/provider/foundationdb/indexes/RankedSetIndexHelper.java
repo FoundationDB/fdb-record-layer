@@ -53,11 +53,11 @@ public class RankedSetIndexHelper {
     public static final Tuple COMPARISON_SKIPPED_SCORE = Tuple.from(Comparisons.COMPARISON_SKIPPED_BINDING);
 
     /**
-     * Parse standard options into {@link RankedSet.ConfigBuilder}.
+     * Parse standard options into {@link RankedSet.Config}.
      * @param index the index definition to get options from
-     * @return a builder for config options
+     * @return parsed config options
      */
-    public static RankedSet.ConfigBuilder getConfigBuilder(@Nonnull Index index) {
+    public static RankedSet.Config getConfig(@Nonnull Index index) {
         RankedSet.ConfigBuilder builder = RankedSet.newConfigBuilder();
         String hashFunctionOption = index.getOption(IndexOptions.RANK_HASH_FUNCTION);
         if (hashFunctionOption != null) {
@@ -71,7 +71,7 @@ public class RankedSetIndexHelper {
         if (duplicatesOption != null) {
             builder.setCountDuplicates(Boolean.parseBoolean(duplicatesOption));
         }
-        return builder;
+        return builder.build();
     }
 
     /**

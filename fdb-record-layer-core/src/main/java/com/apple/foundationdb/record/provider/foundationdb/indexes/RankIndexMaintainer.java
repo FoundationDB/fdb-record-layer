@@ -80,7 +80,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
 
     public RankIndexMaintainer(IndexMaintainerState state) {
         super(state);
-        this.config = RankedSetIndexHelper.getConfigBuilder(state.index).build();
+        this.config = RankedSetIndexHelper.getConfig(state.index);
     }
 
     @Nonnull
