@@ -67,8 +67,8 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
             public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
                 if (!changedOptions.isEmpty()) {
                     // Allow changing from unspecified to the default (or vice versa), but not otherwise.
-                    RankedSet.ConfigBuilder oldOptions = RankedSetIndexHelper.getConfigBuilder(oldIndex);
-                    RankedSet.ConfigBuilder newOptions = RankedSetIndexHelper.getConfigBuilder(index);
+                    RankedSet.Config oldOptions = RankedSetIndexHelper.getConfig(oldIndex);
+                    RankedSet.Config newOptions = RankedSetIndexHelper.getConfig(index);
                     if (changedOptions.contains(IndexOptions.RANK_NLEVELS)) {
                         if (oldOptions.getNLevels() != newOptions.getNLevels()) {
                             throw new MetaDataException("rank levels changed",
@@ -82,6 +82,13 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
                         changedOptions.remove(IndexOptions.RANK_HASH_FUNCTION);
+                    }
+                    if (changedOptions.contains(IndexOptions.RANK_COUNT_DUPLICATES)) {
+                        if (oldOptions.isCountDuplicates() != newOptions.isCountDuplicates()) {
+                            throw new MetaDataException("rank count duplicate changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RANK_COUNT_DUPLICATES);
                     }
                 }
                 super.validateChangedOptions(oldIndex, changedOptions);

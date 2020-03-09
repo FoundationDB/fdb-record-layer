@@ -192,8 +192,11 @@ public class RankedSet {
         public boolean isCountDuplicates() {
             return countDuplicates;
         }
-    }
 
+        public ConfigBuilder toBuilder() {
+            return new ConfigBuilder(hashFunction, nlevels, countDuplicates);
+        }
+    }
 
     /**
      * Builder for {@link Config}.
@@ -206,6 +209,12 @@ public class RankedSet {
         private boolean countDuplicates = false;
 
         protected ConfigBuilder() {
+        }
+
+        protected ConfigBuilder(HashFunction hashFunction, int nlevels, boolean countDuplicates) {
+            this.hashFunction = hashFunction;
+            this.nlevels = nlevels;
+            this.countDuplicates = countDuplicates;
         }
 
         public HashFunction getHashFunction() {
