@@ -870,8 +870,16 @@ public class RankedSet {
     private CompletableFuture<byte[]> getPreviousKey(TransactionContext tc, int level, byte[] key, boolean orEqual) {
         byte[] k = subspace.pack(Tuple.from(level, key));
         CompletableFuture<byte[]> kf = tc.run(tr ->
-                tr.snapshot().getKey(orEqual ? KeySelector.lastLessOrEqual(k) : KeySelector.lastLessThan(k))
-                        .thenApply(prevk -> {
+                tr.snapshot()
+                        .getRange(subspace.pack(Tuple.from(level, EMPTY_ARRAY)),
+                                  orEqual ? ByteArrayUtil.join(k, ZERO_ARRAY) : k,
+                                  1, true)
+                        .asList()
+                        .thenApply(kvs -> {
+                            if (kvs.isEmpty()) {
+                                throw new IllegalStateException("no key found on level");
+                            }
+                            byte[] prevk = kvs.get(0).getKey();
                             if (!orEqual || !Arrays.equals(prevk, k)) {
                                 // If another key were inserted after between this and the target key,
                                 // it wouldn't be the one we should increment any more.
