@@ -78,18 +78,23 @@ public class RankedSetTest extends FDBTestBase {
     }
 
     @Test
-    public void basic() throws Exception {
+    public void basic() {
         basicOperations(RankedSet.DEFAULT_HASH_FUNCTION, RankedSet.DEFAULT_HASH_FUNCTION);
     }
 
     @Test
-    public void basicCrc() throws Exception {
+    public void basicCrc() {
         basicOperations(RankedSet.CRC_HASH, RankedSet.CRC_HASH);
     }
 
     @Test
-    public void basicChange() throws Exception {
+    public void basicChange() {
         basicOperations(RankedSet.JDK_ARRAY_HASH, RankedSet.CRC_HASH);
+    }
+
+    @Test
+    public void basicRandom() {
+        basicOperations(RankedSet.RANDOM_HASH, RankedSet.RANDOM_HASH);
     }
 
     private void basicOperations(RankedSet.HashFunction firstHashFunction, RankedSet.HashFunction secondHashFunction) {

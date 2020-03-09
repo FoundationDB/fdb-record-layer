@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.zip.CRC32;
 
@@ -89,14 +90,18 @@ public class RankedSet {
      *
      * Although not designed for hashing, this does often give better distribution than {@link #JDK_ARRAY_HASH}.
      */
-    public static final HashFunction CRC_HASH = new HashFunction() {
-        @Override
-        public int hash(byte[] key) {
-            final CRC32 crc = new CRC32();
-            crc.update(key);
-            return (int)crc.getValue();
-        }
+    public static final HashFunction CRC_HASH = key -> {
+        final CRC32 crc = new CRC32();
+        crc.update(key);
+        return (int)crc.getValue();
     };
+
+    /**
+     * Hash using a random number.
+     *
+     * The result is actually independent of the key.
+     */
+    public static final HashFunction RANDOM_HASH = kignore -> ThreadLocalRandom.current().nextInt();
 
     /**
      * The default hash function to use.
@@ -281,14 +286,38 @@ public class RankedSet {
         this.config = config;
     }
 
+    /**
+     * Initialize a new ranked set.
+     *
+     * Although not (yet) deprecated, this constructor is mainly for compatibility and {@link #RankedSet(Subspace, Executor, Config)}
+     * may be superior in new code.
+     * @param subspace the subspace where the ranked set is stored
+     * @param executor an executor to use when running asynchronous tasks
+     * @param hashFunction hash function for new ranked set
+     * @param nlevels number of skip list levels for new ranked set
+     */
     public RankedSet(Subspace subspace, Executor executor, HashFunction hashFunction, int nlevels) {
         this(subspace, executor, newConfigBuilder().setHashFunction(hashFunction).setNLevels(nlevels).build());
     }
 
+    /**
+     * Initialize a new ranked set.
+     *
+     * Although not (yet) deprecated, this constructor is mainly for compatibility and {@link #RankedSet(Subspace, Executor, Config)}
+     * may be superior in new code.
+     * @param subspace the subspace where the ranked set is stored
+     * @param executor an executor to use when running asynchronous tasks
+     * @param nlevels number of skip list levels for new ranked set
+     */
     public RankedSet(Subspace subspace, Executor executor, int nlevels) {
         this(subspace, executor, newConfigBuilder().setNLevels(nlevels).build());
     }
 
+    /**
+     * Initialize a new ranked set with the default configuration.
+     * @param subspace the subspace where the ranked set is stored
+     * @param executor an executor to use when running asynchronous tasks
+     */
     public RankedSet(Subspace subspace, Executor executor) {
         this(subspace, executor, DEFAULT_CONFIG);
     }
@@ -323,7 +352,7 @@ public class RankedSet {
         return tc.runAsync(tr ->
             countCheckedKey(tr, key)
                 .thenCompose(count -> {
-                    final boolean duplicate = count != null && count > 0;
+                    final boolean duplicate = count != null && count > 0;   // Is this key already present in the set?
                     if (duplicate && !config.isCountDuplicates()) {
                         return READY_FALSE;
                     }
@@ -335,6 +364,9 @@ public class RankedSet {
                         if (level == 0) {
                             future = addLevelZeroKey(tr, key, level, duplicate);
                         } else if (duplicate || (keyHash & LEVEL_FAN_VALUES[level]) != 0) {
+                            // If key is already present (duplicate), then whatever splitting it causes should have
+                            // already been done when first added. So, no more now. It is therefore possible, though,
+                            // that the count to increment matches the key, rather than being one that precedes it.
                             future = addIncrementLevelKey(tr, key, level, duplicate);
                         } else {
                             // Insert into this level by looking at the count of the previous key in the level
@@ -407,8 +439,10 @@ public class RankedSet {
                                 final CompletableFuture<Void> future;
 
                                 if (duplicate) {
-                                    // Always subtract one, never clearing a key. It is possible for this to leave
-                                    // a key with a count of zero, if duplicates were inserted with different hash functions.
+                                    // Always subtract one, never clearing a level count key.
+                                    // Concurrent requests both subtracting one when the count is two will conflict
+                                    // on the level zero key, which was read to detect that this is a duplicate.
+                                    // So it should not be possible for a count to go to zero.
                                     Function<byte[], Void> decrement = k -> {
                                         tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, k)), encodeLong(-1));
                                         return null;
@@ -424,6 +458,7 @@ public class RankedSet {
                                     // That would require that the hash function never changes, though.
                                     // This allows for it to change, with the distribution perhaps getting a little uneven
                                     // as a result. It even allows for the hash function to return a random number.
+                                    // It also further guarantees that counts never go to zero.
                                     final byte[] k = subspace.pack(Tuple.from(level, key));
                                     final CompletableFuture<byte[]> cf = tr.get(k);
 
@@ -680,7 +715,8 @@ public class RankedSet {
                         // If the key need not be present and we are on the finest level, then if it wasn't an exact
                         // match, key would have the next rank after the last one. Except in the case where key is less
                         // than the lowest key in the set, in which case it takes rank 0. This is recognizable because
-                        // at level 0, only the leftmost empty array has a count of zero; every other key has a count of one.
+                        // at level 0, only the leftmost empty array has a count of zero; every other key has a count of one
+                        // (or the number of duplicates if those are counted separately).
                         rank++;
                     }
                     return true;
@@ -861,7 +897,6 @@ public class RankedSet {
     }
 
     protected static class Consistency {
-
 
         private final boolean consistent;
         private final int level;
