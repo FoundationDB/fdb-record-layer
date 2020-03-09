@@ -413,13 +413,11 @@ public class RankedSet {
         return getPreviousKey(tr, level, key, false).thenCompose(prevKey -> {
             CompletableFuture<Long> prevCount = tr.get(subspace.pack(Tuple.from(level, prevKey))).thenApply(RankedSet::decodeLong);
             CompletableFuture<Long> newPrevCount = countRange(tr, level - 1, prevKey, key);
-            return CompletableFuture.allOf(prevCount, newPrevCount)
-                    .thenApply(vignore2 -> {
-                        long count = prevCount.join() - newPrevCount.join() + 1;
-                        tr.set(subspace.pack(Tuple.from(level, prevKey)), encodeLong(newPrevCount.join()));
-                        tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(count));
-                        return null;
-                    });
+            return prevCount.thenAcceptBoth(newPrevCount, (prev, newPrev) -> {
+                long count = prev - newPrev + 1;
+                tr.set(subspace.pack(Tuple.from(level, prevKey)), encodeLong(newPrev));
+                tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(count));
+            });
         });
     }
 
@@ -480,18 +478,15 @@ public class RankedSet {
                                         });
                                     } else {
                                         final CompletableFuture<byte[]> prevKeyF = getPreviousKey(tr, level, key, false);
-                                        future = CompletableFuture.allOf(cf, prevKeyF)
-                                                .thenApply(vignore -> {
-                                                    final byte[] c = cf.join();
-                                                    long countChange = -1;
-                                                    if (c != null) {
-                                                        // Give back additional count from the key we are erasing to the neighbor.
-                                                        countChange += decodeLong(c);
-                                                        tr.clear(k);
-                                                    }
-                                                    tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKeyF.join())), encodeLong(countChange));
-                                                    return null;
-                                                });
+                                        future = cf.thenAcceptBoth(prevKeyF, (c, prevKey) -> {
+                                            long countChange = -1;
+                                            if (c != null) {
+                                                // Give back additional count from the key we are erasing to the neighbor.
+                                                countChange += decodeLong(c);
+                                                tr.clear(k);
+                                            }
+                                            tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKey)), encodeLong(countChange));
+                                        });
                                     }
                                 }
                                 futures.add(future);
