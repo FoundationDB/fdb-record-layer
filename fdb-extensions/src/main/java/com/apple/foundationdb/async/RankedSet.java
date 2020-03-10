@@ -44,7 +44,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Function;
 import java.util.zip.CRC32;
 
 import static com.apple.foundationdb.async.AsyncUtil.DONE;
@@ -403,10 +402,8 @@ public class RankedSet {
     }
 
     protected CompletableFuture<Void> addIncrementLevelKey(Transaction tr, byte[] key, int level, boolean orEqual) {
-        return getPreviousKey(tr, level, key, orEqual).thenApply(prevKey -> {
-            tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKey)), encodeLong(1));
-            return null;
-        });
+        return getPreviousKey(tr, level, key, orEqual)
+                .thenAccept(prevKey -> tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKey)), encodeLong(1)));
     }
 
     protected CompletableFuture<Void> addInsertLevelKey(Transaction tr, byte[] key, int level) {
@@ -448,17 +445,14 @@ public class RankedSet {
                                 if (duplicate) {
                                     // Always subtract one, never clearing a level count key.
                                     // Concurrent requests both subtracting one when the count is two will conflict
-                                    // on the level zero key, which was read to detect that this is a duplicate.
-                                    // So it should not be possible for a count to go to zero.
-                                    Function<byte[], Void> decrement = k -> {
-                                        tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, k)), encodeLong(-1));
-                                        return null;
-                                    };
+                                    // on the level zero key. So it should not be possible for a count to go to zero.
                                     if (level == 0) {
-                                        decrement.apply(key);
+                                        // There is already a read conflict on the level 0 key, so no benefit to atomic op.
+                                        tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(count - 1));
                                         future = DONE;
                                     } else {
-                                        future = getPreviousKey(tr, level, key, true).thenApply(decrement);
+                                        future = getPreviousKey(tr, level, key, true)
+                                                .thenAccept(k -> tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, k)), encodeLong(-1)));
                                     }
                                 } else {
                                     // This could be optimized to check the hash for which levels should have this key.
@@ -467,16 +461,11 @@ public class RankedSet {
                                     // as a result. It even allows for the hash function to return a random number.
                                     // It also further guarantees that counts never go to zero.
                                     final byte[] k = subspace.pack(Tuple.from(level, key));
-                                    final CompletableFuture<byte[]> cf = tr.get(k);
-
                                     if (level == 0) {
-                                        future = cf.thenApply(c -> {
-                                            if (c != null) {
-                                                tr.clear(k);
-                                            }
-                                            return null;
-                                        });
+                                        tr.clear(k);
+                                        future = DONE;
                                     } else {
+                                        final CompletableFuture<byte[]> cf = tr.get(k);
                                         final CompletableFuture<byte[]> prevKeyF = getPreviousKey(tr, level, key, false);
                                         future = cf.thenAcceptBoth(prevKeyF, (c, prevKey) -> {
                                             long countChange = -1;
@@ -897,11 +886,10 @@ public class RankedSet {
             for (int level = 0; level < nlevels; ++level) {
                 byte[] k = subspace.pack(Tuple.from(level, EMPTY_ARRAY));
                 byte[] v = encodeLong(0);
-                futures.add(tr.get(k).thenApply(value -> {
+                futures.add(tr.get(k).thenAccept(value -> {
                     if (value == null) {
                         tr.set(k, v);
                     }
-                    return null;
                 }));
             }
             return AsyncUtil.whenAll(futures);
