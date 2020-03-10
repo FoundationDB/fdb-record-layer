@@ -263,6 +263,13 @@ public class RankedSetTest extends FDBTestBase {
     }
 
     @Test
+    @Tag(Tags.Slow)
+    public void randomFiveThreadsWithDuplicates() throws InterruptedException {
+        config = RankedSet.newConfigBuilder().setCountDuplicates(true).build();
+        randomFiveThreads();
+    }
+
+    @Test
     public void rankAsThoughPresent() {
         RankedSet rs = newRankedSet();
         db.run(tr -> {
@@ -286,7 +293,7 @@ public class RankedSetTest extends FDBTestBase {
         return result;
     }
 
-    private static void rankedSetOp(TransactionContext tc, RankedSet rs) {
+    private void rankedSetOp(TransactionContext tc, RankedSet rs) {
         int op = ThreadLocalRandom.current().nextInt(6);
         byte[] key = new byte[1];
         ThreadLocalRandom.current().nextBytes(key);
@@ -301,8 +308,13 @@ public class RankedSetTest extends FDBTestBase {
                     boolean wasPresent = rs.contains(tr, key).join();
                     boolean didInsert = rs.add(tr, key).join();
                     long size2 = rs.size(tr).join();
-                    assertNotEquals(wasPresent, didInsert);
-                    assertEquals(size1 + (wasPresent ? 0 : 1), size2);
+                    if (config.isCountDuplicates()) {
+                        assertTrue(didInsert);
+                        assertEquals(size1 + 1, size2);
+                    } else {
+                        assertNotEquals(wasPresent, didInsert);
+                        assertEquals(size1 + (wasPresent ? 0 : 1), size2);
+                    }
                     break;
                 }
                 case 2: {
@@ -329,13 +341,28 @@ public class RankedSetTest extends FDBTestBase {
                         long r = ThreadLocalRandom.current().nextLong(size);
                         byte[] k = rs.getNth(tr, r).join();
                         long r2 = rs.rank(tr, k).join();
-                        long r3 = rs.getRangeList(tr, new byte[]{ 0x00 }, k).size();
-                        if (!(r == r2 && r2 == r3)) {
-                            throw new IllegalStateException(String.format("Rank Mismatch: Key=%s; r=%d; r2=%d; r3=%d",
-                                                                          ByteArrayUtil.printable(k),
-                                                                          r,
-                                                                          r2,
-                                                                          r3));
+                        if (config.isCountDuplicates()) {
+                            long d = rs.count(tr, k).join();
+                            long r3 = rs.getRangeList(tr, new byte[] {0x00}, k).stream()
+                                    .map(pk -> rs.count(tr, pk).join())
+                                    .mapToLong(Long::longValue).sum();
+                            if (!(d > 0 && r >= r2 && r < r2 + d && r2 == r3)) {
+                                throw new IllegalStateException(String.format("Rank Mismatch: Key=%s; d=%d, r=%d; r2=%d; r3=%d",
+                                        ByteArrayUtil.printable(k),
+                                        d,
+                                        r,
+                                        r2,
+                                        r3));
+                            }
+                        } else {
+                            long r3 = rs.getRangeList(tr, new byte[] {0x00}, k).size();
+                            if (!(r == r2 && r2 == r3)) {
+                                throw new IllegalStateException(String.format("Rank Mismatch: Key=%s; r=%d; r2=%d; r3=%d",
+                                        ByteArrayUtil.printable(k),
+                                        r,
+                                        r2,
+                                        r3));
+                            }
                         }
                     }
                     break;
@@ -348,7 +375,7 @@ public class RankedSetTest extends FDBTestBase {
         });
     }
 
-    private static void thousandRankedSetOps(TransactionContext tc, RankedSet rs) {
+    private void thousandRankedSetOps(TransactionContext tc, RankedSet rs) {
         for (int i = 0; i < 1000; ++i) {
             rankedSetOp(tc, rs);
         }
