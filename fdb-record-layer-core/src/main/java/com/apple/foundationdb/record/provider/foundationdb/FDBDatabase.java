@@ -28,6 +28,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.AsyncLoadingCache;
+import com.apple.foundationdb.record.AsyncLoadingTask;
 import com.apple.foundationdb.record.LoggableTimeoutException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.ResolverStateProto;
@@ -558,7 +559,7 @@ public class FDBDatabase {
     @Nonnull
     @API(API.Status.INTERNAL)
     public CompletableFuture<ResolverStateProto.State> getStateForResolver(@Nonnull LocatableResolver resolver,
-                                                                           @Nonnull Supplier<CompletableFuture<ResolverStateProto.State>> loader) {
+                                                                           @Nonnull AsyncLoadingTask<ResolverStateProto.State> loader) {
         return resolverStateCache.orElseGet(resolver, loader);
     }
 

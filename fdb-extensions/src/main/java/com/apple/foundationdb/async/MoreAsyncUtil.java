@@ -814,15 +814,14 @@ public class MoreAsyncUtil {
      * no deadline is imposed on the future.
      *
      * @param deadlineTimeMillis the maximum time to wait for the asynchronous operation to complete, specified in milliseconds
-     * @param supplier the {@link Supplier} of the asynchronous result
+     * @param valueFuture the asynchronous task to impose a deadline on
      * @param <T> the return type for the get operation
      * @return a future that will either complete with the result of the asynchronous get operation or
      * complete exceptionally if the deadline is exceeded
      */
     @API(API.Status.EXPERIMENTAL)
     public static <T> CompletableFuture<T> getWithDeadline(long deadlineTimeMillis,
-                                                           @Nonnull Supplier<CompletableFuture<T>> supplier) {
-        final CompletableFuture<T> valueFuture = supplier.get();
+                                                           @Nonnull CompletableFuture<T> valueFuture) {
         if (deadlineTimeMillis == Long.MAX_VALUE) {
             return valueFuture;
         }
@@ -937,7 +936,7 @@ public class MoreAsyncUtil {
     private MoreAsyncUtil() {}
 
     /**
-     * Exception that will be thrown when the <code>supplier</code> in {@link #getWithDeadline(long, Supplier)} fails to
+     * Exception that will be thrown when the <code>supplier</code> in {@link #getWithDeadline(long, CompletableFuture)} fails to
      * complete within the specified deadline time.
      */
     @SuppressWarnings("serial")

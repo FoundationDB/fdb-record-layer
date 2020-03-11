@@ -40,11 +40,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -130,12 +133,12 @@ public class TestHelpers {
 
     }
 
-    public static void assertThrows(Class<? extends Exception> expectedType, Callable<?> callable, Object ...keyValues) throws Exception {
-        assertThrows("", expectedType, callable, keyValues);
+    public static <E extends Exception> E assertThrows(Class<E> expectedType, Callable<?> callable, Object ...keyValues) throws Exception {
+        return assertThrows("", expectedType, callable, keyValues);
     }
 
-    public static void assertThrows(String message, Class<? extends Exception> expectedType, Callable<?> callable,
-                                    Object ...keyValues) throws Exception {
+    public static <E extends Exception> E assertThrows(String message, Class<E> expectedType, Callable<?> callable,
+                                                       Object ...keyValues) throws Exception {
         if (keyValues.length > 0) {
             if (!LoggableException.class.isAssignableFrom(expectedType)) {
                 fail("Log value checks can only be provided with a LoggableException");
@@ -149,14 +152,16 @@ public class TestHelpers {
             callable.call();
             message = message.isEmpty() ? "" : (message + ": ");
             fail(message + "Expected Exception of type " + expectedType + " but none was thrown");
+            throw new RuntimeException("unreachable code"); // makes the compiler happy as it doesn't know fail throws an error
         } catch (Exception e) {
-            if (e instanceof ExecutionException && e.getCause() instanceof Exception) {
+            if ((e instanceof ExecutionException || e instanceof CompletionException) && e.getCause() instanceof Exception) {
                 e = (Exception) e.getCause();
             }
             if (!e.getClass().equals(expectedType)) {
                 throw e;
             }
             if (keyValues.length > 0) {
+                assertThat(e, instanceOf(LoggableException.class));
                 Map<String, Object> loggedKeys = ((LoggableException) e).getLogInfo();
                 for (int i = 0; i < keyValues.length; i += 2) {
                     final String name = (String) keyValues[i];
@@ -167,6 +172,7 @@ public class TestHelpers {
                     assertEquals(value, loggedKeys.get(name), "Wrong value for logging property '" + name + "'");
                 }
             }
+            return expectedType.cast(e);
         }
     }
 

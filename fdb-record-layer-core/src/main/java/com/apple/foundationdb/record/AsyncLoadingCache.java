@@ -78,34 +78,61 @@ public class AsyncLoadingCache<K, V> {
 
     /**
      * If the cache does not contain an entry for <code>key</code>, retrieve the value using the provided asynchronous
-     * {@link Supplier}. If the value is not currently cached, then the {@code Supplier} is used to load the value
-     * asynchronously. If multiple callers ask for the same key at the same time, then they might duplicate
-     * each other's work in that both callers will result in a future being created. Whichever future completes first
-     * will insert its value into the cache, and all callers that then complete successfully are guaranteed to see that
-     * object until such time as the value is expired from the cache.
+     * {@link Supplier}. This behaves like the other overload of {@link #orElseGet(Object, AsyncLoadingTask)}, but note that
+     * while this will ensure that any futures scheduled by loading the cache entry are cancelled, that is not a reliable
+     * way of actually cancelling work. Users should consider using the other overload instead.
      *
      * @param key the key in the cache to lookup
      * @param supplier an asynchronous operation to retrieve the desired value if the cache is empty
      *
      * @return a future containing either the cached value or the result from the supplier
+     * @see #orElseGet(Object, AsyncLoadingTask)
      */
-    @SuppressWarnings("squid:S2789") // comparison of null and optional used to differentiate absence of key and presence of null
     @Nonnull
     public CompletableFuture<V> orElseGet(@Nonnull K key, @Nonnull Supplier<CompletableFuture<V>> supplier) {
+        return orElseGet(key, AsyncLoadingTask.fromFutureSupplier(supplier));
+    }
+
+    /**
+     * If the cache does not contain an entry for <code>key</code>, retrieve the value using the provided asynchronous
+     * {@link Supplier}. If the value is not currently cached, then the task is used to load the value
+     * asynchronously. If multiple callers ask for the same key at the same time, then they might duplicate
+     * each other's work in that both callers will result in a future being created. Whichever future completes first
+     * will insert its value into the cache, and all callers that then complete successfully are guaranteed to see that
+     * object until such time as the value is expired from the cache. Regardless of whether a future is actually created
+     * and whether the task completes successfully or not, the given task will be closed by the cache.
+     *
+     * @param key the key in the cache to lookup
+     * @param task an asynchronous operation to retrieve the desired value if the cache is empty
+     *
+     * @return a future containing either the cached value or the result from the supplier
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("squid:S2789") // comparison of null and optional used to differentiate absence of key and presence of null
+    @Nonnull
+    public CompletableFuture<V> orElseGet(@Nonnull K key, @Nonnull AsyncLoadingTask<V> task) {
+        boolean asyncWorkStarted = false;
         try {
             Optional<V> cachedValue = cache.getIfPresent(key);
             if (cachedValue == null) {
-                return MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, supplier).thenApply(value -> {
+                CompletableFuture<V> future = MoreAsyncUtil.getWithDeadline(deadlineTimeMillis, task.load()).thenApply(value -> {
                     // Only insert the computed value into the cache if a concurrent caller hasn't.
                     // Return the value that wound up in the cache.
                     final Optional<V> existingValue = cache.asMap().putIfAbsent(key, Optional.ofNullable(value));
                     return existingValue == null ? value : existingValue.orElse(null);
-                });
+                }).whenComplete((vignore, err) -> task.close());
+                asyncWorkStarted = true;
+                return future;
             } else {
                 return CompletableFuture.completedFuture(cachedValue.orElse(null));
             }
         } catch (Exception e) {
             throw new RecordCoreException("failed getting value", e).addLogInfo("cacheKey", key);
+        } finally {
+            // Close the task unless async work has started and the task will be closed in a callback
+            if (!asyncWorkStarted) {
+                task.close();
+            }
         }
     }
 

@@ -22,11 +22,13 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.AsyncLoadingTask;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
@@ -106,11 +108,18 @@ public abstract class LocatableResolver {
     }
 
     @Nonnull
-    private <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable) {
-        return database.runAsync(timer, null, context ->
+    private <T> AsyncLoadingTask<T> getTask(@Nullable FDBStoreTimer timer, @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable) {
+        FDBDatabaseRunner runner = database.newRunner();
+        runner.setTimer(timer);
+        return AsyncLoadingTask.fromDatabaseRunner(runner, context ->
                 // Explicitly get a read version for instrumentation purposes
                 context.getReadVersionAsync().thenCompose(ignore -> retriable.apply(context))
         );
+    }
+
+    @Nonnull
+    private <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable) {
+        return getTask(timer, retriable).load();
     }
 
     /**
@@ -298,13 +307,13 @@ public abstract class LocatableResolver {
     }
 
     @Nonnull
-    private CompletableFuture<ResolverStateProto.State> readResolverState(@Nullable FDBStoreTimer timer) {
-        return runAsync(timer, this::readResolverStateInTransaction);
+    private AsyncLoadingTask<ResolverStateProto.State> readResolverState(@Nullable FDBStoreTimer timer) {
+        return getTask(timer, this::readResolverStateInTransaction);
     }
 
     @Nonnull
     private CompletableFuture<ResolverStateProto.State> getResolverState(@Nullable FDBStoreTimer timer) {
-        return database.getStateForResolver(this, () -> readResolverState(timer));
+        return database.getStateForResolver(this, readResolverState(timer));
     }
 
     /**

@@ -26,6 +26,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil.DeadlineExceededException;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -36,7 +37,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.TestHelpers.ExceptionMessageMatcher.hasMessageContaining;
 import static com.apple.foundationdb.record.TestHelpers.assertThrows;
 import static com.apple.foundationdb.record.TestHelpers.consistently;
 import static com.apple.foundationdb.record.TestHelpers.eventually;
@@ -45,6 +45,8 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -155,7 +157,7 @@ class AsyncLoadingCacheTest {
             assertThat(cachedResult.orElseGet("k1", getSupplier(234, counter1, false)).join(), is(234));
             assertThat("we do not call the supplier while the cache is valid", counter1.get(), is(1));
 
-            assertThrows(CompletionException.class, () -> cachedResult.orElseGet("k2", getSupplier(987, counter2, true)).join());
+            assertThrows(RecordCoreException.class, () -> cachedResult.orElseGet("k2", getSupplier(987, counter2, true)).join());
             assertThat("we retry the supplier after a failure", counter2.get(), is(i));
         }
 
@@ -245,22 +247,109 @@ class AsyncLoadingCacheTest {
     }
 
     @Test
-    public void testDeadline() {
+    public void testDeadline() throws Exception {
         AsyncLoadingCache<String, Integer> cachedResult = new AsyncLoadingCache<>(100, 10);
         final Supplier<CompletableFuture<Integer>> tooLateSupplier = () -> MoreAsyncUtil.delayedFuture(1, TimeUnit.SECONDS)
                 .thenApply(ignore -> 2);
         final Supplier<CompletableFuture<Integer>> onTimeSupplier = () -> MoreAsyncUtil.delayedFuture(5, TimeUnit.MILLISECONDS)
                 .thenApply(ignore -> 3);
+        assertThrows(DeadlineExceededException.class, () -> cachedResult.orElseGet("a-key", tooLateSupplier).join());
+        assertThat("we get the value before the deadline", cachedResult.orElseGet("a-key", onTimeSupplier).join(), is(3));
+    }
 
-        try {
-            cachedResult.orElseGet("a-key", tooLateSupplier).join();
-            fail("should throw CompletionException");
-        } catch (CompletionException ex) {
-            assertThat("it is caused by a deadline exception", ex.getCause(),
-                    is(instanceOf(DeadlineExceededException.class)));
-            assertThat(ex.getCause(), hasMessageContaining("deadline exceeded"));
+    @Test
+    public void testClosedOnSuccess() {
+        final AsyncLoadingCache<String, String> cache = new AsyncLoadingCache<>(60_000, 100);
+
+        // Read from cache, actually running task. Ensure that the task is both started and closed.
+        CloseTrackingAsyncLoadingTask<String> task = new CloseTrackingAsyncLoadingTask<>(() ->
+                MoreAsyncUtil.delayedFuture(2, TimeUnit.MILLISECONDS).thenApply(vignore -> "value")
+        );
+        assertEquals("value", cache.orElseGet("key", task).join());
+        task.assertStarted();
+        task.assertClosed();
+
+        // Read from cache, using cached value. Ensure that the task is not started but still gets closed.
+        CloseTrackingAsyncLoadingTask<String> task2 = new CloseTrackingAsyncLoadingTask<>(() ->
+                MoreAsyncUtil.delayedFuture(2, TimeUnit.MILLISECONDS).thenApply(vignore -> "value2")
+        );
+        assertEquals("value", cache.orElseGet("key", task2).join());
+        task2.assertNotStarted();
+        task2.assertClosed();
+    }
+
+    @Test
+    public void testClosedOnDeadline() throws Exception {
+        final AsyncLoadingCache<String, Void> cache = new AsyncLoadingCache<>(50, 50);
+
+        CloseTrackingAsyncLoadingTask<Void> task = new CloseTrackingAsyncLoadingTask<>(CompletableFuture::new); // will never complete
+        assertThrows(DeadlineExceededException.class, () -> cache.orElseGet("key", task).join());
+        task.assertClosed();
+    }
+
+    @Test
+    public void testClosedOnImmediateError() throws Exception {
+        final AsyncLoadingCache<String, Void> cache = new AsyncLoadingCache<>(100, 100);
+
+        CloseTrackingAsyncLoadingTask<Void> task = new CloseTrackingAsyncLoadingTask<>(() -> {
+            throw new RecordCoreException("some other weird error");
+        });
+        RecordCoreException err = assertThrows(RecordCoreException.class, () -> cache.orElseGet("key", task).join());
+        assertEquals("failed getting value", err.getMessage());
+        assertNotNull(err.getCause());
+        assertThat(err.getCause(), instanceOf(RecordCoreException.class));
+        assertEquals("some other weird error", err.getCause().getMessage());
+        task.assertClosed();
+    }
+
+    @Test
+    public void testClosedOnFutureError() throws Exception {
+        final AsyncLoadingCache<String, Void> cache = new AsyncLoadingCache<>(100, 100);
+
+        CloseTrackingAsyncLoadingTask<Void> task =  new CloseTrackingAsyncLoadingTask<>(() -> {
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            future.completeExceptionally(new RecordCoreException("some other weird error"));
+            return future;
+        });
+        RecordCoreException err = assertThrows(RecordCoreException.class, () -> cache.orElseGet("key", task).join());
+        assertEquals("some other weird error", err.getMessage());
+        task.assertClosed();
+    }
+
+    private static class CloseTrackingAsyncLoadingTask<T> implements AsyncLoadingTask<T> {
+        private boolean started;
+        private boolean closed;
+        private final Supplier<CompletableFuture<T>> supplier;
+
+        public CloseTrackingAsyncLoadingTask(@Nonnull Supplier<CompletableFuture<T>> supplier) {
+            this.supplier = supplier;
         }
 
-        assertThat("we get the value before the deadline", cachedResult.orElseGet("a-key", onTimeSupplier).join(), is(3));
+        @Override
+        public CompletableFuture<T> load() {
+            started = true;
+            return supplier.get().whenComplete((vignore, eignore) -> assertNotClosed());
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+
+        public void assertClosed() {
+            assertTrue(closed, "loading task should have been closed");
+        }
+
+        public void assertNotClosed() {
+            assertFalse(closed, "loading task should not have been closed");
+        }
+
+        public void assertStarted() {
+            assertTrue(started, "loading task should have been started");
+        }
+
+        public void assertNotStarted() {
+            assertFalse(started, "loading task should not have been started");
+        }
     }
 }
