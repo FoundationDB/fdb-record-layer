@@ -152,16 +152,15 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
 
-    protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
-                               boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics,
-                               @Nonnull FDBTransactionPriority priority,
-                               @Nullable String transactionId) {
-        super(fdb, fdb.createTransaction(initExecutor(fdb, mdcContext), mdcContext, transactionIsTraced));
+    protected FDBRecordContext(@Nonnull FDBDatabase fdb,
+                               @Nonnull FDBRecordContextConfig config,
+                               boolean transactionIsTraced) {
+        super(fdb, fdb.createTransaction(initExecutor(fdb, config.getMdcContext()), config.getMdcContext(), transactionIsTraced), config.getTimer());
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>();
         this.versionMutationCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
-        this.transactionId = getSanitizedId(transactionId);
+        this.transactionId = getSanitizedId(config);
 
         if (this.transactionId != null) {
             ensureActive().options().setDebugTransactionIdentifier(this.transactionId);
@@ -171,11 +170,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
 
         // If a causal read risky is requested, we set the corresponding transaction option
+        this.weakReadSemantics = config.getWeakReadSemantics();
         if (weakReadSemantics != null && weakReadSemantics.isCausalReadRisky()) {
             transaction.options().setCausalReadRisky();
         }
 
-        this.priority = priority;
+        this.priority = config.getPriority();
         switch (priority) {
             case BATCH:
                 transaction.options().setPriorityBatch();
@@ -190,14 +190,25 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 throw new RecordCoreArgumentException("unknown priority level " + priority);
         }
 
-        this.weakReadSemantics = weakReadSemantics;
         this.dirtyStoreState = false;
     }
 
     @Nullable
-    private static String getSanitizedId(@Nullable String id) {
+    private static String getSanitizedId(@Nonnull FDBRecordContextConfig config) {
+        if (config.getTransactionId() != null) {
+            return getSanitizedId(config.getTransactionId());
+        } else if (config.getMdcContext() != null) {
+            String mdcId = config.getMdcContext().get("uuid");
+            return mdcId == null ? null : getSanitizedId(mdcId);
+        } else {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static String getSanitizedId(@Nonnull String id) {
         try {
-            if (id != null && Utf8.encodedLength(id) > MAX_TR_ID_SIZE) {
+            if (Utf8.encodedLength(id) > MAX_TR_ID_SIZE) {
                 if (CharMatcher.ascii().matchesAllOf(id)) {
                     // Most of the time, the string will be of ascii characters, so return a truncated ID based on length
                     return id.substring(0, MAX_TR_ID_SIZE - 3) + "...";

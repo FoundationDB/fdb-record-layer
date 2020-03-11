@@ -221,7 +221,13 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         if (closed) {
             throw new RunnerClosed();
         }
-        FDBRecordContext context = database.openContext(mdcContext, timer, weakReadSemantics, priority);
+        FDBRecordContextConfig contextConfig = FDBRecordContextConfig.newBuilder()
+                .setMdcContext(mdcContext)
+                .setTimer(timer)
+                .setWeakReadSemantics(weakReadSemantics)
+                .setPriority(priority)
+                .build();
+        FDBRecordContext context = database.openContext(contextConfig);
         addContextToClose(context);
         return context;
     }
