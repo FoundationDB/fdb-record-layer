@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -55,6 +56,23 @@ public class FDBDatabaseFactory {
      * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver} retrieval requests.
      */
     public static final int DEFAULT_DIRECTORY_CACHE_SIZE = 5000;
+
+    /**
+     * Special value to set the transaction timeout to to indicate that transactions should use the system
+     * default.
+     *
+     * @see #setTransactionTimeoutMillis(long)
+     */
+    public static final long DEFAULT_TR_TIMEOUT_MILLIS = -1L;
+
+    /**
+     * Special value to set the transaction timeout to to indicate that transactions should not have any
+     * timeout set at all.
+     *
+     * @see #setTransactionTimeoutMillis(long)
+     */
+    public static final long UNLIMITED_TR_TIMEOUT_MILLIS = 0L;
+
     private static final int API_VERSION = 610;
 
     @Nonnull
@@ -95,6 +113,8 @@ public class FDBDatabaseFactory {
     private int reverseDirectoryRowsPerTransaction = FDBReverseDirectoryCache.MAX_ROWS_PER_TRANSACTION;
     private long reverseDirectoryMaxMillisPerTransaction = FDBReverseDirectoryCache.MAX_MILLIS_PER_TRANSACTION;
     private long stateRefreshTimeMillis = TimeUnit.SECONDS.toMillis(FDBDatabase.DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS);
+    private long transactionTimeoutMillis = DEFAULT_TR_TIMEOUT_MILLIS;
+
     /**
      * The default is a log-based predicate, which can also be used to enable tracing on a more granular level
      * (such as by request) using {@link #setTransactionIsTracedSupplier(Supplier)}.
@@ -524,6 +544,46 @@ public class FDBDatabaseFactory {
      */
     public void setStateRefreshTimeMillis(long stateRefreshTimeMillis) {
         this.stateRefreshTimeMillis = stateRefreshTimeMillis;
+    }
+
+    /**
+     * Set the transaction timeout time in milliseconds. Databases created by this factory will use this value when
+     * they create transactions. If the timeout is reached, the transaction will fail with an
+     * {@link FDBExceptions.FDBStoreTransactionTimeoutException}
+     * and will not be retried. Any outstanding work from the transaction will be cancelled, though the
+     * user should still close the {@link FDBRecordContext} to free any native memory used by the transaction.
+     *
+     * <p>
+     * If set to {@link #DEFAULT_TR_TIMEOUT_MILLIS}, then the transaction's timeout will default to the system default,
+     * which is the value set by {@link com.apple.foundationdb.DatabaseOptions#setTransactionTimeout(long)}. If that
+     * option is not set, then no timeout will be imposed on the transaction. Note also that this is the
+     * default value
+     * </p>
+     *
+     * <p>
+     * If set to {@link #UNLIMITED_TR_TIMEOUT_MILLIS}, then the no timeout will be imposed on the transaction. This
+     * will override the system default if one is set.
+     * </p>
+     *
+     * @param transactionTimeoutMillis the amount of time in milliseconds before a transaction should timeout
+     */
+    public void setTransactionTimeoutMillis(long transactionTimeoutMillis) {
+        if (transactionTimeoutMillis < DEFAULT_TR_TIMEOUT_MILLIS) {
+            throw new RecordCoreArgumentException("cannot set transaction timeout millis to " + transactionTimeoutMillis);
+        }
+        this.transactionTimeoutMillis = transactionTimeoutMillis;
+    }
+
+    /**
+     * Get the transaction timeout time in milliseconds. See {@link #setTransactionTimeoutMillis(long)} for more
+     * information, especially for the meaning of the special values {@link #DEFAULT_TR_TIMEOUT_MILLIS} and
+     * {@link #UNLIMITED_TR_TIMEOUT_MILLIS}.
+     *
+     * @return the transaction timeout time in milliseconds
+     * @see #setTransactionTimeoutMillis(long)
+     */
+    public long getTransactionTimeoutMillis() {
+        return transactionTimeoutMillis;
     }
 
     /**

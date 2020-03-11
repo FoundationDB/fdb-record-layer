@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
@@ -40,6 +42,7 @@ public class FDBRecordContextConfig {
     private final FDBTransactionPriority priority;
     @Nullable
     private final String transactionId;
+    private final long transactionTimeoutMillis;
 
     private FDBRecordContextConfig(@Nonnull Builder builder) {
         this.mdcContext = builder.mdcContext;
@@ -47,6 +50,7 @@ public class FDBRecordContextConfig {
         this.weakReadSemantics = builder.weakReadSemantics;
         this.priority = builder.priority;
         this.transactionId = builder.transactionId;
+        this.transactionTimeoutMillis = builder.transactionTimeoutMillis;
     }
 
     /**
@@ -106,6 +110,16 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Get the configured transaction timeout time in milliseconds. If set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS},
+     * then the created transaction will use the default from the {@link FDBDatabaseFactory}.
+     *
+     * @return the transaction timeout time in milliseconds
+     */
+    public long getTransactionTimeoutMillis() {
+        return transactionTimeoutMillis;
+    }
+
+    /**
      * Get a new builder for this class.
      *
      * @return a new builder for this class
@@ -140,6 +154,7 @@ public class FDBRecordContextConfig {
         private FDBTransactionPriority priority = FDBTransactionPriority.DEFAULT;
         @Nullable
         private String transactionId = null;
+        private long transactionTimeoutMillis = FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS;
 
         private Builder() {
         }
@@ -150,6 +165,7 @@ public class FDBRecordContextConfig {
             this.weakReadSemantics = config.weakReadSemantics;
             this.priority = config.priority;
             this.transactionId = config.transactionId;
+            this.transactionTimeoutMillis = config.transactionTimeoutMillis;
         }
 
         /**
@@ -293,6 +309,31 @@ public class FDBRecordContextConfig {
         @Nullable
         public String getTransactionId() {
             return transactionId;
+        }
+
+        /**
+         * Set the transaction timeout time in milliseconds. The default is {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS},
+         * which indicates that a created transaction should inherit its default from the {@link FDBDatabaseFactory}
+         * used to create it. If set to {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS}, then no timeout will
+         * be imposed on the transaction. Otherwise, the transaction will be configured to automatically cancel
+         * itself after the configured number of milliseconds.
+         *
+         * @param transactionTimeoutMillis the timeout time in milliseconds
+         * @return this builder
+         * @see FDBRecordContextConfig#getTransactionTimeoutMillis()
+         * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
+         */
+        @Nonnull
+        public Builder setTransactionTimeoutMillis(long transactionTimeoutMillis) {
+            if (transactionTimeoutMillis < FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
+                throw new RecordCoreArgumentException("cannot set transaction timeout to " + transactionTimeoutMillis);
+            }
+            this.transactionTimeoutMillis = transactionTimeoutMillis;
+            return this;
+        }
+
+        private long getTransactionTimeoutMillis() {
+            return transactionTimeoutMillis;
         }
 
         /**

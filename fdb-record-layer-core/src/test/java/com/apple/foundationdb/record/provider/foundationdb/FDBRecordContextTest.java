@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -420,6 +421,86 @@ public class FDBRecordContextTest extends FDBTestBase {
             Subspace fakeSubspace = new Subspace(Tuple.from(UUID.randomUUID()));
             context.ensureActive().addWriteConflictRange(fakeSubspace.range().begin, fakeSubspace.range().end);
             context.commit();
+        }
+    }
+
+    @Test
+    public void setTimeoutInDatabaseFactory() {
+        long initialTimeoutMillis = fdb.getFactory().getTransactionTimeoutMillis();
+        try {
+            fdb.getFactory().setTransactionTimeoutMillis(1066L);
+            try (FDBRecordContext context = fdb.openContext()) {
+                assertEquals(1066L, context.getTimeoutMillis(), "timeout millis did not match factory timeout");
+            }
+
+            fdb.getFactory().setTransactionTimeoutMillis(FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS);
+            try (FDBRecordContext context = fdb.openContext()) {
+                assertEquals(FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS, context.getTimeoutMillis(), "timeout millis did not match default");
+            }
+        } finally {
+            fdb.getFactory().setTransactionTimeoutMillis(initialTimeoutMillis);
+        }
+    }
+
+    @Test
+    public void setTimeoutInRunner() {
+        long initialTimeoutMillis = fdb.getFactory().getTransactionTimeoutMillis();
+        try {
+            fdb.getFactory().setTransactionTimeoutMillis(1066L);
+
+            try (final FDBDatabaseRunner runner = fdb.newRunner()) {
+                runner.setTransactionTimeoutMillis(1415L);
+                try (FDBRecordContext context = runner.openContext()) {
+                    assertEquals(1415L, context.getTimeoutMillis(), "timeout millis did not match runner timeout");
+                }
+            }
+
+            try (final FDBDatabaseRunner runner = fdb.newRunner()) {
+                runner.setTransactionTimeoutMillis(FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS);
+                try (FDBRecordContext context = runner.openContext()) {
+                    assertEquals(1066L, context.getTimeoutMillis(), "timeout millis did not match factory timeout");
+                }
+            }
+        } finally {
+            fdb.getFactory().setTransactionTimeoutMillis(initialTimeoutMillis);
+        }
+    }
+
+    @Test
+    public void setTimeoutInConfig() {
+        long initialTimeoutMillis = fdb.getFactory().getTransactionTimeoutMillis();
+        try {
+            fdb.getFactory().setTransactionTimeoutMillis(1066L);
+
+            final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                    .setTransactionTimeoutMillis(1415L)
+                    .build();
+            try (final FDBRecordContext context = fdb.openContext(config)) {
+                assertEquals(1415L, context.getTimeoutMillis(), "timeout millis did not match config timeout");
+            }
+
+            final FDBRecordContextConfig config2 = FDBRecordContextConfig.newBuilder()
+                    .setTransactionTimeoutMillis(FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS)
+                    .build();
+            try (final FDBRecordContext context = fdb.openContext(config2)) {
+                assertEquals(1066L, context.getTimeoutMillis(), "timeout millis did not match factory timeout");
+            }
+        } finally {
+            fdb.getFactory().setTransactionTimeoutMillis(initialTimeoutMillis);
+        }
+    }
+
+    @Test
+    public void timeoutTalkingToFakeCluster() throws IOException {
+        final String fakeClusterFile = FDBTestBase.createFakeClusterFile("for_testing_timeouts");
+        final FDBDatabase fakeFdb = FDBDatabaseFactory.instance().getDatabase(fakeClusterFile);
+
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setTransactionTimeoutMillis(100L)
+                .build();
+        try (FDBRecordContext context = fakeFdb.openContext(config)) {
+            assertEquals(100L, context.getTimeoutMillis());
+            assertThrows(FDBExceptions.FDBStoreTransactionTimeoutException.class, context::getReadVersion);
         }
     }
 

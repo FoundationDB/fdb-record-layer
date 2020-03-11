@@ -143,6 +143,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final FDBDatabase.WeakReadSemantics weakReadSemantics;
     @Nonnull
     private final FDBTransactionPriority priority;
+    private final long timeoutMillis;
     @Nullable
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
     @Nonnull
@@ -162,8 +163,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.versionMutationCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
         this.transactionId = getSanitizedId(config);
 
+        @Nonnull Transaction tr = ensureActive();
         if (this.transactionId != null) {
-            ensureActive().options().setDebugTransactionIdentifier(this.transactionId);
+            tr.options().setDebugTransactionIdentifier(this.transactionId);
             if (transactionIsTraced) {
                 logTransaction();
             }
@@ -172,22 +174,29 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         // If a causal read risky is requested, we set the corresponding transaction option
         this.weakReadSemantics = config.getWeakReadSemantics();
         if (weakReadSemantics != null && weakReadSemantics.isCausalReadRisky()) {
-            transaction.options().setCausalReadRisky();
+            tr.options().setCausalReadRisky();
         }
 
         this.priority = config.getPriority();
         switch (priority) {
             case BATCH:
-                transaction.options().setPriorityBatch();
+                tr.options().setPriorityBatch();
                 break;
             case DEFAULT:
                 // Default priority does not need to set any option
                 break;
             case SYSTEM_IMMEDIATE:
-                transaction.options().setPrioritySystemImmediate();
+                tr.options().setPrioritySystemImmediate();
                 break;
             default:
                 throw new RecordCoreArgumentException("unknown priority level " + priority);
+        }
+
+        // Set the transaction timeout based on the config (if set) and the database factory otherwise
+        this.timeoutMillis = getTimeoutMillisToSet(fdb, config);
+        if (timeoutMillis != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
+            // If the value is DEFAULT_TR_TIMEOUT_MILLIS, then this uses the system default and does not need to be set here
+            tr.options().setTimeout(timeoutMillis);
         }
 
         this.dirtyStoreState = false;
@@ -226,6 +235,14 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
+    private static long getTimeoutMillisToSet(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordContextConfig config) {
+        if (config.getTransactionTimeoutMillis() != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
+            return config.getTransactionTimeoutMillis();
+        } else {
+            return fdb.getFactory().getTransactionTimeoutMillis();
+        }
+    }
+
     /**
      * Get the ID used by FoundationDB to track this transaction. This can be used as a correlation key to correlate
      * requests with their transactions. If this returns {@code null}, then no ID has been set. This means that
@@ -261,6 +278,26 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     public String getTransactionId() {
         return transactionId;
+    }
+
+    /**
+     * Get the timeout time for the underlying transaction. The value returned here is whatever timeout is actually
+     * set for this transaction, if one is set through the context's constructor. This can be from either an
+     * {@link FDBDatabaseFactory}, an {@link FDBDatabaseRunner}, or an {@link FDBRecordContextConfig}. If this
+     * returns {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS}, then this indicates that the transaction was
+     * set using the default system timeout, which is configured with {@link com.apple.foundationdb.DatabaseOptions#setTransactionTimeout(long)}.
+     * As those options can not be inspected through FoundationDB Java bindings, this method cannot return an
+     * accurate result. Likewise, if a user explicitly sets the underlying option using {@link com.apple.foundationdb.TransactionOptions#setTimeout(long)},
+     * then this method will not return an accurate result.
+     *
+     * @return the timeout configured for this transaction at its initialization
+     * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
+     * @see FDBDatabaseRunner#setTransactionTimeoutMillis(long)
+     * @see FDBRecordContextConfig.Builder#setTransactionTimeoutMillis(long)
+     * @see FDBExceptions.FDBStoreTransactionTimeoutException
+     */
+    public long getTimeoutMillis() {
+        return timeoutMillis;
     }
 
     /**

@@ -290,6 +290,16 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     }
 
     @Override
+    public void setTransactionTimeoutMillis(long transactionTimeoutMillis) {
+        underlying.setTransactionTimeoutMillis(transactionTimeoutMillis);
+    }
+
+    @Override
+    public long getTransactionTimeoutMillis() {
+        return underlying.getTransactionTimeoutMillis();
+    }
+
+    @Override
     @Nonnull
     public FDBRecordContext openContext() {
         return underlying.openContext();

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -44,13 +45,16 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseTest.testStoreAndRetrieveSimpleRecord;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -331,6 +335,33 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
                 return null;
             }).join();
             assertEquals(runner.getMaxAttempts(), iteration.get());
+        }
+    }
+
+    @Test
+    public void stopOnTimeout() {
+        AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
+        AtomicInteger attempts = new AtomicInteger();
+        try (FDBDatabaseRunner runner = database.newRunner()) {
+            runner.setTransactionTimeoutMillis(100L);
+            runner.setMaxAttempts(2);
+            CompletableFuture<Void> future = runner.runAsync(context -> {
+                attempts.incrementAndGet();
+                assertEquals(100L, context.getTimeoutMillis());
+                contextRef.set(context);
+
+                // Keep continuously getting read versions until it times out.
+                // Needs to have the actual FDB transaction in the loop, or it won't stop.
+                // Note that FDBRecordContext::getReadVersionAsync caches in Java-land, so is insufficient.
+                return AsyncUtil.whileTrue(() -> context.ensureActive().getReadVersion().thenApply(ignore -> true) , context.getExecutor());
+            });
+            CompletionException err = assertThrows(CompletionException.class, future::join);
+            assertNotNull(err.getCause());
+            assertThat(err.getCause(), instanceOf(FDBExceptions.FDBStoreTransactionTimeoutException.class));
+
+            assertNotNull(contextRef.get());
+            assertTrue(contextRef.get().isClosed(), "transaction should have been closed by runner");
+            assertEquals(1, attempts.get());
         }
     }
 
