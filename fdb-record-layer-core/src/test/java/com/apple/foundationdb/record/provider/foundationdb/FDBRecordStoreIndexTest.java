@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.TestRecordsIndexFilteringProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
 import com.apple.foundationdb.record.cursors.LazyCursor;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -843,8 +844,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             try {
                 recordStore.scanIndexRecords(indexName);
                 fail("Was not stopped from scanning write-only index");
-            } catch (RecordCoreException e) {
-                assertEquals("Cannot scan non-readable index " + indexName, e.getMessage());
+            } catch (ScanNonReadableIndexException e) {
+                assertEquals(indexName, e.getLogInfo().get(LogMessageKeys.INDEX_NAME.toString()));
             }
 
             commit(context);
@@ -862,8 +863,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             recordStore.scanIndexRecords(indexName);
             fail("Was not stopped from scanning write-only index");
-        } catch (RecordCoreException e) {
-            assertEquals("Cannot scan non-readable index " + indexName , e.getMessage());
+        } catch (ScanNonReadableIndexException e) {
+            assertEquals(indexName, e.getLogInfo().get(LogMessageKeys.INDEX_NAME.toString()));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -899,8 +900,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             try {
                 recordStore.scanIndexRecords(indexName);
                 fail("Was not stopped from scanning disabled index");
-            } catch (RecordCoreException e) {
-                assertEquals("Cannot scan non-readable index " + indexName, e.getMessage());
+            } catch (ScanNonReadableIndexException e) {
+                assertEquals(indexName, e.getLogInfo().get(LogMessageKeys.INDEX_NAME.toString()));
             }
 
             commit(context);
@@ -918,8 +919,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             recordStore.scanIndexRecords(indexName);
             fail("Was not stopped from scanning disabled index");
-        } catch (RecordCoreException e) {
-            assertEquals("Cannot scan non-readable index " + indexName, e.getMessage());
+        } catch (ScanNonReadableIndexException e) {
+            assertEquals(indexName, e.getLogInfo().get(LogMessageKeys.INDEX_NAME.toString()));
         }
 
         try (FDBRecordContext context = openContext()) {
