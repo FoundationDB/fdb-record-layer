@@ -383,6 +383,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Override
+    public boolean isIdempotent() {
+        return !config.isCountDuplicates();
+    }
+
+    @Override
     public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
         return (function.getName().equals(FunctionNames.RANK) ||
                 function.getName().equals(FunctionNames.TIME_WINDOW_RANK) ||
