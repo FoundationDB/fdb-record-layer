@@ -23,6 +23,7 @@ package com.apple.foundationdb.clientlog;
 import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 
@@ -35,17 +36,22 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Count tuple-encoded keys into {@link TupleKeyCountTree}.
  */
+@API(API.Status.EXPERIMENTAL)
 public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.EventConsumer {
     @Nonnull
     private final TupleKeyCountTree root;
     private final boolean countReads;
     private final boolean countWrites;
+    private final boolean countSingleKeys;
+    private final boolean countRanges;
     private final boolean byAddress;
 
-    public DatabaseClientLogEventCounter(@Nonnull TupleKeyCountTree root, boolean countReads, boolean countWrites, boolean byAddress) {
+    public DatabaseClientLogEventCounter(@Nonnull TupleKeyCountTree root, boolean countReads, boolean countWrites, boolean countSingleKeys, boolean countRanges, boolean byAddress) {
         this.root = root;
         this.countReads = countReads;
         this.countWrites = countWrites;
+        this.countSingleKeys = countSingleKeys;
+        this.countRanges = countRanges;
         this.byAddress = byAddress;
     }
 
@@ -61,12 +67,12 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
             case FDBClientLogEvents.GET_VERSION_LATENCY:
                 break;
             case FDBClientLogEvents.GET_LATENCY:
-                if (countReads) {
+                if (countReads && countSingleKeys) {
                     return addKey(tr, ((FDBClientLogEvents.EventGet)event).getKey());
                 }
                 break;
             case FDBClientLogEvents.GET_RANGE_LATENCY:
-                if (countReads) {
+                if (countReads && countRanges) {
                     return addRange(tr, ((FDBClientLogEvents.EventGetRange)event).getRange());
                 }
                 break;
@@ -76,12 +82,12 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
                 }
                 break;
             case FDBClientLogEvents.ERROR_GET:
-                if (countReads) {
+                if (countReads && countSingleKeys) {
                     return addKey(tr, ((FDBClientLogEvents.EventGetError)event).getKey());
                 }
                 break;
             case FDBClientLogEvents.ERROR_GET_RANGE:
-                if (countReads) {
+                if (countReads && countRanges) {
                     return addRange(tr, ((FDBClientLogEvents.EventGetRangeError)event).getRange());
                 }
                 break;
@@ -142,11 +148,15 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
     protected CompletableFuture<Void> addCommit(@Nonnull Transaction tr, @Nonnull FDBClientLogEvents.CommitRequest commitRequest) {
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (FDBClientLogEvents.Mutation mutation : commitRequest.getMutations()) {
-            final CompletableFuture<Void> future;
+            CompletableFuture<Void> future = AsyncUtil.DONE;
             if (mutation.getType() == FDBClientLogEvents.Mutation.CLEAR_RANGE) {
-                future = addRange(tr, new Range(mutation.getKey(), mutation.getParam()));
+                if (countRanges) {
+                    future = addRange(tr, new Range(mutation.getKey(), mutation.getParam()));
+                }
             } else {
-                future = addKey(tr, mutation.getKey());
+                if (countSingleKeys) {
+                    future = addKey(tr, mutation.getKey());
+                }
             }
             if (!future.isDone()) {
                 futures.add(future);

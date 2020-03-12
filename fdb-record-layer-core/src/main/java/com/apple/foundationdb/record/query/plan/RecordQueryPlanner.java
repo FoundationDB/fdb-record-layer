@@ -485,7 +485,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         recordStoreState.beginRead();
         try {
             if (query.getRecordTypes().isEmpty()) { // ALL_TYPES
-                commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
+                commonPrimaryKey = RecordMetaData.commonPrimaryKey(metaData.getRecordTypes().values());
             } else {
                 final List<RecordType> recordTypes = query.getRecordTypes().stream().map(metaData::getRecordType).collect(Collectors.toList());
                 if (recordTypes.size() == 1) {
@@ -503,7 +503,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                             indexes.retainAll(readableOf(recordType.getMultiTypeIndexes()));
                         }
                     }
-                    commonPrimaryKey = commonPrimaryKey(recordTypes);
+                    commonPrimaryKey = RecordMetaData.commonPrimaryKey(recordTypes);
                 }
             }
 
@@ -517,21 +517,6 @@ public class RecordQueryPlanner implements QueryPlanner {
                 index -> !query.getIndexQueryabilityFilter().isQueryable(index));
 
         return new PlanContext(query, indexes, commonPrimaryKey);
-    }
-
-    @Nullable
-    private static KeyExpression commonPrimaryKey(@Nonnull Collection<RecordType> recordTypes) {
-        KeyExpression common = null;
-        boolean first = true;
-        for (RecordType recordType : recordTypes) {
-            if (first) {
-                common = recordType.getPrimaryKey();
-                first = false;
-            } else if (!common.equals(recordType.getPrimaryKey())) {
-                return null;
-            }
-        }
-        return common;
     }
 
     @Nullable

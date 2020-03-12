@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.clientlog;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -39,6 +40,7 @@ import java.util.TreeMap;
 /**
  * A tree of occurrence counts tuple-encoded keys.
  */
+@API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
 public class TupleKeyCountTree {
     @Nonnull
@@ -262,6 +264,18 @@ public class TupleKeyCountTree {
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public String toString() {
-        return object == UNPARSEABLE ? ByteArrayUtil.printable(bytes) : Objects.toString(object);
+        if (object == UNPARSEABLE) {
+            return ByteArrayUtil.printable(bytes);
+        }
+        if (object instanceof byte[]) {
+            try {
+                // Nested tuples are sometimes encoded as byte strings.
+                Tuple tuple = Tuple.fromBytes((byte[])object);
+                return tuple.toString();
+            } catch (Exception ex) {
+                return ByteArrayUtil.printable((byte[])object);
+            }
+        }
+        return Objects.toString(object);
     }
 }
