@@ -134,6 +134,14 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
+    public boolean isIdempotent() {
+        // In the not counting case, updateRankedSet only does remove from ranked set for the last occurrence,
+        // since it doesn't track duplicates itself. In the counting case, we just decrement, which has the possibility
+        // of removing someone else's entry if the record being removed hasn't been indexed yet.
+        return !config.isCountDuplicates();
+    }
+
+    @Override
     public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
         return function.getName().equals(FunctionNames.RANK) &&
                 state.index.getRootExpression().equals(function.getOperand());
