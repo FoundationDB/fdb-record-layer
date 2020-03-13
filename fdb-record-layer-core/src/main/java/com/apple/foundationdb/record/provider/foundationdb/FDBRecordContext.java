@@ -143,6 +143,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final FDBDatabase.WeakReadSemantics weakReadSemantics;
     @Nonnull
     private final FDBTransactionPriority priority;
+    private final long timeoutMillis;
     @Nullable
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
     @Nonnull
@@ -152,52 +153,71 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
 
-    protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
-                               boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics,
-                               @Nonnull FDBTransactionPriority priority,
-                               @Nullable String transactionId) {
-        super(fdb, fdb.createTransaction(initExecutor(fdb, mdcContext), mdcContext, transactionIsTraced));
+    protected FDBRecordContext(@Nonnull FDBDatabase fdb,
+                               @Nonnull FDBRecordContextConfig config,
+                               boolean transactionIsTraced) {
+        super(fdb, fdb.createTransaction(initExecutor(fdb, config.getMdcContext()), config.getMdcContext(), transactionIsTraced), config.getTimer());
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>();
         this.versionMutationCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
-        this.transactionId = getSanitizedId(transactionId);
+        this.transactionId = getSanitizedId(config);
 
+        @Nonnull Transaction tr = ensureActive();
         if (this.transactionId != null) {
-            ensureActive().options().setDebugTransactionIdentifier(this.transactionId);
+            tr.options().setDebugTransactionIdentifier(this.transactionId);
             if (transactionIsTraced) {
                 logTransaction();
             }
         }
 
         // If a causal read risky is requested, we set the corresponding transaction option
+        this.weakReadSemantics = config.getWeakReadSemantics();
         if (weakReadSemantics != null && weakReadSemantics.isCausalReadRisky()) {
-            transaction.options().setCausalReadRisky();
+            tr.options().setCausalReadRisky();
         }
 
-        this.priority = priority;
+        this.priority = config.getPriority();
         switch (priority) {
             case BATCH:
-                transaction.options().setPriorityBatch();
+                tr.options().setPriorityBatch();
                 break;
             case DEFAULT:
                 // Default priority does not need to set any option
                 break;
             case SYSTEM_IMMEDIATE:
-                transaction.options().setPrioritySystemImmediate();
+                tr.options().setPrioritySystemImmediate();
                 break;
             default:
                 throw new RecordCoreArgumentException("unknown priority level " + priority);
         }
 
-        this.weakReadSemantics = weakReadSemantics;
+        // Set the transaction timeout based on the config (if set) and the database factory otherwise
+        this.timeoutMillis = getTimeoutMillisToSet(fdb, config);
+        if (timeoutMillis != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
+            // If the value is DEFAULT_TR_TIMEOUT_MILLIS, then this uses the system default and does not need to be set here
+            tr.options().setTimeout(timeoutMillis);
+        }
+
         this.dirtyStoreState = false;
     }
 
     @Nullable
-    private static String getSanitizedId(@Nullable String id) {
+    private static String getSanitizedId(@Nonnull FDBRecordContextConfig config) {
+        if (config.getTransactionId() != null) {
+            return getSanitizedId(config.getTransactionId());
+        } else if (config.getMdcContext() != null) {
+            String mdcId = config.getMdcContext().get("uuid");
+            return mdcId == null ? null : getSanitizedId(mdcId);
+        } else {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static String getSanitizedId(@Nonnull String id) {
         try {
-            if (id != null && Utf8.encodedLength(id) > MAX_TR_ID_SIZE) {
+            if (Utf8.encodedLength(id) > MAX_TR_ID_SIZE) {
                 if (CharMatcher.ascii().matchesAllOf(id)) {
                     // Most of the time, the string will be of ascii characters, so return a truncated ID based on length
                     return id.substring(0, MAX_TR_ID_SIZE - 3) + "...";
@@ -212,6 +232,14 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             }
         } catch (IllegalArgumentException e) {
             return null;
+        }
+    }
+
+    private static long getTimeoutMillisToSet(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordContextConfig config) {
+        if (config.getTransactionTimeoutMillis() != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
+            return config.getTransactionTimeoutMillis();
+        } else {
+            return fdb.getFactory().getTransactionTimeoutMillis();
         }
     }
 
@@ -250,6 +278,26 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     public String getTransactionId() {
         return transactionId;
+    }
+
+    /**
+     * Get the timeout time for the underlying transaction. The value returned here is whatever timeout is actually
+     * set for this transaction, if one is set through the context's constructor. This can be from either an
+     * {@link FDBDatabaseFactory}, an {@link FDBDatabaseRunner}, or an {@link FDBRecordContextConfig}. If this
+     * returns {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS}, then this indicates that the transaction was
+     * set using the default system timeout, which is configured with {@link com.apple.foundationdb.DatabaseOptions#setTransactionTimeout(long)}.
+     * As those options can not be inspected through FoundationDB Java bindings, this method cannot return an
+     * accurate result. Likewise, if a user explicitly sets the underlying option using {@link com.apple.foundationdb.TransactionOptions#setTimeout(long)},
+     * then this method will not return an accurate result.
+     *
+     * @return the timeout configured for this transaction at its initialization
+     * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
+     * @see FDBDatabaseRunner#setTransactionTimeoutMillis(long)
+     * @see FDBRecordContextConfig.Builder#setTransactionTimeoutMillis(long)
+     * @see FDBExceptions.FDBStoreTransactionTimeoutException
+     */
+    public long getTimeoutMillis() {
+        return timeoutMillis;
     }
 
     /**

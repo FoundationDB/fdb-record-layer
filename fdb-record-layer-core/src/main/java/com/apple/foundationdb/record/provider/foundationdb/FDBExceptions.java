@@ -102,6 +102,27 @@ public class FDBExceptions {
     }
 
     /**
+     * Exception thrown when a transaction times out. This refers specifically to timeouts enforced by the
+     * FoundationDB client, which can be configured by either setting the transaction timeout milliseconds
+     * on the {@link FDBDatabaseFactory}, the {@link FDBDatabaseRunner}, or the {@link FDBRecordContextConfig}.
+     *
+     * <p>
+     * Note that this exception is not retriable, and note also that it is not a child of {@link java.util.concurrent.TimeoutException}.
+     * </p>
+     *
+     * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
+     * @see FDBDatabaseRunner#setTransactionTimeoutMillis(long)
+     * @see FDBRecordContextConfig.Builder#setTransactionTimeoutMillis(long)
+     * @see FDBRecordContext#getTimeoutMillis()
+     */
+    @SuppressWarnings("serial")
+    public static class FDBStoreTransactionTimeoutException extends FDBStoreException {
+        public FDBStoreTransactionTimeoutException(FDBException cause) {
+            super(cause);
+        }
+    }
+
+    /**
      * Transaction is too old to perform reads or be committed.
      */
     @SuppressWarnings("serial")
@@ -152,6 +173,8 @@ public class FDBExceptions {
                     return new FDBStoreTransactionIsTooOldException(fdbex).addLogInfo(logInfo);
                 case 1020:    // not_committed
                     return new FDBStoreTransactionConflictException(fdbex).addLogInfo(logInfo);
+                case 1031: // transaction_timed_out
+                    return new FDBStoreTransactionTimeoutException(fdbex).addLogInfo(logInfo);
                 case 2101:    // transaction_too_large
                     return new FDBStoreTransactionSizeException(fdbex).addLogInfo(logInfo);
                 case 2102:    // key_too_large

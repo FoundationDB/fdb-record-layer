@@ -202,6 +202,32 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     void setInitialDelayMillis(long initialDelayMillis);
 
     /**
+     * Set the transaction timeout for all transactions started by this runner. If set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS},
+     * then this will use the value of set in the originating database's factory. If set to {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS},
+     * then no timeout will be imposed on transactions used by this runner.
+     *
+     * <p>
+     * Note that the error that the transaction hits, {@link FDBExceptions.FDBStoreTransactionTimeoutException},
+     * is not retriable, so if the runner encounters such an error, it will terminate.
+     * </p>
+     *
+     * @param transactionTimeoutMillis the transaction timeout time in milliseconds
+     * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
+     */
+    void setTransactionTimeoutMillis(long transactionTimeoutMillis);
+
+    /**
+     * Get the transaction timeout for all transactions started by this runner. This will return the value configured
+     * for this runner through {@link #setTransactionTimeoutMillis(long)}. Note, however, that if the transaction timeout
+     * is set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS}, then the actual timeout set for this transaction
+     * will be set to the value in the originating factory.
+     *
+     * @return the configured transacation timeout time in milliseconds
+     * @see #setTransactionTimeoutMillis(long)
+     */
+    long getTransactionTimeoutMillis();
+
+    /**
      * Open a new record context.
      * @return a new open record context
      * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)

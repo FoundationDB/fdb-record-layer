@@ -71,6 +71,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     private int maxAttempts;
     private long maxDelayMillis;
     private long initialDelayMillis;
+    private long transactionTimeoutMillis;
 
     private boolean closed;
     @Nonnull
@@ -93,6 +94,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         this.maxAttempts = factory.getMaxAttempts();
         this.maxDelayMillis = factory.getMaxDelayMillis();
         this.initialDelayMillis = factory.getInitialDelayMillis();
+        this.transactionTimeoutMillis = factory.getTransactionTimeoutMillis();
 
         this.executor = FDBRecordContext.initExecutor(database, mdcContext);
 
@@ -216,12 +218,29 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     @Override
+    public void setTransactionTimeoutMillis(long transactionTimeoutMillis) {
+        this.transactionTimeoutMillis = transactionTimeoutMillis;
+    }
+
+    @Override
+    public long getTransactionTimeoutMillis() {
+        return transactionTimeoutMillis;
+    }
+
+    @Override
     @Nonnull
     public FDBRecordContext openContext() {
         if (closed) {
             throw new RunnerClosed();
         }
-        FDBRecordContext context = database.openContext(mdcContext, timer, weakReadSemantics, priority);
+        FDBRecordContextConfig contextConfig = FDBRecordContextConfig.newBuilder()
+                .setMdcContext(mdcContext)
+                .setTimer(timer)
+                .setWeakReadSemantics(weakReadSemantics)
+                .setPriority(priority)
+                .setTransactionTimeoutMillis(transactionTimeoutMillis)
+                .build();
+        FDBRecordContext context = database.openContext(contextConfig);
         addContextToClose(context);
         return context;
     }

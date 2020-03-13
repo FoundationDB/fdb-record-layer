@@ -358,8 +358,7 @@ public class FDBDatabase {
                                         @Nullable FDBStoreTimer timer,
                                         @Nullable WeakReadSemantics weakReadSemantics,
                                         @Nonnull FDBTransactionPriority priority) {
-        final String transactionId = mdcContext == null ? null : mdcContext.get("uuid");
-        return openContext(mdcContext, timer, weakReadSemantics, priority, transactionId);
+        return openContext(mdcContext, timer, weakReadSemantics, priority, null);
     }
 
 
@@ -367,11 +366,11 @@ public class FDBDatabase {
      * Open a new record context with a new transaction begun on the underlying FDB database.
      *
      * <p>
-     * Note that other variants of this method will inspect the MDC context for the transaction ID by looking
-     * for an entry in the map with the key "uuid". This method will ignore whatever is in the MDC context
-     * and use the ID provided as a parameter instead. The transaction ID should typically consist solely of
-     * printable ASCII characters and should not exceed 100 bytes. The ID may be truncated or dropped if the ID will
-     * not fit in 100 bytes. See {@link FDBRecordContext#getTransactionId()} for more details.
+     * If the passed {@code transactionId} is {@code null}, then this method will set the transaction ID
+     * of the given transaction to the value of the "uuid" key in the MDC context if present. The transaction ID
+     * should typically consist solely of printable ASCII characters and should not exceed 100 bytes. The ID may
+     * be truncated or dropped if the ID will not fit in 100 bytes. See {@link FDBRecordContext#getTransactionId()}
+     * for more details.
      * </p>
      *
      * @param mdcContext logger context to set in running threads
@@ -383,19 +382,35 @@ public class FDBDatabase {
      * @see Database#createTransaction
      */
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
                                         @Nullable FDBStoreTimer timer,
                                         @Nullable WeakReadSemantics weakReadSemantics,
                                         @Nonnull FDBTransactionPriority priority,
                                         @Nullable String transactionId) {
+        FDBRecordContextConfig contextConfig = FDBRecordContextConfig.newBuilder()
+                .setMdcContext(mdcContext)
+                .setTimer(timer)
+                .setWeakReadSemantics(weakReadSemantics)
+                .setPriority(priority)
+                .setTransactionId(transactionId)
+                .build();
+        return openContext(contextConfig);
+    }
+
+    /**
+     * Open a new record context with a new transaction begun on the underlying FDB database. Various
+     * options on the transaction will be informed based on the passed context.
+     *
+     * @param contextConfig a configuration object specifying various options on the returned context
+     * @return a new record context
+     * @see Database#createTransaction
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public FDBRecordContext openContext(@Nonnull FDBRecordContextConfig contextConfig) {
         openFDB();
-        FDBRecordContext context = new FDBRecordContext(this, mdcContext, transactionIsTracedSupplier.get(),
-                weakReadSemantics, priority, transactionId);
-        if (timer != null) {
-            context.setTimer(timer);
-            timer.increment(FDBStoreTimer.Counts.OPEN_CONTEXT);
-        }
+        FDBRecordContext context = new FDBRecordContext(this, contextConfig, transactionIsTracedSupplier.get());
+        final WeakReadSemantics weakReadSemantics = context.getWeakReadSemantics();
         if (isTrackLastSeenVersion() && (weakReadSemantics != null)) {
             Pair<Long, Long> pair = lastSeenFDBVersion.get();
             if (pair != initialVersionPair) {
@@ -406,9 +421,7 @@ public class FDBDatabase {
                 if (version >= weakReadSemantics.getMinVersion() &&
                         (System.currentTimeMillis() - versionTimeMillis) <= weakReadSemantics.getStalenessBoundMillis()) {
                     context.setReadVersion(version);
-                    if (timer != null) {
-                        timer.increment(FDBStoreTimer.Counts.SET_READ_VERSION_TO_LAST_SEEN);
-                    }
+                    context.increment(FDBStoreTimer.Counts.SET_READ_VERSION_TO_LAST_SEEN);
                 }
             }
         }
