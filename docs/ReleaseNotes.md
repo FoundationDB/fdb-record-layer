@@ -53,7 +53,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The transaction timeout option can now be set on `FDBRecordContext`s [(Issue #848)](https://github.com/FoundationDB/fdb-record-layer/issues/848)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -61,11 +61,16 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Additional methods, `setTransactionTimeoutMillis` and `getTransactionTimeoutMillis`, were added to the `FDBDatabaseRunner` interface that implementors will need to react to [(Issue #848)](https://github.com/FoundationDB/fdb-record-layer/issues/848)
-* **Breaking change** In resolving [Issue #848](https://github.com/FoundationDB/fdb-record-layer/issues/848), the semantics of setting a transaction ID were slightly modified so that an explicit `null` ID now also checks the MDC [(PR #849)](https://github.com/FoundationDB/fdb-record-layer/pull/849)
+* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 2.8.105.0
+
+* **Feature** The transaction timeout option can now be set on `FDBRecordContext`s [(Issue #848)](https://github.com/FoundationDB/fdb-record-layer/issues/848)
+* **Breaking change** Additional methods, `setTransactionTimeoutMillis` and `getTransactionTimeoutMillis`, were added to the `FDBDatabaseRunner` interface that implementors will need to react to [(Issue #848)](https://github.com/FoundationDB/fdb-record-layer/issues/848)
+* **Breaking change** In resolving [Issue #848](https://github.com/FoundationDB/fdb-record-layer/issues/848), the semantics of setting a transaction ID were slightly modified so that an explicit `null` ID now also checks the MDC [(PR #849)](https://github.com/FoundationDB/fdb-record-layer/pull/849)
 
 ### 2.8.104.0
 
