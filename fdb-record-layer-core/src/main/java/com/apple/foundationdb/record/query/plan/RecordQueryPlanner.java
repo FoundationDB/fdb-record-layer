@@ -1397,6 +1397,17 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     public RecordQueryPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull String indexName) {
         final Index index = metaData.getIndex(indexName);
+        KeyExpression indexExpr = index.getRootExpression();
+        if (indexExpr instanceof GroupingKeyExpression) {
+            indexExpr = ((GroupingKeyExpression)indexExpr).getGroupingSubKey();
+        } else {
+            indexExpr = EmptyKeyExpression.EMPTY;
+        }
+        return planCoveringAggregateIndex(query, index, indexExpr);
+    }
+
+    @Nullable
+    public RecordQueryPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index, @Nonnull KeyExpression indexExpr) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
             // Unfortunately, since we materialize partial records, we need a unique type for them.
@@ -1406,12 +1417,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         final PlanContext planContext = getPlanContext(query);
         planContext.rankComparisons = new RankComparisons(query.getFilter(), planContext.indexes);
         final CandidateScan candidateScan = new CandidateScan(planContext, index, query.isSortReverse());
-        KeyExpression indexExpr = index.getRootExpression();
-        if (indexExpr instanceof GroupingKeyExpression) {
-            indexExpr = ((GroupingKeyExpression)indexExpr).getGroupingSubKey();
-        } else {
-            indexExpr = EmptyKeyExpression.EMPTY;
-        }
         final ScoredPlan scoredPlan = planCandidateScan(candidateScan, indexExpr,
                 BooleanNormalizer.withLimit(complexityThreshold).normalizeIfPossible(query.getFilter()), query.getSort());
         // It would be possible to handle unsatisfiedFilters if they, too, only involved group key (covering) fields.
