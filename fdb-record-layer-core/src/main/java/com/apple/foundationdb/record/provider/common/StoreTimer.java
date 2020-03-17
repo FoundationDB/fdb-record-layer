@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -246,6 +247,16 @@ public class StoreTimer {
      * An aggregate event is an event whose value is computed over the value of another set of events.
      */
     public interface Aggregate extends Event {
+
+        /**
+         * Returns the set of events that make up the aggregate.  Note that theoretically an aggregate could be defined
+         * in a manner such that some events contributed to the aggregate in different fashions (for example,
+         * {@code eventA + eventB - eventC}), in which case this method would return the fact that the three events
+         * comprise the aggregate but with no indication of in which manner they contribute to its value.
+         * @return the events that comprise the aggregate
+         */
+        Set<? extends Event> getComponentEvents();
+
         /**
          * Helper for implementations to validate that all of the events in the aggregate conform to
          * some basic expectations.
@@ -312,9 +323,24 @@ public class StoreTimer {
          * @param storeTimer the time from which to draw the values that are necessary to compute this aggregate
          * @param events the events that are to be aggregated into the resulting {@code Counteer}
          * @return the computed result or null if none of the value that comprise this aggregate were available
+         * @deprecated use {@link #compute(StoreTimer, Set)} instead
          */
         @Nullable
+        @Deprecated
+        @API(API.Status.DEPRECATED)
         default Counter compute(@Nonnull StoreTimer storeTimer, @Nonnull Event...events) {
+            return compute(storeTimer, ImmutableSet.copyOf(events));
+        }
+
+        /**
+         * Compute the value for this aggregate.
+         *
+         * @param storeTimer the time from which to draw the values that are necessary to compute this aggregate
+         * @param events the events that are to be aggregated into the resulting {@code Counteer}
+         * @return the computed result or null if none of the value that comprise this aggregate were available
+         */
+        @Nullable
+        default Counter compute(@Nonnull StoreTimer storeTimer, @Nonnull Set<? extends Event> events) {
             @Nullable StoreTimer.Counter counter = null;
 
             for (Event event : events) {

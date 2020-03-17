@@ -252,7 +252,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Nonnull
         private final String logKey;
         @Nonnull
-        private final Event[] events;
+        private final Set<Event> events;
 
         EventAggregates(@Nonnull String title, @Nonnull Event...events) {
             this(title, null, events);
@@ -261,7 +261,7 @@ public class FDBStoreTimer extends StoreTimer {
         EventAggregates(@Nonnull String title, @Nullable String logKey, @Nonnull Event...events) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : Aggregate.super.logKey();
-            this.events = validate(events);
+            this.events = ImmutableSet.copyOf(validate(events));
         }
 
         @Override
@@ -276,11 +276,18 @@ public class FDBStoreTimer extends StoreTimer {
             return this.logKey;
         }
 
+        @Override
+        public Set<Event> getComponentEvents() {
+            return events;
+        }
+
         @Nullable
         @Override
         public Counter compute(@Nonnull StoreTimer storeTimer) {
             return compute(storeTimer, events);
         }
+
+
     }
 
     /**
@@ -739,7 +746,7 @@ public class FDBStoreTimer extends StoreTimer {
         @Nonnull
         private final String logKey;
         @Nonnull
-        private final Count[] events;
+        private final Set<Count> events;
 
         CountAggregates(@Nonnull String title, @Nonnull Count...events) {
             this(title, null, events);
@@ -748,11 +755,11 @@ public class FDBStoreTimer extends StoreTimer {
         CountAggregates(@Nonnull String title, @Nullable String logKey, @Nonnull Count...events) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : Aggregate.super.logKey();
-            this.events = validate((first, other) -> {
+            this.events = ImmutableSet.copyOf(validate((first, other) -> {
                 if (first.isSize() != other.isSize()) {
                     throw new IllegalArgumentException("All counts must have the same isSize()");
                 }
-            }, events);
+            }, events));
             this.isSize = events[0].isSize();
         }
 
@@ -766,6 +773,11 @@ public class FDBStoreTimer extends StoreTimer {
         @Nonnull
         public String logKey() {
             return this.logKey;
+        }
+
+        @Override
+        public Set<Count> getComponentEvents() {
+            return events;
         }
 
         @Nullable
