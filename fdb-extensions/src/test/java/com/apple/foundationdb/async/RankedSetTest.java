@@ -45,6 +45,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,8 +58,7 @@ public class RankedSetTest extends FDBTestBase {
     private Database db;
     private Subspace rsSubspace;
 
-    private RankedSet.HashFunction hashFunction = RankedSet.DEFAULT_HASH_FUNCTION;
-    private int levels = RankedSet.DEFAULT_LEVELS;
+    private RankedSet.Config config = RankedSet.DEFAULT_CONFIG;
     private static final boolean TRACE = false;
 
     @BeforeEach
@@ -78,18 +78,23 @@ public class RankedSetTest extends FDBTestBase {
     }
 
     @Test
-    public void basic() throws Exception {
+    public void basic() {
         basicOperations(RankedSet.DEFAULT_HASH_FUNCTION, RankedSet.DEFAULT_HASH_FUNCTION);
     }
 
     @Test
-    public void basicCrc() throws Exception {
+    public void basicCrc() {
         basicOperations(RankedSet.CRC_HASH, RankedSet.CRC_HASH);
     }
 
     @Test
-    public void basicChange() throws Exception {
+    public void basicChange() {
         basicOperations(RankedSet.JDK_ARRAY_HASH, RankedSet.CRC_HASH);
+    }
+
+    @Test
+    public void basicRandom() {
+        basicOperations(RankedSet.RANDOM_HASH, RankedSet.RANDOM_HASH);
     }
 
     private void basicOperations(RankedSet.HashFunction firstHashFunction, RankedSet.HashFunction secondHashFunction) {
@@ -98,13 +103,14 @@ public class RankedSetTest extends FDBTestBase {
             keys[i] = Tuple.from(String.valueOf((char)i)).pack();
         }
         db.run(tr -> {
-            hashFunction = firstHashFunction;
+            config = RankedSet.newConfigBuilder().setHashFunction(firstHashFunction).build();
             RankedSet rs = newRankedSet();
             for (byte[] k : keys) {
                 boolean wasNew = rs.add(tr, k).join();
                 assertTrue(wasNew);
             }
-            hashFunction = secondHashFunction;
+            assertFalse(rs.add(tr, keys[10]).join());
+            config = RankedSet.newConfigBuilder().setHashFunction(secondHashFunction).build();
             rs = newRankedSet();
             for (int i = 0; i < keys.length; ++i) {
                 long rank = rs.rank(tr, keys[i]).join();
@@ -117,6 +123,49 @@ public class RankedSetTest extends FDBTestBase {
             for (byte[] k : keys) {
                 boolean wasOld = rs.remove(tr, k).join();
                 assertTrue(wasOld);
+            }
+            assertFalse(rs.remove(tr, keys[20]).join());
+            return null;
+        });
+    }
+
+    @Test
+    public void duplicates() {
+        byte[][] keys = new byte[10][];
+        for (int i = 0; i < 10; ++i) {
+            keys[i] = Tuple.from(i).pack();
+        }
+        config = RankedSet.newConfigBuilder().setCountDuplicates(true).build();
+        db.run(tr -> {
+            RankedSet rs = newRankedSet();
+            for (int i = 0; i < keys.length; ++i) {
+                for (int j = 1; j <= i + 1; j++) {
+                    boolean wasNew = rs.add(tr, keys[i]).join();
+                    assertTrue(wasNew);
+                }
+            }
+            long size = rs.size(tr).join();
+            assertEquals(10 * 11 / 2, size);
+            for (int i = 0; i < keys.length; ++i) {
+                long count = rs.count(tr, keys[i]).join();
+                assertEquals(i + 1, count);
+            }
+            for (int i = 0, n = 0; i < keys.length; ++i, n += i) {
+                long rank = rs.rank(tr, keys[i]).join();
+                assertEquals(n, rank);
+            }
+            for (int i = 0, n = 0; i < keys.length; ++i) {
+                for (int j = 1; j <= i + 1; j++) {
+                    byte[] nth = rs.getNth(tr, n).join();
+                    assertArrayEquals(keys[i], nth);    // Same key number of occurrences times.
+                    n++;
+                }
+            }
+            for (int i = 0; i < keys.length; ++i) {
+                for (int j = 1; j <= i + 2; j++) {
+                    boolean wasOld = rs.remove(tr, keys[i]).join();
+                    assertEquals(j <= i + 1, wasOld);
+                }
             }
             return null;
         });
@@ -214,6 +263,13 @@ public class RankedSetTest extends FDBTestBase {
     }
 
     @Test
+    @Tag(Tags.Slow)
+    public void randomFiveThreadsWithDuplicates() throws InterruptedException {
+        config = RankedSet.newConfigBuilder().setCountDuplicates(true).build();
+        randomFiveThreads();
+    }
+
+    @Test
     public void rankAsThoughPresent() {
         RankedSet rs = newRankedSet();
         db.run(tr -> {
@@ -232,12 +288,12 @@ public class RankedSetTest extends FDBTestBase {
     //
 
     private RankedSet newRankedSet() {
-        RankedSet result = new RankedSet(rsSubspace, ForkJoinPool.commonPool(), hashFunction, levels);
+        RankedSet result = new RankedSet(rsSubspace, ForkJoinPool.commonPool(), config);
         result.init(db).join();
         return result;
     }
 
-    private static void rankedSetOp(TransactionContext tc, RankedSet rs) {
+    private void rankedSetOp(TransactionContext tc, RankedSet rs) {
         int op = ThreadLocalRandom.current().nextInt(6);
         byte[] key = new byte[1];
         ThreadLocalRandom.current().nextBytes(key);
@@ -252,8 +308,13 @@ public class RankedSetTest extends FDBTestBase {
                     boolean wasPresent = rs.contains(tr, key).join();
                     boolean didInsert = rs.add(tr, key).join();
                     long size2 = rs.size(tr).join();
-                    assertNotEquals(wasPresent, didInsert);
-                    assertEquals(size1 + (wasPresent ? 0 : 1), size2);
+                    if (config.isCountDuplicates()) {
+                        assertTrue(didInsert);
+                        assertEquals(size1 + 1, size2);
+                    } else {
+                        assertNotEquals(wasPresent, didInsert);
+                        assertEquals(size1 + (wasPresent ? 0 : 1), size2);
+                    }
                     break;
                 }
                 case 2: {
@@ -280,13 +341,28 @@ public class RankedSetTest extends FDBTestBase {
                         long r = ThreadLocalRandom.current().nextLong(size);
                         byte[] k = rs.getNth(tr, r).join();
                         long r2 = rs.rank(tr, k).join();
-                        long r3 = rs.getRangeList(tr, new byte[]{ 0x00 }, k).size();
-                        if (!(r == r2 && r2 == r3)) {
-                            throw new IllegalStateException(String.format("Rank Mismatch: Key=%s; r=%d; r2=%d; r3=%d",
-                                                                          ByteArrayUtil.printable(k),
-                                                                          r,
-                                                                          r2,
-                                                                          r3));
+                        if (config.isCountDuplicates()) {
+                            long d = rs.count(tr, k).join();
+                            long r3 = rs.getRangeList(tr, new byte[] {0x00}, k).stream()
+                                    .map(pk -> rs.count(tr, pk).join())
+                                    .mapToLong(Long::longValue).sum();
+                            if (!(d > 0 && r >= r2 && r < r2 + d && r2 == r3)) {
+                                throw new IllegalStateException(String.format("Rank Mismatch: Key=%s; d=%d, r=%d; r2=%d; r3=%d",
+                                        ByteArrayUtil.printable(k),
+                                        d,
+                                        r,
+                                        r2,
+                                        r3));
+                            }
+                        } else {
+                            long r3 = rs.getRangeList(tr, new byte[] {0x00}, k).size();
+                            if (!(r == r2 && r2 == r3)) {
+                                throw new IllegalStateException(String.format("Rank Mismatch: Key=%s; r=%d; r2=%d; r3=%d",
+                                        ByteArrayUtil.printable(k),
+                                        r,
+                                        r2,
+                                        r3));
+                            }
                         }
                     }
                     break;
@@ -299,7 +375,7 @@ public class RankedSetTest extends FDBTestBase {
         });
     }
 
-    private static void thousandRankedSetOps(TransactionContext tc, RankedSet rs) {
+    private void thousandRankedSetOps(TransactionContext tc, RankedSet rs) {
         for (int i = 0; i < 1000; ++i) {
             rankedSetOp(tc, rs);
         }
