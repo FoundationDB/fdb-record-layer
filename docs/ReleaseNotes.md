@@ -54,10 +54,10 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Rank index adds option for how to handle ties [(Issue #806)](https://github.com/FoundationDB/fdb-record-layer/issues/806)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** StoreTimer aggregates can return their componeent events [(Issue #857)](https://github.com/FoundationDB/fdb-record-layer/issues/857)
-* **Breaking change** StoreTimer aggregates now require getComponentEvents() method [(Issue #857)](https://github.com/FoundationDB/fdb-record-layer/issues/857)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -65,6 +65,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.106.0
+
+* **Feature** Rank index adds option for how to handle ties [(Issue #806)](https://github.com/FoundationDB/fdb-record-layer/issues/806)
+* **Feature** StoreTimer aggregates can return their componeent events [(Issue #857)](https://github.com/FoundationDB/fdb-record-layer/issues/857)
+* **Breaking change** StoreTimer aggregates now require getComponentEvents() method [(Issue #857)](https://github.com/FoundationDB/fdb-record-layer/issues/857)
 
 ### 2.8.105.0
 
