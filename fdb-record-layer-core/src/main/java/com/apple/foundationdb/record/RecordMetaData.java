@@ -171,6 +171,22 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordType;
     }
 
+    /**
+     * Get the record type that uses the given record type key.
+     * @param recordTypeKey the key used as a prefix for some record type
+     * @return the record type
+     * @throws MetaDataException if the given key does not correspond to any record type
+     */
+    @Nonnull
+    public RecordType getRecordTypeFromRecordTypeKey(@Nonnull Object recordTypeKey) {
+        for (RecordType recordType : recordTypes.values()) {
+            if (recordType.getRecordTypeKey().equals(recordTypeKey)) {
+                return recordType;
+            }
+        }
+        throw new MetaDataException("Unknown record type key " + recordTypeKey);
+    }
+
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("squid:S1452")
@@ -233,6 +249,22 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     public List<Index> getAllIndexes() {
         return new ArrayList<>(indexes.values());
+    }
+
+    /**
+     * Get the index that uses the given subspace key.
+     * @param subspaceKey the key used as a prefix for some index
+     * @return the index
+     * @throws MetaDataException if the given key does not correspond to any index
+     */
+    @Nonnull
+    public Index getIndexFromSubspaceKey(@Nonnull Object subspaceKey) {
+        for (Index index : indexes.values()) {
+            if (index.getSubspaceKey().equals(subspaceKey)) {
+                return index;
+            }
+        }
+        throw new MetaDataException("Unknown index subspace key " + subspaceKey);
     }
 
     @Nonnull
@@ -375,6 +407,29 @@ public class RecordMetaData implements RecordMetaDataProvider {
      */
     public boolean primaryKeyHasRecordTypePrefix() {
         return recordTypes.values().stream().allMatch(RecordType::primaryKeyHasRecordTypePrefix);
+    }
+
+    /**
+     * Determine whether every record type in this meta-data has the same primary key.
+     * @return the common primary key or {@code null}
+     */
+    public KeyExpression commonPrimaryKey() {
+        return commonPrimaryKey(recordTypes.values());
+    }
+
+    @Nullable
+    public static KeyExpression commonPrimaryKey(@Nonnull Collection<RecordType> recordTypes) {
+        KeyExpression common = null;
+        boolean first = true;
+        for (RecordType recordType : recordTypes) {
+            if (first) {
+                common = recordType.getPrimaryKey();
+                first = false;
+            } else if (!common.equals(recordType.getPrimaryKey())) {
+                return null;
+            }
+        }
+        return common;
     }
 
     /**

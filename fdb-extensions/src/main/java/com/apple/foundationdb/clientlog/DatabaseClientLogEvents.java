@@ -35,6 +35,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
@@ -164,7 +165,11 @@ public class DatabaseClientLogEvents {
                     tr = null;
                 }
                 if (t != null) {
-                    if (t instanceof FDBException && ((FDBException)t).isRetryable()) {
+                    Throwable tt = t;
+                    if (tt instanceof CompletionException) {
+                        tt = tt.getCause();
+                    }
+                    if (tt instanceof FDBException && ((FDBException)tt).isRetryable()) {
                         return true;    // Continue with new transaction when too old (or too new).
                     } else {
                         throw t instanceof RuntimeException ? (RuntimeException)t : new RuntimeException(t);

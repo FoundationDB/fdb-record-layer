@@ -37,6 +37,8 @@ class ClientLogEventCounterTest {
         Instant end = null;
         boolean countReads = true;
         boolean countWrites = false;
+        final boolean countSingleKeys = true;
+        final boolean countRanges = true;
         if (args.length > 0) {
             cluster = args[0];
         }
@@ -55,7 +57,7 @@ class ClientLogEventCounterTest {
         Database database = fdb.open(cluster);
         Executor executor = database.getExecutor();
         TupleKeyCountTree root = new TupleKeyCountTree();
-        DatabaseClientLogEventCounter counter = new DatabaseClientLogEventCounter(root, countReads, countWrites, true);
+        DatabaseClientLogEventCounter counter = new DatabaseClientLogEventCounter(root, countReads, countWrites, countSingleKeys, countRanges, true);
         TupleKeyCountTree.Printer printer = (depth, path) -> {
             for (int i = 0; i < depth; i++) {
                 System.out.print("  ");
