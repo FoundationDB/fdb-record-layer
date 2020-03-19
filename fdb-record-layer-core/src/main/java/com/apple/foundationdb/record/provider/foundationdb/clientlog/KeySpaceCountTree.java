@@ -486,6 +486,8 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
                 case INDEX_RANGE_SPACE:
                 case INDEX_UNIQUENESS_VIOLATIONS_SPACE:
                 case INDEX_BUILD_SPACE:
+                    // TODO: As of now, INDEX_STATE_SPACE has the index _name_, which doesn't really need resolving.
+                    // Once https://github.com/FoundationDB/fdb-record-layer/issues/514 is addressed, that will need this, too.
                     if (distance == 0 && object != null) {
                         final Index index;
                         try {
@@ -520,6 +522,9 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
 
     /**
      * Determine whether this leaf of the {@link KeySpaceDirectory} tree is the root of a {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore}.
+     *
+     * Override this if whether a leaf directory can be determined from the {@link Resolved}; for example, because they
+     * use a specific {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePathWrapper} class.
      * @param context an open transaction to use to read from the database
      * @param resolvedParent the resolved parent node
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
@@ -531,6 +536,8 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
 
     /**
      * Given a key space path for which {@link #isRecordStoreLeaf} is {@code true}, get the record store's meta-data.
+     *
+     * Override this method if the meta-data can be determined from the {@link Resolved} tree.
      * @param context an open transaction to use to read from the database
      * @param resolvedParent the resolved parent node
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
@@ -557,6 +564,8 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
 
     protected CompletableFuture<Resolved> resolveIndexField(@Nonnull FDBRecordContext context, @Nonnull Resolved resolvedParent, @Nullable Object object,
                                                             @Nonnull Index index, @Nonnull KeyExpression rootExpression, int fieldIndex) {
+        // TODO: to do something like resolvePrimaryKeyField, need to know how index's root expression maps to its keys.
+        // For example, whether there are any prefix keys or whether anything follows a group key expression.
         return UNRESOLVED;
     }
 

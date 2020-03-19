@@ -171,6 +171,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordType;
     }
 
+    /**
+     * Get the record type that uses the given record type key.
+     * @param recordTypeKey the key used as a prefix for some record type
+     * @return the record type
+     * @throws MetaDataException if the given key does not correspond to any record type
+     */
     @Nonnull
     public RecordType getRecordTypeFromRecordTypeKey(@Nonnull Object recordTypeKey) {
         for (RecordType recordType : recordTypes.values()) {
@@ -245,6 +251,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return new ArrayList<>(indexes.values());
     }
 
+    /**
+     * Get the index that uses the given subspace key.
+     * @param subspaceKey the key used as a prefix for some index
+     * @return the index
+     * @throws MetaDataException if the given key does not correspond to any index
+     */
     @Nonnull
     public Index getIndexFromSubspaceKey(@Nonnull Object subspaceKey) {
         for (Index index : indexes.values()) {
