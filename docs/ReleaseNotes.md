@@ -55,7 +55,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Enhance KeySpaceCountTree to allow for application-specific resolution [(Issue #852)](https://github.com/FoundationDB/fdb-record-layer/issues/852)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -65,6 +65,10 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.107.0
+
+* **Feature** Enhance KeySpaceCountTree to allow for application-specific resolution [(Issue #852)](https://github.com/FoundationDB/fdb-record-layer/issues/852)
 
 ### 2.8.106.0
 
