@@ -527,7 +527,7 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
     }
 
     // TODO: Get this from the IndexMaintainerFactory via some new interface (the IndexMaintainer needs a RecordStore).
-    private List<KeyExpression> indexStoredKeys(@Nonnull Index index) {
+    protected List<KeyExpression> indexStoredKeys(@Nonnull Index index) {
         KeyExpression storedKey = index.getRootExpression();
         if (storedKey instanceof GroupingKeyExpression) {
             if (index.getType().equals(IndexTypes.RANK) ||
