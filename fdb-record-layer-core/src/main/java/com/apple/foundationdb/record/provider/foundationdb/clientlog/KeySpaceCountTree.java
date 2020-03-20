@@ -25,8 +25,11 @@ import com.apple.foundationdb.clientlog.TupleKeyCountTree;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -313,9 +316,9 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
     }
 
     /**
-     * A resolved field of a record primary key.
+     * A resolved field of a record primary key or index key.
      */
-    public static class ResolvedPrimaryKeyField extends Resolved {
+    public static class ResolvedKeyField extends Resolved {
         @Nonnull
         private final String fieldName;
         @Nullable
@@ -323,7 +326,7 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
         @Nullable
         private final Object resolvedValue;
 
-        public ResolvedPrimaryKeyField(@Nonnull Resolved parent, @Nonnull String fieldName, @Nullable Object logicalValue, @Nullable Object resolvedValue) {
+        public ResolvedKeyField(@Nonnull Resolved parent, @Nonnull String fieldName, @Nullable Object logicalValue, @Nullable Object resolvedValue) {
             super(parent);
             this.fieldName = fieldName;
             this.logicalValue = logicalValue;
@@ -477,8 +480,11 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
                         return CompletableFuture.completedFuture(new ResolvedRecordTypeKeyspace(resolvedParent, recordType));
                     }
                     KeyExpression commonPrimaryKey = recordStoreKeyspace.getRecordMetaData().commonPrimaryKey();
-                    if (commonPrimaryKey != null && distance < commonPrimaryKey.getColumnSize()) {
-                        return resolvePrimaryKeyField(context, resolvedParent, object, commonPrimaryKey, distance);
+                    if (commonPrimaryKey != null) {
+                        List<KeyExpression> storedPrimaryKeys = commonPrimaryKey.normalizeKeyForPositions();
+                        if (distance < storedPrimaryKeys.size()) {
+                            return resolvePrimaryKeyField(context, resolvedParent, object, storedPrimaryKeys.get(distance), distance);
+                        }
                     }
                     break;
                 case INDEX:
@@ -503,21 +509,40 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
             }
         }
         if (recordTypeKeyspace != null) {
-            KeyExpression primaryKey = recordTypeKeyspace.getRecordType().getPrimaryKey();
-            if (distance + 1 < primaryKey.getColumnSize()) {
-                return resolvePrimaryKeyField(context, resolvedParent, object, primaryKey, distance + 1);
+            List<KeyExpression> storedPrimaryKeys = recordTypeKeyspace.getRecordType().getPrimaryKey().normalizeKeyForPositions();
+            if (distance + 1 < storedPrimaryKeys.size()) {
+                return resolvePrimaryKeyField(context, resolvedParent, object, storedPrimaryKeys.get(distance + 1), distance + 1);
             }
         }
         if (indexKeyspace != null &&
                 indexKeyspace.getParent() instanceof ResolvedRecordStoreKeyspace &&
                 ((ResolvedRecordStoreKeyspace)indexKeyspace.getParent()).getRecordStoreKeyspace() == FDBRecordStoreKeyspace.INDEX) {
             Index index = indexKeyspace.getIndex();
-            KeyExpression indexExpression = index.getRootExpression();
-            if (distance < indexExpression.getColumnSize()) {
-                return resolveIndexField(context, resolvedParent, object, index, indexExpression, distance);
+            List<KeyExpression> storedKeys = indexStoredKeys(index);
+            if (distance < storedKeys.size()) {
+                return resolveIndexField(context, resolvedParent, object, index, storedKeys.get(distance), distance);
             }
         }
         return UNRESOLVED;
+    }
+
+    // TODO: Get this from the IndexMaintainerFactory via some new interface (the IndexMaintainer needs a RecordStore).
+    private List<KeyExpression> indexStoredKeys(@Nonnull Index index) {
+        KeyExpression storedKey = index.getRootExpression();
+        if (storedKey instanceof GroupingKeyExpression) {
+            if (index.getType().equals(IndexTypes.RANK) ||
+                    index.getType().equals(IndexTypes.TIME_WINDOW_LEADERBOARD)) {
+                // The grouped key(s) is also stored.
+                storedKey = ((GroupingKeyExpression)storedKey).getWholeKey();
+            } else {
+                // The grouped key is reduced.
+                storedKey = ((GroupingKeyExpression)storedKey).getGroupingSubKey();
+            }
+        }
+        if (index.getType().equals(IndexTypes.TIME_WINDOW_LEADERBOARD)) {
+            storedKey = Key.Expressions.concat(Key.Expressions.field("leaderboard"), storedKey);
+        }
+        return storedKey.normalizeKeyForPositions();
     }
 
     /**
@@ -548,24 +573,23 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
     }
 
     protected CompletableFuture<Resolved> resolvePrimaryKeyField(@Nonnull FDBRecordContext context, @Nonnull Resolved resolvedParent, @Nullable Object object,
-                                                                 @Nonnull KeyExpression primaryKey, int index) {
-        List<KeyExpression> keys = primaryKey.normalizeKeyForPositions();
-        if (index < keys.size()) {
-            KeyExpression key = keys.get(index);
-            while (key instanceof NestingKeyExpression) {
-                key = ((NestingKeyExpression)key).getChild();
-            }
-            if (key instanceof FieldKeyExpression) {
-                return CompletableFuture.completedFuture(new ResolvedPrimaryKeyField(resolvedParent, ((FieldKeyExpression)key).getFieldName(), object, object));
-            }
-        }
-        return UNRESOLVED;
+                                                                 @Nonnull KeyExpression fieldKey, int fieldIndex) {
+        return resolveKeyField(context, resolvedParent, object, fieldKey);
     }
 
     protected CompletableFuture<Resolved> resolveIndexField(@Nonnull FDBRecordContext context, @Nonnull Resolved resolvedParent, @Nullable Object object,
-                                                            @Nonnull Index index, @Nonnull KeyExpression rootExpression, int fieldIndex) {
-        // TODO: to do something like resolvePrimaryKeyField, need to know how index's root expression maps to its keys.
-        // For example, whether there are any prefix keys or whether anything follows a group key expression.
+                                                            @Nonnull Index index, @Nonnull KeyExpression fieldKey, int fieldIndex) {
+        return resolveKeyField(context, resolvedParent, object, fieldKey);
+    }
+
+    protected CompletableFuture<Resolved> resolveKeyField(@Nonnull FDBRecordContext context, @Nonnull Resolved resolvedParent, @Nullable Object object,
+                                                          @Nonnull KeyExpression fieldKey) {
+        while (fieldKey instanceof NestingKeyExpression) {
+            fieldKey = ((NestingKeyExpression)fieldKey).getChild();
+        }
+        if (fieldKey instanceof FieldKeyExpression) {
+            return CompletableFuture.completedFuture(new ResolvedKeyField(resolvedParent, ((FieldKeyExpression)fieldKey).getFieldName(), object, object));
+        }
         return UNRESOLVED;
     }
 
