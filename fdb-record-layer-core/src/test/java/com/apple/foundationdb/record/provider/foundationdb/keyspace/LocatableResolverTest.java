@@ -83,8 +83,10 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.core.Is.is;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -128,10 +130,10 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         }
         LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path1);
 
-        Long value = resolver.resolve(null, "foo").join();
+        Long value = resolver.resolve((FDBStoreTimer)null, "foo").join();
 
         for (int i = 0; i < 5; i++) {
-            Long fetched = resolver.resolve(null, "foo").join();
+            Long fetched = resolver.resolve((FDBStoreTimer)null, "foo").join();
             assertThat("we should always get the original value", fetched, is(value));
         }
         CacheStats stats = database.getDirectoryCacheStats();
@@ -230,6 +232,152 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     }
 
     @Test
+    public void testDirectoryCacheWithUncommittedContext() {
+        FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb.clearCaches();
+
+        // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
+        fdb.getReverseDirectoryCache().waitUntilReady();
+
+        final String key = "hello " + UUID.randomUUID();
+
+        FDBStoreTimer timer = new FDBStoreTimer();
+        long resolved;
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            context.getReadVersion(); // Ensure initial get read version is instrumented
+            resolved = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
+            assertAll(
+                    () -> assertThat("directory resolution should not have been from cache", timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), equalTo(1)),
+                    () -> assertThat("should only have opened at most 2 child transaction", timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT), lessThanOrEqualTo(3)),
+                    () -> assertThat("should only have gotten one read version", timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION), equalTo(1)),
+                    () -> assertThat("should have only committed the inner transaction", timer.getCount(FDBStoreTimer.Events.COMMIT), lessThanOrEqualTo(1))
+            );
+            // do not commit transaction (though child transaction updating the resolved key should have been committed)
+        }
+
+        // Should read cached value
+        timer.reset();
+        long resolved2;
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            context.getReadVersion(); // Ensure initial get read version is instrumented
+            resolved2 = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
+            assertAll(
+                    () -> assertThat( "resolved value from cache does not match initial resolution", resolved2, equalTo(resolved)),
+                    () -> assertEquals(0, timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), "should not have read from the directory layer"),
+                    () -> assertEquals(1, timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT), "should not have opened any additional contexts"),
+                    () -> assertEquals(1, timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION), "should not need any additional read versions"),
+                    () -> assertEquals(0, timer.getCount(FDBStoreTimer.Events.COMMIT))
+            );
+        }
+
+        // Clear the caches and see that the value in the database matches
+        database.clearCaches();
+        timer.reset();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            long resolved3 = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
+            assertAll(
+                    () -> assertThat( "resolved value from database does not match initial resolution", resolved3, equalTo(resolved)),
+                    () -> assertThat("directory resolution should not have been from cache", timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), equalTo(1)),
+                    () -> assertThat("should only have opened at most 2 child transaction", timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT), lessThanOrEqualTo(3)),
+                    () -> assertThat("should only have gotten one read version", timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION), equalTo(1)),
+                    () -> assertThat("should only have committed the inner transaction", timer.getCount(FDBStoreTimer.Events.COMMIT), lessThanOrEqualTo(1))
+            );
+        }
+    }
+
+    @Test
+    public void testCachesWinnerOfConflict() {
+        FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb.clearCaches();
+
+        // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
+        fdb.getReverseDirectoryCache().waitUntilReady();
+
+        final String key = "hello " + UUID.randomUUID();
+
+        long resolved;
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context1 = fdb.openContext(null, timer); FDBRecordContext context2 = fdb.openContext(null, timer)) {
+            // Ensure both started
+            context1.getReadVersion();
+            context2.getReadVersion();
+
+            // Both contexts try to create the key
+            CompletableFuture<Long> resolvedFuture1 = globalScope.resolve(context1, key);
+            CompletableFuture<Long> resolvedFuture2 = globalScope.resolve(context2, key);
+
+            long resolved1 = context1.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, resolvedFuture1);
+            long resolved2 = context2.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, resolvedFuture2);
+
+            assertAll(
+                    () -> assertThat("two concurrent resolutions of the same key should match", resolved1, equalTo(resolved2)),
+                    () -> assertThat("at least one transaction should read from database", timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), greaterThanOrEqualTo(1)),
+                    () -> assertThat("should not open more transactions than the two parents and five children", timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT), lessThanOrEqualTo(7)),
+                    () -> assertThat("should not have committed more than the five children", timer.getCount(FDBStoreTimer.Events.COMMIT), lessThanOrEqualTo(5))
+            );
+            resolved = resolved1;
+        }
+
+        timer.reset();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            context.getReadVersion();
+            long resolvedAgain = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
+            assertAll(
+                    () -> assertThat("resolved value in cache should match initial resolution", resolvedAgain, equalTo(resolved)),
+                    () -> assertThat("should have resolved from cache", timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), equalTo(0))
+            );
+        }
+    }
+
+    /**
+     * This is mainly to test a counter factual where the same transaction is used to actually resolve the value as
+     * is used by the caller. In that case, one could accidentally pollute the cache with uncommitted data. To protect
+     * against that, this test is designed to fail if someone changes the resolution logic so that uncommitted data
+     * (even possibly uncommitted data re-read from the same transaction that wrote it) might be put in the cache.
+     */
+    @Test
+    public void testDoesNotCacheValueReadFromReadYourWritesCache() {
+        FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb.clearCaches();
+
+        final String key = "hello " + UUID.randomUUID();
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        long resolved;
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            // First time: nothing in cache or DB. Entry is created.
+            resolved = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
+            assertEquals(1, timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), "should have read from the database");
+
+            // Second time: if same context used to create and read, then this would read from transaction's read your writes cache, not the database
+            long resolvedAgain = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
+            assertEquals(resolved, resolvedAgain, "resolving the same key should not change the value even in the same transaction");
+
+            // do not commit main transaction
+        }
+
+        // Read from cache. If present, this should not have changed its value
+        timer.reset();
+        boolean cached;
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            long resolvedFromCache = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
+            cached = timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ) == 0;
+            if (cached) {
+                assertEquals(resolved, resolvedFromCache, "resolved value should have changed when reading from cache");
+            }
+        }
+
+        // Clear caches, and re-read from the database.
+        if (cached) {
+            fdb.clearCaches();
+            timer.reset();
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                long resolvedFromDb = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
+                assertEquals(resolved, resolvedFromDb, "resolved value from database should have matched initial resolution");
+            }
+        }
+    }
+
+    @Test
     public void testResolveUseCacheCommits() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setDirectoryCacheSize(10);
@@ -269,7 +417,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext()) {
             for (int i = 0; i < 10; i++) {
                 String key = "string-" + i;
-                Long value = globalScope.resolve(context.getTimer(), key).join();
+                Long value = globalScope.resolve(context, key).join();
                 mappings.put(key, value);
             }
         }
@@ -294,8 +442,8 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     public void testResolveWithNoMetadata() {
         Long value;
         ResolverResult noHookResult;
-        value = globalScope.resolve(null, "resolve-string").join();
-        noHookResult = globalScope.resolveWithMetadata(null, "resolve-string", ResolverCreateHooks.getDefault()).join();
+        value = globalScope.resolve((FDBStoreTimer)null, "resolve-string").join();
+        noHookResult = globalScope.resolveWithMetadata((FDBStoreTimer)null, "resolve-string", ResolverCreateHooks.getDefault()).join();
         assertThat("the value is the same", noHookResult.getValue(), is(value));
         assertThat("entry was created without metadata", noHookResult.getMetadata(), is(nullValue()));
     }
@@ -736,15 +884,15 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         ResolverCreateHooks validHooks = new ResolverCreateHooks(validCheck, DEFAULT_HOOK);
         ResolverCreateHooks invalidHooks = new ResolverCreateHooks(invalidCheck, DEFAULT_HOOK);
-        Long value = path1Resolver.resolve(null, "some-key", validHooks).join();
+        Long value = path1Resolver.resolve((FDBStoreTimer)null, "some-key", validHooks).join();
         try (FDBRecordContext context = database.openContext()) {
             assertThat("it succeeds and writes the value", path1Resolver.mustResolve(context, "some-key").join(), is(value));
         }
 
-        assertThat("when reading the same key it doesn't perform the check", path1Resolver.resolve(null, "some-key", invalidHooks).join(), is(value));
+        assertThat("when reading the same key it doesn't perform the check", path1Resolver.resolve((FDBStoreTimer)null, "some-key", invalidHooks).join(), is(value));
 
         try {
-            path1Resolver.resolve(null, "another-key", invalidHooks).join();
+            path1Resolver.resolve((FDBStoreTimer)null, "another-key", invalidHooks).join();
             fail("should throw CompletionException");
         } catch (CompletionException ex) {
             assertThat("it has the correct cause", ex.getCause(), is(instanceOf(LocatableResolverLockedException.class)));
@@ -758,7 +906,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         MetadataHook hook = ignore -> metadata;
         final ResolverResult result;
         final ResolverCreateHooks hooks = new ResolverCreateHooks(DEFAULT_CHECK, hook);
-        result = globalScope.resolveWithMetadata(null, "a-key", hooks).join();
+        result = globalScope.resolveWithMetadata((FDBStoreTimer)null, "a-key", hooks).join();
         assertArrayEquals(metadata, result.getMetadata());
 
         // check that the result with metadata is persisted to the database
@@ -769,7 +917,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
             assertArrayEquals(expected.getMetadata(), resultFromDB.getMetadata());
         }
 
-        assertEquals(expected, globalScope.resolveWithMetadata(null, "a-key", hooks).join());
+        assertEquals(expected, globalScope.resolveWithMetadata((FDBStoreTimer)null, "a-key", hooks).join());
 
         byte[] newMetadata = Tuple.from("some-different-metadata").pack();
         MetadataHook newHook = ignore -> newMetadata;
@@ -777,7 +925,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         // make sure we don't just read the cached value
         database.clearCaches();
-        assertArrayEquals(metadata, globalScope.resolveWithMetadata(null, "a-key", newHooks).join().getMetadata(),
+        assertArrayEquals(metadata, globalScope.resolveWithMetadata((FDBStoreTimer)null, "a-key", newHooks).join().getMetadata(),
                 "hook is only run on create, does not update metadata");
     }
 
@@ -798,7 +946,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         globalScope.updateMetadataAndVersion("some-key", newMetadata).join();
         ResolverResult expected = new ResolverResult(initialResult.getValue(), newMetadata);
         eventually("we see the new metadata", () ->
-                        globalScope.resolveWithMetadata(null, "some-key", hooks).join(),
+                        globalScope.resolveWithMetadata((FDBStoreTimer)null, "some-key", hooks).join(),
                 is(expected), 120, 10);
     }
 

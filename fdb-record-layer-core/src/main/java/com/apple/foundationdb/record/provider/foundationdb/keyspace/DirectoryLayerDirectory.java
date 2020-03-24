@@ -287,7 +287,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     @Nonnull
     private CompletableFuture<ResolverResult> lookupInScope(@Nonnull final FDBRecordContext context, @Nonnull final String key) {
         return scopeGenerator.apply(context).thenCompose(resolver ->
-            resolver.resolveWithMetadata(context.getTimer(), key, createHooks));
+            resolver.resolveWithMetadata(context, key, createHooks));
     }
 
     @Nonnull

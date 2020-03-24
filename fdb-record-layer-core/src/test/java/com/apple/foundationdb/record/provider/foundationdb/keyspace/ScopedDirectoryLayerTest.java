@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.subspace.Subspace;
@@ -109,7 +110,7 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
         }
 
         LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path);
-        Long value = resolver.resolve(null, "foo").join();
+        Long value = resolver.resolve((FDBStoreTimer)null, "foo").join();
 
         DirectoryLayer directoryLayer = new DirectoryLayer(
                 new Subspace(Bytes.concat(path.toTuple().pack(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())),
@@ -131,14 +132,14 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
         String key1 = "key1";
         assertThat(noMetadata.getMetadataHook().apply(key1), is(nullValue()));
         // works as long as the metadatahook returns null
-        globalScope.resolveWithMetadata(null, key1, noMetadata).join();
+        globalScope.resolveWithMetadata((FDBStoreTimer)null, key1, noMetadata).join();
 
         String key2 = "key2";
         MetadataHook hook = name -> Tuple.from(name).pack();
         ResolverCreateHooks withMetadata = new ResolverCreateHooks(ResolverCreateHooks.DEFAULT_CHECK, hook);
         assertThat(withMetadata.getMetadataHook().apply(key2), is(not(nullValue())));
         assertThrows(CompletionException.class,
-                () -> globalScope.resolveWithMetadata(null, key2, withMetadata).join());
+                () -> globalScope.resolveWithMetadata((FDBStoreTimer)null, key2, withMetadata).join());
     }
 
     private void validate(FDBRecordContext context, LocatableResolver resolver, DirectoryLayer directoryLayer, String key, Long value) {

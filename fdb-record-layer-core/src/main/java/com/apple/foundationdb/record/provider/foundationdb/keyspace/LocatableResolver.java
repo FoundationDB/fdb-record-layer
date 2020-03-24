@@ -22,11 +22,13 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
@@ -44,6 +46,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -113,33 +116,113 @@ public abstract class LocatableResolver {
         );
     }
 
+    @Nonnull
+    private <T> CompletableFuture<T> runAsyncBorrowingReadVersion(@Nonnull FDBRecordContext parentContext, @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable) {
+        final FDBDatabaseRunner runner = parentContext.newRunner();
+        boolean started = false;
+        try {
+            final AtomicBoolean first = new AtomicBoolean(true);
+            CompletableFuture<T> future = runner.runAsync(childContext -> {
+                if (parentContext.isClosed()) {
+                    // If the parent context is closed, stop this runner, too
+                    throw new FDBDatabaseRunner.RunnerClosed();
+                }
+                final CompletableFuture<Long> readVersionFuture;
+                if (first.get()) {
+                    // The first time around, borrow a read version
+                    first.set(false);
+                    readVersionFuture = parentContext.getReadVersionAsync().thenApply(readVersion -> {
+                        childContext.setReadVersion(readVersion);
+                        return readVersion;
+                    });
+                } else {
+                    // Other times, get a new read version from the database (explicit here for instrumentation purposes)
+                    readVersionFuture = childContext.getReadVersionAsync();
+                }
+                return readVersionFuture.thenCompose(ignore -> retriable.apply(childContext));
+            });
+            started = true;
+            return future.whenComplete((valIgnore, errIgnore) -> runner.close());
+        } finally {
+            if (!started) {
+                runner.close();
+            }
+        }
+    }
+
     /**
      * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
      * Will return the value that's persisted in FDB or create it if it does not exist.
-     * This method may create and commit a separate record context for the lookup.
      *
      * @param timer the {@link FDBStoreTimer} used for collecting metrics
      * @param name the value to resolve
      * @return a future for the resolved Long value
      */
+    @Nonnull
     public CompletableFuture<Long> resolve(@Nullable FDBStoreTimer timer, @Nonnull String name) {
         return resolve(timer, name, ResolverCreateHooks.getDefault());
     }
 
     /**
      * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
+     * Will return the value that's persisted in FDB or create it if it does not exist. This method may create and commit
+     * a separate record context for the lookup, but it will reuse the same
+     * {@linkplain FDBRecordContext#getReadVersion() read version} as the provided transaction, so it should not
+     * incur all of the overhead of starting a new transaction.
+     *
+     * <p>
+     * This method is {@link API.Status#UNSTABLE} for the same reasons as {@link #resolveWithMetadata(FDBRecordContext, String, ResolverCreateHooks)}.
+     * </p>
+     *
+     * @param context the base context used to
+     * @param name the value to resolve
+     * @return a future for the resolved Long value
+     */
+    @API(API.Status.UNSTABLE)
+    @Nonnull
+    public CompletableFuture<Long> resolve(@Nonnull FDBRecordContext context, @Nonnull String name) {
+        return resolve(context, name, ResolverCreateHooks.getDefault());
+    }
+
+    /**
+     * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
      * Will return the value that's persisted in FDB or create it if it does not exist.
-     * This method may create and commit a separate record context for the lookup.
      *
      * @param timer the {@link FDBStoreTimer} used for collecting metrics
      * @param name the value to resolve
      * @param hooks {@link ResolverCreateHooks} to run on create
      * @return a future for the resolved Long value
      */
+    @Nonnull
     public CompletableFuture<Long> resolve(@Nullable FDBStoreTimer timer,
                                            @Nonnull String name,
                                            @Nonnull ResolverCreateHooks hooks) {
         return resolveWithMetadata(timer, name, hooks)
+                .thenApply(ResolverResult::getValue);
+    }
+
+    /**
+     * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
+     * Will return the value that's persisted in FDB or create it if it does not exist. This method may create and
+     * commit a separate record context for the lookup, but it will reuse the same
+     * {@linkplain FDBRecordContext#getReadVersion() read version} as the provided transaction, so it should not
+     * incur all of the overhead of starting a new transaction.
+     *
+     * <p>
+     * This method is {@link API.Status#UNSTABLE} for the same reasons as {@link #resolveWithMetadata(FDBRecordContext, String, ResolverCreateHooks)}.
+     * </p>
+     *
+     * @param context the {@link FDBRecordContext} used to base possible child transactions on
+     * @param name the value to resolve
+     * @param hooks {@link ResolverCreateHooks} to run on create
+     * @return a future for the resolved Long value
+     */
+    @API(API.Status.UNSTABLE)
+    @Nonnull
+    public CompletableFuture<Long> resolve(@Nonnull FDBRecordContext context,
+                                           @Nonnull String name,
+                                           @Nonnull ResolverCreateHooks hooks) {
+        return resolveWithMetadata(context, name, hooks)
                 .thenApply(ResolverResult::getValue);
     }
 
@@ -149,28 +232,70 @@ public abstract class LocatableResolver {
      * as <code>hooks</code> will be run. Any metadata that was already present or created can be seen by calling
      * {@link ResolverResult#getMetadata()} on the returned result.
      * Will return the value that's persisted in FDB or create it if it does not exist.
-     * This method may create and commit a separate record context for the lookup.
      *
      * @param timer the {@link FDBStoreTimer} used for collecting metrics
      * @param name the value to resolve
      * @param hooks {@link ResolverCreateHooks} to run on create
      * @return a future for the {@link ResolverResult} containing the resolved value and metadata
      */
+    @Nonnull
     public CompletableFuture<ResolverResult> resolveWithMetadata(@Nullable FDBStoreTimer timer,
                                                                  @Nonnull String name,
                                                                  @Nonnull ResolverCreateHooks hooks) {
+        final FDBRecordContext context = database.openContext(null, timer);
+        boolean started = false;
+        try {
+            CompletableFuture<ResolverResult> future = resolveWithMetadata(context, name, hooks);
+            started = true;
+            return future.whenComplete((valIgnore, errIgnore) -> context.close());
+        } finally {
+            if (!started) {
+                context.close();
+            }
+        }
+    }
+
+    /**
+     * Map the String <code>name</code> to a {@link ResolverResult} within the scope of the path that this object was
+     * constructed with. If we are creating the entry for <code>name</code>, The {@link ResolverCreateHooks} provided
+     * as <code>hooks</code> will be run. Any metadata that was already present or created can be seen by calling
+     * {@link ResolverResult#getMetadata()} on the returned result.
+     * Will return the value that's persisted in FDB or create it if it does not exist.
+     * This may create and commit separate transactions from the given context, but it will reuse the same
+     * {@linkplain FDBRecordContext#getReadVersion() read version} as the given context, so it should not incur
+     * all of the overhead of starting a new transaction.
+     *
+     * <p>
+     * This method is currently {@link API.Status#UNSTABLE}. The reason is that the thinking on the exact
+     * semantics of this method is currently in flux, and this method may be changed in the future to
+     * use the same transaction as the one provided. This is a more straightforward API, but it complicates
+     * the way that values from this function are cached, as it must be careful not to cache uncommitted results.
+     * </p>
+     *
+     * @param context the {@link FDBRecordContext} used to base possible child transactions on
+     * @param name the value to resolve
+     * @param hooks {@link ResolverCreateHooks} to run on create
+     * @return a future for the {@link ResolverResult} containing the resolved value and metadata
+     */
+    @API(API.Status.UNSTABLE)
+    @Nonnull
+    public CompletableFuture<ResolverResult> resolveWithMetadata(@Nonnull FDBRecordContext context, @Nonnull String name, @Nonnull ResolverCreateHooks hooks) {
+        if (!context.getDatabase().equals(database)) {
+            throw new RecordCoreArgumentException("attempted to resolve value against incorrect database");
+        }
+
         // check the version stored in the resolver state and compare it with what version the cache was created at
         // if we read a version that is ahead of whats stored in FDBDatabase we need to invalidate the cache in FDBDatabase
         // if the cache version in FDBDatabase is a future version we can trust the cache we get from getDirectoryCache
-        return getVersion(timer)
+        return getVersion(context)
                 .thenApply(database::getDirectoryCache)
                 .thenCompose(directoryCache ->
-                        resolveWithCache(timer, wrap(name), directoryCache, hooks));
+                        resolveWithCache(context, wrap(name), directoryCache, hooks));
     }
 
     /**
      * Lookup the mapping and metadata for <code>name</code> within the scope of the path that this object was constructed with.
-     * Unlike {@link #resolveWithMetadata(FDBStoreTimer, String, ResolverCreateHooks)} this method will not attempt to
+     * Unlike {@link #resolveWithMetadata(FDBRecordContext, String, ResolverCreateHooks)} this method will not attempt to
      * create the mapping if none exists.
      *
      * @param context the transaction to use to access the database
@@ -178,6 +303,7 @@ public abstract class LocatableResolver {
      * @return a future for the {@link ResolverResult}
      * @throws NoSuchElementException if the value does not exist
      */
+    @Nonnull
     public CompletableFuture<ResolverResult> mustResolveWithMetadata(@Nonnull FDBRecordContext context, @Nonnull String name) {
         return read(context, name)
                 .thenApply(maybeRead ->
@@ -208,6 +334,7 @@ public abstract class LocatableResolver {
      * @return a future for the name that maps to this value
      * @throws NoSuchElementException if the value is not found
      */
+    @Nonnull
     public CompletableFuture<String> reverseLookup(@Nullable FDBStoreTimer timer, @Nonnull Long value) {
         Cache<ScopedValue<Long>, String> inMemoryReverseCache = database.getReverseDirectoryInMemoryCache();
         String cachedValue = inMemoryReverseCache.getIfPresent(wrap(value));
@@ -223,7 +350,7 @@ public abstract class LocatableResolver {
                         }).orElseThrow(() -> new NoSuchElementException("reverse lookup of " + wrap(value))));
     }
 
-    private CompletableFuture<ResolverResult> resolveWithCache(@Nullable FDBStoreTimer timer,
+    private CompletableFuture<ResolverResult> resolveWithCache(@Nonnull FDBRecordContext context,
                                                                @Nonnull ScopedValue<String> scopedName,
                                                                @Nonnull Cache<ScopedValue<String>, ResolverResult> directoryCache,
                                                                @Nonnull ResolverCreateHooks hooks) {
@@ -232,17 +359,18 @@ public abstract class LocatableResolver {
             return CompletableFuture.completedFuture(value);
         }
 
-        return runAsync(timer, context ->
-                context.instrument(FDBStoreTimer.Events.DIRECTORY_READ, fetchValue(context, scopedName.getData(), hooks))
+        return context.instrument(
+                FDBStoreTimer.Events.DIRECTORY_READ,
+                runAsyncBorrowingReadVersion(context, childContext -> readOrCreateValue(childContext, scopedName.getData(), hooks))
         ).thenApply(fetched -> {
             directoryCache.put(scopedName, fetched);
             return fetched;
         });
     }
 
-    private CompletableFuture<ResolverResult> fetchValue(@Nonnull FDBRecordContext context,
-                                                         @Nonnull String name,
-                                                         @Nonnull ResolverCreateHooks hooks) {
+    private CompletableFuture<ResolverResult> readOrCreateValue(@Nonnull FDBRecordContext context,
+                                                                @Nonnull String name,
+                                                                @Nonnull ResolverCreateHooks hooks) {
         return read(context, name)
                 .thenCompose(maybeRead -> maybeRead.map(CompletableFuture::completedFuture)
                         .orElseGet(() -> createIfNotLocked(context, name, hooks)));
@@ -264,9 +392,9 @@ public abstract class LocatableResolver {
                                 .addLogInfo(LogMessageKeys.RESOLVER_PATH, location)
                                 .addLogInfo(LogMessageKeys.RESOLVER_KEY, key);
                     }
-                    return readResolverStateInTransaction(context);
+                    return loadResolverState(context);
                 })
-                .thenCombine(getResolverState(null), (readState, cachedState) -> {
+                .thenCombine(getResolverState(context), (readState, cachedState) -> {
                     if (!readState.equals(cachedState)) {
                         LOGGER.warn(KeyValueLogMessage.of("cached state and read stated differ",
                                         LogMessageKeys.RESOLVER_KEY, key,
@@ -288,7 +416,7 @@ public abstract class LocatableResolver {
     }
 
     @Nonnull
-    private CompletableFuture<ResolverStateProto.State> readResolverStateInTransaction(@Nonnull FDBRecordContext context) {
+    private CompletableFuture<ResolverStateProto.State> loadResolverState(@Nonnull FDBRecordContext context) {
         // don't use a snapshot read, the lock state shouldn't change frequently but if it does we should
         // fail the transaction and should retry getting the value.
         return context.instrument(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ,
@@ -298,13 +426,15 @@ public abstract class LocatableResolver {
     }
 
     @Nonnull
-    private CompletableFuture<ResolverStateProto.State> readResolverState(@Nullable FDBStoreTimer timer) {
-        return runAsync(timer, this::readResolverStateInTransaction);
+    private CompletableFuture<ResolverStateProto.State> getResolverState(@Nullable FDBStoreTimer timer) {
+        return database.getStateForResolver(this, () -> runAsync(timer, this::loadResolverState));
+
     }
 
     @Nonnull
-    private CompletableFuture<ResolverStateProto.State> getResolverState(@Nullable FDBStoreTimer timer) {
-        return database.getStateForResolver(this, () -> readResolverState(timer));
+    private CompletableFuture<ResolverStateProto.State> getResolverState(@Nonnull FDBRecordContext context) {
+        // Note that this doesn't re-use the same transaction, though it does borrow the read version to avoid another get read version request
+        return database.getStateForResolver(this, () -> runAsyncBorrowingReadVersion(context, this::loadResolverState));
     }
 
     /**
@@ -316,6 +446,7 @@ public abstract class LocatableResolver {
      * see the updated state.
      * @return a future that completes when the write lock has been set
      */
+    @Nonnull
     public CompletableFuture<Void> exclusiveLock() {
         return updateAndCommitResolverState(StateMutation.EXCLUSIVE_LOCK);
     }
@@ -328,6 +459,7 @@ public abstract class LocatableResolver {
      * see the updated state.
      * @return a future that completes when the write lock has been set
      */
+    @Nonnull
     public CompletableFuture<Void> enableWriteLock() {
         return updateAndCommitResolverState(StateMutation.LOCK);
     }
@@ -339,6 +471,7 @@ public abstract class LocatableResolver {
      * method succeeds should see the updated state.
      * @return a future that completes when the write lock has been cleared
      */
+    @Nonnull
     public CompletableFuture<Void> disableWriteLock() {
         return updateAndCommitResolverState(StateMutation.UNLOCK);
     }
@@ -349,6 +482,7 @@ public abstract class LocatableResolver {
      * using that resolver instead.
      * @return a future that completes when the write lock has been cleared
      */
+    @Nonnull
     public CompletableFuture<Void> retireLayer() {
         return updateAndCommitResolverState(StateMutation.RETIRE);
     }
@@ -359,6 +493,7 @@ public abstract class LocatableResolver {
      * to be seen by {@link #getVersion(FDBStoreTimer)}.
      * @return A future that completes when the version has been incremented
      */
+    @Nonnull
     public CompletableFuture<Void> incrementVersion() {
         return updateAndCommitResolverState(StateMutation.INCREMENT_VERSION);
     }
@@ -376,8 +511,14 @@ public abstract class LocatableResolver {
      * @param timer The store timer to instrument the transaction with.
      * @return A future that will complete with the value of the current version
      */
+    @Nonnull
     public CompletableFuture<Integer> getVersion(@Nullable FDBStoreTimer timer) {
-        return getResolverState(timer).thenApply(ResolverStateProto.State::getVersion);
+        return runAsync(timer, this::getVersion);
+    }
+
+    @Nonnull
+    private CompletableFuture<Integer> getVersion(@Nonnull FDBRecordContext context) {
+        return getResolverState(context).thenApply(ResolverStateProto.State::getVersion);
     }
 
     /**
@@ -386,6 +527,7 @@ public abstract class LocatableResolver {
      * @param timer The store timer to instrument the transaction with.
      * @return A future that will complete with boolean indicating whether this resolver has been retired.
      */
+    @Nonnull
     public CompletableFuture<Boolean> retired(@Nullable FDBStoreTimer timer) {
         return getResolverState(timer).thenApply(state -> state.getLock() == ResolverStateProto.WriteLock.RETIRED);
     }
@@ -396,8 +538,9 @@ public abstract class LocatableResolver {
      * @param context the transaction to use to access the database
      * @return A future that will complete with boolean indicating whether this resolver has been retired.
      */
+    @Nonnull
     public CompletableFuture<Boolean> retiredSkipCache(@Nonnull FDBRecordContext context) {
-        return readResolverStateInTransaction(context).thenApply(state -> state.getLock() == ResolverStateProto.WriteLock.RETIRED);
+        return loadResolverState(context).thenApply(state -> state.getLock() == ResolverStateProto.WriteLock.RETIRED);
     }
 
     /**
@@ -410,6 +553,7 @@ public abstract class LocatableResolver {
      * @param metadata the new metadata
      * @return a future that will finish when the update and increment operations are complete
      */
+    @Nonnull
     public CompletableFuture<Void> updateMetadataAndVersion(@Nonnull final String key,
                                                             @Nullable final byte[] metadata) {
         return runAsync(null, context -> updateMetadata(context, key, metadata)

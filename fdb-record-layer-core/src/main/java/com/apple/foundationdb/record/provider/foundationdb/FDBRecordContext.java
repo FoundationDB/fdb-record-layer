@@ -1074,6 +1074,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * <li>Same {@linkplain FDBStoreTimer timer}</li>
      * <li>Same {@linkplain #getMdcContext() MDC context}</li>
      * <li>Same {@linkplain FDBDatabase.WeakReadSemantics weak read semantics}</li>
+     * <li>Same {@linkplain FDBTransactionPriority priority}</li>
+     * <li>Same {@linkplain #getTimeoutMillis() transaction timeout}</li>
      * </ul>
      * @return a new database runner based on this context
      */
@@ -1083,6 +1085,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         runner.setTimer(timer);
         runner.setMdcContext(getMdcContext());
         runner.setWeakReadSemantics(weakReadSemantics);
+        runner.setPriority(priority);
+        runner.setTransactionTimeoutMillis(timeoutMillis);
         return runner;
     }
 
