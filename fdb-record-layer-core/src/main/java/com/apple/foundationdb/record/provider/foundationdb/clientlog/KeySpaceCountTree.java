@@ -122,9 +122,13 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
         @Nonnull
         private final KeySpaceDirectory rootDirectory;
 
+        protected ResolvedRoot(@Nullable Resolved parent, @Nonnull KeySpaceDirectory rootDirectory) {
+            super(parent);
+            this.rootDirectory = rootDirectory;
+        }
+
         public ResolvedRoot(@Nonnull KeySpace keySpace) {
-            super(null);
-            this.rootDirectory = keySpace.getRoot();
+            this(null, keySpace.getRoot());
         }
 
         @Nonnull
@@ -149,6 +153,24 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
         @Override
         public KeySpaceDirectory getDirectory() {
             return rootDirectory;
+        }
+    }
+
+    /**
+     * {@link ResolvedRoot} with a prefix object.
+     */
+    public static class ResolvedPrefixRoot extends ResolvedRoot {
+        @Nonnull
+        private final Object prefix;
+
+        public ResolvedPrefixRoot(@Nonnull Resolved parent, @Nonnull Object prefix) {
+            super(parent, parent.getDirectory());
+            this.prefix = prefix;
+        }
+
+        @Override
+        public String toString() {
+            return prefix.toString();
         }
     }
 
@@ -371,7 +393,7 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
     @Nonnull
     protected TupleKeyCountTree newPrefixChild(@Nonnull Object prefix) {
         TupleKeyCountTree result = super.newPrefixChild(prefix);
-        ((KeySpaceCountTree)result).resolved = resolved;
+        ((KeySpaceCountTree)result).resolved = new ResolvedPrefixRoot(resolved, prefix);
         return result;
     }
 
