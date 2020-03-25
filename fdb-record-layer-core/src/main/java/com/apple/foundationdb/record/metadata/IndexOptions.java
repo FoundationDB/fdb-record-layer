@@ -96,6 +96,13 @@ public class IndexOptions {
      */
     public static final String RANK_HASH_FUNCTION = "rankHashFunction";
 
+    /**
+     * Whether duplicate keys count separtely in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
+     *
+     * The default is {@code false}.
+     */
+    public static final String RANK_COUNT_DUPLICATES = "rankCountDuplicates";
+
     private IndexOptions() {
     }
 }

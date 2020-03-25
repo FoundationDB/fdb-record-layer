@@ -88,11 +88,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
     private static final Tuple SUB_DIRECTORY_PREFIX = Tuple.from((Object)null); // Must not conflict with leaderboard subspace keys.
 
-    private final RankedSet.HashFunction hashFunction;
+    private final RankedSet.Config config;
 
     public TimeWindowLeaderboardIndexMaintainer(IndexMaintainerState state) {
         super(state);
-        this.hashFunction = RankedSetIndexHelper.getHashFunction(state.index);
+        this.config = RankedSetIndexHelper.getConfig(state.index);
     }
 
     @Nonnull
@@ -197,8 +197,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 }
                 final Subspace extraSubspace = getSecondarySubspace();
                 final Subspace leaderboardSubspace = extraSubspace.subspace(leaderboard.getSubspaceKey());
+                final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
                 return RankedSetIndexHelper.rankRangeToScoreRange(state, groupPrefixSize,
-                        leaderboardSubspace, hashFunction, leaderboard.getNLevels(), leaderboardRange);
+                        leaderboardSubspace, leaderboardConfig, leaderboardRange);
             });
         }
         // Add leaderboard's key to the front and take it off of the results.
@@ -361,8 +362,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
                                 // Update the corresponding rankset for this leaderboard.
                                 final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
+                                final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
                                 futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace,
-                                        hashFunction, leaderboard.getNLevels(), entryKey, indexKey.scoreKey, remove));
+                                        leaderboardConfig, entryKey, indexKey.scoreKey, remove));
                             }
                         }
                     }
@@ -378,6 +380,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 return AsyncUtil.whenAll(futures);
             });
         });
+    }
+
+    @Override
+    public boolean isIdempotent() {
+        return !config.isCountDuplicates();
     }
 
     @Override
@@ -482,7 +489,8 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
             final Subspace extraSubspace = getSecondarySubspace();
             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, hashFunction, leaderboard.getNLevels());
+            final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
+            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboardConfig);
             return function.apply(leaderboard, rankedSet, groupKey, values);
         });
     }
@@ -529,7 +537,8 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                             final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
                             final Subspace extraSubspace = getSecondarySubspace();
                             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-                            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, hashFunction, leaderboard.getNLevels());
+                            final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
+                            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboardConfig);
                             // Undo any negation needed to find entry.
                             final Tuple entry = highScoreFirst ? negateScoreForHighScoreFirst(indexKey.scoreKey, 0) : indexKey.scoreKey;
                             return RankedSetIndexHelper.rankForScore(state, rankedSet, indexKey.scoreKey, true).thenApply(rank -> Pair.of(rank, entry));
