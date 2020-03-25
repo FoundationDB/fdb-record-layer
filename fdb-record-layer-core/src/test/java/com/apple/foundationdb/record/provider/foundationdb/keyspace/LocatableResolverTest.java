@@ -237,7 +237,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
-        fdb.getReverseDirectoryCache().waitUntilReady();
+        fdb.getReverseDirectoryCache().waitUntilReadyForTesting();
 
         final String key = "hello " + UUID.randomUUID();
 
@@ -291,7 +291,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
-        fdb.getReverseDirectoryCache().waitUntilReady();
+        fdb.getReverseDirectoryCache().waitUntilReadyForTesting();
 
         final String key = "hello " + UUID.randomUUID();
 

@@ -376,7 +376,7 @@ public class FDBReverseDirectoryCache {
      * used for tests in order to avoid spurious conflicts.
      */
     @VisibleForTesting
-    public void waitUntilReady() {
+    public void waitUntilReadyForTesting() {
         reverseDirectoryCacheEntry.join();
     }
 
