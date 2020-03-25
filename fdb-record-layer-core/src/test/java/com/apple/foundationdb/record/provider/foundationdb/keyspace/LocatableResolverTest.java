@@ -130,10 +130,10 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         }
         LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path1);
 
-        Long value = resolver.resolve((FDBStoreTimer)null, "foo").join();
+        Long value = resolver.resolve("foo").join();
 
         for (int i = 0; i < 5; i++) {
-            Long fetched = resolver.resolve((FDBStoreTimer)null, "foo").join();
+            Long fetched = resolver.resolve("foo").join();
             assertThat("we should always get the original value", fetched, is(value));
         }
         CacheStats stats = database.getDirectoryCacheStats();
@@ -442,8 +442,8 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     public void testResolveWithNoMetadata() {
         Long value;
         ResolverResult noHookResult;
-        value = globalScope.resolve((FDBStoreTimer)null, "resolve-string").join();
-        noHookResult = globalScope.resolveWithMetadata((FDBStoreTimer)null, "resolve-string", ResolverCreateHooks.getDefault()).join();
+        value = globalScope.resolve("resolve-string").join();
+        noHookResult = globalScope.resolveWithMetadata("resolve-string", ResolverCreateHooks.getDefault()).join();
         assertThat("the value is the same", noHookResult.getValue(), is(value));
         assertThat("entry was created without metadata", noHookResult.getMetadata(), is(nullValue()));
     }
@@ -884,15 +884,15 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         ResolverCreateHooks validHooks = new ResolverCreateHooks(validCheck, DEFAULT_HOOK);
         ResolverCreateHooks invalidHooks = new ResolverCreateHooks(invalidCheck, DEFAULT_HOOK);
-        Long value = path1Resolver.resolve((FDBStoreTimer)null, "some-key", validHooks).join();
+        Long value = path1Resolver.resolve("some-key", validHooks).join();
         try (FDBRecordContext context = database.openContext()) {
             assertThat("it succeeds and writes the value", path1Resolver.mustResolve(context, "some-key").join(), is(value));
         }
 
-        assertThat("when reading the same key it doesn't perform the check", path1Resolver.resolve((FDBStoreTimer)null, "some-key", invalidHooks).join(), is(value));
+        assertThat("when reading the same key it doesn't perform the check", path1Resolver.resolve("some-key", invalidHooks).join(), is(value));
 
         try {
-            path1Resolver.resolve((FDBStoreTimer)null, "another-key", invalidHooks).join();
+            path1Resolver.resolve("another-key", invalidHooks).join();
             fail("should throw CompletionException");
         } catch (CompletionException ex) {
             assertThat("it has the correct cause", ex.getCause(), is(instanceOf(LocatableResolverLockedException.class)));
@@ -906,7 +906,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         MetadataHook hook = ignore -> metadata;
         final ResolverResult result;
         final ResolverCreateHooks hooks = new ResolverCreateHooks(DEFAULT_CHECK, hook);
-        result = globalScope.resolveWithMetadata((FDBStoreTimer)null, "a-key", hooks).join();
+        result = globalScope.resolveWithMetadata("a-key", hooks).join();
         assertArrayEquals(metadata, result.getMetadata());
 
         // check that the result with metadata is persisted to the database
@@ -917,7 +917,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
             assertArrayEquals(expected.getMetadata(), resultFromDB.getMetadata());
         }
 
-        assertEquals(expected, globalScope.resolveWithMetadata((FDBStoreTimer)null, "a-key", hooks).join());
+        assertEquals(expected, globalScope.resolveWithMetadata("a-key", hooks).join());
 
         byte[] newMetadata = Tuple.from("some-different-metadata").pack();
         MetadataHook newHook = ignore -> newMetadata;
@@ -925,7 +925,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         // make sure we don't just read the cached value
         database.clearCaches();
-        assertArrayEquals(metadata, globalScope.resolveWithMetadata((FDBStoreTimer)null, "a-key", newHooks).join().getMetadata(),
+        assertArrayEquals(metadata, globalScope.resolveWithMetadata("a-key", newHooks).join().getMetadata(),
                 "hook is only run on create, does not update metadata");
     }
 
@@ -946,7 +946,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         globalScope.updateMetadataAndVersion("some-key", newMetadata).join();
         ResolverResult expected = new ResolverResult(initialResult.getValue(), newMetadata);
         eventually("we see the new metadata", () ->
-                        globalScope.resolveWithMetadata((FDBStoreTimer)null, "some-key", hooks).join(),
+                        globalScope.resolveWithMetadata("some-key", hooks).join(),
                 is(expected), 120, 10);
     }
 

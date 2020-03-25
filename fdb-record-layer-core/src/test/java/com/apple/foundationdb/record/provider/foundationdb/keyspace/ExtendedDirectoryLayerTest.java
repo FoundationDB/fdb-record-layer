@@ -99,12 +99,12 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
         Map<String, Long> allocations = new HashMap<>();
         for (int i = 0; i < 50; i++) {
             String key = "key-" + i;
-            Long value = writer.resolve((FDBStoreTimer)null, key).join();
+            Long value = writer.resolve(key).join();
             allocations.put(key, value);
         }
 
         for (Map.Entry<String, Long> entry : allocations.entrySet()) {
-            Long value = reader.resolve((FDBStoreTimer)null, entry.getKey()).join();
+            Long value = reader.resolve(entry.getKey()).join();
             String reverseLookup = reader.reverseLookup(null, entry.getValue()).join();
             assertEquals(value, entry.getValue());
             assertEquals(reverseLookup, entry.getKey());
@@ -141,7 +141,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
                     });
         });
 
-        Long value = otherResolver.resolve((FDBStoreTimer)null, key).join();
+        Long value = otherResolver.resolve(key).join();
         loop.join();
         assertThat("The loop eventually reads the value we allocated", value, is(valueFromLoop.get()));
     }
@@ -155,7 +155,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
                 key -> database.runAsync(context ->
                         directoryLayer.createOrOpen(context.ensureActive(), Collections.singletonList(key))
                                 .thenApply(subspace -> Tuple.fromBytes(subspace.pack()).getLong(0))),
-                key -> globalScope.resolve((FDBStoreTimer)null, key),
+                key -> globalScope.resolve(key),
                 ExtendedDirectoryLayer.global(database), ScopedDirectoryLayer.global(database));
     }
 
@@ -201,8 +201,8 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
                                                LocatableResolver resolver2) {
         testParallelAllocation(checkDirectoryLayer,
                 database,
-                key -> resolver1.resolve((FDBStoreTimer)null, key),
-                key -> resolver2.resolve((FDBStoreTimer)null, key),
+                resolver1::resolve,
+                resolver2::resolve,
                 resolver1,
                 resolver2);
     }
@@ -267,8 +267,8 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
         for (int i = 0; i < 100; i++) {
             String oldDirLayerKey = i + "-old-dl-key";
             String newDirLayerKey = i + "-new-dl-key";
-            operations.add(directoryLayer.resolve((FDBStoreTimer)null, oldDirLayerKey).thenApply(value -> mappingsFromOld.put(oldDirLayerKey, value)));
-            operations.add(globalScope.resolve((FDBStoreTimer)null, newDirLayerKey).thenApply(value -> mappingsFromNew.put(newDirLayerKey, value)));
+            operations.add(directoryLayer.resolve(oldDirLayerKey).thenApply(value -> mappingsFromOld.put(oldDirLayerKey, value)));
+            operations.add(globalScope.resolve(newDirLayerKey).thenApply(value -> mappingsFromNew.put(newDirLayerKey, value)));
         }
         CompletableFuture.allOf(operations.toArray(new CompletableFuture<?>[0])).join();
 
@@ -292,11 +292,11 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
     public void testScopedDirectoryLayerResolvesWithoutMetadata() {
         MetadataHook hook = name -> Tuple.from("metadata-for-" + name).pack();
         ResolverCreateHooks createHooks = new ResolverCreateHooks(ResolverCreateHooks.DEFAULT_CHECK, hook);
-        ResolverResult result = globalScope.resolveWithMetadata((FDBStoreTimer)null, "some-key", createHooks).join();
+        ResolverResult result = globalScope.resolveWithMetadata("some-key", createHooks).join();
         assertArrayEquals(Tuple.from("metadata-for-some-key").pack(), result.getMetadata(), "metadata was added");
 
         ResolverResult resultFromScoped = ScopedDirectoryLayer.global(database)
-                .resolveWithMetadata((FDBStoreTimer)null, "some-key", /* no hooks */ ResolverCreateHooks.getDefault())
+                .resolveWithMetadata("some-key", /* no hooks */ ResolverCreateHooks.getDefault())
                 .join();
         assertEquals(resultFromScoped.getValue(), result.getValue());
         assertThat(resultFromScoped.getMetadata(), is(nullValue()));

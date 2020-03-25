@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
@@ -149,7 +148,7 @@ public class ResolverMappingDigestTest extends FDBTestBase {
             boolean metadataForThisKey = allowMetadata && random.nextBoolean();
             byte[] metadata = metadataForThisKey ? Tuple.from("some metadata for key: " + key).pack() : null;
             MetadataHook hook = ignore -> metadata;
-            result = primary.resolveWithMetadata((FDBStoreTimer)null, key, new ResolverCreateHooks(DEFAULT_CHECK, hook)).join();
+            result = primary.resolveWithMetadata(key, new ResolverCreateHooks(DEFAULT_CHECK, hook)).join();
 
             mappings.put(key, result);
         }

@@ -154,6 +154,23 @@ public abstract class LocatableResolver {
      * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
      * Will return the value that's persisted in FDB or create it if it does not exist.
      *
+     * <p>
+     * For an instrumented version of this method, see {@link #resolve(FDBStoreTimer, String)}.
+     * </p>
+     *
+     * @param name the value to resolve
+     * @return a future for the resolved Long value
+     * @see #resolve(FDBStoreTimer, String)
+     */
+    @Nonnull
+    public CompletableFuture<Long> resolve(@Nonnull String name) {
+        return resolve((FDBStoreTimer)null, name, ResolverCreateHooks.getDefault());
+    }
+
+    /**
+     * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
+     * Will return the value that's persisted in FDB or create it if it does not exist.
+     *
      * @param timer the {@link FDBStoreTimer} used for collecting metrics
      * @param name the value to resolve
      * @return a future for the resolved Long value
@@ -182,6 +199,25 @@ public abstract class LocatableResolver {
     @Nonnull
     public CompletableFuture<Long> resolve(@Nonnull FDBRecordContext context, @Nonnull String name) {
         return resolve(context, name, ResolverCreateHooks.getDefault());
+    }
+
+    /**
+     * Map the String <code>name</code> to a Long within the scope of the path that this object was constructed with.
+     * Will return the value that's persisted in FDB or create it if it does not exist.
+     *
+     * <p>
+     * For an instrumented version of this method, see {@link #resolve(FDBStoreTimer, String, ResolverCreateHooks)}
+     * </p>
+     *
+     * @param name the value to resolve
+     * @param hooks {@link ResolverCreateHooks} to run on create
+     * @return a future for the resolved Long value
+     * @see #resolve(FDBStoreTimer, String, ResolverCreateHooks)
+     */
+    @Nonnull
+    public CompletableFuture<Long> resolve(@Nonnull String name,
+                                           @Nonnull ResolverCreateHooks hooks) {
+        return resolve((FDBStoreTimer)null, name, hooks);
     }
 
     /**
@@ -224,6 +260,28 @@ public abstract class LocatableResolver {
                                            @Nonnull ResolverCreateHooks hooks) {
         return resolveWithMetadata(context, name, hooks)
                 .thenApply(ResolverResult::getValue);
+    }
+
+    /**
+     * Map the String <code>name</code> to a {@link ResolverResult} within the scope of the path that this object was
+     * constructed with. If we are creating the entry for <code>name</code>, The {@link ResolverCreateHooks} provided
+     * as <code>hooks</code> will be run. Any metadata that was already present or created can be seen by calling
+     * {@link ResolverResult#getMetadata()} on the returned result.
+     * Will return the value that's persisted in FDB or create it if it does not exist.
+     * 
+     * <p>
+     * For an instrumented version of this method, see {@link #resolveWithMetadata(FDBStoreTimer, String, ResolverCreateHooks)}.
+     * </p>
+     *
+     * @param name the value to resolve
+     * @param hooks {@link ResolverCreateHooks} to run on create
+     * @return a future for the {@link ResolverResult} containing the resolved value and metadata
+     * @see #resolveWithMetadata(FDBStoreTimer, String, ResolverCreateHooks)
+     */
+    @Nonnull
+    public CompletableFuture<ResolverResult> resolveWithMetadata(@Nonnull String name,
+                                                                 @Nonnull ResolverCreateHooks hooks) {
+        return resolveWithMetadata((FDBStoreTimer)null, name, hooks);
     }
 
     /**
