@@ -66,6 +66,9 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // end next release
 -->
 
+### 2.8.108.0
+
+
 ### 2.8.107.0
 
 * **Feature** Enhance KeySpaceCountTree to allow for application-specific resolution [(Issue #852)](https://github.com/FoundationDB/fdb-record-layer/issues/852)
