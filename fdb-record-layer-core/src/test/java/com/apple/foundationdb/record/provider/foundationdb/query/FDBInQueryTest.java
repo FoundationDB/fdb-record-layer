@@ -38,12 +38,16 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,6 +55,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -259,6 +264,75 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 context -> TestHelpers.assertDiscardedAtMost(40, context)));
+    }
+
+    /**
+     * Verify that an IN query with a sort can be implemented as an ordered union of compound indexes that can satisfy
+     * the sort once the equality predicates from the IN have been pushed onto the indexes.
+     * @see com.apple.foundationdb.record.query.plan.planning.InExtractor#asOr()
+     */
+    @ParameterizedTest
+    @BooleanSource
+    public void inQueryWithSortBySecondFieldOfCompoundIndex(boolean shouldAttemptInAsOr) throws Exception {
+        RecordMetaDataHook hook = metaData ->
+                metaData.addIndex("MySimpleRecord", "compoundIndex",
+                        concat(field("num_value_3_indexed"), field("str_value_indexed")));
+        complexQuerySetup(hook);
+        final List<Integer> inList = asList(1, 4, 2);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_3_indexed").in(inList))
+                .setSort(field("str_value_indexed"))
+                .build();
+
+        assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
+        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
+        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
+                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
+                .build());
+
+        RecordQueryPlan plan = planner.plan(query);
+        if (shouldAttemptInAsOr) {
+            // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
+            assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
+                    bounds(hasTupleString(String.format("[[%d],[%d]]", number, number)))))).collect(Collectors.toList()),
+                    equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
+            assertEquals(-1813975352, plan.planHash());
+        } else {
+            assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
+            assertEquals(1775865786, plan.planHash());
+        }
+
+        assertEquals(60, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
+                record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
+                context -> TestHelpers.assertDiscardedAtMost(40, context)));
+    }
+
+    /**
+     * Verify that an IN predicate that, when converted to an OR of equality predicates, would lead to a very large DNF
+     * gets planned as a normal IN query rather than throwing an exception.
+     */
+    @Test
+    public void cnfAsInQuery() throws Exception {
+        RecordMetaDataHook hook = metaData ->
+                metaData.addIndex("MySimpleRecord", "compoundIndex",
+                        concat(field("num_value_3_indexed"), field("str_value_indexed")));
+        complexQuerySetup(hook);
+
+        // A CNF whose DNF size doesn't fit in an int, expressed with IN predicates.
+        List<QueryComponent> conjuncts = new ArrayList<>();
+        for (int i = 0; i < 32; i++) {
+            conjuncts.add(Query.field("num_value_3_indexed").in(ImmutableList.of(i * 100, i * 100 + 1)));
+        }
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(conjuncts))
+                .setSort(field("str_value_indexed"))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        // Did not throw an exception
+        assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
     }
 
     /**
