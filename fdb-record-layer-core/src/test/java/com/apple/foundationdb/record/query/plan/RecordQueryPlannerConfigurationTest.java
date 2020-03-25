@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class RecordQueryPlannerConfigurationTest {
     private static RecordQueryPlanner blankPlanner() {
         return new RecordQueryPlanner(
-                RecordMetaData.newBuilder().setRecords(TestRecordsEnumProto.getDescriptor()).build(),
+                RecordMetaData.build(TestRecordsEnumProto.getDescriptor()),
                 new RecordStoreState(null, null));
     }
 

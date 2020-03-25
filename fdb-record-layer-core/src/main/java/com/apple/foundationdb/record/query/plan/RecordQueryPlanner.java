@@ -368,8 +368,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         final InExtractor inExtractor = new InExtractor(filter);
         ScoredPlan withInAsOr = null;
         if (planContext.query.getSort() != null) {
-            if (!inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse()) && // needs to come first, to clear sort
-                    getConfiguration().shouldAttemptFailedInJoinAsOr()) {
+            boolean canSort = inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
+            if (!canSort && getConfiguration().shouldAttemptFailedInJoinAsOr()) {
                 // Can't implement as an in join because of the sort order. Try as an OR instead.
                 withInAsOr = planFilter(planContext, inExtractor.asOr());
             }

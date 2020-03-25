@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -286,29 +285,27 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setSort(field("str_value_indexed"))
                 .build();
 
-        if (planner instanceof RecordQueryPlanner) { // will always be true, but it's good to check before casting
-            RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
-            RecordQueryPlannerConfiguration configuration = recordQueryPlanner.getConfiguration();
-            recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
-                    .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
-                    .build());
+        assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
+        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
+        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
+                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
+                .build());
 
-            RecordQueryPlan plan = planner.plan(query);
-            if (shouldAttemptInAsOr) {
-                // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
-                assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
-                        bounds(hasTupleString(String.format("[[%d],[%d]]", number, number)))))).collect(Collectors.toList()),
-                        equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
-                assertEquals(-1813975352, plan.planHash());
-            } else {
-                assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
-                assertEquals(1775865786, plan.planHash());
-            }
-
-            assertEquals(60, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
-                    record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
-                    context -> TestHelpers.assertDiscardedAtMost(40, context)));
+        RecordQueryPlan plan = planner.plan(query);
+        if (shouldAttemptInAsOr) {
+            // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
+            assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
+                    bounds(hasTupleString(String.format("[[%d],[%d]]", number, number)))))).collect(Collectors.toList()),
+                    equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
+            assertEquals(-1813975352, plan.planHash());
+        } else {
+            assertThat(plan, filter(equalTo(query.getFilter()), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
+            assertEquals(1775865786, plan.planHash());
         }
+
+        assertEquals(60, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
+                record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
+                context -> TestHelpers.assertDiscardedAtMost(40, context)));
     }
 
     /**
@@ -322,7 +319,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         concat(field("num_value_3_indexed"), field("str_value_indexed")));
         complexQuerySetup(hook);
 
-        // A CNF who's DNF size doesn't fit in an int, expressed with IN predicates.
+        // A CNF whose DNF size doesn't fit in an int, expressed with IN predicates.
         List<QueryComponent> conjuncts = new ArrayList<>();
         for (int i = 0; i < 32; i++) {
             conjuncts.add(Query.field("num_value_3_indexed").in(ImmutableList.of(i * 100, i * 100 + 1)));
