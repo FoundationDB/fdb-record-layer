@@ -62,10 +62,13 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* All changes from versions [2.8.102.23](#2810223) and [2.8.102.24](#2810224)
 
 // end next release
 -->
+
+### 2.8.104.25
+
+* All changes from versions [2.8.102.23](#2810223) and [2.8.102.24](#2810224)
 
 ### 2.8.104.0
 
