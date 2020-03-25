@@ -37,6 +37,7 @@ import java.util.Map;
 public class RankedSetHashFunctions {
     public static final String JDK = "JDK";
     public static final String CRC = "CRC";
+    public static final String RANDOM = "RANDOM";
     public static final String MURMUR3 = "MURMUR3";
 
     private static final RankedSet.HashFunction MURMUR3_HASH_FUNCTION = new GuavaHashFunction(Hashing.murmur3_32());
@@ -47,6 +48,7 @@ public class RankedSetHashFunctions {
         Map<String, RankedSet.HashFunction> result = new HashMap<>();
         result.put(JDK, RankedSet.JDK_ARRAY_HASH);
         result.put(CRC, RankedSet.CRC_HASH);
+        result.put(RANDOM, RankedSet.RANDOM_HASH);
         result.put(MURMUR3, MURMUR3_HASH_FUNCTION);
         return result;
     }
