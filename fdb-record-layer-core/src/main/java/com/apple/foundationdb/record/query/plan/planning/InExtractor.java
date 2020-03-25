@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 /**
@@ -61,13 +62,13 @@ public class InExtractor {
     public InExtractor(QueryComponent filter) {
         this.filter = filter;
         inClauses = new ArrayList<>();
-        subFilter = extractInClauses(filter, new AtomicInteger(), Collections.emptyList());
+        subFilter = extractInClauses();
     }
 
     @SuppressWarnings("unchecked")
-    private QueryComponent extractInClauses(QueryComponent filter, AtomicInteger bindingIndex, @Nullable List<FieldKeyExpression> fields) {
-        if (filter instanceof ComponentWithComparison) {
-            final ComponentWithComparison withComparison = (ComponentWithComparison) filter;
+    private QueryComponent extractInClauses() {
+        final AtomicInteger bindingIndex = new AtomicInteger();
+        return mapClauses(filter, (withComparison, fields) -> {
             if (withComparison.getComparison().getType() == Comparisons.Type.IN) {
                 String bindingName = Bindings.Internal.IN.bindingName(
                         withComparison.getName() + "__" + bindingIndex.getAndIncrement());
@@ -91,13 +92,48 @@ public class InExtractor {
                 }
                 return withComparison.withOtherComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, bindingName, Bindings.Internal.IN));
             } else {
-                return filter;
+                return withComparison;
             }
+        }, Collections.emptyList());
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public QueryComponent asOr() {
+        return mapClauses(filter, (withComparison, fields) -> {
+            if (withComparison.getComparison().getType() == Comparisons.Type.IN) {
+                if (withComparison.getComparison() instanceof Comparisons.ParameterComparison) {
+                    return withComparison;
+                } else {
+                    final List<Object> comparands = (List<Object>) withComparison.getComparison().getComparand();
+                    final List<QueryComponent> orBranches = new ArrayList<>();
+                    for (Object comparand : comparands) {
+                        orBranches.add(withComparison.withOtherComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, comparand)));
+                    }
+
+                    // OR must have at least two branches.
+                    if (orBranches.size() == 1) {
+                        return orBranches.get(0);
+                    } else {
+                        return Query.or(orBranches);
+                    }
+                }
+            } else {
+                return withComparison;
+            }
+
+        }, Collections.emptyList());
+    }
+
+    private QueryComponent mapClauses(QueryComponent filter, BiFunction<ComponentWithComparison, List<FieldKeyExpression>, QueryComponent> mapper, @Nullable List<FieldKeyExpression> fields) {
+        if (filter instanceof ComponentWithComparison) {
+            final ComponentWithComparison withComparison = (ComponentWithComparison) filter;
+            return mapper.apply(withComparison, fields);
         } else if (filter instanceof ComponentWithChildren) {
             ComponentWithChildren componentWithChildren = (ComponentWithChildren) filter;
             return componentWithChildren.withOtherChildren(
                     componentWithChildren.getChildren().stream()
-                            .map(component -> extractInClauses(component, bindingIndex, fields))
+                            .map(component -> mapClauses(component, mapper, fields))
                             .collect(Collectors.toList())
             );
         } else if (filter instanceof ComponentWithSingleChild) {
@@ -108,7 +144,7 @@ public class InExtractor {
                 nestedFields.add(Key.Expressions.field(((NestedField) componentWithSingleChild).getFieldName()));
             }
             return componentWithSingleChild.withOtherChild(
-                    extractInClauses(componentWithSingleChild.getChild(), bindingIndex, nestedFields));
+                    mapClauses(componentWithSingleChild.getChild(), mapper, nestedFields));
         } else if (filter instanceof ComponentWithNoChildren) {
             return filter;
         } else {
@@ -132,9 +168,9 @@ public class InExtractor {
         return subFilter;
     }
 
-    public void setSort(@Nonnull KeyExpression key, boolean reverse) {
+    public boolean setSort(@Nonnull KeyExpression key, boolean reverse) {
         if (inClauses.isEmpty()) {
-            return;
+            return true;
         }
         final List<KeyExpression> sortComponents = key.normalizeKeyForPositions();
         int i = 0;
@@ -157,10 +193,11 @@ public class InExtractor {
             if (!found) {
                 // There is a requested sort ahead of the ones from the IN's, so we can't do it.
                 cancel();
-                return;
+                return false;
             }
             i++;
         }
+        return true;
     }
 
     public void sortByClauses() {
