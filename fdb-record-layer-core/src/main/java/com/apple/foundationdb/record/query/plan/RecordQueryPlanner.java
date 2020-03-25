@@ -73,6 +73,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
@@ -116,7 +117,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     private boolean primaryKeyHasRecordTypePrefix;
     @Nonnull
-    private IndexScanPreference indexScanPreference;
+    private RecordQueryPlannerConfiguration configuration;
 
     public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
         this(metaData, recordStoreState, null);
@@ -147,8 +148,11 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         primaryKeyHasRecordTypePrefix = metaData.primaryKeyHasRecordTypePrefix();
         // If we are going to need type filters on Scan, index is safer without knowing any cardinalities.
-        indexScanPreference = metaData.getRecordTypes().size() > 1 && !primaryKeyHasRecordTypePrefix ?
-                              IndexScanPreference.PREFER_INDEX : IndexScanPreference.PREFER_SCAN;
+        configuration = RecordQueryPlannerConfiguration.builder()
+                .setIndexScanPreference(metaData.getRecordTypes().size() > 1 && !primaryKeyHasRecordTypePrefix ?
+                              IndexScanPreference.PREFER_INDEX : IndexScanPreference.PREFER_SCAN)
+                .setAttemptFailedInJoinAsOr(true)
+                .build();
     }
 
     /**
@@ -158,7 +162,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      */
     @Nonnull
     public IndexScanPreference getIndexScanPreference() {
-        return indexScanPreference;
+        return configuration.getIndexScanPreference();
     }
 
     /**
@@ -167,11 +171,31 @@ public class RecordQueryPlanner implements QueryPlanner {
      * Scanning without an index is more efficient, but will have to skip over unrelated record types.
      * For that reason, it is safer to use an index, except when there is only one record type.
      * If the meta-data has more than one record type but the record store does not, this can be overridden.
+     * If a {@link RecordQueryPlannerConfiguration} is already set using
+     * {@link #setConfiguration(RecordQueryPlannerConfiguration)} (RecordQueryPlannerConfiguration)} it will be retained,
+     * but the {@code IndexScanPreference} for the configuration will be replaced with the given preference.
      * @param indexScanPreference whether to prefer index scan over record scan
      */
     @Override
     public void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference) {
-        this.indexScanPreference = indexScanPreference;
+        configuration = this.configuration.asBuilder()
+                .setIndexScanPreference(indexScanPreference)
+                .build();
+    }
+
+    /**
+     * Set the {@link RecordQueryPlannerConfiguration} for this planner.
+     * If an {@link com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference} is already set using
+     * {@link #setIndexScanPreference(IndexScanPreference)} then it will be ignored.
+     * @param configuration a configuration object for this planner
+     */
+    public void setConfiguration(@Nonnull RecordQueryPlannerConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    @Nonnull
+    public RecordQueryPlannerConfiguration getConfiguration() {
+        return configuration;
     }
 
     /**
@@ -295,7 +319,8 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     // Compatible behavior with older code: prefer an index on *just* the primary key.
     private boolean preferIndexToScan(PlanContext planContext, @Nonnull Index index) {
-        switch (getIndexScanPreference()) {
+        IndexScanPreference indexScanPreference = getIndexScanPreference();
+        switch (indexScanPreference) {
             case PREFER_INDEX:
                 return true;
             case PREFER_SCAN:
@@ -341,12 +366,28 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     private ScoredPlan planFilter(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
         final InExtractor inExtractor = new InExtractor(filter);
+        ScoredPlan withInAsOr = null;
         if (planContext.query.getSort() != null) {
-            inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
+            boolean canSort = inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
+            if (!canSort && getConfiguration().shouldAttemptFailedInJoinAsOr()) {
+                // Can't implement as an in join because of the sort order. Try as an OR instead.
+                withInAsOr = planFilter(planContext, inExtractor.asOr());
+            }
         } else if (needOrdering) {
             inExtractor.sortByClauses();
         }
-        filter = inExtractor.subFilter();
+        final ScoredPlan withInJoin = planFilterWithInJoin(planContext, inExtractor, needOrdering);
+        if (withInAsOr != null) {
+            if (withInJoin == null || withInAsOr.score > withInJoin.score ||
+                    FieldWithComparisonCountProperty.evaluate(withInAsOr.plan) < FieldWithComparisonCountProperty.evaluate(withInJoin.plan)) {
+                return withInAsOr;
+            }
+        }
+        return withInJoin;
+    }
+
+    private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
+        final QueryComponent filter = inExtractor.subFilter();
         planContext.rankComparisons = new RankComparisons(filter, planContext.indexes);
         List<ScoredPlan> intersectionCandidates = new ArrayList<>();
         ScoredPlan bestPlan = null;
@@ -1196,7 +1237,12 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (unionPlan.getComplexity() > complexityThreshold) {
             throw new RecordQueryPlanComplexityException(unionPlan);
         }
-        return new ScoredPlan(1, unionPlan, Collections.emptyList(), anyDuplicates, includedRankComparisons);
+
+        // If we don't change this when shouldAttemptFailedInJoinAsOr() is true, then we _always_ pick the union plan,
+        // rather than the in join plan.
+        int score = getConfiguration().shouldAttemptFailedInJoinAsOr() ? 0 : 1;
+
+        return new ScoredPlan(score, unionPlan, Collections.emptyList(), anyDuplicates, includedRankComparisons);
     }
 
     @Nullable
