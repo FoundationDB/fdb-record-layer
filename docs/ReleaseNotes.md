@@ -45,12 +45,12 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** If an IN predicate cannot be planned using a nested loop join, we now attempt to plan it as an equivalent OR of equality predicates. [(Issue #860)](https://github.com/FoundationDB/fdb-record-layer/issues/860)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The `RecordQueryPlanner` now has a dedicated object for specifying configuration options. [(Issue #861)](https://github.com/FoundationDB/fdb-record-layer/pull/861)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -63,6 +63,11 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.102.24
+
+* **Performance** If an IN predicate cannot be planned using a nested loop join, we now attempt to plan it as an equivalent OR of equality predicates. [(Issue #860)](https://github.com/FoundationDB/fdb-record-layer/issues/860)
+* **Feature** The `RecordQueryPlanner` now has a dedicated object for specifying configuration options. [(Issue #861)](https://github.com/FoundationDB/fdb-record-layer/pull/861)
 
 ### 2.8.102.23
 
