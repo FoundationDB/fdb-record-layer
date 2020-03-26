@@ -23,6 +23,9 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
+import java.util.function.Supplier;
+
 /**
  * A record that can be passed to an index maintainer.
  *
@@ -30,4 +33,7 @@ import com.google.protobuf.Message;
  */
 @API(API.Status.STABLE)
 public interface FDBIndexableRecord<M extends Message> extends FDBRecord<M>, FDBStoredSizes {
+    @Nonnull
+    @Override
+    <N extends M> FDBIndexableRecord<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier);
 }

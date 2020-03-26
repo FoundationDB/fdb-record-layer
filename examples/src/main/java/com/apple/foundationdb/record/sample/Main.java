@@ -88,8 +88,8 @@ public class Main {
             do {
                 result = cursor.getNext();
                 if (result.hasNext()) {
-                    SampleProto.Customer.Builder builder = SampleProto.Customer.newBuilder().mergeFrom(result.get().getRecord());
-                    names.add(builder.getFirstName() + " " + builder.getLastName());
+                    SampleProto.Customer customer = result.get().cast(SampleProto.Customer.class, SampleProto.Customer::newBuilder).getRecord();
+                    names.add(customer.getFirstName() + " " + customer.getLastName());
                 }
             } while (result.hasNext());
         }
@@ -170,12 +170,13 @@ public class Main {
         // Use the primary key declared in the Vendor message type to read a
         // record.
         LOGGER.info("Reading Vendor record with primary key 9375L ...");
-        SampleProto.Vendor.Builder readBuilder = fdb.run((FDBRecordContext cx) -> {
+        SampleProto.Vendor readRecord = fdb.run((FDBRecordContext cx) -> {
             FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
-            return SampleProto.Vendor.newBuilder()
-                    .mergeFrom(store.loadRecord(Key.Evaluated.scalar(9375L).toTuple()).getRecord());
+            return store.loadRecord(Key.Evaluated.scalar(9375L).toTuple())
+                    .cast(SampleProto.Vendor.class, SampleProto.Vendor::newBuilder)
+                    .getRecord();
         });
-        LOGGER.info("    Result -> Id: {}, Name: {}", readBuilder.getVendorId(), readBuilder.getVendorName());
+        LOGGER.info("    Result -> Id: {}, Name: {}", readRecord.getVendorId(), readRecord.getVendorName());
 
         // Using the secondary index declared in the message type, query
         // Item by vendor ID, then look up the item ID.
@@ -192,9 +193,8 @@ public class Main {
                 do {
                     result = cursor.getNext();
                     if (result.hasNext()) {
-                        itemIDs.add(SampleProto.Item.newBuilder()
-                                .mergeFrom(result.get().getRecord())
-                                .getItemId());
+                        SampleProto.Item item = result.get().cast(SampleProto.Item.class, SampleProto.Item::newBuilder).getRecord();
+                        itemIDs.add(item.getItemId());
                     }
                 } while (result.hasNext());
             }
@@ -239,9 +239,9 @@ public class Main {
             return store.executeQuery(outerPlan)
                     // Step 1: Get all of the vendors and initiate a query for items with their vendor ID.
                     .mapPipelined(record -> {
-                        SampleProto.Vendor vendor = SampleProto.Vendor.newBuilder().mergeFrom(record.getRecord()).build();
+                        SampleProto.Vendor vendor = record.cast(SampleProto.Vendor.class, SampleProto.Vendor::newBuilder).getRecord();
                         return innerPlan.execute(store, EvaluationContext.forBinding("vid", vendor.getVendorId()))
-                                .map(innerRecord -> SampleProto.Item.newBuilder().mergeFrom(innerRecord.getRecord()).getItemName())
+                                .map(innerRecord -> innerRecord.cast(SampleProto.Item.class, SampleProto.Item::newBuilder).getRecord().getItemName())
                                 .asList()
                                 .thenApply(list -> Pair.of(vendor.getVendorName(), list));
                     }, 10)
@@ -452,9 +452,9 @@ public class Main {
             Map<String, List<String>> addressMap = new HashMap<>();
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = store.executeQuery(query)) {
                 cursor.forEach((FDBQueriedRecord<Message> record) -> {
-                    SampleProto.Customer.Builder builder = SampleProto.Customer.newBuilder().mergeFrom(record.getRecord());
-                    addressMap.put(builder.getFirstName() + " " + builder.getLastName(),
-                            builder.getEmailAddressList());
+                    SampleProto.Customer customer = record.cast(SampleProto.Customer.class, SampleProto.Customer::newBuilder).getRecord();
+                    addressMap.put(customer.getFirstName() + " " + customer.getLastName(),
+                            customer.getEmailAddressList());
                 });
             }
             return addressMap;

@@ -27,6 +27,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.function.Supplier;
 
 /**
  * A record associated with the corresponding meta-data.
@@ -69,4 +70,7 @@ public interface FDBRecord<M extends Message> {
      */
     @Nullable
     FDBRecordVersion getVersion();
+
+    @Nonnull
+    <N extends M> FDBRecord<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier);
 }

@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A record synthesized from stored records.
@@ -214,4 +215,9 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
         return str.toString();
     }
 
+    @Nonnull
+    @Override
+    public <N extends Message> FDBIndexableRecord<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier) {
+        throw new UnsupportedOperationException("cannot cast a synthetic record");
+    }
 }

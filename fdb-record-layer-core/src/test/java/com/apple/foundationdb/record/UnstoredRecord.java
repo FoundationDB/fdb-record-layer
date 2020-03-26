@@ -28,6 +28,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.function.Supplier;
 
 /**
  * An {@link FDBRecord} that doesn't actually link to any record store.
@@ -68,6 +69,12 @@ public class UnstoredRecord<M extends Message> implements FDBRecord<M> {
     @Nullable
     @Override
     public FDBRecordVersion getVersion() {
+        return null;
+    }
+
+    @Nonnull
+    @Override
+    public <N extends M> FDBRecord<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier) {
         return null;
     }
 }

@@ -23,11 +23,13 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.common.ProtoUtils;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.function.Supplier;
 
 /**
  * A builder for {@link FDBStoredRecord}.
@@ -95,6 +97,18 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     @Override
     public FDBRecordVersion getVersion() {
         return recordVersion;
+    }
+
+    @Nonnull
+    @Override
+    public <N extends M> FDBStoredRecordBuilder<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier) {
+        FDBStoredRecordBuilder<N> storedRecordBuilder = new FDBStoredRecordBuilder<>();
+        storedRecordBuilder.setPrimaryKey(primaryKey);
+        storedRecordBuilder.setRecordType(recordType);
+        storedRecordBuilder.setRecord(ProtoUtils.castOrNull(record, messageClass, builderSupplier));
+        storedRecordBuilder.setVersion(recordVersion);
+        storedRecordBuilder.setSize(this);
+        return storedRecordBuilder;
     }
 
     @Override

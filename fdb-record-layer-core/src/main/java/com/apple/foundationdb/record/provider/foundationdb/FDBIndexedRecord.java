@@ -32,6 +32,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A record that has been loaded via an index.
@@ -138,6 +139,12 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
     @Override
     public FDBRecordVersion getVersion() {
         return getStoredRecord().getVersion();
+    }
+
+    @Nonnull
+    @Override
+    public <N extends M> FDBIndexedRecord<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier) {
+        return new FDBIndexedRecord<>(indexEntry, storedRecord == null ? null : storedRecord.cast(messageClass, builderSupplier));
     }
 
     @Override

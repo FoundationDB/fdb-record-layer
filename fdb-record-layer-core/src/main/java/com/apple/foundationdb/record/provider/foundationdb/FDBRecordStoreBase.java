@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.metadata.StoreRecordFunction;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.common.TypeCheckingRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -68,6 +69,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * Base interface for typed and untyped record stores.
@@ -127,6 +129,17 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     default <N extends Message> FDBTypedRecordStore<N> getTypedRecordStore(@Nonnull RecordSerializer<N> serializer) {
         return new FDBTypedRecordStore<>(getUntypedRecordStore(), serializer);
+    }
+
+    /**
+     * Get a typed record store for the given type.
+     *
+     * @param messageClass
+     * @param <N>
+     * @return
+     */
+    default <N extends M> FDBTypedRecordStore<N> getTypedRecordStore(@Nonnull Class<N> messageClass, @Nonnull Supplier<? extends Message.Builder> builderSupplier) {
+        return new FDBTypedRecordStore<>(getUntypedRecordStore(), TypeCheckingRecordSerializer.of(getSerializer(), messageClass, builderSupplier));
     }
 
     /**

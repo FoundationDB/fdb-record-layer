@@ -24,11 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.common.ProtoUtils;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.function.Supplier;
 
 /**
  * A record returned by a query and therefore possibly associated with a particular entry in some index.
@@ -52,6 +54,10 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
      */
     @Nullable
     public abstract Index getIndex();
+
+    @Nonnull
+    @Override
+    public abstract <N extends M> FDBQueriedRecord<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier);
 
     /**
      * Get the index entry, if any, that produced this query result record.
@@ -112,6 +118,12 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
         @Nonnull
         @Override
+        public <N extends M> Indexed<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier) {
+            return new Indexed<>(indexed.cast(messageClass, builderSupplier));
+        }
+
+        @Nonnull
+        @Override
         public FDBStoredRecord<M> getStoredRecord() {
             return indexed.getStoredRecord();
         }
@@ -166,6 +178,12 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
             return stored.getVersion();
         }
 
+        @Nonnull
+        @Override
+        public <N extends M> Stored<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier) {
+            return new Stored<>(stored.cast(messageClass, builderSupplier));
+        }
+
         @Nullable
         @Override
         public FDBStoredRecord<M> getStoredRecord() {
@@ -209,6 +227,12 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Override
         public Index getIndex() {
             return index;
+        }
+
+        @Nonnull
+        @Override
+        public <N extends M> Covered<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier) {
+            return new Covered<>(index, indexEntry, primaryKey, recordType, ProtoUtils.cast(record, messageClass, builderSupplier));
         }
 
         @Nonnull

@@ -22,11 +22,13 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.common.ProtoUtils;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.function.Supplier;
 
 /**
  * A record stored in the database.
@@ -102,6 +104,12 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     @Override
     public FDBRecordVersion getVersion() {
         return recordVersion;
+    }
+
+    @Nonnull
+    @Override
+    public <N extends M> FDBStoredRecord<N> cast(@Nonnull Class<N> messageClass, Supplier<? extends Message.Builder> builderSupplier) {
+        return new FDBStoredRecord<>(primaryKey, recordType, ProtoUtils.cast(record, messageClass, builderSupplier), this, recordVersion);
     }
 
     @Override
