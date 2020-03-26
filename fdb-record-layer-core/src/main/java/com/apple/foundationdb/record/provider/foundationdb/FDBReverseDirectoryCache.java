@@ -371,6 +371,15 @@ public class FDBReverseDirectoryCache {
         }
     }
 
+    /**
+     * Wait for any asynchronous work started at object creation time to complete. This should only be
+     * used for tests in order to avoid spurious conflicts.
+     */
+    @VisibleForTesting
+    public void waitUntilReadyForTesting() {
+        reverseDirectoryCacheEntry.join();
+    }
+
     private CompletableFuture<Subspace> getReverseCacheSubspace(LocatableResolver scope) {
         return reverseDirectoryCacheEntry.thenCombine(scope.getBaseSubspaceAsync(), (entry, subspace) ->
                 subspace.subspace(Tuple.from(entry)));
