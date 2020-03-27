@@ -210,7 +210,9 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSaveSubDirectory}. */
         TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory"),
         /** The total number of timeouts that have happened during asyncToSync and their durations. */
-        TIMEOUTS("timeouts")
+        TIMEOUTS("timeouts"),
+        /** Total number and duration of commits. */
+        COMMITS("commits")
         ;
 
         private final String title;
@@ -236,58 +238,6 @@ public class FDBStoreTimer extends StoreTimer {
         public String logKey() {
             return this.logKey;
         }
-    }
-
-    /**
-     * An aggregate over other count events.
-     */
-    public enum EventAggregates implements Aggregate, Event {
-        COMMITS("commits",
-                Events.COMMIT,
-                Events.COMMIT_FAILURE,
-                Events.COMMIT_READ_ONLY),
-        ;
-        @Nonnull
-        private final String title;
-        @Nonnull
-        private final String logKey;
-        @Nonnull
-        private final Set<Event> events;
-
-        EventAggregates(@Nonnull String title, @Nonnull Event...events) {
-            this(title, null, events);
-        }
-
-        EventAggregates(@Nonnull String title, @Nullable String logKey, @Nonnull Event...events) {
-            this.title = title;
-            this.logKey = (logKey != null) ? logKey : Aggregate.super.logKey();
-            this.events = ImmutableSet.copyOf(validate(events));
-        }
-
-        @Override
-        @Nonnull
-        public String title() {
-            return title;
-        }
-
-        @Override
-        @Nonnull
-        public String logKey() {
-            return this.logKey;
-        }
-
-        @Override
-        public Set<Event> getComponentEvents() {
-            return events;
-        }
-
-        @Nullable
-        @Override
-        public Counter compute(@Nonnull StoreTimer storeTimer) {
-            return compute(storeTimer, events);
-        }
-
-
     }
 
     /**
@@ -634,6 +584,18 @@ public class FDBStoreTimer extends StoreTimer {
         INVALID_KEY_LENGTH("invalid record key", false),
         /** The number of indexes that need to be rebuilt in the record store. */
         INDEXES_NEED_REBUILDING("indexes need rebuilding", false),
+        /** The number of bytes read. */
+        BYTES_READ("bytes read", true),
+        /** The number of bytes written, not including deletes. */
+        BYTES_WRITTEN("bytes written", true),
+        /** Total number of delete (clear) operations. */
+        READS("reads", false),
+        /** Total number of write operations. */
+        WRITES("writes", false),
+        /** Total number of delete (clear) operations. */
+        DELETES("deletes", false),
+        /** Total number of mutations operations. */
+        MUTATIONS("mutations", false),
         ;
 
         private final String title;
@@ -668,66 +630,16 @@ public class FDBStoreTimer extends StoreTimer {
     }
 
     /**
-     * An aggregate over other count events. Note that most of these events come in two varieties, one which measures
-     * the number of occurrences of some operation and one which measures the number of bytes touched by that operation.
-     * For example, {@link #READS} tracks the number of key-value pairs read and {@link #BYTES_READ} tracks the number
-     * of bytes read by such an operation. If there is an instrumented event (e.g., a query) that reads 10 key-value
-     * pairs, each with 100 byte keys and 1,000 byte values, then the {@link #READS} metric will return 10 and the
-     * {@link #BYTES_READ} metric will return 11,000.
+     * An aggregate over other count events.
      */
     public enum CountAggregates implements Aggregate, Count {
         /**
-         * The number of reads. This represents the number of key-value pairs read in events instrumented by an
-         * {@link FDBStoreTimer}.
-         */
-        READS("reads",
-                Counts.LOAD_RECORD_KEY,
-                Counts.LOAD_INDEX_KEY,
-                Counts.LOAD_TEXT_ENTRY, // unfortunately, can only get number of reads from a text scan, but not bytes
-                Counts.LOAD_STORE_STATE_KEY
-        ),
-        /**
-         * The number of bytes read. This represents the number of bytes read in all events instrumented by an
-         * {@link FDBStoreTimer}.
-         */
-        BYTES_READ("bytes read",
-                Counts.LOAD_RECORD_KEY_BYTES,
-                Counts.LOAD_RECORD_VALUE_BYTES,
-                Counts.LOAD_INDEX_KEY_BYTES,
-                Counts.LOAD_INDEX_VALUE_BYTES,
-                Counts.LOAD_STORE_STATE_KEY_BYTES,
-                Counts.LOAD_STORE_STATE_VALUE_BYTES
-        ),
-        /**
-         * The number of writes. This does not include deletes, and it represents the number of key-value pairs
-         * written or updated by all events instrumented by an {@link FDBStoreTimer}.
-         */
-        WRITES("writes",
-                Counts.SAVE_RECORD_KEY,
-                Counts.SAVE_INDEX_KEY,
-                Counts.CREATE_RECORD_STORE
-        ),
-        /**
-         * The number of bytes written. This does not include deletes, and it represents the number of bytes
-         * written in all events instrumented by an {@link FDBStoreTimer}.
-         */
-        BYTES_WRITTEN("bytes written",
-                Counts.SAVE_RECORD_KEY_BYTES,
-                Counts.SAVE_RECORD_VALUE_BYTES,
-                Counts.SAVE_INDEX_KEY_BYTES,
-                Counts.SAVE_INDEX_VALUE_BYTES
-        ),
-        /**
-         * The number of deletes. This represents the number of key-value pairs cleared by all events
-         * instrumented by an {@link FDBStoreTimer}.
-         */
-        DELETES("deletes",
-                Counts.DELETE_RECORD_KEY,
-                Counts.DELETE_INDEX_KEY
-        ),
-        /**
          * The number of bytes deleted. This represents the number of bytes cleared by all events
-         * instrumented by an {@link FDBStoreTimer}.
+         * instrumented by an {@link FDBStoreTimer}. Note that it is not possible (for efficiency
+         * reasons) to track all deleted bytes, specifically for many {@code clear()} operations.
+         * A range clear takes a start and end key and efficiently deletes all bytes in between at the
+         * server and, thus, the client has no visibility into the number of bytes actually deleted
+         * by the operation.
          */
         BYTES_DELETED("bytes deleted",
                 Counts.DELETE_RECORD_KEY_BYTES,
@@ -793,14 +705,12 @@ public class FDBStoreTimer extends StoreTimer {
     }
 
     protected static final Set<Aggregate> ALL_AGGREGATES = new ImmutableSet.Builder<Aggregate>()
-            .add(EventAggregates.values())
             .add(CountAggregates.values())
             .build();
 
     protected static Stream<Event> possibleEvents() {
         return Stream.of(
                 Events.values(),
-                EventAggregates.values(),
                 DetailEvents.values(),
                 Waits.values(),
                 Counts.values(),
