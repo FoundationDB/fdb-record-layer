@@ -96,7 +96,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         this.initialDelayMillis = factory.getInitialDelayMillis();
         this.transactionTimeoutMillis = factory.getTransactionTimeoutMillis();
 
-        this.executor = FDBRecordContext.initExecutor(database, mdcContext);
+        this.executor = database.newContextExecutor(mdcContext);
 
         contextsToClose = new ArrayList<>();
         futuresToCompleteExceptionally = new ArrayList<>();
@@ -144,7 +144,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Override
     public void setMdcContext(@Nullable Map<String, String> mdcContext) {
         this.mdcContext = mdcContext;
-        executor = FDBRecordContext.initExecutor(database, mdcContext);
+        executor = database.newContextExecutor(mdcContext);
     }
 
     @Override

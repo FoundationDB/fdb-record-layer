@@ -410,7 +410,11 @@ public class FDBDatabase {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public FDBRecordContext openContext(@Nonnull FDBRecordContextConfig contextConfig) {
         openFDB();
-        FDBRecordContext context = new FDBRecordContext(this, contextConfig, transactionIsTracedSupplier.get());
+        final boolean transactionIsTraced = transactionIsTracedSupplier.get();
+        final Executor executor = newContextExecutor(contextConfig.getMdcContext());
+        final Transaction transaction = createTransaction(executor, contextConfig.getTimer(), contextConfig.getMdcContext(), transactionIsTraced);
+
+        FDBRecordContext context = new FDBRecordContext(this, transaction, contextConfig, transactionIsTraced);
         final WeakReadSemantics weakReadSemantics = context.getWeakReadSemantics();
         if (isTrackLastSeenVersion() && (weakReadSemantics != null)) {
             Pair<Long, Long> pair = lastSeenFDBVersion.get();
@@ -713,9 +717,8 @@ public class FDBDatabase {
         return factory.getExecutor();
     }
 
-    @Nonnull
-    protected Executor newContextExecutor() {
-        return factory.newContextExecutor();
+    protected Executor newContextExecutor(@Nullable Map<String, String> mdcContext) {
+        return factory.newContextExecutor(mdcContext);
     }
 
     /**
@@ -727,7 +730,7 @@ public class FDBDatabase {
      * @param transactionIsTraced if true, the transaction will produce tracing messages (for example, logging when
      *      the transaction is cleaned up without having been closed)
      * @return newly created transaction
-     * @deprecated use {@link #createTransaction(Executor, StoreTimer, Map, boolean)} instead
+     * @deprecated use {@link #openContext()} instead
      */
     @Deprecated
     @API(API.Status.DEPRECATED)
@@ -746,7 +749,7 @@ public class FDBDatabase {
      *      the transaction is cleaned up without having been closed)
      * @return newly created transaction
      */
-    public Transaction createTransaction(Executor executor, @Nullable StoreTimer storeTimer, @Nullable Map<String, String> mdcContext, boolean transactionIsTraced) {
+    private Transaction createTransaction(Executor executor, @Nullable StoreTimer storeTimer, @Nullable Map<String, String> mdcContext, boolean transactionIsTraced) {
         Transaction transaction = database.createTransaction(executor);
 
         if (storeTimer != null) {
@@ -759,6 +762,7 @@ public class FDBDatabase {
 
         return transaction;
     }
+
 
     /**
      * Create an {@link FDBDatabaseRunner} for use against this database.

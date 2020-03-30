@@ -594,7 +594,7 @@ public class FDBStoreTimer extends StoreTimer {
         WRITES("writes", false),
         /** Total number of delete (clear) operations. */
         DELETES("deletes", false),
-        /** Total number of mutations operations. */
+        /** Total number of mutation operations. */
         MUTATIONS("mutations", false),
         ;
 

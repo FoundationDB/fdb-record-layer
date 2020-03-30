@@ -33,12 +33,17 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
+/**
+ * Wrapper around a {@code Transaction} or {@code ReadTransaction} responsible for instrumenting
+ * read operations (e.g. tracking reads, bytes read, etc.).
+ *
+ * @param <T> the type of transaction to be instrumented
+ */
 abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements ReadTransaction {
     @Nonnull
     protected StoreTimer timer;
@@ -208,14 +213,14 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
 
         @Override
         public CompletableFuture<List<KeyValue>> asList() {
-            final List<KeyValue> result = new ArrayList<>();
-            final AsyncIterator<KeyValue> iterator = iterator();
-            return AsyncUtil.whileTrue(() -> iterator.onHasNext().thenApply(hasNext -> {
-                if (hasNext) {
-                    result.add(iterator.next());
+            return underlying.asList().thenApply(keyValues -> {
+                int bytes = 0;
+                for (KeyValue kv : keyValues) {
+                    bytes += kv.getKey().length + kv.getValue().length;
                 }
-                return hasNext;
-            })).thenApply(vignore -> result);
+                timer.increment(FDBStoreTimer.Counts.BYTES_READ, bytes);
+                return keyValues;
+            });
         }
     }
 

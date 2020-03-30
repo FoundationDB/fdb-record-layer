@@ -25,13 +25,13 @@ import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -59,7 +59,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -154,10 +153,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private boolean dirtyMetaDataVersionStamp;
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
+                               @Nonnull Transaction transaction,
                                @Nonnull FDBRecordContextConfig config,
                                boolean transactionIsTraced) {
-        super(fdb, fdb.createTransaction(initExecutor(fdb, config.getMdcContext()), config.getTimer(),
-                config.getMdcContext(), transactionIsTraced), config.getTimer());
+        super(fdb, transaction, config.getTimer());
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>();
@@ -1044,18 +1043,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                         return null;
                     });
             addCommitCheck(future);
-        }
-    }
-
-    // Similar things save the context at Executor.execute(Runnable) time and restore it at Runnable.run() time.
-    // That does not work well here, where the originating event is from the common FDB network thread.
-    // Instead, restore it from transaction begin time, which captures context reasonably well.
-
-    protected static Executor initExecutor(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext) {
-        if (mdcContext == null) {
-            return fdb.newContextExecutor();
-        } else {
-            return new ContextRestoringExecutor(fdb.newContextExecutor(), mdcContext);
         }
     }
 
