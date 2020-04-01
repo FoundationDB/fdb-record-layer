@@ -51,7 +51,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Index states are now preloaded in fewer round trips [(Issue #881)](https://github.com/FoundationDB/fdb-record-layer/issues/881)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Replace some aggregate metrics with accurate counters [(Issue #866)](https://github.com/FoundationDB/fdb-record-layer/issues/866)
