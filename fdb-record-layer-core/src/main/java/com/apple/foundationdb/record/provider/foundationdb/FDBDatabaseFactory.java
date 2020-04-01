@@ -202,9 +202,21 @@ public class FDBDatabaseFactory {
         this.contextExecutor = contextExecutor;
     }
 
+    /**
+     * Creates a new {@code Executor} for use by a specific {@code FDBRecordContext}. If {@code mdcContext}
+     * is not {@code null}, the executor will ensure that the provided MDC present within the context of the
+     * executor thread.
+     *
+     * @param mdcContext if present, the MDC context to be made available within the executors threads
+     * @return a new executor to be used by a {@code FDBRecordContext}
+     */
     @Nonnull
-    protected Executor newContextExecutor() {
-        return contextExecutor.apply(getExecutor());
+    protected Executor newContextExecutor(@Nullable Map<String, String> mdcContext) {
+        Executor newExecutor = contextExecutor.apply(getExecutor());
+        if (mdcContext != null) {
+            newExecutor = new ContextRestoringExecutor(newExecutor, mdcContext);
+        }
+        return newExecutor;
     }
 
     public synchronized void shutdown() {

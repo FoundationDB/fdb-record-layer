@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -41,15 +43,16 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -258,58 +261,65 @@ public class FDBStoreTimerTest {
 
         // I don't want this test to fail if new aggregates are added, but do want to verify that the
         // getAggregates() at least does return some of the expected aggregates.
-        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.EventAggregates.COMMITS));
-        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.READS));
-        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_READ));
-        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.WRITES));
-        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_WRITTEN));
+        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_DELETED));
 
-        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_KEY, 2);
-        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, 20);
-        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, 20);
-        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, 11);
-        storeTimer.increment(FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, 97);
-        storeTimer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY, 4);
-        storeTimer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, 44);
-        storeTimer.increment(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, 287);
+        storeTimer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, 203);
+        storeTimer.increment(FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES, 1000);
+        storeTimer.increment(FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES, 85);
+        storeTimer.increment(FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES, 234);
+        storeTimer.increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, 100);
 
-        assertNotNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.WRITES));
-        assertEquals(6, storeTimer.getCount(FDBStoreTimer.CountAggregates.WRITES),
-                "Incorrect aggregate count for WRITES");
-        assertNotNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_WRITTEN));
-        assertEquals(479, storeTimer.getCount(FDBStoreTimer.CountAggregates.BYTES_WRITTEN),
-                "Incorrect aggregate count for BYTES_WRITTEN");
-        assertEquals(0, storeTimer.getTimeNanos(FDBStoreTimer.CountAggregates.WRITES),
-                "Incorrect aggregate time for WRITES");
-        assertEquals(0, storeTimer.getTimeNanos(FDBStoreTimer.CountAggregates.BYTES_WRITTEN),
-                "Incorrect aggregate time for BYTES_WRITTEN");
-        assertNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.READS));
-        assertEquals(0, storeTimer.getCount(FDBStoreTimer.CountAggregates.READS),
-                "READS should be zero");
-        assertNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_READ));
-        assertEquals(0, storeTimer.getCount(FDBStoreTimer.CountAggregates.BYTES_READ),
-                "BYTES_READ should be zero");
-
-        storeTimer.record(FDBStoreTimer.Events.COMMIT, 2_300_000L);
-        storeTimer.record(FDBStoreTimer.Events.COMMIT, 1_001_726L);
-        storeTimer.record(FDBStoreTimer.Events.COMMIT_FAILURE, 312_423L);
-
-        assertNotNull(storeTimer.getCounter(FDBStoreTimer.EventAggregates.COMMITS));
-        assertEquals(3_614_149L, storeTimer.getTimeNanos(FDBStoreTimer.EventAggregates.COMMITS),
-                "Incorrect aggregate time for COMMITS");
-        assertEquals(3, storeTimer.getCount(FDBStoreTimer.EventAggregates.COMMITS),
-                "Incorrect aggregate count for COMMITS");
+        assertNotNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_DELETED));
+        assertEquals(1622, storeTimer.getCount(FDBStoreTimer.CountAggregates.BYTES_DELETED),
+                "Incorrect aggregate count for BYTES_DELETED");
 
         // Aggregate counters are immutable.
         assertThrows(RecordCoreException.class, () -> {
-            storeTimer.getCounter(FDBStoreTimer.EventAggregates.COMMITS).increment(44);
+            storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_DELETED).increment(44);
         });
+    }
+
+    @Test
+    public void testLowLevelIoMetrics() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            Transaction tr = context.ensureActive();
+            tr.clear(subspace.range());
+            tr.commit().join();
+        }
+
+        assertThat(timer.getCount(FDBStoreTimer.Counts.DELETES), equalTo(1));
+        assertThat(timer.getCount(FDBStoreTimer.Events.COMMITS), equalTo(1));
+
+        timer.reset();
+
+        int writeBytes = 0;
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            Transaction tr = context.ensureActive();
+            for (int i = 0; i < 5; i++) {
+                byte[] key = subspace.pack(Tuple.from(i));
+                byte[] value = subspace.pack(Tuple.from("foo", i));
+                tr.set(key, value);
+                writeBytes += (key.length + value.length);
+            }
+
+            ReadTransaction rtr = tr.snapshot();
+            List<KeyValue> values = rtr.getRange(subspace.range()).asList().join();
+            assertThat(values.size(), equalTo(5));
+            tr.commit().join();
+        }
+
+        assertThat(timer.getCount(FDBStoreTimer.Counts.WRITES), equalTo(5));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN), equalTo(writeBytes));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.READS), equalTo(1));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_READ), equalTo(writeBytes));
+        assertThat(timer.getCount(FDBStoreTimer.Events.COMMITS), equalTo(1));
     }
 
     private void setupBaseData() {
         subspace = fdb.run(context -> {
             KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit");
-            FDBRecordStore.deleteStore(context, path);
+            path.deleteAllData(context);
             return path.toSubspace(context);
         });
 
