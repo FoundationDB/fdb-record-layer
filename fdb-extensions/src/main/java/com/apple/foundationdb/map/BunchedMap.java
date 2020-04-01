@@ -132,12 +132,62 @@ public class BunchedMap<K,V> {
         this.bunchSize = bunchSize;
     }
 
+    /**
+     * Copy constructor for {@link BunchedMap}s. This will create a new {@link BunchedMap} with the same internal
+     * state as the original one. Because the {@link BunchedMap} has entirely immutable state, the primary use
+     * case for this is for extending subclasses to ensure that the class gets initialized correctly, which is
+     * why this is not a {@code public} method.
+     *
+     * @param model original {@link BunchedMap} to base the new one on
+     */
+    protected BunchedMap(@Nonnull BunchedMap<K,V> model) {
+        this(model.serializer, model.keyComparator, model.bunchSize);
+    }
+
     private static <T> List<T> makeMutable(@Nonnull List<T> list) {
         if (list instanceof ArrayList<?>) {
             return list;
         } else {
             return new ArrayList<>(list);
         }
+    }
+
+    /**
+     * Instrument a range read. The base implementation does nothing, but extenders are encouraged to
+     * override this method with their own implementations that, for example, records the total numbers
+     * of keys read and their sizes.
+     *
+     * @param readFuture a future that will complete to a list of keys and values
+     */
+    protected void instrumentRangeRead(@Nonnull CompletableFuture<List<KeyValue>> readFuture) {
+
+    }
+
+    /**
+     * Instrument a write. The default implementation does nothing, but extenders are encouraged to override this
+     * method with their own implementations that, for example, counts how many bytes have been added
+     * or removed from the database. Implementations should <em>not</em> modify the values in any
+     * of the arrays, and they should also be aware that the {@code oldValue} parameter may be {@code null}.
+     *
+     * @param key the key being written
+     * @param value the new value being written to the key
+     * @param oldValue the previous value being overwritten or {@code null} if the key is new or the previous value unknown
+     */
+    protected void instrumentWrite(@Nonnull byte[] key, @Nonnull byte[] value, @Nullable byte[] oldValue) {
+
+    }
+
+    /**
+     * Instrument a delete. The default implementation does nothing, but extenders are encouraged to override
+     * this method with their own implementation that, for example, counts how many bytes have been
+     * removed from the database. Implementations should <em>not</em> modify the values in any of the arrays,
+     * and they should also be aware that the {@code oldValue} parameter may be {@code null}.
+     *
+     * @param key the key being deleted
+     * @param oldValue the previous value being delete or {@code null} if the previous value is unknown
+     */
+    protected void instrumentDelete(@Nonnull byte[] key, @Nullable byte[] oldValue) {
+
     }
 
     private CompletableFuture<Optional<KeyValue>> entryForKey(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull K key) {
@@ -148,12 +198,13 @@ public class BunchedMap<K,V> {
         // In practice, this range request should always return a single element, but
         // in rare cases, concurrent updates near and around the endpoints might
         // result in additional elements being returned.
-        AsyncIterable<KeyValue> iterable = tr.snapshot().getRange(
+        CompletableFuture<List<KeyValue>> keyValueFuture = tr.snapshot().getRange(
                 KeySelector.lastLessOrEqual(keyBytes),
                 KeySelector.firstGreaterThan(keyBytes),
                 ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL
-        );
-        return iterable.asList().thenApply(keyValues -> {
+        ).asList();
+        instrumentRangeRead(keyValueFuture);
+        return keyValueFuture.thenApply(keyValues -> {
             if (keyValues.isEmpty()) {
                 // There aren't any entries before this key in the database.
                 return Optional.empty();
@@ -225,11 +276,13 @@ public class BunchedMap<K,V> {
 
     private void insertAlone(@Nonnull Transaction tr, @Nonnull byte[] keyBytes, @Nonnull Map.Entry<K,V> entry) {
         tr.addReadConflictKey(keyBytes);
-        tr.set(keyBytes, serializer.serializeEntries(Collections.singletonList(entry)));
+        byte[] valueBytes = serializer.serializeEntries(Collections.singletonList(entry));
+        tr.set(keyBytes, valueBytes);
+        instrumentWrite(keyBytes, valueBytes, null);
     }
 
     private void writeEntryListWithoutChecking(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                                               @Nonnull byte[] oldKey, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K, V>> entryList,
+                                               @Nullable KeyValue oldKv, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K, V>> entryList,
                                                @Nonnull byte[] serializedBytes) {
         // The order of these operations is fairly important as, it turns out, adding an explicit
         // read conflict range does will skip over values that have already been written. This
@@ -237,17 +290,24 @@ public class BunchedMap<K,V> {
         // do these in the wrong order.
         // TODO: Adding an explicit read conflict range skips the keys in write cache (https://github.com/apple/foundationdb/issues/126)
         addEntryListReadConflictRange(tr, subspaceKey, newKey, entryList);
-        if (!Arrays.equals(oldKey, newKey)) {
+        final byte[] oldKey = oldKv == null ? null : oldKv.getKey();
+        final byte[] oldValue;
+        if (oldKey != null && !Arrays.equals(oldKey, newKey)) {
             tr.clear(oldKey);
+            instrumentDelete(oldKey, oldKv.getValue());
+            oldValue = null; // set the old value to null so that the instrumentation of the write doesn't double-count the delete
+        } else {
+            oldValue = oldKv == null ? null : oldKv.getValue();
         }
         tr.set(newKey, serializedBytes);
+        instrumentWrite(newKey, serializedBytes, oldValue);
         if (!Arrays.equals(keyBytes, newKey)) {
             tr.addWriteConflictKey(keyBytes);
         }
     }
 
     private void writeEntryList(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                                @Nonnull byte[] oldKey, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K,V>> entryList,
+                                @Nullable KeyValue oldKv, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K,V>> entryList,
                                 @Nullable KeyValue kvAfter, boolean isFirst, boolean isLast) {
         byte[] serializedBytes = serializer.serializeEntries(entryList);
         if (serializedBytes.length > MAX_VALUE_SIZE) {
@@ -269,21 +329,23 @@ public class BunchedMap<K,V> {
                 byte[] firstSerialized = serializer.serializeEntries(firstEntries);
                 List<Map.Entry<K,V>> secondEntries = entryList.subList(splitPoint, entryList.size());
                 byte[] secondSerialized = serializer.serializeEntries(secondEntries);
-                writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, oldKey, newKey, firstEntries, firstSerialized);
+                writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, oldKv, newKey, firstEntries, firstSerialized);
                 byte[] secondKey = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(secondEntries.get(0).getKey()));
-                writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, secondKey, secondKey, secondEntries, secondSerialized);
+                writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, null, secondKey, secondEntries, secondSerialized);
             }
         } else {
-            if (serializer.canAppend() && isLast && entryList.size() > 1 && Arrays.equals(oldKey, newKey)) {
+            if (serializer.canAppend() && isLast && entryList.size() > 1 && oldKv != null && Arrays.equals(oldKv.getKey(), newKey)) {
                 // Note: APPEND_IF_FITS will silently fail if the size of the value is greater than the maximum
                 // value size. It is therefore *very* important that we check what the size will be before
                 // calling this method to make sure that the total size is not too large. Otherwise, we might
                 // lose data.
                 addEntryListReadConflictRange(tr, subspaceKey, newKey, entryList);
-                tr.mutate(MutationType.APPEND_IF_FITS, newKey, serializer.serializeEntry(entryList.get(entryList.size() - 1)));
+                byte[] appendBytes = serializer.serializeEntry(entryList.get(entryList.size() - 1));
+                tr.mutate(MutationType.APPEND_IF_FITS, newKey, appendBytes);
+                instrumentWrite(newKey, appendBytes, null); // do not include old value in instrumentation as we are incrementing the total size
                 tr.addWriteConflictKey(keyBytes);
             } else {
-                writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, oldKey, newKey, entryList, serializedBytes);
+                writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, oldKv, newKey, entryList, serializedBytes);
             }
             // When appending before the beginning or writing after the end, we are essentially asserting
             // that this key will be responsible for an additional range of map keys. Concurrent transactions
@@ -313,7 +375,7 @@ public class BunchedMap<K,V> {
                 List<Map.Entry<K,V>> newEntryList = new ArrayList<>(afterEntryList.size() + 1);
                 newEntryList.add(entry);
                 newEntryList.addAll(afterEntryList);
-                writeEntryList(tr, subspaceKey, keyBytes, kvAfter.getKey(), keyBytes, newEntryList, null, true, false);
+                writeEntryList(tr, subspaceKey, keyBytes, kvAfter, keyBytes, newEntryList, null, true, false);
             }
         }
     }
@@ -339,7 +401,7 @@ public class BunchedMap<K,V> {
                 if (!oldEntry.getValue().equals(value)) {
                     beforeEntryList = makeMutable(beforeEntryList);
                     beforeEntryList.set(insertIndex, entry);
-                    writeEntryList(tr, subspaceKey, keyBytes, kvBefore.getKey(), kvBefore.getKey(),
+                    writeEntryList(tr, subspaceKey, keyBytes, kvBefore, kvBefore.getKey(),
                             beforeEntryList, kvAfter, false, false);
                 } else {
                     // We are choosing to not re-write the key because it
@@ -356,16 +418,16 @@ public class BunchedMap<K,V> {
                 beforeEntryList.add(insertIndex, entry);
                 if (beforeEntryList.size() <= bunchSize) {
                     // Insert the entry in the middle and serialize.
-                    writeEntryList(tr, subspaceKey, keyBytes, kvBefore.getKey(), kvBefore.getKey(),
+                    writeEntryList(tr, subspaceKey, keyBytes, kvBefore, kvBefore.getKey(),
                             beforeEntryList, kvAfter, false, false);
                 } else {
                     // Split this entry in half (roughly) and insert both halves
                     int splitPoint = beforeEntryList.size() / 2;
-                    writeEntryList(tr, subspaceKey, keyBytes, kvBefore.getKey(), kvBefore.getKey(),
+                    writeEntryList(tr, subspaceKey, keyBytes, kvBefore, kvBefore.getKey(),
                             beforeEntryList.subList(0, splitPoint), null, false, false);
                     List<Map.Entry<K,V>> secondEntries = beforeEntryList.subList(splitPoint, beforeEntryList.size());
                     byte[] secondKey = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(secondEntries.get(0).getKey()));
-                    writeEntryList(tr, subspaceKey, keyBytes, secondKey, secondKey, secondEntries, kvAfter, false, false);
+                    writeEntryList(tr, subspaceKey, keyBytes, null, secondKey, secondEntries, kvAfter, false, false);
                 }
                 return Optional.empty();
             } else {
@@ -375,7 +437,7 @@ public class BunchedMap<K,V> {
                     List<Map.Entry<K,V>> newEntryList = new ArrayList<>(beforeEntryList.size() + 1);
                     newEntryList.addAll(beforeEntryList);
                     newEntryList.add(entry);
-                    writeEntryList(tr, subspaceKey, keyBytes, kvBefore.getKey(), kvBefore.getKey(), newEntryList, kvAfter, false, true);
+                    writeEntryList(tr, subspaceKey, keyBytes, kvBefore, kvBefore.getKey(), newEntryList, kvAfter, false, true);
                 } else {
                     // This key would make the bunch too large. Insert it into the next one.
                     insertAfter(tr, subspaceKey, keyBytes, kvAfter, entry);
@@ -432,11 +494,13 @@ public class BunchedMap<K,V> {
             // of how range reads with key selectors are implemented, there is a slight
             // possibility that there will be more than two if, for example, additional
             // keys are added (within this transaction) to the RYW cache.
-            return tr.snapshot().getRange(
+            CompletableFuture<List<KeyValue>> keyValueFuture = tr.snapshot().getRange(
                     KeySelector.lastLessOrEqual(keyBytes),
                     KeySelector.firstGreaterThan(keyBytes).add(1),
                     ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL
-            ).asList().thenApply(keyValues -> {
+            ).asList();
+            instrumentRangeRead(keyValueFuture);
+            return keyValueFuture.thenApply(keyValues -> {
                 KeyValue kvBefore = null;
                 KeyValue kvAfter = null;
                 for (KeyValue next : keyValues) {
@@ -575,18 +639,26 @@ public class BunchedMap<K,V> {
                     // The only key that was in the range was the key that
                     // we are currently removing, so just remove it.
                     tr.clear(kv.getKey());
+                    instrumentDelete(kv.getKey(), null);
                 } else {
                     // We have other items in the entry. Remove the entry
                     // we actually care about and serialize the rest.
                     entryList = makeMutable(entryList);
                     entryList.remove(foundIndex);
+                    final byte[] newKey;
+                    final byte[] oldValue;
                     if (foundIndex == 0) {
                         tr.clear(kv.getKey());
-                        byte[] newKey = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(entryList.get(0).getKey()));
-                        tr.set(newKey, serializer.serializeEntries(entryList));
+                        instrumentDelete(kv.getKey(), kv.getValue());
+                        newKey = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(entryList.get(0).getKey()));
+                        oldValue = null;
                     } else {
-                        tr.set(kv.getKey(), serializer.serializeEntries(entryList));
+                        newKey = kv.getKey();
+                        oldValue = kv.getValue();
                     }
+                    final byte[] newValue = serializer.serializeEntries(entryList);
+                    tr.set(newKey, newValue);
+                    instrumentWrite(newKey, newValue, oldValue);
                 }
                 return Optional.of(oldEntry.getValue());
             } else {
@@ -637,7 +709,7 @@ public class BunchedMap<K,V> {
                                 @Nonnull List<Map.Entry<K,V>> currentEntryList,
                                 @Nonnull AtomicReference<K> lastKey) {
         byte[] keyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(currentEntryList.get(0).getKey()));
-        writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, keyBytes, keyBytes, currentEntryList,
+        writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, null, keyBytes, currentEntryList,
                 serializer.serializeEntries(currentEntryList));
         lastKey.set(currentEntryList.get(currentEntryList.size() - 1).getKey());
         currentEntryList.clear();
@@ -688,6 +760,7 @@ public class BunchedMap<K,V> {
                 tr.addWriteConflictRange(lastReadKeyBytes.get(), kv.getKey());
                 lastReadKeyBytes.set(endKeyBytes);
                 tr.clear(kv.getKey());
+                instrumentDelete(kv.getKey(), kv.getValue());
                 for (Map.Entry<K, V> entry : entriesFromKey) {
                     byte[] serializedEntry = serializer.serializeEntry(entry);
                     if (currentEntrySize.get() + serializedEntry.length > MAX_VALUE_SIZE && !currentEntryList.isEmpty()) {
@@ -715,6 +788,38 @@ public class BunchedMap<K,V> {
         });
     }
 
+    /**
+     * Get the serializer used to encode keys and values.
+     *
+     * @return this map's serializer
+     * @see BunchedSerializer
+     */
+    @Nonnull
+    public BunchedSerializer<K, V> getSerializer() {
+        return serializer;
+    }
+
+    /**
+     * Get the comparator used to order keys of the map.
+     *
+     * @return this map's key comparator
+     */
+    @Nonnull
+    public Comparator<K> getKeyComparator() {
+        return keyComparator;
+    }
+
+    /**
+     * Get the maximum number of map entries to encode in a single database key. This property
+     * controls how "bunched" the map is. A higher value will use less space at the cost of
+     * additional I/O at update time (and at read time in the case of
+     * {@link #get(TransactionContext, Subspace, Object)} operations).
+     *
+     * @return the maximum number of map entries to encode in a single database key
+     */
+    public int getBunchSize() {
+        return bunchSize;
+    }
 
     /**
      * Scans the map and returns an iterator over all entries. This has the same behavior as the
@@ -785,8 +890,7 @@ public class BunchedMap<K,V> {
                 tr,
                 subspace,
                 subspace.getKey(),
-                serializer,
-                keyComparator,
+                this,
                 continuationKey,
                 limit,
                 reverse
@@ -928,8 +1032,7 @@ public class BunchedMap<K,V> {
                 subspace,
                 subspaceKey,
                 splitter,
-                serializer,
-                keyComparator,
+                this,
                 continuation,
                 limit,
                 reverse

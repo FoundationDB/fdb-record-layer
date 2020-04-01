@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
@@ -230,12 +231,51 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         recordStore = recordStore.asBuilder().setSerializer(COMPRESSING_SERIALIZER).build();
     }
 
+    @Nonnull
+    private static FDBStoreTimer getTimer(@Nonnull FDBRecordStore recordStore) {
+        final FDBStoreTimer timer = recordStore.getTimer();
+        assertNotNull(timer, "store has not been initialized with a timer");
+        return timer;
+    }
+
+    private static void resetTimer(@Nonnull FDBRecordStore recordStore) {
+        getTimer(recordStore).reset();
+    }
+
+    private static int getCount(@Nonnull FDBRecordStore recordStore, @Nonnull StoreTimer.Event event) {
+        return getTimer(recordStore).getCount(event);
+    }
+
+    private static int getLoadIndexKeyCount(@Nonnull FDBRecordStore recordStore) {
+        return getCount(recordStore, FDBStoreTimer.Counts.LOAD_INDEX_KEY);
+    }
+
     private static int getSaveIndexKeyCount(@Nonnull FDBRecordStore recordStore) {
-        return recordStore.getTimer().getCount(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
+        return getCount(recordStore, FDBStoreTimer.Counts.SAVE_INDEX_KEY);
+    }
+
+    private static int getSaveIndexKeyBytes(@Nonnull FDBRecordStore recordStore) {
+        return getCount(recordStore, FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES);
     }
 
     private static int getSaveIndexValueBytes(@Nonnull FDBRecordStore recordStore) {
-        return recordStore.getTimer().getCount(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES);
+        return getCount(recordStore, FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES);
+    }
+
+    private static int getDeleteIndexKeyCount(@Nonnull FDBRecordStore recordStore) {
+        return getCount(recordStore, FDBStoreTimer.Counts.DELETE_INDEX_KEY);
+    }
+
+    private static int getDeleteIndexKeyBytes(@Nonnull FDBRecordStore recordStore) {
+        return getCount(recordStore, FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES);
+    }
+
+    private static int getDeleteIndexValueBytes(@Nonnull FDBRecordStore recordStore) {
+        return getCount(recordStore, FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES);
+    }
+
+    private static int getLoadTextEntryCount(@Nonnull FDBRecordStore recordStore) {
+        return getCount(recordStore, FDBStoreTimer.Counts.LOAD_TEXT_ENTRY);
     }
 
     private static void validateSorted(@Nonnull List<IndexEntry> entryList) {
@@ -394,20 +434,25 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             Index index = recordStore.getRecordMetaData().getIndex(SIMPLE_DEFAULT_NAME);
 
             recordStore.saveRecord(simpleDocument);
-            int firstKeys = getSaveIndexKeyCount(recordStore);
+            final int firstKeys = getSaveIndexKeyCount(recordStore);
             assertEquals(simpleDocument.getText().split(" ").length, firstKeys);
+            final int firstKeyBytesWritten = getSaveIndexKeyBytes(recordStore);
+            final int firstValueBytesWritten = getSaveIndexValueBytes(recordStore);
             List<Map.Entry<Tuple, List<Integer>>> entryList = scanMapEntries(recordStore, index, Tuple.from("document"));
             assertEquals(Collections.singletonList(entryOf(Tuple.from(1066L), Collections.singletonList(4))), entryList);
 
+            resetTimer(recordStore);
             recordStore.saveRecord(buffaloDocument);
-            int secondKeys = getSaveIndexKeyCount(recordStore) - firstKeys;
+            final int secondKeys = getSaveIndexKeyCount(recordStore);
             assertEquals(1, secondKeys);
             entryList = scanMapEntries(recordStore, index, Tuple.from("buffalo"));
             assertEquals(Collections.singletonList(entryOf(Tuple.from(1415L), IntStream.range(0, 11).boxed().collect(Collectors.toList()))), entryList);
 
+            resetTimer(recordStore);
             recordStore.saveRecord(shakespeareDocument);
-            int thirdKeys = getSaveIndexKeyCount(recordStore) - secondKeys - firstKeys;
+            final int thirdKeys = getSaveIndexKeyCount(recordStore);
             assertEquals(82, thirdKeys);
+            final int thirdBytesWritten = getSaveIndexKeyBytes(recordStore) + getSaveIndexValueBytes(recordStore);
             entryList = scanMapEntries(recordStore, index, Tuple.from("parents"));
             assertEquals(Collections.singletonList(entryOf(Tuple.from(1623L), Arrays.asList(57, 72))), entryList);
 
@@ -426,23 +471,43 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .get();
             assertEquals(Arrays.asList(shakespeareDocument, simpleDocument, shakespeareDocument, simpleDocument, shakespeareDocument, shakespeareDocument), recordList);
 
+            resetTimer(recordStore);
             recordStore.saveRecord(noTextDocument);
-            int fourthKeys = getSaveIndexKeyCount(recordStore) - thirdKeys - secondKeys - firstKeys;
-            assertEquals(0, fourthKeys);
+            assertEquals(0, getSaveIndexKeyCount(recordStore));
+            assertEquals(0, getLoadIndexKeyCount(recordStore));
 
+            resetTimer(recordStore);
             recordStore.saveRecord(emptyDocument);
-            int fifthKeys = getSaveIndexKeyCount(recordStore) - fourthKeys - thirdKeys - secondKeys - firstKeys;
-            assertEquals(0, fifthKeys);
+            assertEquals(0, getSaveIndexKeyCount(recordStore));
+            assertEquals(0, getLoadIndexKeyCount(recordStore));
 
+            resetTimer(recordStore);
             recordStore.deleteRecord(Tuple.from(1623L));
+            assertEquals(thirdKeys - 4, getDeleteIndexKeyCount(recordStore)); // all deleted but four overlaps with first record
+            assertEquals(4, getSaveIndexKeyCount(recordStore)); // four keys of overlap overwritten
+            assertThat(getDeleteIndexKeyBytes(recordStore) + getDeleteIndexValueBytes(recordStore), allOf(greaterThan(thirdKeys - 1), lessThan(thirdBytesWritten)));
             entryList = scanMapEntries(recordStore, index, Tuple.from("parents"));
             assertEquals(Collections.emptyList(), entryList);
 
+            resetTimer(recordStore);
             recordStore.saveRecord(simpleDocument.toBuilder().setDocId(1707L).build());
+            assertEquals(firstKeys * 2, getLoadIndexKeyCount(recordStore));
+            assertEquals(firstKeys, getSaveIndexKeyCount(recordStore));
+            assertEquals(firstKeyBytesWritten, getSaveIndexKeyBytes(recordStore)); // should overwrite all the same keys
+            final int seventhValueBytesWritten = getSaveIndexValueBytes(recordStore);
+            assertThat(seventhValueBytesWritten, allOf(greaterThan(firstValueBytesWritten), lessThan(firstKeyBytesWritten + firstValueBytesWritten))); // contains same info as first value bytes + extra keys, but not key prefixes
             entryList = scanMapEntries(recordStore, index, Tuple.from("document"));
             assertEquals(Arrays.asList(entryOf(Tuple.from(1066L), Collections.singletonList(4)), entryOf(Tuple.from(1707L), Collections.singletonList(4))), entryList);
 
+            resetTimer(recordStore);
             recordStore.deleteRecord(Tuple.from(1066L));
+            assertEquals(firstKeys, getLoadIndexKeyCount(recordStore));
+            assertEquals(firstKeys, getDeleteIndexKeyCount(recordStore)); // each of the original keys are deleted
+            assertEquals(firstKeyBytesWritten, getDeleteIndexKeyBytes(recordStore));
+            assertEquals(firstValueBytesWritten + seventhValueBytesWritten, getDeleteIndexValueBytes(recordStore));
+            assertEquals(firstKeys, getSaveIndexKeyCount(recordStore)); // a new set of keys are all written
+            assertEquals(firstKeyBytesWritten, getSaveIndexKeyBytes(recordStore)); // they should have the same size (though their contents are different)
+            assertEquals(firstValueBytesWritten, getSaveIndexValueBytes(recordStore));
             entryList = scanMapEntries(recordStore, index, Tuple.from("document"));
             assertEquals(Collections.singletonList(entryOf(Tuple.from(1707L), Collections.singletonList(4))), entryList);
 
@@ -1486,13 +1551,13 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             int totalKeysLoaded = 0;
             byte[] continuation = null;
             while (!done) {
-                final int priorKeysLoaded = recordStore.getTimer().getCount(FDBStoreTimer.Counts.LOAD_TEXT_ENTRY);
+                final int priorKeysLoaded = getLoadTextEntryCount(recordStore);
                 ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(50).build();
                 RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties);
                 assertEquals(Collections.emptyList(), cursor.asList().get());
                 RecordCursorResult<FDBQueriedRecord<Message>> noNextResult = cursor.getNext();
                 assertThat(noNextResult.hasNext(), is(false));
-                final int newKeysLoaded = recordStore.getTimer().getCount(FDBStoreTimer.Counts.LOAD_TEXT_ENTRY);
+                final int newKeysLoaded = getLoadTextEntryCount(recordStore);
                 totalKeysLoaded += newKeysLoaded - priorKeysLoaded;
                 if (!noNextResult.getNoNextReason().isSourceExhausted()) {
                     assertEquals(50, newKeysLoaded - priorKeysLoaded);
@@ -2636,7 +2701,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void invalidQueries() throws Exception {
+    public void invalidQueries() {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(SIMPLE_DOC, new Index("SimpleDocument$max_group", field("group").ungrouped(), IndexTypes.MAX_EVER_TUPLE)));
             List<RecordQuery> queries = Arrays.asList(
