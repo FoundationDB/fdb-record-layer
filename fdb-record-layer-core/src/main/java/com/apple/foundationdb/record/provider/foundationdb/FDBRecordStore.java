@@ -35,6 +35,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.ByteScanLimiter;
+import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -2730,7 +2731,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 .setContext(getContext())
                 .setRange(TupleRange.ALL)
                 .setContinuation(null)
-                .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setIsolationLevel(isolationLevel).build()))
+                .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder()
+                        .setIsolationLevel(isolationLevel)
+                        .setDefaultCursorStreamingMode(CursorStreamingMode.WANT_ALL)
+                        .build())
+                )
                 .build();
         FDBStoreTimer timer = getTimer();
         CompletableFuture<Map<String, IndexState>> result = cursor.asList().thenApply(list -> {
