@@ -24,7 +24,7 @@ include 'fdb-extensions'
 include 'fdb-record-layer-core'
 include 'fdb-record-layer-core-shaded'
 include 'fdb-record-layer-icu'
-include 'fdb-record-layer-spatial'
+// include 'fdb-record-layer-spatial' // Disabled due to Issue #884
 include 'examples'
 
 // It's confusing to have dozens of files called build.gradle scattered around the project
@@ -56,5 +56,5 @@ if (protoMajorVersion != "2") {
     project(':fdb-record-layer-core').name = "fdb-record-layer-core-pb${protoMajorVersion}"
     project(':fdb-record-layer-core-shaded').name = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"
     project(':fdb-record-layer-icu').name = "fdb-record-layer-icu-pb${protoMajorVersion}"
-    project(':fdb-record-layer-spatial').name = "fdb-record-layer-spatial-pb${protoMajorVersion}"
+    // project(':fdb-record-layer-spatial').name = "fdb-record-layer-spatial-pb${protoMajorVersion}" // Disabled due to Issue #884
 }
