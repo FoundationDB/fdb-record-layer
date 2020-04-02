@@ -50,7 +50,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Performance** The `LocatableResolver::resolve` methods have overloads that allow ancillary transactions started for key space path resolution to avoid starting another read version request [(Issue #864)](https://github.com/FoundationDB/fdb-record-layer/issues/864)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** The metrics for text indexes now contain more accurate numbers for reads and writes [(Issue #876)](https://github.com/FoundationDB/fdb-record-layer/issues/876)
 * **Performance** Index states are now preloaded in fewer round trips [(Issue #881)](https://github.com/FoundationDB/fdb-record-layer/issues/881)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

@@ -31,7 +31,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -58,8 +57,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
     @Nonnull private final Subspace subspace;
     @Nonnull private final byte[] subspaceKey;
     @Nonnull private final SubspaceSplitter<T> splitter;
-    @Nonnull private final BunchedSerializer<K,V> serializer;
-    @Nonnull private final Comparator<K> keyComparator;
+    @Nonnull private final BunchedMap<K, V> bunchedMap;
     @Nullable private final byte[] continuation;
     private final boolean reverse;
     private final int limit;
@@ -82,8 +80,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
                             @Nonnull Subspace subspace,
                             @Nonnull byte[] subspaceKey,
                             @Nonnull SubspaceSplitter<T> splitter,
-                            @Nonnull BunchedSerializer<K,V> serializer,
-                            @Nonnull Comparator<K> keyComparator,
+                            @Nonnull BunchedMap<K, V> bunchedMap,
                             @Nullable byte[] continuation,
                             int limit,
                             boolean reverse) {
@@ -92,8 +89,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
         this.subspace = subspace;
         this.subspaceKey = subspaceKey;
         this.splitter = splitter;
-        this.serializer = serializer;
-        this.keyComparator = keyComparator;
+        this.bunchedMap = bunchedMap;
         this.continuation = continuation;
         this.continuationSatisfied = continuation == null;
         this.limit = limit;
@@ -139,7 +135,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
                 K continuationKey = null;
                 if (!continuationSatisfied) {
                     if (ByteArrayUtil.startsWith(continuation, nextSubspaceSuffix)) {
-                        continuationKey = serializer.deserializeKey(continuation, nextSubspaceSuffix.length);
+                        continuationKey = bunchedMap.getSerializer().deserializeKey(continuation, nextSubspaceSuffix.length);
                         continuationSatisfied = true;
                     } else if (ByteArrayUtil.compareUnsigned(nextSubspaceSuffix, continuation) * (reverse ? -1 : 1) > 0) {
                         // We have already satisfied the continuation, so we are can just say it is satisfied
@@ -164,8 +160,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
                         tr,
                         nextSubspace,
                         nextSubspaceKey,
-                        serializer,
-                        keyComparator,
+                        bunchedMap,
                         continuationKey,
                         (limit == ReadTransaction.ROW_LIMIT_UNLIMITED) ? ReadTransaction.ROW_LIMIT_UNLIMITED : limit - returned,
                         reverse
@@ -271,7 +266,7 @@ public class BunchedMapMultiIterator<K,V,T> implements AsyncPeekIterator<Bunched
         } else {
             // Return a continuation with the information about the subspace key
             // and the last key serialized.
-            return ByteArrayUtil.join(currentSubspaceSuffix, serializer.serializeKey(lastKey));
+            return ByteArrayUtil.join(currentSubspaceSuffix, bunchedMap.getSerializer().serializeKey(lastKey));
         }
     }
 
