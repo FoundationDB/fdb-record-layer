@@ -593,8 +593,9 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        protected void instrumentRangeRead(@Nonnull CompletableFuture<List<KeyValue>> readFuture) {
-            timer.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, readFuture, executor).whenComplete((list, err) -> {
+        @Nonnull
+        protected CompletableFuture<List<KeyValue>> instrumentRangeRead(@Nonnull CompletableFuture<List<KeyValue>> readFuture) {
+            return timer.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, readFuture, executor).whenComplete((list, err) -> {
                 if (list != null && !list.isEmpty()) {
                     int keyBytes = 0;
                     int valueBytes = 0;

@@ -153,14 +153,16 @@ public class BunchedMap<K,V> {
     }
 
     /**
-     * Instrument a range read. The base implementation does nothing, but extenders are encouraged to
-     * override this method with their own implementations that, for example, records the total numbers
+     * Instrument a range read. The base implementation only returns the original future, but extenders are encouraged
+     * to override this method with their own implementations that, for example, records the total numbers
      * of keys read and their sizes.
      *
      * @param readFuture a future that will complete to a list of keys and values
+     * @return an instrumented future that returns the same values as the original future
      */
-    protected void instrumentRangeRead(@Nonnull CompletableFuture<List<KeyValue>> readFuture) {
-
+    @Nonnull
+    protected CompletableFuture<List<KeyValue>> instrumentRangeRead(@Nonnull CompletableFuture<List<KeyValue>> readFuture) {
+        return readFuture;
     }
 
     /**
@@ -198,13 +200,11 @@ public class BunchedMap<K,V> {
         // In practice, this range request should always return a single element, but
         // in rare cases, concurrent updates near and around the endpoints might
         // result in additional elements being returned.
-        CompletableFuture<List<KeyValue>> keyValueFuture = tr.snapshot().getRange(
+        return instrumentRangeRead(tr.snapshot().getRange(
                 KeySelector.lastLessOrEqual(keyBytes),
                 KeySelector.firstGreaterThan(keyBytes),
                 ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL
-        ).asList();
-        instrumentRangeRead(keyValueFuture);
-        return keyValueFuture.thenApply(keyValues -> {
+        ).asList()).thenApply(keyValues -> {
             if (keyValues.isEmpty()) {
                 // There aren't any entries before this key in the database.
                 return Optional.empty();
@@ -494,13 +494,11 @@ public class BunchedMap<K,V> {
             // of how range reads with key selectors are implemented, there is a slight
             // possibility that there will be more than two if, for example, additional
             // keys are added (within this transaction) to the RYW cache.
-            CompletableFuture<List<KeyValue>> keyValueFuture = tr.snapshot().getRange(
+            return instrumentRangeRead(tr.snapshot().getRange(
                     KeySelector.lastLessOrEqual(keyBytes),
                     KeySelector.firstGreaterThan(keyBytes).add(1),
                     ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL
-            ).asList();
-            instrumentRangeRead(keyValueFuture);
-            return keyValueFuture.thenApply(keyValues -> {
+            ).asList()).thenApply(keyValues -> {
                 KeyValue kvBefore = null;
                 KeyValue kvAfter = null;
                 for (KeyValue next : keyValues) {
