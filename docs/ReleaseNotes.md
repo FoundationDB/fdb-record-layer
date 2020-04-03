@@ -66,6 +66,9 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // end next release
 -->
 
+### 2.8.104.28
+
+
 ### 2.8.104.26
 
 * **Feature** Expose random hash as an index option [(Issue #869)](https://github.com/FoundationDB/fdb-record-layer/issues/869)
