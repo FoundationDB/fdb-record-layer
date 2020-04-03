@@ -160,7 +160,7 @@ def build(release=False, proto2=False, proto3=False, publish=False):
             success = run_gradle(3, ':fdb-record-layer-core-pb3:bintrayUpload',
                                     ':fdb-record-layer-core-pb3-shaded:bintrayUpload',
                                     ':fdb-record-layer-icu-pb3:bintrayUpload',
-                                    # ':fdb-record-layer-spatial-pb3:bintrayUpload',  # Disabled due to Issue #884
+                                    ':fdb-record-layer-spatial-pb3:bintrayUpload',
                                     '-PcoreNotStrict',
                                     '-PreleaseBuild={0}'.format('true' if release else 'false'),
                                     '-PpublishBuild=true')
