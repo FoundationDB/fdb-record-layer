@@ -64,6 +64,9 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // end next release
 -->
 
+### 2.8.102.27
+
+
 ### 2.8.102.24
 
 * **Performance** If an IN predicate cannot be planned using a nested loop join, we now attempt to plan it as an equivalent OR of equality predicates. [(Issue #860)](https://github.com/FoundationDB/fdb-record-layer/issues/860)
