@@ -140,6 +140,11 @@ public class CascadesPlanner implements QueryPlanner {
 
         final PlannerExpression singleRoot = currentRoot.getMembers().iterator().next();
         if (singleRoot instanceof RecordQueryPlan) {
+            if (logger.isDebugEnabled()) {
+                logger.debug(KeyValueLogMessage.of("explain of plan",
+                        "explain", singleRoot.explain()));
+            }
+
             return (RecordQueryPlan)singleRoot;
         } else {
             throw new RecordCoreException("Cascades planner could not plan query")

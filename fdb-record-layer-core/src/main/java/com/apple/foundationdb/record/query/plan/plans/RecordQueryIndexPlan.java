@@ -34,7 +34,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.InternalPlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.PlannerGraph.PlannerGraphBuilder;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -176,11 +179,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     protected void appendScanDetails(StringBuilder str) {
         String range;
-        try {
-            range = comparisons.toTupleRange().toString();
-        } catch (Comparisons.EvaluationContextRequiredException ex) {
-            range = comparisons.toString();
-        }
+        range = getRange();
 
         str.append(indexName).append(" ").append(range);
         if (scanType != IndexScanType.BY_VALUE) {
@@ -191,8 +190,29 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         }
     }
 
+    private String getRange() {
+        String range;
+        try {
+            range = comparisons.toTupleRange().toString();
+        } catch (Comparisons.EvaluationContextRequiredException ex) {
+            range = comparisons.toString();
+        }
+        return range;
+    }
+
     @Override
     public int getComplexity() {
         return 1;
+    }
+
+    @Override
+    public PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
+        final InternalPlannerGraphProperty.Node root =
+                new InternalPlannerGraphProperty.Node(getClass().getSimpleName(),
+                        getRange() + "; " + (scanType == IndexScanType.BY_VALUE ? scanType : "") + "; " + (reverse ? "reverse" : ""));
+        final InternalPlannerGraphProperty.SourceNode source = new InternalPlannerGraphProperty.SourceNode(getIndexName());
+        return PlannerGraph.<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge>builder(root)
+                .addNode(source)
+                .addEdge(source, root, new InternalPlannerGraphProperty.Edge());
     }
 }

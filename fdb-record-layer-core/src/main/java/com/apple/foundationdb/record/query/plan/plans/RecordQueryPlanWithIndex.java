@@ -29,6 +29,9 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.query.plan.temp.InternalPlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.temp.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.PlannerGraph.PlannerGraphBuilder;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -69,5 +72,14 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
         final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
         return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
                 .map(store::queriedRecord);
+    }
+
+    @Override
+    default PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
+        final InternalPlannerGraphProperty.Node root = new InternalPlannerGraphProperty.Node(getClass().getSimpleName(), toString());
+        final InternalPlannerGraphProperty.SourceNode source = new InternalPlannerGraphProperty.SourceNode(getIndexName());
+        return PlannerGraph.<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge>builder(root)
+                .addNode(source)
+                .addEdge(source, root, new InternalPlannerGraphProperty.Edge());
     }
 }

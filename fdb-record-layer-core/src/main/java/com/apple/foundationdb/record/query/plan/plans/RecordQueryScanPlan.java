@@ -32,7 +32,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.InternalPlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.PlannerGraph.PlannerGraphBuilder;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -119,12 +122,18 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Override
     public String toString() {
         String range;
+        range = getRange();
+        return "Scan(" + range + ")";
+    }
+
+    private String getRange() {
+        String range;
         try {
             range = comparisons.toTupleRange().toString();
         } catch (Comparisons.EvaluationContextRequiredException ex) {
             range = comparisons.toString();
         }
-        return "Scan(" + range + ")";
+        return range;
     }
 
     @Override
@@ -164,5 +173,14 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Override
     public int getComplexity() {
         return 1;
+    }
+
+    @Override
+    public PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
+        final InternalPlannerGraphProperty.Node root = new InternalPlannerGraphProperty.Node(getClass().getSimpleName());
+        final InternalPlannerGraphProperty.SourceNode source = new InternalPlannerGraphProperty.SourceNode(getRange());
+        return PlannerGraph.<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge>builder(root)
+                .addNode(source)
+                .addEdge(source, root, new InternalPlannerGraphProperty.Edge());
     }
 }
