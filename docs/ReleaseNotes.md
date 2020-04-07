@@ -62,11 +62,14 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* Releases for the `fdb-record-layer-spatial` library have been re-enabled [(Issue #884)](https://github.com/FoundationDB/fdb-record-layer/issues/884)
-* All changes from [2.8.110.29](#2811029)
 
 // end next release
 -->
+
+### 2.8.117.0
+
+* Releases for the `fdb-record-layer-spatial` library have been re-enabled [(Issue #884)](https://github.com/FoundationDB/fdb-record-layer/issues/884)
+* All changes from [2.8.110.29](#2811029)
 
 ### 2.8.116.0
 
