@@ -370,7 +370,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             boolean canSort = inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
             if (!canSort && getConfiguration().shouldAttemptFailedInJoinAsOr()) {
                 // Can't implement as an in join because of the sort order. Try as an OR instead.
-                withInAsOr = planFilter(planContext, inExtractor.asOr());
+                withInAsOr = planFilter(planContext, normalizeAndOrForInAsOr(inExtractor.asOr()));
             }
         } else if (needOrdering) {
             inExtractor.sortByClauses();
@@ -1284,20 +1284,49 @@ public class RecordQueryPlanner implements QueryPlanner {
             QueryComponent child1 = and.getChildren().get(0);
             QueryComponent child2 = and.getChildren().get(1);
             if (child1 instanceof OrComponent && Query.isSingleFieldComparison(child2)) {
-                return OrComponent.from(distributeAnd(child2, ((OrComponent)child1).getChildren()));
+                return OrComponent.from(distributeAnd(Collections.singletonList(child2), ((OrComponent)child1).getChildren()));
             }
             if (child2 instanceof OrComponent && Query.isSingleFieldComparison(child1)) {
-                return OrComponent.from(distributeAnd(child1, ((OrComponent)child2).getChildren()));
+                return OrComponent.from(distributeAnd(Collections.singletonList(child1), ((OrComponent)child2).getChildren()));
             }
         }
         return and;
     }
 
-    private List<QueryComponent> distributeAnd(QueryComponent component, List<QueryComponent> children) {
+    private QueryComponent normalizeAndOrForInAsOr(@Nonnull QueryComponent component) {
+        if (!(component instanceof AndComponent)) {
+            return component;
+        }
+        final AndComponent and = (AndComponent) component;
+        OrComponent singleOrChild = null;
+        final List<QueryComponent> otherChildren = new ArrayList<>();
+
+        for (QueryComponent child : and.getChildren()) {
+            if (child instanceof OrComponent) {
+                if (singleOrChild == null) {
+                    singleOrChild = (OrComponent) child;
+                } else {
+                    return and;
+                }
+            } else if (Query.isSingleFieldComparison(child)) {
+                otherChildren.add(child);
+            } else {
+                return and;
+            }
+        }
+        if (singleOrChild == null) {
+            return and;
+        }
+
+        // We have exactly one OR child and the others are single field comparisons
+        return OrComponent.from(distributeAnd(otherChildren, singleOrChild.getChildren()));
+    }
+
+    private List<QueryComponent> distributeAnd(List<QueryComponent> predicatesToDistribute, List<QueryComponent> children) {
         List<QueryComponent> distributed = new ArrayList<>();
         for (QueryComponent child : children) {
             List<QueryComponent> conjuncts = new ArrayList<>(2);
-            conjuncts.add(component);
+            conjuncts.addAll(predicatesToDistribute);
             if (child instanceof AndComponent) {
                 conjuncts.addAll(((AndComponent)child).getChildren());
             } else {
