@@ -309,6 +309,50 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that an IN query with a sort and range predicate can be implemented as an ordered union of compound indexes
+     * that can satisfy the sort once the equality predicates from the IN have been pushed onto the indexes.
+     * @see com.apple.foundationdb.record.query.plan.planning.InExtractor#asOr()
+     */
+    @ParameterizedTest
+    @BooleanSource
+    public void inQueryWithSortAndRangePredicateOnSecondFieldOfCompoundIndex(boolean shouldAttemptInAsOr) throws Exception {
+        RecordMetaDataHook hook = metaData ->
+                metaData.addIndex("MySimpleRecord", "compoundIndex",
+                        concat(field("num_value_3_indexed"), field("str_value_indexed")));
+        complexQuerySetup(hook);
+        final List<Integer> inList = asList(1, 4, 2);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(Query.field("num_value_3_indexed").in(inList),
+                        Query.field("str_value_indexed").greaterThan("bar"),
+                        Query.field("str_value_indexed").lessThan("foo")))
+                .setSort(field("str_value_indexed"))
+                .build();
+
+        assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
+        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
+        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
+                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
+                .build());
+
+        RecordQueryPlan plan = planner.plan(query);
+        if (shouldAttemptInAsOr) {
+            // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
+            assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
+                    bounds(hasTupleString(String.format("([%d, bar],[%d, foo])", number, number)))))).collect(Collectors.toList()),
+                    equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
+            assertEquals(651476052, plan.planHash());
+        } else {
+            assertThat(plan, filter(equalTo(Query.field("num_value_3_indexed").in(inList)), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([bar],[foo])"))))));
+            assertEquals(-1681846586, plan.planHash());
+        }
+
+        assertEquals(30, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
+                record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
+                context -> { }));
+    }
+
+    /**
      * Verify that an IN predicate that, when converted to an OR of equality predicates, would lead to a very large DNF
      * gets planned as a normal IN query rather than throwing an exception.
      */
