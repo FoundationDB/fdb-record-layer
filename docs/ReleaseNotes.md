@@ -10,11 +10,13 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 This version of the Record Layer requires a FoundationDB server version of at least version 6.2. Attempting to connect to older versions may result in the client hanging when attempting to connect to the database.
 
+Only one record store instance over a given subspace is allowed per context, creating an identical one will return the existing one, and creating a new one will result in an exception.
+
 <!--
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking bug fix** Only one record store over a given subspace is allowed per context [(Issue #489)](https://github.com/FoundationDB/fdb-record-layer/issues/489)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

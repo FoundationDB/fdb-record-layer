@@ -119,6 +119,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -140,14 +141,11 @@ import java.util.stream.Collectors;
  * the record store's {@link RecordMetaData}.
  *
  * <p>
- * <b>Warning</b>: It is unsafe to create and use two {@code FDBRecordStore}s concurrently over the same {@link Subspace}
- * within the context of a single transaction, i.e., with the same {@link FDBRecordContext}. This is because the {@code FDBRecordStore}
- * object maintains state about certain uncommitted operations, and concurrent access through two objects will not see
- * changes to this in-memory state. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/489">Issue #489</a>
- * for more details. Note also that the record stores returned by {@link #getTypedRecordStore(RecordSerializer)} and
- * {@link #getUntypedRecordStore()} will share an {@code FDBRecordStore} with the record store on which they are called,
- * so it <em>is</em> safe to have a typed- and untyped-record store open over the same {@code Subspace} within the context
- * of the same transaction if one uses one of those methods.
+ *     <b>Note:</b> Only one record store over a single {@link Subspace} is allowed on a single {@link FDBRecordContext}.
+ *     If there is already a record store over a {@code Subspace} trying to build new one will result in the existing
+ *     record store if they are the same, otherwise, an error will be thrown. Note that {@link FDBTypedRecordStore}
+ *     wraps an {@code FDBRecordStore}, so you can have multiple {@code FDBTypedRecordStore}s wrapping the same
+ *     {@code FDBRecordStore}.
  * </p>
  *
  * @see FDBRecordStoreBase
@@ -3901,6 +3899,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.storeStateCache = store.storeStateCache;
         }
 
+        private boolean willGenerateEquivalent(@Nonnull FDBRecordStore store) {
+            // context is excluded
+            return this.formatVersion == store.formatVersion &&
+                   Objects.equals(this.serializer, store.serializer) &&
+                   Objects.equals(this.metaDataProvider, store.metaDataProvider) &&
+                   Objects.equals(this.subspaceProvider, store.subspaceProvider) &&
+                   Objects.equals(this.indexMaintainerRegistry, store.indexMaintainerRegistry) &&
+                   Objects.equals(this.indexMaintenanceFilter, store.indexMaintenanceFilter) &&
+                   Objects.equals(this.pipelineSizer, store.pipelineSizer) &&
+                   Objects.equals(this.storeStateCache, store.storeStateCache);
+        }
+
         @Override
         @Nullable
         public RecordSerializer<Message> getSerializer() {
@@ -4084,8 +4094,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (serializer == null) {
                 throw new RecordCoreException("serializer must be supplied");
             }
-            return new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
+            final FDBRecordStore existingStore = context.getStore(subspaceProvider.getSubspace(context));
+            if (existingStore != null) {
+                if (willGenerateEquivalent(existingStore)) {
+                    return existingStore;
+                } else {
+                    throw new RecordCoreArgumentException("There is already a store on this context at this subspace")
+                            .addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(context));
+                }
+            }
+            final FDBRecordStore store = new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
                     serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache);
+            context.addStore(store);
+            return store;
         }
 
         @Override

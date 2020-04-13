@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -56,6 +57,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -151,6 +153,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
+    private final Map<Subspace, FDBRecordStore> stores = new ConcurrentHashMap<>();
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
                                @Nonnull Transaction transaction,
@@ -584,6 +587,26 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @API(API.Status.INTERNAL)
     public boolean hasDirtyStoreState() {
         return dirtyStoreState;
+    }
+
+    /**
+     * Only one record store is allowed for a given subspace on a context, get the store associated with the given
+     * subspace on this context.
+     * This restriction is primarily to allow the FDBRecordStore to freely cache transactional data.
+     * @param subspace the subspace in FDB where the store is located.
+     * @return the store associated with the given subspace, or {@code null} if there is none.
+     */
+    @Nullable
+    public FDBRecordStore getStore(@Nonnull Subspace subspace) {
+        return stores.get(subspace);
+    }
+
+    /**
+     * Only one record store is allowed for a given subspace on a context, add a store that is using this context.
+     * @param store a store that has been created using this context
+     */
+    protected void addStore(FDBRecordStore store) {
+        stores.put(store.getSubspace(), store);
     }
 
     /**
