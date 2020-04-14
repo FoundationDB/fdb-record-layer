@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
 
     @Test
-    public void testFormatVersionUpgrade() throws Exception {
+    public void testFormatVersionUpgrade() {
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1)

@@ -121,18 +121,17 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void countRecordsIndex() throws Exception {
+    public void countRecordsIndex() {
         countRecords(true);
     }
 
     @Test
-    public void countRecords() throws Exception {
+    public void countRecords() {
         countRecords(false);
     }
 
     private void countRecords(boolean useIndex) {
         final RecordMetaDataHook hook = countKeyHook(EmptyKeyExpression.EMPTY, useIndex, 0);
-        HashMap<Integer, Integer> expectedCountBuckets = new HashMap<>();
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -171,12 +170,12 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void countRecordsKeyedIndex() throws Exception {
+    public void countRecordsKeyedIndex() {
         countRecordsKeyed(true);
     }
 
     @Test
-    public void countRecordsKeyed() throws Exception {
+    public void countRecordsKeyed() {
         countRecordsKeyed(false);
     }
 
@@ -261,7 +260,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         final FDBRecordStoreBase.UserVersionChecker alwaysEnabled = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
             public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-                return CompletableFuture.completedFuture(Integer.valueOf(1));
+                return CompletableFuture.completedFuture(1);
             }
 
             @Override
@@ -333,9 +332,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     @Test
     public void addCountIndex() throws Exception {
-        RecordMetaDataHook removeCountHook = metaData -> {
-            metaData.removeIndex(COUNT_INDEX.getName());
-        };
+        RecordMetaDataHook removeCountHook = metaData -> metaData.removeIndex(COUNT_INDEX.getName());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, removeCountHook);
@@ -386,9 +383,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     @Test
     @SuppressWarnings("deprecation")
     public void addCountKey() throws Exception {
-        RecordMetaDataHook removeCountHook = metaData -> {
-            metaData.removeIndex(COUNT_INDEX.getName());
-        };
+        RecordMetaDataHook removeCountHook = metaData -> metaData.removeIndex(COUNT_INDEX.getName());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, removeCountHook);
@@ -504,7 +499,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     private void checkRecordUpdateCounts(HashMap<Integer, Integer> expectedCounts,
                                          RecordMetaDataHook hook,
-                                         KeyExpression key) throws Exception {
+                                         KeyExpression key) {
         int sum = expectedCounts.values().stream().mapToInt(Number::intValue).sum();
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -517,7 +512,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void countRecordUpdates() throws Exception {
+    public void countRecordUpdates() {
         final KeyExpression key = field("num_value_3_indexed");
         final RecordMetaDataHook hook = countUpdatesKeyHook(key, 0);
         HashMap<Integer, Integer> expectedCountBuckets = new HashMap<>();

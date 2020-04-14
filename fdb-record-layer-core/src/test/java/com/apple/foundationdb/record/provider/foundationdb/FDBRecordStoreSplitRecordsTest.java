@@ -454,7 +454,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void longRecords() throws Exception {
+    public void longRecords() {
         Random rand = new Random();
         byte[] bytes;
         bytes = new byte[10000];
@@ -574,7 +574,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testSaveRecordWithDifferentSplits() throws Exception {
+    public void testSaveRecordWithDifferentSplits() {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
             commit(context);
@@ -740,7 +740,6 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
     }
 
     private void deleteAndCheckSplitSimpleRecord(long recno) {
-        FDBStoredRecord<Message> savedRecord;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
 
@@ -767,7 +766,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         createOrOpenRecordStore(context, RecordMetaData.build(TestRecords2Proto.getDescriptor()));
     }
 
-    private void checkForConflicts(int formatVersion, boolean splitLongRecords, @Nonnull Consumer<FDBRecordStore> operation1, @Nonnull Consumer<FDBRecordStore> operation2) throws Exception {
+    private void checkForConflicts(int formatVersion, boolean splitLongRecords, @Nonnull Consumer<FDBRecordStore> operation1, @Nonnull Consumer<FDBRecordStore> operation2) {
         final RecordMetaDataHook hook = metaData -> metaData.setSplitLongRecords(splitLongRecords);
         final FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
@@ -793,7 +792,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "recordReadConflict [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionAndSplitArgs")
-    public void recordReadConflict(int formatVersion, boolean splitLongRecords) throws Exception {
+    public void recordReadConflict(int formatVersion, boolean splitLongRecords) {
         checkForConflicts(formatVersion, splitLongRecords,
                 store1 -> store1.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build()),
                 store2 -> {
@@ -804,7 +803,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "recordWriteConflict [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionAndSplitArgs")
-    public void recordWriteConflict(int formatVersion, boolean splitLongRecords) throws Exception {
+    public void recordWriteConflict(int formatVersion, boolean splitLongRecords) {
         checkForConflicts(formatVersion, splitLongRecords,
                 store1 -> store1.addRecordWriteConflict(Tuple.from(1066L)),
                 store2 -> {

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
-import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestNoIndexesProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedAgainProto;
@@ -294,7 +293,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         KeySpacePath metaDataPath;
         Subspace metaDataSubspace;
         try (FDBRecordContext context = fdb.openContext()) {
-            metaDataPath = TestKeySpace.getKeyspacePath(new Object[]{"record-test", "unit", "metadataStore"});
+            metaDataPath = TestKeySpace.getKeyspacePath("record-test", "unit", "metadataStore");
             metaDataSubspace = metaDataPath.toSubspace(context);
             context.ensureActive().clear(Range.startsWith(metaDataSubspace.pack()));
             context.commit();
@@ -594,13 +593,10 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                 .setKeySpacePath(path)
                 .setMetaDataProvider(metaData);
 
-        final FDBRecordStoreBase.UserVersionChecker newStore = new FDBRecordStoreBase.UserVersionChecker() {
-            @Override
-            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-                assertEquals(-1, oldUserVersion);
-                assertEquals(-1, oldMetaDataVersion);
-                return CompletableFuture.completedFuture(0);
-            }
+        final FDBRecordStoreBase.UserVersionChecker newStore = (oldUserVersion, oldMetaDataVersion, metaData1) -> {
+            assertEquals(-1, oldUserVersion);
+            assertEquals(-1, oldMetaDataVersion);
+            return CompletableFuture.completedFuture(0);
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -610,13 +606,10 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        final FDBRecordStoreBase.UserVersionChecker oldStore = new FDBRecordStoreBase.UserVersionChecker() {
-            @Override
-            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-                assertEquals(0, oldUserVersion);
-                assertEquals(0, oldMetaDataVersion);
-                return CompletableFuture.completedFuture(0);
-            }
+        final FDBRecordStoreBase.UserVersionChecker oldStore = (oldUserVersion, oldMetaDataVersion, metaData12) -> {
+            assertEquals(0, oldUserVersion);
+            assertEquals(0, oldMetaDataVersion);
+            return CompletableFuture.completedFuture(0);
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -627,9 +620,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
 
     @Test
     public void invalidMetaData() {
-        RecordMetaDataHook invalid = metaData -> {
-            metaData.addIndex("MySimpleRecord", "no_such_field");
-        };
+        RecordMetaDataHook invalid = metaData -> metaData.addIndex("MySimpleRecord", "no_such_field");
         try (FDBRecordContext context = openContext()) {
             assertThrows(KeyExpression.InvalidExpressionException.class, () -> openSimpleRecordStore(context, invalid));
         }
@@ -640,7 +631,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
      * a conflict.
      */
     @Test
-    public void conflictWithHeaderChange() throws Exception {
+    public void conflictWithHeaderChange() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", "num_value_2");

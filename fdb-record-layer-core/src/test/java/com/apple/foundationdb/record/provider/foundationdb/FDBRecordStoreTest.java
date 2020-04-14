@@ -387,9 +387,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testStoredRecordSizeIsConsistent() {
-        final RecordMetaDataHook hook = md -> {
-            md.setSplitLongRecords(true);
-        };
+        final RecordMetaDataHook hook = md -> md.setSplitLongRecords(true);
 
         Set<FDBStoredRecord<Message>> saved;
         try (FDBRecordContext context = openContext()) {
@@ -672,7 +670,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         // Double check that it works to have two contexts on same space without conflict.
         FDBRecordContext context1 = openContext();
         uncheckedOpenSimpleRecordStore(context1);
-        FDBRecordStore recordStore1 = recordStore;
         try (FDBRecordContext context2 = openContext()) {
             uncheckedOpenSimpleRecordStore(context2);
             commit(context2);
@@ -819,19 +816,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testUserVersionMonotonic() throws Exception {
-        final FDBRecordStoreBase.UserVersionChecker userVersion1 = new FDBRecordStoreBase.UserVersionChecker() {
-            @Override
-            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-                return CompletableFuture.completedFuture(101);
-            }
-        };
-        final FDBRecordStoreBase.UserVersionChecker userVersion2 = new FDBRecordStoreBase.UserVersionChecker() {
-            @Override
-            public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
-                return CompletableFuture.completedFuture(102);
-            }
-        };
+    public void testUserVersionMonotonic() {
+        final FDBRecordStoreBase.UserVersionChecker userVersion1 = (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(101);
+        final FDBRecordStoreBase.UserVersionChecker userVersion2 = (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(102);
 
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         try (FDBRecordContext context = openContext()) {
@@ -851,9 +838,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
                     .setContext(context).setKeySpacePath(path).setMetaDataProvider(builder).setUserVersionChecker(userVersion1);
-            RecordCoreException ex = assertThrows(RecordCoreException.class, () -> {
-                storeBuilder.open();
-            });
+            RecordCoreException ex = assertThrows(RecordCoreException.class, storeBuilder::open);
             assertThat(ex.getMessage(), containsString("Stale user version"));
         }
     }
@@ -889,7 +874,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testUserVersionDeterminesMetaData() throws Exception {
+    public void testUserVersionDeterminesMetaData() {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         builder.setVersion(101);
         final RecordMetaData metaData1 = builder.getRecordMetaData();
@@ -983,9 +968,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.updateRecords(TestRecordsDuplicateUnionFields.getDescriptor());
-            });
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.updateRecords(TestRecordsDuplicateUnionFields.getDescriptor()));
             RecordMetaData metaData = recordStore.getRecordMetaData();
             assertSame(TestRecordsDuplicateUnionFields.RecordTypeUnion.getDescriptor().findFieldByName("_MySimpleRecord_new"),
                     metaData.getUnionFieldForRecordType(metaData.getRecordType("MySimpleRecord")));
@@ -1004,9 +987,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
     @Test
     public void importedRecordType() throws Exception {
-        final RecordMetaDataHook hook = md -> {
-            md.addIndex("MySimpleRecord", "added_index", "num_value_2");
-        };
+        final RecordMetaDataHook hook = md -> md.addIndex("MySimpleRecord", "added_index", "num_value_2");
 
         try (FDBRecordContext context = openContext()) {
             openAnyRecordStore(TestRecordsImportProto.getDescriptor(), context, hook);
@@ -1102,7 +1083,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testNoUnion() {
-        final KeySpacePath metaDataPath = TestKeySpace.getKeyspacePath(new Object[]{"record-test", "unit", "metadataStore"});
+        final KeySpacePath metaDataPath = TestKeySpace.getKeyspacePath("record-test", "unit", "metadataStore");
         int version;
         try (FDBRecordContext context = fdb.openContext()) {
             FDBMetaDataStore metaDataStore = openMetaDataStore(context, metaDataPath, true);
