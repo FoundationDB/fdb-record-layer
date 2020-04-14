@@ -347,11 +347,11 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);
-        uncheckedOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
-        recordStore = recordStore.asBuilder()
+        recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
                 .setSerializer(COMPRESSING_SERIALIZER)
                 .setPipelineSizer(pipelineOperation -> 1)
-                .build();
+                .uncheckedOpen();
+        setupPlanner(null);
     }
 
     @Test

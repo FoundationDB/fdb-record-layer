@@ -521,8 +521,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Ensure the store is created here to avoid conflicts on the store header
             // and ensure that the format version to the parameter given
-            uncheckedOpenSimpleRecordStore(context, hook);
-            storeBuilder = recordStore.asBuilder().setFormatVersion(formatVersion);
+            storeBuilder = getStoreBuilder(context, simpleMetaData(hook))
+                    .setFormatVersion(formatVersion);
             storeBuilder.create();
             commit(context);
         }
@@ -1807,10 +1807,10 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         final int value2 = 54321;
         final int value3 = 24567;
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
-            recordStore.deleteAllRecords();
             // Simulate the state the store would be in if this were done before counting was added.
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.INFO_ADDED_FORMAT_VERSION).build();
+            recordStore = getStoreBuilder(context, simpleMetaData(countMetaDataHook))
+                    .setFormatVersion(FDBRecordStore.INFO_ADDED_FORMAT_VERSION)
+                    .uncheckedOpen();
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
 
             for (int i = 0; i < 90; i++) {
@@ -1824,8 +1824,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         countMetaDataHook.baseHook = countKeyHook(key3, useIndex, countMetaDataHook.metaDataVersion);
 
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION).build();
+            recordStore = getStoreBuilder(context, simpleMetaData(countMetaDataHook))
+                    .setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION)
+                    .uncheckedOpen();
 
             for (int i = 90; i < 100; i++) {
                 recordStore.saveRecord(makeRecord(i + startingPoint, value2, i % 5));
@@ -1834,8 +1835,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context, countMetaDataHook);
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION).build();
+            recordStore = getStoreBuilder(context, simpleMetaData(countMetaDataHook))
+                    .setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION)
+                    .uncheckedOpen();
 
             assertEquals(10, recordStore.getSnapshotRecordCount().join().longValue(), "should only see new records");
             commit(context);
@@ -2459,55 +2461,56 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     @Test
     public void testSubspaceReadWriteConflict() throws Exception {
         // Double check that it works to have two contexts on same space writing different records without conflict.
-        FDBRecordContext context1 = openContext();
-        uncheckedOpenSimpleRecordStore(context1);
-        FDBRecordStore recordStore1 = recordStore;
-        recordStore1.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1).build());
-        try (FDBRecordContext context2 = openContext()) {
-            uncheckedOpenSimpleRecordStore(context2);
-            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2).build());
-            commit(context2);
+        try (FDBRecordContext context1 = openContext()) {
+            uncheckedOpenSimpleRecordStore(context1);
+            FDBRecordStore recordStore1 = recordStore;
+            recordStore1.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1).build());
+            try (FDBRecordContext context2 = openContext()) {
+                uncheckedOpenSimpleRecordStore(context2);
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2).build());
+                commit(context2);
+            }
+            commit(context1);
         }
-        commit(context1);
 
         // Again with requested conflict.
-        FDBRecordContext context3 = openContext();
-        uncheckedOpenSimpleRecordStore(context3);
-        FDBRecordStore recordStore3 = recordStore;
-        recordStore3.addConflictForSubspace(false);
-        recordStore3.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(3).build());
-        try (FDBRecordContext context4 = openContext()) {
-            uncheckedOpenSimpleRecordStore(context4);
-            recordStore.addConflictForSubspace(false);
-            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(4).build());
-            commit(context4);
-        }
-        try {
-            commit(context3);
-            fail("should have gotten failure");
-        } catch (FDBExceptions.FDBStoreRetriableException ex) {
-            assertTrue(ex.getCause() instanceof FDBException);
-            assertThat(((FDBException)ex.getCause()).getCode(), equalTo(1020)); // not_committed
+        try (FDBRecordContext context3 = openContext()) {
+            uncheckedOpenSimpleRecordStore(context3);
+            FDBRecordStore recordStore3 = recordStore;
+            recordStore3.addConflictForSubspace(false);
+            recordStore3.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(3).build());
+            try (FDBRecordContext context4 = openContext()) {
+                uncheckedOpenSimpleRecordStore(context4);
+                recordStore.addConflictForSubspace(false);
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(4).build());
+                commit(context4);
+            }
+            final FDBExceptions.FDBStoreRetriableException exception = assertThrows(FDBExceptions.FDBStoreRetriableException.class,
+                    () -> commit(context3));
+            assertThat(((FDBException)exception.getCause()).getCode(), equalTo(1020)); // not_committed
         }
     }
 
     @Test
     public void testFormatVersionUpgrade() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context);
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1).create();
+            recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1)
+                    .create();
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1, recordStore.getFormatVersion());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context);
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION).open();
+            recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .open();
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context);
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1).open();
+            recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1)
+                    .open();
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
         }
@@ -2845,9 +2848,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void unsplitCompatibility() throws Exception {
         TestRecords1Proto.MySimpleRecord rec1 = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1415L).build();
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context);
             // Write a record using the old format
-            recordStore = recordStore.asBuilder()
+            recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1)
                     .create();
             assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1, recordStore.getFormatVersion());
