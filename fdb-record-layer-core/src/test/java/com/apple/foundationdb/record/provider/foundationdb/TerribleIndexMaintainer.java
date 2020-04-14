@@ -99,6 +99,12 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
+    public CompletableFuture<Void> removeUniquenessViolationsAsync(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
+        return AsyncUtil.DONE;
+    }
+
+    @Nonnull
+    @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         throw new UnsupportedOperationException("Terrible index cannot scan uniqueness violations");
     }

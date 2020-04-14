@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -40,6 +41,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Implementation of {@link IndexMaintainer} for the "version" index type. Here, the keys of the index are
@@ -69,9 +71,9 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
 
     // Called by updateIndexKeys in StandardIndexMaintainer.
     @Override
-    protected <M extends Message> void updateOneKey(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                    final boolean remove,
-                                                    @Nonnull final IndexEntry indexEntry) {
+    protected <M extends Message> CompletableFuture<Void> updateOneKeyAsync(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                      final boolean remove,
+                                                                      @Nonnull final IndexEntry indexEntry) {
         if (state.index.isUnique()) {
             throw new MetaDataException(String.format("%s index %s does not support unique indexes", state.index.getType(), state.index.getName()));
         }
@@ -107,5 +109,6 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
                 state.store.getTimer().recordSinceNanoTime(FDBStoreTimer.Events.SAVE_INDEX_ENTRY, startTime);
             }
         }
+        return AsyncUtil.DONE;
     }
 }

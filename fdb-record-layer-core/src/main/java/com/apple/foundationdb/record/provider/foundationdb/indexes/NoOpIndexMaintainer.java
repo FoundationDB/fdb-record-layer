@@ -79,6 +79,12 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
 
     @Nonnull
     @Override
+    public CompletableFuture<Void> removeUniquenessViolationsAsync(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
+        return AsyncUtil.DONE;
+    }
+
+    @Nonnull
+    @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return RecordCursor.empty();
     }

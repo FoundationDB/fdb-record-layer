@@ -1233,8 +1233,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (primaryKey == null || !primaryKey.equals(uniquenessViolation.getPrimaryKey())) {
                 return deleteRecordAsync(uniquenessViolation.getPrimaryKey()).thenApply(ignore -> null);
             } else {
-                getIndexMaintainer(index).updateUniquenessViolations(valueKey, primaryKey, null, true);
-                return AsyncUtil.DONE;
+                return getIndexMaintainer(index).removeUniquenessViolationsAsync(valueKey, primaryKey);
             }
         }, getPipelineSize(PipelineOperation.RESOLVE_UNIQUENESS));
     }

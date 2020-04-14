@@ -116,7 +116,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (IndexEntry indexEntry : indexEntries) {
             // First maintain an ordinary B-tree index by score.
-            updateOneKey(savedRecord, remove, indexEntry);
+            CompletableFuture<Void> updateOrdinaryIndex = updateOneKeyAsync(savedRecord, remove, indexEntry);
             final Subspace rankSubspace;
             final Tuple scoreKey;
             if (groupPrefixSize > 0) {
@@ -127,8 +127,9 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
                 rankSubspace = extraSubspace;
                 scoreKey = indexEntry.getKey();
             }
-            futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace, config, indexEntry.getKey(),
-                    scoreKey, remove));
+            futures.add(updateOrdinaryIndex.thenCompose(vignore ->
+                    RankedSetIndexHelper.updateRankedSet(state, rankSubspace, config, indexEntry.getKey(), scoreKey,
+                            remove)));
         }
         return AsyncUtil.whenAll(futures);
     }

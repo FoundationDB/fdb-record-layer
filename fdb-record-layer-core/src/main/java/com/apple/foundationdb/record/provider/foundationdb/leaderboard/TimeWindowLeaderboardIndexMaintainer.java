@@ -358,13 +358,15 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
                                 // Update the ordinary B-tree for this leaderboard.
                                 final Tuple entryKey = leaderboardGroupKey.addAll(indexKey.scoreKey);
-                                updateOneKey(savedRecord, remove, new IndexEntry(state.index, entryKey, entryValue));
+                                CompletableFuture<Void> updateOrdinaryIndex = updateOneKeyAsync(savedRecord, remove,
+                                        new IndexEntry(state.index, entryKey, entryValue));
 
                                 // Update the corresponding rankset for this leaderboard.
                                 final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
                                 final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
-                                futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace,
-                                        leaderboardConfig, entryKey, indexKey.scoreKey, remove));
+                                futures.add(updateOrdinaryIndex.thenCompose(vignore ->
+                                        RankedSetIndexHelper.updateRankedSet(state, rankSubspace, leaderboardConfig,
+                                                entryKey, indexKey.scoreKey, remove)));
                             }
                         }
                     }

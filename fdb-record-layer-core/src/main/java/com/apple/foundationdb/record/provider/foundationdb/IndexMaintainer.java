@@ -114,10 +114,27 @@ public abstract class IndexMaintainer {
      * @param valueKey the indexed key that is (apparently) not unique
      * @param primaryKey the primary key of one record that is causing a violation
      * @param existingKey the primary key of another record that is causing a violation (or <code>null</code> if none specified)
-     * @param remove <code>true</code> if removing the violation and <code>false</code> if adding it
+     * @param remove <code>true</code> if removing the violation and <code>false</code> if adding it. When
+     * <code>true</code>, it is favored use {@link #removeUniquenessViolationsAsync(Tuple, Tuple)} instead.
      */
     @Nonnull
     public abstract void updateUniquenessViolations(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey, boolean remove);
+
+    /**
+     * Remove a uniqueness violation within the database. This is used to keep track of
+     * uniqueness violations that occur when an index is in write-only mode, both during
+     * the built itself and by other writes. This means that the writes will succeed, but
+     * it will cause a later attempt to make the index readable to fail.
+     *
+     * This will remove the last uniqueness violation entry when removing the second last one under the same
+     * <code>valueKey</code>, in contrast to {@link #updateUniquenessViolations(Tuple, Tuple, Tuple, boolean)} which
+     * may not.
+     * @param valueKey the indexed key that is (apparently) not unique
+     * @param primaryKey the primary key of one record that is causing a violation
+     * @return a future that is complete when the uniqueness violation is removed
+     */
+    @Nonnull
+    public abstract CompletableFuture<Void> removeUniquenessViolationsAsync(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey);
 
     /**
      * Scans through the list of uniqueness violations within the database.
