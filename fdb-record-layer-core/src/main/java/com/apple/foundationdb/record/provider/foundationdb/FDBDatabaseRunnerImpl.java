@@ -230,13 +230,18 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Override
     @Nonnull
     public FDBRecordContext openContext() {
+        return openContext(true);
+    }
+
+    @Nonnull
+    private FDBRecordContext openContext(boolean initialAttempt) {
         if (closed) {
             throw new RunnerClosed();
         }
         FDBRecordContextConfig contextConfig = FDBRecordContextConfig.newBuilder()
                 .setMdcContext(mdcContext)
                 .setTimer(timer)
-                .setWeakReadSemantics(weakReadSemantics)
+                .setWeakReadSemantics(initialAttempt ? weakReadSemantics : null)
                 .setPriority(priority)
                 .setTransactionTimeoutMillis(transactionTimeoutMillis)
                 .build();
@@ -327,7 +332,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             addFutureToCompleteExceptionally(future);
             AsyncUtil.whileTrue(() -> {
                 try {
-                    context = openContext();
+                    context = openContext(currAttempt == 0);
                     return retriable.apply(context).thenCompose(val ->
                         context.commitAsync().thenApply( vignore -> val)
                     ).handle((result, ex) -> {
@@ -357,7 +362,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             boolean again = true;
             while (again) {
                 try {
-                    context = openContext();
+                    context = openContext(currAttempt == 0);
                     T ret = retriable.apply(context);
                     context.commit();
                     again = database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));

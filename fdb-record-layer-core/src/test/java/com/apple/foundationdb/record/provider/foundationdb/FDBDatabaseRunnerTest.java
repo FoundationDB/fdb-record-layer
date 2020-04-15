@@ -32,13 +32,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 import org.apache.logging.log4j.ThreadContext;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -50,6 +50,7 @@ import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseTest.testStoreAndRetrieveSimpleRecord;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -338,6 +339,59 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
         }
     }
 
+    /**
+     * Validate that if the user sets {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase.WeakReadSemantics}
+     * on the runner to something non-trivial, then the cached version is only used the first time in the retry loop.
+     * Subsequent attempts, especially attempts that are caused by conflicts, do not want to use the stale read version,
+     * as it may see the same old data multiple times (and therefore conflict each time).
+     */
+    @Test
+    public void runWithWeakReadSemantics() {
+        final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
+        final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
+        try {
+            database.setTrackLastSeenVersionOnRead(true);
+            database.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
+
+            final byte[] key = Tuple.from(UUID.randomUUID()).pack(); // not actually modified, so value doesn't matter
+
+            // Commit something and cache just the read version
+            long firstReadVersion;
+            try (FDBDatabaseRunner runner = database.newRunner()) {
+                firstReadVersion = runner.run(context -> {
+                    context.ensureActive().addWriteConflictKey(key);
+                    return context.getReadVersion();
+                });
+            }
+
+            // Begin a runner that then uses that cached read version but also conflicts with that transaction
+            try (FDBDatabaseRunner runner = database.newRunner()) {
+                FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(firstReadVersion, Long.MAX_VALUE, true);
+                runner.setWeakReadSemantics(weakReadSemantics);
+                runner.setMaxAttempts(3); // just so that if it loops more than twice, the test terminates faster
+
+                final AtomicInteger attempts = new AtomicInteger(0);
+                runner.run(context -> {
+                    int attempt = attempts.getAndIncrement();
+                    if (attempt == 0) {
+                        assertEquals(firstReadVersion, context.getReadVersion(), "read version should have used cached version");
+                    } else {
+                        assertThat("read version should be updated on retry", context.getReadVersion(), greaterThan(firstReadVersion));
+                    }
+                    context.ensureActive().addReadConflictKey(key); // will cause conflict the first attempt
+                    context.ensureActive().addWriteConflictKey(key);
+
+                    return null;
+                });
+                assertEquals(2, attempts.get());
+            }
+
+        } finally {
+            database.setTrackLastSeenVersionOnRead(tracksReadVersions);
+            database.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
+        }
+    }
+
     @Test
     public void stopOnTimeout() {
         AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
@@ -380,7 +434,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             });
         }
         int currentIteration = iteration.get();
-        assertThat("Should have run at least once", currentIteration, Matchers.greaterThan(0));
+        assertThat("Should have run at least once", currentIteration, greaterThan(0));
         try {
             future.join();
             fail("Should have stopped exceptionally");

@@ -112,7 +112,15 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     FDBDatabase.WeakReadSemantics getWeakReadSemantics();
 
     /**
-     * Set the read semantics used in record contexts opened by this runner.
+     * Set the read semantics used in record contexts opened by this runner. Within the retry loops
+     * {@link #run(Function)}, {@link #runAsync(Function)}, and their variants, only the first
+     * context (from the first iteration round the loop) actually sets the created record context's
+     * {@link FDBDatabase.WeakReadSemantics} to the provided value. This is because there are several
+     * reasons why a transaction may fail due to a stale read version (for example, a
+     * {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionConflictException conflict}
+     * or {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionIsTooOldException expired transaction}),
+     * and subsequent attempts will fail if their read version is not updated to a newer value.
+     *
      * @param weakReadSemantics allowable staleness parameters if caching read versions
      * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)
      */
