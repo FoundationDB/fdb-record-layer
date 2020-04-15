@@ -99,9 +99,10 @@ public class DefaultTextTokenizer implements TextTokenizer {
             if (nextToken != null) {
                 return true;
             }
-            int nextBreak = underlying.following(lastBreak);
+            int nextBreak = underlying.next();
             while (nextToken == null && nextBreak != BreakIterator.DONE) {
                 String token = text.substring(lastBreak, nextBreak);
+                lastBreak = nextBreak;
                 // Normalize the string to a standard normalization.
                 // This is done prior to checking for alphabetic characters
                 // because some Unicode characters (like the blackboard
@@ -133,8 +134,8 @@ public class DefaultTextTokenizer implements TextTokenizer {
                     //     안녕하세요 -> 안녕하세요 (Hangul Jamo not transformed)
                     token = matcher.reset(token.toLowerCase(Locale.ROOT)).replaceAll("");
                     nextToken = token;
+                    break;
                 }
-                lastBreak = nextBreak;
                 nextBreak = underlying.next();
             }
             return nextToken != null;
