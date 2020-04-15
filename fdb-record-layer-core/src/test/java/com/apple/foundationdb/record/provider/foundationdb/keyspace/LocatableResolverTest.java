@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver.LocatableResolverLockedException;
@@ -435,6 +436,42 @@ public abstract class LocatableResolverTest extends FDBTestBase {
             }
             assertEquals(database.getDirectoryCacheStats().hitCount() - baseline, 0L, "values are persisted, not in cache");
             assertEquals(database.getReverseDirectoryInMemoryCache().stats().hitCount() - reverseCacheBaseline, 0L, "values are persisted, not in cache");
+        }
+    }
+
+    /**
+     * Test that if a value is resolved and, due to read version caching, it may read stale data and therefore miss
+     * the most recent update, that upon an internal retry, it gets a fresh version (rather than getting a bunch of
+     * conflicts).
+     */
+    @Test
+    public void testResolveWithWeakReadSemantics() {
+        final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
+        final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
+        try {
+            database.setTrackLastSeenVersionOnRead(true);
+            database.setTrackLastSeenVersionOnCommit(false); // disable commit version tracking so that stale read version is cached
+
+            final String key = "hello " + UUID.randomUUID();
+            long resolvedValue;
+            try (FDBRecordContext context = database.openContext()) {
+                resolvedValue = globalScope.resolve(context, key).join();
+            }
+
+            // Clear the cache to ensure the database must be consulted
+            database.clearCaches();
+
+            // Using a stale read version should first read from the database, see that there is
+            final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                    .setWeakReadSemantics(new FDBDatabase.WeakReadSemantics(0, Long.MAX_VALUE, true))
+                    .build();
+            try (FDBRecordContext context = database.openContext(config)) {
+                long resolvedAgainValue = globalScope.resolve(context, key).join();
+                assertEquals(resolvedValue, resolvedAgainValue, "resolved value changed between transactions");
+            }
+        } finally {
+            database.setTrackLastSeenVersionOnRead(tracksReadVersions);
+            database.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
         }
     }
 
