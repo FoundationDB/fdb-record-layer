@@ -728,9 +728,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                 recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(4).build());
                 commit(context4);
             }
-            final FDBExceptions.FDBStoreRetriableException exception = assertThrows(FDBExceptions.FDBStoreRetriableException.class,
-                    () -> commit(context3));
-            assertThat(((FDBException)exception.getCause()).getCode(), equalTo(1020)); // not_committed
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(context3));
         }
     }
 
