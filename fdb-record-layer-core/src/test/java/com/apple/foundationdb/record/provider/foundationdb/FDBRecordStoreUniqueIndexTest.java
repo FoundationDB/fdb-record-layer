@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests of uniqueness checks.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBRecordStoreUniquenessTest extends FDBRecordStoreTestBase {
+public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void writeUniqueByteString() throws Exception {
