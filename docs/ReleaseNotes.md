@@ -10,6 +10,8 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 This version of the Record Layer requires a FoundationDB server version of at least version 6.2. Attempting to connect to older versions may result in the client hanging when attempting to connect to the database.
 
+Additionally, builds for the project now require JDK 11. The project is still targetting JDK 1.8 for both source and binary compatibility, so projects importing the library that have not yet upgraded to the newer JDK should still be able to import the project as before, but developers may need to update their local development environment if they have not already done so. 
+
 <!--
 // begin next release
 ### NEXT_RELEASE
@@ -30,7 +32,7 @@ This version of the Record Layer requires a FoundationDB server version of at le
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Requires a minimum FoundationDB client and server version of 6.2 [(Issue #702)](https://github.com/FoundationDB/fdb-record-layer/issues/702)
-* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Builds now require JDK 11 [(Issue #910)](https://github.com/FoundationDB/fdb-record-layer/issues/910)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
