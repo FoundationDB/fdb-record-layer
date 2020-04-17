@@ -88,9 +88,6 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             recordStore.deleteAllRecords();
             recordStore.markIndexWriteOnly("MySimpleRecord$num_value_3_indexed").join();
 
-            // Re-opened to pick up state change.
-            openSimpleRecordStore(context);
-
             recordStore.saveRecord(
                     TestRecords1Proto.MySimpleRecord.newBuilder()
                             .setRecNo(1066)
@@ -124,8 +121,6 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context);
             recordStore.uncheckedMarkIndexReadable("MySimpleRecord$num_value_3_indexed").join();
 
-            // Re-opened to pick up state change.
-            openSimpleRecordStore(context);
             clearStoreCounter(context);
 
             // Override state to read the write-only index.
@@ -224,9 +219,6 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             recordStore.markIndexWriteOnly("value3sum").join();
             recordStore.markIndexWriteOnly("value3max").join();
 
-            // Re-opened to pick up state change.
-            openSimpleRecordStore(context, hook);
-
             RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(sumIndex));
             rangeSet.insertRange(context.ensureActive(), Tuple.from(1000).pack(), Tuple.from(1500).pack(), true).get();
 
@@ -255,9 +247,6 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
             recordStore.uncheckedMarkIndexReadable("value3sum").join();
             recordStore.uncheckedMarkIndexReadable("value3max").join();
-
-            // Re-opened to pick up state change.
-            openSimpleRecordStore(context, hook);
 
             // Unsafe: made readable without building indexes, which is why sum gets wrong answer.
             assertEquals(42L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
@@ -297,9 +286,6 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             recordStore.markIndexDisabled("value3sum").join();
             recordStore.markIndexDisabled("value3max").join();
 
-            // Re-opened to pick up state change.
-            openSimpleRecordStore(context, hook);
-
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1066).setNumValue3Indexed(42);
             recordStore.saveRecord(recBuilder.build());
@@ -325,9 +311,6 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
             recordStore.uncheckedMarkIndexReadable("value3sum").join();
             recordStore.uncheckedMarkIndexReadable("value3max").join();
-
-            // Re-opened to pick up state change.
-            openSimpleRecordStore(context, hook);
 
             // Unsafe: made readable without building indexes, which is why sum gets wrong answer.
             assertEquals(0L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),

@@ -227,8 +227,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);
-        uncheckedOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
-        recordStore = recordStore.asBuilder().setSerializer(COMPRESSING_SERIALIZER).build();
+        recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
+                .setSerializer(COMPRESSING_SERIALIZER)
+                .uncheckedOpen();
+        setupPlanner(null);
     }
 
     @Nonnull

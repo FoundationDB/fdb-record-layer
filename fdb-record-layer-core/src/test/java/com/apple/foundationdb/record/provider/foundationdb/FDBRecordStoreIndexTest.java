@@ -1778,11 +1778,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            openAnyRecordStore(TestRecordsIndexFilteringProto.getDescriptor(), context, hook);
-            context.getTimer().reset();
-
+            RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsIndexFilteringProto.getDescriptor());
+            hook.apply(metaData);
             IndexMaintenanceFilter noneFilter = (i, r) -> IndexMaintenanceFilter.IndexValues.NONE;
-            recordStore = recordStore.asBuilder().setIndexMaintenanceFilter(noneFilter).build();
+            recordStore = getStoreBuilder(context, metaData.getRecordMetaData())
+                    .setIndexMaintenanceFilter(noneFilter)
+                    .createOrOpen();
+            setupPlanner(null);
+            context.getTimer().reset();
 
             TestRecordsIndexFilteringProto.MyBasicRecord recordB = TestRecordsIndexFilteringProto.MyBasicRecord.newBuilder()
                     .setRecNo(1003).setNumValue2(103).build();

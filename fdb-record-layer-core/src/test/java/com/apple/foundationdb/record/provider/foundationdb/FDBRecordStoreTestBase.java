@@ -43,6 +43,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.provider.Arguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +52,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -77,6 +79,12 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
 
     public FDBRecordStoreTestBase(Object[] path) {
         this.path = TestKeySpace.getKeyspacePath(path);
+    }
+
+    @Nonnull
+    public static Stream<Arguments> formatVersionAndSplitArgs() {
+        return Stream.of(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1, FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                .flatMap(formatVersion -> Stream.of(Arguments.of(formatVersion, false), Arguments.of(formatVersion, true)));
     }
 
     /**
