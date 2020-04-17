@@ -1,9 +1,9 @@
 /*
- * SpotBugsSuppressWarnings.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record;
-
-import com.apple.foundationdb.annotation.API;
-
 /**
- * Suppress warnings from FindBugs / SpotBugs tools.
- *
- * Avoids introducing another transitive dependency.
+ * FDB client code that might conceivably be in the standard Java binding someday.
  */
-@API(API.Status.STABLE)
-public @interface SpotBugsSuppressWarnings {
-    String[] value();
-    String justification() default "";
-}
+package com.apple.foundationdb;

@@ -49,7 +49,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -116,30 +115,9 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
-    public boolean hasRecordScan() {
-        return getChild().hasRecordScan();
-    }
-
-    @Override
-    public boolean hasFullRecordScan() {
-        return getChild().hasFullRecordScan();
-    }
-
-    @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
-        return getChild().hasIndexScan(indexName);
-    }
-
-    @Override
     @Nonnull
     public RecordQueryPlan getChild() {
         return plan.get();
-    }
-
-    @Nonnull
-    @Override
-    public Set<String> getUsedIndexes() {
-        return getChild().getUsedIndexes();
     }
 
     @Nonnull

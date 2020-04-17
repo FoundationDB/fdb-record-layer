@@ -21,8 +21,11 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
@@ -33,19 +36,23 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -81,15 +88,13 @@ public class FDBStoreTimerTest {
         // see the timer counts from some onNext calls
         FDBStoreTimer latestTimer = context.getTimer();
         StoreTimerSnapshot savedTimer;
-        CompletableFuture<RecordCursorResult<KeyValue>> fkvr;
-        RecordCursorResult<KeyValue> kvr;
         StoreTimer diffTimer;
 
         // get a snapshot from latestTimer before advancing cursor
         savedTimer = StoreTimerSnapshot.from(latestTimer);
 
         // advance the cursor once
-        kvr = kvc.onNext().join();
+        kvc.onNext().join();
 
         // the diff from latestTimer minus savedTimer will have the timer cost from the single cursor advance
         diffTimer = StoreTimer.getDifference(latestTimer, savedTimer);
@@ -106,7 +111,7 @@ public class FDBStoreTimerTest {
         // advance the cursor more times
         final int numAdvances = 5;
         for (int i = 0; i < numAdvances; i++) {
-            kvr = kvc.onNext().join();
+            kvc.onNext().join();
         }
 
         // the diff from latestTimer and savedTimer will have the timer cost from the subsequent cursor advances
@@ -176,6 +181,47 @@ public class FDBStoreTimerTest {
         assertThrows(RecordCoreArgumentException.class, () -> StoreTimer.getDifference(anotherStoreTimer, savedTimer));
     }
 
+    @Test
+    public void unchangedMetricsExcludedFromSnapshotDifference() {
+        StoreTimer timer = new FDBStoreTimer();
+
+        timer.increment(FDBStoreTimer.Counts.CREATE_RECORD_STORE);
+        timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
+        timer.record(FDBStoreTimer.Events.CHECK_VERSION, 1L);
+        timer.record(FDBStoreTimer.Events.DIRECTORY_READ, 3L);
+
+        StoreTimerSnapshot snapshot = StoreTimerSnapshot.from(timer);
+
+        timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
+        timer.record(FDBStoreTimer.Events.DIRECTORY_READ, 7L);
+
+        StoreTimer diff = StoreTimer.getDifference(timer, snapshot);
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.CREATE_RECORD_STORE), Matchers.nullValue());
+        assertThat(diff.getCounter(FDBStoreTimer.Events.CHECK_VERSION), Matchers.nullValue());
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getTimeNanos(), Matchers.is(0L));
+        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getTimeNanos(), Matchers.is(7L));
+    }
+
+    @Test
+    public void newMetricsAddedToSnapshotDifference() {
+        StoreTimer timer = new FDBStoreTimer();
+
+        timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
+
+        StoreTimerSnapshot snapshot = StoreTimerSnapshot.from(timer);
+
+        timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
+        timer.record(FDBStoreTimer.Events.DIRECTORY_READ, 7L);
+
+        StoreTimer diff = StoreTimer.getDifference(timer, snapshot);
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getTimeNanos(), Matchers.is(0L));
+        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getTimeNanos(), Matchers.is(7L));
+    }
+
     private enum TestEvent implements StoreTimer.Event {
 
         EVENT_WITH_LONG_NAME("An event with a very long name", "ShorterName"),
@@ -209,10 +255,71 @@ public class FDBStoreTimerTest {
         assertEquals(TestEvent.EVENT_WITH_LONG_NAME.logKey(), "ShorterName");
     }
 
+    @Test
+    public void testAggregateMetrics() {
+        FDBStoreTimer storeTimer = new FDBStoreTimer();
+
+        // I don't want this test to fail if new aggregates are added, but do want to verify that the
+        // getAggregates() at least does return some of the expected aggregates.
+        assertTrue(storeTimer.getAggregates().contains(FDBStoreTimer.CountAggregates.BYTES_DELETED));
+
+        storeTimer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, 203);
+        storeTimer.increment(FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES, 1000);
+        storeTimer.increment(FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES, 85);
+        storeTimer.increment(FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES, 234);
+        storeTimer.increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, 100);
+
+        assertNotNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_DELETED));
+        assertEquals(1622, storeTimer.getCount(FDBStoreTimer.CountAggregates.BYTES_DELETED),
+                "Incorrect aggregate count for BYTES_DELETED");
+
+        // Aggregate counters are immutable.
+        assertThrows(RecordCoreException.class, () -> {
+            storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_DELETED).increment(44);
+        });
+    }
+
+    @Test
+    public void testLowLevelIoMetrics() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            Transaction tr = context.ensureActive();
+            tr.clear(subspace.range());
+            tr.commit().join();
+        }
+
+        assertThat(timer.getCount(FDBStoreTimer.Counts.DELETES), equalTo(1));
+        assertThat(timer.getCount(FDBStoreTimer.Events.COMMITS), equalTo(1));
+
+        timer.reset();
+
+        int writeBytes = 0;
+        try (FDBRecordContext context = fdb.openContext(null, timer)) {
+            Transaction tr = context.ensureActive();
+            for (int i = 0; i < 5; i++) {
+                byte[] key = subspace.pack(Tuple.from(i));
+                byte[] value = subspace.pack(Tuple.from("foo", i));
+                tr.set(key, value);
+                writeBytes += (key.length + value.length);
+            }
+
+            ReadTransaction rtr = tr.snapshot();
+            List<KeyValue> values = rtr.getRange(subspace.range()).asList().join();
+            assertThat(values.size(), equalTo(5));
+            tr.commit().join();
+        }
+
+        assertThat(timer.getCount(FDBStoreTimer.Counts.WRITES), equalTo(5));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN), equalTo(writeBytes));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.READS), equalTo(1));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_READ), equalTo(writeBytes));
+        assertThat(timer.getCount(FDBStoreTimer.Events.COMMITS), equalTo(1));
+    }
+
     private void setupBaseData() {
         subspace = fdb.run(context -> {
             KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit");
-            FDBRecordStore.deleteStore(context, path);
+            path.deleteAllData(context);
             return path.toSubspace(context);
         });
 

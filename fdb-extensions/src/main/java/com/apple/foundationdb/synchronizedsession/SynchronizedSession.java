@@ -188,6 +188,34 @@ public class SynchronizedSession {
         });
     }
 
+    /**
+     * End any active session on the lock subspace by releasing the lock no matter whether this session holds the lock
+     * or not.
+     * <p>
+     * It only takes place when the given transaction is committed. It will only be enforced when the other processes
+     * holding the lock go to check the lease in later transactions, where they will fail with
+     * {@link SynchronizedSessionLockedException}.
+     * </p>
+     * @param tr transaction to use
+     */
+    public void endAnySession(@Nonnull Transaction tr) {
+        endAnySession(tr, lockSubspace);
+    }
+
+    /**
+     * End any active session on the given lock subspace by releasing the lock.
+     * <p>
+     * It only takes place when the given transaction is committed. It will only be enforced when the other processes
+     * holding the lock go to check the lease in later transactions, where they will fail with
+     * {@link SynchronizedSessionLockedException}.
+     * </p>
+     * @param tr transaction to use
+     * @param lockSubspace the lock whose active session needs to be ended
+     */
+    public static void endAnySession(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
+        tr.clear(lockSubspace.range());
+    }
+
     private CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr) {
         return tr.get(lockSessionIdSubspaceKey)
                 .thenApply(value -> value == null ? null : Tuple.fromBytes(value).getUUID(0));

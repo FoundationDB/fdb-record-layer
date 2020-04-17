@@ -26,9 +26,8 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -73,6 +72,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
@@ -116,7 +116,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     private boolean primaryKeyHasRecordTypePrefix;
     @Nonnull
-    private IndexScanPreference indexScanPreference;
+    private RecordQueryPlannerConfiguration configuration;
 
     public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
         this(metaData, recordStoreState, null);
@@ -147,8 +147,11 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         primaryKeyHasRecordTypePrefix = metaData.primaryKeyHasRecordTypePrefix();
         // If we are going to need type filters on Scan, index is safer without knowing any cardinalities.
-        indexScanPreference = metaData.getRecordTypes().size() > 1 && !primaryKeyHasRecordTypePrefix ?
-                              IndexScanPreference.PREFER_INDEX : IndexScanPreference.PREFER_SCAN;
+        configuration = RecordQueryPlannerConfiguration.builder()
+                .setIndexScanPreference(metaData.getRecordTypes().size() > 1 && !primaryKeyHasRecordTypePrefix ?
+                              IndexScanPreference.PREFER_INDEX : IndexScanPreference.PREFER_SCAN)
+                .setAttemptFailedInJoinAsOr(true)
+                .build();
     }
 
     /**
@@ -158,7 +161,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      */
     @Nonnull
     public IndexScanPreference getIndexScanPreference() {
-        return indexScanPreference;
+        return configuration.getIndexScanPreference();
     }
 
     /**
@@ -167,11 +170,31 @@ public class RecordQueryPlanner implements QueryPlanner {
      * Scanning without an index is more efficient, but will have to skip over unrelated record types.
      * For that reason, it is safer to use an index, except when there is only one record type.
      * If the meta-data has more than one record type but the record store does not, this can be overridden.
+     * If a {@link RecordQueryPlannerConfiguration} is already set using
+     * {@link #setConfiguration(RecordQueryPlannerConfiguration)} (RecordQueryPlannerConfiguration)} it will be retained,
+     * but the {@code IndexScanPreference} for the configuration will be replaced with the given preference.
      * @param indexScanPreference whether to prefer index scan over record scan
      */
     @Override
     public void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference) {
-        this.indexScanPreference = indexScanPreference;
+        configuration = this.configuration.asBuilder()
+                .setIndexScanPreference(indexScanPreference)
+                .build();
+    }
+
+    /**
+     * Set the {@link RecordQueryPlannerConfiguration} for this planner.
+     * If an {@link com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference} is already set using
+     * {@link #setIndexScanPreference(IndexScanPreference)} then it will be ignored.
+     * @param configuration a configuration object for this planner
+     */
+    public void setConfiguration(@Nonnull RecordQueryPlannerConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    @Nonnull
+    public RecordQueryPlannerConfiguration getConfiguration() {
+        return configuration;
     }
 
     /**
@@ -295,7 +318,8 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     // Compatible behavior with older code: prefer an index on *just* the primary key.
     private boolean preferIndexToScan(PlanContext planContext, @Nonnull Index index) {
-        switch (getIndexScanPreference()) {
+        IndexScanPreference indexScanPreference = getIndexScanPreference();
+        switch (indexScanPreference) {
             case PREFER_INDEX:
                 return true;
             case PREFER_SCAN:
@@ -341,12 +365,28 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     private ScoredPlan planFilter(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
         final InExtractor inExtractor = new InExtractor(filter);
+        ScoredPlan withInAsOr = null;
         if (planContext.query.getSort() != null) {
-            inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
+            boolean canSort = inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
+            if (!canSort && getConfiguration().shouldAttemptFailedInJoinAsOr()) {
+                // Can't implement as an in join because of the sort order. Try as an OR instead.
+                withInAsOr = planFilter(planContext, normalizeAndOrForInAsOr(inExtractor.asOr()));
+            }
         } else if (needOrdering) {
             inExtractor.sortByClauses();
         }
-        filter = inExtractor.subFilter();
+        final ScoredPlan withInJoin = planFilterWithInJoin(planContext, inExtractor, needOrdering);
+        if (withInAsOr != null) {
+            if (withInJoin == null || withInAsOr.score > withInJoin.score ||
+                    FieldWithComparisonCountProperty.evaluate(withInAsOr.plan) < FieldWithComparisonCountProperty.evaluate(withInJoin.plan)) {
+                return withInAsOr;
+            }
+        }
+        return withInJoin;
+    }
+
+    private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
+        final QueryComponent filter = inExtractor.subFilter();
         planContext.rankComparisons = new RankComparisons(filter, planContext.indexes);
         List<ScoredPlan> intersectionCandidates = new ArrayList<>();
         ScoredPlan bestPlan = null;
@@ -367,6 +407,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 //   * size of row.
                 //   * need for type filtering if row scan with multiple types.
                 if (bestPlan == null || p.score > bestPlan.score ||
+                        p.unsatisfiedFilters.size() < bestPlan.unsatisfiedFilters.size() ||
                         (p.score == bestPlan.score && compareIndexes(planContext, index, bestIndex) > 0)) {
                     bestPlan = p;
                     bestIndex = index;
@@ -485,7 +526,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         recordStoreState.beginRead();
         try {
             if (query.getRecordTypes().isEmpty()) { // ALL_TYPES
-                commonPrimaryKey = commonPrimaryKey(metaData.getRecordTypes().values());
+                commonPrimaryKey = RecordMetaData.commonPrimaryKey(metaData.getRecordTypes().values());
             } else {
                 final List<RecordType> recordTypes = query.getRecordTypes().stream().map(metaData::getRecordType).collect(Collectors.toList());
                 if (recordTypes.size() == 1) {
@@ -503,7 +544,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                             indexes.retainAll(readableOf(recordType.getMultiTypeIndexes()));
                         }
                     }
-                    commonPrimaryKey = commonPrimaryKey(recordTypes);
+                    commonPrimaryKey = RecordMetaData.commonPrimaryKey(recordTypes);
                 }
             }
 
@@ -514,24 +555,9 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         indexes.removeIf(query.hasAllowedIndexes() ?
                 index -> !query.getAllowedIndexes().contains(index.getName()) :
-                index -> !index.getBooleanOption(IndexOptions.ALLOWED_FOR_QUERY_OPTION, true));
+                index -> !query.getIndexQueryabilityFilter().isQueryable(index));
 
         return new PlanContext(query, indexes, commonPrimaryKey);
-    }
-
-    @Nullable
-    private static KeyExpression commonPrimaryKey(@Nonnull Collection<RecordType> recordTypes) {
-        KeyExpression common = null;
-        boolean first = true;
-        for (RecordType recordType : recordTypes) {
-            if (first) {
-                common = recordType.getPrimaryKey();
-                first = false;
-            } else if (!common.equals(recordType.getPrimaryKey())) {
-                return null;
-            }
-        }
-        return common;
     }
 
     @Nullable
@@ -801,41 +827,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             return planAndWithNesting(candidateScan, (NestingKeyExpression)index, filter, sort);
         } else if (index instanceof ThenKeyExpression) {
             return new AndWithThenPlanner(candidateScan, (ThenKeyExpression)index, filter, sort).plan();
-        } else if (!(index instanceof FieldKeyExpression || index instanceof VersionKeyExpression)) {
-            return null;
+        } else {
+            return new AndWithThenPlanner(candidateScan, Collections.singletonList(index), filter, sort).plan();
         }
-
-        List<QueryComponent> unsatisfiedFilters = new ArrayList<>(filter.getChildren());
-        for (QueryComponent filterChild : filter.getChildren()) {
-            QueryComponent filterComponent = candidateScan.planContext.rankComparisons.planComparisonSubstitute(filterChild);
-            ScoredPlan plan = null;
-            if (index instanceof FieldKeyExpression && filterComponent instanceof FieldWithComparison) {
-                FieldWithComparison fieldWithComparison = (FieldWithComparison)filterComponent;
-                plan = planFieldWithComparison(candidateScan, index,
-                        fieldWithComparison, sort);
-                if (plan != null) {
-                    unsatisfiedFilters.remove(filterChild);
-                    return plan.withUnsatisfiedFilters(unsatisfiedFilters);
-                }
-            } else if (index instanceof VersionKeyExpression &&
-                       filterComponent instanceof QueryRecordFunctionWithComparison
-                       && ((QueryRecordFunctionWithComparison)filterComponent).getFunction().getName().equals(FunctionNames.VERSION)) {
-                QueryRecordFunctionWithComparison functionComparison = (QueryRecordFunctionWithComparison)filterComponent;
-                plan = planVersion(candidateScan, index, functionComparison, sort);
-            } else if (filterComponent instanceof QueryKeyExpressionWithComparison) {
-                plan = planQueryKeyExpressionWithComparison(candidateScan, index, (QueryKeyExpressionWithComparison)filterComponent, sort);
-                if (plan != null) {
-                    unsatisfiedFilters.remove(filterChild);
-                    return plan.withUnsatisfiedFilters(unsatisfiedFilters);
-                }
-            }
-
-            if (plan != null) {
-                unsatisfiedFilters.remove(filterChild);
-                return plan.withUnsatisfiedFilters(unsatisfiedFilters);
-            }
-        }
-        return null;
     }
 
     @Nullable
@@ -1227,7 +1221,12 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (unionPlan.getComplexity() > complexityThreshold) {
             throw new RecordQueryPlanComplexityException(unionPlan);
         }
-        return new ScoredPlan(1, unionPlan, Collections.emptyList(), anyDuplicates, includedRankComparisons);
+
+        // If we don't change this when shouldAttemptFailedInJoinAsOr() is true, then we _always_ pick the union plan,
+        // rather than the in join plan.
+        int score = getConfiguration().shouldAttemptFailedInJoinAsOr() ? 0 : 1;
+
+        return new ScoredPlan(score, unionPlan, Collections.emptyList(), anyDuplicates, includedRankComparisons);
     }
 
     @Nullable
@@ -1285,20 +1284,49 @@ public class RecordQueryPlanner implements QueryPlanner {
             QueryComponent child1 = and.getChildren().get(0);
             QueryComponent child2 = and.getChildren().get(1);
             if (child1 instanceof OrComponent && Query.isSingleFieldComparison(child2)) {
-                return OrComponent.from(distributeAnd(child2, ((OrComponent)child1).getChildren()));
+                return OrComponent.from(distributeAnd(Collections.singletonList(child2), ((OrComponent)child1).getChildren()));
             }
             if (child2 instanceof OrComponent && Query.isSingleFieldComparison(child1)) {
-                return OrComponent.from(distributeAnd(child1, ((OrComponent)child2).getChildren()));
+                return OrComponent.from(distributeAnd(Collections.singletonList(child1), ((OrComponent)child2).getChildren()));
             }
         }
         return and;
     }
 
-    private List<QueryComponent> distributeAnd(QueryComponent component, List<QueryComponent> children) {
+    private QueryComponent normalizeAndOrForInAsOr(@Nonnull QueryComponent component) {
+        if (!(component instanceof AndComponent)) {
+            return component;
+        }
+        final AndComponent and = (AndComponent) component;
+        OrComponent singleOrChild = null;
+        final List<QueryComponent> otherChildren = new ArrayList<>();
+
+        for (QueryComponent child : and.getChildren()) {
+            if (child instanceof OrComponent) {
+                if (singleOrChild == null) {
+                    singleOrChild = (OrComponent) child;
+                } else {
+                    return and;
+                }
+            } else if (Query.isSingleFieldComparison(child)) {
+                otherChildren.add(child);
+            } else {
+                return and;
+            }
+        }
+        if (singleOrChild == null) {
+            return and;
+        }
+
+        // We have exactly one OR child and the others are single field comparisons
+        return OrComponent.from(distributeAnd(otherChildren, singleOrChild.getChildren()));
+    }
+
+    private List<QueryComponent> distributeAnd(List<QueryComponent> predicatesToDistribute, List<QueryComponent> children) {
         List<QueryComponent> distributed = new ArrayList<>();
         for (QueryComponent child : children) {
             List<QueryComponent> conjuncts = new ArrayList<>(2);
-            conjuncts.add(component);
+            conjuncts.addAll(predicatesToDistribute);
             if (child instanceof AndComponent) {
                 conjuncts.addAll(((AndComponent)child).getChildren());
             } else {
@@ -1429,6 +1457,17 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     public RecordQueryPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull String indexName) {
         final Index index = metaData.getIndex(indexName);
+        KeyExpression indexExpr = index.getRootExpression();
+        if (indexExpr instanceof GroupingKeyExpression) {
+            indexExpr = ((GroupingKeyExpression)indexExpr).getGroupingSubKey();
+        } else {
+            indexExpr = EmptyKeyExpression.EMPTY;
+        }
+        return planCoveringAggregateIndex(query, index, indexExpr);
+    }
+
+    @Nullable
+    public RecordQueryPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index, @Nonnull KeyExpression indexExpr) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
             // Unfortunately, since we materialize partial records, we need a unique type for them.
@@ -1438,12 +1477,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         final PlanContext planContext = getPlanContext(query);
         planContext.rankComparisons = new RankComparisons(query.getFilter(), planContext.indexes);
         final CandidateScan candidateScan = new CandidateScan(planContext, index, query.isSortReverse());
-        KeyExpression indexExpr = index.getRootExpression();
-        if (indexExpr instanceof GroupingKeyExpression) {
-            indexExpr = ((GroupingKeyExpression)indexExpr).getGroupingSubKey();
-        } else {
-            indexExpr = EmptyKeyExpression.EMPTY;
-        }
         final ScoredPlan scoredPlan = planCandidateScan(candidateScan, indexExpr,
                 BooleanNormalizer.withLimit(complexityThreshold).normalizeIfPossible(query.getFilter()), query.getSort());
         // It would be possible to handle unsatisfiedFilters if they, too, only involved group key (covering) fields.
@@ -1572,9 +1605,31 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
+    /**
+     * Mini-planner for handling the way that queries with multiple filters ("ands") on indexes with multiple components
+     * ("thens"). This handles things like matching comparisons to the different columns of the index and then combining
+     * them into a single scan, as well as validating that the sort is matched correctly.
+     *
+     * <p>
+     * In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
+     * like (1) a single filter on a compound index and (2) multiple filters on a single index. This is because those
+     * cases end up having more-or-less the same logic as the multi-field cases.
+     * </p>
+     */
     private class AndWithThenPlanner {
-        @Nonnull
+        /**
+         * The original root expression on the index or {@code null} if the index actually has only a single column.
+         */
+        @Nullable
         private final ThenKeyExpression index;
+        /**
+         * The children of the root expression or a single key expression if the index actually has only a single column.
+         */
+        @Nonnull
+        private final List<KeyExpression> indexChildren;
+        /**
+         * The children of the {@link AndComponent} or a single filter if the query is actually on a single component.
+         */
         @Nonnull
         private final List<QueryComponent> filters;
         @Nullable
@@ -1619,7 +1674,25 @@ public class RecordQueryPlanner implements QueryPlanner {
                                   @Nonnull ThenKeyExpression index,
                                   @Nonnull List<QueryComponent> filters,
                                   @Nullable KeyExpression sort) {
+            this (candidateScan, index, index.getChildren(), filters, sort);
+        }
+
+        @SpotBugsSuppressWarnings(value = {"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION"}, justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                  @Nonnull List<KeyExpression> indexChildren,
+                                  @Nonnull AndComponent filter,
+                                  @Nullable KeyExpression sort) {
+            this(candidateScan, null, indexChildren, filter.getChildren(), sort);
+        }
+
+        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        private AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                   @Nullable ThenKeyExpression index,
+                                   @Nonnull List<KeyExpression> indexChildren,
+                                   @Nonnull List<QueryComponent> filters,
+                                   @Nullable KeyExpression sort) {
             this.index = index;
+            this.indexChildren = indexChildren;
             this.filters = filters;
             this.sort = sort;
             this.candidateScan = candidateScan;
@@ -1631,7 +1704,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         public ScoredPlan plan() {
             setupPlanState();
             boolean doneComparing = false;
-            for (KeyExpression child : index.getChildren()) {
+            for (KeyExpression child : indexChildren) {
                 if (!doneComparing) {
                     planChild(child);
                     if (!comparisons.isEquality() || !foundComparison) {
@@ -1660,7 +1733,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             boolean createsDuplicates = false;
             if (candidateScan.index != null) {
                 createsDuplicates = candidateScan.index.getRootExpression().createsDuplicates();
-                if (createsDuplicates && index.createsDuplicatesAfter(comparisons.size())) {
+                if (createsDuplicates && index != null && index.createsDuplicatesAfter(comparisons.size())) {
                     // If fields after we stopped comparing create duplicates, they might be empty, so that a record
                     // that otherwise matches the comparisons would be absent from the index entirely.
                     return null;

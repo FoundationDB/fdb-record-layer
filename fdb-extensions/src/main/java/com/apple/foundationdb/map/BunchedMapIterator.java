@@ -30,7 +30,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -52,8 +51,7 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
     @Nonnull private final Subspace subspace;
     @Nonnull private final ReadTransaction tr;
     @Nonnull private final byte[] subspaceKey;
-    @Nonnull private final BunchedSerializer<K,V> serializer;
-    @Nonnull private final Comparator<K> keyComparator;
+    @Nonnull private final BunchedMap<K, V> bunchedMap;
     @Nullable private final K continuationKey;
     private final boolean reverse;
     private final int limit;
@@ -72,8 +70,7 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
                        @Nonnull ReadTransaction tr,
                        @Nonnull Subspace subspace,
                        @Nonnull byte[] subspaceKey,
-                       @Nonnull BunchedSerializer<K,V> serializer,
-                       @Nonnull Comparator<K> keyComparator,
+                       @Nonnull BunchedMap<K, V> bunchedMap,
                        @Nullable K continuationKey,
                        int limit,
                        boolean reverse) {
@@ -81,8 +78,7 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
         this.tr = tr;
         this.subspace = subspace;
         this.subspaceKey = subspaceKey;
-        this.serializer = serializer;
-        this.keyComparator = keyComparator;
+        this.bunchedMap = bunchedMap;
         this.continuationKey = continuationKey;
         this.continuationSatisfied = continuationKey == null;
         this.limit = limit;
@@ -121,8 +117,8 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
                             }
                         }
                         underlying.next(); // Advance the underlying scan.
-                        final K boundaryKey = serializer.deserializeKey(underlyingNext.getKey(), subspaceKey.length);
-                        List<Map.Entry<K,V>> nextEntryList = serializer.deserializeEntries(boundaryKey, underlyingNext.getValue());
+                        final K boundaryKey = bunchedMap.getSerializer().deserializeKey(underlyingNext.getKey(), subspaceKey.length);
+                        List<Map.Entry<K,V>> nextEntryList = bunchedMap.getSerializer().deserializeEntries(boundaryKey, underlyingNext.getValue());
                         if (nextEntryList.isEmpty()) {
                             // No entries in list. Try next key.
                             return underlying.onHasNext();
@@ -130,7 +126,7 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
                         int nextItemIndex = reverse ? nextEntryList.size() - 1 : 0;
                         if (!continuationSatisfied) {
                             while (nextItemIndex >= 0 && nextItemIndex < nextEntryList.size()
-                                    && keyComparator.compare(continuationKey, nextEntryList.get(nextItemIndex).getKey()) * (reverse ? -1 : 1) >= 0) {
+                                    && bunchedMap.getKeyComparator().compare(continuationKey, nextEntryList.get(nextItemIndex).getKey()) * (reverse ? -1 : 1) >= 0) {
                                 nextItemIndex += reverse ? -1 : 1;
                             }
                             if (nextItemIndex < 0 || nextItemIndex >= nextEntryList.size()) {
@@ -214,7 +210,7 @@ public class BunchedMapIterator<K,V> implements AsyncPeekIterator<Map.Entry<K,V>
             // It's possible we both exhausted the underlying scan
             // and hit the limit, but the next time this gets called,
             // it just won't return anything.
-            return serializer.serializeKey(lastKey);
+            return bunchedMap.getSerializer().serializeKey(lastKey);
         }
     }
 

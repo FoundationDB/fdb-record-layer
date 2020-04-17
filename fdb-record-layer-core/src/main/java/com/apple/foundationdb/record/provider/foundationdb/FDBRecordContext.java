@@ -25,13 +25,13 @@ import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -43,14 +43,13 @@ import com.google.common.base.Utf8;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
-import java.util.LinkedHashMap;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,7 +59,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -144,6 +142,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final FDBDatabase.WeakReadSemantics weakReadSemantics;
     @Nonnull
     private final FDBTransactionPriority priority;
+    private final long timeoutMillis;
     @Nullable
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
     @Nonnull
@@ -153,52 +152,72 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
 
-    protected FDBRecordContext(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext,
-                               boolean transactionIsTraced, @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics,
-                               @Nonnull FDBTransactionPriority priority,
-                               @Nullable String transactionId) {
-        super(fdb, fdb.createTransaction(initExecutor(fdb, mdcContext), mdcContext, transactionIsTraced));
+    protected FDBRecordContext(@Nonnull FDBDatabase fdb,
+                               @Nonnull Transaction transaction,
+                               @Nonnull FDBRecordContextConfig config,
+                               boolean transactionIsTraced) {
+        super(fdb, transaction, config.getTimer());
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>();
         this.versionMutationCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
-        this.transactionId = getSanitizedId(transactionId);
+        this.transactionId = getSanitizedId(config);
 
+        @Nonnull Transaction tr = ensureActive();
         if (this.transactionId != null) {
-            ensureActive().options().setDebugTransactionIdentifier(this.transactionId);
+            tr.options().setDebugTransactionIdentifier(this.transactionId);
             if (transactionIsTraced) {
                 logTransaction();
             }
         }
 
         // If a causal read risky is requested, we set the corresponding transaction option
+        this.weakReadSemantics = config.getWeakReadSemantics();
         if (weakReadSemantics != null && weakReadSemantics.isCausalReadRisky()) {
-            transaction.options().setCausalReadRisky();
+            tr.options().setCausalReadRisky();
         }
 
-        this.priority = priority;
+        this.priority = config.getPriority();
         switch (priority) {
             case BATCH:
-                transaction.options().setPriorityBatch();
+                tr.options().setPriorityBatch();
                 break;
             case DEFAULT:
                 // Default priority does not need to set any option
                 break;
             case SYSTEM_IMMEDIATE:
-                transaction.options().setPrioritySystemImmediate();
+                tr.options().setPrioritySystemImmediate();
                 break;
             default:
                 throw new RecordCoreArgumentException("unknown priority level " + priority);
         }
 
-        this.weakReadSemantics = weakReadSemantics;
+        // Set the transaction timeout based on the config (if set) and the database factory otherwise
+        this.timeoutMillis = getTimeoutMillisToSet(fdb, config);
+        if (timeoutMillis != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
+            // If the value is DEFAULT_TR_TIMEOUT_MILLIS, then this uses the system default and does not need to be set here
+            tr.options().setTimeout(timeoutMillis);
+        }
+
         this.dirtyStoreState = false;
     }
 
     @Nullable
-    private static String getSanitizedId(@Nullable String id) {
+    private static String getSanitizedId(@Nonnull FDBRecordContextConfig config) {
+        if (config.getTransactionId() != null) {
+            return getSanitizedId(config.getTransactionId());
+        } else if (config.getMdcContext() != null) {
+            String mdcId = config.getMdcContext().get("uuid");
+            return mdcId == null ? null : getSanitizedId(mdcId);
+        } else {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static String getSanitizedId(@Nonnull String id) {
         try {
-            if (id != null && Utf8.encodedLength(id) > MAX_TR_ID_SIZE) {
+            if (Utf8.encodedLength(id) > MAX_TR_ID_SIZE) {
                 if (CharMatcher.ascii().matchesAllOf(id)) {
                     // Most of the time, the string will be of ascii characters, so return a truncated ID based on length
                     return id.substring(0, MAX_TR_ID_SIZE - 3) + "...";
@@ -213,6 +232,14 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             }
         } catch (IllegalArgumentException e) {
             return null;
+        }
+    }
+
+    private static long getTimeoutMillisToSet(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordContextConfig config) {
+        if (config.getTransactionTimeoutMillis() != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
+            return config.getTransactionTimeoutMillis();
+        } else {
+            return fdb.getFactory().getTransactionTimeoutMillis();
         }
     }
 
@@ -251,6 +278,26 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     public String getTransactionId() {
         return transactionId;
+    }
+
+    /**
+     * Get the timeout time for the underlying transaction. The value returned here is whatever timeout is actually
+     * set for this transaction, if one is set through the context's constructor. This can be from either an
+     * {@link FDBDatabaseFactory}, an {@link FDBDatabaseRunner}, or an {@link FDBRecordContextConfig}. If this
+     * returns {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS}, then this indicates that the transaction was
+     * set using the default system timeout, which is configured with {@link com.apple.foundationdb.DatabaseOptions#setTransactionTimeout(long)}.
+     * As those options can not be inspected through FoundationDB Java bindings, this method cannot return an
+     * accurate result. Likewise, if a user explicitly sets the underlying option using {@link com.apple.foundationdb.TransactionOptions#setTimeout(long)},
+     * then this method will not return an accurate result.
+     *
+     * @return the timeout configured for this transaction at its initialization
+     * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
+     * @see FDBDatabaseRunner#setTransactionTimeoutMillis(long)
+     * @see FDBRecordContextConfig.Builder#setTransactionTimeoutMillis(long)
+     * @see FDBExceptions.FDBStoreTransactionTimeoutException
+     */
+    public long getTimeoutMillis() {
+        return timeoutMillis;
     }
 
     /**
@@ -999,82 +1046,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
-    // Similar things save the context at Executor.execute(Runnable) time and restore it at Runnable.run() time.
-    // That does not work well here, where the originating event is from the common FDB network thread.
-    // Instead, restore it from transaction begin time, which captures context reasonably well.
-
-    protected static Executor initExecutor(@Nonnull FDBDatabase fdb, @Nullable Map<String, String> mdcContext) {
-        if (mdcContext == null) {
-            return fdb.getExecutor();
-        } else {
-            return new ContextRestoringExecutor(fdb.getExecutor(), mdcContext);
-        }
-    }
-
-    static class ContextRestoringExecutor implements Executor {
-        @Nonnull
-        private final Executor delegate;
-        @Nonnull
-        private final Map<String, String> mdcContext;
-
-        public ContextRestoringExecutor(@Nonnull Executor delegate, @Nonnull Map<String, String> mdcContext) {
-            this.delegate = delegate;
-            this.mdcContext = mdcContext;
-        }
-
-        @Override
-        public void execute(Runnable task) {
-            if (!(task instanceof ContextRestoringRunnable)) {
-                task = new ContextRestoringRunnable(task, mdcContext);
-            }
-            delegate.execute(task);
-        }
-
-        @Nonnull
-        public Map<String, String> getMdcContext() {
-            return mdcContext;
-        }
-    }
-
-    static class ContextRestoringRunnable implements Runnable {
-        private final Runnable delegate;
-        private final Map<String, String> mdcContext;
-
-        public ContextRestoringRunnable(@Nonnull Runnable delegate, @Nonnull Map<String, String> mdcContext) {
-            this.delegate = delegate;
-            this.mdcContext = mdcContext;
-        }
-
-        @Override
-        public void run() {
-            try {
-                restoreMdc(mdcContext);
-                delegate.run();
-            } finally {
-                clearMdc(mdcContext);
-            }
-        }
-    }
-
     @Nullable
     public Map<String, String> getMdcContext() {
         if (getExecutor() instanceof ContextRestoringExecutor) {
             return ((ContextRestoringExecutor)getExecutor()).getMdcContext();
         } else {
             return null;
-        }
-    }
-
-    static void restoreMdc(@Nonnull Map<String, String> mdcContext) {
-        MDC.clear();
-        for (Map.Entry<String, String> entry : mdcContext.entrySet()) {
-            MDC.put(entry.getKey(), entry.getValue());
-        }
-    }
-
-    static void clearMdc(@Nonnull Map<String, String> mdcContext) {
-        for (String key : mdcContext.keySet()) {
-            MDC.remove(key);
         }
     }
 
@@ -1085,6 +1062,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * <li>Same {@linkplain FDBStoreTimer timer}</li>
      * <li>Same {@linkplain #getMdcContext() MDC context}</li>
      * <li>Same {@linkplain FDBDatabase.WeakReadSemantics weak read semantics}</li>
+     * <li>Same {@linkplain FDBTransactionPriority priority}</li>
+     * <li>Same {@linkplain #getTimeoutMillis() transaction timeout}</li>
      * </ul>
      * @return a new database runner based on this context
      */
@@ -1094,6 +1073,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         runner.setTimer(timer);
         runner.setMdcContext(getMdcContext());
         runner.setWeakReadSemantics(weakReadSemantics);
+        runner.setPriority(priority);
+        runner.setTransactionTimeoutMillis(timeoutMillis);
         return runner;
     }
 

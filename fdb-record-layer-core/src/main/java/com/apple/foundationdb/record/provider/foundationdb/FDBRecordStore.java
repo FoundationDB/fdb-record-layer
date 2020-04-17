@@ -26,13 +26,16 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.ByteScanLimiter;
+import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -54,7 +57,6 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -120,8 +122,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -994,10 +996,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final LoggableException ex2 = new RecordCoreException("Failed to deserialize record", ex);
             ex2.addLogInfo(
                     subspaceProvider.logKey(), subspaceProvider.toString(context),
-                    LogMessageKeys.PRIMARY_KEY, primaryKey);
+                    LogMessageKeys.PRIMARY_KEY, primaryKey,
+                    LogMessageKeys.META_DATA_VERSION, metaData.getVersion());
             if (LOGGER.isDebugEnabled()) {
-                ex2.addLogInfo("serialized", ByteArrayUtil2.loggable(serialized),
-                        "descriptor", metaData.getUnionDescriptor().getFile().toProto());
+                ex2.addLogInfo("serialized", ByteArrayUtil2.loggable(serialized));
+            }
+            if (LOGGER.isTraceEnabled()) {
+                ex2.addLogInfo("descriptor", metaData.getUnionDescriptor().getFile().toProto());
             }
             throw ex2;
         }
@@ -1197,7 +1202,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                               @Nullable byte[] continuation,
                                               @Nonnull ScanProperties scanProperties) {
         if (!isIndexReadable(index)) {
-            throw recordCoreException("Cannot scan non-readable index " + index.getName());
+            throw new ScanNonReadableIndexException("Cannot scan non-readable index",
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    subspaceProvider.logKey(), subspaceProvider.toString(context));
         }
         RecordCursor<IndexEntry> result = getIndexMaintainer(index)
                 .scan(scanType, range, continuation, scanProperties);
@@ -1591,6 +1598,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         throw recordCoreException("Require a COUNT index on " + recordTypeName);
     }
 
+    static byte[] encodeRecordCount(long count) {
+        return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
+    }
+
     public static long decodeRecordCount(@Nullable byte[] bytes) {
         return bytes == null ? 0 : ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
     }
@@ -1643,7 +1654,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nonnull TupleRange range,
                                                               @Nonnull IsolationLevel isolationLevel) {
         return IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, recordTypeNames)
-                .orElseThrow(() -> recordCoreException("Aggregate function " + aggregateFunction + " requires appropriate index"))
+                .orElseThrow(() ->
+                        new AggregateFunctionNotSupportedException("Aggregate function requires appropriate index",
+                                LogMessageKeys.FUNCTION, aggregateFunction,
+                                subspaceProvider.logKey(), subspaceProvider.toString(context)))
                 .evaluateAggregateFunction(aggregateFunction, range, isolationLevel);
     }
 
@@ -2070,10 +2084,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index) {
-        return markIndexWriteOnly(index).thenApply(changed -> {
-            clearIndexData(index);
-            return null;
-        });
+        return markIndexWriteOnly(index)
+                .thenRun(() -> clearIndexData(index));
     }
 
     /**
@@ -2719,7 +2731,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 .setContext(getContext())
                 .setRange(TupleRange.ALL)
                 .setContinuation(null)
-                .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setIsolationLevel(isolationLevel).build()))
+                .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder()
+                        .setIsolationLevel(isolationLevel)
+                        .setDefaultCursorStreamingMode(CursorStreamingMode.WANT_ALL)
+                        .build())
+                )
                 .build();
         FDBStoreTimer timer = getTimer();
         CompletableFuture<Map<String, IndexState>> result = cursor.asList().thenApply(list -> {
@@ -2894,6 +2910,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     public boolean isIndexDisabled(@Nonnull String indexName) {
         return getIndexState(indexName).equals(IndexState.DISABLED);
+    }
+
+    /**
+     * Get the progress of building the given index.
+     * @param index the index to check the index build state
+     * @return a future that completes to the progress of building the given index
+     * @see IndexBuildState
+     */
+    public CompletableFuture<IndexBuildState> getIndexBuildStateAsync(Index index) {
+        return IndexBuildState.loadIndexBuildStateAsync(this, index);
     }
 
     // Remove any indexes that do not match the filter.
@@ -3476,6 +3502,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(indexSecondarySubspace(index).range());
         tr.clear(indexRangeSubspace(index).range());
         tr.clear(indexUniquenessViolationsSubspace(index).range());
+        // Under the index build subspace, there are two lower level subspaces, the lock space and the scanned records
+        // subspace. We are not supposed to clear the lock subspace, which is used to run online index jobs which may
+        // invoke this method. But we should clear the scanned records subspace, which, roughly speaking, counts how
+        // many records of this store are covered in index range subspace.
+        tr.clear(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).range());
     }
 
     public void removeFormerIndex(FormerIndex formerIndex) {

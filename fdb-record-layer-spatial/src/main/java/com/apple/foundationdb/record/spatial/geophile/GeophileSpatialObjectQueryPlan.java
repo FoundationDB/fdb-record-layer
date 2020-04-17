@@ -163,6 +163,11 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
     }
 
     @Override
+    public boolean hasLoadBykeys() {
+        return false;
+    }
+
+    @Override
     public void logPlanStructure(StoreTimer timer) {
         timer.increment(FDBStoreTimer.Counts.PLAN_INDEX);
     }

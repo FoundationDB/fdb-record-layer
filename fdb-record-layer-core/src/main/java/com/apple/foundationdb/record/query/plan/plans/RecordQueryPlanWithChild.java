@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A query plan with a single child plan.
@@ -42,5 +43,31 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     @Override
     default int getRelationalChildCount() {
         return 1;
+    }
+
+    @Override
+    default boolean hasRecordScan() {
+        return getChild().hasRecordScan();
+    }
+
+    @Override
+    default boolean hasFullRecordScan() {
+        return getChild().hasFullRecordScan();
+    }
+
+    @Override
+    default boolean hasIndexScan(@Nonnull String indexName) {
+        return getChild().hasIndexScan(indexName);
+    }
+
+    @Nonnull
+    @Override
+    default Set<String> getUsedIndexes() {
+        return getChild().getUsedIndexes();
+    }
+
+    @Override
+    default boolean hasLoadBykeys() {
+        return getChild().hasLoadBykeys();
     }
 }

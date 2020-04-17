@@ -23,39 +23,33 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Track number of records scanned up to some limit, after which record scans should not be allowed.
  *
  * @see ExecuteState#getRecordScanLimiter
  */
-@API(API.Status.MAINTAINED)
-public class RecordScanLimiter {
-    private final int originalLimit;
-    private final AtomicInteger allowedRecordScansRemaining;
-
-    public RecordScanLimiter(int limit) {
-        originalLimit = limit;
-        allowedRecordScansRemaining = new AtomicInteger(limit);
-    }
-
+@API(API.Status.INTERNAL)
+public interface RecordScanLimiter {
     /**
      * Create a new {@code RecordScanLimiter} with this limiter's original limit, ignoring any calls to {@link #tryRecordScan()}.
      * @return a new limiter with the same original scan limit as this limiter
      */
     @Nonnull
-    public RecordScanLimiter reset() {
-        return new RecordScanLimiter(originalLimit);
-    }
+    RecordScanLimiter reset();
+
+    /**
+     * Return whether or not this limiter has an actual limit.
+     *
+     * @return {@code true} if the limiter is enforcing a limit.
+     */
+    boolean isEnforcing();
 
     /**
      * Atomically decrement the counter and return false if falls below 0.
      * @return <code>true</code> if the remaining count is at least 0, and <code>false</code> if it is less than 0
      */
-    public boolean tryRecordScan() {
-        return allowedRecordScansRemaining.getAndDecrement() > 0;
-    }
+    boolean tryRecordScan();
 
     /**
      * Get the record scan limit. In particular, this will return the target
@@ -63,13 +57,13 @@ public class RecordScanLimiter {
      *
      * @return the record scan limit being enforced
      */
-    public int getLimit() {
-        return originalLimit;
-    }
+    int getLimit();
 
-    @Override
-    public String toString() {
-        return String.format("RecordScanLimiter(%d limit, %d left)", originalLimit, allowedRecordScansRemaining.get());
-    }
+    /**
+     * Returns the number of records that have been scanned thus far.
+     *
+     * @return the number of records that have been scanned
+     */
+    int getRecordsScanned();
 }
 

@@ -24,9 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ExtendedDirectoryLayer;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -113,7 +116,11 @@ public class FDBStoreTimer extends StoreTimer {
          * This time includes fetching from the database and deserialization.
          */
         LOAD_RECORD("load record"),
-        /** The amount of time taken loading record versions. */
+        /**
+         * The amount of time taken loading record versions.
+         * @deprecated this is no longer published
+         */
+        @Deprecated
         LOAD_RECORD_VERSION("load record version"),
         /** The amount of time taken scanning records directly without any index. */
         SCAN_RECORDS("scan records"),
@@ -168,7 +175,11 @@ public class FDBStoreTimer extends StoreTimer {
         INTERNING_LAYER_CREATE("create the value in the interning layer"),
         /** The amount of time spent loading boundary keys. */
         LOAD_BOUNDARY_KEYS("load boundary keys"),
-        /** The amount of time spent computing boundary keys. */
+        /**
+         * The amount of time spent computing boundary keys.
+         * @deprecated this is no longer used
+         */
+        @Deprecated
         COMPUTE_BOUNDARY_KEYS("compute boundary keys"),
         /** The amount of time spent reading a sample key to measure read latency. */
         READ_SAMPLE_KEY("read sample key"),
@@ -197,7 +208,12 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSubDirectoryOperation}. */
         TIME_WINDOW_LEADERBOARD_GET_SUB_DIRECTORY("leaderboard get sub-directory"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardSaveSubDirectory}. */
-        TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory");
+        TIME_WINDOW_LEADERBOARD_SAVE_SUB_DIRECTORY("leaderboard save sub-directory"),
+        /** The total number of timeouts that have happened during asyncToSync and their durations. */
+        TIMEOUTS("timeouts"),
+        /** Total number and duration of commits. */
+        COMMITS("commits")
+        ;
 
         private final String title;
         private final String logKey;
@@ -242,6 +258,12 @@ public class FDBStoreTimer extends StoreTimer {
         RANKED_SET_NEXT_LOOKUP_KEY("ranked set next lookup key"),
         /** The amount of time spent checking for a key in a {@link com.apple.foundationdb.async.RankedSet} skip list. */
         RANKED_SET_CONTAINS("ranked set contains"),
+        /** The amount of time spent adding to the finest level of a {@link com.apple.foundationdb.async.RankedSet} skip list. */
+        RANKED_SET_ADD_LEVEL_ZERO_KEY("ranked set add level 0 key"),
+        /** The amount of time spent incrementing an existing level key of a {@link com.apple.foundationdb.async.RankedSet} skip list. */
+        RANKED_SET_ADD_INCREMENT_LEVEL_KEY("ranked set add increment level key"),
+        /** The amount of time spent incrementing an splitting a level of a {@link com.apple.foundationdb.async.RankedSet} skip list by inserting another key. */
+        RANKED_SET_ADD_INSERT_LEVEL_KEY("ranked set add insert level key"),
         /** The amount of time spent reading the lock state of a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver}. */
         RESOLVER_STATE_READ("read resolver state"),
         /** The amount of time spent scanning the directory subspace after a hard miss in {@link FDBReverseDirectoryCache}. */
@@ -315,12 +337,16 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_CHECK_VERSION("wait for check version"),
         /** Wait for {@link OnlineIndexer} to complete building an index. */
         WAIT_ONLINE_BUILD_INDEX("wait for online build index"),
+        /** Wait for {@link OnlineIndexer} to stop ongoing online index builds. */
+        WAIT_STOP_ONLINE_INDEX_BUILD("wait for stopping ongoing online index builds"),
         /** Wait for {@link OnlineIndexer} to build endpoints. */
         WAIT_BUILD_ENDPOINTS("wait for building endpoints"),
         /** Wait for a record scan without an index. */
         WAIT_SCAN_RECORDS("wait for scan records"),
         /** Wait for a indexed record scan. */
         WAIT_SCAN_INDEX_RECORDS("wait for scan index records"),
+        /** Wait for getting index build state. */
+        WAIT_GET_INDEX_BUILD_STATE("wait for getting index build state"),
         /** Wait for query execution to complete. */
         WAIT_EXECUTE_QUERY("wait for execute query"),
         /** Wait for a reverse directory scan. */
@@ -558,6 +584,18 @@ public class FDBStoreTimer extends StoreTimer {
         INVALID_KEY_LENGTH("invalid record key", false),
         /** The number of indexes that need to be rebuilt in the record store. */
         INDEXES_NEED_REBUILDING("indexes need rebuilding", false),
+        /** The number of bytes read. */
+        BYTES_READ("bytes read", true),
+        /** The number of bytes written, not including deletes. */
+        BYTES_WRITTEN("bytes written", true),
+        /** Total number of delete (clear) operations. */
+        READS("reads", false),
+        /** Total number of write operations. */
+        WRITES("writes", false),
+        /** Total number of delete (clear) operations. */
+        DELETES("deletes", false),
+        /** Total number of mutation operations. */
+        MUTATIONS("mutations", false),
         ;
 
         private final String title;
@@ -591,12 +629,92 @@ public class FDBStoreTimer extends StoreTimer {
         }
     }
 
+    /**
+     * An aggregate over other count events.
+     */
+    public enum CountAggregates implements Aggregate, Count {
+        /**
+         * The number of bytes deleted. This represents the number of bytes cleared by all events
+         * instrumented by an {@link FDBStoreTimer}. Note that it is not possible (for efficiency
+         * reasons) to track all deleted bytes, specifically for many {@code clear()} operations.
+         * A range clear takes a start and end key and efficiently deletes all bytes in between at the
+         * server and, thus, the client has no visibility into the number of bytes actually deleted
+         * by the operation.
+         */
+        BYTES_DELETED("bytes deleted",
+                Counts.DELETE_RECORD_KEY_BYTES,
+                Counts.DELETE_RECORD_VALUE_BYTES,
+                Counts.DELETE_INDEX_KEY_BYTES,
+                Counts.DELETE_INDEX_VALUE_BYTES,
+                // The size of a record that was replaced by another record. The other record will be accounted
+                // for in the BYTES_WRITTEN, so BYTES_WRITTEN - BYTES_DELETED should be an accurate(-ish) reflection
+                // of on-disk delta.
+                Counts.REPLACE_RECORD_VALUE_BYTES
+        ),
+        ;
+        @Nonnull
+        private final String title;
+        private final boolean isSize;
+        @Nonnull
+        private final String logKey;
+        @Nonnull
+        private final Set<Count> events;
+
+        CountAggregates(@Nonnull String title, @Nonnull Count...events) {
+            this(title, null, events);
+        }
+
+        CountAggregates(@Nonnull String title, @Nullable String logKey, @Nonnull Count...events) {
+            this.title = title;
+            this.logKey = (logKey != null) ? logKey : Aggregate.super.logKey();
+            this.events = ImmutableSet.copyOf(validate((first, other) -> {
+                if (first.isSize() != other.isSize()) {
+                    throw new IllegalArgumentException("All counts must have the same isSize()");
+                }
+            }, events));
+            this.isSize = events[0].isSize();
+        }
+
+        @Override
+        @Nonnull
+        public String title() {
+            return title;
+        }
+
+        @Override
+        @Nonnull
+        public String logKey() {
+            return this.logKey;
+        }
+
+        @Override
+        public Set<Count> getComponentEvents() {
+            return events;
+        }
+
+        @Nullable
+        @Override
+        public Counter compute(@Nonnull StoreTimer storeTimer) {
+            return compute(storeTimer, events);
+        }
+
+        @Override
+        public boolean isSize() {
+            return isSize;
+        }
+    }
+
+    protected static final Set<Aggregate> ALL_AGGREGATES = new ImmutableSet.Builder<Aggregate>()
+            .add(CountAggregates.values())
+            .build();
+
     protected static Stream<Event> possibleEvents() {
         return Stream.of(
                 Events.values(),
                 DetailEvents.values(),
                 Waits.values(),
                 Counts.values(),
+                CountAggregates.values(),
                 RecordSerializer.Events.values()
         ).flatMap(Arrays::stream);
     }
@@ -607,5 +725,18 @@ public class FDBStoreTimer extends StoreTimer {
 
     public FDBStoreTimer() {
         super();
+    }
+
+    @Override
+    @Nonnull
+    public Set<Aggregate> getAggregates() {
+        return ALL_AGGREGATES;
+    }
+
+    @Override
+    public void recordTimeout(Wait event, long startTime) {
+        final long totalNanos = System.nanoTime() - startTime;
+        getCounter(Events.TIMEOUTS, true).record(totalNanos);
+        getTimeoutCounter(event, true).record(totalNanos);
     }
 }

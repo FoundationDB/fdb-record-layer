@@ -192,8 +192,7 @@ public class BunchedMapScanTest extends FDBTestBase {
                     tr,
                     bmSubspace,
                     bmSubspace.getKey(),
-                    BunchedTupleSerializer.instance(),
-                    Comparator.naturalOrder(),
+                    map,
                     continuationKey,
                     limit,
                     reverse
@@ -406,8 +405,7 @@ public class BunchedMapScanTest extends FDBTestBase {
                         bmSubspace,
                         bmSubspace.getKey(),
                         splitter,
-                        BunchedTupleSerializer.instance(),
-                        Comparator.naturalOrder(),
+                        map,
                         continuation,
                         limit,
                         reverse
@@ -426,8 +424,7 @@ public class BunchedMapScanTest extends FDBTestBase {
                         bmSubspace,
                         bmSubspace.getKey(),
                         splitter,
-                        BunchedTupleSerializer.instance(),
-                        Comparator.naturalOrder(),
+                        map,
                         continuation,
                         limit,
                         reverse
@@ -450,8 +447,7 @@ public class BunchedMapScanTest extends FDBTestBase {
                         bmSubspace,
                         bmSubspace.getKey(),
                         splitter,
-                        BunchedTupleSerializer.instance(),
-                        Comparator.naturalOrder(),
+                        map,
                         continuation,
                         limit,
                         reverse
@@ -471,8 +467,7 @@ public class BunchedMapScanTest extends FDBTestBase {
                         bmSubspace,
                         bmSubspace.getKey(),
                         splitter,
-                        BunchedTupleSerializer.instance(),
-                        Comparator.naturalOrder(),
+                        map,
                         continuation,
                         limit,
                         reverse
@@ -490,8 +485,7 @@ public class BunchedMapScanTest extends FDBTestBase {
                         bmSubspace,
                         bmSubspace.getKey(),
                         splitter,
-                        BunchedTupleSerializer.instance(),
-                        Comparator.naturalOrder(),
+                        map,
                         continuation,
                         limit,
                         reverse
