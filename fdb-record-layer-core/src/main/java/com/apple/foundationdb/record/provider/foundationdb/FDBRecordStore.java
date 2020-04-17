@@ -1309,13 +1309,32 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param context the transactional context in which to delete the record store
      * @param subspace the subspace containing the record store
      */
-    public static void deleteStore(FDBRecordContext context, Subspace subspace) {
+    public static void deleteStore(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace) {
         // In theory, we only need to set the meta-data version stamp if the record store's
         // meta-data is cacheable, but we can't know that from here.
-        context.setMetaDataVersionStamp();
-        context.setDirtyStoreState(true);
-        final Transaction transaction = context.ensureActive();
-        transaction.clear(subspace.range());
+        FDBRecordStore existingStore = context.getStore(subspace);
+        if (existingStore != null) {
+            throw new RecordStoreOpenedException(existingStore);
+        } else {
+            context.setMetaDataVersionStamp();
+            context.setDirtyStoreState(true);
+            final Transaction transaction = context.ensureActive();
+            transaction.clear(subspace.range());
+        }
+
+    }
+
+    /**
+     * An exception thrown when {@link #deleteStore(FDBRecordContext, KeySpacePath)} when there is already a store
+     * attached to the provided context.
+     */
+    @API(API.Status.MAINTAINED)
+    @SuppressWarnings("serial")
+    public static class RecordStoreOpenedException extends RecordCoreException {
+        public RecordStoreOpenedException(FDBRecordStore store) {
+            super("Tried to delete a store that has been built on the same subspace",
+                    store.getSubspaceProvider().logKey(), store.getSubspaceProvider().toString(store.context));
+        }
     }
 
     @Override
