@@ -698,13 +698,18 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testSubspaceReadWriteConflict() throws Exception {
+        // create the store, so it won't conflict on that action
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            context.commit();
+        }
         // Double check that it works to have two contexts on same space writing different records without conflict.
         try (FDBRecordContext context1 = openContext()) {
-            uncheckedOpenSimpleRecordStore(context1);
+            openSimpleRecordStore(context1);
             FDBRecordStore recordStore1 = recordStore;
             recordStore1.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1).build());
             try (FDBRecordContext context2 = openContext()) {
-                uncheckedOpenSimpleRecordStore(context2);
+                openSimpleRecordStore(context2);
                 recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2).build());
                 commit(context2);
             }
@@ -713,7 +718,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         // Again with requested conflict.
         try (FDBRecordContext context3 = openContext()) {
-            uncheckedOpenSimpleRecordStore(context3);
+            openSimpleRecordStore(context3);
             FDBRecordStore recordStore3 = recordStore;
             recordStore3.addConflictForSubspace(false);
             recordStore3.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(3).build());
