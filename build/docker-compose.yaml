@@ -2,7 +2,7 @@ version: "3"
 
 services:
   common: &common
-    image: fdb-record-layer-build:0.0.13
+    image: fdb-record-layer-build:0.0.14
     build:
       context: .
       dockerfile: Dockerfile.build
