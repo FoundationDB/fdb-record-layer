@@ -89,6 +89,20 @@ public class IndexOptions {
      */
     public static final String RANK_NLEVELS = "rankNLevels";
 
+    /**
+     * The hash function to use in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
+     *
+     * The default is {@link com.apple.foundationdb.async.RankedSet#DEFAULT_HASH_FUNCTION}.
+     */
+    public static final String RANK_HASH_FUNCTION = "rankHashFunction";
+
+    /**
+     * Whether duplicate keys count separtely in the {@link IndexTypes#RANK} skip list {@link com.apple.foundationdb.async.RankedSet}.
+     *
+     * The default is {@code false}.
+     */
+    public static final String RANK_COUNT_DUPLICATES = "rankCountDuplicates";
+
     private IndexOptions() {
     }
 }

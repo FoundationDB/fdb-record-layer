@@ -20,15 +20,18 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.ReadTransactionContext;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionContext;
@@ -48,6 +51,28 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.INTERNAL)
 public class RankedSetIndexHelper {
     public static final Tuple COMPARISON_SKIPPED_SCORE = Tuple.from(Comparisons.COMPARISON_SKIPPED_BINDING);
+
+    /**
+     * Parse standard options into {@link RankedSet.Config}.
+     * @param index the index definition to get options from
+     * @return parsed config options
+     */
+    public static RankedSet.Config getConfig(@Nonnull Index index) {
+        RankedSet.ConfigBuilder builder = RankedSet.newConfigBuilder();
+        String hashFunctionOption = index.getOption(IndexOptions.RANK_HASH_FUNCTION);
+        if (hashFunctionOption != null) {
+            builder.setHashFunction(RankedSetHashFunctions.getHashFunction(hashFunctionOption));
+        }
+        String nlevelsOption = index.getOption(IndexOptions.RANK_NLEVELS);
+        if (nlevelsOption != null) {
+            builder.setNLevels(Integer.parseInt(nlevelsOption));
+        }
+        String duplicatesOption = index.getOption(IndexOptions.RANK_COUNT_DUPLICATES);
+        if (duplicatesOption != null) {
+            builder.setCountDuplicates(Boolean.parseBoolean(duplicatesOption));
+        }
+        return builder.build();
+    }
 
     /**
      * Instrumentation events specific to rank index maintenance.
@@ -88,7 +113,7 @@ public class RankedSetIndexHelper {
     public static CompletableFuture<TupleRange> rankRangeToScoreRange(@Nonnull IndexMaintainerState state,
                                                                       int groupPrefixSize,
                                                                       @Nonnull Subspace rankSubspace,
-                                                                      int nlevels,
+                                                                      @Nonnull RankedSet.Config config,
                                                                       @Nonnull TupleRange rankRange) {
         final Tuple prefix = groupPrefix(groupPrefixSize, rankRange, rankSubspace);
         if (prefix != null) {
@@ -116,7 +141,7 @@ public class RankedSetIndexHelper {
             return CompletableFuture.completedFuture(TupleRange.allOf(prefix));
         }
 
-        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, nlevels);
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, config);
         return init(state, rankedSet).thenCompose(v -> {
             CompletableFuture<Tuple> lowScoreFuture = scoreForRank(state, rankedSet, startFromBeginning ? 0L : lowRankNum, null);
             CompletableFuture<Tuple> highScoreFuture = scoreForRank(state, rankedSet, highRankNum, null);
@@ -219,35 +244,39 @@ public class RankedSetIndexHelper {
     @Nonnull
     public static CompletableFuture<Void> updateRankedSet(@Nonnull IndexMaintainerState state,
                                                           @Nonnull Subspace rankSubspace,
-                                                          int nlevels,
+                                                          @Nonnull RankedSet.Config config,
                                                           @Nonnull Tuple valueKey,
                                                           @Nonnull Tuple scoreKey,
                                                           boolean remove) {
-        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, nlevels);
+        final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, config);
         final byte[] score = scoreKey.pack();
         CompletableFuture<Void> result = init(state, rankedSet).thenCompose(v -> {
             if (remove) {
-                // If no one else has this score, remove from ranked set.
-                return state.transaction.getRange(state.indexSubspace.range(valueKey)).iterator().onHasNext().thenCompose(hasNext -> {
-                    if (hasNext) {
-                        return AsyncUtil.DONE;
-                    } else {
-                        return rankedSet.remove(state.transaction, score).thenApply(exists -> {
-                            // It is okay if the score isn't in the ranked set yet if the index is
-                            // write only because this means that the score just hasn't yet
-                            // been added by some record. We still want the conflict ranges, though.
-                            if (!exists && !state.store.isIndexWriteOnly(state.index)) {
-                                throw new RecordCoreException("Score was not present in ranked set.");
-                            }
-                            return null;
-                        });
-                    }
-                });
+                if (config.isCountDuplicates()) {
+                    // Decrement count and possibly remove.
+                    return removeFromRankedSet(state, rankedSet, score);
+                } else {
+                    // If no one else has this score, remove from ranked set.
+                    return state.transaction.getRange(state.indexSubspace.range(valueKey)).iterator().onHasNext()
+                            .thenCompose(hasNext -> hasNext ? AsyncUtil.DONE : removeFromRankedSet(state, rankedSet, score));
+                }
             } else {
                 return rankedSet.add(state.transaction, score).thenApply(added -> null);
             }
         });
         return state.store.instrument(Events.RANKED_SET_UPDATE, result);
+    }
+
+    private static CompletableFuture<Void> removeFromRankedSet(@Nonnull IndexMaintainerState state, @Nonnull RankedSet rankedSet, @Nonnull byte[] score) {
+        return rankedSet.remove(state.transaction, score).thenApply(exists -> {
+            // It is okay if the score isn't in the ranked set yet if the index is
+            // write only because this means that the score just hasn't yet
+            // been added by some record. We still want the conflict ranges, though.
+            if (!exists && !state.store.isIndexWriteOnly(state.index)) {
+                throw new RecordCoreException("Score was not present in ranked set.");
+            }
+            return null;
+        });
     }
 
     /**
@@ -258,8 +287,8 @@ public class RankedSetIndexHelper {
 
         public InstrumentedRankedSet(@Nonnull IndexMaintainerState state,
                                      @Nonnull Subspace rankSubspace,
-                                     int nlevels) {
-            super(rankSubspace, state.context.getExecutor(), nlevels);
+                                     @Nonnull Config config) {
+            super(rankSubspace, state.context.getExecutor(), config);
             this.context = state.context;
         }
 
@@ -289,6 +318,23 @@ public class RankedSetIndexHelper {
             }
         }
 
+        @Override
+        protected CompletableFuture<Void> addLevelZeroKey(Transaction tr, byte[] key, int level, boolean increment) {
+            CompletableFuture<Void> result = super.addLevelZeroKey(tr, key, level, increment);
+            return context.instrument(FDBStoreTimer.DetailEvents.RANKED_SET_ADD_LEVEL_ZERO_KEY, result);
+        }
+
+        @Override
+        protected CompletableFuture<Void> addIncrementLevelKey(Transaction tr, byte[] key, int level, boolean orEqual) {
+            CompletableFuture<Void> result = super.addIncrementLevelKey(tr, key, level, orEqual);
+            return context.instrument(FDBStoreTimer.DetailEvents.RANKED_SET_ADD_INCREMENT_LEVEL_KEY, result);
+        }
+
+        @Override
+        protected CompletableFuture<Void> addInsertLevelKey(Transaction tr, byte[] key, int level) {
+            CompletableFuture<Void> result = super.addInsertLevelKey(tr, key, level);
+            return context.instrument(FDBStoreTimer.DetailEvents.RANKED_SET_ADD_INSERT_LEVEL_KEY, result);
+        }
     }
 
 }

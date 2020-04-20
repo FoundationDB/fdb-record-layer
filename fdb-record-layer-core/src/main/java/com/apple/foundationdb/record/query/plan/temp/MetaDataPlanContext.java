@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -98,8 +97,9 @@ public class MetaDataPlanContext implements PlanContext {
         } finally {
             recordStoreState.endRead();
         }
-        indexList.removeIf(index -> query.hasAllowedIndexes() && !query.getAllowedIndexes().contains(index.getName()) ||
-                    !query.hasAllowedIndexes() && !index.getBooleanOption(IndexOptions.ALLOWED_FOR_QUERY_OPTION, true));
+        indexList.removeIf(query.hasAllowedIndexes() ?
+                index -> !query.getAllowedIndexes().contains(index.getName()) :
+                index -> !query.getIndexQueryabilityFilter().isQueryable(index));
 
         ImmutableSet.Builder<IndexEntrySource> builder = ImmutableSet.builder();
         if (commonPrimaryKey != null) {

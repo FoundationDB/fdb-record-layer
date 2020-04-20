@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -58,7 +60,7 @@ import java.util.stream.Stream;
 @API(API.Status.MAINTAINED)
 public class StoreTimer {
     @Nonnull
-    private static final Counter EMPTY_COUNTER = new Counter();
+    private static final Counter ZERO_COUNTER = new Counter(true);
 
     @Nonnull
     protected final Map<Event, Counter> counters;
@@ -107,53 +109,100 @@ public class StoreTimer {
         }
 
         StoreTimer resultTimer = new StoreTimer();
-        timer.counters.entrySet()
-                .stream()
-                .forEach(entry -> {
-                    int count = 0;
-                    long time = 0L;
-                    if (timerSnapshot.containsCounter(entry.getKey())) {
-                        count = timerSnapshot.getCounterSnapshot(entry.getKey()).getCount();
-                        time = timerSnapshot.getCounterSnapshot(entry.getKey()).getTimeNanos();
-                    }
-                    Counter diffCounter = new Counter();
-                    diffCounter.count.set(entry.getValue().count.get() - count);
-                    diffCounter.timeNanos.set(entry.getValue().timeNanos.get() - time);
-                    resultTimer.counters.put(entry.getKey(), diffCounter);
-                });
-        timer.timeoutCounters.entrySet()
-                .stream()
-                .forEach(entry -> {
-                    int count = 0;
-                    long time = 0L;
-                    if (timerSnapshot.containsTimeoutCounter(entry.getKey())) {
-                        count = timerSnapshot.getTimeoutCounterSnapshot(entry.getKey()).getCount();
-                        time = timerSnapshot.getTimeoutCounterSnapshot(entry.getKey()).getTimeNanos();
-                    }
-                    Counter diffCounter = new Counter();
-                    diffCounter.count.set(entry.getValue().count.get() - count);
-                    diffCounter.timeNanos.set(entry.getValue().timeNanos.get() - time);
-                    resultTimer.timeoutCounters.put(entry.getKey(), diffCounter);
-                });
+        computeDifference(timer.counters, timerSnapshot.getCounters(), resultTimer.counters);
+        computeDifference(timer.timeoutCounters, timerSnapshot.getTimeoutCounters(), resultTimer.timeoutCounters);
 
         //subtracting out the snapshot has effectively made the snapshot time the last reset time
         timerSnapshot.setResetTime(resultTimer);
         return resultTimer;
     }
 
-    @Nonnull
-    protected static Counter getCounter(@Nonnull Map<Event, Counter> counters, @Nonnull Event event, boolean create) {
-        if (create) {
-            return counters.computeIfAbsent(event, evignore -> new Counter());
-        } else {
-            return counters.getOrDefault(event, EMPTY_COUNTER);
+    private static void computeDifference(@Nonnull Map<Event, Counter> timerCounters,
+                                          @Nonnull Map<Event, StoreTimerSnapshot.CounterSnapshot> snapShotCounters,
+                                          @Nonnull Map<Event, Counter> differenceCounters) {
+        for (Map.Entry<Event, Counter> entry : timerCounters.entrySet()) {
+            final Event event = entry.getKey();
+            final Counter counter = entry.getValue();
+
+            @Nullable final StoreTimerSnapshot.CounterSnapshot snapShotCounter = snapShotCounters.get(event);
+
+            // Add events that appeared in the store timer since the snapshot
+            if (snapShotCounter == null) {
+                differenceCounters.put(event, new Counter(counter));
+            } else {
+                int count = counter.getCount() - snapShotCounter.getCount();
+
+                // Do not add events that weren't changed since the snapshot
+                if (count > 0) {
+                    differenceCounters.put(event, new Counter(count, counter.getTimeNanos() - snapShotCounter.getTimeNanos()));
+                }
+            }
         }
+    }
+
+    /**
+     * Return the counter for a given event.
+     *
+     * @param event the event to have its counter retrieved
+     * @return the counter for the event or {@code null} if not counter exists
+     */
+    @Nullable
+    public Counter getCounter(@Nonnull Event event) {
+        return getCounter(event, false);
+    }
+
+    /**
+     * Return the counter value for a given event type. When {@code createIfNotExists} is {@code true} and a counter
+     * for the {@code event} did not previously exists, a zero-value counter will be created and returned, ensuring
+     * that you will never receive a {@code null} value; for {@link Aggregate} events, the zero-value counter will
+     * be immutable, however for non-aggregate events the counter returned may be updated by the caller as necessary.
+     *
+     * @param event the event to have its counter retrieved
+     * @param createIfNotExists if true the counter returned will be created if it did not already exist
+     * @return the counter for the event or {@code null} if there is no value present for the event and
+     *   {@code createIfNotExists} was false
+     */
+    @Nullable
+    protected Counter getCounter(@Nonnull Event event, boolean createIfNotExists) {
+        if (event instanceof Aggregate) {
+            @Nullable Counter counter = ((Aggregate) event).compute(this);
+            if (counter == null && createIfNotExists) {
+                return ZERO_COUNTER;
+            }
+            return counter;
+        } else {
+            if (createIfNotExists) {
+                return counters.computeIfAbsent(event, evignore -> new Counter());
+            }
+            return counters.get(event);
+        }
+    }
+
+    /**
+     * Return the timeout counter value for a given event type.
+     *
+     * @param event the event to have its counter retrieved
+     * @return the counter for the event or {@code null} if there is no value present for the event
+     */
+    @Nullable
+    public Counter getTimeoutCounter(@Nonnull Event event) {
+        return getTimeoutCounter(event, false);
+    }
+
+    @Nullable
+    protected Counter getTimeoutCounter(@Nonnull Event event, boolean createIfNotExists) {
+        if (createIfNotExists) {
+            return timeoutCounters.computeIfAbsent(event, evignore -> new Counter());
+        }
+        return timeoutCounters.get(event);
     }
 
     /**
      * An identifier for occurrences that need to be timed.
      */
     public interface Event {
+        Map<String, Map<Event, String>> LOG_KEY_SUFFIX_CACHE = new ConcurrentHashMap<>();
+
         /**
          * Get the name of this event for machine processing.
          *
@@ -180,6 +229,134 @@ public class StoreTimer {
          */
         default String logKey() {
             return this.name().toLowerCase(Locale.ROOT);
+        }
+
+        /**
+         * Return the log key with a specified suffix appended.
+         *
+         * @param suffix the suffix to append to the log key
+         * @return the log key with suffix appended
+         */
+        default String logKeyWithSuffix(@Nonnull String suffix) {
+            return LOG_KEY_SUFFIX_CACHE.computeIfAbsent(suffix, ignoredPostfix -> new ConcurrentHashMap<>())
+                    .computeIfAbsent(this, event -> event.logKey() + suffix);
+        }
+    }
+
+    /**
+     * An aggregate event is an event whose value is computed over the value of another set of events.
+     */
+    public interface Aggregate extends Event {
+
+        /**
+         * Returns the set of events that make up the aggregate.  Note that theoretically an aggregate could be defined
+         * in a manner such that some events contributed to the aggregate in different fashions (for example,
+         * {@code eventA + eventB - eventC}), in which case this method would return the fact that the three events
+         * comprise the aggregate but with no indication of in which manner they contribute to its value.
+         * @return the events that comprise the aggregate
+         */
+        Set<? extends Event> getComponentEvents();
+
+        /**
+         * Helper for implementations to validate that all of the events in the aggregate conform to
+         * some basic expectations.
+         *
+         * @param events the events too validate
+         * @param <T> the type of event
+         * @return the validated events
+         * @throws RecordCoreArgumentException if the validation assumptions are violated
+         */
+        @SuppressWarnings("unchecked")
+        default <T extends Event> T[] validate(@Nonnull T...events) {
+            return validate((a, b) -> { return; }, events);
+        }
+
+        /**
+         * Helper for implementations to validate that all of the events in the aggregate conform to
+         * some basic expectations.
+         *
+         * @param extraCheck a validation that takes the first event in the set of events and another event
+         *   in the set of events and ensures that they are sufficiently compatible to aggregatee
+         * @param events the events too validate
+         * @param <T> the type of event
+         * @return the validated events
+         * @throws RecordCoreArgumentException if the validation assumptions are violated
+         */
+        @SuppressWarnings("unchecked")
+        default <T extends Event> T[] validate(@Nonnull BiConsumer<T, T> extraCheck, @Nonnull T...events) {
+            if (events.length == 0) {
+                throw new RecordCoreArgumentException("At least one event must be supplied to aggregate");
+            }
+
+            // Ensure that all of the events to be aggregated are compatible with each other
+            if (events.length > 1) {
+                final T firstEvent = events[0];
+                for (int i = 1; i < events.length; i++) {
+                    final T event = events[i];
+                    extraCheck.accept(firstEvent, event);
+                    if (!firstEvent.getClass().isInstance(event)) {
+                        // Technically we could allow for this I think, but it feels dangerous to allow this
+                        throw new RecordCoreArgumentException("All events must be of the same type");
+                    }
+                    if (event instanceof Aggregate) {
+                        // We could allow for this by adding some cycle checking to ensure we cannot get into a loop.
+                        throw new RecordCoreArgumentException("Aggregates may not be constructed from other aggregates");
+                    }
+                }
+            }
+
+            return events;
+        }
+
+        /**
+         * Compute the value for this aggregate.
+         *
+         * @param storeTimer the time from which to draw the values that are necessary to compute this aggregate
+         * @return the computed result or null if none of the value that comprise this aggregate were available
+         */
+        @Nullable
+        Counter compute(@Nonnull StoreTimer storeTimer);
+
+        /**
+         * Compute the value for this aggregate.
+         *
+         * @param storeTimer the time from which to draw the values that are necessary to compute this aggregate
+         * @param events the events that are to be aggregated into the resulting {@code Counteer}
+         * @return the computed result or null if none of the value that comprise this aggregate were available
+         * @deprecated use {@link #compute(StoreTimer, Set)} instead
+         */
+        @Nullable
+        @Deprecated
+        @API(API.Status.DEPRECATED)
+        default Counter compute(@Nonnull StoreTimer storeTimer, @Nonnull Event...events) {
+            return compute(storeTimer, ImmutableSet.copyOf(events));
+        }
+
+        /**
+         * Compute the value for this aggregate.
+         *
+         * @param storeTimer the time from which to draw the values that are necessary to compute this aggregate
+         * @param events the events that are to be aggregated into the resulting {@code Counteer}
+         * @return the computed result or null if none of the value that comprise this aggregate were available
+         */
+        @Nullable
+        default Counter compute(@Nonnull StoreTimer storeTimer, @Nonnull Set<? extends Event> events) {
+            @Nullable StoreTimer.Counter counter = null;
+
+            for (Event event : events) {
+                @Nullable Counter value = storeTimer.counters.get(event);
+                if (value != null) {
+                    if (counter == null) {
+                        counter = new Counter();
+                    }
+                    counter.add(value);
+                }
+            }
+
+            // Make sure the counter returned cannot be mutated.  This is a safety net to ensure that
+            // no code is accidentally modifying the returned counter thinking that they are affecting
+            // an actual change in the event.
+            return counter == null ? null : counter.makeImmutable();
         }
     }
 
@@ -215,8 +392,35 @@ public class StoreTimer {
      * Contains the number of occurrences and cummulative time spent on an associated {@link StoreTimer.Event}.
      */
     public static class Counter {
-        private final AtomicLong timeNanos = new AtomicLong();
-        private final AtomicInteger count = new AtomicInteger();
+        private final AtomicLong timeNanos;
+        private final AtomicInteger count;
+        private boolean immutable;
+
+        private Counter() {
+            this(false);
+        }
+
+        private Counter(Counter counter) {
+            this(counter, false);
+        }
+
+        private Counter(Counter counter, boolean immutable) {
+            this(counter.getCount(), counter.getTimeNanos(), immutable);
+        }
+
+        private Counter(boolean immutable) {
+            this(0, 0L, immutable);
+        }
+
+        private Counter(int count, long timeNanos) {
+            this(count, timeNanos, false);
+        }
+
+        private Counter(int count, long timeNanos, boolean immutable) {
+            this.count = new AtomicInteger(count);
+            this.timeNanos = new AtomicLong(timeNanos);
+            this.immutable = immutable;
+        }
 
         /**
          * Get the number of occurrences of the associated event.
@@ -243,6 +447,7 @@ public class StoreTimer {
          * @param timeDifference additional time spent performing the associated event
          */
         public void record(long timeDifference) {
+            checkImmutable();
             timeNanos.addAndGet(timeDifference);
             count.incrementAndGet();
         }
@@ -253,7 +458,37 @@ public class StoreTimer {
          * @param amount additional number of times spent performing the associated event
          */
         public void increment(int amount) {
+            checkImmutable();
             count.addAndGet(amount);
+        }
+
+        /**
+         * Add the value of one counter into another counter.
+         *
+         * @param counter the other counter to add into this counter
+         */
+        public void add(@Nonnull Counter counter) {
+            checkImmutable();
+            timeNanos.addAndGet(counter.getTimeNanos());
+            count.addAndGet(counter.getCount());
+        }
+
+        /**
+         * For internal use during aggregate event computation; the counter can remain mutable until the
+         * computation is completed, then the counter is made immutable, ensuring that other code doesn't
+         * accidentally think it is updating a regular counter.
+         *
+         * @return this counter, now immutable
+         */
+        protected Counter makeImmutable() {
+            this.immutable = true;
+            return this;
+        }
+
+        private void checkImmutable() {
+            if (immutable) {
+                throw new RecordCoreException("immutable counter");
+            }
         }
     }
 
@@ -296,7 +531,7 @@ public class StoreTimer {
      * @param timeDifferenceNanos the time that instrumented event took to run
      */
     public void record(Event event, long timeDifferenceNanos) {
-        getCounter(counters, event, true).record(timeDifferenceNanos);
+        getCounter(event, true).record(timeDifferenceNanos);
     }
 
     /**
@@ -329,7 +564,7 @@ public class StoreTimer {
      * @param startTime the {@code System.nanoTime()} when the event started
      */
     public void recordTimeout(Wait event, long startTime) {
-        getCounter(timeoutCounters, event, true).record(System.nanoTime() - startTime);
+        getTimeoutCounter(event, true).record(System.nanoTime() - startTime);
     }
 
     /**
@@ -374,8 +609,8 @@ public class StoreTimer {
      * @param event the event being recorded
      * @param amount the number of times the event occurred
      */
-    public void increment(Count event, int amount) {
-        getCounter(counters, event, true).increment(amount);
+    public void increment(@Nonnull Count event, int amount) {
+        getCounter(event, true).increment(amount);
     }
 
     /**
@@ -386,7 +621,8 @@ public class StoreTimer {
      * @return the total number of nanoseconds recorded for the event
      */
     public long getTimeNanos(Event event) {
-        return getCounter(counters, event, false).timeNanos.get();
+        @Nullable Counter counter = getCounter(event, false);
+        return counter == null ? 0L : counter.getTimeNanos();
     }
 
     /**
@@ -397,7 +633,8 @@ public class StoreTimer {
      * @return the total number times that event was recorded
      */
     public int getCount(Event event) {
-        return getCounter(counters, event, false).count.get();
+        @Nullable Counter counter = getCounter(event, false);
+        return counter == null ? 0 : counter.getCount();
     }
 
     /**
@@ -408,7 +645,8 @@ public class StoreTimer {
      * @return the total number of nanoseconds recorded for when the event timed out
      */
     public long getTimeoutTimeNanos(Event event) {
-        return getCounter(timeoutCounters, event, false).timeNanos.get();
+        @Nullable Counter counter = getTimeoutCounter(event, false);
+        return counter == null ? 0L : counter.getTimeNanos();
     }
 
     /**
@@ -419,7 +657,22 @@ public class StoreTimer {
      * @return the total number times that event was recorded as timed out
      */
     public int getTimeoutCount(Event event) {
-        return getCounter(timeoutCounters, event, false).count.get();
+        @Nullable Counter counter = getTimeoutCounter(event, false);
+        return counter == null ? 0 : counter.getCount();
+    }
+
+    /**
+     * Return the set of aggregates that this store timer can produce. This method is expected to be
+     * overridden by implementation in order to expose whichever aggregates they produce. Note that
+     * the aggregates that are returned are the complete set that are defined for the store timer,
+     * however it is possible that a returned aggregate may not have any of the underlying counters
+     * necessary to compute its value (see {@link Aggregate#compute(StoreTimer)}).
+     *
+     * @return the set of aggregates that can be computed by this timer
+     */
+    @Nonnull
+    public Set<Aggregate> getAggregates() {
+        return Collections.emptySet();
     }
 
     /**
@@ -448,23 +701,33 @@ public class StoreTimer {
     public Map<String, Number> getKeysAndValues() {
         Collection<Event> timeoutEvents = getTimeoutEvents();
         Map<String, Number> result = new HashMap<>((counters.size() + timeoutEvents.size()) * 2);
+
         //add counter events to result map
         for (Map.Entry<Event, Counter> entry : counters.entrySet()) {
             Event event = entry.getKey();
             Counter counter = entry.getValue();
-            String prefix = event.logKey();
-            result.put(prefix + "_count", counter.count.get());
+            result.put(event.logKeyWithSuffix("_count"), counter.count.get());
             if (!(event instanceof Count)) {
-                result.put(prefix + "_micros", counter.timeNanos.get() / 1000);
+                result.put(event.logKeyWithSuffix("_micros"), counter.timeNanos.get() / 1000L);
             }
         }
 
         // now add recorded timeout events to map
         for (Event timeoutEvent : timeoutEvents) {
-            String timeoutPrefix = timeoutEvent.logKey();
-            result.put(timeoutPrefix + "_timeout_micros", getTimeoutTimeNanos(timeoutEvent) / 1000);
-            result.put(timeoutPrefix + "_timeout_count", getTimeoutCount(timeoutEvent));
+            result.put(timeoutEvent.logKeyWithSuffix("_timeout_micros"), getTimeoutTimeNanos(timeoutEvent) / 1000L);
+            result.put(timeoutEvent.logKeyWithSuffix("_timeout_count"), getTimeoutCount(timeoutEvent));
         }
+
+        for (Aggregate aggregate : getAggregates()) {
+            @Nullable Counter counter = aggregate.compute(this);
+            if (counter != null) {
+                result.put(aggregate.logKeyWithSuffix("_count"), counter.count.get());
+                if (!(aggregate instanceof Count)) {
+                    result.put(aggregate.logKeyWithSuffix("_micros"), counter.timeNanos.get() / 1000L);
+                }
+            }
+        }
+
         return result;
     }
 

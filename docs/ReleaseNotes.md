@@ -56,6 +56,8 @@ Additionally, each record store now allows users to set custom fields in the sto
 
 Importantly, it is rather expensive to write this data (as all concurrent operations to the record store will fail with a conflict), and as the data in these fields are read with every transaction, it is not advised that the user write to these fields too often or store too much data in them. However, if there is a relatively small amount of data with a very low write-rate, it might be appropriate to use this feature. This feature also requires that the user set the format version for a record store to [`HEADER_USER_FIELDS_FORMAT_VERSION`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/FDBRecordStore.html#HEADER_USER_FIELDS_FORMAT_VERSION). The default format version was not updated to that version.
 
+A client can now specify a custom `IndexQueryabilityFilter` that determines which indexes should be considered by the query planner.
+
 ### Breaking Changes
 
 A new format version, [`CACHEABLE_STATE_FORMAT_VERSION`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/FDBRecordStore.html#CACHEABLE_STATE_FORMAT_VERSION), was introduced in this version of the Record Layer. Users who wish to experience zero downtime when upgrading from earlier versions should initialize all record stores to the previous maximum format version, [`SAVE_VERSION_WITH_RECORD_FORMAT_VERSION`](https://javadoc.io/page/org.foundationdb/fdb-record-layer-core/latest/com/apple/foundationdb/record/provider/foundationdb/FDBRecordStore.html#SAVE_VERSION_WITH_RECORD_FORMAT_VERSION), until all clients have been upgraded to version 2.8. If the update is done without this measure, then older clients running 2.7 or older will not be able to read from any record stores written using version 2.8. The new format version is also required to use the new `MetaDataVersionStampStoreStateCache` class to cache a record store's initialization state.
@@ -69,6 +71,136 @@ Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` hav
 The non-static `RecordCursor::flatMapPipelined()` method has been deprecated because it is easy to mis-use (by mistaken analogy to the `mapPipelined()` method) and cannot be used with continuations. See [Issue #665](https://github.com/FoundationDB/fdb-record-layer/issues/665) for further explanation.
 
 The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecordContext::getReadVersionAsync()` and `FDBRecordContext::getReadVersion()` methods. Though not strictly necessary, users should also replace any uses of `Transaction::getReadVersion()` and `Transaction::setReadVersion()` (on the `Transaction` interface provided by the FoundationDB Java bindings) with `FDBRecordContext::getReadVersionAsync()` and `FDBRecordContext::setReadVersion()` on any transactions created by the Record Layer. This allows the Record Layer to track the version in Java memory which both can then be used to skip a JNI hop if the read version is needed, but it also allows the Record Layer to more accurately track when read versions are retrieved from the database if the user has enabled read version tracking.
+
+### 2.8.118.0
+
+* **Bug fix** `FDBDatabaseRunner`s will now refetch a fresh read version on retry to avoid hitting the same conflict multiple times [(Issue #905)](https://github.com/FoundationDB/fdb-record-layer/issues/905)
+
+### 2.8.117.0
+
+* Releases for the `fdb-record-layer-spatial` library have been re-enabled [(Issue #884)](https://github.com/FoundationDB/fdb-record-layer/issues/884)
+* All changes from [2.8.110.29](#2811029)
+
+### 2.8.116.0
+
+* **Performance** The `LocatableResolver::resolve` methods have overloads that allow ancillary transactions started for key space path resolution to avoid starting another read version request [(Issue #864)](https://github.com/FoundationDB/fdb-record-layer/issues/864)
+* **Performance** The metrics for text indexes now contain more accurate numbers for reads and writes [(Issue #876)](https://github.com/FoundationDB/fdb-record-layer/issues/876)
+* **Performance** Index states are now preloaded in fewer round trips [(Issue #881)](https://github.com/FoundationDB/fdb-record-layer/issues/881)
+* **Feature** Replace some aggregate metrics with accurate counters [(Issue #866)](https://github.com/FoundationDB/fdb-record-layer/issues/866)
+* Releases for the `fdb-record-layer-spatial` library have been temporarily disabled [(Issue #884)](https://github.com/FoundationDB/fdb-record-layer/issues/884)
+
+### 2.8.110.29
+
+* All changes from [2.8.104.28](#2810428)
+
+### 2.8.110.0
+
+* All changes from [2.8.104.26](#2810426)
+
+### 2.8.109.0
+
+* All changes from version [2.8.104.24](#2810425)
+
+### 2.8.107.0
+
+* **Feature** Enhance KeySpaceCountTree to allow for application-specific resolution [(Issue #852)](https://github.com/FoundationDB/fdb-record-layer/issues/852)
+
+### 2.8.106.0
+
+* **Feature** Rank index adds option for how to handle ties [(Issue #806)](https://github.com/FoundationDB/fdb-record-layer/issues/806)
+* **Feature** StoreTimer aggregates can return their componeent events [(Issue #857)](https://github.com/FoundationDB/fdb-record-layer/issues/857)
+* **Breaking change** StoreTimer aggregates now require getComponentEvents() method [(Issue #857)](https://github.com/FoundationDB/fdb-record-layer/issues/857)
+
+### 2.8.105.0
+
+* **Feature** The transaction timeout option can now be set on `FDBRecordContext`s [(Issue #848)](https://github.com/FoundationDB/fdb-record-layer/issues/848)
+* **Breaking change** Additional methods, `setTransactionTimeoutMillis` and `getTransactionTimeoutMillis`, were added to the `FDBDatabaseRunner` interface that implementors will need to react to [(Issue #848)](https://github.com/FoundationDB/fdb-record-layer/issues/848)
+* **Breaking change** In resolving [Issue #848](https://github.com/FoundationDB/fdb-record-layer/issues/848), the semantics of setting a transaction ID were slightly modified so that an explicit `null` ID now also checks the MDC [(PR #849)](https://github.com/FoundationDB/fdb-record-layer/pull/849)
+
+### 2.8.104.28
+
+* **Performance** When an `IN` query is transformed to an `OR`, other query predicates are now normalized to allow for better plans [(Issue #888)](https://github.com/FoundationDB/fdb-record-layer/issues/888)
+
+### 2.8.104.26
+
+* **Feature** Expose random hash as an index option [(Issue #869)](https://github.com/FoundationDB/fdb-record-layer/issues/869)
+* **Feature** Rank index adds option for how to handle ties [(Issue #806)](https://github.com/FoundationDB/fdb-record-layer/issues/806)
+
+### 2.8.104.25
+
+* All changes from versions [2.8.102.23](#2810223) and [2.8.102.24](#2810224)
+
+### 2.8.104.0
+
+* **Performance** Aggregate metrics added for the number of reads, writes, and deletes [(Issue #839)](https://github.com/FoundationDB/fdb-record-layer/issues/839)
+* **Feature** New exception type `ScanNonReadableIndexException` for scanning non-readable indexes [(Issue #850)](https://github.com/FoundationDB/fdb-record-layer/issues/850)
+
+### 2.8.103.0
+
+* **Feature** Add an index queryability function to `RecordQuery` [(Issue #841)](https://github.com/FoundationDB/fdb-record-layer/issues/841)
+* **Feature** Expose bytes/records scanned through `ExecuteState` [(Issue #835)](https://github.com/FoundationDB/fdb-record-layer/issues/835)
+* **Breaking change** `ByteScanLimiter` and `RecordScanLimiter` are now interfaces. Instances with various concrete behavior are constructed through factory classes. [(PR #836)](https://github.com/FoundationDB/fdb-record-layer/pull/836)
+
+### 2.8.102.24
+
+* **Performance** If an IN predicate cannot be planned using a nested loop join, we now attempt to plan it as an equivalent OR of equality predicates. [(Issue #860)](https://github.com/FoundationDB/fdb-record-layer/issues/860)
+* **Feature** The `RecordQueryPlanner` now has a dedicated object for specifying configuration options. [(Issue #861)](https://github.com/FoundationDB/fdb-record-layer/pull/861)
+
+### 2.8.102.23
+
+* **Performance** Aggregate metrics added for the number of reads, writes, and deletes [(Issue #839)](https://github.com/FoundationDB/fdb-record-layer/issues/839)
+
+### 2.8.102.0
+
+* **Bug fix** NoSuchDirectoryException should include full directory path [(Issue #797)](https://github.com/FoundationDB/fdb-record-layer/issues/797)
+* **Bug fix** StoreTimer.getDifference() should not return unchanged metrics [(Issue #832)](https://github.com/FoundationDB/fdb-record-layer/issues/832)
+* **Performance** Allow setting hash function used by `RankedSet` [(Issue #828)](https://github.com/FoundationDB/fdb-record-layer/issues/828)
+
+### 2.8.101.0
+
+* **Bug fix** If the `FunctionKeyExpression.Registry` fails to initialize, then the error is now propagated to the user when a function is requested [(Issue #826)](https://github.com/FoundationDB/fdb-record-layer/issues/826)
+* **Bug fix** COMMIT_READ_ONLY not part of COMMITS aggregate [(Issue #830)](https://github.com/FoundationDB/fdb-record-layer/issues/830)
+
+### 2.8.100.0
+
+
+### 2.8.99.0
+
+* **Bug fix** Remove reverse directory cache scan fallback [(Issue #821)](https://github.com/FoundationDB/fdb-record-layer/issues/821)
+* **Feature** Fix test to show when function index queries work [(Issue #810)](https://github.com/FoundationDB/fdb-record-layer/issues/810)
+* **Feature** Support for aggregate performance metrics [(Issue #801)](https://github.com/FoundationDB/fdb-record-layer/issues/801)
+* **Feature** Support tracking index build progress by `IndexBuildState` [(Issue #817)](https://github.com/FoundationDB/fdb-record-layer/issues/817)
+* **Feature** System keyspace client log parsing [(Issue #816)](https://github.com/FoundationDB/fdb-record-layer/issues/816)
+
+### 2.8.98.0
+
+* **Bug fix** Revert #794 until #489 is worked out. (Fixes potentially index entry lose if two metadata updates happen in different record stores over the same data in the same transaction.) [(Issue #808)](https://github.com/FoundationDB/fdb-record-layer/issues/808)
+* **Performance** Improved loggings for `OnlineIndexer` and `FDBDatabaseRunner` [(Issue #810)](https://github.com/FoundationDB/fdb-record-layer/issues/810)
+
+### 2.8.97.0
+
+* **Feature** Emit `TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED` whenever rebuild needed due to overlapping, not just when rebuilding immediately [(Issue #799)](https://github.com/FoundationDB/fdb-record-layer/issues/799)
+* **Feature** Clear existing index data when `rebuildIndexWithNoRecord` [(Issue #794)](https://github.com/FoundationDB/fdb-record-layer/issues/794)
+
+### 2.8.96.0
+
+* **Feature** Support for custom Executor per FDBRecordContext [(Issue #787)](https://github.com/FoundationDB/fdb-record-layer/issues/787)
+* **Feature** Better detailed metrics in `RankedSet.add` [(Issue #792)](https://github.com/FoundationDB/fdb-record-layer/issues/792)
+* **Feature** Upon a failed record deserialization, the file descriptor is only logged if the logger is at `TRACE` instead of `DEBUG` [(Issue #789)](https://github.com/FoundationDB/fdb-record-layer/issues/789)
+
+### 2.8.95.0
+
+* **Bug fix** OnlineIndexer does not always end the synchronized session after use [(Issue #780)](https://github.com/FoundationDB/fdb-record-layer/issues/780)
+
+### 2.8.94.0
+
+* **Bug fix** Two inequality predicates on a single field index will now be planned as a single range scan on the index [(Issue #765)](https://github.com/FoundationDB/fdb-record-layer/issues/765)
+* **Bug fix** Primary keys where one key contained a string or byte array that was a prefix of another could lead to deserialization errors when loading [(Issue #782)](https://github.com/FoundationDB/fdb-record-layer/issues/782)
+* **Feature** Support forcefully releasing synchronized session locks and stopping ongoing online index builds [(Issue #748)](https://github.com/FoundationDB/fdb-record-layer/issues/748)
+
+### 2.8.93.0
+
+* **Bug fix** Indexes not marked as write-only before being built online [(Issue #773)](https://github.com/FoundationDB/fdb-record-layer/issues/773)
 
 ### 2.8.91.0
 
@@ -662,4 +794,3 @@ The capability and reliability of text queries on more sophisticated indexes has
 ### 2.1.10.0
 
 * **Feature** A new record type key expression allows for structuring data in a record store more akin to how tables are stored in a traditional relational database [(Issue #27)](https://github.com/FoundationDB/fdb-record-layer/issues/27)
-

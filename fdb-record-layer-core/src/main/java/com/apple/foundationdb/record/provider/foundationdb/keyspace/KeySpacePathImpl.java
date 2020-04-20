@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
 import javax.annotation.Nonnull;
@@ -318,10 +317,10 @@ class KeySpacePathImpl implements KeySpacePath {
                 storedValue = entry.getStoredValue().getResolvedValue();
             }
             if (storedValue != null && !Objects.equals(dirValue, storedValue)) {
-                appendValue(sb, storedValue);
+                ResolvedKeySpacePath.appendValue(sb, storedValue);
                 sb.append("->");
             }
-            appendValue(sb, dirValue);
+            ResolvedKeySpacePath.appendValue(sb, dirValue);
         }
 
         if (getRemainder() != null) {
@@ -334,19 +333,6 @@ class KeySpacePathImpl implements KeySpacePath {
     @Override
     public String toString() {
         return toString(null);
-    }
-
-    protected static void appendValue(StringBuilder sb, Object value) {
-        if (value == null) {
-            sb.append("null");
-        } else if (value instanceof String) {
-            sb.append('"').append(value).append('"');
-        } else if (value instanceof byte[]) {
-            sb.append("0x");
-            sb.append(ByteArrayUtil2.toHexString((byte[])value));
-        } else {
-            sb.append(value);
-        }
     }
 
     /**

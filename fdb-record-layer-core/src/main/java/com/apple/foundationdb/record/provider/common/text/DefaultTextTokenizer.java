@@ -29,6 +29,8 @@ import java.text.Normalizer;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * This is the default tokenizer used by full-text indexes. It will split the text
@@ -49,6 +51,9 @@ public class DefaultTextTokenizer implements TextTokenizer {
     // removed. It also collapses equivalent graphemes, e.g., "ﬆ" into "st".
     @Nonnull
     private static final Normalizer.Form NORMALIZED_FORM = Normalizer.Form.NFKD;
+
+    @Nonnull
+    private static final Pattern DIACRITICAL_PATTERN = Pattern.compile("\\p{M}+");
 
     /**
      * The name of the default tokenizer. This can be used to explicitly
@@ -79,11 +84,14 @@ public class DefaultTextTokenizer implements TextTokenizer {
         @Nullable
         private String nextToken = null;
         private int lastBreak;
+        @Nonnull
+        private Matcher matcher;
 
         private BreakIteratorWrapper(@Nonnull BreakIterator underlying, @Nonnull String text) {
             this.underlying = underlying;
             this.text = text;
             this.lastBreak = underlying.first();
+            this.matcher = DIACRITICAL_PATTERN.matcher("");
         }
 
         @Override
@@ -123,7 +131,7 @@ public class DefaultTextTokenizer implements TextTokenizer {
                     //     אֶתְנַחְתָּ֑א -> אתנחתא
                     //     అన్నం -> అనన (note: this is essentially stripping the vowels away, which might be "wrong")
                     //     안녕하세요 -> 안녕하세요 (Hangul Jamo not transformed)
-                    token = token.toLowerCase(Locale.ROOT).replaceAll("\\p{M}+", "");
+                    token = matcher.reset(token.toLowerCase(Locale.ROOT)).replaceAll("");
                     nextToken = token;
                 }
                 lastBreak = nextBreak;

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -101,7 +102,7 @@ public class ResolvedKeySpacePath {
      * @return returns the directory that corresponds to this path entry
      */
     @Nonnull
-    KeySpaceDirectory getDirectory() {
+    public KeySpaceDirectory getDirectory() {
         return inner.getDirectory();
     }
 
@@ -243,10 +244,10 @@ public class ResolvedKeySpacePath {
         final StringBuilder sb = new StringBuilder();
         for (ResolvedKeySpacePath current : path) {
             sb.append('/').append(current.getDirectoryName()).append(':');
-            KeySpacePathImpl.appendValue(sb, current.getLogicalValue());
+            appendValue(sb, current.getLogicalValue());
             if (!Objects.equals(current.getLogicalValue(), current.getResolvedValue())) {
                 sb.append('[');
-                KeySpacePathImpl.appendValue(sb, current.getResolvedValue());
+                appendValue(sb, current.getResolvedValue());
                 sb.append(']');
             }
             if (current.getRemainder() != null) {
@@ -254,5 +255,18 @@ public class ResolvedKeySpacePath {
             }
         }
         return sb.toString();
+    }
+
+    public static void appendValue(StringBuilder sb, Object value) {
+        if (value == null) {
+            sb.append("null");
+        } else if (value instanceof String) {
+            sb.append('"').append(value).append('"');
+        } else if (value instanceof byte[]) {
+            sb.append("0x");
+            sb.append(ByteArrayUtil2.toHexString((byte[])value));
+        } else {
+            sb.append(value);
+        }
     }
 }

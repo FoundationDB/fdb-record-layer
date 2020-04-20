@@ -20,16 +20,15 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -222,25 +221,6 @@ public class FDBReverseDirectoryCache {
         CompletableFuture<Subspace> reverseCacheSubspaceFuture = getReverseCacheSubspace(scopedReverseDirectoryKey.getScope());
         return reverseCacheSubspaceFuture
                 .thenCompose(subspace -> getFromSubspace(context, subspace, scopedReverseDirectoryKey))
-                .thenCompose(maybeKey -> {
-                    if (maybeKey.isPresent()) {
-                        return CompletableFuture.completedFuture(maybeKey);
-                    }
-
-                    LOGGER.warn(KeyValueLogMessage.of("Value not found in reverse directory cache, need to scan",
-                                    LogMessageKeys.PROVIDED_KEY, scopedReverseDirectoryKey,
-                                    LogMessageKeys.SUBSPACE, context.join(reverseCacheSubspaceFuture)));
-                    final CompletableFuture<Subspace> subdirsFuture = scopedReverseDirectoryKey.getScope().getMappingSubspaceAsync();
-
-                    return context.instrument(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN,
-                            subdirsFuture.thenCompose(subdirs ->
-                                    findNameForKey(context, subdirs, null, scopedReverseDirectoryKey))
-                                        .thenApply(maybeNameOrContinuation -> {
-                                            // findNameForKey loops until the key is found or the search space is exhausted, so
-                                            // if it is present, then we definitely found the key.
-                                            return maybeNameOrContinuation.map(NameOrContinuation::getName);
-                                        }));
-                })
                 .whenComplete((result, exception) -> context.close());
     }
 
@@ -275,96 +255,6 @@ public class FDBReverseDirectoryCache {
             persistentCacheMissCount.incrementAndGet();
             logStatsToStoreTimer(context, FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT);
             return Optional.empty();
-        });
-    }
-
-    /**
-     * Search the directory subspace looking for a name with a specific key.  If the key is found, it is
-     * added to the reverse directory cache, and returned.
-     *
-     * @param context the initial context to use for the scan, which will be closed
-     * @param directorySubspace the directory layer subspace
-     * @param continuation a continuation
-     * @param scopedReverseDirectoryKey the key to look for
-     * @return if the key does not exist, <code>Optional.empty()</code> is returned, otherwise a <code>NameOrContinuation</code>
-     *   is returned, containing (as the name would indicate) either the key that was found, or a continuation, indicating
-     *   that a transaction time or row limit was reached and a new transaction needs to be used
-     */
-    private CompletableFuture<Optional<NameOrContinuation>> findNameForKey(@Nonnull FDBRecordContext context,
-                                                                           @Nonnull Subspace directorySubspace,
-                                                                           @Nullable byte[] continuation,
-                                                                           @Nonnull ScopedValue<Long> scopedReverseDirectoryKey) {
-        return searchRegionForKey(context, directorySubspace, continuation, scopedReverseDirectoryKey)
-                .whenComplete( (value, ex) -> context.close() )
-                .thenCompose( maybeKeyOrContinuation -> {
-                    if (!maybeKeyOrContinuation.isPresent()) {
-                        return CompletableFuture.completedFuture(Optional.empty());
-                    }
-                    if (maybeKeyOrContinuation.get().isContinuation()) {
-                        FDBRecordContext nextContext = fdb.openContext();
-                        return findNameForKey(nextContext, directorySubspace, maybeKeyOrContinuation.get().getContinuation(), scopedReverseDirectoryKey);
-                    }
-                    return CompletableFuture.completedFuture(maybeKeyOrContinuation);
-                } );
-    }
-
-    /**
-     * Scan a portion of the directory subspace looking for a name with a specific key. This will complete either when
-     * the key has been found, the directory subspace has been fully searched, or the transaction time or row limit has
-     * been reached.
-     *
-     * @param context the transaction context to use for the scan
-     * @param directorySubspace the directory layer subspace
-     * @param continuation a continuation
-     * @param scopedReverseDirectoryKey the key to look for
-     * @return if the key does not exist, <code>Optional.empty()</code> is returned, otherwise a <code>NameOrContinuation</code>
-     *   is returned, containing (as the name would indicate) either the key that was found, or a continuation, indicating
-     *   that a transaction time or row limit was reached and a new transaction needs to be used
-     */
-    private CompletableFuture<Optional<NameOrContinuation>> searchRegionForKey(@Nonnull FDBRecordContext context,
-                                                                               @Nonnull Subspace directorySubspace,
-                                                                               @Nullable byte[] continuation,
-                                                                               @Nonnull ScopedValue<Long> scopedReverseDirectoryKey) {
-        Long reverseDirectoryKeyData = scopedReverseDirectoryKey.getData();
-        final RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(directorySubspace)
-                .setContext(context)
-                .setRange(TupleRange.ALL)
-                .setContinuation(continuation)
-                .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder()
-                        .setReturnedRowLimit(maxRowsPerTransaction)
-                        .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                        .setTimeLimit(maxMillisPerTransaction)
-                        .build()))
-                .build();
-
-        final String[] foundKey = new String[1];
-        return cursor.forEachResult(result -> {
-            KeyValue kv = result.get();
-            Long curDirValue = scopedReverseDirectoryKey.getScope().deserializeValue(kv.getValue()).getValue();
-            if (curDirValue.equals(reverseDirectoryKeyData)) {
-                foundKey[0] = directorySubspace.unpack(kv.getKey()).getString(0);
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug("Memory and reverse cache miss for value '" + scopedReverseDirectoryKey
-                                 + "', found in directory scan as path '" + foundKey[0] + "'");
-                }
-            }
-        }).thenCompose(noNextResult -> {
-            RecordCursorContinuation nextContinuation = noNextResult.getContinuation();
-            if (foundKey[0] != null) {
-                // The current context of the iterator may be different than the original
-                // one that was created above, so be careful to use the current one for our work.
-                Transaction tr = context.ensureActive();
-                return getReverseCacheSubspace(scopedReverseDirectoryKey.getScope())
-                        .thenAccept(subspace -> tr.set(subspace.pack(reverseDirectoryKeyData), Tuple.from(foundKey[0]).pack()))
-                        .thenCompose(vignore ->
-                                tr.commit().thenApply(ignored2 -> Optional.of(NameOrContinuation.name(foundKey[0]))));
-            }
-
-            if (nextContinuation.isEnd()) {
-                return CompletableFuture.completedFuture(Optional.empty());
-            }
-
-            return CompletableFuture.completedFuture(Optional.of(NameOrContinuation.continuation(nextContinuation.toBytes())));
         });
     }
 
@@ -479,6 +369,15 @@ public class FDBReverseDirectoryCache {
             persistentCacheHitCount.set(0L);
             populate(context, reverseCacheSubspace);
         }
+    }
+
+    /**
+     * Wait for any asynchronous work started at object creation time to complete. This should only be
+     * used for tests in order to avoid spurious conflicts.
+     */
+    @VisibleForTesting
+    public void waitUntilReadyForTesting() {
+        reverseDirectoryCacheEntry.join();
     }
 
     private CompletableFuture<Subspace> getReverseCacheSubspace(LocatableResolver scope) {

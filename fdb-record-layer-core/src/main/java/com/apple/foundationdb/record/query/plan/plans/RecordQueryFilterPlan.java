@@ -111,27 +111,6 @@ public class RecordQueryFilterPlan implements RecordQueryPlanWithChild {
         return getInner().isReverse();
     }
 
-    @Override
-    public boolean hasRecordScan() {
-        return getInner().hasRecordScan();
-    }
-
-    @Override
-    public boolean hasFullRecordScan() {
-        return getInner().hasFullRecordScan();
-    }
-
-    @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
-        return getInner().hasIndexScan(indexName);
-    }
-
-    @Nonnull
-    @Override
-    public Set<String> getUsedIndexes() {
-        return getInner().getUsedIndexes();
-    }
-
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)

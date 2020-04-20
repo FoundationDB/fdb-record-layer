@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -82,11 +81,18 @@ public class ExecutePropertiesTest {
     public void testGetNoLimits() {
         assertEquals(ExecuteProperties.UNLIMITED_TIME, ExecuteProperties.SERIAL_EXECUTE.getTimeLimit());
         assertEquals(Integer.MAX_VALUE, ExecuteProperties.SERIAL_EXECUTE.getScannedRecordsLimit());
-        assertNull(ExecuteProperties.SERIAL_EXECUTE.getState().getRecordScanLimiter());
+        assertFalse(ExecuteProperties.SERIAL_EXECUTE.getState().getRecordScanLimiter().isEnforcing());
         assertEquals(Long.MAX_VALUE, ExecuteProperties.SERIAL_EXECUTE.getScannedBytesLimit());
-        assertNull(ExecuteProperties.SERIAL_EXECUTE.getState().getByteScanLimiter());
+        assertFalse(ExecuteProperties.SERIAL_EXECUTE.getState().getByteScanLimiter().isEnforcing());
         assertEquals(Transaction.ROW_LIMIT_UNLIMITED, ExecuteProperties.SERIAL_EXECUTE.getReturnedRowLimit());
         assertEquals(Integer.MAX_VALUE, ExecuteProperties.SERIAL_EXECUTE.getReturnedRowLimitOrMax());
+
+        // Ensure that these these constant ExecuteProperties do not do any scan tracking (this would be
+        // confusing to do as they may be shared across many requests).
+        assertTrue(ExecuteProperties.SERIAL_EXECUTE.getState().getRecordScanLimiter().tryRecordScan());
+        assertEquals(0, ExecuteProperties.SERIAL_EXECUTE.getState().getRecordScanLimiter().getRecordsScanned());
+        ExecuteProperties.SERIAL_EXECUTE.getState().getByteScanLimiter().registerScannedBytes(100L);
+        assertEquals(0, ExecuteProperties.SERIAL_EXECUTE.getState().getByteScanLimiter().getBytesScanned());
     }
 
     /**
@@ -97,12 +103,49 @@ public class ExecutePropertiesTest {
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setTimeLimit(100L)
                 .setScannedBytesLimit(1000L)
-                .setScannedRecordsLimit(1000)
+                .setScannedRecordsLimit(2)
                 .setReturnedRowLimit(200)
                 .build();
         assertEquals(100L, executeProperties.getTimeLimit());
         assertEquals(1000L, executeProperties.getScannedBytesLimit());
-        assertEquals(1000, executeProperties.getScannedRecordsLimit());
+        assertEquals(2, executeProperties.getScannedRecordsLimit());
         assertEquals(200, executeProperties.getReturnedRowLimit());
+
+        final RecordScanLimiter recordScanLimiter = executeProperties.getState().getRecordScanLimiter();
+        assertTrue(recordScanLimiter.isEnforcing());
+        assertTrue(recordScanLimiter.tryRecordScan());
+        assertTrue(recordScanLimiter.tryRecordScan());
+        assertEquals(2, recordScanLimiter.getRecordsScanned());
+        assertFalse(recordScanLimiter.tryRecordScan());
+
+        final ByteScanLimiter byteScanLimiter = executeProperties.getState().getByteScanLimiter();
+        assertTrue(byteScanLimiter.isEnforcing());
+        byteScanLimiter.registerScannedBytes(500L);
+        assertTrue(byteScanLimiter.hasBytesRemaining());
+        byteScanLimiter.registerScannedBytes(499L);
+        assertTrue(byteScanLimiter.hasBytesRemaining());
+        assertEquals(999, byteScanLimiter.getBytesScanned());
+        byteScanLimiter.registerScannedBytes(37L);
+        assertFalse(byteScanLimiter.hasBytesRemaining());
+    }
+
+    @Test
+    public void testTrackingNotEnforcing() {
+        ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setReturnedRowLimit(200)
+                .build();
+
+        final RecordScanLimiter recordScanLimiter = executeProperties.getState().getRecordScanLimiter();
+        assertFalse(recordScanLimiter.isEnforcing());
+        assertTrue(recordScanLimiter.tryRecordScan());
+        assertTrue(recordScanLimiter.tryRecordScan());
+        assertEquals(2, recordScanLimiter.getRecordsScanned());
+
+        final ByteScanLimiter byteScanLimiter = executeProperties.getState().getByteScanLimiter();
+        assertFalse(byteScanLimiter.isEnforcing());
+        byteScanLimiter.registerScannedBytes(200_000L);
+        byteScanLimiter.registerScannedBytes(200_000L);
+        assertTrue(byteScanLimiter.hasBytesRemaining());
+        assertEquals(400_000L, byteScanLimiter.getBytesScanned());
     }
 }

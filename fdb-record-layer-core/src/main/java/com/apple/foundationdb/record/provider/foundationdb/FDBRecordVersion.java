@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Versionstamp;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

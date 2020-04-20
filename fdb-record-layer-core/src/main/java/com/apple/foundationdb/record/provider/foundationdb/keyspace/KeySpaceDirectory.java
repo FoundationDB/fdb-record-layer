@@ -227,6 +227,22 @@ public class KeySpaceDirectory {
     }
 
     /**
+     * Iterates over the subdirectories of this directory looking for one that is compatible with the given value.
+     * @param context the database context
+     * @param parent the parent path element
+     * @param value the child value to be resolved
+     * @return a future that completes with the matching keyspace path
+     * @throws RecordCoreArgumentException if no compatible child can be found
+     */
+    @Nonnull
+    public CompletableFuture<ResolvedKeySpacePath> findChildForValue(@Nonnull FDBRecordContext context,
+                                                                     @Nullable ResolvedKeySpacePath parent,
+                                                                     @Nullable Object value) {
+        final Tuple key = Tuple.from(value);
+        return findChildForKey(context, parent, key, 1, 0);
+    }
+
+    /**
      * Iterates over the subdirectories of this directory looking for one that is compatible with the
      * <code>key</code> tuple, starting at position <code>keyIndex</code>.
      * If the key size is less than the actual key length, the path remainder will reflect
@@ -373,7 +389,7 @@ public class KeySpaceDirectory {
     public KeySpaceDirectory getSubdirectory(@Nonnull String name) {
         KeySpaceDirectory dir = subdirsByName.get(name);
         if (dir == null) {
-            throw new NoSuchDirectoryException(getName(), name);
+            throw new NoSuchDirectoryException(this, name);
         }
         return dir;
     }
@@ -717,6 +733,28 @@ public class KeySpaceDirectory {
             default:
                 throw new RecordCoreException("Unexpected key type " + o1Type);
         }
+    }
+
+    /**
+     * Returns the path that leads up to this directory (including this directory), and returns it as a string
+     * that looks something like a filesystem path.
+     *
+     * @return the path to this directory as a string
+     */
+    public String toPathString() {
+        StringBuilder sb = new StringBuilder();
+        appendPath(sb, this);
+        return sb.toString();
+    }
+
+    private void appendPath(StringBuilder sb, KeySpaceDirectory dir) {
+        @Nullable
+        KeySpaceDirectory parent = dir.getParent();
+
+        if (parent != null) {
+            appendPath(sb, parent);
+        }
+        sb.append("/").append(dir.getName());
     }
 
     @Override

@@ -858,6 +858,67 @@ public class MoreAsyncUtil {
     }
 
     /**
+     * This is supposed to replicate the semantics of {@link java.util.concurrent.CompletionStage#whenComplete(BiConsumer)}
+     * but to handle the case where the completion handler might itself contain async work.
+     * @param future future to compose the handler onto
+     * @param handler handler bi-function to compose onto the passed future
+     * @param exceptionMapper function for mapping the underlying exception to a {@link RuntimeException}
+     * @param <V> return type of original future
+     * @return future with same completion properties as the future returned by the handler
+     * @see #composeWhenCompleteAndHandle(CompletableFuture, BiFunction, Function)
+     */
+    public static <V> CompletableFuture<V> composeWhenComplete(
+            @Nonnull CompletableFuture<V> future,
+            @Nonnull BiFunction<V,Throwable,CompletableFuture<Void>> handler,
+            @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
+        return composeWhenCompleteAndHandle(
+                future,
+                (result, exception) -> handler.apply(result, exception).thenApply(vignore -> result),
+                exceptionMapper);
+    }
+
+    /**
+     * Compose a handler bi-function to the result of a future. Unlike the
+     * {@link AsyncUtil#composeHandle(CompletableFuture, BiFunction)}, which completes exceptionally only when the
+     * <code>handler</code> completes exceptionally, it completes exceptionally even if the supplied action itself
+     * (<code>future</code>) encounters an exception.
+     * @param future future to compose the handler onto
+     * @param handler handler bi-function to compose onto the passed future
+     * @param exceptionMapper function for mapping the underlying exception to a {@link RuntimeException}
+     * @param <V> return type of original future
+     * @param <T> return type of final future
+     * @return future with same completion properties as the future returned by the handler
+     * @see AsyncUtil#composeHandle(CompletableFuture, BiFunction)
+     */
+    public static <V, T> CompletableFuture<T> composeWhenCompleteAndHandle(
+            @Nonnull CompletableFuture<V> future,
+            @Nonnull BiFunction<V,Throwable,? extends CompletableFuture<T>> handler,
+            @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
+        return AsyncUtil.composeHandle(future, (futureResult, futureException) -> {
+            try {
+                return handler.apply(futureResult, futureException).handle((handlerResult, handlerAsyncException) -> {
+                    if (futureException != null) {
+                        throw getRuntimeException(futureException, exceptionMapper);
+                    } else if (handlerAsyncException != null) {
+                        // This is for the case where the function call handler.apply returns an exceptional future.
+                        throw getRuntimeException(handlerAsyncException, exceptionMapper);
+                    } else {
+                        return handlerResult;
+                    }
+                });
+            } catch (Exception handlerSyncException) {
+                // This is for the case where the function call handler.apply throws an error.
+                throw getRuntimeException(handlerSyncException, exceptionMapper);
+            }
+        });
+    }
+
+    private static RuntimeException getRuntimeException(@Nonnull Throwable exception,
+                                                        @Nullable Function<Throwable, RuntimeException> exceptionMapper) {
+        return exceptionMapper == null ? new RuntimeException(exception) : exceptionMapper.apply(exception);
+    }
+
+    /**
      * A {@code Boolean} function that is always true.
      * @param <T> the type of the (ignored) argument to the function
      */

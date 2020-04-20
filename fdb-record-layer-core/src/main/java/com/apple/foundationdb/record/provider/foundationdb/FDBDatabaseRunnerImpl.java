@@ -26,7 +26,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
@@ -71,6 +71,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     private int maxAttempts;
     private long maxDelayMillis;
     private long initialDelayMillis;
+    private long transactionTimeoutMillis;
 
     private boolean closed;
     @Nonnull
@@ -93,8 +94,9 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         this.maxAttempts = factory.getMaxAttempts();
         this.maxDelayMillis = factory.getMaxDelayMillis();
         this.initialDelayMillis = factory.getInitialDelayMillis();
+        this.transactionTimeoutMillis = factory.getTransactionTimeoutMillis();
 
-        this.executor = FDBRecordContext.initExecutor(database, mdcContext);
+        this.executor = database.newContextExecutor(mdcContext);
 
         contextsToClose = new ArrayList<>();
         futuresToCompleteExceptionally = new ArrayList<>();
@@ -142,7 +144,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Override
     public void setMdcContext(@Nullable Map<String, String> mdcContext) {
         this.mdcContext = mdcContext;
-        executor = FDBRecordContext.initExecutor(database, mdcContext);
+        executor = database.newContextExecutor(mdcContext);
     }
 
     @Override
@@ -216,18 +218,40 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     @Override
+    public void setTransactionTimeoutMillis(long transactionTimeoutMillis) {
+        this.transactionTimeoutMillis = transactionTimeoutMillis;
+    }
+
+    @Override
+    public long getTransactionTimeoutMillis() {
+        return transactionTimeoutMillis;
+    }
+
+    @Override
     @Nonnull
     public FDBRecordContext openContext() {
+        return openContext(true);
+    }
+
+    @Nonnull
+    private FDBRecordContext openContext(boolean initialAttempt) {
         if (closed) {
             throw new RunnerClosed();
         }
-        FDBRecordContext context = database.openContext(mdcContext, timer, weakReadSemantics, priority);
+        FDBRecordContextConfig contextConfig = FDBRecordContextConfig.newBuilder()
+                .setMdcContext(mdcContext)
+                .setTimer(timer)
+                .setWeakReadSemantics(initialAttempt ? weakReadSemantics : null)
+                .setPriority(priority)
+                .setTransactionTimeoutMillis(transactionTimeoutMillis)
+                .build();
+        FDBRecordContext context = database.openContext(contextConfig);
         addContextToClose(context);
         return context;
     }
 
     private class RunRetriable<T> {
-        private int tries = 0;
+        private int currAttempt = 0;
         private long currDelay = getInitialDelayMillis();
         @Nullable private FDBRecordContext context;
         @Nullable T retVal = null;
@@ -272,14 +296,14 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                     t = t.getCause();
                 }
 
-                if (tries + 1 < getMaxAttempts() && retry) {
+                if (currAttempt + 1 < getMaxAttempts() && retry) {
                     long delay = (long)(Math.random() * currDelay);
 
                     if (LOGGER.isWarnEnabled()) {
                         final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying FDB Exception",
                                                                 LogMessageKeys.MESSAGE, fdbMessage,
                                                                 LogMessageKeys.CODE, code,
-                                                                LogMessageKeys.TRIES, tries,
+                                                                LogMessageKeys.CURR_ATTEMPT, currAttempt,
                                                                 LogMessageKeys.MAX_ATTEMPTS, getMaxAttempts(),
                                                                 LogMessageKeys.DELAY, delay);
                         if (additionalLogMessageKeyValues != null) {
@@ -290,7 +314,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                     CompletableFuture<Void> future = MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS);
                     addFutureToCompleteExceptionally(future);
                     return future.thenApply(vignore -> {
-                        tries += 1;
+                        currAttempt += 1;
                         currDelay = Math.max(Math.min(delay * 2, getMaxDelayMillis()), getMinDelayMillis());
                         return true;
                     });
@@ -308,7 +332,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             addFutureToCompleteExceptionally(future);
             AsyncUtil.whileTrue(() -> {
                 try {
-                    context = openContext();
+                    context = openContext(currAttempt == 0);
                     return retriable.apply(context).thenCompose(val ->
                         context.commitAsync().thenApply( vignore -> val)
                     ).handle((result, ex) -> {
@@ -338,7 +362,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             boolean again = true;
             while (again) {
                 try {
-                    context = openContext();
+                    context = openContext(currAttempt == 0);
                     T ret = retriable.apply(context);
                     context.commit();
                     again = database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));

@@ -34,7 +34,7 @@ import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -71,6 +72,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -208,6 +210,15 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
+    @Nonnull
+    static BunchedMap<Tuple, List<Integer>> getBunchedMap(@Nonnull FDBRecordContext context) {
+        if (context.getTimer() != null) {
+            return new InstrumentedBunchedMap<>(BUNCHED_MAP, context.getTimer(), context.getExecutor());
+        } else {
+            return BUNCHED_MAP;
+        }
+    }
+
     protected TextIndexMaintainer(@Nonnull IndexMaintainerState state) {
         super(state);
         this.tokenizer = getTokenizer(state.index);
@@ -250,7 +261,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    private Pair<Integer, Integer> estimateSize(@Nullable Tuple groupingKey, @Nonnull Map<String, List<Integer>> positionMap, @Nonnull Tuple groupedKey, boolean remove) {
+    private Pair<Integer, Integer> estimateSize(@Nullable Tuple groupingKey, @Nonnull Map<String, List<Integer>> positionMap, @Nonnull Tuple groupedKey) {
         final int idSize = groupedKey.pack().length;
         final int subspaceSize = getIndexSubspace().getKey().length + (groupingKey != null ? groupingKey.pack().length : 0);
         int keySize = 0;
@@ -263,11 +274,6 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                 int listSize = posting.getValue().stream().mapToInt(TextIndexMaintainer::varIntSize).sum();
                 valueSize += varIntSize(idSize) + idSize + varIntSize(listSize) + listSize;
             }
-        }
-        if (state.store.getTimer() != null) {
-            state.store.getTimer().increment(remove ? FDBStoreTimer.Counts.DELETE_INDEX_KEY : FDBStoreTimer.Counts.SAVE_INDEX_KEY, positionMap.size());
-            state.store.getTimer().increment(remove ? FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES : FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, keySize);
-            state.store.getTimer().increment(remove ? FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES : FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, valueSize);
         }
         return Pair.of(keySize, valueSize);
     }
@@ -289,9 +295,9 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         final Tuple groupingKey = (textPosition == 0) ? null : TupleHelpers.subTuple(indexEntryKey, 0, textPosition);
         final Tuple groupedKey = TupleHelpers.subTuple(indexEntryKey, textPosition + 1, indexEntryKey.size());
         final Map<String, List<Integer>> positionMap = tokenizer.tokenizeToMap(text, recordTokenizerVersion, TextTokenizer.TokenizerMode.INDEX);
-        final Pair<Integer, Integer> estimatedSize = estimateSize(groupingKey, positionMap, groupedKey, remove);
         final FDBStoreTimer.Event indexUpdateEvent = remove ? FDBStoreTimer.Events.DELETE_INDEX_ENTRY : FDBStoreTimer.Events.SAVE_INDEX_ENTRY;
         if (LOGGER.isDebugEnabled()) {
+            final Pair<Integer, Integer> estimatedSize = estimateSize(groupingKey, positionMap, groupedKey);
             KeyValueLogMessage msg = KeyValueLogMessage.build("performed text tokenization",
                                         LogMessageKeys.REMOVE, remove,
                                         LogMessageKeys.TEXT_SIZE, text.length(),
@@ -328,6 +334,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
             state.context.ensureActive().addReadConflictRange(indexRange.begin, indexRange.end);
             state.context.ensureActive().addWriteConflictRange(indexRange.begin, indexRange.end);
         }
+        final BunchedMap<Tuple, List<Integer>> bunchedMap = getBunchedMap(state.context);
         CompletableFuture<Void> tokenInsertFuture = RecordCursor.fromIterator(state.context.getExecutor(), positionMap.entrySet().iterator())
                 .forEachAsync((Map.Entry<String, List<Integer>> tokenEntry) -> {
                     Tuple subspaceTuple;
@@ -338,10 +345,10 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                     }
                     Subspace mapSubspace = state.indexSubspace.subspace(subspaceTuple);
                     if (remove) {
-                        return BUNCHED_MAP.remove(state.transaction, mapSubspace, groupedKey).thenAccept(ignore -> { });
+                        return bunchedMap.remove(state.transaction, mapSubspace, groupedKey).thenAccept(ignore -> { });
                     } else {
                         final List<Integer> value = omitPositionLists ? Collections.emptyList() : tokenEntry.getValue();
-                        return BUNCHED_MAP.put(state.transaction, mapSubspace, groupedKey, value).thenAccept(ignore -> { });
+                        return bunchedMap.put(state.transaction, mapSubspace, groupedKey, value).thenAccept(ignore -> { });
                     }
                 }, state.store.getPipelineSize(PipelineOperation.TEXT_INDEX_UPDATE));
         if (state.store.getTimer() != null) {
@@ -532,15 +539,10 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         ExecuteProperties adjustedExecuteProperties = withAdjustedLimit.getExecuteProperties();
 
         // Callback for updating the byte scan limit
-        final Consumer<KeyValue> callback;
         final ByteScanLimiter byteScanLimiter = adjustedExecuteProperties.getState().getByteScanLimiter();
-        if (byteScanLimiter == null) {
-            callback = null;
-        } else {
-            callback = keyValue -> byteScanLimiter.registerScannedBytes(keyValue.getKey().length + keyValue.getValue().length);
-        }
+        final Consumer<KeyValue> callback = keyValue -> byteScanLimiter.registerScannedBytes(keyValue.getKey().length + keyValue.getValue().length);
 
-        BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> iterator = BUNCHED_MAP.scanMulti(
+        BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> iterator = getBunchedMap(state.context).scanMulti(
                 state.context.readTransaction(adjustedExecuteProperties.getIsolationLevel().isSnapshot()),
                 state.indexSubspace,
                 subspaceSplitter,
@@ -556,5 +558,56 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
             cursor = cursor.skip(scanProperties.getExecuteProperties().getSkip());
         }
         return cursor;
+    }
+
+    private static class InstrumentedBunchedMap<K, V> extends BunchedMap<K, V> {
+        @Nonnull
+        private final FDBStoreTimer timer;
+        @Nonnull
+        private final Executor executor;
+
+        public InstrumentedBunchedMap(@Nonnull BunchedMap<K, V> model, @Nonnull FDBStoreTimer timer, @Nonnull Executor executor) {
+            super(model);
+            this.timer = timer;
+            this.executor = executor;
+        }
+
+        @Override
+        protected void instrumentDelete(@Nonnull byte[] key, @Nullable byte[] oldValue) {
+            timer.increment(FDBStoreTimer.Counts.DELETE_INDEX_KEY);
+            timer.increment(FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES, key.length);
+            if (oldValue != null) {
+                timer.increment(FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES, oldValue.length);
+            }
+        }
+
+        @Override
+        protected void instrumentWrite(@Nonnull byte[] key, @Nonnull byte[] value, @Nullable byte[] oldValue) {
+            timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
+            timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, key.length);
+            timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, value.length);
+            if (oldValue != null) {
+                // Or should this ignore the value altogether?
+                timer.increment(FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES, oldValue.length);
+            }
+        }
+
+        @Override
+        @Nonnull
+        protected CompletableFuture<List<KeyValue>> instrumentRangeRead(@Nonnull CompletableFuture<List<KeyValue>> readFuture) {
+            return timer.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, readFuture, executor).whenComplete((list, err) -> {
+                if (list != null && !list.isEmpty()) {
+                    int keyBytes = 0;
+                    int valueBytes = 0;
+                    for (KeyValue kv : list) {
+                        keyBytes += kv.getKey().length;
+                        valueBytes += kv.getValue().length;
+                    }
+                    timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_KEY, list.size());
+                    timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, keyBytes);
+                    timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES, valueBytes);
+                }
+            });
+        }
     }
 }

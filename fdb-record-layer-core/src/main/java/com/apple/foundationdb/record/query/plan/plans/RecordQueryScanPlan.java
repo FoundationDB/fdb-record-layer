@@ -103,6 +103,11 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         return new HashSet<>();
     }
 
+    @Override
+    public boolean hasLoadBykeys() {
+        return false;
+    }
+
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)

@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

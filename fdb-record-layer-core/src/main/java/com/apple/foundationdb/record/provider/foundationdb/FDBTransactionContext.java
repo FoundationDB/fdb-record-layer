@@ -47,10 +47,15 @@ public class FDBTransactionContext {
     @Nullable
     protected FDBStoreTimer timer;
 
-    protected FDBTransactionContext(@Nonnull FDBDatabase database, @Nonnull Transaction transaction) {
+    protected FDBTransactionContext(@Nonnull FDBDatabase database, @Nonnull Transaction transaction, @Nullable FDBStoreTimer timer) {
         this.database = database;
         this.transaction = transaction;
         this.executor = transaction.getExecutor();
+        this.timer = timer;
+
+        if (timer != null) {
+            timer.increment(FDBStoreTimer.Counts.OPEN_CONTEXT);
+        }
     }
 
     @Nonnull

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordScanLimiter;
+import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.ScanLimitReachedException;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TimeScanLimiter;
@@ -65,7 +66,7 @@ public class CursorLimitManagerTest {
 
     public void testRecordScanLimiterBase(boolean failOnLimitReached) {
         final int numberOfScans = 12;
-        final RecordScanLimiter recordScanLimiter = new RecordScanLimiter(numberOfScans);
+        final RecordScanLimiter recordScanLimiter = RecordScanLimiterFactory.enforce(numberOfScans);
         final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, failOnLimitReached, null, null);
 
         for (int i = 0; i < numberOfScans; i++) {
@@ -124,7 +125,7 @@ public class CursorLimitManagerTest {
     public void testTimeoutBeforeScanLimit() {
         final int untilTimeout = 7;
         final int numberOfScans = 12;
-        final RecordScanLimiter recordScanLimiter = new RecordScanLimiter(numberOfScans);
+        final RecordScanLimiter recordScanLimiter = RecordScanLimiterFactory.enforce(numberOfScans);
         final FakeTimeLimiter fakeTimeLimiter = new FakeTimeLimiter();
         final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, false, null, fakeTimeLimiter);
 
@@ -143,7 +144,7 @@ public class CursorLimitManagerTest {
     @Test
     public void testSimultaneousRecordScanLimitAndTimeout() {
         final int numberOfScans = 12;
-        final RecordScanLimiter recordScanLimiter = new RecordScanLimiter(numberOfScans);
+        final RecordScanLimiter recordScanLimiter = RecordScanLimiterFactory.enforce(numberOfScans);
         final FakeTimeLimiter fakeTimeLimiter = new FakeTimeLimiter();
         final CursorLimitManager manager = new CursorLimitManager(recordScanLimiter, false, null, fakeTimeLimiter);
 

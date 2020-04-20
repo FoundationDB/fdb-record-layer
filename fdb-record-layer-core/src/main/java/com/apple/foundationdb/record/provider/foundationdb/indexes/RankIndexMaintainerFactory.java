@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -64,14 +65,31 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
 
             @Override
             public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
-                if (changedOptions.contains(IndexOptions.RANK_NLEVELS)) {
-                    int oldLevels = RankIndexMaintainer.getNLevels(oldIndex);
-                    int newLevels = RankIndexMaintainer.getNLevels(index);
-                    if (oldLevels != newLevels) {
-                        throw new MetaDataException("rank levels changed",
-                                LogMessageKeys.INDEX_NAME, index.getName());
+                if (!changedOptions.isEmpty()) {
+                    // Allow changing from unspecified to the default (or vice versa), but not otherwise.
+                    RankedSet.Config oldOptions = RankedSetIndexHelper.getConfig(oldIndex);
+                    RankedSet.Config newOptions = RankedSetIndexHelper.getConfig(index);
+                    if (changedOptions.contains(IndexOptions.RANK_NLEVELS)) {
+                        if (oldOptions.getNLevels() != newOptions.getNLevels()) {
+                            throw new MetaDataException("rank levels changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RANK_NLEVELS);
                     }
-                    changedOptions.remove(IndexOptions.RANK_NLEVELS);
+                    if (changedOptions.contains(IndexOptions.RANK_HASH_FUNCTION)) {
+                        if (!oldOptions.getHashFunction().equals(newOptions.getHashFunction())) {
+                            throw new MetaDataException("rank hash function changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RANK_HASH_FUNCTION);
+                    }
+                    if (changedOptions.contains(IndexOptions.RANK_COUNT_DUPLICATES)) {
+                        if (oldOptions.isCountDuplicates() != newOptions.isCountDuplicates()) {
+                            throw new MetaDataException("rank count duplicate changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RANK_COUNT_DUPLICATES);
+                    }
                 }
                 super.validateChangedOptions(oldIndex, changedOptions);
             }
