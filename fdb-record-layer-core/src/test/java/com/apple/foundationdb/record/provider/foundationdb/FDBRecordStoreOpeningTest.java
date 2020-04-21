@@ -74,69 +74,83 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
 
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreOpeningTest.class);
 
+    private final Index newIndex = new Index("newIndex", concatenateFields("str_value_indexed", "num_value_3_indexed"));
+    private final Index newIndex2 = new Index("newIndex2", concatenateFields("str_value_indexed", "rec_no"));
+    private final TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
+            .setRecNo(1066L)
+            .setNumValue2(42)
+            .setStrValueIndexed("value")
+            .setNumValue3Indexed(1729)
+            .build();
+
+
     @Test
-    public void open() throws Exception {
-        // This tests the functionality of "open", so doesn't use the same method of opening
-        // the record store that other methods within this class use.
-        Object[] metaDataPathObjects = new Object[]{"record-test", "unit", "metadataStore"};
-        KeySpacePath metaDataPath;
+    public void openWithoutMetaDataStore() throws Exception {
         Subspace expectedSubspace;
-        Subspace metaDataSubspace;
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final int version;
+        FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = fdb.openContext()) {
-            metaDataPath = TestKeySpace.getKeyspacePath(metaDataPathObjects);
             expectedSubspace = path.toSubspace(context);
-            metaDataSubspace = metaDataPath.toSubspace(context);
-            context.ensureActive().clear(Range.startsWith(metaDataSubspace.pack()));
-            context.commit();
-        }
-
-        Index newIndex = new Index("newIndex", concatenateFields("str_value_indexed", "num_value_3_indexed"));
-        Index newIndex2 = new Index("newIndex2", concatenateFields("str_value_indexed", "rec_no"));
-        TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
-                .setRecNo(1066L)
-                .setNumValue2(42)
-                .setStrValueIndexed("value")
-                .setNumValue3Indexed(1729)
-                .build();
-
-        // Test open without a MetaDataStore
-
-        try (FDBRecordContext context = fdb.openContext()) {
-            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
-
-            FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
-                    .setMetaDataProvider(metaDataBuilder).createOrOpen();
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaDataBuilder)
+                    .createOrOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(metaDataBuilder.getVersion(), recordStore.getRecordMetaData().getVersion());
-            final int version = metaDataBuilder.getVersion();
+            storeBuilder = recordStore.asBuilder();
+            context.commit();
+        }
 
-            metaDataBuilder.addIndex("MySimpleRecord", newIndex);
-            recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).open();
+        version = metaDataBuilder.getVersion();
+        metaDataBuilder.addIndex("MySimpleRecord", newIndex);
+        try (FDBRecordContext context = fdb.openContext()) {
+            recordStore = storeBuilder.setContext(context).setMetaDataProvider(metaDataBuilder).open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
 
-            recordStore.saveRecord(record); // This stops the index build.
-
-            final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
-            metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
-            recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).open();
+            recordStore.saveRecord(simpleRecord); // This stops the index build.
+            storeBuilder = recordStore.asBuilder();
+            context.commit();
+        }
+        final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
+        metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
+        try (FDBRecordContext context = fdb.openContext()) {
+            recordStore = storeBuilder.setContext(context).setMetaDataProvider(metaDataBuilder).open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertEquals(Collections.singleton(newIndex2.getName()), recordStore.getRecordStoreState().getWriteOnlyIndexNames());
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
-
-            final FDBRecordStore.Builder staleBuilder = recordStore.asBuilder().setMetaDataProvider(staleMetaData);
+            storeBuilder = recordStore.asBuilder();
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            final FDBRecordStore.Builder staleBuilder = storeBuilder.setContext(context).setMetaDataProvider(staleMetaData);
             TestHelpers.assertThrows(RecordStoreStaleMetaDataVersionException.class, staleBuilder::createOrOpen,
                     LogMessageKeys.LOCAL_VERSION.toString(), version + 1,
                     LogMessageKeys.STORED_VERSION.toString(), version + 2);
         }
+    }
 
-        // Test open with a MetaDataStore
-
+    @Test
+    public void openWithMetaDataStore() throws Exception {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final RecordMetaData origMetaData = metaDataBuilder.getRecordMetaData();
+        Object[] metaDataPathObjects = new Object[]{"record-test", "unit", "metadataStore"};
+        KeySpacePath metaDataPath;
+        Subspace metaDataSubspace;
+        try (FDBRecordContext context1 = fdb.openContext()) {
+            metaDataPath = TestKeySpace.getKeyspacePath(metaDataPathObjects);
+            metaDataSubspace = metaDataPath.toSubspace(context1);
+            context1.ensureActive().clear(Range.startsWith(metaDataSubspace.pack()));
+            context1.commit();
+        }
+        Subspace expectedSubspace;
         try (FDBRecordContext context = fdb.openContext()) {
             FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, null);
 
@@ -150,87 +164,121 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                         assertThat(cause, instanceOf(FDBMetaDataStore.MissingMetaDataException.class));
                         return null;
                     }).join();
-
-            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
-            RecordMetaData origMetaData = metaDataBuilder.getRecordMetaData();
-            final int version = origMetaData.getVersion();
-
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, null);
             FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
                     .createOrOpen();
-            assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
-            assertEquals(version, recordStore.getRecordMetaData().getVersion());
-
+            assertEquals(origMetaData.getVersion(), recordStore.getRecordMetaData().getVersion());
+            expectedSubspace = recordStore.getSubspace();
+            
             metaDataBuilder.addIndex("MySimpleRecord", newIndex);
             metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
+            context.commit();
+        }
 
-            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
+        final FDBMetaDataStore staleMetaDataStore;
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
                     .open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
-            assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
-            recordStore.saveRecord(record);
+            assertEquals(origMetaData.getVersion() + 1, recordStore.getRecordMetaData().getVersion());
+            recordStore.saveRecord(simpleRecord);
+            staleMetaDataStore = metaDataStore; // shouldn't be reused across transactions. BAD!
+            context.commit();
+        }
 
-            final FDBMetaDataStore staleMetaDataStore = metaDataStore;
-
-            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
             metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             metaDataStore.saveRecordMetaData(metaDataBuilder.getRecordMetaData());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace).setMetaDataStore(metaDataStore).open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
             assertEquals(Collections.singleton(newIndex2.getName()), recordStore.getRecordStoreState().getWriteOnlyIndexNames());
-            assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
+            assertEquals(origMetaData.getVersion() + 2, recordStore.getRecordMetaData().getVersion());
+            context.commit();
+        }
 
+        try (FDBRecordContext context = fdb.openContext()) {
             // The stale meta-data store uses the cached meta-data, hence the stale version exception
             FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
                     .setMetaDataStore(staleMetaDataStore);
             TestHelpers.assertThrows(RecordStoreStaleMetaDataVersionException.class, storeBuilder::createOrOpen,
-                    LogMessageKeys.LOCAL_VERSION.toString(), version + 1,
-                    LogMessageKeys.STORED_VERSION.toString(), version + 2);
+                    LogMessageKeys.LOCAL_VERSION.toString(), origMetaData.getVersion() + 1,
+                    LogMessageKeys.STORED_VERSION.toString(), origMetaData.getVersion() + 2);
         }
+    }
 
-        // Test uncheckedOpen without a MetaDataStore
-
+    @Test
+    public void uncheckedOpenWithoutMetaDataStore() {
+        Subspace expectedSubspace;
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
-            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
-
             FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataProvider(metaDataBuilder).uncheckedOpen();
-            assertEquals(expectedSubspace, recordStore.getSubspace());
+            expectedSubspace = recordStore.getSubspace();
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(metaDataBuilder.getVersion(), recordStore.getRecordMetaData().getVersion());
-            final int version = metaDataBuilder.getVersion();
+            storeBuilder = recordStore.asBuilder();
+            context.commit();
+        }
+        final int version = metaDataBuilder.getVersion();
+        metaDataBuilder.addIndex("MySimpleRecord", newIndex);
 
-            metaDataBuilder.addIndex("MySimpleRecord", newIndex);
-            recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).uncheckedOpen();
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setContext(context).setMetaDataProvider(metaDataBuilder).uncheckedOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
 
-            recordStore.saveRecord(record); // This would stop the build if this ran checkVersion.
-
-            final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
+            recordStore.saveRecord(simpleRecord); // This would stop the build if this ran checkVersion.
+            context.commit();
+        }
+        final RecordMetaData staleMetaData = metaDataBuilder.getRecordMetaData();
+        try (FDBRecordContext context = openContext()) {
             metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataProvider(metaDataBuilder).uncheckedOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
+            storeBuilder = recordStore.asBuilder();
+            context.commit();
+        }
 
-            recordStore = recordStore.asBuilder().setMetaDataProvider(staleMetaData).uncheckedOpen();
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setContext(context).setMetaDataProvider(staleMetaData).uncheckedOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
         }
+    }
 
-        // Test uncheckedOpen with a MetaDataStore
+    @Test
+    public void uncheckedOpenWithMetaDataStore() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final RecordMetaData origMetaData = metaDataBuilder.getRecordMetaData();
 
+        int version = origMetaData.getVersion();
+        Object[] metaDataPathObjects = new Object[]{"record-test", "unit", "metadataStore"};
+        KeySpacePath metaDataPath;
+        Subspace metaDataSubspace;
+        try (FDBRecordContext context1 = fdb.openContext()) {
+            metaDataPath = TestKeySpace.getKeyspacePath(metaDataPathObjects);
+            metaDataSubspace = metaDataPath.toSubspace(context1);
+            context1.ensureActive().clear(Range.startsWith(metaDataSubspace.pack()));
+            context1.commit();
+        }
+        Subspace expectedSubspace;
         try (FDBRecordContext context = fdb.openContext()) {
             FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, null);
 
@@ -244,22 +292,22 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                         assertThat(cause, instanceOf(FDBMetaDataStore.MissingMetaDataException.class));
                         return null;
                     }).join();
-
-            RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
-            RecordMetaData origMetaData = metaDataBuilder.getRecordMetaData();
-            int version = origMetaData.getVersion();
-
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, null);
             FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
                     .uncheckedOpen();
-            assertEquals(expectedSubspace, recordStore.getSubspace());
+            expectedSubspace = recordStore.getSubspace();
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version, recordStore.getRecordMetaData().getVersion());
-
             metaDataBuilder.addIndex("MySimpleRecord", newIndex);
             metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
-
-            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
+            context.commit();
+        }
+        final FDBMetaDataStore staleMetaDataStore;
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
                     .uncheckedOpen();
@@ -267,18 +315,24 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
 
-            recordStore.saveRecord(record); // This would stop the build if this used checkVersion
+            recordStore.saveRecord(simpleRecord); // This would stop the build if this used checkVersion
 
-            final FDBMetaDataStore staleMetaDataStore = metaDataStore;
+            staleMetaDataStore = metaDataStore;
+            context.commit();
+        }
 
-            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
+        try (FDBRecordContext context = fdb.openContext()) {
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
             metaDataBuilder.addIndex("MySimpleRecord", newIndex2);
             metaDataStore.saveAndSetCurrent(metaDataBuilder.getRecordMetaData().toProto()).join();
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path).setMetaDataStore(metaDataStore).uncheckedOpen();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
+            context.commit();
+        }
 
+        try (FDBRecordContext context = fdb.openContext()) {
             // The stale meta-data store uses the cached meta-data, hence the old version in the final assert
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace)
                     .setMetaDataStore(staleMetaDataStore).uncheckedOpen();
@@ -299,9 +353,31 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             context.commit();
         }
 
+        TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(1066L)
+                .setNumValue2(42)
+                .setStrValueIndexed("value")
+                .setNumValue3Indexed(1729)
+                .build();
+
+        final TestRecords1EvolvedProto.MySimpleRecord evolvedRecord = TestRecords1EvolvedProto.MySimpleRecord.newBuilder()
+                .setRecNo(1067L)
+                .setNumValue2(43)
+                .setStrValueIndexed("evolved value")
+                .setNumValue3Indexed(1730)
+                .build();
+
+        final TestRecords1EvolvedAgainProto.MySimpleRecord evolvedAgainRecord = TestRecords1EvolvedAgainProto.MySimpleRecord.newBuilder()
+                .setRecNo(1066L)
+                .setNumValue2(42)
+                .setStrValueIndexed("value")
+                .setNumValue3Indexed(1729)
+                .build();
+
+        final RecordMetaData origMetaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        final int version = origMetaData.getVersion();
+
         try (FDBRecordContext context = fdb.openContext()) {
-            RecordMetaData origMetaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-            final int version = origMetaData.getVersion();
 
             FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1Proto.getDescriptor());
             FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
@@ -309,53 +385,43 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                     .createOrOpen();
             assertEquals(version, recordStore.getRecordMetaData().getVersion());
 
-            TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
-                    .setRecNo(1066L)
-                    .setNumValue2(42)
-                    .setStrValueIndexed("value")
-                    .setNumValue3Indexed(1729)
-                    .build();
             recordStore.saveRecord(record);
 
-            // Update the records without a local descriptor. Storing an evolved record must fail.
-            final TestRecords1EvolvedProto.MySimpleRecord evolvedRecord = TestRecords1EvolvedProto.MySimpleRecord.newBuilder()
-                    .setRecNo(1067L)
-                    .setNumValue2(43)
-                    .setStrValueIndexed("evolved value")
-                    .setNumValue3Indexed(1730)
-                    .build();
+            context.commit();
+        }
 
-            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, null);
+        try (FDBRecordContext context = openContext()) {
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, null);
             metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor()); // Bumps the version
-            final FDBRecordStore recordStoreWithNoLocalFileDescriptor = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+            final FDBRecordStore recordStoreWithNoLocalFileDescriptor = FDBRecordStore.newBuilder()
+                    .setContext(context).setKeySpacePath(path)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
                     .open();
             assertEquals(version + 1, recordStoreWithNoLocalFileDescriptor.getRecordMetaData().getVersion());
             MetaDataException e = assertThrows(MetaDataException.class, () -> recordStoreWithNoLocalFileDescriptor.saveRecord(evolvedRecord));
             assertEquals(e.getMessage(), "descriptor did not match record type");
+        }
 
+        try (FDBRecordContext context = openContext()) {
             // Update the records with a local descriptor. Storing an evolved record must succeed this time.
-            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1EvolvedProto.getDescriptor());
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1EvolvedProto.getDescriptor());
+            metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor()); // Bumps the version
+            recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
+                    .open();
+            assertEquals(version + 1, recordStore.getRecordMetaData().getVersion());
+            recordStore.saveRecord(evolvedRecord);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            FDBMetaDataStore metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1EvolvedAgainProto.getDescriptor());
             metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor()); // Bumps the version
             recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
                     .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
                     .open();
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
-            recordStore.saveRecord(evolvedRecord);
-
             // Evolve the meta-data one more time and use it for local file descriptor. SaveRecord will succeed.
-            final TestRecords1EvolvedAgainProto.MySimpleRecord evolvedAgainRecord = TestRecords1EvolvedAgainProto.MySimpleRecord.newBuilder()
-                    .setRecNo(1066L)
-                    .setNumValue2(42)
-                    .setStrValueIndexed("value")
-                    .setNumValue3Indexed(1729)
-                    .build();
-            metaDataStore = createMetaDataStore(context, metaDataPath, metaDataSubspace, TestRecords1EvolvedAgainProto.getDescriptor());
-            metaDataStore.updateRecords(TestRecords1EvolvedProto.getDescriptor()); // Bumps the version
-            recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
-                    .setMetaDataStore(metaDataStore).setMetaDataProvider(origMetaData)
-                    .open();
-            assertEquals(version + 3, recordStore.getRecordMetaData().getVersion());
             recordStore.saveRecord(evolvedAgainRecord);
         }
     }
@@ -678,7 +744,9 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                     .setContext(context)
                     .setMetaDataProvider(metaData1)
                     .open());
+        }
 
+        try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = FDBRecordStore.newBuilder()
                     .setKeySpacePath(path)
                     .setContext(context)
