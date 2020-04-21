@@ -138,6 +138,11 @@ public class QueryRecordFunction<T> implements PlanHashable {
         return new QueryRecordFunctionWithComparison(function, new Comparisons.SimpleComparison(type, comparand));
     }
 
+    @Nonnull
+    public QueryComponent withParameterComparison(@Nonnull Comparisons.Type type, String parameter) {
+        return new QueryRecordFunctionWithComparison(function, new Comparisons.ParameterComparison(type, parameter));
+    }
+
     public <M extends Message> CompletableFuture<T> eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBStoredRecord<M> record) {
         if (record == null) {
             return CompletableFuture.completedFuture(null);
