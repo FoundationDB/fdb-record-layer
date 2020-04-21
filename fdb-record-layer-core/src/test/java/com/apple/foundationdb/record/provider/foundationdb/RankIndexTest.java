@@ -63,7 +63,6 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -94,7 +93,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -890,17 +888,19 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .sorted(Comparator.comparing(Pair::getLeft))
                 .collect(Collectors.toList());
 
-        List<List<Matcher<String>>> rankWithTies = new ArrayList<>();
+        List<Set<String>> rankWithTies = new ArrayList<>();
         Integer lastScore = null;
         for (Pair<Integer, String> recordsSortedByRankWithDuplicate : recordsSortedByRankWithDuplicates) {
             int score = recordsSortedByRankWithDuplicate.getLeft();
             final String name = recordsSortedByRankWithDuplicate.getRight();
             if (lastScore == null || !lastScore.equals(score)) {
-                ArrayList<Matcher<String>> tie = new ArrayList<>();
-                tie.add(equalTo(name));
+                // A set as the same record can have the same score multiple times, but each unique score,
+                // per record, will only be counted once
+                Set<String> tie = new HashSet<>();
+                tie.add(name);
                 rankWithTies.add(tie);
             } else {
-                rankWithTies.get(rankWithTies.size() - 1).add(equalTo(name));
+                rankWithTies.get(rankWithTies.size() - 1).add(name);
             }
             lastScore = score;
         }
@@ -916,7 +916,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
         RecordQueryPlan plan = planner.plan(query);
 
         assertAll(IntStream.range(0, rankWithTies.size()).mapToObj(i -> () -> {
-            List<Matcher<String>> tie = rankWithTies.get(i);
+            Set<String> tie = rankWithTies.get(i);
 
             try (FDBRecordContext context = openContext()) {
                 try {
@@ -927,7 +927,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 final List<String> actualRecords = plan.execute(recordStore, EvaluationContext.forBinding("RANK_VALUE", i))
                         .map(rec -> TestRecordsRankProto.RepeatedRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
                         .asList().join();
-                assertThat("For Rank " + i, actualRecords, containsInAnyOrder(tie));
+                assertThat("For Rank " + i, actualRecords, containsInAnyOrder(tie.toArray()));
             }
         }));
     }
