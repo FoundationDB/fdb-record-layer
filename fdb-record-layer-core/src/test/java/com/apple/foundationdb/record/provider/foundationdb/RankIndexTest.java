@@ -63,7 +63,6 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -71,7 +70,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -94,9 +92,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scoreF
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -892,13 +888,15 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .sorted(Comparator.comparing(Pair::getLeft))
                 .collect(Collectors.toList());
 
-        List<List<String>> rankWithTies = new ArrayList<>();
+        List<Set<String>> rankWithTies = new ArrayList<>();
         Integer lastScore = null;
         for (Pair<Integer, String> recordsSortedByRankWithDuplicate : recordsSortedByRankWithDuplicates) {
             int score = recordsSortedByRankWithDuplicate.getLeft();
             final String name = recordsSortedByRankWithDuplicate.getRight();
             if (lastScore == null || !lastScore.equals(score)) {
-                List<String> tie = new ArrayList<>();
+                // A set as the same record can have the same score multiple times, but each unique score,
+                // per record, will only be counted once
+                Set<String> tie = new HashSet<>();
                 tie.add(name);
                 rankWithTies.add(tie);
             } else {
@@ -918,7 +916,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
         RecordQueryPlan plan = planner.plan(query);
 
         assertAll(IntStream.range(0, rankWithTies.size()).mapToObj(i -> () -> {
-            List<String> tie = rankWithTies.get(i);
+            Set<String> tie = rankWithTies.get(i);
 
             try (FDBRecordContext context = openContext()) {
                 try {
