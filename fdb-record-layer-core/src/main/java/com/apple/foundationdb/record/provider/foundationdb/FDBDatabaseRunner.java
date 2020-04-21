@@ -112,7 +112,15 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     FDBDatabase.WeakReadSemantics getWeakReadSemantics();
 
     /**
-     * Set the read semantics used in record contexts opened by this runner.
+     * Set the read semantics used in record contexts opened by this runner. Within the retry loops
+     * {@link #run(Function)}, {@link #runAsync(Function)}, and their variants, only the first
+     * context (from the first iteration round the loop) actually sets the created record context's
+     * {@link FDBDatabase.WeakReadSemantics} to the provided value. This is because there are several
+     * reasons why a transaction may fail due to a stale read version (for example, a
+     * {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionConflictException conflict}
+     * or {@linkplain com.apple.foundationdb.record.provider.foundationdb.FDBExceptions.FDBStoreTransactionIsTooOldException expired transaction}),
+     * and subsequent attempts will fail if their read version is not updated to a newer value.
+     *
      * @param weakReadSemantics allowable staleness parameters if caching read versions
      * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)
      */
@@ -200,6 +208,32 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @throws IllegalArgumentException if the value is negative or greater than the maximum delay
      */
     void setInitialDelayMillis(long initialDelayMillis);
+
+    /**
+     * Set the transaction timeout for all transactions started by this runner. If set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS},
+     * then this will use the value of set in the originating database's factory. If set to {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS},
+     * then no timeout will be imposed on transactions used by this runner.
+     *
+     * <p>
+     * Note that the error that the transaction hits, {@link FDBExceptions.FDBStoreTransactionTimeoutException},
+     * is not retriable, so if the runner encounters such an error, it will terminate.
+     * </p>
+     *
+     * @param transactionTimeoutMillis the transaction timeout time in milliseconds
+     * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
+     */
+    void setTransactionTimeoutMillis(long transactionTimeoutMillis);
+
+    /**
+     * Get the transaction timeout for all transactions started by this runner. This will return the value configured
+     * for this runner through {@link #setTransactionTimeoutMillis(long)}. Note, however, that if the transaction timeout
+     * is set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS}, then the actual timeout set for this transaction
+     * will be set to the value in the originating factory.
+     *
+     * @return the configured transacation timeout time in milliseconds
+     * @see #setTransactionTimeoutMillis(long)
+     */
+    long getTransactionTimeoutMillis();
 
     /**
      * Open a new record context.

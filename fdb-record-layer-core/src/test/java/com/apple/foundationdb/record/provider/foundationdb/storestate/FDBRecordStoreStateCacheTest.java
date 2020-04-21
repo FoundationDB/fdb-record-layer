@@ -148,6 +148,11 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 context.commit();
             }
         }
+
+        @Override
+        public String toString() {
+            return "ReadVersionStateCacheTestContext";
+        }
     }
 
     /**
@@ -192,6 +197,11 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 context.setMetaDataVersionStamp();
                 context.commit();
             }
+        }
+
+        @Override
+        public String toString() {
+            return "MetaDataVersionStampStateCacheTestContext";
         }
     }
 
@@ -511,7 +521,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
      * Make sure that if one transaction changes the store header then an open store in another transaction that
      * loaded the store state from cache will fail at commit time with conflict.
      */
-    @ParameterizedTest(name = "conflictWhenCachedChanged (test context = [0])")
+    @ParameterizedTest(name = "conflictWhenCachedChanged (test context = {0})")
     @MethodSource("testContextSource")
     public void conflictWhenCachedChanged(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
@@ -605,7 +615,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     /**
      * Validate that the store existence check is still performed on the cached store info.
      */
-    @ParameterizedTest(name = "existenceCheckOnCachedStoreStates (test context = [0])")
+    @ParameterizedTest(name = "existenceCheckOnCachedStoreStates (test context = {0})")
     @MethodSource("testContextSource")
     public void existenceCheckOnCachedStoreStates(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
@@ -653,7 +663,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
      * Validate that deleting a record store causes the record store to go back to the database as it's possible the
      * cached stuff is what was deleted.
      */
-    @ParameterizedTest(name = "storeDeletionInSameContext (test context = [0])")
+    @ParameterizedTest(name = "storeDeletionInSameContext (test context = {0})")
     @MethodSource("testContextSource")
     public void storeDeletionInSameContext(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache storeStateCache = fdb.getStoreStateCache();
@@ -719,7 +729,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     /**
      * After a store is deleted, validate that future transactions need to reload it from cache.
      */
-    @ParameterizedTest(name = "storeDeletionAcrossContexts (test context = [0])")
+    @ParameterizedTest(name = "storeDeletionAcrossContexts (test context = {0})")
     @MethodSource("testContextSource")
     public void storeDeletionAcrossContexts(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache storeStateCache = fdb.getStoreStateCache();
@@ -794,7 +804,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     /**
      * Verify that updating a header user field will be updated if the store state is cached.
      */
-    @ParameterizedTest(name = "cacheUserFields (test context = [0])")
+    @ParameterizedTest(name = "cacheUserFields (test context = {0})")
     @MethodSource("testContextSource")
     public void cacheUserFields(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
@@ -838,7 +848,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     /**
      * Make sure that caching two different subspaces are both cached but with separate entries.
      */
-    @ParameterizedTest(name = "cacheTwoSubspaces (test context = [0])")
+    @ParameterizedTest(name = "cacheTwoSubspaces (test context = {0})")
     @MethodSource("testContextSource")
     public void cacheTwoSubspaces(@Nonnull StateCacheTestContext testContext) throws Exception {
         FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
@@ -905,7 +915,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     /**
      * Validate that caching just naturally works.
      */
-    @ParameterizedTest(name = "cacheWithVersionTracking (test context = [0])")
+    @ParameterizedTest(name = "cacheWithVersionTracking (test context = {0})")
     @MethodSource("testContextSource")
     public void cacheWithVersionTracking(@Nonnull StateCacheTestContext testContext) throws Exception {
         boolean trackCommitVersions = fdb.isTrackLastSeenVersionOnCommit();
@@ -1010,7 +1020,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @ParameterizedTest(name = "useWithDifferentDatabase (factory = [0])")
+    @ParameterizedTest(name = "useWithDifferentDatabase (factory = {0})")
     @MethodSource("factorySource")
     public void useWithDifferentDatabase(FDBRecordStoreStateCacheFactory storeStateCacheFactory) throws Exception {
         FDBRecordStoreStateCacheFactory currentCacheFactory = FDBDatabaseFactory.instance().getStoreStateCacheFactory();

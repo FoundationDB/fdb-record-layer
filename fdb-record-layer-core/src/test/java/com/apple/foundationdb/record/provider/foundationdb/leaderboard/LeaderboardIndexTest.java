@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -50,6 +51,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetHashFunctions;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -183,6 +185,11 @@ public class LeaderboardIndexTest extends FDBTestBase {
         protected abstract Message buildRecord(String name, String gameId);
 
         public TimeWindowLeaderboardWindowUpdateResult updateWindows(boolean highScoreFirst, long baseTimestamp) {
+            return updateWindows(highScoreFirst, baseTimestamp, TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED);
+        }
+
+        public TimeWindowLeaderboardWindowUpdateResult updateWindows(boolean highScoreFirst, long baseTimestamp,
+                                                                     TimeWindowLeaderboardWindowUpdate.Rebuild rebuild) {
             return (TimeWindowLeaderboardWindowUpdateResult)
                     recordStore.performIndexOperation("LeaderboardIndex",
                             new TimeWindowLeaderboardWindowUpdate(System.currentTimeMillis(), highScoreFirst,
@@ -191,7 +198,8 @@ public class LeaderboardIndexTest extends FDBTestBase {
                                     Arrays.asList(
                                             new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(TEN_UNITS, baseTimestamp, 5, 10, 20),
                                             new TimeWindowLeaderboardWindowUpdate.TimeWindowSpec(FIVE_UNITS, baseTimestamp, 1, 5, 10)
-                                    ), TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED));
+                                    ),
+                                    rebuild));
         }
 
         public RecordCursor<Message> scanIndex(IndexScanType type, TupleRange range) {
@@ -356,7 +364,8 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
         @Override
         public void addIndex(RecordMetaDataBuilder metaDataBuilder) {
-            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD));
+            metaDataBuilder.addIndex("NestedLeaderboardRecord", new Index("LeaderboardIndex", keyExpression, IndexTypes.TIME_WINDOW_LEADERBOARD,
+                    Collections.singletonMap(IndexOptions.RANK_HASH_FUNCTION, RankedSetHashFunctions.MURMUR3)));
         }
     }
 
@@ -973,6 +982,15 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
     @Test
     public void rebuildOverlapping() {
+        updateOverlapping(true);
+    }        
+
+    @Test
+    public void noRebuildOverlapping() {
+        updateOverlapping(false);
+    }        
+
+    private void updateOverlapping(boolean rebuild) {
         Leaderboards leaderboards = new GroupedNestedLeaderboards();
         basicSetup(leaderboards, true);
         try (FDBRecordContext context = openContext()) {
@@ -1001,10 +1019,16 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.openRecordStore(context, false);
 
             metrics.reset();
-            TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(true, 10500);
+            TimeWindowLeaderboardWindowUpdateResult result = leaderboards.updateWindows(true, 10500,
+                    rebuild ? TimeWindowLeaderboardWindowUpdate.Rebuild.IF_OVERLAPPING_CHANGED : TimeWindowLeaderboardWindowUpdate.Rebuild.NEVER);
             assertTrue(result.isChanged());
-            assertTrue(result.isRebuilt());
-            assertEquals(1, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
+            if (rebuild) {
+                assertTrue(result.isRebuilt());
+            } else {
+                assertFalse(result.isRebuilt());
+            }
+            assertEquals(1, metrics.getCount(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED));
+            assertEquals(rebuild ? 1 : 0, metrics.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
 
             // NOTE: no commit.
         }

@@ -65,11 +65,11 @@ public class TracedTransaction implements Transaction {
     protected void finalize() {
         if (transaction != null) {
             if (mdcContext != null) {
-                FDBRecordContext.restoreMdc(mdcContext);
+                ContextRestoringExecutor.restoreMdc(mdcContext);
             }
             LOGGER.warn("did not close context", stack);
             if (mdcContext != null) {
-                FDBRecordContext.clearMdc(mdcContext);
+                ContextRestoringExecutor.clearMdc(mdcContext);
             }
         }
     }

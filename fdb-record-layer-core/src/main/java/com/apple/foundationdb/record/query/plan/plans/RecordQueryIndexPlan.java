@@ -117,6 +117,11 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         return Collections.singleton(indexName);
     }
 
+    @Override
+    public boolean hasLoadBykeys() {
+        return false;
+    }
+
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)

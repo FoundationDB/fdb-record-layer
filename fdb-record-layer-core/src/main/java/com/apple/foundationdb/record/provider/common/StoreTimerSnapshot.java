@@ -25,9 +25,8 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * An immutable snapshot of a {@link StoreTimer}.
@@ -70,6 +69,25 @@ public final class StoreTimerSnapshot {
     public static StoreTimerSnapshot from(@Nonnull StoreTimer timer) {
         return new StoreTimerSnapshot(timer);
     }
+
+    /**
+     * Returns the counters taken at the time of the snapshot.
+     *
+     * @return the counters taken at the time of the snapshot.
+     */
+    public Map<StoreTimer.Event, CounterSnapshot> getCounters() {
+        return counters;
+    }
+
+    /**
+     * Returns the timeout counters taken at the time of the snapshot.
+     *
+     * @return the timeout counters taken at the time of the snapshot.
+     */
+    public Map<StoreTimer.Event, CounterSnapshot> getTimeoutCounters() {
+        return timeoutCounters;
+    }
+
 
     /**
      * Get the counter for a given event.
@@ -162,12 +180,12 @@ public final class StoreTimerSnapshot {
      * Contains the number of occurrences and cummulative time spent on an associated event.
      */
     public static class CounterSnapshot {
-        private final AtomicLong timeNanos = new AtomicLong();
-        private final AtomicInteger count = new AtomicInteger();
+        private final long timeNanos;
+        private final int count;
 
         private CounterSnapshot(@Nonnull StoreTimer.Counter c) {
-            timeNanos.set(c.getTimeNanos());
-            count.set(c.getCount());
+            timeNanos = c.getTimeNanos();
+            count = c.getCount();
         }
 
         /**
@@ -189,7 +207,7 @@ public final class StoreTimerSnapshot {
          */
         @Nonnull
         public int getCount() {
-            return count.get();
+            return count;
         }
 
         /**
@@ -198,7 +216,7 @@ public final class StoreTimerSnapshot {
          * @return the cumulative time spent on the associated event
          */
         public long getTimeNanos() {
-            return timeNanos.get();
+            return timeNanos;
         }
     }
 }

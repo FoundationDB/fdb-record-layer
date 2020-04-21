@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.synchronizedsession;
 
-
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
@@ -153,6 +153,8 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
      * @return a future that will return {@code null} when the session is ended
      */
     public CompletableFuture<Void> endSessionAsync() {
+        // Using the underlying runner rather than itself because it should not throw any exception if the session
+        // does not hold the lock.
         return underlying.runAsync(context -> session.releaseLock(context.ensureActive()));
     }
 
@@ -161,6 +163,26 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
      */
     public void endSession() {
         underlying.asyncToSync(FDBStoreTimer.Waits.WAIT_END_SYNC_SESSION, endSessionAsync());
+    }
+
+    /**
+     * Releases the lock to end any synchronized session on the same lock subspace, no matter whether the current
+     * session holds the lock or not.
+     * @return a future that will return {@code null} when the session is ended
+     * @see SynchronizedSession#endAnySession(Transaction, Subspace)
+     */
+    public CompletableFuture<Void> endAnySessionAsync() {
+        return underlying.runAsync(context -> {
+            session.endAnySession(context.ensureActive());
+            return AsyncUtil.DONE;
+        });
+    }
+
+    /**
+     * Synchronous/blocking version of {@link #endAnySessionAsync()}.
+     */
+    public void endAnySession() {
+        underlying.asyncToSync(FDBStoreTimer.Waits.WAIT_END_SYNC_SESSION, endAnySessionAsync());
     }
 
     @Override
@@ -265,6 +287,16 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     @Override
     public void setInitialDelayMillis(long initialDelayMillis) {
         underlying.setInitialDelayMillis(initialDelayMillis);
+    }
+
+    @Override
+    public void setTransactionTimeoutMillis(long transactionTimeoutMillis) {
+        underlying.setTransactionTimeoutMillis(transactionTimeoutMillis);
+    }
+
+    @Override
+    public long getTransactionTimeoutMillis() {
+        return underlying.getTransactionTimeoutMillis();
     }
 
     @Override

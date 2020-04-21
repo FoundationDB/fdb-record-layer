@@ -33,10 +33,11 @@ import javax.annotation.Nonnull;
 public class NoSuchDirectoryException extends RecordCoreException {
     private static final long serialVersionUID = 1L;
 
-    public NoSuchDirectoryException(@Nonnull String parentDirName, @Nonnull String dirName) {
+    public NoSuchDirectoryException(@Nonnull KeySpaceDirectory rootDirectory, @Nonnull String subdir) {
         super("No such directory");
+
         addLogInfo(
-                LogMessageKeys.PARENT_DIR, parentDirName,
-                LogMessageKeys.DIR_NAME, dirName);
+                LogMessageKeys.DIRECTOY, rootDirectory.toPathString(),
+                LogMessageKeys.SUBDIRECTORY, subdir);
     }
 }

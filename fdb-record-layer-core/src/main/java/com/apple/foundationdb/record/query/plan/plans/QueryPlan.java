@@ -123,6 +123,12 @@ public interface QueryPlan<T> extends PlanHashable, RelationalPlannerExpression 
     Set<String> getUsedIndexes();
 
     /**
+     * Indicates whether this plan (or one of its components) loads records by their primary key.
+     * @return <code>true</code> if this plan (or one of its components) loads records by their primary key
+     */
+    boolean hasLoadBykeys();
+
+    /**
      * Adds one to an appropriate {@link StoreTimer} counter for each plan and subplan of this plan, allowing tracking
      * of which plans are being chosen (e.g. index scan vs. full scan).
      * @param timer the counters to increment

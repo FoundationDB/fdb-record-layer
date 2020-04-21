@@ -780,7 +780,7 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
 
     @Test
     public void testPathToString() throws Exception {
-        KeySpace root = new KeySpace(
+        KeySpace root = new KeySpace("foo",
                 new KeySpaceDirectory("root", KeyType.LONG)
                         .addSubdirectory(new KeySpaceDirectory("dir1", KeyType.STRING)
                                 .addSubdirectory(new KeySpaceDirectory("dir2", KeyType.BYTES)))
@@ -796,6 +796,9 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             fooValue = entries.get(0);
             barValue = entries.get(1);
         }
+
+        assertEquals("/foo/root/dir3/dir4",
+                root.getDirectory("root").getSubdirectory("dir3").getSubdirectory("dir4").toPathString());
 
         try (FDBRecordContext context = database.openContext()) {
             assertEquals("/root:4/dir1:\"hi\"/dir2:0x4142+(\"blah\")",

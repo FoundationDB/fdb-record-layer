@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -59,11 +60,20 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -245,8 +255,17 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testQueryIgnoresFunctionIndexes() throws Exception {
-        // Make sure that index selection still works on "normal" indexes and nothing chokes when it hits the
-        // function index definition.
+        testQueryFunctionIndex(false);
+    }
+
+    // Make sure that index selection still works on "normal" indexes and nothing chokes when it hits the
+    // function index definition.
+    @Test
+    public void testQueryFunctionIndex() throws Exception {
+        testQueryFunctionIndex(true);
+    }
+
+    private void testQueryFunctionIndex(boolean functionQuery) throws Exception {
         Index funcIndex = new Index("substr_index", function("substr", concat(field("str_value"), value(0), value(3))),
                 IndexTypes.VALUE);
         Index normalIndex = new Index("normal_index", field("str_value"), IndexTypes.VALUE);
@@ -258,23 +277,33 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         }
         saveRecords(records, funcIndex, normalIndex);
 
-        // Someday I hope we can support:
-        //    Query.function("substr", Query.field("str_value"), Query.value(0), Query.value(3)).greaterThanOrEquals("...")
-        // or something like that.
+        QueryComponent filter;
+        if (functionQuery) {
+            filter = Query.and(
+                    Query.keyExpression(funcIndex.getRootExpression()).greaterThanOrEquals("abd"),
+                    Query.keyExpression(funcIndex.getRootExpression()).lessThanOrEquals("abg"));
+        } else {
+            filter = Query.and(
+                    Query.field("str_value").greaterThanOrEquals("abd"),
+                    Query.field("str_value").lessThanOrEquals("abg"));
+        }
+
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("TypesRecord")
-                .setFilter(
-                        Query.and(
-                                Query.field("str_value").greaterThanOrEquals("abd"),
-                                Query.field("str_value").lessThanOrEquals("abg")))
+                .setFilter(filter)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
 
-        // Here I'm really just making sure that (a) the substr_index is not selected, because the
-        // planner has no idea how to plan a query on a function index as of this writing (besides, the
-        // function call doesn't appear in the query anyway) and (b) that the planner doesn't throw
-        // an exception or do something wonky as a result of the presence of this index.
-        assertEquals("Index(normal_index [[abd],>) | str_value LESS_THAN_OR_EQUALS abg", plan.toString());
+        if (functionQuery) {
+            assertThat(plan, indexScan(allOf(indexName(funcIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
+            assertEquals(316561162, plan.planHash());
+        } else {
+            // Here I'm really just making sure that (a) the substr_index is not selected, because the
+            // function call doesn't appear in the query anyway and (b) that the planner doesn't throw
+            // an exception or do something wonky as a result of the presence of this index.
+            assertThat(plan, indexScan(allOf(indexName(normalIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
+            assertEquals(1189784448, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, funcIndex, normalIndex);
@@ -284,12 +313,14 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
                     FDBQueriedRecord<Message> queriedRecord = cursor.next();
                     TypesRecord record = fromMessage(queriedRecord.getRecord());
                     assertTrue(records.contains(record));
-                    assertTrue(record.getStrValue().compareTo("abd") >= 0);
-                    assertTrue(record.getStrValue().compareTo("abg") <= 0);
+                    String str = functionQuery ? record.getStrValue().substring(0, 3) : record.getStrValue();
+                    assertThat(str, greaterThanOrEqualTo("abd"));
+                    assertThat(str, lessThanOrEqualTo("abg"));
                     ++count;
                 }
             }
-            assertEquals(3, count);
+            assertEquals(functionQuery ? 4 : 3, count);
+            assertDiscardedNone(context);
         }
     }
 

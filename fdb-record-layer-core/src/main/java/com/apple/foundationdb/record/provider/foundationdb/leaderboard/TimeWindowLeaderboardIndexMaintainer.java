@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -88,8 +88,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
     private static final Tuple SUB_DIRECTORY_PREFIX = Tuple.from((Object)null); // Must not conflict with leaderboard subspace keys.
 
+    private final RankedSet.Config config;
+
     public TimeWindowLeaderboardIndexMaintainer(IndexMaintainerState state) {
         super(state);
+        this.config = RankedSetIndexHelper.getConfig(state.index);
     }
 
     @Nonnull
@@ -194,8 +197,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 }
                 final Subspace extraSubspace = getSecondarySubspace();
                 final Subspace leaderboardSubspace = extraSubspace.subspace(leaderboard.getSubspaceKey());
+                final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
                 return RankedSetIndexHelper.rankRangeToScoreRange(state, groupPrefixSize,
-                        leaderboardSubspace, leaderboard.getNLevels(), leaderboardRange);
+                        leaderboardSubspace, leaderboardConfig, leaderboardRange);
             });
         }
         // Add leaderboard's key to the front and take it off of the results.
@@ -357,9 +361,13 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                                 updateOneKey(savedRecord, remove, new IndexEntry(state.index, entryKey, entryValue));
 
                                 // Update the corresponding rankset for this leaderboard.
+                                // Notice that as each leaderboard has its own subspace key and at most one score
+                                // per record is chosen per leaderboard, this is the only time this record will be
+                                // indexed in this rankSubspace. Compare/contrast: RankIndexMaintainer::updateIndexKeys
                                 final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
+                                final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
                                 futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace,
-                                        leaderboard.getNLevels(), entryKey, indexKey.scoreKey, remove));
+                                        leaderboardConfig, entryKey, indexKey.scoreKey, remove));
                             }
                         }
                     }
@@ -375,6 +383,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 return AsyncUtil.whenAll(futures);
             });
         });
+    }
+
+    @Override
+    public boolean isIdempotent() {
+        return !config.isCountDuplicates();
     }
 
     @Override
@@ -479,7 +492,8 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
             final Subspace extraSubspace = getSecondarySubspace();
             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
+            final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
+            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboardConfig);
             return function.apply(leaderboard, rankedSet, groupKey, values);
         });
     }
@@ -526,7 +540,8 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                             final Tuple leaderboardGroupKey = leaderboard.getSubspaceKey().addAll(groupKey);
                             final Subspace extraSubspace = getSecondarySubspace();
                             final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
-                            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboard.getNLevels());
+                            final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
+                            final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, leaderboardConfig);
                             // Undo any negation needed to find entry.
                             final Tuple entry = highScoreFirst ? negateScoreForHighScoreFirst(indexKey.scoreKey, 0) : indexKey.scoreKey;
                             return RankedSetIndexHelper.rankForScore(state, rankedSet, indexKey.scoreKey, true).thenApply(rank -> Pair.of(rank, entry));
@@ -575,7 +590,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                         state.update();
                         return null;
                     })
-                    .thenCompose(vignore -> state.checkRebuild())
+                    .thenCompose(vignore -> state.checkOverlappingChanged())
                     .thenCompose(vignore -> state.save())
                     .thenApply(vignore -> state.getResult());
             event = FDBStoreTimer.Events.TIME_WINDOW_LEADERBOARD_UPDATE_DIRECTORY;
@@ -699,19 +714,23 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             }
         }
 
-        public CompletableFuture<Void> checkRebuild() {
-            if (changed && isRebuildConditional()) {
+        public CompletableFuture<Void> checkOverlappingChanged() {
+            if (changed) {
                 return state.transaction.get(state.indexSubspace.getKey()).thenApply(maxBytes -> {
                     if (maxBytes != null) {
                         final long latestEntryTimestamp = AtomicMutation.Standard.decodeSignedLong(maxBytes);
                         // If some record has been added since last rebuild that is after the start of a newly
                         // added time window, we have to index existing records, which we currently do by rebuilding.
                         if (latestEntryTimestamp >= earliestAddedStartTimestamp) {
-                            rebuild = true;
-                            LOGGER.info(KeyValueLogMessage.of("rebuilding leaderboard index due to overlapping existing record",
-                                            LogMessageKeys.LATEST_ENTRY_TIMESTAMP, latestEntryTimestamp,
-                                            LogMessageKeys.EARLIEST_ADDED_START_TIMESTAMP, earliestAddedStartTimestamp,
-                                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
+                            if (isRebuildConditional()) {
+                                rebuild = true;
+                            }
+                            LOGGER.info(KeyValueLogMessage.of(rebuild ?
+                                                              "rebuilding leaderboard index due to overlapping existing record" :
+                                                              "need to rebuild leaderboard index due to overlapping existing record",
+                                    LogMessageKeys.LATEST_ENTRY_TIMESTAMP, latestEntryTimestamp,
+                                    LogMessageKeys.EARLIEST_ADDED_START_TIMESTAMP, earliestAddedStartTimestamp,
+                                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
                             if (getTimer() != null) {
                                 getTimer().increment(FDBStoreTimer.Counts.TIME_WINDOW_LEADERBOARD_OVERLAPPING_CHANGED);
                             }

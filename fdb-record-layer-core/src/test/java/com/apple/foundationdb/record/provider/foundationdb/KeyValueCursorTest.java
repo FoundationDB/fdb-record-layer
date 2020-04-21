@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordScanLimiter;
+import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
@@ -300,7 +301,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void simpleScanLimit() {
         fdb.run(context -> {
-            RecordScanLimiter limiter = new RecordScanLimiter(2);
+            RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(2);
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.ALL)
@@ -318,7 +319,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void limitNotReached() {
         fdb.run(context -> {
-            RecordScanLimiter limiter = new RecordScanLimiter(4);
+            RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(4);
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)
@@ -341,7 +342,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void sharedLimiter() {
         fdb.run(context -> {
-            RecordScanLimiter limiter = new RecordScanLimiter(4);
+            RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(4);
             KeyValueCursor.Builder builder =  KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)
@@ -368,7 +369,7 @@ public class KeyValueCursorTest extends FDBTestBase {
     @Test
     public void limiterWithLookahead() {
         fdb.run(context -> {
-            RecordScanLimiter limiter = new RecordScanLimiter(1);
+            RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(1);
             KeyValueCursor kvCursor =  KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)

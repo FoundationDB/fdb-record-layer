@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.subspace.Subspace;
@@ -34,7 +33,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +45,6 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.core.Is.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -98,28 +95,6 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
     }
 
     @Test
-    public void testReverseLookupScansAndEmitsMetric() {
-        final DirectoryLayer directoryLayer = DirectoryLayer.getDefault();
-        final String key = "a-key-created-with-dir-layer-" + random.nextLong();
-        long value;
-        // Add a value with the FDB DirectoryLayer, this will not populate the reverse cache subspace
-        try (FDBRecordContext context = database.openContext()) {
-            final byte[] valueBytes = directoryLayer.create(context.ensureActive(), Collections.singletonList(key)).join().getKey();
-            Tuple dirTuple = Tuple.fromBytes(valueBytes);
-            assertEquals(1, dirTuple.size(), "one element in directory layer subspace tuple");
-            value = dirTuple.getLong(0);
-            context.commit();
-        }
-
-        FDBStoreTimer timer = new FDBStoreTimer();
-        String foundKey = globalScope.reverseLookup(timer, value).join();
-        assertThat("we find the original key", foundKey, is(key));
-        assertEquals(0, globalScope.getDatabase().getReverseDirectoryCache().getPersistentCacheHitCount());
-        assertEquals(1, globalScope.getDatabase().getReverseDirectoryCache().getPersistentCacheMissCount());
-        assertThat("metric is emitted for the scan", timer.getCount(FDBStoreTimer.DetailEvents.RD_CACHE_DIRECTORY_SCAN), is(1));
-    }
-
-    @Test
     public void testLocatableDirectoryResolver() {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("path", KeyType.STRING, "path")
@@ -134,7 +109,7 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
         }
 
         LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path);
-        Long value = resolver.resolve(null, "foo").join();
+        Long value = resolver.resolve("foo").join();
 
         DirectoryLayer directoryLayer = new DirectoryLayer(
                 new Subspace(Bytes.concat(path.toTuple().pack(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())),
@@ -156,14 +131,14 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
         String key1 = "key1";
         assertThat(noMetadata.getMetadataHook().apply(key1), is(nullValue()));
         // works as long as the metadatahook returns null
-        globalScope.resolveWithMetadata(null, key1, noMetadata).join();
+        globalScope.resolveWithMetadata(key1, noMetadata).join();
 
         String key2 = "key2";
         MetadataHook hook = name -> Tuple.from(name).pack();
         ResolverCreateHooks withMetadata = new ResolverCreateHooks(ResolverCreateHooks.DEFAULT_CHECK, hook);
         assertThat(withMetadata.getMetadataHook().apply(key2), is(not(nullValue())));
         assertThrows(CompletionException.class,
-                () -> globalScope.resolveWithMetadata(null, key2, withMetadata).join());
+                () -> globalScope.resolveWithMetadata(key2, withMetadata).join());
     }
 
     private void validate(FDBRecordContext context, LocatableResolver resolver, DirectoryLayer directoryLayer, String key, Long value) {

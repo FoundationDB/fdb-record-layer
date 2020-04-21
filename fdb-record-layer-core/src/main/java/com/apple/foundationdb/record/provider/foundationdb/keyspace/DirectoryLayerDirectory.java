@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
@@ -287,7 +287,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     @Nonnull
     private CompletableFuture<ResolverResult> lookupInScope(@Nonnull final FDBRecordContext context, @Nonnull final String key) {
         return scopeGenerator.apply(context).thenCompose(resolver ->
-            resolver.resolveWithMetadata(context.getTimer(), key, createHooks));
+            resolver.resolveWithMetadata(context, key, createHooks));
     }
 
     @Nonnull

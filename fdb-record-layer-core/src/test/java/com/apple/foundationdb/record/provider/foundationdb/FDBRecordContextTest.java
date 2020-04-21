@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.TaskNotifyingExecutor;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.subspace.Subspace;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -100,6 +104,7 @@ public class FDBRecordContextTest extends FDBTestBase {
 
     @BeforeEach
     public void getFDB() {
+        FDBDatabaseFactory.instance().clear();
         fdb = FDBDatabaseFactory.instance().getDatabase();
     }
 
@@ -416,6 +421,143 @@ public class FDBRecordContextTest extends FDBTestBase {
             Subspace fakeSubspace = new Subspace(Tuple.from(UUID.randomUUID()));
             context.ensureActive().addWriteConflictRange(fakeSubspace.range().begin, fakeSubspace.range().end);
             context.commit();
+        }
+    }
+
+    @Test
+    public void setTimeoutInDatabaseFactory() {
+        long initialTimeoutMillis = fdb.getFactory().getTransactionTimeoutMillis();
+        try {
+            fdb.getFactory().setTransactionTimeoutMillis(1066L);
+            try (FDBRecordContext context = fdb.openContext()) {
+                assertEquals(1066L, context.getTimeoutMillis(), "timeout millis did not match factory timeout");
+            }
+
+            fdb.getFactory().setTransactionTimeoutMillis(FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS);
+            try (FDBRecordContext context = fdb.openContext()) {
+                assertEquals(FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS, context.getTimeoutMillis(), "timeout millis did not match default");
+            }
+        } finally {
+            fdb.getFactory().setTransactionTimeoutMillis(initialTimeoutMillis);
+        }
+    }
+
+    @Test
+    public void setTimeoutInRunner() {
+        long initialTimeoutMillis = fdb.getFactory().getTransactionTimeoutMillis();
+        try {
+            fdb.getFactory().setTransactionTimeoutMillis(1066L);
+
+            try (final FDBDatabaseRunner runner = fdb.newRunner()) {
+                runner.setTransactionTimeoutMillis(1415L);
+                try (FDBRecordContext context = runner.openContext()) {
+                    assertEquals(1415L, context.getTimeoutMillis(), "timeout millis did not match runner timeout");
+                }
+            }
+
+            try (final FDBDatabaseRunner runner = fdb.newRunner()) {
+                runner.setTransactionTimeoutMillis(FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS);
+                try (FDBRecordContext context = runner.openContext()) {
+                    assertEquals(1066L, context.getTimeoutMillis(), "timeout millis did not match factory timeout");
+                }
+            }
+        } finally {
+            fdb.getFactory().setTransactionTimeoutMillis(initialTimeoutMillis);
+        }
+    }
+
+    @Test
+    public void setTimeoutInConfig() {
+        long initialTimeoutMillis = fdb.getFactory().getTransactionTimeoutMillis();
+        try {
+            fdb.getFactory().setTransactionTimeoutMillis(1066L);
+
+            final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                    .setTransactionTimeoutMillis(1415L)
+                    .build();
+            try (final FDBRecordContext context = fdb.openContext(config)) {
+                assertEquals(1415L, context.getTimeoutMillis(), "timeout millis did not match config timeout");
+            }
+
+            final FDBRecordContextConfig config2 = FDBRecordContextConfig.newBuilder()
+                    .setTransactionTimeoutMillis(FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS)
+                    .build();
+            try (final FDBRecordContext context = fdb.openContext(config2)) {
+                assertEquals(1066L, context.getTimeoutMillis(), "timeout millis did not match factory timeout");
+            }
+        } finally {
+            fdb.getFactory().setTransactionTimeoutMillis(initialTimeoutMillis);
+        }
+    }
+
+    @Test
+    public void timeoutTalkingToFakeCluster() throws IOException {
+        final String fakeClusterFile = FDBTestBase.createFakeClusterFile("for_testing_timeouts");
+        final FDBDatabase fakeFdb = FDBDatabaseFactory.instance().getDatabase(fakeClusterFile);
+
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setTransactionTimeoutMillis(100L)
+                .build();
+        try (FDBRecordContext context = fakeFdb.openContext(config)) {
+            assertEquals(100L, context.getTimeoutMillis());
+            assertThrows(FDBExceptions.FDBStoreTransactionTimeoutException.class, context::getReadVersion);
+        }
+    }
+
+    @Test
+    public void contextExecutor() {
+        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        final int myThreadId = ThreadId.get();
+
+        try {
+            factory.setContextExecutor(exec -> new ThreadIdRestoringExecutor(exec, myThreadId));
+            factory.clear();
+
+            FDBDatabase database = factory.getDatabase();
+            try (FDBRecordContext context = database.openContext()) {
+                context.ensureActive().get(new byte[] { 0 }).thenAccept( value -> {
+                    assertEquals(myThreadId, ThreadId.get());
+                }).join();
+            }
+        } finally {
+            factory.setContextExecutor(Function.identity());
+        }
+    }
+
+    static class ThreadIdRestoringExecutor extends TaskNotifyingExecutor {
+        private int threadId;
+
+        public ThreadIdRestoringExecutor(@Nonnull Executor executor, int threadId) {
+            super(executor);
+            this.threadId = threadId;
+        }
+
+        @Override
+        public void beforeTask() {
+            ThreadId.set(threadId);
+        }
+
+        @Override
+        public void afterTask() {
+        }
+    }
+
+    private static class ThreadId {
+        private static final AtomicInteger nextId = new AtomicInteger(0);
+
+        private static final ThreadLocal<Integer> threadId =
+                new ThreadLocal<Integer>() {
+                    @Override protected Integer initialValue() {
+                        return nextId.getAndIncrement();
+                    }
+                };
+
+        public static int get() {
+            return threadId.get();
+        }
+
+        private static void set(int id) {
+            threadId.set(id);
         }
     }
 }

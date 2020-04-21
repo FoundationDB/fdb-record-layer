@@ -264,6 +264,35 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void checkDuplicateOption() throws Exception {
+        RecordFunction<Long> rank = Query.rank("score").getFunction();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            FDBStoredRecord<Message> rec1 = recordStore.loadRecord(Tuple.from("achilles"));
+            assertEquals((Long)1L, recordStore.evaluateRecordFunction(rank, rec1).get());
+            FDBStoredRecord<Message> rec2 = recordStore.loadRecord(Tuple.from("penelope"));
+            assertEquals((Long)2L, recordStore.evaluateRecordFunction(rank, rec2).get());
+            FDBStoredRecord<Message> rec3 = recordStore.loadRecord(Tuple.from("laodice"));
+            assertEquals((Long)3L, recordStore.evaluateRecordFunction(rank, rec3).get());
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, md -> {
+                md.removeIndex("BasicRankedRecord$score");
+                md.addIndex("BasicRankedRecord", new Index("score_count_dupes", Key.Expressions.field("score").ungrouped(),
+                        IndexTypes.RANK, Collections.singletonMap(IndexOptions.RANK_COUNT_DUPLICATES, "true")));
+            });
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex("score_count_dupes")).join();
+            FDBStoredRecord<Message> rec1 = recordStore.loadRecord(Tuple.from("achilles"));
+            assertEquals((Long)1L, recordStore.evaluateRecordFunction(rank, rec1).get());
+            FDBStoredRecord<Message> rec2 = recordStore.loadRecord(Tuple.from("penelope"));
+            assertEquals((Long)2L, recordStore.evaluateRecordFunction(rank, rec2).get());
+            FDBStoredRecord<Message> rec3 = recordStore.loadRecord(Tuple.from("laodice"));
+            assertEquals((Long)4L, recordStore.evaluateRecordFunction(rank, rec3).get());
+        }
+    }
+
+
+    @Test
     public void checkUpdateWithTies() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
