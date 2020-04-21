@@ -39,6 +39,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
@@ -246,19 +247,18 @@ public class Comparisons {
         if (value == null || comparand == null) {
             return null;
         }
-        if ((comparand instanceof List<?>)) {
-            boolean hasNull = false;
-            value = toClassWithRealEquals(value);
-            for (Object comparandItem : (List<?>) comparand) {
-                if (value.equals(toClassWithRealEquals(comparandItem))) {
-                    return true;
-                }
-                hasNull |= comparandItem == null;
-            }
-            return hasNull ? null : false;
-        } else {
+        if (!(comparand instanceof List<?>)) {
             throw new RecordCoreException("IN comparison with a non-list type" + comparand.getClass());
         }
+        boolean hasNull = false;
+        value = toClassWithRealEquals(value);
+        for (Object comparandItem : (List<?>) comparand) {
+            if (value.equals(toClassWithRealEquals(comparandItem))) {
+                return true;
+            }
+            hasNull |= comparandItem == null;
+        }
+        return hasNull ? null : false;
     }
 
     @Nullable
@@ -693,10 +693,19 @@ public class Comparisons {
         private final Type type;
         @Nonnull
         protected final Object comparand;
+        @Nullable
+        protected ListComparison listComparison;
 
         public SimpleComparison(@Nonnull Type type, @Nonnull Object comparand) {
             this.type = type;
             this.comparand = comparand;
+            if (type == Type.IN) {
+                if (!(comparand instanceof List<?>)) {
+                    throw new RecordCoreException("IN comparison with a non-list type" + comparand.getClass());
+                }
+                listComparison = new ListComparison(Type.IN, (List) comparand);
+            }
+
         }
 
         @Override
@@ -762,6 +771,9 @@ public class Comparisons {
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+            if (type == Type.IN) {
+                return listComparison.eval(store, context, value);
+            }
             return evalComparison(type, value, comparand);
         }
 
@@ -825,6 +837,10 @@ public class Comparisons {
         private final Type type;
         @Nonnull
         protected final String parameter;
+        @Nullable
+        protected Object comparand;
+        @Nullable
+        protected ListComparison listComparison;
 
         public ParameterComparison(@Nonnull Type type, @Nonnull String parameter) {
             this(type, parameter, null);
@@ -872,6 +888,15 @@ public class Comparisons {
             } else if (comparand == COMPARISON_SKIPPED_BINDING) {
                 return Boolean.TRUE;
             } else {
+                if (type == Type.IN) {
+                    if (listComparison == null) {
+                        if (!(comparand instanceof List<?>)) {
+                            throw new RecordCoreException("IN comparison with a non-list type" + comparand.getClass());
+                        }
+                        listComparison = new ListComparison(Type.IN, (List) comparand);
+                    }
+                    return listComparison.eval(store, context, value);
+                }
                 return evalComparison(type, value, comparand);
             }
         }
@@ -926,7 +951,10 @@ public class Comparisons {
         @SuppressWarnings("rawtypes")
         private final List comparand;
         @Nullable
-        private final Descriptors.FieldDescriptor.JavaType javaType;
+        private Descriptors.FieldDescriptor.JavaType javaType;
+        @Nullable
+        private Set<Object> inProbe;
+        private boolean hasNullValue;
 
         @SuppressWarnings({"rawtypes","unchecked"})
         public ListComparison(@Nonnull Type type, @Nonnull List comparand) {
@@ -940,21 +968,40 @@ public class Comparisons {
                 default:
                     throw new RecordCoreException("ListComparison only supports EQUALS, NOT_EQUALS and STARTS_WITH");
             }
-            if (comparand == null || (this.type == Type.IN && comparand.stream().anyMatch(o -> o == null))) {
-                throw new NullPointerException("List comparand is null, or contains null");
+            if (comparand == null) {
+                throw new NullPointerException("List comparand is null");
             }
+            javaType = null;
             if (comparand.isEmpty()) {
-                javaType = null;
+                if (isIn()) {
+                    inProbe = Collections.EMPTY_SET;
+                }
             } else {
-                javaType = getJavaType(comparand.get(0));
+                if (isIn()) {
+                    inProbe = Sets.newHashSetWithExpectedSize(comparand.size());
+                }
                 for (Object o : comparand) {
-                    if (getJavaType(o) != javaType) {
+                    if (o == null) {
+                        hasNullValue = true;
+                        continue;
+                    }
+                    if (javaType == null) {
+                        javaType = getJavaType(o);
+                    }
+                    else if (getJavaType(o) != javaType) {
                         throw new RecordCoreException("all comparand values must have the same type, first was " +
                                 javaType + " found another of type " + getJavaType(o));
+                    }
+                    if (isIn()) {
+                        inProbe.add(toClassWithRealEquals(o));
                     }
                 }
             }
             this.comparand = comparand;
+        }
+
+        private boolean isIn() {
+            return this.type == Type.IN;
         }
 
         private static Descriptors.FieldDescriptor.JavaType getJavaType(@Nonnull Object o) {
@@ -1011,7 +1058,13 @@ public class Comparisons {
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            return evalListComparison(type, value, comparand);
+            if (value != null && type == Type.IN) {
+                if (inProbe.contains(toClassWithRealEquals(value))) {
+                    return true;
+                }
+                return hasNullValue ? null : false;
+            }
+            return evalComparison(type, value, comparand);
         }
 
         @Nonnull

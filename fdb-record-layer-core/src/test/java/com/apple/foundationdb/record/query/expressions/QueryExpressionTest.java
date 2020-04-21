@@ -362,7 +362,7 @@ public class QueryExpressionTest {
                         break;
                     }
                     final List<?> listComparand = (List<?>) val2;
-                    if (listComparand == null || listComparand.stream().anyMatch(o -> o == null)) {
+                    if (listComparand == null) {
                         try {
                             assertThrows(name, NullPointerException.class,
                                     () -> new Comparisons.ListComparison(Comparisons.Type.IN, listComparand));
