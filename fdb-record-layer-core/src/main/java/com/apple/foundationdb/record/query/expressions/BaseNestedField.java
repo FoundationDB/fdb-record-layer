@@ -21,12 +21,8 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
 
 /**
  * An abstract base class for all {@link QueryComponent}s that represent a query of a nested record type.
@@ -34,9 +30,9 @@ import java.util.Iterator;
 @API(API.Status.INTERNAL)
 public abstract class BaseNestedField extends BaseField implements ComponentWithSingleChild {
     @Nonnull
-    protected final ExpressionRef<QueryComponent> childComponent;
+    protected final QueryComponent childComponent;
 
-    public BaseNestedField(String fieldName, @Nonnull ExpressionRef<QueryComponent> childComponent) {
+    public BaseNestedField(String fieldName, @Nonnull QueryComponent childComponent) {
         super(fieldName);
         this.childComponent = childComponent;
     }
@@ -44,18 +40,11 @@ public abstract class BaseNestedField extends BaseField implements ComponentWith
     @Override
     @Nonnull
     public QueryComponent getChild() {
-        return childComponent.get();
+        return childComponent;
     }
 
     @Override
     public abstract QueryComponent withOtherChild(QueryComponent newChild);
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.childComponent);
-    }
 
     @Override
     public boolean isAsync() {

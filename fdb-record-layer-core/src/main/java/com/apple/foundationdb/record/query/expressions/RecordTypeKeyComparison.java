@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeElement;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
@@ -38,7 +36,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -89,13 +86,6 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Collections.emptyIterator();
-    }
-
-    @Nonnull
-    @Override
     public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         return new ElementPredicate(new RecordTypeElement(source), comparison);
     }
@@ -103,12 +93,6 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     @Override
     public String toString() {
         return getComparison().toString();
-    }
-
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return equals(otherExpression);
     }
 
     @Override

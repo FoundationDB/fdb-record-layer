@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -47,7 +46,7 @@ import java.util.concurrent.CompletableFuture;
  * things may happen.
  */
 @API(API.Status.STABLE)
-public interface QueryComponent extends PlanHashable, PlannerExpression {
+public interface QueryComponent extends PlanHashable {
     /**
      * Return whether or not the given record matches this component.
      * This may return true or false, but it may also return null. Generally a component should return null if some

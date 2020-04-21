@@ -24,9 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
@@ -45,11 +42,6 @@ import java.util.Objects;
 public class NestedField extends BaseNestedField {
 
     public NestedField(@Nonnull String fieldName, @Nonnull QueryComponent childComponent) {
-        this(fieldName, SingleExpressionRef.of(childComponent));
-    }
-
-    @API(API.Status.EXPERIMENTAL)
-    public NestedField(@Nonnull String fieldName, @Nonnull ExpressionRef<QueryComponent> childComponent) {
         super(fieldName, childComponent);
     }
 
@@ -100,14 +92,7 @@ public class NestedField extends BaseNestedField {
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return childComponent.get().normalizeForPlanner(source, fieldNames);
-    }
-
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof NestedField &&
-               ((NestedField)otherExpression).getFieldName().equals(getFieldName());
+        return childComponent.normalizeForPlanner(source, fieldNames);
     }
 
     @Override

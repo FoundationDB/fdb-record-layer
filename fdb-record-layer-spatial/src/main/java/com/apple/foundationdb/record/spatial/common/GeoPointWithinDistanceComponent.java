@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.protobuf.Descriptors;
@@ -39,8 +37,6 @@ import org.locationtech.jts.geom.GeometryFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
@@ -124,12 +120,6 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Collections.emptyIterator();
-    }
-
-    @Nonnull
-    @Override
     public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -142,11 +132,6 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
     @Override
     public String toString() {
         return String.format("(%s,%s) WITHIN %s OF (%s,%s)", latitudeFieldName, longitudeFieldName, distance, centerLatitude, centerLongitude);
-    }
-
-    @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return equals(otherExpression);
     }
 
     @Override

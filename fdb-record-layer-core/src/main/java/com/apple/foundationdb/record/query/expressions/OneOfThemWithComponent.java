@@ -24,21 +24,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
@@ -48,21 +43,13 @@ import java.util.Objects;
 @API(API.Status.MAINTAINED)
 public class OneOfThemWithComponent extends BaseRepeatedField implements ComponentWithSingleChild {
     @Nonnull
-    private final ExpressionRef<QueryComponent> child;
+    private final QueryComponent child;
 
     public OneOfThemWithComponent(@Nonnull String fieldName, @Nonnull QueryComponent child) {
         this(fieldName, Field.OneOfThemEmptyMode.EMPTY_UNKNOWN, child);
     }
 
-    public OneOfThemWithComponent(@Nonnull String fieldName, @Nonnull ExpressionRef<QueryComponent> child) {
-        this(fieldName, Field.OneOfThemEmptyMode.EMPTY_UNKNOWN, child);
-    }
-
     public OneOfThemWithComponent(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode, @Nonnull QueryComponent child) {
-        this(fieldName, emptyMode, SingleExpressionRef.of(child));
-    }
-
-    public OneOfThemWithComponent(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode, @Nonnull ExpressionRef<QueryComponent> child) {
         super(fieldName, emptyMode);
         this.child = child;
     }
@@ -103,14 +90,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     @Override
     @Nonnull
     public QueryComponent getChild() {
-        return child.get();
-    }
-
-    @Override
-    @Nonnull
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.child);
+        return child;
     }
 
     @Nonnull
@@ -121,7 +101,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
                 .add(getFieldName())
                 .build();
         final RepeatedFieldSource repeatedSource = new RepeatedFieldSource(source, fieldNames);
-        return child.get().normalizeForPlanner(repeatedSource, Collections.emptyList()); // reset field name prefix since we just added a source
+        return child.normalizeForPlanner(repeatedSource, Collections.emptyList()); // reset field name prefix since we just added a source
     }
 
     @Override
@@ -135,13 +115,6 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     @Override
     public String toString() {
         return "one of " + getFieldName() + "/{" + getChild() + "}";
-    }
-
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof OneOfThemWithComponent &&
-               ((OneOfThemWithComponent)otherExpression).getFieldName().equals(getFieldName());
     }
 
     @Override

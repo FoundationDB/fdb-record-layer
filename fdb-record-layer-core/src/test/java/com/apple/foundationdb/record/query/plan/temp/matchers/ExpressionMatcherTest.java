@@ -61,11 +61,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ExpressionMatcherTest {
     private static List<ExpressionMatcher<? extends Bindable>> existingMatchers = ImmutableList.of(
             TypeMatcher.of(RecordQueryIndexPlan.class),
-            TypeMatcher.of(QueryComponent.class),
             TypeMatcher.of(RelationalPlannerExpression.class));
     private static List<Bindable> existingBindables = ImmutableList.of(
             new RecordQueryIndexPlan("fake_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
-            Query.field("fake_field").equalsParameter("x"),
+            //Query.field("fake_field").equalsParameter("x"),
             (RelationalPlannerExpression) new RecordQueryScanPlan(ScanComparisons.EMPTY, false));
 
 

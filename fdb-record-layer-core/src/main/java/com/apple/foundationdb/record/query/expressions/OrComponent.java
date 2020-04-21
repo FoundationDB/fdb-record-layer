@@ -22,13 +22,10 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -46,17 +43,12 @@ import java.util.Objects;
  */
 @API(API.Status.MAINTAINED)
 public class OrComponent extends AndOrComponent {
-
-    public OrComponent(@Nonnull List<ExpressionRef<QueryComponent>> operands) {
+    public OrComponent(List<QueryComponent> operands) {
         super(operands);
     }
 
     public static OrComponent from(@Nonnull List<QueryComponent> operands) {
-        ImmutableList.Builder<ExpressionRef<QueryComponent>> operandRefs = ImmutableList.builder();
-        for (QueryComponent operand : operands) {
-            operandRefs.add(SingleExpressionRef.of(operand));
-        }
-        return new OrComponent(operandRefs.build());
+        return new OrComponent(operands);
     }
 
     @Override
@@ -72,11 +64,6 @@ public class OrComponent extends AndOrComponent {
     @Override
     public QueryComponent withOtherChildren(List<QueryComponent> newChildren) {
         return OrComponent.from(newChildren);
-    }
-
-    @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof OrComponent;
     }
 
     @Nonnull
