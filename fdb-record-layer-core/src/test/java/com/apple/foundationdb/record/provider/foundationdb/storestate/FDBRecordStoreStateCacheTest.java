@@ -54,7 +54,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-
 import java.util.Collections;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -68,7 +67,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -266,14 +264,6 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 recordStore.markIndexWriteOnly("MySimpleRecord$str_value_indexed").get();
                 assertTrue(context.hasDirtyStoreState());
-                assertFalse(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
-                FDBRecordStore initialRecordStore = recordStore;
-
-                // Reopen the store with the same context and ensure the index is still not readable
-                openSimpleRecordStore(context);
-                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
-                assertNotSame(initialRecordStore, recordStore);
-                assertNotSame(initialRecordStore.getRecordStoreState(), recordStore.getRecordStoreState());
                 assertFalse(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
 
                 commit(context);
@@ -597,7 +587,11 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                         .setMetaDataProvider(metaData1)
                         .open());
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            }
 
+            // New transaction should now see the new meta-data version
+            try (FDBRecordContext context = openContext()) {
+                context.getTimer().reset();
                 // Trying to load with the new meta-data should succeed
                 FDBRecordStore recordStore = storeBuilder.copyBuilder()
                         .setContext(context)
@@ -680,18 +674,6 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder)) {
                 openSimpleRecordStore(context);
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
-
-                context.getTimer().reset();
-                FDBRecordStore.deleteStore(context, recordStore.getSubspace());
-                recordStore.asBuilder().create();
-                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
-
-                commit(context);
-            }
-
-            try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder)) {
-                openSimpleRecordStore(context);
-                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
                 path.deleteAllData(context);
 
                 context.getTimer().reset();
@@ -746,9 +728,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
 
             // Delete by calling deleteStore.
             try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
-                openSimpleRecordStore(context);
-                assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
-                FDBRecordStore.deleteStore(context, recordStore.getSubspace());
+                FDBRecordStore.deleteStore(context, path.toSubspace(context));
                 commit(context);
             }
 
