@@ -361,6 +361,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                                 updateOneKey(savedRecord, remove, new IndexEntry(state.index, entryKey, entryValue));
 
                                 // Update the corresponding rankset for this leaderboard.
+                                // Notice that as each leaderboard has its own subspace key and at most one score
+                                // per record is chosen per leaderboard, this is the only time this record will be
+                                // indexed in this rankSubspace. Compare/contrast: RankIndexMaintainer::updateIndexKeys
                                 final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
                                 final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
                                 futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace,
