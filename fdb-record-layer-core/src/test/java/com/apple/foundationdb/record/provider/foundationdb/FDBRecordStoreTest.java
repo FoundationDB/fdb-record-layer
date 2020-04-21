@@ -158,8 +158,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                 .build();
         // Save the two records
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context, hook);
-            storeBuilder = recordStore.asBuilder().setFormatVersion(formatVersion);
+            storeBuilder = getStoreBuilder(context, simpleMetaData(hook)).setFormatVersion(formatVersion);
             final FDBRecordStore store = storeBuilder.create();
             store.saveRecord(record1);
             store.saveRecord(record2);
