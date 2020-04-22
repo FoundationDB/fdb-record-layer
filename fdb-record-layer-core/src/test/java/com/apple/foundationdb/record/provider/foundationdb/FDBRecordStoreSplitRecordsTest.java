@@ -91,9 +91,12 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             assertEquals(rec1Key.length, readRec1.getKeySize());
             assertEquals(Tuple.from(1415L), readRec1.getPrimaryKey());
             assertEquals(rec1, readRec1.getRecord());
+            commit(context);
+        }
 
+        try (FDBRecordContext context = openContext()) {
             // Upgrade the format version to use new format
-            recordStore = recordStore.asBuilder()
+            recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION)
                     .open();
             assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
@@ -101,10 +104,11 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(rec2);
 
             // Read old-record that was written using old format.
-            readRec1 = recordStore.loadRecord(Tuple.from(1415L));
+            FDBStoredRecord<Message> readRec1 = recordStore.loadRecord(Tuple.from(1415L));
             assertNotNull(readRec1);
             assertFalse(readRec1.isSplit());
             assertEquals(1, readRec1.getKeyCount());
+            final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L));
             assertEquals(rec1Key.length, readRec1.getKeySize());
             assertEquals(Tuple.from(1415L), readRec1.getPrimaryKey());
             assertEquals(rec1, readRec1.getRecord());
@@ -149,13 +153,15 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
             commit(context);
         }
+        final RecordMetaDataHook addNewIndex = metaDataBuilder ->
+                metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT));
         try (FDBRecordContext context = openContext()) {
             // Add an index so that we have to check the record count. (This automatic upgrade happens only
             // if we are already reading the record count anyway, which is why it happens here.)
-            uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
-                    metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
-            );
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION).open();
+            recordStore = getStoreBuilder(context, simpleMetaData(addNewIndex))
+                    .setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION)
+                    .open();
+            setupPlanner(null);
             assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
 
             final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
@@ -177,10 +183,10 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             // Read from the now upgraded store with a record store that sets its format version to be older to make sure
             // it correctly switches to the new one.
             // Use same meta-data as last test
-            uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
-                    metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
-            );
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1).open();
+            recordStore = getStoreBuilder(context, simpleMetaData(addNewIndex))
+                    .setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1)
+                    .open();
+            setupPlanner(null);
             assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
 
             final byte[] rawKey1 = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
