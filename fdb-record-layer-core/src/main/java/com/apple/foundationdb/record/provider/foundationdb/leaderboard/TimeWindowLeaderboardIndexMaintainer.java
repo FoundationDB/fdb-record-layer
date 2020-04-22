@@ -24,6 +24,7 @@ import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -360,13 +361,15 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                                 final Tuple entryKey = leaderboardGroupKey.addAll(indexKey.scoreKey);
                                 CompletableFuture<Void> updateOrdinaryIndex = updateOneKeyAsync(savedRecord, remove,
                                         new IndexEntry(state.index, entryKey, entryValue));
+                                if (!MoreAsyncUtil.isCompletedNormally(updateOrdinaryIndex)) {
+                                    futures.add(updateOrdinaryIndex);
+                                }
 
                                 // Update the corresponding rankset for this leaderboard.
                                 final Subspace rankSubspace = extraSubspace.subspace(leaderboardGroupKey);
                                 final RankedSet.Config leaderboardConfig = config.toBuilder().setNLevels(leaderboard.getNLevels()).build();
-                                futures.add(updateOrdinaryIndex.thenCompose(vignore ->
-                                        RankedSetIndexHelper.updateRankedSet(state, rankSubspace, leaderboardConfig,
-                                                entryKey, indexKey.scoreKey, remove)));
+                                futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace,
+                                        leaderboardConfig, entryKey, indexKey.scoreKey, remove));
                             }
                         }
                     }

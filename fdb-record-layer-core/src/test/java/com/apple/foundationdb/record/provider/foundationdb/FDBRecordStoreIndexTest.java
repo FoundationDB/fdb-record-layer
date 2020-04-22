@@ -1511,6 +1511,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         Index index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique");
 
+        // Test scan uniqueness violations.
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index).asIterator();
@@ -1530,6 +1531,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertFalse(cursor.hasNext());
         }
 
+        // Test scan uniqueness violations given value key.
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(42))
@@ -1550,50 +1552,36 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertFalse(cursor.hasNext());
         }
 
+        // Several methods of resolving the conflict. These do not commit on purpose.
+
+        // Test requesting to resolve uniqueness violations with a remaining record.
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.resolveUniquenessViolation(index, Tuple.from(42), Tuple.from(1066L)).get();
+            assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().get());
+
             assertNotNull(recordStore.loadRecord(Tuple.from(1066L)));
             assertNull(recordStore.loadRecord(Tuple.from(1793L)));
-            context.commit();
         }
 
+        // Test requesting to resolve uniqueness violations with no remaining record.
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index).asIterator();
-            assertFalse(cursor.hasNext());
-
-            // reintroduce the error
-            recordStore.saveRecord(record1);
-            recordStore.saveRecord(record2);
-            context.commit();
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(42))
-                    .asIterator();
-
-            assertTrue(cursor.hasNext());
-            RecordIndexUniquenessViolation first = cursor.next();
-            assertEquals(Tuple.from(42L), first.getIndexEntry().getKey());
-            assertEquals(Tuple.from(1066L), first.getPrimaryKey());
-            assertEquals(Tuple.from(1793L), first.getExistingKey());
-
-            assertTrue(cursor.hasNext());
-            RecordIndexUniquenessViolation second = cursor.next();
-            assertEquals(Tuple.from(42L), second.getIndexEntry().getKey());
-            assertEquals(Tuple.from(1793L), second.getPrimaryKey());
-            assertEquals(Tuple.from(1066L), second.getExistingKey());
-
-            assertFalse(cursor.hasNext());
-
             recordStore.resolveUniquenessViolation(index, Tuple.from(42), null).get();
+            assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().get());
+
             assertNull(recordStore.loadRecord(Tuple.from(1066L)));
             assertNull(recordStore.loadRecord(Tuple.from(1793L)));
+        }
 
-            cursor = recordStore.scanUniquenessViolations(index).asIterator();
-            assertFalse(cursor.hasNext());
+        // Test manually resolving uniqueness violations by deleting one record.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.deleteRecordAsync(Tuple.from(1793L)).get();
+            assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().get());
+
+            assertNotNull(recordStore.loadRecord(Tuple.from(1066L)));
+            assertNull(recordStore.loadRecord(Tuple.from(1793L)));
         }
     }
 
@@ -1685,6 +1673,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context, hook);
             recordStore.resolveUniquenessViolation(index, Key.Evaluated.scalar(3), null).get();
             assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().get());
+
             assertNull(recordStore.loadRecord(Tuple.from(1066L)));
             assertNull(recordStore.loadRecord(Tuple.from(1793L)));
             assertNull(recordStore.loadRecord(Tuple.from(1849L)));
@@ -1693,16 +1682,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             recordStore.resolveUniquenessViolation(index, Tuple.from(3), Tuple.from(1066L)).get();
-
-            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index).asIterator();
-            assertTrue(cursor.hasNext());
-            RecordIndexUniquenessViolation next = cursor.next();
-            assertEquals(Tuple.from(2L), next.getIndexEntry().getKey());
-            assertEquals(Tuple.from(1066L), next.getPrimaryKey());
-            assertEquals(Tuple.from(1793L), next.getExistingKey());
-            assertFalse(cursor.hasNext());
-
-            recordStore.resolveUniquenessViolation(index, next.getIndexEntry().getKey(), next.getPrimaryKey()).get();
             assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().get());
 
             assertNotNull(recordStore.loadRecord(Tuple.from(1066L)));
@@ -1713,16 +1692,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             recordStore.resolveUniquenessViolation(index, Tuple.from(3), Tuple.from(1793L)).get();
-
-            RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index).asIterator();
-            assertTrue(cursor.hasNext());
-            RecordIndexUniquenessViolation next = cursor.next();
-            assertEquals(Tuple.from(2L), next.getIndexEntry().getKey());
-            assertEquals(Tuple.from(1793L), next.getPrimaryKey());
-            assertEquals(Tuple.from(1066L), next.getExistingKey());
-            assertFalse(cursor.hasNext());
-
-            recordStore.resolveUniquenessViolation(index, next.getIndexEntry().getKey(), next.getPrimaryKey()).get();
             assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().get());
 
             assertNull(recordStore.loadRecord(Tuple.from(1066L)));

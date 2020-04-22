@@ -809,28 +809,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return VALUE_SIZE_LIMIT;
     }
 
-    public void addUniquenessCheck(@Nonnull AsyncIterable<KeyValue> kvs,
-                                   @Nonnull Index index,
-                                   @Nonnull IndexEntry indexEntry,
-                                   @Nonnull Tuple primaryKey) {
-        final IndexMaintainer indexMaintainer = getIndexMaintainer(index);
-        final CompletableFuture<Void> checker = context.instrument(FDBStoreTimer.Events.CHECK_INDEX_UNIQUENESS,
-                AsyncUtil.forEach(kvs, kv -> {
-                    Tuple existingEntry = SplitHelper.unpackKey(indexMaintainer.getIndexSubspace(), kv);
-                    Tuple existingKey = index.getEntryPrimaryKey(existingEntry);
-                    if (!TupleHelpers.equals(primaryKey, existingKey)) {
-                        if (isIndexWriteOnly(index)) {
-                            Tuple valueKey = indexEntry.getKey();
-                            indexMaintainer.updateUniquenessViolations(valueKey, primaryKey, existingKey, false);
-                            indexMaintainer.updateUniquenessViolations(valueKey, existingKey, primaryKey, false);
-                        } else {
-                            throw new RecordIndexUniquenessViolation(index, indexEntry, primaryKey, existingKey);
-                        }
-                    }
-                }, getExecutor()));
-        getRecordContext().addCommitCheck(checker);
-    }
-
     public CompletableFuture<IndexOperationResult> performIndexOperationAsync(@Nonnull String indexName,
                                                                               @Nonnull IndexOperation operation) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
@@ -1228,12 +1206,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
-    public CompletableFuture<Void> resolveUniquenessViolation(@Nonnull Index index, @Nonnull Tuple valueKey, @Nullable Tuple primaryKey) {
+    public CompletableFuture<Void> resolveUniquenessViolation(@Nonnull Index index, @Nonnull Tuple valueKey, @Nullable Tuple remainPrimaryKey) {
         return scanUniquenessViolations(index, valueKey).forEachAsync(uniquenessViolation -> {
-            if (primaryKey == null || !primaryKey.equals(uniquenessViolation.getPrimaryKey())) {
+            if (remainPrimaryKey == null || !remainPrimaryKey.equals(uniquenessViolation.getPrimaryKey())) {
                 return deleteRecordAsync(uniquenessViolation.getPrimaryKey()).thenApply(ignore -> null);
             } else {
-                return getIndexMaintainer(index).removeUniquenessViolationsAsync(valueKey, primaryKey);
+                // The uniqueness violation entry of the remained primary key will de removed as part of
+                // removeUniquenessViolationsAsync when deleting the second last record that contains the value key.
+                return AsyncUtil.DONE;
             }
         }, getPipelineSize(PipelineOperation.RESOLVE_UNIQUENESS));
     }

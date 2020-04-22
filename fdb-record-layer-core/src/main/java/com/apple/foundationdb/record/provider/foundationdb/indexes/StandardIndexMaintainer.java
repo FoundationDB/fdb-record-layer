@@ -21,12 +21,14 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
@@ -35,6 +37,7 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -335,8 +338,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 // from the other one and trigger an error.
                 synchronized (state.context) {
                     if (!indexEntry.keyContainsNonUniqueNull()) {
-                        AsyncIterable<KeyValue> kvs = state.transaction.getRange(state.indexSubspace.range(valueKey));
-                        state.store.addUniquenessCheck(kvs, state.index, indexEntry, savedRecord.getPrimaryKey());
+                        checkUniqueness(savedRecord, indexEntry);
                     }
                     state.transaction.set(keyBytes, valueBytes);
                 }
@@ -352,20 +354,54 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
     }
 
-    @Override
-    @Nonnull
-    public void updateUniquenessViolations(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey, boolean remove) {
-        byte[] uniquenessKeyBytes = state.store.indexUniquenessViolationsSubspace(state.index).pack(FDBRecordStoreBase.uniquenessViolationKey(valueKey, primaryKey));
-        if (remove) {
-            state.transaction.clear(uniquenessKeyBytes);
-        } else {
-            state.transaction.set(uniquenessKeyBytes, (existingKey == null) ? new byte[0] : existingKey.pack());
-        }
+    protected <M extends Message> void checkUniqueness(@Nonnull FDBIndexableRecord<M> savedRecord, @Nonnull IndexEntry indexEntry) {
+        Tuple valueKey = indexEntry.getKey();
+        AsyncIterable<KeyValue> kvs = state.transaction.getRange(state.indexSubspace.range(valueKey));
+        Tuple primaryKey = savedRecord.getPrimaryKey();
+        final CompletableFuture<Void> checker = state.store.getContext().instrument(FDBStoreTimer.Events.CHECK_INDEX_UNIQUENESS,
+                AsyncUtil.forEach(kvs, kv -> {
+                    Tuple existingEntry = unpackKey(getIndexSubspace(), kv);
+                    Tuple existingKey = state.index.getEntryPrimaryKey(existingEntry);
+                    if (!TupleHelpers.equals(primaryKey, existingKey)) {
+                        if (state.store.isIndexWriteOnly(state.index)) {
+                            addUniquenessViolations(valueKey, primaryKey, existingKey);
+                            addUniquenessViolations(valueKey, existingKey, primaryKey);
+                        } else {
+                            throw new RecordIndexUniquenessViolation(state.index, indexEntry, primaryKey, existingKey);
+                        }
+                    }
+                }, getExecutor()));
+        state.store.getRecordContext().addCommitCheck(checker);
     }
 
+    /**
+     * Add a uniqueness violation within the database. This is used to keep track of
+     * uniqueness violations that occur when an index is in write-only mode, both during
+     * the built itself and by other writes. This means that the writes will succeed, but
+     * it will cause a later attempt to make the index readable to fail.
+     * @param valueKey the indexed key that is (apparently) not unique
+     * @param primaryKey the primary key of one record that is causing a violation
+     * @param existingKey the primary key of another record that is causing a violation (or <code>null</code> if none specified)
+     */
+    protected void addUniquenessViolations(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey) {
+        byte[] uniquenessKeyBytes = state.store.indexUniquenessViolationsSubspace(state.index).pack(FDBRecordStoreBase.uniquenessViolationKey(valueKey, primaryKey));
+        state.transaction.set(uniquenessKeyBytes, (existingKey == null) ? new byte[0] : existingKey.pack());
+    }
+
+    /**
+     * Remove a uniqueness violation within the database. This is used to keep track of
+     * uniqueness violations that occur when an index is in write-only mode, both during
+     * the built itself and by other writes. This means that the writes will succeed, but
+     * it will cause a later attempt to make the index readable to fail.
+     *
+     * <p>This will remove the last uniqueness violation entry when removing the second
+     * last entry that contains the value key.</p>
+     * @param valueKey the indexed key that is (apparently) not unique
+     * @param primaryKey the primary key of one record that is causing a violation
+     * @return a future that is complete when the uniqueness violation is removed
+     */
     @Nonnull
-    @Override
-    public CompletableFuture<Void> removeUniquenessViolationsAsync(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
+    protected CompletableFuture<Void> removeUniquenessViolationsAsync(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
         Subspace uniqueValueSubspace = state.store.indexUniquenessViolationsSubspace(state.index).subspace(valueKey);
         state.transaction.clear(uniqueValueSubspace.pack(primaryKey));
         // Remove the last entry if it was the second last entry in the unique value subspace.
@@ -374,11 +410,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder()
                         .setReturnedRowLimit(2)
                         .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                        .setDefaultCursorStreamingMode(CursorStreamingMode.WANT_ALL)
                         .build()))
                 .build();
         return uniquenessViolationEntries.getCount().thenAccept(count -> {
             if (count == 1) {
-                state.transaction.clear(uniqueValueSubspace.pack());
+                state.transaction.clear(Range.startsWith(uniqueValueSubspace.pack()));
             }
         });
     }
