@@ -21,15 +21,19 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestNoIndexesProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedAgainProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -52,16 +56,19 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThan;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,6 +80,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
 
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreOpeningTest.class);
+
+    RecordMetaData records1MetaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor()).build();
+    RecordMetaData records2MetaData = RecordMetaData.newBuilder().setRecords(TestRecords2Proto.getDescriptor()).build();
 
     private final Index newIndex = new Index("newIndex", concatenateFields("str_value_indexed", "num_value_3_indexed"));
     private final Index newIndex2 = new Index("newIndex2", concatenateFields("str_value_indexed", "rec_no"));
@@ -461,36 +471,6 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         }
     }
 
-    /**
-     * This is essentially a bug, but this test exhibits the behavior. Essentially, if you have a two record store
-     * objects opened on the same subspace in the same transaction, and then you update a header user field
-     * in one, then it isn't updated in the other. There might be a solution that involves all of this "shared state"
-     * living in some shared place for all record stores (as the same problem affects, say, index state information),
-     * but that is not what the code does right now. See:
-     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/489">Issue #489</a>.
-     */
-    @Test
-    public void testHeaderUserFieldNotUpdatedInRecordStoreOnSameSubspace() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            recordStore.setHeaderUserField("user_field", new byte[]{0x42});
-            commit(context);
-        }
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            assertArrayEquals(new byte[]{0x42}, recordStore.getHeaderUserField("user_field").toByteArray());
-
-            FDBRecordStore secondStore = recordStore.asBuilder().open();
-            assertArrayEquals(new byte[]{0x42}, secondStore.getHeaderUserField("user_field").toByteArray());
-
-            recordStore.setHeaderUserField("user_field", new byte[]{0x10, 0x66});
-            assertArrayEquals(new byte[]{0x10, 0x66}, recordStore.getHeaderUserField("user_field").toByteArray());
-            assertArrayEquals(new byte[]{0x42}, secondStore.getHeaderUserField("user_field").toByteArray());
-
-            commit(context);
-        }
-    }
-
     @Test
     public void testGetHeaderFieldOnUninitializedStore() throws Exception {
         final String userField = "some_user_field";
@@ -755,6 +735,156 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             assertEquals(metaData2.getVersion(), recordStore.getRecordStoreState().getStoreHeader().getMetaDataversion());
             commit(context);
         }
+    }
+
+    @Test
+    void testReuseStoreOnSameTransaction() {
+        final Function<FDBRecordContext, FDBRecordStore> createStore = context -> FDBRecordStore.newBuilder()
+                .setKeySpacePath(getPath("X"))
+                .setContext(context)
+                .setMetaDataProvider(records1MetaData)
+                .build();
+        FDBRecordStore store1;
+        try (FDBRecordContext context = openContext()) {
+            store1 = createStore.apply(context);
+            final FDBRecordStore store2 = createStore.apply(context);
+            assertSame(store1, store2);
+            // make sure it's not cached across contexts
+            try (FDBRecordContext context2 = openContext()) {
+                final FDBRecordStore store3 = createStore.apply(context2);
+                assertNotSame(store1, store3);
+            }
+        }
+    }
+
+    @Test
+    void testFailIfDifferentStoreExistsOnTransaction() {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.newBuilder()
+                    .setKeySpacePath(getPath("X"))
+                    .setContext(context)
+                    .setMetaDataProvider(records1MetaData)
+                    .build();
+            // a store with a different metadata in the same subspace
+            assertThrows(RecordCoreArgumentException.class, () -> FDBRecordStore.newBuilder()
+                    .setKeySpacePath(getPath("X"))
+                    .setContext(context)
+                    .setMetaDataProvider(records2MetaData)
+                    .build());
+            // different metadata, but also different subspace
+            FDBRecordStore.newBuilder()
+                    .setKeySpacePath(getPath("Y"))
+                    .setContext(context)
+                    .setMetaDataProvider(records2MetaData)
+                    .build();
+        }
+    }
+
+    @Test
+    void testMultipleStoresForDifferentKeyspacesOnSameTransaction() {
+        final BiFunction<FDBRecordContext, String, FDBRecordStore> createStore =
+                (context, id) -> FDBRecordStore.newBuilder()
+                        .setKeySpacePath(getPath(id))
+                        .setContext(context)
+                        .setMetaDataProvider(records1MetaData)
+                        .build();
+        FDBRecordStore store1;
+        try (FDBRecordContext context = openContext()) {
+            store1 = createStore.apply(context, "X");
+            final FDBRecordStore store2 = createStore.apply(context, "Y");
+            assertNotSame(store1, store2);
+        }
+    }
+
+    @Test
+    void staleMetaDataVersion() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final RecordMetaData origMetaData = metaDataBuilder.getRecordMetaData();
+        metaDataBuilder.addIndex("MySimpleRecord", newIndex);
+        final RecordMetaData newMetaData = metaDataBuilder.getRecordMetaData();
+
+        MultiVersionMetaDataProvider metaDataProvider = new MultiVersionMetaDataProvider(origMetaData, newMetaData);
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataProvider(metaDataProvider)
+                    .create();
+            assertEquals(3, recordStore.getRecordMetaData().getVersion());
+            context.commit();
+        }
+
+        metaDataProvider.setMetaDataVersion(1);
+
+        try (FDBRecordContext context = openContext()) {
+            // update the metadata version
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataProvider(metaDataProvider)
+                    .open();
+            assertEquals(4, recordStore.getRecordMetaData().getVersion());
+            context.commit();
+        }
+
+        metaDataProvider.setMetaDataVersion(0);
+
+        try (FDBRecordContext context = openContext()) {
+            assertThrows(RecordStoreStaleMetaDataVersionException.class,
+                    () -> FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                            .setMetaDataProvider(metaDataProvider)
+                            .open());
+        }
+
+    }
+
+    @Test
+    void metaDataChangesOnOpenStore() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final RecordMetaData origMetaData = metaDataBuilder.getRecordMetaData();
+        final int initialVersion = origMetaData.getVersion();
+        metaDataBuilder.addIndex("MySimpleRecord", newIndex);
+        final RecordMetaData newMetaData = metaDataBuilder.getRecordMetaData();
+        final int newVersion = newMetaData.getVersion();
+
+        MultiVersionMetaDataProvider metaDataProvider = new MultiVersionMetaDataProvider(origMetaData, newMetaData);
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder().setContext(context).setKeySpacePath(path)
+                    .setMetaDataProvider(metaDataProvider)
+                    .create();
+            assertEquals(initialVersion, recordStore.getRecordMetaData().getVersion());
+
+            metaDataProvider.setMetaDataVersion(1);
+            assertEquals(newVersion, recordStore.getRecordMetaData().getVersion());
+            // TODO BUG: https://github.com/FoundationDB/fdb-record-layer/issues/917
+            //      This should return DISABLED, since the new index has not been built yet.
+            //      For now, this test does checkVersion with a UserVersionChecker that always returns disabled to
+            //      exemplify that the index should be disabled. However once #917 is fixed, the UserVersionChecker
+            //      should probably just be changed to null, meaning that it will build the index as part of checkVersion
+            //      and the two assertions about index state will be flipped.
+            assertEquals(IndexState.READABLE, recordStore.getIndexState(newIndex));
+
+            recordStore.checkVersion(new FDBRecordStoreBase.UserVersionChecker() {
+                @Override
+                public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion, RecordMetaDataProvider metaData) {
+                    return CompletableFuture.completedFuture(oldUserVersion);
+                }
+
+                @Override
+                public IndexState needRebuildIndex(Index index, long recordCount, boolean indexOnNewRecordTypes) {
+                    return IndexState.DISABLED;
+                }
+            }, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertEquals(IndexState.DISABLED, recordStore.getIndexState(newIndex));
+
+            context.commit();
+        }
+    }
+
+
+    private KeySpacePath getPath(final String id) {
+        return TestKeySpace.keySpace.path("record-test")
+                .add("unit")
+                .add("multiRecordStore")
+                .add("storePath", id);
     }
 
     @Nonnull
