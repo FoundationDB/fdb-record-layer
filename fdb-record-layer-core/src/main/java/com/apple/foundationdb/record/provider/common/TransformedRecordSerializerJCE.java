@@ -117,6 +117,38 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         }
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+
+        TransformedRecordSerializerJCE<?> that = (TransformedRecordSerializerJCE<?>)o;
+
+        if (cipherName != null ? !cipherName.equals(that.cipherName) : that.cipherName != null) {
+            return false;
+        }
+        if (encryptionKey != null ? !encryptionKey.equals(that.encryptionKey) : that.encryptionKey != null) {
+            return false;
+        }
+        return secureRandom != null ? secureRandom.equals(that.secureRandom) : that.secureRandom == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = super.hashCode();
+        result = 31 * result + (cipherName != null ? cipherName.hashCode() : 0);
+        result = 31 * result + (encryptionKey != null ? encryptionKey.hashCode() : 0);
+        result = 31 * result + (secureRandom != null ? secureRandom.hashCode() : 0);
+        return result;
+    }
+
     /**
      * Creates a new {@link Builder TransformedRecordSerializerJCE.Builder} instance
      * that is backed by the default serializer for {@link Message}s, namely

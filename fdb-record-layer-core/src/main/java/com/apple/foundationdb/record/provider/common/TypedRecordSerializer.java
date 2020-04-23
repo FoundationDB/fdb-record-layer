@@ -117,4 +117,43 @@ public class TypedRecordSerializer<M extends Message, U extends Message, B exten
         return getter.apply(storedRecord);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+
+        TypedRecordSerializer<?, ?, ?> that = (TypedRecordSerializer<?, ?, ?>)o;
+
+        if (!fieldDescriptor.equals(that.fieldDescriptor)) {
+            return false;
+        }
+        if (!tester.equals(that.tester)) {
+            return false;
+        }
+        if (!getter.equals(that.getter)) {
+            return false;
+        }
+        if (!setter.equals(that.setter)) {
+            return false;
+        }
+        return validRecordType.equals(that.validRecordType);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = super.hashCode();
+        result = 31 * result + fieldDescriptor.hashCode();
+        result = 31 * result + tester.hashCode();
+        result = 31 * result + getter.hashCode();
+        result = 31 * result + setter.hashCode();
+        result = 31 * result + validRecordType.hashCode();
+        return result;
+    }
 }

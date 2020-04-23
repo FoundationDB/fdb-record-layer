@@ -327,6 +327,38 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TransformedRecordSerializer<?> that = (TransformedRecordSerializer<?>)o;
+
+        if (compressWhenSerializing != that.compressWhenSerializing) {
+            return false;
+        }
+        if (compressionLevel != that.compressionLevel) {
+            return false;
+        }
+        if (encryptWhenSerializing != that.encryptWhenSerializing) {
+            return false;
+        }
+        return inner.equals(that.inner);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = inner.hashCode();
+        result = 31 * result + (compressWhenSerializing ? 1 : 0);
+        result = 31 * result + compressionLevel;
+        result = 31 * result + (encryptWhenSerializing ? 1 : 0);
+        return result;
+    }
+
     /**
      * Creates a new {@link Builder TransformedRecordSerializer.Builder} instance
      * that is backed by the default serializer for {@link Message}s, namely

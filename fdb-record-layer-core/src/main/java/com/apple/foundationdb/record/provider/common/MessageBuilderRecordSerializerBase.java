@@ -131,4 +131,23 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
     public RecordSerializer<Message> widen() {
         return new MessageBuilderRecordSerializer(builderSupplier::get);
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        MessageBuilderRecordSerializerBase<?, ?, ?> that = (MessageBuilderRecordSerializerBase<?, ?, ?>)o;
+
+        return builderSupplier.equals(that.builderSupplier);
+    }
+
+    @Override
+    public int hashCode() {
+        return builderSupplier.hashCode();
+    }
 }
