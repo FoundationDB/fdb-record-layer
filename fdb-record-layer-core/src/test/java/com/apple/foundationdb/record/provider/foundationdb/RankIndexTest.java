@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -62,19 +63,24 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
@@ -88,6 +94,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasToString;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -791,6 +798,138 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                     .asList().join();
         }
         assertEquals(Arrays.asList("achilles", "patroclus", "hector"), res);
+    }
+
+    @Test
+    void repeatedRankManyTies() throws Exception {
+        Random random = new Random(2345);
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record1 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record1");
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record2 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record2");
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record3 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record3");
+        for (int i = 0; i < 100; i++) {
+            record1.addScore(random.nextInt(20));
+            record2.addScore(random.nextInt(20));
+            record3.addScore(random.nextInt(20));
+        }
+        repeatedRank(Stream.of(record1, record2, record3).map(builder -> builder.build()).collect(Collectors.toList()));
+    }
+
+    @Test
+    void repeatedRankFewTies() throws Exception {
+        Random random = new Random(2345);
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record1 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record1");
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record2 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record2");
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record3 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record3");
+        for (int i = 0; i < 100; i++) {
+            record1.addScore(random.nextInt(100));
+            record2.addScore(random.nextInt(100));
+            record3.addScore(random.nextInt(100));
+        }
+        repeatedRank(Stream.of(record1, record2, record3).map(builder -> builder.build()).collect(Collectors.toList()));
+    }
+
+    @Test
+    void repeatedRankVeryFewTies() throws Exception {
+        Random random = new Random(2345);
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record1 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record1");
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record2 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record2");
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record3 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record3");
+        for (int i = 0; i < 100; i++) {
+            record1.addScore(random.nextInt(1000));
+            record2.addScore(random.nextInt(1000));
+            record3.addScore(random.nextInt(1000));
+        }
+        repeatedRank(Stream.of(record1, record2, record3).map(builder -> builder.build()).collect(Collectors.toList()));
+    }
+
+    @Test
+    void repeatedRankNoTies() throws Exception {
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record1 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record1");
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record2 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record2");
+        TestRecordsRankProto.RepeatedRankedRecord.Builder record3 = TestRecordsRankProto.RepeatedRankedRecord.newBuilder()
+                .setName("record3");
+        int j = 0;
+        for (int i = 0; i < 100; i++) {
+            record1.addScore(j);
+            j++;
+            record2.addScore(j);
+            j++;
+            record3.addScore(j);
+            j++;
+        }
+        repeatedRank(Stream.of(record1, record2, record3).map(builder -> builder.build()).collect(Collectors.toList()));
+    }
+
+    public void repeatedRank(List<TestRecordsRankProto.RepeatedRankedRecord> records) throws Exception {
+        fdb = FDBDatabaseFactory.instance().getDatabase();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            recordStore.deleteAllRecords(); // Undo loadRecords().
+            for (TestRecordsRankProto.RepeatedRankedRecord record : records) {
+                recordStore.saveRecord(record);
+            }
+            commit(context);
+        }
+
+
+        final List<Pair<Integer, String>> recordsSortedByRankWithDuplicates = records.stream()
+                .flatMap(record -> record.getScoreList().stream().map(score -> Pair.of(score, record.getName())))
+                .sorted(Comparator.comparing(Pair::getLeft))
+                .collect(Collectors.toList());
+
+        List<Set<String>> rankWithTies = new ArrayList<>();
+        Integer lastScore = null;
+        for (Pair<Integer, String> recordsSortedByRankWithDuplicate : recordsSortedByRankWithDuplicates) {
+            int score = recordsSortedByRankWithDuplicate.getLeft();
+            final String name = recordsSortedByRankWithDuplicate.getRight();
+            if (lastScore == null || !lastScore.equals(score)) {
+                // A set as the same record can have the same score multiple times, but each unique score,
+                // per record, will only be counted once
+                Set<String> tie = new HashSet<>();
+                tie.add(name);
+                rankWithTies.add(tie);
+            } else {
+                rankWithTies.get(rankWithTies.size() - 1).add(name);
+            }
+            lastScore = score;
+        }
+
+
+        GroupingKeyExpression expr = Key.Expressions.field("score", KeyExpression.FanType.FanOut).ungrouped();
+        RecordQuery.Builder builder = RecordQuery.newBuilder()
+                .setRecordType("RepeatedRankedRecord")
+                .setFilter(
+                        Query.rank(expr).withParameterComparison(Comparisons.Type.EQUALS, "RANK_VALUE"));
+
+        RecordQuery query = builder.setRemoveDuplicates(false).build();
+        RecordQueryPlan plan = planner.plan(query);
+
+        assertAll(IntStream.range(0, rankWithTies.size()).mapToObj(i -> () -> {
+            Set<String> tie = rankWithTies.get(i);
+
+            try (FDBRecordContext context = openContext()) {
+                try {
+                    openRecordStore(context);
+                } catch (Exception e) {
+                    Assertions.fail(e);
+                }
+                final List<String> actualRecords = plan.execute(recordStore, EvaluationContext.forBinding("RANK_VALUE", i))
+                        .map(rec -> TestRecordsRankProto.RepeatedRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
+                        .asList().join();
+                assertThat("For Rank " + i, actualRecords, containsInAnyOrder(tie.toArray()));
+            }
+        }));
     }
 
     @Test

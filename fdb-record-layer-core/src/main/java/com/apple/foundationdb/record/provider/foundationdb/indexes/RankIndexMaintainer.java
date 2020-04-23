@@ -44,13 +44,15 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * An index maintainer for keeping a {@link RankedSet} of record field values.
@@ -113,7 +115,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
                                                                           @Nonnull final List<IndexEntry> indexEntries) {
         final int groupPrefixSize = getGroupingCount();
         final Subspace extraSubspace = getSecondarySubspace();
-        final List<CompletableFuture<Void>> futures = new ArrayList<>();
+        final Map<Subspace, CompletableFuture<Void>> futures = Maps.newHashMapWithExpectedSize(indexEntries.size());
         for (IndexEntry indexEntry : indexEntries) {
             // First maintain an ordinary B-tree index by score.
             updateOneKey(savedRecord, remove, indexEntry);
@@ -127,10 +129,19 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
                 rankSubspace = extraSubspace;
                 scoreKey = indexEntry.getKey();
             }
-            futures.add(RankedSetIndexHelper.updateRankedSet(state, rankSubspace, config, indexEntry.getKey(),
-                    scoreKey, remove));
+            // It is unsafe to have two concurrent updates to the same ranked set, so ensure that at most
+            // one update per grouping key is ongoing at any given time
+            final Function<Void, CompletableFuture<Void>> futureSupplier = vignore -> RankedSetIndexHelper.updateRankedSet(
+                    state, rankSubspace, config, indexEntry.getKey(), scoreKey, remove
+            );
+            CompletableFuture<Void> existingFuture = futures.get(rankSubspace);
+            if (existingFuture == null) {
+                futures.put(rankSubspace, futureSupplier.apply(null));
+            } else {
+                futures.put(rankSubspace, existingFuture.thenCompose(futureSupplier));
+            }
         }
-        return AsyncUtil.whenAll(futures);
+        return AsyncUtil.whenAll(futures.values());
     }
 
     @Override
