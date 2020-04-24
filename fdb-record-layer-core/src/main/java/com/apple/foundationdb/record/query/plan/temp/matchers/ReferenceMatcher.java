@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
@@ -50,7 +52,7 @@ import java.util.stream.Stream;
 public class ReferenceMatcher<T extends PlannerExpression> implements ExpressionMatcher<ExpressionRef<T>> {
     @Nonnull
     @Override
-    public Class<? extends PlannerExpression> getRootClass() {
+    public Class<? extends Bindable> getRootClass() {
         return PlannerExpression.class;
     }
 
@@ -69,6 +71,12 @@ public class ReferenceMatcher<T extends PlannerExpression> implements Expression
     @Nonnull
     @Override
     public Stream<PlannerBindings> matchWith(@Nonnull PlannerExpression expression) {
+        return Stream.empty();
+    }
+
+    @Nonnull
+    @Override
+    public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate) {
         return Stream.empty();
     }
 

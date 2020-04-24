@@ -24,9 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.protobuf.Message;
 
@@ -34,7 +31,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * A {@link QueryPredicate} that is satisfied when any of its child components is satisfied.
@@ -48,13 +44,8 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class OrPredicate extends AndOrPredicate {
-    public OrPredicate(@Nonnull List<ExpressionRef<QueryPredicate>> operands) {
+    public OrPredicate(@Nonnull List<QueryPredicate> operands) {
         super(operands);
-    }
-
-    @Nonnull
-    public static OrPredicate from(@Nonnull List<QueryPredicate> operands) {
-        return new OrPredicate(operands.stream().map(SingleExpressionRef::of).collect(Collectors.toList()));
     }
 
     @Nullable
@@ -71,11 +62,6 @@ public class OrPredicate extends AndOrPredicate {
             }
         }
         return defaultValue;
-    }
-
-    @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof OrPredicate;
     }
 
     @Override

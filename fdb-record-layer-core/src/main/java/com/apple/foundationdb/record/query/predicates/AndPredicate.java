@@ -23,9 +23,6 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.protobuf.Message;
 
@@ -33,7 +30,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * A {@link QueryPredicate} that is satisfied when all of its child components are;
@@ -46,18 +42,8 @@ import java.util.stream.Collectors;
  * </ul>
  */
 public class AndPredicate extends AndOrPredicate {
-    public AndPredicate(@Nonnull List<ExpressionRef<QueryPredicate>> children) {
+    public AndPredicate(@Nonnull List<QueryPredicate> children) {
         super(children);
-    }
-
-    @Nonnull
-    public static AndPredicate from(@Nonnull List<QueryPredicate> operands) {
-        return new AndPredicate(operands.stream().map(SingleExpressionRef::of).collect(Collectors.toList()));
-    }
-
-    @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof AndPredicate;
     }
 
     @Nullable

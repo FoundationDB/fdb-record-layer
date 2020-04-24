@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 
@@ -41,9 +40,8 @@ import javax.annotation.Nonnull;
  */
 public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> filterMatcher = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher = TypeMatcher.of(
-            RecordQueryPredicateFilterPlan.class, innerMatcher, filterMatcher);
+            RecordQueryPredicateFilterPlan.class, innerMatcher);
     private static final ExpressionMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root = TypeMatcher.of(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, filterPlanMatcher);
 
     public PushDistinctFilterBelowFilterRule() {
@@ -54,9 +52,8 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
         final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
-        final ExpressionRef<QueryPredicate> filter = call.get(filterMatcher);
 
         call.yield(call.ref(new RecordQueryPredicateFilterPlan(
-                call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(inner)), filterPlan.getBaseSource(), filter)));
+                call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(inner)), filterPlan.getBaseSource(), filterPlan.getPredicate())));
     }
 }

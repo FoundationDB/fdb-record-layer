@@ -186,10 +186,8 @@ public class ExpressionMatcherTest {
 
         // build a relatively complicated matcher
         ExpressionMatcher<ExpressionRef<PlannerExpression>> filterLeafMatcher = ReferenceMatcher.anyRef();
-        ExpressionMatcher<ExpressionRef<PlannerExpression>> andChild1 = ReferenceMatcher.anyRef();
-        ExpressionMatcher<ExpressionRef<PlannerExpression>> andChild2 = ReferenceMatcher.anyRef();
-        ExpressionMatcher<QueryPredicate> andMatcher = TypeMatcher.of(AndPredicate.class, andChild1, andChild2);
-        ExpressionMatcher<LogicalFilterExpression> filterPlanMatcher = TypeMatcher.of(LogicalFilterExpression.class,
+        ExpressionMatcher<QueryPredicate> andMatcher = TypeMatcher.of(AndPredicate.class, AnyChildrenMatcher.ANY);
+        ExpressionMatcher<LogicalFilterExpression> filterPlanMatcher = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
                 andMatcher, filterLeafMatcher);
         ExpressionMatcher<RecordQueryScanPlan> scanMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
         ExpressionMatcher<LogicalUnorderedUnionExpression> matcher = TypeMatcher.of(LogicalUnorderedUnionExpression.class,
@@ -217,7 +215,7 @@ public class ExpressionMatcherTest {
         assertEquals(root.get(), bindings.get(matcher));
         assertEquals(filterPlan, bindings.get(filterPlanMatcher));
         assertEquals(scanPlan, bindings.get(scanMatcher));
-        assertEquals(filterPlan.getFilter(), bindings.get(andMatcher));
+        assertEquals(filterPlan.getPredicate(), bindings.get(andMatcher));
         assertEquals(filterPlan.getInner(), bindings.get(filterLeafMatcher).get()); // dereference
     }
 }

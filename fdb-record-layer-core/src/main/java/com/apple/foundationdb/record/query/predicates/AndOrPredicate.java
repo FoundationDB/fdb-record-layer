@@ -22,14 +22,13 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.google.common.collect.ImmutableList;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Common base class for predicates with many children, such as {@link AndPredicate} and {@link OrPredicate}.
@@ -37,29 +36,27 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public abstract class AndOrPredicate implements QueryPredicate {
     @Nonnull
-    private final List<ExpressionRef<QueryPredicate>> children;
-    @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> childrenRefView;
+    private final List<QueryPredicate> children;
 
-    protected AndOrPredicate(@Nonnull List<ExpressionRef<QueryPredicate>> operands) {
+    protected AndOrPredicate(@Nonnull List<QueryPredicate> operands) {
         if (operands.size() < 2) {
             throw new RecordCoreException(getClass().getSimpleName() + " must have at least two children");
         }
 
         this.children = operands;
-        this.childrenRefView = ImmutableList.<ExpressionRef<? extends PlannerExpression>>builder()
-                .addAll(operands)
-                .build();
     }
 
     @Nonnull
     public List<QueryPredicate> getChildren() {
-        return children.stream().map(ExpressionRef::get).collect(Collectors.toList());
+        return children;
     }
 
-    @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return childrenRefView.iterator();
+    @Nonnull
+    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
+        Stream<PlannerBindings> bindings = binding.matchWith(this);
+        return bindings.flatMap(outerBindings -> binding.getChildrenMatcher().matches(getChildren().iterator())
+                .map(outerBindings::mergedWith));
     }
+
 }

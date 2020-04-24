@@ -26,17 +26,16 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.PlannerExpressionWithPredicate;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -44,27 +43,24 @@ import java.util.concurrent.CompletableFuture;
  * A query plan that filters out records from a child plan that do not satisfy a {@link QueryPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase {
+public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase implements PlannerExpressionWithPredicate {
     @Nonnull
     private final Source baseSource;
     @Nonnull
-    private final ExpressionRef<QueryPredicate> filter;
-    @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> children;
+    private final QueryPredicate filter;
 
     public RecordQueryPredicateFilterPlan(@Nonnull RecordQueryPlan inner,
                                           @Nonnull Source baseSource,
                                           @Nonnull QueryPredicate filter) {
-        this(SingleExpressionRef.of(inner), baseSource, SingleExpressionRef.of(filter));
+        this(SingleExpressionRef.of(inner), baseSource, filter);
     }
 
     public RecordQueryPredicateFilterPlan(@Nonnull ExpressionRef<RecordQueryPlan> inner,
                                           @Nonnull Source baseSource,
-                                          @Nonnull ExpressionRef<QueryPredicate> filter) {
+                                          @Nonnull QueryPredicate filter) {
         super(inner);
         this.baseSource = baseSource;
         this.filter = filter;
-        this.children = ImmutableList.of(inner, filter);
     }
 
     @Override
@@ -81,7 +77,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase {
         Boolean result = null;
         Iterator<SourceEntry> entries = baseSource.evalSourceEntriesFor(record.getRecord()).iterator();
         while (entries.hasNext()) {
-            Boolean entryResult = filter.get().eval(store, context, entries.next());
+            Boolean entryResult = filter.eval(store, context, entries.next());
             if (entryResult != null && entryResult) {
                 return true;
             } else if (result == null) {
@@ -103,16 +99,11 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase {
     }
 
     @Nonnull
-    public QueryPredicate getFilter() {
-        return filter.get();
-    }
-
-
-    @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return children.iterator();
+    public QueryPredicate getPredicate() {
+        return filter;
     }
+
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
@@ -121,7 +112,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase {
 
     @Override
     public String toString() {
-        return getInner() + " | " + getFilter();
+        return getInner() + " | " + getPredicate();
     }
 
     @Override
@@ -135,16 +126,16 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase {
         RecordQueryPredicateFilterPlan that = (RecordQueryPredicateFilterPlan)o;
         return Objects.equals(getInner(), that.getInner()) &&
                Objects.equals(baseSource, that.baseSource) &&
-               Objects.equals(getFilter(), that.getFilter());
+               Objects.equals(getPredicate(), that.getPredicate());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getInner(), baseSource, getFilter());
+        return Objects.hash(getInner(), baseSource, getPredicate());
     }
 
     @Override
     public int planHash() {
-        return getInner().planHash() + getFilter().planHash();
+        return getInner().planHash() + getPredicate().planHash();
     }
 }

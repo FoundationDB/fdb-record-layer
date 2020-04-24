@@ -27,9 +27,8 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesProperty;
 import com.google.common.collect.Sets;
@@ -44,7 +43,7 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
     private static ExpressionMatcher<RecordQueryPlan> childMatcher = TypeMatcher.of(RecordQueryPlan.class,
-            AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
+            AnyChildrenMatcher.ANY);
     private static ExpressionMatcher<LogicalTypeFilterExpression> root = TypeMatcher.of(LogicalTypeFilterExpression.class, childMatcher);
 
     public ImplementTypeFilterRule() {

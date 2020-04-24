@@ -23,18 +23,18 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
+import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -50,11 +50,11 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public class FindPossibleIndexForAndPredicateRule extends PlannerRule<LogicalFilterExpression> {
     private static ExpressionMatcher<ElementPredicate> fieldMatcher = TypeMatcher.of(ElementPredicate.class);
-    private static ReferenceMatcher<QueryPredicate> residualFieldsMatcher = ReferenceMatcher.anyRef();
+    private static ExpressionMatcher<QueryPredicate> residualFieldsMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static ExpressionMatcher<AndPredicate> andFilterMatcher = TypeMatcher.of(AndPredicate.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(fieldMatcher, residualFieldsMatcher));
     private static ExpressionMatcher<FullUnorderedScanExpression> scanMatcher = TypeMatcher.of(FullUnorderedScanExpression.class);
-    private static ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
+    private static ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
             andFilterMatcher, scanMatcher);
 
     public FindPossibleIndexForAndPredicateRule() {
@@ -69,12 +69,12 @@ public class FindPossibleIndexForAndPredicateRule extends PlannerRule<LogicalFil
             final ViewExpressionComparisons comparisons = indexEntrySource.getEmptyComparisons();
             final Optional<ViewExpressionComparisons> matchedKeyComparisons = comparisons.matchWith(field);
             if (matchedKeyComparisons.isPresent()) {
-                final List<ExpressionRef<QueryPredicate>> otherFields = call.getBindings().getAll(residualFieldsMatcher);
-                final ExpressionRef<QueryPredicate> residualFilter;
+                final List<QueryPredicate> otherFields = call.getBindings().getAll(residualFieldsMatcher);
+                final QueryPredicate residualFilter;
                 if (otherFields.size() == 1) {
                     residualFilter = otherFields.get(0);
                 } else {
-                    residualFilter = call.ref(new AndPredicate(otherFields));
+                    residualFilter = new AndPredicate(otherFields);
                 }
                 call.yield(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(), residualFilter,
                         call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,

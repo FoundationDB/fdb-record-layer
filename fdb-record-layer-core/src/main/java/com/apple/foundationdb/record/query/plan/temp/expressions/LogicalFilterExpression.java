@@ -23,14 +23,14 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.PlannerExpressionWithPredicate;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -39,35 +39,32 @@ import java.util.Objects;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalFilterExpression implements RelationalExpressionWithChildren {
+public class LogicalFilterExpression implements RelationalExpressionWithChildren, PlannerExpressionWithPredicate {
     @Nonnull
     private final Source baseSource;
     @Nonnull
-    private final ExpressionRef<QueryPredicate> filter;
+    private final QueryPredicate filter;
     @Nonnull
     private final ExpressionRef<RelationalPlannerExpression> inner;
-    @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
 
     public LogicalFilterExpression(@Nonnull Source baseSource,
                                    @Nonnull QueryPredicate filter,
                                    @Nonnull RelationalPlannerExpression inner) {
-        this(baseSource, SingleExpressionRef.of(filter), SingleExpressionRef.of(inner));
+        this(baseSource, filter, SingleExpressionRef.of(inner));
     }
 
     public LogicalFilterExpression(@Nonnull Source baseSource,
-                                   @Nonnull ExpressionRef<QueryPredicate> filter,
+                                   @Nonnull QueryPredicate filter,
                                    @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
         this.baseSource = baseSource;
         this.filter = filter;
         this.inner = inner;
-        this.expressionChildren = ImmutableList.of(this.filter, this.inner);
     }
 
     @Nonnull
     @Override
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return expressionChildren.iterator();
+        return Iterators.singletonIterator(inner);
     }
 
     @Override
@@ -76,8 +73,9 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     }
 
     @Nonnull
-    public QueryPredicate getFilter() {
-        return filter.get();
+    @Override
+    public QueryPredicate getPredicate() {
+        return filter;
     }
 
     @Nonnull
@@ -92,7 +90,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof LogicalFilterExpression;
+        return otherExpression instanceof LogicalFilterExpression && filter.equals(((LogicalFilterExpression)otherExpression).getPredicate());
     }
 
     @Override
@@ -104,12 +102,12 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
             return false;
         }
         LogicalFilterExpression that = (LogicalFilterExpression)o;
-        return Objects.equals(getFilter(), that.getFilter()) &&
+        return Objects.equals(getPredicate(), that.getPredicate()) &&
                Objects.equals(getInner(), that.getInner());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getFilter(), getInner());
+        return Objects.hash(getPredicate(), getInner());
     }
 }

@@ -58,7 +58,7 @@ import java.util.Optional;
  * @see PlannerRuleCall
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class PlannerRule<T extends PlannerExpression> {
+public abstract class PlannerRule<T extends Bindable> {
     @Nonnull
     private final ExpressionMatcher<T> matcher;
 
@@ -68,7 +68,7 @@ public abstract class PlannerRule<T extends PlannerExpression> {
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
      * @see PlannerRuleSet
      */
-    public Optional<Class<? extends PlannerExpression>> getRootOperator() {
+    public Optional<Class<? extends Bindable>> getRootOperator() {
         return Optional.of(matcher.getRootClass());
     }
 

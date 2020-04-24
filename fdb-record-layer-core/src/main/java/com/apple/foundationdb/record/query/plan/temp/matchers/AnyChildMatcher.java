@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 
 import javax.annotation.Nonnull;
 import java.util.Iterator;
@@ -47,8 +45,8 @@ public class AnyChildMatcher implements ExpressionChildrenMatcher {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull Iterator<? extends ExpressionRef<? extends PlannerExpression>> childIterator) {
-        Stream<? extends ExpressionRef<? extends PlannerExpression>> childStream = StreamSupport.stream(
+    public Stream<PlannerBindings> matches(@Nonnull Iterator<? extends Bindable> childIterator) {
+        Stream<? extends Bindable> childStream = StreamSupport.stream(
                 Spliterators.spliteratorUnknownSize(childIterator, 0), false);
         return childStream.flatMap(child -> child.bindTo(childMatcher));
     }

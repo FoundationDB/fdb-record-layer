@@ -23,9 +23,11 @@ package com.apple.foundationdb.record.query.plan.temp.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.PlannerExpressionWithPredicate;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
@@ -42,8 +44,7 @@ public class ElementPredicateCountProperty implements PlannerProperty<Integer> {
 
     @Override
     public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression ||
-               expression instanceof QueryPredicate;
+        return true;
     }
 
     @Override
@@ -54,13 +55,30 @@ public class ElementPredicateCountProperty implements PlannerProperty<Integer> {
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
-        int total = expression instanceof ElementPredicate ? 1 : 0;
+        int total = 0;
+        if (expression instanceof PlannerExpressionWithPredicate) {
+            total = getElementPredicateCount(((PlannerExpressionWithPredicate)expression).getPredicate());
+        }
         for (Integer childCount : childResults) {
             if (childCount != null) {
                 total += childCount;
             }
         }
         return total;
+    }
+
+    private static int getElementPredicateCount(@Nonnull QueryPredicate predicate) {
+        if (predicate instanceof ElementPredicate)  {
+            return 1;
+        } else if (predicate instanceof NotPredicate) {
+            return getElementPredicateCount(((NotPredicate)predicate).getChild());
+        } else if (predicate instanceof AndOrPredicate) {
+            return ((AndOrPredicate)predicate).getChildren().stream()
+                    .mapToInt(ElementPredicateCountProperty::getElementPredicateCount)
+                    .sum();
+        } else {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Nonnull

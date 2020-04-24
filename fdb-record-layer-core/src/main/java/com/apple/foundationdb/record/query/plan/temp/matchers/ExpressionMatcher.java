@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
@@ -63,7 +64,7 @@ public interface ExpressionMatcher<T extends Bindable> {
      * @return a class object for a class that is a super class of every planner expression this matcher can match
      */
     @Nonnull
-    Class<? extends PlannerExpression> getRootClass();
+    Class<? extends Bindable> getRootClass();
 
     /**
      * Return the child matchers of this matcher as a list.
@@ -93,5 +94,8 @@ public interface ExpressionMatcher<T extends Bindable> {
      */
     @Nonnull
     Stream<PlannerBindings> matchWith(@Nonnull PlannerExpression expression);
+
+    @Nonnull
+    Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate);
 
 }

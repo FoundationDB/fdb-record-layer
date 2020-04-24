@@ -24,17 +24,17 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * A {@link QueryPredicate} that evaluates a {@link Comparisons.Comparison} on the value of an {@link Element}.
@@ -74,20 +74,15 @@ public class ElementPredicate implements QueryPredicate {
         return comparison.eval(store, context, element.eval(sourceEntry));
     }
 
-    @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Collections.emptyIterator();
+    @Nonnull
+    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
+        return  binding.matchWith(this);
     }
 
     @Override
     public String toString() {
         return element.toString() + " " + comparison.toString();
-    }
-
-    @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return equals(otherExpression);
     }
 
     @Override

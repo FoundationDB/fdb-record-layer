@@ -94,7 +94,7 @@ public class PlannerRuleSet {
     public static final PlannerRuleSet ALL = new PlannerRuleSet(ALL_RULES);
 
     @Nonnull
-    private final Multimap<Class<? extends PlannerExpression>, PlannerRule<? extends PlannerExpression>> ruleIndex =
+    private final Multimap<Class<? extends Bindable>, PlannerRule<? extends PlannerExpression>> ruleIndex =
             MultimapBuilder.hashKeys().arrayListValues().build();
     @Nonnull
     private final List<PlannerRule<? extends PlannerExpression>> alwaysRules = new ArrayList<>();
@@ -102,7 +102,7 @@ public class PlannerRuleSet {
     @VisibleForTesting
     PlannerRuleSet(@Nonnull List<PlannerRule<? extends PlannerExpression>> rules) {
         for (PlannerRule<? extends PlannerExpression> rule : rules) {
-            Optional<Class<? extends PlannerExpression>> root = rule.getRootOperator();
+            Optional<Class<? extends Bindable>> root = rule.getRootOperator();
             if (root.isPresent()) {
                 ruleIndex.put(root.get(), rule);
             } else {
