@@ -63,7 +63,7 @@ public class DotExporter<N, E> extends GraphExporter<N, E> {
     private static final String INDENT = "  ";
 
     /**
-     * Constructs a new DotExporter object with the given ID, label, attribute, and graph id
+     * Constructs a new DotExporter object with the given ID, label, attribute, and graph ID
      * providers. Note that if a label provider conflicts with a label-supplying attribute provider,
      * the label provider is given precedence.
      *

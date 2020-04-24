@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.query.plan.temp.GraphExporter.ComponentNameProvider;
 import com.apple.foundationdb.record.query.plan.temp.PlannerGraph.PlannerGraphBuilder;
+import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Class to hold a graph for explain, optimization, and rewrite purposes.
@@ -77,6 +79,23 @@ public class ExplainPlannerGraphProperty implements PlannerProperty<PlannerGraph
     }
 
     /**
+     * Generate the explain of the planner expression that is passed in.
+     * @param plannerExpression the planner expression to be explained.
+     * @return the explain of the planner expression handing in as a string in GML format.
+     */
+    @Nonnull
+    public static String explain(final PlannerExpression plannerExpression) {
+        try {
+            final PlannerGraph<ExplainPlannerGraphProperty.Node, ExplainPlannerGraphProperty.Edge> plannerGraph =
+                    Objects.requireNonNull(plannerExpression.acceptPropertyVisitor(new ExplainPlannerGraphProperty()));
+            return ExplainPlannerGraphProperty.exportToGml(plannerGraph);
+        } catch (final Exception ex) {
+            Throwables.throwIfUnchecked(ex);
+            throw new RuntimeException(ex);
+        }
+    }
+
+    /**
      * Creates a serialized format of this graph as a gml-compatible definition.
      * @param plannerGraph the planner graph to be exported
      * 
@@ -91,6 +110,7 @@ public class ExplainPlannerGraphProperty implements PlannerProperty<PlannerGraph
         return writer.toString();
     }
 
+    @Nonnull
     private static GraphExporter<Node, Edge> createExporter() {
         /*
          * Generate a unique identifier for each node.

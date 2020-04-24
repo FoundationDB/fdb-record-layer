@@ -190,6 +190,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         }
     }
 
+    @Nonnull
     private String getRange() {
         String range;
         try {
@@ -205,6 +206,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         return 1;
     }
 
+    @Nonnull
     @Override
     public PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
         final InternalPlannerGraphProperty.Node root =

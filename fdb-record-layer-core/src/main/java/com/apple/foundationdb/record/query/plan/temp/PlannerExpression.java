@@ -24,16 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.PlannerGraph.PlannerGraphBuilder;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.google.common.base.Throwables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.awt.Desktop;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -113,38 +109,28 @@ public interface PlannerExpression extends Bindable {
         return null;
     }
 
+    /**
+     * This is needed for graph integration into IntelliJ as IntelliJ only ever evaluates selfish methods. Add this
+     * method as a custom renderer for the type {@link PlannerExpression}. During debugging you can then for instance
+     * click show() on an instance and enjoy the query graph it represents rendered in your standard browser.
+     *
+     * @return the String "Done."
+     */
+    @Nonnull
+    default String show() {
+        return InternalPlannerGraphProperty.show(this);
+    }
+
+    @Nonnull
     default PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
         final InternalPlannerGraphProperty.Node root = new InternalPlannerGraphProperty.Node(getClass().getSimpleName());
         return PlannerGraph.builder(root);
     }
 
-    default String show() {
-        try {
-            final PlannerGraph<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> plannerGraph =
-                    Objects.requireNonNull(acceptPropertyVisitor(new InternalPlannerGraphProperty()));
-            final URI uri = InternalPlannerGraphProperty.createHtmlLauncher(Objects.requireNonNull(plannerGraph));
-            Desktop.getDesktop().browse(uri);
-            return "done";
-        } catch (final Exception ex) {
-            Throwables.throwIfUnchecked(ex);
-            throw new RuntimeException(ex);
-        }
-    }
-
+    @Nonnull
     default PlannerGraphBuilder<ExplainPlannerGraphProperty.Node, ExplainPlannerGraphProperty.Edge> explainYourself() {
         final ExplainPlannerGraphProperty.Node root = new ExplainPlannerGraphProperty.Node(getClass().getSimpleName());
         return PlannerGraph.builder(root);
-    }
-
-    default String explain() {
-        try {
-            final PlannerGraph<ExplainPlannerGraphProperty.Node, ExplainPlannerGraphProperty.Edge> plannerGraph =
-                    Objects.requireNonNull(acceptPropertyVisitor(new ExplainPlannerGraphProperty()));
-            return ExplainPlannerGraphProperty.exportToGml(plannerGraph);
-        } catch (final Exception ex) {
-            Throwables.throwIfUnchecked(ex);
-            throw new RuntimeException(ex);
-        }
     }
 }
 

@@ -73,6 +73,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.ExplainPlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -253,9 +254,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             throw new RecordQueryPlanComplexityException(plan);
         }
 
-        if (logger.isDebugEnabled()) {
-            logger.debug(KeyValueLogMessage.of("explain of plan",
-                    "explain", plan.explain()));
+        if (logger.isTraceEnabled()) {
+            logger.trace(KeyValueLogMessage.of("explain of plan",
+                    "explain", ExplainPlannerGraphProperty.explain(plan)));
         }
 
         return plan;

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.temp.GraphExporter.ClusterProvid
 import com.apple.foundationdb.record.query.plan.temp.GraphExporter.ComponentAttributeProvider;
 import com.apple.foundationdb.record.query.plan.temp.GraphExporter.ComponentNameProvider;
 import com.apple.foundationdb.record.query.plan.temp.PlannerGraph.PlannerGraphBuilder;
+import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -33,6 +34,7 @@ import com.google.common.io.CharStreams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.awt.Desktop;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -43,6 +45,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -62,6 +65,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
             super(name, expression);
         }
 
+        @Nonnull
         @Override
         public Map<String, String> getAttributes() {
             final Map<String, String> superAttributes = super.getAttributes();
@@ -76,6 +80,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
                     .build();
         }
 
+        @Nullable
         @Override
         public String getLabel() {
             final Escaper escaper = HtmlEscapers.htmlEscaper();
@@ -88,18 +93,22 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
                    escaper.escape(e) + "}";
         }
 
+        @Nonnull
         public String getColor() {
             return "black";
         }
 
+        @Nonnull
         public String getShape() {
             return "record";
         }
 
+        @Nonnull
         public String getStyle() {
             return "solid";
         }
 
+        @Nonnull
         public String getFillColor() {
             return "black";
         }
@@ -114,16 +123,19 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
             super(name, null);
         }
 
+        @Nonnull
         @Override
         public String getColor() {
             return "black";
         }
 
+        @Nonnull
         @Override
         public String getStyle() {
             return "filled";
         }
 
+        @Nonnull
         @Override
         public String getFillColor() {
             return "lightblue";
@@ -134,6 +146,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
      * Node class for GroupExpressionRefs -- head.
      */
     public static class ExpressionRefHeadNode extends Node {
+        @Nonnull
         final ExpressionRef<? extends PlannerExpression> ref;
 
         public ExpressionRefHeadNode(final ExpressionRef<? extends PlannerExpression> ref) {
@@ -141,6 +154,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
             this.ref = ref;
         }
 
+        @Nonnull
         @Override
         public Map<String, String> getAttributes() {
             final Map<String, String> attributes = super.getAttributes();
@@ -154,21 +168,25 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
                     .build();
         }
 
+        @Nullable
         @Override
         public String getLabel() {
             return "r";
         }
 
+        @Nonnull
         @Override
         public String getShape() {
             return "circle";
         }
 
+        @Nonnull
         @Override
         public String getStyle() {
             return "filled";
         }
 
+        @Nonnull
         @Override
         public String getFillColor() {
             return "white";
@@ -200,6 +218,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
             super(ExpressionRef.class.getSimpleName());
         }
 
+        @Nonnull
         @Override
         public Map<String, String> getAttributes() {
             final Map<String, String> attributes = super.getAttributes();
@@ -213,21 +232,25 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
                     .build();
         }
 
+        @Nullable
         @Override
         public String getLabel() {
             return "m";
         }
 
+        @Nonnull
         @Override
         public String getShape() {
             return "circle";
         }
 
+        @Nonnull
         @Override
         public String getStyle() {
             return "filled";
         }
 
+        @Nonnull
         @Override
         public String getFillColor() {
             return "white";
@@ -238,6 +261,8 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
      * Edge class.
      */
     public static class Edge extends PlannerGraph.AbstractEdge {
+
+        @Nonnull
         @Override
         public Map<String, String> getAttributes() {
             final Map<String, String> superAttributes = super.getAttributes();
@@ -255,10 +280,12 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
             return null;
         }
 
+        @Nonnull
         public String getColor() {
             return "black";
         }
 
+        @Nonnull
         public String getStyle() {
             return "solid";
         }
@@ -268,6 +295,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
      * Edge class for GroupExpressionRefs.
      */
     public static class GroupExpressionRefEdge extends Edge {
+        @Nonnull
         @Override
         public String getColor() {
             return "gray";
@@ -278,6 +306,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
      * Edge class for GroupExpressionRefs.
      */
     public static class GroupExpressionRefInternalEdge extends Edge {
+        @Nonnull
         @Override
         public Map<String, String> getAttributes() {
             final Map<String, String> attributes = super.getAttributes();
@@ -288,9 +317,29 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
                     .build();
         }
 
+        @Nonnull
         @Override
         public String getStyle() {
             return "invis";
+        }
+    }
+
+    /**
+     * Show the planner expression that is passed in as a graph rendered in your default browser.
+     * @param plannerExpression the planner expression to be rendered.
+     * @return the word "done" (IntelliJ really likes a return of String).
+     */
+    @Nonnull
+    public static String show(final PlannerExpression plannerExpression) {
+        try {
+            final PlannerGraph<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> plannerGraph =
+                    Objects.requireNonNull(plannerExpression.acceptPropertyVisitor(new InternalPlannerGraphProperty()));
+            final URI uri = InternalPlannerGraphProperty.createHtmlLauncher(Objects.requireNonNull(plannerGraph));
+            Desktop.getDesktop().browse(uri);
+            return "done";
+        } catch (final Exception ex) {
+            Throwables.throwIfUnchecked(ex);
+            throw new RuntimeException(ex);
         }
     }
 
@@ -303,6 +352,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
      * @return a URI pointing to an html file in a temp location which renders the graph
      * @throws Exception -- thrown from methods called in here.
      */
+    @Nonnull
     public static URI createHtmlLauncher(final PlannerGraph<Node, Edge> plannerGraph) throws Exception {
         final InputStream launcherHtmlInputStream =
                 plannerGraph.getClass()
@@ -338,6 +388,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
         return writer.toString();
     }
 
+    @Nonnull
     private static GraphExporter<Node, Edge> createExporter() {
         /*
          * Generate a unique identifier for each node.

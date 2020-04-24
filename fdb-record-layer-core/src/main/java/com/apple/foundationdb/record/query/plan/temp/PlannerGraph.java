@@ -27,6 +27,7 @@ import com.google.common.graph.MutableNetwork;
 import com.google.common.graph.Network;
 import com.google.common.graph.NetworkBuilder;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Map;
@@ -35,24 +36,26 @@ import java.util.Queue;
 
 /**
  * The planner graph class. Objects of this class are computed by {@link InternalPlannerGraphProperty},
- * i.e. they get computed by walking a PlannerExpression DAG.
+ * i.e., they get computed by walking a {@link PlannerExpression} DAG.
  *
- * The property, once computed is immutable.
+ * Once computed, the property is immutable.
  *
  * @param <N> node type
  * @param <E> edge type
  */
-@SuppressWarnings("UnstableApiUsage")
+@SuppressWarnings("UnstableApiUsage") // Guava Graph API
 public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends PlannerGraph.AbstractEdge> {
 
     /**
      * The root of this graph.
      */
+    @Nonnull
     private final N root;
 
     /**
      * The underlying network graph representation.
      */
+    @Nonnull
     private final ImmutableNetwork<N, E> network;
 
     /**
@@ -62,7 +65,9 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
      * @param <E> edge type
      */
     public static class PlannerGraphBuilder<N extends AbstractNode, E extends AbstractEdge> {
+        @Nonnull
         final N root;
+        @Nonnull
         final MutableNetwork<N, E> network;
 
         private PlannerGraphBuilder(final N root) {
@@ -75,25 +80,29 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
             addNode(root);
         }
 
+        @Nonnull
         public N getRoot() {
             return root;
         }
 
+        @Nonnull
         public PlannerGraphBuilder<N, E> addNode(final N node) {
             network.addNode(node);
             return this;
         }
 
+        @Nonnull
         public PlannerGraphBuilder<N, E> addEdge(final N source, final N target, final E edge) {
             network.addEdge(source, target, edge);
             return this;
         }
 
+        @Nonnull
         public PlannerGraphBuilder<N, E> addGraph(final PlannerGraph<N, E> other) {
             final ImmutableNetwork<N, E> otherNetwork = other.network;
 
-            // start form the root node -- stop at any edge tha leads to a node that is already in this network
-            // classic bfs
+            // Starting from the root node, stop at any edge that leads to a node that is already in this network using
+            // classic breadth-first search.
             final Queue<N> queue = new ArrayDeque<>();
 
             if (!network.nodes().contains(other.root)) {
@@ -116,6 +125,7 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
             return this;
         }
 
+        @Nonnull
         public PlannerGraph<N, E> build() {
             return new PlannerGraph<>(root, network);
         }
@@ -125,7 +135,9 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
      * Node class functioning as parent for any nodes in the network.
      */
     public abstract static class AbstractNode {
+        @Nonnull
         final String name;
+        @Nullable
         final String expression;
 
         public AbstractNode(final String name) {
@@ -137,14 +149,17 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
             this.expression = expression;
         }
 
+        @Nonnull
         public String getName() {
             return name;
         }
 
-        @Nullable public String getExpression() {
+        @Nullable
+        public String getExpression() {
             return expression;
         }
 
+        @Nonnull
         public Map<String, String> getAttributes() {
             final ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
             Optional.ofNullable(getLabel())
@@ -171,6 +186,7 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
         public abstract String getLabel();
     }
 
+    @Nonnull
     public static <N extends AbstractNode, E extends AbstractEdge> PlannerGraphBuilder<N, E> builder(final N root) {
         return new PlannerGraphBuilder<>(root);
     }
@@ -191,10 +207,12 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
                 ImmutableNetwork.copyOf(network);
     }
 
+    @Nonnull
     public N getRoot() {
         return root;
     }
 
+    @Nonnull
     public ImmutableNetwork<N, E> getNetwork() {
         return network;
     }

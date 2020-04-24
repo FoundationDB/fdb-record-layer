@@ -1,5 +1,5 @@
 /*
- * DotExporter.java
+ * GraphExporter.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -73,7 +73,7 @@ public abstract class GraphExporter<N, E> {
     }
 
     /**
-     * Constructs a new GraphExporter object with the given ID, label, attribute, and graph id
+     * Constructs a new GraphExporter object with the given ID, label, attribute, and graph ID
      * providers. Note that if a label provider conflicts with a label-supplying attribute provider,
      * the label provider is given precedence.
      *
@@ -107,7 +107,7 @@ public abstract class GraphExporter<N, E> {
      * @param network the network to be exported
      * @param writer the writer to which the network to be exported
      */
-    public void exportGraph(final ImmutableNetwork<N, E> network, Writer writer) {
+    public void exportGraph(final ImmutableNetwork<N, E> network, final Writer writer) {
         final PrintWriter out = new PrintWriter(writer);
 
         renderHeader(out, network);
@@ -157,6 +157,7 @@ public abstract class GraphExporter<N, E> {
      * @param node a node
      * @return a unique identifier
      */
+    @Nonnull
     protected String getVertexID(final N node) {
         return vertexIds.computeIfAbsent(node, n -> {
             final String idCandidate = vertexIDProvider.apply(node);

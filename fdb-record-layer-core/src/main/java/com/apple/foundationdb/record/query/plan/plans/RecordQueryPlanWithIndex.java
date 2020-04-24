@@ -74,6 +74,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
                 .map(store::queriedRecord);
     }
 
+    @Nonnull
     @Override
     default PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
         final InternalPlannerGraphProperty.Node root = new InternalPlannerGraphProperty.Node(getClass().getSimpleName(), toString());

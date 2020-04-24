@@ -142,7 +142,7 @@ public class CascadesPlanner implements QueryPlanner {
         if (singleRoot instanceof RecordQueryPlan) {
             if (logger.isDebugEnabled()) {
                 logger.debug(KeyValueLogMessage.of("explain of plan",
-                        "explain", singleRoot.explain()));
+                        "explain", ExplainPlannerGraphProperty.explain(singleRoot)));
             }
 
             return (RecordQueryPlan)singleRoot;

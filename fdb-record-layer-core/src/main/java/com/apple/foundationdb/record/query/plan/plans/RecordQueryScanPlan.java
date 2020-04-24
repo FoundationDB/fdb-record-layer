@@ -126,6 +126,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         return "Scan(" + range + ")";
     }
 
+    @Nonnull
     private String getRange() {
         String range;
         try {
@@ -175,6 +176,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         return 1;
     }
 
+    @Nonnull
     @Override
     public PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
         final InternalPlannerGraphProperty.Node root = new InternalPlannerGraphProperty.Node(getClass().getSimpleName());
