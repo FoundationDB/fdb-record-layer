@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.PlannerGraph.PlannerGraphBuilder;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
@@ -106,6 +107,30 @@ public interface PlannerExpression extends Bindable {
             return visitor.evaluateAtExpression(this, childResults);
         }
         return null;
+    }
+
+    /**
+     * This is needed for graph integration into IntelliJ as IntelliJ only ever evaluates selfish methods. Add this
+     * method as a custom renderer for the type {@link PlannerExpression}. During debugging you can then for instance
+     * click show() on an instance and enjoy the query graph it represents rendered in your standard browser.
+     *
+     * @return the String "Done."
+     */
+    @Nonnull
+    default String show() {
+        return InternalPlannerGraphProperty.show(this);
+    }
+
+    @Nonnull
+    default PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
+        final InternalPlannerGraphProperty.Node root = new InternalPlannerGraphProperty.Node(getClass().getSimpleName());
+        return PlannerGraph.builder(root);
+    }
+
+    @Nonnull
+    default PlannerGraphBuilder<ExplainPlannerGraphProperty.Node, ExplainPlannerGraphProperty.Edge> explainYourself() {
+        final ExplainPlannerGraphProperty.Node root = new ExplainPlannerGraphProperty.Node(getClass().getSimpleName());
+        return PlannerGraph.builder(root);
     }
 }
 
