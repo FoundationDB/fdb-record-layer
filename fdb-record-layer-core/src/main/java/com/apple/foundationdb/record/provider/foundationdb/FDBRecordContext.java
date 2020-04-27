@@ -59,6 +59,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -360,7 +361,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     @Nonnull
     private CompletableFuture<Void> injectLatency(@Nonnull FDBLatencySource latencySource) {
-        return instrument(latencySource.getTimerEvent(), database.injectLatency(latencySource));
+        final long latencyMillis = database.getLatencyToInject(latencySource);
+        if (latencyMillis <= 0L) {
+            return AsyncUtil.DONE;
+        }
+
+        return instrument(latencySource.getTimerEvent(), MoreAsyncUtil.delayedFuture(latencyMillis, TimeUnit.MILLISECONDS));
     }
 
     /**

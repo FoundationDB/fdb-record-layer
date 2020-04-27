@@ -25,8 +25,6 @@ import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.AsyncLoadingCache;
 import com.apple.foundationdb.record.LoggableTimeoutException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
@@ -1110,18 +1108,15 @@ public class FDBDatabase {
     }
 
     /**
-     * Given a specific FDB API call, a future is returned that is delayed by the number of milliseconds
-     * that was computed by the installed latency injector ({@link FDBDatabaseFactory#setLatencyInjector(Function)}).
+     * Given a specific FDB API call, computes an amount of latency (in milliseconds) that should be injected
+     * prior to performing the actual operation.  This latency is computed via an installed latency injector
+     * via {@link FDBDatabaseFactory#setLatencyInjector(Function)}.
      *
      * @param fdbLatencySource the call for which the latency is to be computed
-     * @return a future that will be delayed by the configured injection millis
+     * @return the amount of delay, in milliseconds, to inject for the provided operation
      */
-    protected CompletableFuture<Void> injectLatency(FDBLatencySource fdbLatencySource) {
-        long latencyMillis = latencyInjector.apply(fdbLatencySource);
-        if (latencyMillis <= 0L) {
-            return AsyncUtil.DONE;
-        }
-        return MoreAsyncUtil.delayedFuture(latencyMillis, TimeUnit.MILLISECONDS);
+    protected long getLatencyToInject(FDBLatencySource fdbLatencySource) {
+        return latencyInjector.apply(fdbLatencySource);
     }
 
     private void checkIfBlockingInFuture(CompletableFuture<?> future) {
