@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -49,11 +49,11 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     private final ExpressionRef<RelationalPlannerExpression> inner;
 
     public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalPlannerExpression inner) {
-        this(sort, reverse, SingleExpressionRef.of(inner));
+        this(sort, reverse, GroupExpressionRef.of(inner));
     }
 
     public LogicalSortExpression(@Nonnull List<Element> grouping, @Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalPlannerExpression inner) {
-        this(grouping, sort, reverse, SingleExpressionRef.of(inner));
+        this(grouping, sort, reverse, GroupExpressionRef.of(inner));
     }
 
 

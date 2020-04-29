@@ -41,12 +41,12 @@ import java.util.Optional;
  *
  * The <code>onMatch()</code> method returns logically equivalent expressions to the planner by calling the
  * {@link PlannerRuleCall#yield(ExpressionRef)} method on its rule call, with a new
- * {@link MutableExpressionRef}. The <code>yield()</code> method can be called more than once, or zero times if no
+ * {@link ExpressionRef}. The <code>yield()</code> method can be called more than once, or zero times if no
  * alternative expressions are found.
  *
  * A rule should not attempt to modify any of the bound objects that the rule call provides. Nearly all such objects are
  * immutable, and the mutable ones are hidden behind interfaces that do not expose mutation methods. In particular,
- * a rule should never cast an {@link ExpressionRef} to {@link MutableExpressionRef}, in an attempt to access it.
+ * a rule should never cast an {@link ExpressionRef} in an attempt to access it.
  *
  * A <code>PlannerRule</code> should not store state between successive calls to {@link #onMatch(PlannerRuleCall)},
  * since it may be reused an arbitrary number of times and may be reinstantiated at any time. To simplify cleanup,

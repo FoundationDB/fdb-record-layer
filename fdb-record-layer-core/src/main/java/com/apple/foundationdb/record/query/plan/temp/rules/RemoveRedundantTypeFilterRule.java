@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -64,7 +64,7 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
             Set<String> unsatisfiedTypeFilters = Sets.intersection(childRecordTypes, filterRecordTypes);
             if (!unsatisfiedTypeFilters.equals(filterRecordTypes)) {
                 // there were some unnecessary filters, so remove them
-                call.yield(SingleExpressionRef.of(new LogicalTypeFilterExpression(unsatisfiedTypeFilters, child)));
+                call.yield(GroupExpressionRef.of(new LogicalTypeFilterExpression(unsatisfiedTypeFilters, child)));
             } // otherwise, nothing changes
         }
     }

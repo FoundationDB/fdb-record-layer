@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
@@ -63,7 +63,7 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
         final QueryPredicate filter = call.get(filterMatcher);
         final Collection<String> recordTypes = call.get(root).getRecordTypes();
 
-        call.yield(SingleExpressionRef.of(new RecordQueryPredicateFilterPlan(
-                SingleExpressionRef.of(new RecordQueryTypeFilterPlan(inner, recordTypes)), filterPlan.getBaseSource(), filter)));
+        call.yield(GroupExpressionRef.of(new RecordQueryPredicateFilterPlan(
+                GroupExpressionRef.of(new RecordQueryTypeFilterPlan(inner, recordTypes)), filterPlan.getBaseSource(), filter)));
     }
 }

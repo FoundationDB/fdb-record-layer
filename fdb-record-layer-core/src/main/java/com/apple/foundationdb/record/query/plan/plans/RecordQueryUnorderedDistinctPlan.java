@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
@@ -68,7 +68,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     public RecordQueryUnorderedDistinctPlan(@Nonnull RecordQueryPlan inner,
                                             @Nonnull KeyExpression comparisonKey) {
-        this.inner = SingleExpressionRef.of(inner);
+        this.inner = GroupExpressionRef.of(inner);
         this.comparisonKey = comparisonKey;
     }
 

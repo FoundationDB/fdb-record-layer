@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
@@ -59,7 +59,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     protected final boolean sortReverse;
 
     public RecordQueryInJoinPlan(RecordQueryPlan plan, String bindingName, boolean sortValuesNeeded, boolean sortReverse) {
-        this.plan = SingleExpressionRef.of(plan);
+        this.plan = GroupExpressionRef.of(plan);
         this.children = Collections.singletonList(this.plan);
         this.bindingName = bindingName;
         this.sortValuesNeeded = sortValuesNeeded;

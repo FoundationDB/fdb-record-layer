@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
@@ -90,7 +90,7 @@ public class ExpressionMatcherTest {
         // create a matcher and expression to match
         ExpressionMatcher<ExpressionRef<PlannerExpression>> matcher = ReferenceMatcher.anyRef();
         Source recordSource = new RecordTypeSource(Collections.singleton("MyRecordType"));
-        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new LogicalFilterExpression(
+        ExpressionRef<PlannerExpression> root = GroupExpressionRef.of(new LogicalFilterExpression(
                 recordSource,
                 Query.field("test").equalsValue(5).normalizeForPlanner(recordSource),
                 new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
@@ -109,7 +109,7 @@ public class ExpressionMatcherTest {
     public void singleTypeMatcher() {
         // we already have a different RecordQueryIndexPlan matcher, but this should still work
         ExpressionMatcher<RecordQueryIndexPlan> matcher = TypeMatcher.of(RecordQueryIndexPlan.class);
-        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true));
+        ExpressionRef<PlannerExpression> root = GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true));
         Optional<PlannerBindings> newBindings = root.bindTo(matcher).findFirst();
         // check the the bindings are what we expect, and that none of the existing ones were clobbered
         assertTrue(newBindings.isPresent());
@@ -131,7 +131,7 @@ public class ExpressionMatcherTest {
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
 
         // check matches if the children are in the right order
-        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
+        ExpressionRef<PlannerExpression> root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
                 child1, child2, EmptyKeyExpression.EMPTY, false));
         Optional<PlannerBindings> possibleBindings = root.bindTo(parentMatcher).findFirst();
         assertTrue(possibleBindings.isPresent());
@@ -142,7 +142,7 @@ public class ExpressionMatcherTest {
         assertEquals(child2, allBindings.get(childMatcher2));
 
         // check that we fail to match if the children are in the wrong order
-        root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
+        root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
                 child2, child1, EmptyKeyExpression.EMPTY, false));
         assertFalse(root.bindTo(parentMatcher).findFirst().isPresent());
     }
@@ -154,7 +154,7 @@ public class ExpressionMatcherTest {
                 TypeMatcher.of(RecordQueryIndexPlan.class, TypeMatcher.of(RecordQueryScanPlan.class)));
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
-        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
+        ExpressionRef<PlannerExpression> root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
                 child1, child2, EmptyKeyExpression.EMPTY, false));
         assertFalse(root.bindTo(parentMatcher).findFirst().isPresent());
     }
@@ -167,7 +167,7 @@ public class ExpressionMatcherTest {
                 childMatcher1, childMatcher2);
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
-        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
+        ExpressionRef<PlannerExpression> root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
                 child1, child2, EmptyKeyExpression.EMPTY, false));
 
         Optional<PlannerBindings> possibleBindings = root.bindTo(matcher).findFirst();
@@ -200,10 +200,10 @@ public class ExpressionMatcherTest {
                 Query.and(andBranch1, andBranch2).normalizeForPlanner(rootSource),
                 new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true));
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
-        ExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
+        ExpressionRef<PlannerExpression> root = GroupExpressionRef.of(
                 new LogicalUnorderedUnionExpression(
-                        ImmutableList.of(SingleExpressionRef.of(filterPlan),
-                                SingleExpressionRef.of(scanPlan))));
+                        ImmutableList.of(GroupExpressionRef.of(filterPlan),
+                                GroupExpressionRef.of(scanPlan))));
 
         assertTrue(filterPlan.bindTo(filterPlanMatcher).findFirst().isPresent());
 

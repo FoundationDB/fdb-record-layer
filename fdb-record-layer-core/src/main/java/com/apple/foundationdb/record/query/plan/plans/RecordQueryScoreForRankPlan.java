@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
@@ -64,7 +64,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     private final List<ScoreForRank> ranks;
 
     public RecordQueryScoreForRankPlan(RecordQueryPlan plan, List<ScoreForRank> ranks) {
-        this.plan = SingleExpressionRef.of(plan);
+        this.plan = GroupExpressionRef.of(plan);
         this.ranks = ranks;
     }
 

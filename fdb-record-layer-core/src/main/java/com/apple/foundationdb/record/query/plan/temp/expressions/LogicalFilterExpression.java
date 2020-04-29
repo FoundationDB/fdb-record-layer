@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpressionWithPredicate;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.Iterators;
@@ -50,7 +50,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     public LogicalFilterExpression(@Nonnull Source baseSource,
                                    @Nonnull QueryPredicate filter,
                                    @Nonnull RelationalPlannerExpression inner) {
-        this(baseSource, filter, SingleExpressionRef.of(inner));
+        this(baseSource, filter, GroupExpressionRef.of(inner));
     }
 
     public LogicalFilterExpression(@Nonnull Source baseSource,

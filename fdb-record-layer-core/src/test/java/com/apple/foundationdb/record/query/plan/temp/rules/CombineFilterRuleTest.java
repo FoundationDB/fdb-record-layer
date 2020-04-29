@@ -27,10 +27,10 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeSource;
@@ -68,7 +68,7 @@ public class CombineFilterRuleTest {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             QueryComponent filter2 = Query.field("testField2").equalsValue(10);
-            SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
+            GroupExpressionRef<PlannerExpression> root = GroupExpressionRef.of(
                     buildLogicalFilter(filter1, buildLogicalFilter(filter2, basePlan)));
             TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root);
             assertTrue(execution.isRuleMatched());
@@ -81,7 +81,7 @@ public class CombineFilterRuleTest {
     public void doesNotCoalesce() {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
-            SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
+            GroupExpressionRef<PlannerExpression> root = GroupExpressionRef.of(
                     buildLogicalFilter(filter1, buildLogicalFilter(filter1, basePlan)));
             TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root);
             assertTrue(execution.isRuleMatched());
@@ -95,7 +95,7 @@ public class CombineFilterRuleTest {
     public void doesNotMatchSingleFilter() {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
-            SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(
+            GroupExpressionRef<PlannerExpression> root = GroupExpressionRef.of(
                     buildLogicalFilter(filter1, basePlan));
             TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root);
             assertFalse(execution.isRuleMatched());

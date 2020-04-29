@@ -55,7 +55,7 @@ import java.util.stream.Stream;
  * @param <T> the type of planner expression that is contained in this reference
  */
 @API(API.Status.EXPERIMENTAL)
-public class GroupExpressionRef<T extends PlannerExpression> implements MutableExpressionRef<T> {
+public class GroupExpressionRef<T extends PlannerExpression> implements ExpressionRef<T> {
     static final GroupExpressionRef<PlannerExpression> EMPTY = new GroupExpressionRef<>();
 
     @Nonnull

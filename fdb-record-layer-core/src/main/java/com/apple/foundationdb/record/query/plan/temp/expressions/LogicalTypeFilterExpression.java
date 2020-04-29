@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -46,7 +46,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
     private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
 
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalPlannerExpression inner) {
-        this(recordTypes, SingleExpressionRef.of(inner));
+        this(recordTypes, GroupExpressionRef.of(inner));
     }
 
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {

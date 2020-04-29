@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
@@ -69,6 +69,6 @@ public class OrToUnorderedUnionRule extends PlannerRule<LogicalFilterExpression>
         for (QueryPredicate child : children) {
             relationalExpressionRefs.add(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(), child, inner)));
         }
-        call.yield(SingleExpressionRef.of(new LogicalUnorderedUnionExpression(relationalExpressionRefs)));
+        call.yield(GroupExpressionRef.of(new LogicalUnorderedUnionExpression(relationalExpressionRefs)));
     }
 }

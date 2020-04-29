@@ -24,9 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
@@ -58,7 +58,7 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
         final RecordQueryPlan inner = call.get(innerMatcher);
         final QueryPredicate filter = call.get(filterMatcher);
 
-        call.yield(SingleExpressionRef.of(
+        call.yield(GroupExpressionRef.of(
                 new RecordQueryPredicateFilterPlan(call.ref(inner), filterExpression.getBaseSource(), filter)));
     }
 }

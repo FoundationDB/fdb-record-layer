@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpressionWithPredicate;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -52,7 +52,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
     public RecordQueryPredicateFilterPlan(@Nonnull RecordQueryPlan inner,
                                           @Nonnull Source baseSource,
                                           @Nonnull QueryPredicate filter) {
-        this(SingleExpressionRef.of(inner), baseSource, filter);
+        this(GroupExpressionRef.of(inner), baseSource, filter);
     }
 
     public RecordQueryPredicateFilterPlan(@Nonnull ExpressionRef<RecordQueryPlan> inner,

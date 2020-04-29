@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
@@ -82,14 +82,14 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
         final boolean reverse = children.get(0).isReverse();
         ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> builder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            builder.add(SingleExpressionRef.of(child));
+            builder.add(GroupExpressionRef.of(child));
         }
         return new RecordQueryUnorderedUnionPlan(builder.build(), reverse);
     }
 
     @Nonnull
     public static RecordQueryUnorderedUnionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right) {
-        return new RecordQueryUnorderedUnionPlan(ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right)), left.isReverse());
+        return new RecordQueryUnorderedUnionPlan(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right)), left.isReverse());
     }
 
     @API(API.Status.EXPERIMENTAL)

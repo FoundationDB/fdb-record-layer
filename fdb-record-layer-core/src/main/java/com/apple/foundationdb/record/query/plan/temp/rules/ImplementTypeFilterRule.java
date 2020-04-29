@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -63,7 +63,7 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
         } else {
             // otherwise, keep a filter on record types which the child might produce and are included in the filter
             Set<String> unsatisfiedTypeFilters = Sets.intersection(filterRecordTypes, childRecordTypes);
-            call.yield(SingleExpressionRef.of(new RecordQueryTypeFilterPlan(child, unsatisfiedTypeFilters)));
+            call.yield(GroupExpressionRef.of(new RecordQueryTypeFilterPlan(child, unsatisfiedTypeFilters)));
         }
     }
 }

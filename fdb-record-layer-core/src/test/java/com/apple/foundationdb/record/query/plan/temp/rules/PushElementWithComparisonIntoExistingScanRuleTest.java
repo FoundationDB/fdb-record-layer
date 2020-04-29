@@ -26,11 +26,11 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
@@ -75,7 +75,7 @@ public class PushElementWithComparisonIntoExistingScanRuleTest {
     public void pushDownFilterToSingleFieldIndex() {
         RelationalPlannerExpression inner = new IndexEntrySourceScanExpression(singleFieldIndexEntrySource, IndexScanType.BY_VALUE,
                 singleFieldIndexEntrySource.getEmptyComparisons(), false);
-        SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(buildLogicalFilter(
+        GroupExpressionRef<PlannerExpression> root = GroupExpressionRef.of(buildLogicalFilter(
                 Query.field("aField").equalsValue(5), inner));
         TestRuleExecution execution = TestRuleExecution.applyRule(context, rule, root);
         assertTrue(execution.isRuleMatched());
@@ -91,7 +91,7 @@ public class PushElementWithComparisonIntoExistingScanRuleTest {
     public void pushDownFilterWithCompatibleIndex() {
         RelationalPlannerExpression inner = new IndexEntrySourceScanExpression(concatIndexEntrySource, IndexScanType.BY_VALUE,
                 concatIndexEntrySource.getEmptyComparisons(), false);
-        SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(buildLogicalFilter(
+        GroupExpressionRef<PlannerExpression> root = GroupExpressionRef.of(buildLogicalFilter(
                 Query.field("aField").equalsValue(5), inner));
 
         TestRuleExecution execution = TestRuleExecution.applyRule(context, rule, root);
@@ -108,7 +108,7 @@ public class PushElementWithComparisonIntoExistingScanRuleTest {
         RelationalPlannerExpression inner = new IndexEntrySourceScanExpression(singleFieldIndexEntrySource, IndexScanType.BY_VALUE,
                 singleFieldIndexEntrySource.getEmptyComparisons(), false);
         PlannerExpression original = buildLogicalFilter(Query.field("anotherField").equalsValue(5), inner);
-        SingleExpressionRef<PlannerExpression> root = SingleExpressionRef.of(original);
+        GroupExpressionRef<PlannerExpression> root = GroupExpressionRef.of(original);
         assertTrue(TestRuleExecution.applyRule(context, rule, root).isRuleMatched());
         assertEquals(original, root.get());
     }

@@ -32,12 +32,13 @@ import java.util.stream.Stream;
 
 /**
  * This interface is used mostly as an (admittedly surmountable) barrier to rules mutating bound references directly,
- * which is undefined behavior. Unlike {@link MutableExpressionRef}, it does not provide an <code>insert()</code> method,
- * so the rule would need to cast the reference back to {@link MutableExpressionRef} before modifying it.
+ * which is undefined behavior.
  * @param <T> the type of planner expression that is contained in this reference
  */
 @API(API.Status.EXPERIMENTAL)
 public interface ExpressionRef<T extends PlannerExpression> extends Bindable {
+    void insert(@Nonnull T newValue);
+
     /**
      * Return the expression contained in this reference. If the reference does not support getting its expresssion
      * (for example, because it holds more than one expression, or none at all), this should throw an exception.

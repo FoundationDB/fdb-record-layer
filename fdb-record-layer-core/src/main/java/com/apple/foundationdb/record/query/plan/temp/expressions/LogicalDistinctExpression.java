@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
@@ -42,7 +42,7 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     private ExpressionRef<RelationalPlannerExpression> inner;
 
     public LogicalDistinctExpression(@Nonnull RelationalPlannerExpression inner) {
-        this(SingleExpressionRef.of(inner));
+        this(GroupExpressionRef.of(inner));
     }
 
     public LogicalDistinctExpression(@Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
