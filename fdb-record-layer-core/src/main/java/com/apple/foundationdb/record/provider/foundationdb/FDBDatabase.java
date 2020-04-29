@@ -748,10 +748,13 @@ public class FDBDatabase {
      * @return newly created transaction
      */
     private Transaction createTransaction(Executor executor, @Nullable StoreTimer storeTimer, @Nullable Map<String, String> mdcContext, boolean transactionIsTraced) {
+        final boolean enableAssertions = factory.areAssertionsEnabled();
         Transaction transaction = database.createTransaction(executor);
 
         if (storeTimer != null) {
-            transaction = new InstrumentedTransaction(storeTimer, transaction);
+            transaction = new InstrumentedTransaction(storeTimer, transaction, enableAssertions);
+        } else if (enableAssertions) {
+            transaction = new InstrumentedTransaction(new FDBStoreTimer(), transaction, enableAssertions);
         }
 
         if (transactionIsTraced) {

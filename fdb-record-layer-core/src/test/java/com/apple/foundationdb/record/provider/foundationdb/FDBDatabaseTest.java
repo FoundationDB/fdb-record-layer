@@ -489,4 +489,42 @@ public class FDBDatabaseTest extends FDBTestBase {
             LOGGER.info(logMessage.toString());
         }
     }
+
+    @Test
+    public void testAssertionsOnKeySize() {
+        testSizeAssertion(context ->
+                        context.ensureActive().set(Tuple.from(1, new byte[InstrumentedTransaction.MAX_KEY_LENGTH]).pack(), Tuple.from(1).pack()),
+                FDBExceptions.FDBStoreKeySizeException.class);
+    }
+
+    @Test
+    public void testAssertionsOnValueSize() {
+        testSizeAssertion(context ->
+                        context.ensureActive().set(Tuple.from(1).pack(), Tuple.from(2, new byte[InstrumentedTransaction.MAX_VALUE_LENGTH]).pack()),
+                FDBExceptions.FDBStoreValueSizeException.class);
+    }
+
+    private void testSizeAssertion(Consumer<FDBRecordContext> consumer, Class<? extends Exception> exception) {
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabase database = factory.getDatabase();
+
+        // By default key size validation happens in the FDB driver at commit time
+        try (FDBRecordContext context = database.openContext()) {
+            consumer.accept(context);
+            assertThrows(exception, () -> context.commit());
+        }
+
+        try {
+            factory.clear();
+
+            // enabling assertions causes checks to happen in record layer code
+            factory.setEnableAssertionsSupplier(() -> true);
+            try (FDBRecordContext context = database.openContext()) {
+                assertThrows(exception, () -> consumer.accept(context));
+            }
+        } finally {
+            factory.setEnableAssertionsSupplier(() -> false);
+            factory.clear();
+        }
+    }
 }

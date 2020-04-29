@@ -50,6 +50,7 @@ public class FDBDatabaseFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
 
     protected static final Function<FDBLatencySource, Long> DEFAULT_LATENCY_INJECTOR = api -> 0L;
+    protected static final Supplier<Boolean> DEFAULT_ENABLE_ASSERTIONS_SUPPLIER = () -> false;
 
     /**
      * The default number of entries that is to be cached, per database, from
@@ -121,6 +122,13 @@ public class FDBDatabaseFactory {
      */
     @Nonnull
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
+    /**
+     * A supplier that, when it returns true, enables assertions/sanity checks on certain operations. This supplier is
+     * polled upon the creation of a new {@code FDBRecordContext} and all subsequent operations on that context will
+     * (or will not) enforce assertions based upon the return value.
+     */
+    @Nonnull
+    private Supplier<Boolean> enableAssertionsSupplier = DEFAULT_ENABLE_ASSERTIONS_SUPPLIER;
     @Nonnull
     private Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = () -> BlockingInAsyncDetection.DISABLED;
     @Nonnull
@@ -478,6 +486,25 @@ public class FDBDatabaseFactory {
 
     public Supplier<Boolean> getTransactionIsTracedSupplier() {
         return transactionIsTracedSupplier;
+    }
+
+    /**
+     * Sets a supplier that is polled upon the creation of new {@link FDBRecordContext}'s to either enable or disable
+     * sanity check assertions of operations performed on that context.
+     *
+     * @param enableAssertionsSupplier a supplier that returns {@code true} if assertions should be enabled
+     */
+    public void setEnableAssertionsSupplier(Supplier<Boolean> enableAssertionsSupplier) {
+        this.enableAssertionsSupplier = enableAssertionsSupplier;
+    }
+
+    /**
+     * Polls the supplier installed by {@link #setEnableAssertionsSupplier(Supplier)} to determine if a transaction
+     * should have sanity check assertions enabled.
+     * @return {@code true} if sanity check assertions should be enabled
+     */
+    protected boolean areAssertionsEnabled() {
+        return enableAssertionsSupplier.get();
     }
 
     /**
