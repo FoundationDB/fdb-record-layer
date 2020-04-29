@@ -31,12 +31,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.Sets;
 
@@ -47,7 +46,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * A property visitor that determines the set of record type names (as Strings) that a {@link RelationalPlannerExpression}
+ * A property visitor that determines the set of record type names (as Strings) that a {@link RelationalExpression}
  * could produce. This property is used in determining whether type filters are necessary, among other things.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -60,33 +59,32 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression;
+    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
+        return true;
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         return true;
     }
 
     @Nonnull
     @Override
-    public Set<String> evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Set<String>> childResults) {
+    public Set<String> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<String>> childResults) {
         // shouldVisit() ensures that we only visit relational planner expressions
         // If we mess this up, better to find out sooner rather than later.
-        final RelationalPlannerExpression relationalExpression = (RelationalPlannerExpression) expression;
 
-        if (relationalExpression instanceof RecordQueryScanPlan ||
-                relationalExpression instanceof FullUnorderedScanExpression) {
+        if (expression instanceof RecordQueryScanPlan ||
+                expression instanceof FullUnorderedScanExpression) {
             return context.getMetaData().getRecordTypes().keySet();
-        } else if (relationalExpression instanceof RecordQueryPlanWithIndex) {
-            Index index = context.getIndexByName(((RecordQueryPlanWithIndex) relationalExpression).getIndexName());
+        } else if (expression instanceof RecordQueryPlanWithIndex) {
+            Index index = context.getIndexByName(((RecordQueryPlanWithIndex)expression).getIndexName());
             return context.getMetaData().recordTypesForIndex(index).stream()
                     .map(RecordType::getName).collect(Collectors.toSet());
-        } else if (relationalExpression instanceof TypeFilterExpression) {
-            return Sets.filter(childResults.get(0), ((TypeFilterExpression)relationalExpression).getRecordTypes()::contains);
-        } else if (relationalExpression instanceof IndexEntrySourceScanExpression) {
-            String indexName = ((IndexEntrySourceScanExpression)relationalExpression).getIndexName();
+        } else if (expression instanceof TypeFilterExpression) {
+            return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);
+        } else if (expression instanceof IndexEntrySourceScanExpression) {
+            String indexName = ((IndexEntrySourceScanExpression)expression).getIndexName();
             if (indexName == null) {
                 // TODO: This isn't quite right, because we might have matched a common prefix of the (non-common)
                 // primary key and thus restricted the set of types that could be returned. Getting it right seems tricky.
@@ -136,7 +134,7 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
 
     @Nonnull
     @Override
-    public Set<String> evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref,
+    public Set<String> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref,
                                      @Nonnull List<Set<String>> memberResults) {
         final Set<String> union = new HashSet<>();
         for (Set<String> resultSet : memberResults) {
@@ -146,12 +144,12 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context, ExpressionRef<? extends PlannerExpression> ref) {
+    public static Set<String> evaluate(@Nonnull PlanContext context, ExpressionRef<? extends RelationalExpression> ref) {
         return ref.acceptPropertyVisitor(new RecordTypesProperty(context));
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context, @Nonnull PlannerExpression ref) {
+    public static Set<String> evaluate(@Nonnull PlanContext context, @Nonnull RelationalExpression ref) {
         return ref.acceptPropertyVisitor(new RecordTypesProperty(context));
     }
 }

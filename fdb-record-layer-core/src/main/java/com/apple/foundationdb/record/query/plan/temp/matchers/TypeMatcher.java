@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
@@ -82,14 +82,14 @@ public class TypeMatcher<T extends Bindable> implements ExpressionMatcher<T> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         // A type matcher will never match a reference. Ask the reference whether its contents match properly.
         return ref.bindWithin(this);
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull PlannerExpression expression) {
+    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression) {
         if (expressionClass.isInstance(expression)) {
             return Stream.of(PlannerBindings.from(this, expression));
         } else {

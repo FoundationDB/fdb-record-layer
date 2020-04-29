@@ -36,11 +36,11 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**
- * A Cascades-style group expression, representing the members of set of {@link PlannerExpression}s that belong to
+ * A Cascades-style group expression, representing the members of set of {@link RelationalExpression}s that belong to
  * the same equivalence class.
  *
  * <p>
- * The <em>memo</em> data structure can compactly represent a large set of similar {@link PlannerExpression}s through
+ * The <em>memo</em> data structure can compactly represent a large set of similar {@link RelationalExpression}s through
  * careful memoization. The Cascades "group expression", represented by the {@code GroupExpressionRef}, is the key to
  * that memoization by sharing optimization work on a sub-expression with other parts of the expression that reference
  * the same sub-expression.
@@ -55,8 +55,8 @@ import java.util.stream.Stream;
  * @param <T> the type of planner expression that is contained in this reference
  */
 @API(API.Status.EXPERIMENTAL)
-public class GroupExpressionRef<T extends PlannerExpression> implements ExpressionRef<T> {
-    static final GroupExpressionRef<PlannerExpression> EMPTY = new GroupExpressionRef<>();
+public class GroupExpressionRef<T extends RelationalExpression> implements ExpressionRef<T> {
+    static final GroupExpressionRef<RelationalExpression> EMPTY = new GroupExpressionRef<>();
 
     @Nonnull
     private final PlannerExpressionPointerSet<T> members;
@@ -113,8 +113,8 @@ public class GroupExpressionRef<T extends PlannerExpression> implements Expressi
     }
 
     @Override
-    public boolean containsAllInMemo(@Nonnull ExpressionRef<? extends PlannerExpression> otherRef) {
-        for (PlannerExpression otherMember : otherRef.getMembers()) {
+    public boolean containsAllInMemo(@Nonnull ExpressionRef<? extends RelationalExpression> otherRef) {
+        for (RelationalExpression otherMember : otherRef.getMembers()) {
             if (!containsInMemo(otherMember)) {
                 return false;
             }
@@ -122,8 +122,8 @@ public class GroupExpressionRef<T extends PlannerExpression> implements Expressi
         return true;
     }
 
-    public boolean containsInMemo(@Nonnull PlannerExpression expression) {
-        for (PlannerExpression member : members) {
+    public boolean containsInMemo(@Nonnull RelationalExpression expression) {
+        for (RelationalExpression member : members) {
             if (containsInMember(member, expression)) {
                 return true;
             }
@@ -131,13 +131,13 @@ public class GroupExpressionRef<T extends PlannerExpression> implements Expressi
         return false;
     }
 
-    private boolean containsInMember(@Nonnull PlannerExpression member, @Nonnull PlannerExpression otherMember) {
+    private boolean containsInMember(@Nonnull RelationalExpression member, @Nonnull RelationalExpression otherMember) {
         if (!member.equalsWithoutChildren(otherMember)) {
             return false;
         }
 
-        Iterator<? extends ExpressionRef<? extends PlannerExpression>> memberChildren = member.getPlannerExpressionChildren();
-        Iterator<? extends ExpressionRef<? extends PlannerExpression>> otherMemberChildren = otherMember.getPlannerExpressionChildren();
+        Iterator<? extends ExpressionRef<? extends RelationalExpression>> memberChildren = member.getPlannerExpressionChildren();
+        Iterator<? extends ExpressionRef<? extends RelationalExpression>> otherMemberChildren = otherMember.getPlannerExpressionChildren();
         while (memberChildren.hasNext() && otherMemberChildren.hasNext()) {
             if (!memberChildren.next().containsAllInMemo(otherMemberChildren.next())) {
                 return false;
@@ -198,7 +198,7 @@ public class GroupExpressionRef<T extends PlannerExpression> implements Expressi
 
     @Nonnull
     @Override
-    public <U extends PlannerExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func) {
+    public <U extends RelationalExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func) {
         PlannerExpressionPointerSet<U> resultMembers = new PlannerExpressionPointerSet<>();
         members.iterator().forEachRemaining(member -> resultMembers.add(func.apply(member)));
         return new GroupExpressionRef<U>(resultMembers);
@@ -206,7 +206,7 @@ public class GroupExpressionRef<T extends PlannerExpression> implements Expressi
 
     @Nullable
     @Override
-    public <U extends PlannerExpression> ExpressionRef<U> flatMapNullable(@Nonnull Function<T, ExpressionRef<U>> nullableFunc) {
+    public <U extends RelationalExpression> ExpressionRef<U> flatMapNullable(@Nonnull Function<T, ExpressionRef<U>> nullableFunc) {
         PlannerExpressionPointerSet<U> mappedMembers = new PlannerExpressionPointerSet<>();
         for (T member : members) {
             ExpressionRef<U> mapped = nullableFunc.apply(member);
@@ -222,16 +222,16 @@ public class GroupExpressionRef<T extends PlannerExpression> implements Expressi
         return "ExpressionRef@" + hashCode() + "(" + "explored=" + explored + ")";
     }
 
-    public static <T extends PlannerExpression> GroupExpressionRef<T> of(@Nonnull T expression) {
+    public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T expression) {
         return new GroupExpressionRef<>(expression);
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends PlannerExpression> GroupExpressionRef<T> of(@Nonnull T... expressions) {
+    public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T... expressions) {
         return from(Arrays.asList(expressions));
     }
 
-    public static <T extends PlannerExpression> GroupExpressionRef<T> from(@Nonnull Collection<T> expressions) {
+    public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull Collection<T> expressions) {
         PlannerExpressionPointerSet<T> members = new PlannerExpressionPointerSet<>();
         for (T expression : expressions) {
             members.add(expression);

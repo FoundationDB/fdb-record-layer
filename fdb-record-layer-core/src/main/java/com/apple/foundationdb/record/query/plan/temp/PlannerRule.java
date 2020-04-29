@@ -29,7 +29,7 @@ import java.util.Optional;
 
 /**
  * Classes that inherit from <code>PlannerRule</code> form the base of the Cascades planning system. During the planning
- * process, rules are matched to a current {@link PlannerExpression} and then provide zero or more logically equivalent
+ * process, rules are matched to a current {@link RelationalExpression} and then provide zero or more logically equivalent
  * expressions.
  *
  * The rule matching occurs in two stages: first, the planner examines the {@link #matcher} of the rule,

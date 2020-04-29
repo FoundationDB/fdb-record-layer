@@ -21,12 +21,13 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 /**
- * A parent interface for {@link RelationalPlannerExpression}s that have relational children (as opposed to non-relation
+ * A parent interface for {@link RelationalExpression}s that have relational children (as opposed to non-relation
  * children, such as {@link com.apple.foundationdb.record.query.expressions.QueryComponent}s).
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RelationalExpressionWithChildren extends RelationalPlannerExpression {
+public interface RelationalExpressionWithChildren extends RelationalExpression {
     int getRelationalChildCount();
 }

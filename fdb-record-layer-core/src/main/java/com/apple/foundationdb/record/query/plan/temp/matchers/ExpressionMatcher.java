@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
@@ -31,11 +31,11 @@ import java.util.stream.Stream;
 
 /**
  * A <code>ExpressionMatcher</code> is an expression that can be matched against a
- * {@link PlannerExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
+ * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
  * The bindings can be retrieved from the rule call once the binding is matched.
  *
  * <p>
- * An {@code ExpressionMatcher} interacts with a {@code PlannerExpression} tree using its {@link #matchWith(PlannerExpression)}
+ * An {@code ExpressionMatcher} interacts with a {@code PlannerExpression} tree using its {@link #matchWith(RelationalExpression)}
  * and {@link #matchWith(ExpressionRef)} methods. At a high level, the {@code matchWith()} methods are responsible for
  * determining whether this matcher matches the root expression or reference passed to {@code matchWith()}. Although
  * {@code ExpressionMatcher}s are themselves hierarchical structures, an {@code ExpressionMatcher} must not try to
@@ -56,7 +56,7 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public interface ExpressionMatcher<T extends Bindable> {
     /**
-     * Get a class or interface extending {@link PlannerExpression} that is a super class of every planner expression
+     * Get a class or interface extending {@link RelationalExpression} that is a super class of every planner expression
      * that this matcher can match. Ideally, it should be the lowest such class but it may not be.
      * A planner will generally use this method to quickly determine a set of rules that could match an expression,
      * without considering each rule and trying to apply it. A good implementation of this method helps the planner
@@ -82,7 +82,7 @@ public interface ExpressionMatcher<T extends Bindable> {
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
-    Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends PlannerExpression> ref);
+    Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref);
 
     /**
      * Attempt to match this matcher against the given expression reference.
@@ -93,7 +93,7 @@ public interface ExpressionMatcher<T extends Bindable> {
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
-    Stream<PlannerBindings> matchWith(@Nonnull PlannerExpression expression);
+    Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression);
 
     @Nonnull
     Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate);

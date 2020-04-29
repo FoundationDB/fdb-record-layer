@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.common.collect.ImmutableListMultimap;
 
 import javax.annotation.Nonnull;
@@ -32,10 +31,10 @@ import java.util.NoSuchElementException;
 
 /**
  * A map-like structure that supports a map from a binding to a collection of {@link Bindable}s, such as
- * {@link PlannerExpression}s and {@link ExpressionRef}s. A binding's key is a pointer to the {@link ExpressionMatcher}
- * that created the binding, eliminating the need for a unique string or symbol identifier. A {@code PlannerBindings}
- * is immutable but has a {@link Builder} that can be used to build up a set of bindings incrementally. Additionally,
- * bindings can be combined using {@link #mergedWith(PlannerBindings)}.
+ * {@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}s and {@link ExpressionRef}s. A binding's
+ * key is a pointer to the {@link ExpressionMatcher} that created the binding, eliminating the need for a unique string
+ * or symbol identifier. A {@code PlannerBindings} is immutable but has a {@link Builder} that can be used to build up a
+ * set of bindings incrementally. Additionally, bindings can be combined using {@link #mergedWith(PlannerBindings)}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class PlannerBindings {
@@ -83,8 +82,8 @@ public class PlannerBindings {
 
     /**
      * Retrieve all bindables bound to {@code key} if there is at least one such bindable. The bindables in the returned
-     * list appear in same order as they appear in the list of children of the {@link PlannerExpression} that produced
-     * this set of bindings. If no bindable is bound to this key, throw a {@link NoSuchElementException}.
+     * list appear in same order as they appear in the list of children of the {@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}
+     * that produced this set of bindings. If no bindable is bound to this key, throw a {@link NoSuchElementException}.
      * @param key a matcher
      * @param <T> the type of {@link Bindable} that was bound to {@code key}
      * @return a list of bindable objects bound to the key

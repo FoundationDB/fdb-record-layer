@@ -34,7 +34,7 @@ import java.util.Comparator;
  * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class CascadesCostModel implements Comparator<PlannerExpression> {
+public class CascadesCostModel implements Comparator<RelationalExpression> {
     @Nonnull
     private final PlanContext planContext;
 
@@ -43,7 +43,7 @@ public class CascadesCostModel implements Comparator<PlannerExpression> {
     }
 
     @Override
-    public int compare(@Nonnull PlannerExpression a, @Nonnull PlannerExpression b) {
+    public int compare(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b) {
         if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
             return -1;
         }

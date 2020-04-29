@@ -1,5 +1,5 @@
 /*
- * PlannerExpressionWithPredicate.java
+ * RelationalExpressionWithPredicate.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 /**
  * A (relational) expression that has a predicate on it.
  */
-public interface PlannerExpressionWithPredicate extends PlannerExpression {
+public interface RelationalExpressionWithPredicate extends RelationalExpression {
     @Nonnull
     QueryPredicate getPredicate();
 }

@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpressionWithPredicate;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -33,7 +33,7 @@ import java.util.List;
  * A property representing the maximum height of any of the {@link QueryComponent} trees in the given expression.
  *
  * <p>
- * For a {@link com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression}, this is the
+ * For a {@link RelationalExpression}, this is the
  * maximum among all {@code QueryComponent}s present in the tree rooted at this expression. For a {@code QueryComponent},
  * this is the maximum among all {@code QueryComponent} trees rooted at this expression.
  * </p>
@@ -42,30 +42,30 @@ public class PredicateHeightProperty implements PlannerProperty<Integer> {
     private static final PredicateHeightProperty INSTANCE = new PredicateHeightProperty();
 
     @Override
-    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
+    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
         return true;
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         return true;
     }
 
     @Nonnull
     @Override
-    public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
+    public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
         int maxChildDepth = 0;
         for (Integer childDepth : childResults) {
             if (childDepth != null && childDepth > maxChildDepth) {
                 maxChildDepth = childDepth;
             }
         }
-        return maxChildDepth + (expression instanceof PlannerExpressionWithPredicate ? 1 : 0);
+        return maxChildDepth + (expression instanceof RelationalExpressionWithPredicate ? 1 : 0);
     }
 
     @Nonnull
     @Override
-    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<Integer> memberResults) {
+    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Integer> memberResults) {
         int maxResultDepth = 0;
         for (Integer memberDepth : memberResults) {
             if (memberDepth != null && memberDepth > maxResultDepth) {
@@ -75,7 +75,7 @@ public class PredicateHeightProperty implements PlannerProperty<Integer> {
         return maxResultDepth;
     }
 
-    public static int evaluate(@Nonnull PlannerExpression expression) {
+    public static int evaluate(@Nonnull RelationalExpression expression) {
         Integer result = expression.acceptPropertyVisitor(INSTANCE);
         if (result == null) {
             return 0;

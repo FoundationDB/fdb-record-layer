@@ -84,7 +84,7 @@ public class ExplainPlannerGraphProperty implements PlannerProperty<PlannerGraph
      * @return the explain of the planner expression handing in as a string in GML format.
      */
     @Nonnull
-    public static String explain(final PlannerExpression plannerExpression) {
+    public static String explain(final RelationalExpression plannerExpression) {
         try {
             final PlannerGraph<ExplainPlannerGraphProperty.Node, ExplainPlannerGraphProperty.Edge> plannerGraph =
                     Objects.requireNonNull(plannerExpression.acceptPropertyVisitor(new ExplainPlannerGraphProperty()));
@@ -131,18 +131,18 @@ public class ExplainPlannerGraphProperty implements PlannerProperty<PlannerGraph
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
+    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
         return true;
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         return true;
     }
 
     @Nonnull
     @Override
-    public PlannerGraph<Node, Edge> evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<PlannerGraph<Node, Edge>> childGraphs) {
+    public PlannerGraph<Node, Edge> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<PlannerGraph<Node, Edge>> childGraphs) {
         final PlannerGraphBuilder<Node, Edge> plannerGraphBuilder = expression.explainYourself();
         for (final PlannerGraph<Node, Edge> childGraph : childGraphs) {
             plannerGraphBuilder
@@ -154,7 +154,7 @@ public class ExplainPlannerGraphProperty implements PlannerProperty<PlannerGraph
 
     @Nonnull
     @Override
-    public PlannerGraph<Node, Edge> evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<PlannerGraph<Node, Edge>> memberResults) {
+    public PlannerGraph<Node, Edge> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<PlannerGraph<Node, Edge>> memberResults) {
         Verify.verify(memberResults.size() == 1);
 
         return Iterables.getOnlyElement(memberResults);

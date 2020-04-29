@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
@@ -60,7 +60,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Nonnull
     private final KeyExpression comparisonKey;
     @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
+    private final List<ExpressionRef<? extends RelationalExpression>> expressionChildren;
     private final boolean showComparisonKey;
 
     /**
@@ -126,13 +126,13 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
     }
 
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         if (!(otherExpression instanceof RecordQueryUnionPlan)) {
             return false;
         }

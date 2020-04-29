@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpressionWithPredicate;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -43,7 +43,7 @@ import java.util.concurrent.CompletableFuture;
  * A query plan that filters out records from a child plan that do not satisfy a {@link QueryPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase implements PlannerExpressionWithPredicate {
+public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicate {
     @Nonnull
     private final Source baseSource;
     @Nonnull
@@ -106,7 +106,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
 
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         return otherExpression instanceof RecordQueryPredicateFilterPlan;
     }
 

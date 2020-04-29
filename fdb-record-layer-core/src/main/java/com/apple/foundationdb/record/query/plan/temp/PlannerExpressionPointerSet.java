@@ -27,12 +27,12 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * A set of {@link PlannerExpression}s that uses reference ("pointer") equality to determine equivalence for the
+ * A set of {@link RelationalExpression}s that uses reference ("pointer") equality to determine equivalence for the
  * purposes of set membership, rather than the {@link #equals(Object)} method used by the Java {@link Set} interface.
  * This is important for implementing the memo data structure in {@link GroupExpressionRef}
  * @param <T> the planner expression type contained in the set
  */
-public class PlannerExpressionPointerSet<T extends PlannerExpression> extends AbstractCollection<T> {
+public class PlannerExpressionPointerSet<T extends Bindable> extends AbstractCollection<T> {
     @Nonnull
     private final Set<Wrapper<T>> members;
 
@@ -55,10 +55,10 @@ public class PlannerExpressionPointerSet<T extends PlannerExpression> extends Ab
 
     @Override
     public boolean contains(Object o) {
-        if (!(o instanceof PlannerExpression)) { // also handles null check
+        if (!(o instanceof RelationalExpression)) { // also handles null check
             return false;
         } else {
-            return members.contains(new Wrapper<>((PlannerExpression) o));
+            return members.contains(new Wrapper<>((RelationalExpression) o));
         }
 
     }
@@ -112,7 +112,7 @@ public class PlannerExpressionPointerSet<T extends PlannerExpression> extends Ab
      * method but are not the same object.
      * @param <T> the type of object being wrapped
      */
-    private static class Wrapper<T extends PlannerExpression> {
+    private static class Wrapper<T extends Bindable> {
         @Nonnull
         private final T expression;
 

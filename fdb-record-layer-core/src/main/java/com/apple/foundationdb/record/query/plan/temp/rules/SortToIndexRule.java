@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
@@ -58,7 +58,7 @@ public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
             final ViewExpressionComparisons sortExpression = indexEntrySource.getEmptyComparisons();
             final Optional<ViewExpressionComparisons> matchedViewExpression = sortExpression.matchWithSort(logicalSort.getSortPrefix());
             if (matchedViewExpression.isPresent()) {
-                RelationalPlannerExpression indexScan = new IndexEntrySourceScanExpression(
+                RelationalExpression indexScan = new IndexEntrySourceScanExpression(
                         indexEntrySource, IndexScanType.BY_VALUE, matchedViewExpression.get(), reverse);
                 if (logicalSort.getSortSuffix().isEmpty()) {
                     call.yield(call.ref(indexScan));

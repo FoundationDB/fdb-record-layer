@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.Lists;
 
@@ -80,7 +79,7 @@ public class AnyChildWithRestMatcher implements ExpressionChildrenMatcher {
     }
 
     @Nonnull
-    public static <T extends PlannerExpression> AnyChildWithRestMatcher anyMatchingWithRest(
+    public static <T extends Bindable> AnyChildWithRestMatcher anyMatchingWithRest(
             @Nonnull ExpressionMatcher<? extends QueryPredicate> selectedChildMatcher,
             @Nonnull ExpressionMatcher<QueryPredicate> otherChildrenMatcher) {
         return new AnyChildWithRestMatcher(selectedChildMatcher, otherChildrenMatcher);

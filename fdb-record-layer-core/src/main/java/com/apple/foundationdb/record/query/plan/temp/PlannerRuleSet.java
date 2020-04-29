@@ -56,10 +56,10 @@ import java.util.Optional;
  */
 @API(API.Status.EXPERIMENTAL)
 public class PlannerRuleSet {
-    private static final List<PlannerRule<? extends PlannerExpression>> NORMALIZATION_RULES = ImmutableList.of(
+    private static final List<PlannerRule<? extends RelationalExpression>> NORMALIZATION_RULES = ImmutableList.of(
             new FlattenNestedAndPredicateRule()
     );
-    private static final List<PlannerRule<? extends PlannerExpression>> REWRITE_RULES = ImmutableList.of(
+    private static final List<PlannerRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
             new SortToIndexRule(),
             new PushSortIntoExistingIndexRule(),
@@ -70,7 +70,7 @@ public class PlannerRuleSet {
             new FindPossibleIndexForAndPredicateRule(),
             new OrToUnorderedUnionRule()
     );
-    private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
+    private static final List<PlannerRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
@@ -80,13 +80,13 @@ public class PlannerRuleSet {
             new ImplementDistinctRule(),
             new PushDistinctFilterBelowFilterRule()
     );
-    private static final List<PlannerRule<? extends PlannerExpression>> EXPLORATION_RULES =
-            ImmutableList.<PlannerRule<? extends PlannerExpression>>builder()
+    private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =
+            ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()
                     .addAll(NORMALIZATION_RULES)
                     .addAll(REWRITE_RULES)
                     .build();
-    private static final List<PlannerRule<? extends PlannerExpression>> ALL_RULES =
-            ImmutableList.<PlannerRule<? extends PlannerExpression>>builder()
+    private static final List<PlannerRule<? extends RelationalExpression>> ALL_RULES =
+            ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()
                     .addAll(EXPLORATION_RULES)
                     .addAll(IMPLEMENTATION_RULES)
                     .build();
@@ -94,14 +94,14 @@ public class PlannerRuleSet {
     public static final PlannerRuleSet ALL = new PlannerRuleSet(ALL_RULES);
 
     @Nonnull
-    private final Multimap<Class<? extends Bindable>, PlannerRule<? extends PlannerExpression>> ruleIndex =
+    private final Multimap<Class<? extends Bindable>, PlannerRule<? extends RelationalExpression>> ruleIndex =
             MultimapBuilder.hashKeys().arrayListValues().build();
     @Nonnull
-    private final List<PlannerRule<? extends PlannerExpression>> alwaysRules = new ArrayList<>();
+    private final List<PlannerRule<? extends RelationalExpression>> alwaysRules = new ArrayList<>();
 
     @VisibleForTesting
-    PlannerRuleSet(@Nonnull List<PlannerRule<? extends PlannerExpression>> rules) {
-        for (PlannerRule<? extends PlannerExpression> rule : rules) {
+    PlannerRuleSet(@Nonnull List<PlannerRule<? extends RelationalExpression>> rules) {
+        for (PlannerRule<? extends RelationalExpression> rule : rules) {
             Optional<Class<? extends Bindable>> root = rule.getRootOperator();
             if (root.isPresent()) {
                 ruleIndex.put(root.get(), rule);
@@ -112,7 +112,7 @@ public class PlannerRuleSet {
     }
 
     @Nonnull
-    public Iterator<PlannerRule<? extends PlannerExpression>> getRulesMatching(@Nonnull PlannerExpression expression) {
+    public Iterator<PlannerRule<? extends RelationalExpression>> getRulesMatching(@Nonnull RelationalExpression expression) {
         return Iterators.concat(ruleIndex.get(expression.getClass()).iterator(), alwaysRules.iterator());
     }
 }

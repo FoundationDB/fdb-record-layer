@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,7 +44,7 @@ import java.util.Set;
  * @param <T> the type of element produced by executing this plan
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryPlan<T> extends PlanHashable, RelationalPlannerExpression {
+public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Execute this query plan.

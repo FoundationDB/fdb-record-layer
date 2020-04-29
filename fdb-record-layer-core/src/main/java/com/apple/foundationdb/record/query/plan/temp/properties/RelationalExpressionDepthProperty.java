@@ -23,11 +23,10 @@ package com.apple.foundationdb.record.query.plan.temp.properties;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -47,26 +46,26 @@ public class RelationalExpressionDepthProperty implements PlannerProperty<Intege
             ImmutableSet.of(LogicalDistinctExpression.class, RecordQueryUnorderedPrimaryKeyDistinctPlan.class));
 
     @Nonnull
-    private final Set<Class<? extends RelationalPlannerExpression>> types;
+    private final Set<Class<? extends RelationalExpression>> types;
 
-    public RelationalExpressionDepthProperty(@Nonnull Set<Class<? extends RelationalPlannerExpression>> types) {
+    public RelationalExpressionDepthProperty(@Nonnull Set<Class<? extends RelationalExpression>> types) {
         this.types = types;
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression;
+    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
+        return true;
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         return true;
     }
 
     @Nonnull
     @Override
-    public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
-        for (Class<? extends RelationalPlannerExpression> type : types) {
+    public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
+        for (Class<? extends RelationalExpression> type : types) {
             if (type.isInstance(expression)) {
                 return 0;
             }
@@ -83,11 +82,11 @@ public class RelationalExpressionDepthProperty implements PlannerProperty<Intege
 
     @Nonnull
     @Override
-    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<Integer> memberResults) {
+    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Integer> memberResults) {
         return Collections.min(memberResults);
     }
 
-    public int evaluate(@Nonnull PlannerExpression expression) {
+    public int evaluate(@Nonnull RelationalExpression expression) {
         return expression.acceptPropertyVisitor(this);
     }
 

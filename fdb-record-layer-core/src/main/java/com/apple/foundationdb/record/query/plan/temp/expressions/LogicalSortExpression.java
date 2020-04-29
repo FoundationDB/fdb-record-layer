@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -46,23 +46,23 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     private final List<Element> sort;
     private final boolean reverse;
     @Nonnull
-    private final ExpressionRef<RelationalPlannerExpression> inner;
+    private final ExpressionRef<RelationalExpression> inner;
 
-    public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalPlannerExpression inner) {
+    public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalExpression inner) {
         this(sort, reverse, GroupExpressionRef.of(inner));
     }
 
-    public LogicalSortExpression(@Nonnull List<Element> grouping, @Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalPlannerExpression inner) {
+    public LogicalSortExpression(@Nonnull List<Element> grouping, @Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalExpression inner) {
         this(grouping, sort, reverse, GroupExpressionRef.of(inner));
     }
 
 
-    public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+    public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull ExpressionRef<RelationalExpression> inner) {
         this(Collections.emptyList(), sort, reverse, inner);
     }
 
     public LogicalSortExpression(@Nonnull List<Element> grouping, @Nonnull List<Element> sort, boolean reverse,
-                                 @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+                                 @Nonnull ExpressionRef<RelationalExpression> inner) {
         this.grouping = grouping;
         this.sort = sort;
         this.reverse = reverse;
@@ -71,7 +71,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(inner);
     }
 
@@ -108,13 +108,13 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     }
 
     @Nonnull
-    public RelationalPlannerExpression getInner() {
+    public RelationalExpression getInner() {
         return inner.get();
     }
 
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         if (!(otherExpression instanceof LogicalSortExpression)) {
             return false;
         }

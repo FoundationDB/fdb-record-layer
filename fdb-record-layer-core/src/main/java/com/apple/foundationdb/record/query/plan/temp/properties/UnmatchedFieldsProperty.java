@@ -29,10 +29,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -62,18 +61,18 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression;
+    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
+        return true;
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         return true;
     }
 
     @Nonnull
     @Override
-    public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
+    public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
         int total = 0;
         for (Integer result : childResults) {
             if (result != null) {
@@ -103,7 +102,7 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
 
     @Nonnull
     @Override
-    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<Integer> memberResults) {
+    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Integer> memberResults) {
         int min = Integer.MAX_VALUE;
         for (Integer memberResult : memberResults) {
             if (memberResult != null && memberResult < min) {
@@ -113,7 +112,7 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
         return min;
     }
 
-    public static int evaluate(@Nonnull PlanContext context, @Nonnull PlannerExpression expression) {
+    public static int evaluate(@Nonnull PlanContext context, @Nonnull RelationalExpression expression) {
         Integer result = expression.acceptPropertyVisitor(new UnmatchedFieldsProperty(context));
         if (result == null) {
             return Integer.MAX_VALUE;

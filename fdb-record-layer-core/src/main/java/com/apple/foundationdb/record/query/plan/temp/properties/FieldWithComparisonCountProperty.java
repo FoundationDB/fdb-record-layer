@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -44,18 +44,18 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
     private static final FieldWithComparisonCountProperty INSTANCE = new FieldWithComparisonCountProperty();
 
     @Override
-    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
+    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
         return true;
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         return true;
     }
 
     @Nonnull
     @Override
-    public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
+    public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
         int total = 0;
         if (expression instanceof RecordQueryFilterPlan) {
             QueryComponent filter = ((RecordQueryFilterPlan)expression).getFilter();
@@ -88,7 +88,7 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
 
     @Nonnull
     @Override
-    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<Integer> memberResults) {
+    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Integer> memberResults) {
         int min = Integer.MAX_VALUE;
         for (int memberResult : memberResults) {
             if (memberResult < min) {
@@ -98,11 +98,11 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
         return min;
     }
 
-    public static int evaluate(ExpressionRef<? extends PlannerExpression> ref) {
+    public static int evaluate(ExpressionRef<? extends RelationalExpression> ref) {
         return ref.acceptPropertyVisitor(INSTANCE);
     }
 
-    public static int evaluate(@Nonnull PlannerExpression expression) {
+    public static int evaluate(@Nonnull RelationalExpression expression) {
         Integer result = expression.acceptPropertyVisitor(INSTANCE);
         if (result == null) {
             return Integer.MAX_VALUE;

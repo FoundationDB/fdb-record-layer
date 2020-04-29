@@ -36,7 +36,7 @@ import java.util.stream.Stream;
  * @param <T> the type of planner expression that is contained in this reference
  */
 @API(API.Status.EXPERIMENTAL)
-public interface ExpressionRef<T extends PlannerExpression> extends Bindable {
+public interface ExpressionRef<T extends RelationalExpression> extends Bindable {
     void insert(@Nonnull T newValue);
 
     /**
@@ -52,7 +52,7 @@ public interface ExpressionRef<T extends PlannerExpression> extends Bindable {
 
     /**
      * Try to bind the given matcher to this reference. It should not try to match to the members of the reference;
-     * if the given matcher needs to match to a {@link PlannerExpression} rather than an {@link ExpressionRef}, it will
+     * if the given matcher needs to match to a {@link RelationalExpression} rather than an {@link ExpressionRef}, it will
      * call {@link #bindWithin(ExpressionMatcher)} instead.
      *
      * <p>
@@ -82,15 +82,15 @@ public interface ExpressionRef<T extends PlannerExpression> extends Bindable {
     Stream<PlannerBindings> bindWithin(@Nonnull ExpressionMatcher<? extends Bindable> matcher);
 
     @Nonnull
-    <U extends PlannerExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func);
+    <U extends RelationalExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func);
 
     @Nullable
-    <U extends PlannerExpression> ExpressionRef<U> flatMapNullable(@Nonnull Function<T, ExpressionRef<U>> nullableFunc);
+    <U extends RelationalExpression> ExpressionRef<U> flatMapNullable(@Nonnull Function<T, ExpressionRef<U>> nullableFunc);
 
     @Nonnull
     ExpressionRef<T> getNewRefWith(@Nonnull T expression);
 
-    boolean containsAllInMemo(@Nonnull ExpressionRef<? extends PlannerExpression> otherRef);
+    boolean containsAllInMemo(@Nonnull ExpressionRef<? extends RelationalExpression> otherRef);
 
     PlannerExpressionPointerSet<T> getMembers();
 

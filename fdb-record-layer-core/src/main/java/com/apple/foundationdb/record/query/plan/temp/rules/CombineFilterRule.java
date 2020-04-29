@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
@@ -45,7 +45,7 @@ import javax.annotation.Nonnull;
 public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<QueryPredicate> firstMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<QueryPredicate> secondMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<ExpressionRef<RelationalPlannerExpression>> childMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<ExpressionRef<RelationalExpression>> childMatcher = ReferenceMatcher.anyRef();
 
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(
             LogicalFilterExpression.class,
@@ -61,7 +61,7 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
         LogicalFilterExpression filterExpression = call.get(root);
         QueryPredicate first = call.get(firstMatcher);
         QueryPredicate second = call.get(secondMatcher);
-        ExpressionRef<RelationalPlannerExpression> child = call.get(childMatcher);
+        ExpressionRef<RelationalExpression> child = call.get(childMatcher);
 
         QueryPredicate combined = new AndPredicate(ImmutableList.of(first, second));
         call.yield(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(), combined, child)));

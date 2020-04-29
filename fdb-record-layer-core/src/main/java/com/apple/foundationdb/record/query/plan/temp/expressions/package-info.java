@@ -19,7 +19,7 @@
  */
 
 /**
- * A variety of planner-specific {@link com.apple.foundationdb.record.query.plan.temp.PlannerExpression} implementations
+ * A variety of planner-specific {@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression} implementations
  * which will never be used outside of the planner.
  */
 package com.apple.foundationdb.record.query.plan.temp.expressions;

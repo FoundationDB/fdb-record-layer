@@ -36,7 +36,7 @@ import java.util.Queue;
 
 /**
  * The planner graph class. Objects of this class are computed by {@link InternalPlannerGraphProperty},
- * i.e., they get computed by walking a {@link PlannerExpression} DAG.
+ * i.e., they get computed by walking a {@link RelationalExpression} DAG.
  *
  * Once computed, the property is immutable.
  *
