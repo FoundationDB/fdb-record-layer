@@ -43,6 +43,7 @@ public class FDBRecordContextConfig {
     @Nullable
     private final String transactionId;
     private final long transactionTimeoutMillis;
+    private final boolean enableAssertions;
 
     private FDBRecordContextConfig(@Nonnull Builder builder) {
         this.mdcContext = builder.mdcContext;
@@ -51,6 +52,7 @@ public class FDBRecordContextConfig {
         this.priority = builder.priority;
         this.transactionId = builder.transactionId;
         this.transactionTimeoutMillis = builder.transactionTimeoutMillis;
+        this.enableAssertions = builder.enableAssertions;
     }
 
     /**
@@ -120,6 +122,14 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Returns whether or not internal correctness assertions are enabled.
+     * @return whether or not internal correctness assertions are enabled
+     */
+    public boolean areAssertionsEnabled() {
+        return enableAssertions;
+    }
+
+    /**
      * Get a new builder for this class.
      *
      * @return a new builder for this class
@@ -155,6 +165,7 @@ public class FDBRecordContextConfig {
         @Nullable
         private String transactionId = null;
         private long transactionTimeoutMillis = FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS;
+        private boolean enableAssertions = false;
 
         private Builder() {
         }
@@ -166,6 +177,7 @@ public class FDBRecordContextConfig {
             this.priority = config.priority;
             this.transactionId = config.transactionId;
             this.transactionTimeoutMillis = config.transactionTimeoutMillis;
+            this.enableAssertions = config.enableAssertions;
         }
 
         /**
@@ -334,6 +346,27 @@ public class FDBRecordContextConfig {
 
         private long getTransactionTimeoutMillis() {
             return transactionTimeoutMillis;
+        }
+
+
+        /**
+         * Enables or disables internal correctness assertions for the context, such as validating maximum key and
+         * value lengths for all database requests.
+         *
+         * @param enableAssertions whether or not assertions are enabled
+         * @return this builder
+         */
+        public Builder setEnableAssertions(boolean enableAssertions) {
+            this.enableAssertions = enableAssertions;
+            return this;
+        }
+
+        /**
+         * Return whether or not correctness assertions will enabled for the context.
+         * @return {@code true} if correctness assertions are to be enabled for the context
+         */
+        public boolean areAssertionsEnabled() {
+            return enableAssertions;
         }
 
         /**

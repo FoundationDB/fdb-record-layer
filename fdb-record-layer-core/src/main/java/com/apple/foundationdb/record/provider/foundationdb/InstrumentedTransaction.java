@@ -45,7 +45,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Nullable
     protected ReadTransaction snapshot; // lazily cached snapshot wrapper
 
-    public InstrumentedTransaction(@Nonnull StoreTimer timer, @Nonnull Transaction underlying, boolean enableAssertions) {
+    public InstrumentedTransaction(@Nullable StoreTimer timer, @Nonnull Transaction underlying, boolean enableAssertions) {
         super(timer, underlying, enableAssertions);
     }
 
@@ -72,20 +72,20 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     public void set(byte[] key, byte[] value) {
         underlying.set(checkKey(key), checkValue(value));
-        timer.increment(FDBStoreTimer.Counts.WRITES);
-        timer.increment(FDBStoreTimer.Counts.BYTES_WRITTEN, key.length + value.length);
+        increment(FDBStoreTimer.Counts.WRITES);
+        increment(FDBStoreTimer.Counts.BYTES_WRITTEN, key.length + value.length);
     }
 
     @Override
     public void clear(byte[] key) {
         underlying.clear(checkKey(key));
-        timer.increment(FDBStoreTimer.Counts.DELETES);
+        increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     public void clear(byte[] keyBegin, byte[] keyEnd) {
         underlying.clear(checkKey(keyBegin), checkKey(keyEnd));
-        timer.increment(FDBStoreTimer.Counts.DELETES);
+        increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
@@ -94,28 +94,28 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         checkKey(range.end);
 
         underlying.clear(range);
-        timer.increment(FDBStoreTimer.Counts.DELETES);
+        increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     @Deprecated
     public void clearRangeStartsWith(byte[] prefix) {
         underlying.clearRangeStartsWith(checkKey(prefix));
-        timer.increment(FDBStoreTimer.Counts.DELETES);
+        increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     public void mutate(MutationType opType, byte[] key, byte[] param) {
         underlying.mutate(opType, checkKey(key), param);
         /* Do we want to track each mutation type separately as well? */
-        timer.increment(FDBStoreTimer.Counts.MUTATIONS);
+        increment(FDBStoreTimer.Counts.MUTATIONS);
     }
 
     @Override
     public CompletableFuture<Void> commit() {
         long startTimeNanos = System.nanoTime();
         return underlying.commit().whenComplete((v, ex) ->
-                timer.recordSinceNanoTime(FDBStoreTimer.Events.COMMITS, startTimeNanos));
+                recordSinceNanoTime(FDBStoreTimer.Events.COMMITS, startTimeNanos));
     }
 
     @Override
@@ -187,7 +187,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     }
 
     private static class Snapshot extends InstrumentedReadTransaction<ReadTransaction> implements ReadTransaction {
-        public Snapshot(@Nonnull StoreTimer timer, @Nonnull ReadTransaction underlying, boolean enableAssertions) {
+        public Snapshot(@Nullable StoreTimer timer, @Nonnull ReadTransaction underlying, boolean enableAssertions) {
             super(timer, underlying, enableAssertions);
         }
 
