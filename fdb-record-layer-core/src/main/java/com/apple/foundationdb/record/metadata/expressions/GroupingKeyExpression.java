@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -107,6 +108,12 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
         return getWholeKey().normalizeKeyForPositions();
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new GroupingKeyExpression(wholeKey.normalizeForPlanner(source, fieldNamePrefix), groupedCount);
     }
 
     @Override

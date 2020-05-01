@@ -216,7 +216,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         // Should only include compatibly-ordered things in the intersection
-        assertThat(plan, filter(equalTo(Query.field("str_value_indexed").startsWith("e")), intersection(
+        assertThat(plan, filter(Query.field("str_value_indexed").startsWith("e"), intersection(
                 indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_3_indexed")), bounds(hasTupleString("[[0],[0]]")))),
                 indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_2")), bounds(hasTupleString("[[2],[2]]")))),
                 equalTo(field("rec_no")))));

@@ -22,12 +22,10 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Iterator;
 
 /**
@@ -57,18 +55,6 @@ public abstract class BaseNestedField extends BaseField implements ComponentWith
     @API(API.Status.EXPERIMENTAL)
     public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.childComponent);
-    }
-
-    @Nullable
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
-                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        if (!nestedContext.isParentFieldFannedOut() && // can only match a non-repeated context
-                nestedContext.getParentField().getFieldName().equals(getFieldName())) { // field names match
-            return childComponent;
-        }
-        return null;
     }
 
     @Override

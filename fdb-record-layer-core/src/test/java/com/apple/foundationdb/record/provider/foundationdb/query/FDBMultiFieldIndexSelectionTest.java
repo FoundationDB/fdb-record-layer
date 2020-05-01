@@ -188,7 +188,22 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
             assertEquals(6, i);
             TestHelpers.assertDiscardedNone(context);
         }
+    }
 
+    @DualPlannerTest
+    public void testComplexQueryDenorm() throws Exception {
+        RecordMetaDataHook hook = complexQuerySetupHook();
+        complexQuerySetup(hook);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(
+                        Query.field("str_value_indexed").equalsValue("even"),
+                        Query.field("num_value_2").equalsValue(0),
+                        Query.field("num_value_3_indexed").greaterThanOrEquals(2),
+                        Query.field("num_value_3_indexed").lessThanOrEquals(3)))
+                .build();
+
+        RecordQueryPlan plan = planner.plan(query);
         RecordQuery queryDenorm = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.and(

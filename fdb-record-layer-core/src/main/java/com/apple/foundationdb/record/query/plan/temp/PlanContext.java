@@ -37,6 +37,9 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public interface PlanContext {
     @Nonnull
+    Set<String> getRecordTypes();
+
+    @Nonnull
     Set<Index> getIndexes();
 
     @Nonnull
@@ -52,7 +55,4 @@ public interface PlanContext {
 
     @Nonnull
     RecordMetaData getMetaData();
-
-    @Nonnull
-    PlanContext asNestedWith(@Nonnull NestedContext nestedContext);
 }

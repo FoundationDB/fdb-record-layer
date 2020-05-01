@@ -65,6 +65,8 @@ import java.util.UUID;
  */
 @API(API.Status.STABLE)
 public class Comparisons {
+    public static final Comparison LIST_EMPTY = new ListComparison(Type.EQUALS, Collections.emptyList());
+
     private Comparisons() {
     }
 
@@ -541,7 +543,9 @@ public class Comparisons {
         TEXT_CONTAINS_PHRASE(true),
         TEXT_CONTAINS_PREFIX,
         TEXT_CONTAINS_ALL_PREFIXES,
-        TEXT_CONTAINS_ANY_PREFIX;
+        TEXT_CONTAINS_ANY_PREFIX,
+        @API(API.Status.EXPERIMENTAL)
+        SORT(false);
 
         private final boolean isEquality;
         private final boolean isUnary;

@@ -26,6 +26,11 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
+import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.view.ValueElement;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -194,6 +199,41 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     @Override
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
         return RecordMetaDataProto.KeyExpression.newBuilder().setField(toProto()).build();
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        final List<String> fieldNames = ImmutableList.<String>builder()
+                .addAll(fieldNamePrefix)
+                .add(fieldName)
+                .build();
+        switch (fanType) {
+            case FanOut:
+                return new ElementKeyExpression(new ValueElement(new RepeatedFieldSource(source, fieldNames)));
+            case None:
+                return new ElementKeyExpression(new FieldElement(source, fieldNames));
+            case Concatenate:
+            default:
+        }
+        throw new UnsupportedOperationException();
+    }
+
+    @Nonnull
+    Source getFieldSource(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+        final List<String> fieldNames = ImmutableList.<String>builder()
+                .addAll(fieldNamePrefix)
+                .add(fieldName)
+                .build();
+        switch (fanType) {
+            case FanOut:
+                return new RepeatedFieldSource(rootSource, fieldNames);
+            case Concatenate:
+            case None:
+                return rootSource;
+            default:
+                throw new RecordCoreException("unrecognized fan type");
+        }
     }
 
     @Nonnull

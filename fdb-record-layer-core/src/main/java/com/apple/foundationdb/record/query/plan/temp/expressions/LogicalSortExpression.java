@@ -21,17 +21,17 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -41,20 +41,29 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalSortExpression implements RelationalExpressionWithChildren {
     @Nonnull
-    private final KeyExpressionComparisons sort;
+    private final List<Element> grouping;
+    @Nonnull
+    private final List<Element> sort;
     private final boolean reverse;
     @Nonnull
     private final ExpressionRef<RelationalPlannerExpression> inner;
 
-    public LogicalSortExpression(@Nonnull KeyExpression sort, boolean reverse, @Nonnull RelationalPlannerExpression inner) {
+    public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalPlannerExpression inner) {
         this(sort, reverse, SingleExpressionRef.of(inner));
     }
 
-    public LogicalSortExpression(@Nonnull KeyExpression sort, boolean reverse, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
-        this(new KeyExpressionComparisons(sort), reverse, inner);
+    public LogicalSortExpression(@Nonnull List<Element> grouping, @Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalPlannerExpression inner) {
+        this(grouping, sort, reverse, SingleExpressionRef.of(inner));
     }
 
-    public LogicalSortExpression(@Nonnull KeyExpressionComparisons sort, boolean reverse, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+
+    public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+        this(Collections.emptyList(), sort, reverse, inner);
+    }
+
+    public LogicalSortExpression(@Nonnull List<Element> grouping, @Nonnull List<Element> sort, boolean reverse,
+                                 @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+        this.grouping = grouping;
         this.sort = sort;
         this.reverse = reverse;
         this.inner = inner;
@@ -66,37 +75,31 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
         return Iterators.singletonIterator(inner);
     }
 
-    @Nullable
-    @Override
-    public ExpressionRef<RelationalPlannerExpression> asNestedWith(@Nonnull NestedContext nestedContext,
-                                                                   @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
-        final KeyExpressionComparisons nestedSort = sort.asNestedWith(nestedContext);
-        final ExpressionRef<RelationalPlannerExpression> nestedInner = nestedContext.getNestedRelationalPlannerExpression(inner);
-        if (nestedSort == null || nestedInner == null) {
-            return null;
-        }
-        return thisRef.getNewRefWith(new LogicalSortExpression(nestedSort, reverse, nestedInner));
-    }
-
-    @Nullable
-    @Override
-    public ExpressionRef<RelationalPlannerExpression> asUnnestedWith(@Nonnull NestedContext nestedContext,
-                                                                     @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
-        @Nonnull final KeyExpressionComparisons unnestedSort = sort.asUnnestedWith(nestedContext);
-        final ExpressionRef<RelationalPlannerExpression> unnestedInner = nestedContext.getUnnestedRelationalPlannerExpression(inner);
-        if (unnestedInner == null) {
-            return null;
-        }
-        return thisRef.getNewRefWith(new LogicalSortExpression(unnestedSort, reverse, unnestedInner));
-    }
-
     @Override
     public int getRelationalChildCount() {
         return 1;
     }
 
     @Nonnull
-    public KeyExpressionComparisons getSort() {
+    public List<Element> getSortPrefix() {
+        return ImmutableList.<Element>builderWithExpectedSize(grouping.size() + 1)
+                .addAll(grouping)
+                .add(sort.get(0))
+                .build();
+    }
+
+    @Nonnull
+    public List<Element> getSortSuffix() {
+        return sort.subList(1, sort.size());
+    }
+
+    @Nonnull
+    public List<Element> getGrouping() {
+        return grouping;
+    }
+
+    @Nonnull
+    public List<Element> getSort() {
         return sort;
     }
 

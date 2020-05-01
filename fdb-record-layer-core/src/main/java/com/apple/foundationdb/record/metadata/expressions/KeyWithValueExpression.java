@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -134,6 +135,12 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     @Override
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
         return RecordMetaDataProto.KeyExpression.newBuilder().setKeyWithValue(toProto()).build();
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new KeyWithValueExpression(innerKey.normalizeForPlanner(source, fieldNamePrefix), splitPoint);
     }
 
     @Nonnull

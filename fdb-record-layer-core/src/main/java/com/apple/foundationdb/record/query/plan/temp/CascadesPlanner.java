@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.expressions.NestedContextExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -136,7 +135,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query) {
         final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query);
-        planPartial(context, RelationalPlannerExpression.fromRecordQuery(query));
+        planPartial(context, RelationalPlannerExpression.fromRecordQuery(query, context));
 
         final PlannerExpression singleRoot = currentRoot.getMembers().iterator().next();
         if (singleRoot instanceof RecordQueryPlan) {
@@ -268,13 +267,7 @@ public class CascadesPlanner implements QueryPlanner {
             // what happens towards the leaves of the tree.
             getRules().getRulesMatching(expression).forEachRemaining(this::addTransformTask);
 
-            final PlanContext relativeContext;
-            if (expression instanceof NestedContextExpression) {
-                relativeContext = context.asNestedWith(((NestedContextExpression)expression).getNestedContext());
-            } else {
-                relativeContext = context;
-            }
-
+            final PlanContext relativeContext = context;
             Iterator<? extends ExpressionRef<? extends PlannerExpression>> expressionChildren = expression.getPlannerExpressionChildren();
             while (expressionChildren.hasNext()) {
                 taskStack.push(new ExploreGroup(relativeContext, expressionChildren.next()));
@@ -395,12 +388,7 @@ public class CascadesPlanner implements QueryPlanner {
                 return;
             }
 
-            final PlanContext relativeContext;
-            if (expression instanceof NestedContextExpression) {
-                relativeContext = context.asNestedWith(((NestedContextExpression)expression).getNestedContext());
-            } else {
-                relativeContext = context;
-            }
+            final PlanContext relativeContext = context;
 
             Iterator<? extends ExpressionRef<? extends PlannerExpression>> expressionChildren = expression.getPlannerExpressionChildren();
             while (expressionChildren.hasNext()) {

@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -54,7 +53,7 @@ public class FakePlanContext implements PlanContext {
 
         for (Index index : fakeIndexes) {
             indexes.put(index.getName(), index);
-            indexEntrySourceBuilder.add(IndexEntrySource.fromIndex(index));
+            indexEntrySourceBuilder.add(IndexEntrySource.fromIndexWithTypeStrings(getRecordTypes(), index));
         }
         indexEntrySources = indexEntrySourceBuilder.build();
     }
@@ -101,15 +100,7 @@ public class FakePlanContext implements PlanContext {
 
     @Nonnull
     @Override
-    public PlanContext asNestedWith(@Nonnull NestedContext nestedContext) {
-        // Only adjust the index entry sources.
-        final ImmutableSet.Builder<IndexEntrySource> nestedSources = ImmutableSet.builder();
-        for (IndexEntrySource source : indexEntrySources) {
-            final IndexEntrySource nestedSource = source.asNestedWith(nestedContext);
-            if (nestedSource != null) {
-                nestedSources.add(nestedSource);
-            }
-        }
-        return new FakePlanContext(indexes, nestedSources.build());
+    public Set<String> getRecordTypes() {
+        return Collections.emptySet();
     }
 }

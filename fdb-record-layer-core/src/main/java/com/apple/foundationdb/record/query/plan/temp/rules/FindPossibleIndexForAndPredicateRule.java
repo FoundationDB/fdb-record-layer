@@ -1,5 +1,5 @@
 /*
- * FindPossibleIndexForAndComponentRule.java
+ * FindPossibleIndexForAndPredicateRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,15 +22,12 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
-import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
@@ -38,6 +35,9 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMa
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -48,34 +48,35 @@ import java.util.Optional;
  * filter, leaving all the other filters (of any type, including other fields) as a residual filter.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FindPossibleIndexForAndComponentRule extends PlannerRule<LogicalFilterExpression> {
-    private static ExpressionMatcher<ComponentWithComparison> fieldMatcher = TypeMatcher.of(FieldWithComparison.class);
-    private static ReferenceMatcher<QueryComponent> residualFieldsMatcher = ReferenceMatcher.anyRef();
-    private static ExpressionMatcher<AndComponent> andFilterMatcher = TypeMatcher.of(AndComponent.class,
+public class FindPossibleIndexForAndPredicateRule extends PlannerRule<LogicalFilterExpression> {
+    private static ExpressionMatcher<ElementPredicate> fieldMatcher = TypeMatcher.of(ElementPredicate.class);
+    private static ReferenceMatcher<QueryPredicate> residualFieldsMatcher = ReferenceMatcher.anyRef();
+    private static ExpressionMatcher<AndPredicate> andFilterMatcher = TypeMatcher.of(AndPredicate.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(fieldMatcher, residualFieldsMatcher));
     private static ExpressionMatcher<FullUnorderedScanExpression> scanMatcher = TypeMatcher.of(FullUnorderedScanExpression.class);
     private static ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
             andFilterMatcher, scanMatcher);
 
-    public FindPossibleIndexForAndComponentRule() {
+    public FindPossibleIndexForAndPredicateRule() {
         super(root);
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        ComponentWithComparison field = call.getBindings().get(fieldMatcher);
+        final LogicalFilterExpression filterExpression = call.get(root);
+        ElementPredicate field = call.getBindings().get(fieldMatcher);
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
-            final KeyExpressionComparisons keyComparisons = indexEntrySource.getEmptyComparisons();
-            final Optional<KeyExpressionComparisons> matchedKeyComparisons = keyComparisons.matchWith(field);
+            final ViewExpressionComparisons comparisons = indexEntrySource.getEmptyComparisons();
+            final Optional<ViewExpressionComparisons> matchedKeyComparisons = comparisons.matchWith(field);
             if (matchedKeyComparisons.isPresent()) {
-                final List<ExpressionRef<QueryComponent>> otherFields = call.getBindings().getAll(residualFieldsMatcher);
-                final ExpressionRef<QueryComponent> residualFilter;
+                final List<ExpressionRef<QueryPredicate>> otherFields = call.getBindings().getAll(residualFieldsMatcher);
+                final ExpressionRef<QueryPredicate> residualFilter;
                 if (otherFields.size() == 1) {
                     residualFilter = otherFields.get(0);
                 } else {
-                    residualFilter = call.ref(new AndComponent(otherFields));
+                    residualFilter = call.ref(new AndPredicate(otherFields));
                 }
-                call.yield(call.ref(new LogicalFilterExpression(residualFilter,
+                call.yield(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(), residualFilter,
                         call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
                                 matchedKeyComparisons.get(), false)))));
             }

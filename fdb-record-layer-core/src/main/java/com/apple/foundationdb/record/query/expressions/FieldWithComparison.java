@@ -25,8 +25,12 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
@@ -35,6 +39,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -94,14 +99,6 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
         return Collections.emptyIterator();
     }
 
-    @Nullable
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public ExpressionRef<QueryComponent> asNestedWith(@Nonnull NestedContext nestedContext,
-                                                      @Nonnull ExpressionRef<QueryComponent> thisRef) {
-        return null;
-    }
-
     @Override
     public String toString() {
         return getFieldName() + " " + getComparison();
@@ -111,6 +108,16 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
         return equals(otherExpression);
+    }
+
+    @Nonnull
+    @Override
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        List<String> fieldNames = ImmutableList.<String>builder()
+                .addAll(fieldNamePrefix)
+                .add(getFieldName())
+                .build();
+        return new ElementPredicate(new FieldElement(source, fieldNames), comparison);
     }
 
     @Override

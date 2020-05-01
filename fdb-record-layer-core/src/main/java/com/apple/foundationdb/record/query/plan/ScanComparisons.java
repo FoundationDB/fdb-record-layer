@@ -131,6 +131,7 @@ public class ScanComparisons implements PlanHashable {
             case GREATER_THAN_OR_EQUALS:
             case STARTS_WITH:
             case NOT_NULL:
+            case SORT:
                 return ComparisonType.INEQUALITY;
             case NOT_EQUALS:
             default:
@@ -205,7 +206,11 @@ public class ScanComparisons implements PlanHashable {
             if (comparisonRange.isEquality()) {
                 addEqualityComparison(comparisonRange.getEqualityComparison());
             } else if (comparisonRange.isInequality()) {
-                inequalityComparisons.addAll(comparisonRange.getInequalityComparisons());
+                for (Comparisons.Comparison comparison : comparisonRange.getInequalityComparisons()) {
+                    if (!comparison.getType().equals(Comparisons.Type.SORT)) {
+                        inequalityComparisons.add(comparison);
+                    }
+                }
             }
             return this;
         }

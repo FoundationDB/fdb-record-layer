@@ -25,6 +25,9 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -76,6 +79,12 @@ public class AndComponent extends AndOrComponent {
     @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
         return otherExpression instanceof AndComponent;
+    }
+
+    @Nonnull
+    @Override
+    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return AndPredicate.from(normalizeChildrenForPlanner(source, fieldNamePrefix));
     }
 
     @Override

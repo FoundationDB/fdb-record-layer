@@ -21,12 +21,15 @@
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.expressions.ComponentWithChildren;
+import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
+import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -42,8 +45,7 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
 
     @Override
     public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression ||
-               expression instanceof QueryComponent;
+        return true;
     }
 
     @Override
@@ -54,13 +56,34 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Integer> childResults) {
-        int total = expression instanceof FieldWithComparison ? 1 : 0;
+        int total = 0;
+        if (expression instanceof RecordQueryFilterPlan) {
+            QueryComponent filter = ((RecordQueryFilterPlan)expression).getFilter();
+            total = getFieldWithComparisonCount(filter);
+        }
+
         for (Integer childCount : childResults) {
             if (childCount != null) {
                 total += childCount;
             }
         }
         return total;
+    }
+
+    private static int getFieldWithComparisonCount(@Nonnull QueryComponent component) {
+        if (component instanceof FieldWithComparison)  {
+            return 1;
+        } else if (component instanceof ComponentWithNoChildren) {
+            return 0;
+        } else if (component instanceof ComponentWithSingleChild) {
+            return getFieldWithComparisonCount(((ComponentWithSingleChild)component).getChild());
+        } else if (component instanceof ComponentWithChildren) {
+            return ((ComponentWithChildren)component).getChildren().stream()
+                    .mapToInt(FieldWithComparisonCountProperty::getFieldWithComparisonCount)
+                    .sum();
+        } else {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Nonnull

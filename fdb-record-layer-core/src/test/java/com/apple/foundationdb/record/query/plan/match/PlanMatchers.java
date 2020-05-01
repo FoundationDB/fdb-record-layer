@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import org.hamcrest.Matcher;
 
 import javax.annotation.Nonnull;
@@ -114,9 +115,14 @@ public class PlanMatchers {
         return new CoveringIndexMatcher(childMatcher);
     }
 
-    public static Matcher<RecordQueryPlan> filter(@Nonnull Matcher<QueryComponent> filterMatcher,
+    public static Matcher<RecordQueryPlan> filter(@Nonnull Matcher<QueryPredicate> filterMatcher,
                                                   @Nonnull Matcher<RecordQueryPlan> childMatcher) {
         return new FilterMatcher(filterMatcher, childMatcher);
+    }
+
+    public static Matcher<RecordQueryPlan> filter(@Nonnull QueryComponent component,
+                                                  @Nonnull Matcher<RecordQueryPlan> childMatcher) {
+        return new FilterMatcherWithComponent(component, childMatcher);
     }
 
     public static Matcher<RecordQueryPlan> typeFilter(@Nonnull Matcher<Iterable<? extends String>> typeMatcher,
@@ -204,8 +210,8 @@ public class PlanMatchers {
         return new DescendantMatcher(matcher);
     }
 
-    public static Matcher<QueryComponent> queryComponentDescendant(@Nonnull Matcher<QueryComponent> matcher) {
-        return new QueryComponentDescendantMatcher(matcher);
+    public static Matcher<QueryPredicate> queryPredicateDescendant(@Nonnull Matcher<QueryPredicate> matcher) {
+        return new QueryPredicateDescendantMatcher(matcher);
     }
 
     public static Matcher<RecordQueryPlan> everyLeaf(@Nonnull Matcher<RecordQueryPlan> matcher) {

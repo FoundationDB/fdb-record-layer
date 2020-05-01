@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
-import com.apple.foundationdb.record.query.plan.temp.NestedContext;
+import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
 
@@ -39,7 +38,7 @@ import java.util.Objects;
  * a partially-implemented index scan. The primary difference between the two is that a {@code RecordQueryIndexPlan}
  * requires a fully formed {@link com.apple.foundationdb.record.query.plan.ScanComparisons}, which does not track
  * which comparisons belong to which parts of the index's key expression. In contrast, this logical index scan has a
- * {@link KeyExpressionComparisons} which explicitly tracks that information. Except for the final "implementation"
+ * {@link ViewExpressionComparisons} which explicitly tracks that information. Except for the final "implementation"
  * rules, a planner rule should generally prefer to produce and consume {@code IndexEntrySourceScanExpression}s so that
  * important information about the index key expression is retained.
  *
@@ -51,11 +50,11 @@ public class IndexEntrySourceScanExpression implements RelationalPlannerExpressi
     @Nonnull
     private final IndexScanType scanType;
     @Nonnull
-    private final KeyExpressionComparisons comparisons;
+    private final ViewExpressionComparisons comparisons;
     private final boolean reverse;
 
     public IndexEntrySourceScanExpression(@Nonnull final IndexEntrySource indexEntrySource, @Nonnull IndexScanType scanType,
-                                          @Nonnull final KeyExpressionComparisons comparisons, final boolean reverse) {
+                                          @Nonnull final ViewExpressionComparisons comparisons, final boolean reverse) {
         this.indexEntrySource = indexEntrySource;
         this.scanType = scanType;
         this.comparisons = comparisons;
@@ -84,35 +83,12 @@ public class IndexEntrySourceScanExpression implements RelationalPlannerExpressi
     }
 
     @Nonnull
-    public KeyExpressionComparisons getComparisons() {
+    public ViewExpressionComparisons getComparisons() {
         return comparisons;
     }
 
     public boolean isReverse() {
         return reverse;
-    }
-
-    @Nullable
-    @Override
-    public ExpressionRef<RelationalPlannerExpression> asNestedWith(@Nonnull NestedContext nestedContext,
-                                                                   @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
-        final KeyExpressionComparisons nestedComparisons = comparisons.asNestedWith(nestedContext);
-        final IndexEntrySource nestedIndexEntrySource = indexEntrySource.asNestedWith(nestedContext);
-        if (nestedComparisons == null || nestedIndexEntrySource == null) {
-            return null;
-        }
-        return thisRef.getNewRefWith(
-                new IndexEntrySourceScanExpression(nestedIndexEntrySource, scanType, nestedComparisons, reverse));
-    }
-
-    @Nullable
-    @Override
-    public ExpressionRef<RelationalPlannerExpression> asUnnestedWith(@Nonnull NestedContext nestedContext,
-                                                                     @Nonnull ExpressionRef<RelationalPlannerExpression> thisRef) {
-        @Nonnull final KeyExpressionComparisons unnestedComparisons = comparisons.asUnnestedWith(nestedContext);
-        final IndexEntrySource unnestedIndexEntrySource = indexEntrySource.asUnnestedWith(nestedContext);
-        return thisRef.getNewRefWith(
-                new IndexEntrySourceScanExpression(unnestedIndexEntrySource, scanType, unnestedComparisons, reverse));
     }
 
     @Override

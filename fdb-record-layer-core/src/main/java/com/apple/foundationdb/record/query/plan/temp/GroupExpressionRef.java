@@ -217,6 +217,11 @@ public class GroupExpressionRef<T extends PlannerExpression> implements MutableE
         return new GroupExpressionRef<>(mappedMembers);
     }
 
+    @Override
+    public String toString() {
+        return "ExpressionRef@" + hashCode() + "(" + "explored=" + explored + ")";
+    }
+
     public static <T extends PlannerExpression> GroupExpressionRef<T> of(@Nonnull T expression) {
         return new GroupExpressionRef<>(expression);
     }

@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.match;
 
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.match.PredicateMatchers;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
@@ -33,26 +35,34 @@ import javax.annotation.Nonnull;
  */
 public class FilterMatcher extends PlanMatcherWithChild {
     @Nonnull
-    private final Matcher<QueryComponent> filterMatcher;
+    private final Matcher<QueryPredicate> predicateMatcher;
 
-    public FilterMatcher(@Nonnull Matcher<QueryComponent> filterMatcher, @Nonnull Matcher<RecordQueryPlan> childMatcher) {
+    public FilterMatcher(@Nonnull Matcher<QueryPredicate> predicateMatcher, @Nonnull Matcher<RecordQueryPlan> childMatcher) {
         super(childMatcher);
-        this.filterMatcher = filterMatcher;
+        this.predicateMatcher = predicateMatcher;
     }
 
     @Override
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
-        return plan instanceof RecordQueryFilterPlan &&
-                filterMatcher.matches(((RecordQueryFilterPlan) plan).getFilter()) &&
-                super.matchesSafely(plan);
+        final QueryPredicate predicate;
+        if (plan instanceof RecordQueryFilterPlan) {
+            predicate = ((RecordQueryFilterPlan)plan).getFilter()
+                    .normalizeForPlanner(PredicateMatchers.BlankSource.INSTANCE);
+        } else if (plan instanceof RecordQueryPredicateFilterPlan) {
+            predicate = ((RecordQueryPredicateFilterPlan)plan).getFilter();
+        } else {
+            return false;
+        }
+        return predicateMatcher.matches(predicate) && super.matchesSafely(plan);
     }
 
     @Override
     public void describeTo(Description description) {
         description.appendText("Filter(");
-        filterMatcher.describeTo(description);
+        predicateMatcher.describeTo(description);
         description.appendText("; ");
         super.describeTo(description);
         description.appendText(")");
     }
+
 }

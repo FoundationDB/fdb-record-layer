@@ -1,5 +1,5 @@
 /*
- * PushConjunctComponentWithComparisonIntoExistingScanRule.java
+ * PushConjunctElementWithComparisonIntoExistingScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,11 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.expressions.AndComponent;
-import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
@@ -34,6 +30,10 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMa
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -42,28 +42,29 @@ import java.util.Optional;
 /**
  * A rule that selects one of the {@link com.apple.foundationdb.record.query.expressions.ComponentWithComparison}
  * conjuncts from an AND and tries to push it into an existing logical scan.
- * @see PushComponentWithComparisonIntoExistingScanRule for a very similar rule for {@code FieldWithComparison}s that are not conjuncts
+ * @see PushElementWithComparisonIntoExistingScanRule for a very similar rule for {@code FieldWithComparison}s that are not conjuncts
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushConjunctComponentWithComparisonIntoExistingScanRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<ComponentWithComparison> filterMatcher = TypeMatcher.of(ComponentWithComparison.class);
-    private static final ReferenceMatcher<QueryComponent> otherFilterMatchers = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<AndComponent> andMatcher = TypeMatcher.of(AndComponent.class,
+public class PushConjunctElementWithComparisonIntoExistingScanRule extends PlannerRule<LogicalFilterExpression> {
+    private static final ExpressionMatcher<ElementPredicate> filterMatcher = TypeMatcher.of(ElementPredicate.class);
+    private static final ReferenceMatcher<QueryPredicate> otherFilterMatchers = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<AndPredicate> andMatcher = TypeMatcher.of(AndPredicate.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(filterMatcher, otherFilterMatchers));
     private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, andMatcher, indexScanMatcher);
 
-    public PushConjunctComponentWithComparisonIntoExistingScanRule() {
+    public PushConjunctElementWithComparisonIntoExistingScanRule() {
         super(root);
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
+        final LogicalFilterExpression filterExpression = call.get(root);
         final IndexEntrySourceScanExpression indexScan = call.get(indexScanMatcher);
-        final ComponentWithComparison field = call.get(filterMatcher);
-        final List<ExpressionRef<QueryComponent>> residualFields = call.getBindings().getAll(otherFilterMatchers);
+        final ElementPredicate field = call.get(filterMatcher);
+        final List<ExpressionRef<QueryPredicate>> residualFields = call.getBindings().getAll(otherFilterMatchers);
 
-        final Optional<KeyExpressionComparisons> matchedComparisons = indexScan.getComparisons().matchWith(field);
+        final Optional<ViewExpressionComparisons> matchedComparisons = indexScan.getComparisons().matchWith(field);
         if (matchedComparisons.isPresent()) {
             final IndexEntrySourceScanExpression newIndexScan = new IndexEntrySourceScanExpression(
                     indexScan.getIndexEntrySource(), indexScan.getScanType(), matchedComparisons.get(), indexScan.isReverse());
@@ -72,13 +73,13 @@ public class PushConjunctComponentWithComparisonIntoExistingScanRule extends Pla
                 return;
             }
 
-            final ExpressionRef<QueryComponent> residualFilter;
+            final ExpressionRef<QueryPredicate> residualFilter;
             if (residualFields.size() > 1) {
-                residualFilter = call.ref(new AndComponent(residualFields));
+                residualFilter = call.ref(new AndPredicate(residualFields));
             } else {
                 residualFilter = residualFields.get(0);
             }
-            call.yield(call.ref(new LogicalFilterExpression(residualFilter, call.ref(newIndexScan))));
+            call.yield(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(), residualFilter, call.ref(newIndexScan))));
         }
     }
 }

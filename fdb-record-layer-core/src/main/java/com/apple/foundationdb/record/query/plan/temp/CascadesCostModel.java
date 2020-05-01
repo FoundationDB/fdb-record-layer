@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
+import com.apple.foundationdb.record.query.plan.temp.properties.ElementPredicateCountProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.PredicateHeightProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.RelationalExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.TypeFilterCountProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.UnmatchedFieldsProperty;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
@@ -46,9 +46,9 @@ public class CascadesCostModel implements Comparator<PlannerExpression> {
 
     @Override
     public int compare(@Nonnull PlannerExpression a, @Nonnull PlannerExpression b) {
-        if (a instanceof QueryComponent && b instanceof QueryComponent) {
-            int unsatisfiedFilterCompare = Integer.compare(FieldWithComparisonCountProperty.evaluate(a),
-                    FieldWithComparisonCountProperty.evaluate(b));
+        if (a instanceof QueryPredicate && b instanceof QueryPredicate) {
+            int unsatisfiedFilterCompare = Integer.compare(ElementPredicateCountProperty.evaluate(a),
+                    ElementPredicateCountProperty.evaluate(b));
             if (unsatisfiedFilterCompare != 0) {
                 return unsatisfiedFilterCompare;
             }
@@ -61,8 +61,8 @@ public class CascadesCostModel implements Comparator<PlannerExpression> {
             return 1;
         }
 
-        int unsatisfiedFilterCompare = Integer.compare(FieldWithComparisonCountProperty.evaluate(a),
-                FieldWithComparisonCountProperty.evaluate(b));
+        int unsatisfiedFilterCompare = Integer.compare(ElementPredicateCountProperty.evaluate(a),
+                ElementPredicateCountProperty.evaluate(b));
         if (unsatisfiedFilterCompare != 0) {
             return unsatisfiedFilterCompare;
         }

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -116,6 +117,13 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
         return Collections.nCopies(splitSize, getJoined());
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        // TODO
+        throw new UnsupportedOperationException();
     }
 
     @Override

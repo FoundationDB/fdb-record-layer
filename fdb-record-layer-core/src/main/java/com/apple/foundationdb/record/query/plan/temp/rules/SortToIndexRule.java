@@ -22,35 +22,23 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 /**
- * A rule for implementing a {@link LogicalSortExpression} as a scan of an appropriately-ordered index.
- * There are a few things to note about how this rule currently works:
- * <ul>
- *     <li>
- *         It relies on {@link KeyExpression#isPrefixKey(KeyExpression)} to do the "heavy lifting" of determining
- *         whether or not a sort can be implemented using an index, which currently involves calling
- *         {@link ExpressionRef#get()}. This obviously does not work if the {@code ExpressionRef} is not gettable
- *         (for example, if it were a group).
- *     </li>
- *     <li>
- *         It will plan the sort using the first index with an appropriate ordering.
- *     </li>
- * </ul>
- * Ths first of these details will definitely change as the planner improves.
+ * A rule for implementing a {@link LogicalSortExpression} as a scan of any appropriately-ordered index.
+ * The rule's logic mirrors {@link FilterWithElementWithComparisonRule}, but applied to sorts rather than filters.
  */
 @API(API.Status.EXPERIMENTAL)
 public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
@@ -64,14 +52,24 @@ public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalSortExpression logicalSort = call.get(root);
-        final KeyExpressionComparisons requestedSort = logicalSort.getSort();
         final boolean reverse = call.get(root).isReverse();
 
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
-            final KeyExpressionComparisons sortExpression = indexEntrySource.getEmptyComparisons();
-            if (sortExpression.supportsSortOrder(requestedSort)) {
-                call.yield(call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
-                        sortExpression, reverse)));
+            final ViewExpressionComparisons sortExpression = indexEntrySource.getEmptyComparisons();
+            final Optional<ViewExpressionComparisons> matchedViewExpression = sortExpression.matchWithSort(logicalSort.getSortPrefix());
+            if (matchedViewExpression.isPresent()) {
+                RelationalPlannerExpression indexScan = new IndexEntrySourceScanExpression(
+                        indexEntrySource, IndexScanType.BY_VALUE, matchedViewExpression.get(), reverse);
+                if (logicalSort.getSortSuffix().isEmpty()) {
+                    call.yield(call.ref(indexScan));
+                } else {
+                    call.yield(call.ref(new LogicalSortExpression(
+                            logicalSort.getSortPrefix(),
+                            logicalSort.getSortSuffix(),
+                            reverse,
+                            indexScan)));
+
+                }
             }
         }
     }

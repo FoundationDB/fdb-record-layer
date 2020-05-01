@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -71,6 +72,12 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
     @Override
     public RecordMetaDataProto.Empty toProto() throws SerializationException {
         return RecordMetaDataProto.Empty.getDefaultInstance();
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return this;
     }
 
     @Nonnull

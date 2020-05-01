@@ -58,7 +58,6 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexS
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
@@ -176,7 +175,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
-        assertThat(plan, filter(equalTo(Query.field("num_value_2").lessThan(2)),
+        assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]"))))));
         assertEquals(-1408807323, plan.planHash());
     }

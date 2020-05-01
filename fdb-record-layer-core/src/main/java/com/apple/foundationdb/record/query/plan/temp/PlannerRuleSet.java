@@ -22,24 +22,21 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithConjunctNestedToNestingContextRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithNestedToNestingContextRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithOneOfThemToNestingContextRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndComponentRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndComponentRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithElementWithComparisonRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndPredicateRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndPredicateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FindIndexForComponentWithComparisonRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressionToScanPlanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PushComponentWithComparisonIntoExistingScanRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctComponentWithComparisonIntoExistingScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushElementWithComparisonIntoExistingScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctElementWithComparisonIntoExistingScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushSortIntoExistingIndexRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushTypeFilterBelowFilterRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.RemoveNestedContextRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveRedundantTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.SortToIndexRule;
 import com.google.common.annotations.VisibleForTesting;
@@ -60,21 +57,18 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public class PlannerRuleSet {
     private static final List<PlannerRule<? extends PlannerExpression>> NORMALIZATION_RULES = ImmutableList.of(
-            new FlattenNestedAndComponentRule()
+            new FlattenNestedAndPredicateRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
             new SortToIndexRule(),
-            new FindIndexForComponentWithComparisonRule(),
-            new PushComponentWithComparisonIntoExistingScanRule(),
-            new PushConjunctComponentWithComparisonIntoExistingScanRule(),
+            new PushSortIntoExistingIndexRule(),
+            new FilterWithElementWithComparisonRule(),
+            new PushElementWithComparisonIntoExistingScanRule(),
+            new PushConjunctElementWithComparisonIntoExistingScanRule(),
             new RemoveRedundantTypeFilterRule(),
-            new FindPossibleIndexForAndComponentRule(),
-            new OrToUnorderedUnionRule(),
-            new FilterWithNestedToNestingContextRule(),
-            new FilterWithConjunctNestedToNestingContextRule(),
-            new FilterWithOneOfThemToNestingContextRule(),
-            new RemoveNestedContextRule()
+            new FindPossibleIndexForAndPredicateRule(),
+            new OrToUnorderedUnionRule()
     );
     private static final List<PlannerRule<? extends PlannerExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
             new ImplementTypeFilterRule(),

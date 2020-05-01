@@ -1,5 +1,5 @@
 /*
- * PushComponentWithComparisonIntoExistingScanRule.java
+ * PushElementWithComparisonIntoExistingScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,14 +21,14 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
-import com.apple.foundationdb.record.query.plan.temp.KeyExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
+import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -38,21 +38,21 @@ import java.util.Optional;
  * predicate and a compatibly ordered index scan comparison down to the index scan.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushComponentWithComparisonIntoExistingScanRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<ComponentWithComparison> filterMatcher = TypeMatcher.of(ComponentWithComparison.class);
+public class PushElementWithComparisonIntoExistingScanRule extends PlannerRule<LogicalFilterExpression> {
+    private static final ExpressionMatcher<ElementPredicate> filterMatcher = TypeMatcher.of(ElementPredicate.class);
     private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, filterMatcher, indexScanMatcher);
 
-    public PushComponentWithComparisonIntoExistingScanRule() {
+    public PushElementWithComparisonIntoExistingScanRule() {
         super(root);
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         IndexEntrySourceScanExpression indexScan = call.get(indexScanMatcher);
-        ComponentWithComparison filter = call.get(filterMatcher);
+        ElementPredicate filter = call.get(filterMatcher);
 
-        final Optional<KeyExpressionComparisons> matchedComparisons = indexScan.getComparisons().matchWith(filter);
+        final Optional<ViewExpressionComparisons> matchedComparisons = indexScan.getComparisons().matchWith(filter);
         if (matchedComparisons.isPresent()) {
             call.yield(call.ref(new IndexEntrySourceScanExpression(indexScan.getIndexEntrySource(), indexScan.getScanType(),
                             matchedComparisons.get(), indexScan.isReverse())));

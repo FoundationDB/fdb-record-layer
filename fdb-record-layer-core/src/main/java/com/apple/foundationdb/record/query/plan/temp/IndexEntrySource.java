@@ -21,11 +21,17 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.temp.view.ViewExpression;
+import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * A source of abstract index entries, each of which references a single record. An {@code IndexEntrySource} is an
@@ -41,15 +47,15 @@ public class IndexEntrySource {
     @Nullable
     private final Index index; // null indicates primary key
     @Nonnull
-    private final KeyExpressionComparisons root;
+    private final ViewExpressionComparisons root;
 
-    private IndexEntrySource(@Nullable Index index, @Nonnull KeyExpressionComparisons root) {
+    private IndexEntrySource(@Nullable Index index, @Nonnull ViewExpressionComparisons root) {
         this.index = index;
         this.root = root;
     }
 
     @Nonnull
-    public KeyExpressionComparisons getEmptyComparisons() {
+    public ViewExpressionComparisons getEmptyComparisons() {
         return root;
     }
 
@@ -62,28 +68,24 @@ public class IndexEntrySource {
         return index != null;
     }
 
-    @Nullable
-    public IndexEntrySource asNestedWith(@Nonnull NestedContext nestedContext) {
-        final KeyExpressionComparisons nestedRoot = root.asNestedWith(nestedContext);
-        if (nestedRoot == null) {
-            return null;
-        }
-        return new IndexEntrySource(index, nestedRoot);
+    @Nonnull
+    public static IndexEntrySource fromIndex(@Nonnull Collection<RecordType> recordTypes, @Nonnull Index index) {
+        return new IndexEntrySource(index, new ViewExpressionComparisons(
+                ViewExpression.fromIndexDefinition(index.getType(),
+                        recordTypes.stream().map(RecordType::getName).collect(Collectors.toSet()),
+                        index.getRootExpression())));
     }
 
     @Nonnull
-    public IndexEntrySource asUnnestedWith(@Nonnull NestedContext nestedContext) {
-        return new IndexEntrySource(index, root.asUnnestedWith(nestedContext));
+    public static IndexEntrySource fromIndexWithTypeStrings(@Nonnull Collection<String> recordTypes, @Nonnull Index index) {
+        return new IndexEntrySource(index, new ViewExpressionComparisons(
+                ViewExpression.fromIndexDefinition(index.getType(), recordTypes, index.getRootExpression())));
     }
 
     @Nonnull
-    public static IndexEntrySource fromIndex(@Nonnull Index index) {
-        return new IndexEntrySource(index, new KeyExpressionComparisons(index.getRootExpression()));
-    }
-
-    @Nonnull
-    public static IndexEntrySource fromCommonPrimaryKey(@Nonnull KeyExpression commonPrimaryKey) {
-        return new IndexEntrySource(null, new KeyExpressionComparisons(commonPrimaryKey));
+    public static IndexEntrySource fromCommonPrimaryKey(@Nonnull Collection<String> recordTypes, @Nonnull KeyExpression commonPrimaryKey) {
+        return new IndexEntrySource(null, new ViewExpressionComparisons(
+                ViewExpression.fromIndexDefinition(IndexTypes.VALUE, recordTypes, commonPrimaryKey)));
     }
 
     @Override

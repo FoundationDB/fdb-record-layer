@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
@@ -30,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 
@@ -41,9 +41,9 @@ import javax.annotation.Nonnull;
  */
 public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<ExpressionRef<QueryComponent>> filterMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<RecordQueryFilterPlan> filterPlanMatcher = TypeMatcher.of(RecordQueryFilterPlan.class,
-            innerMatcher, filterMatcher);
+    private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> filterMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher = TypeMatcher.of(
+            RecordQueryPredicateFilterPlan.class, innerMatcher, filterMatcher);
     private static final ExpressionMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root = TypeMatcher.of(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, filterPlanMatcher);
 
     public PushDistinctFilterBelowFilterRule() {
@@ -52,10 +52,11 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
+        final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
         final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
-        final ExpressionRef<QueryComponent> filter = call.get(filterMatcher);
+        final ExpressionRef<QueryPredicate> filter = call.get(filterMatcher);
 
-        call.yield(call.ref(new RecordQueryFilterPlan(
-                call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(inner)), filter)));
+        call.yield(call.ref(new RecordQueryPredicateFilterPlan(
+                call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(inner)), filterPlan.getBaseSource(), filter)));
     }
 }

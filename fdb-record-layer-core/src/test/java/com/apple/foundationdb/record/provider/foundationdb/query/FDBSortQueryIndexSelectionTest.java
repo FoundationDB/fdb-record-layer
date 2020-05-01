@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.predicates.match.PredicateMatchers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
@@ -169,7 +170,6 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
     /**
      * Verify that if the sort matches an index that can satisfy a filter that the index is used.
      */
-    @DualPlannerTest
     @ParameterizedTest
     @MethodSource("hooks")
     public void sortWithScannableFilterOnIndex(RecordMetaDataHook hook, PlannableIndexTypes indexTypes) throws Exception {
@@ -202,7 +202,6 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
      * of a filter (because that comparison cannot be accomplished with a scan) that the index
      * is still used solely to accomplish sorting.
      */
-    @DualPlannerTest
     @ParameterizedTest
     @MethodSource("hooks")
     public void sortWithNonScannableFilterOnIndex(RecordMetaDataHook hook, PlannableIndexTypes indexTypes) throws Exception {
@@ -215,7 +214,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .build();
         setupPlanner(indexTypes);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()),
+        assertThat(plan, filter(query.getFilter(),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         assertEquals(-799849347, plan.planHash());
 
@@ -250,7 +249,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .build();
         setupPlanner(indexTypes);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()),
+        assertThat(plan, filter(PredicateMatchers.equivalentTo(query.getFilter()),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         assertEquals(735933204, plan.planHash());
 
@@ -332,7 +331,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 planHash,
                 expectedReturn,
                 100 - expectedReturn,
-                filter(equalTo(filter), typeFilter(contains("MySimpleRecord"), scan(unbounded()))),
+                filter(PredicateMatchers.equivalentTo(filter), typeFilter(contains("MySimpleRecord"), scan(unbounded()))),
                 checkRecord
         );
     }
@@ -513,7 +512,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .setSort(field("num_value_3_indexed"))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(equalTo(query.getFilter()),
+        assertThat(plan, filter(query.getFilter(),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         assertEquals(-1429997503, plan.planHash());
 
@@ -676,7 +675,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                         .setSort(field("header").nest("num"))
                         .build();
                 RecordQueryPlan plan = planner.plan(query);
-                assertThat(plan, filter(equalTo(query.getFilter()),
+                assertThat(plan, filter(query.getFilter(),
                         indexScan(allOf(indexName("MyRecord$header_num"), unbounded()))));
                 assertEquals(1936972136, plan.planHash());
 
@@ -706,7 +705,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                         .setSort(field("header").nest("num"))
                         .build();
                 RecordQueryPlan plan = planner.plan(query);
-                assertThat(plan, filter(equalTo(Query.field("header").matches(Query.field("rec_no").greaterThan(10L))),
+                assertThat(plan, filter(Query.field("header").matches(Query.field("rec_no").greaterThan(10L)),
                         indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("([null],[50])"))))));
                 assertEquals(824137289, plan.planHash());
 

@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.view.VersionElement;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -96,6 +98,12 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     @Override
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
         return VERSION_PROTO;
+    }
+
+    @Nonnull
+    @Override
+    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new ElementKeyExpression(new VersionElement());
     }
 
     @Override
