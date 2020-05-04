@@ -364,13 +364,14 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                     Tuple existingKey = state.index.getEntryPrimaryKey(existingEntry);
                     if (!TupleHelpers.equals(primaryKey, existingKey)) {
                         if (state.store.isIndexWriteOnly(state.index)) {
-                            addUniquenessViolations(valueKey, primaryKey, existingKey);
-                            addUniquenessViolations(valueKey, existingKey, primaryKey);
+                            addUniquenessViolation(valueKey, primaryKey, existingKey);
+                            addUniquenessViolation(valueKey, existingKey, primaryKey);
                         } else {
                             throw new RecordIndexUniquenessViolation(state.index, indexEntry, primaryKey, existingKey);
                         }
                     }
                 }, getExecutor()));
+        // Add a pre-commit check to prevent accidentally committing and getting into an invalid state.
         state.store.getRecordContext().addCommitCheck(checker);
     }
 
@@ -383,7 +384,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param primaryKey the primary key of one record that is causing a violation
      * @param existingKey the primary key of another record that is causing a violation (or <code>null</code> if none specified)
      */
-    protected void addUniquenessViolations(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey) {
+    protected void addUniquenessViolation(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey) {
         byte[] uniquenessKeyBytes = state.store.indexUniquenessViolationsSubspace(state.index).pack(FDBRecordStoreBase.uniquenessViolationKey(valueKey, primaryKey));
         state.transaction.set(uniquenessKeyBytes, (existingKey == null) ? new byte[0] : existingKey.pack());
     }

@@ -33,7 +33,7 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Requires a minimum FoundationDB client and server version of 6.2 [(Issue #702)](https://github.com/FoundationDB/fdb-record-layer/issues/702)
 * **Breaking change** Builds now require JDK 11 [(Issue #910)](https://github.com/FoundationDB/fdb-record-layer/issues/910)
-* **Breaking change** `FDBRecordStore` does not have `addUniquenessCheck` anymore, which is replaced by `checkUniqueness` in `StandardIndexMaintainer` now; `IndexMaintainer` does not have `updateUniquenessViolations` anymore, which is replaced by `addUniquenessViolations` and `removeUniquenessViolationsAsync` in `StandardIndexMaintainer` now; `StandardIndexMaintainer` now has `updateOneKeyAsync` in replace of `updateOneKey` [(Issue #901)](https://github.com/FoundationDB/fdb-record-layer/issues/901)
+* **Breaking change** `FDBRecordStore` does not have `addUniquenessCheck` anymore, which is replaced by `checkUniqueness` in `StandardIndexMaintainer` now; `IndexMaintainer` does not have `updateUniquenessViolations` anymore, which is replaced by `addUniquenessViolation` and `removeUniquenessViolationsAsync` in `StandardIndexMaintainer` now; `StandardIndexMaintainer` now has `updateOneKeyAsync` in replace of `updateOneKey` [(Issue #901)](https://github.com/FoundationDB/fdb-record-layer/issues/901)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
