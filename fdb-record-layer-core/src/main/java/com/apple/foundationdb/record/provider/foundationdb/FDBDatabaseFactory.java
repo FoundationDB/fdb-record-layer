@@ -50,7 +50,6 @@ public class FDBDatabaseFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
 
     protected static final Function<FDBLatencySource, Long> DEFAULT_LATENCY_INJECTOR = api -> 0L;
-    protected static final Supplier<Boolean> DEFAULT_ENABLE_ASSERTIONS_SUPPLIER = () -> false;
 
     /**
      * The default number of entries that is to be cached, per database, from
