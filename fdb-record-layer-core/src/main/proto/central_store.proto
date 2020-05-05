@@ -1,0 +1,45 @@
+/*
+ * central_store.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record;
+import "google/protobuf/descriptor.proto";
+
+option java_outer_classname = "CentralStoreProto";
+
+message StoreInfo {
+    // TODO: This may be changed to repeated tuple elements. (A tuple element is similar to a "oneof" of the types in TupleFieldsProto.)
+    optional bytes store_subspace = 1;
+    repeated IndexStateEntry index_states = 2;
+    optional uint64 metadata_version = 3;
+
+    message IndexStateEntry {
+        // Subspace tuple key
+        // TODO: The key should be a tuple element.
+        optional uint64 index_key = 1;
+        optional IndexState index_state = 2;
+    }
+
+    enum IndexState {
+        DISABLED = 1;
+        WRITE_ONLY = 2;
+        READABLE = 3;
+    }
+}
