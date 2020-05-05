@@ -131,8 +131,10 @@ public class SplitHelper {
         final Transaction tr = context.ensureActive();
         if (serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             if (!splitLongRecords) {
-                throw new RecordCoreException("Record is too long (" + serialized.length +
-                                              ") to be stored in a single value; consider split_long_records");
+                throw new RecordCoreException("Record is too long to be stored in a single value; consider split_long_records")
+                        .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
+                        .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
+                        .addLogInfo(LogMessageKeys.VALUE_SIZE, serialized.length);
             }
             writeSplitRecord(context, subspace, key, serialized, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
         } else {
@@ -540,7 +542,9 @@ public class SplitHelper {
             long index = subkey.getLong(0);
             if (index == UNSPLIT_RECORD) {
                 if (result != null) {
-                    throw new RecordCoreException("More than one unsplit value.");
+                    throw new RecordCoreException("More than one unsplit value.")
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
                 }
                 result = kv.getValue();
                 sizeInfo.add(kv);
@@ -550,7 +554,7 @@ public class SplitHelper {
                     if (result != null) {
                         throw new RecordCoreException("Unsplit value followed by split.")
                                 .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                                .addLogInfo(LogMessageKeys.SUBSPACE, keySplitSubspace.pack());
+                                .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
                     }
                     result = kv.getValue();
                     sizeInfo.add(kv);
@@ -568,11 +572,14 @@ public class SplitHelper {
             } else {
                 if (lastIndex >= SplitHelper.START_SPLIT_RECORD) {
                     throw new RecordCoreException("Split record segments out of order: expected " +
-                                                  lastIndex + 1 + ", found " + index);
+                                                  lastIndex + 1 + ", found " + index)
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
                 } else {
                     throw new FoundSplitWithoutStartException(index, false)
                             .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
-                            .addLogInfo(LogMessageKeys.KEY_TUPLE, key);
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
                 }
             }
         }
@@ -803,7 +810,9 @@ public class SplitHelper {
                 return inner.onNext().thenApply(innerResult -> {
                     if (!innerResult.hasNext()) {
                         if (reverse && next != null && nextIndex != START_SPLIT_RECORD && nextIndex != UNSPLIT_RECORD && nextIndex != RECORD_VERSION) {
-                            throw new FoundSplitWithoutStartException(nextIndex, true);
+                            throw new FoundSplitWithoutStartException(nextIndex, true)
+                                    .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
+                                    .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
                         }
                         innerNoNextReason = innerResult.getNoNextReason();
                         // If we already built up some values, then we already cached an appropriate continuation.
@@ -841,7 +850,10 @@ public class SplitHelper {
                 return appendNext(kv);
             } else {
                 if (reverse && nextIndex != UNSPLIT_RECORD && nextIndex != START_SPLIT_RECORD && nextIndex != RECORD_VERSION) {
-                    throw new FoundSplitWithoutStartException(nextIndex, true);
+                    throw new FoundSplitWithoutStartException(nextIndex, true)
+                            .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey) // nextKey may be null if no version and scanning in the forward direction
+                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
                 }
                 pending = resultWithKv;
                 logEndFound();
@@ -923,7 +935,8 @@ public class SplitHelper {
                 if (oldVersionFormat) {
                     throw new RecordCoreException("Found record version when old format specified")
                             .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
-                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey);
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
                 }
                 nextVersion = unpackVersion(kv.getValue());
                 nextIndex = index;
@@ -942,13 +955,15 @@ public class SplitHelper {
                 if (reverse && expectedIndex == START_SPLIT_RECORD || !reverse && nextIndex == RECORD_VERSION) {
                     throw new FoundSplitWithoutStartException(index, reverse)
                             .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
-                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey);
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
                 } else {
                     throw new RecordCoreException("Split record segments out of order")
                             .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
                             .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
                             .addLogInfo(LogMessageKeys.EXPECTED_INDEX, nextIndex + (reverse ? -1 : 1))
-                            .addLogInfo(LogMessageKeys.FOUND_INDEX, index);
+                            .addLogInfo(LogMessageKeys.FOUND_INDEX, index)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
                 }
             }
             logNextKey(done);
