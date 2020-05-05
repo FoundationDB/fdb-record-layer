@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -38,6 +37,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -61,12 +61,22 @@ import java.util.function.Function;
  */
 @API(API.Status.MAINTAINED)
 public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>> {
-    private final boolean reverse;
+    private PriorityQueue<KeyedMergeCursorState<T>> priorityQueue;
+    private List<KeyedMergeCursorState<T>> currentState;
 
     private UnionCursor(boolean reverse, @Nonnull List<KeyedMergeCursorState<T>> cursorStates,
                         @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
-        this.reverse = reverse;
+        currentState = new ArrayList<>(cursorStates);
+        priorityQueue = new PriorityQueue<>((o1, o2) -> {
+            if (!o1.getResult().hasNext()) {
+                return o1.getResult().getNoNextReason().isLimitReached() ? -1 : 1;
+            }
+            if (!o2.getResult().hasNext()) {
+                return o2.getResult().getNoNextReason().isLimitReached() ? 1 : -1;
+            }
+            return KeyComparisons.KEY_COMPARATOR.compare(o1.getComparisonKey(), o2.getComparisonKey()) * (reverse ? -1 : 1);
+        });
     }
 
     @Nonnull
@@ -74,72 +84,49 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
     CompletableFuture<List<KeyedMergeCursorState<T>>> computeNextResultStates() {
         final List<KeyedMergeCursorState<T>> cursorStates = getCursorStates();
         return whenAll(cursorStates).thenApply(vignore -> {
-            boolean anyHasNext = false;
-            for (KeyedMergeCursorState<T> cursorState : cursorStates) {
-                if (cursorState.getResult().hasNext()) {
-                    anyHasNext = true;
-                } else if (cursorState.getResult().getNoNextReason().isLimitReached()) {
-                    // If any side stopped due to limit reached, need to stop completely,
-                    // since might otherwise duplicate ones after that, if other side still available.
-                    return Collections.emptyList();
+            final long startTime = System.nanoTime();
+            if (currentState.size() > 1) {
+                currentState.forEach(priorityQueue::offer);
+                currentState.clear();
+                currentState.add(priorityQueue.poll());
+            }
+            while (true) {
+                if (priorityQueue.size() == 0) {
+                    break;
+                }
+                int comparison = priorityQueue.comparator().compare(currentState.get(0), priorityQueue.peek());
+                if (comparison < 0) {
+                    if (!currentState.get(0).getResult().hasNext()) {
+                        return Collections.emptyList();
+                    }
+                    break;
+                } else if (comparison == 0) {
+                    currentState.add(priorityQueue.poll());
+                } else {
+                    priorityQueue.offer(currentState.remove(0));
+                    currentState.add(priorityQueue.poll());
+                    if (!currentState.get(0).getResult().hasNext()) {
+                        return Collections.emptyList();
+                    }
                 }
             }
-            if (anyHasNext) {
-                final long startTime = System.nanoTime();
-                List<KeyedMergeCursorState<T>> chosenStates = new ArrayList<>(cursorStates.size());
-                List<KeyedMergeCursorState<T>> otherStates = new ArrayList<>(cursorStates.size());
-                chooseStates(cursorStates, chosenStates, otherStates);
-                logDuplicates(chosenStates, startTime);
-                return chosenStates;
-            } else {
-                return Collections.emptyList();
-            }
+            logDuplicates(startTime);
+            return currentState;
         });
     }
 
-    private void chooseStates(@Nonnull List<KeyedMergeCursorState<T>> allStates, @Nonnull List<KeyedMergeCursorState<T>> chosenStates, @Nonnull List<KeyedMergeCursorState<T>> otherStates) {
-        List<Object> nextKey = null;
-        for (KeyedMergeCursorState<T> cursorState : allStates) {
-            final RecordCursorResult<T> result = cursorState.getResult();
-            if (result.hasNext()) {
-                int compare;
-                final List<Object> resultKey = cursorState.getComparisonKey();
-                if (nextKey == null) {
-                    // This is the first key we've seen, so always chose it.
-                    compare = -1;
-                } else {
-                    // Choose the minimum of the previous minimum key and this next one
-                    // If doing a reverse scan, choose the maximum.
-                    compare = KeyComparisons.KEY_COMPARATOR.compare(resultKey, nextKey) * (reverse ? -1 : 1);
-                }
-                if (compare < 0) {
-                    // We have a new next key. Reset the book-keeping information.
-                    otherStates.addAll(chosenStates);
-                    chosenStates.clear();
-                    nextKey = resultKey;
-                }
-                if (compare <= 0) {
-                    chosenStates.add(cursorState);
-                } else {
-                    otherStates.add(cursorState);
-                }
-            } else {
-                otherStates.add(cursorState);
-            }
-        }
-    }
 
-    private void logDuplicates(@Nonnull List<?> chosenStates, long startTime) {
-        if (chosenStates.isEmpty()) {
+    private void logDuplicates(long startTime) {
+        if (currentState.isEmpty()) {
             throw new RecordCoreException("union with additional items had no next states");
         }
         if (getTimer() != null) {
-            if (chosenStates.size() == 1) {
+            if (currentState.size() == 1) {
                 getTimer().increment(uniqueCounts);
             } else {
                 // The number of duplicates is the number of minimum states
                 // for this value except for the first one (hence the "- 1").
-                getTimer().increment(duplicateCounts, chosenStates.size() - 1);
+                getTimer().increment(duplicateCounts, currentState.size() - 1);
             }
             getTimer().record(duringEvents, System.nanoTime() - startTime);
         }
