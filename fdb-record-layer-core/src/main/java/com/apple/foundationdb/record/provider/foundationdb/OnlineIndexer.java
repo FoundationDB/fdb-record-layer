@@ -413,8 +413,10 @@ public class OnlineIndexer implements AutoCloseable {
                 } else {
                     int currTries = tries.getAndIncrement();
                     FDBException fdbE = getFDBException(e);
-                    if (currTries < config.maxRetries && fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
-                        if (handleLessenWork != null) {
+                    if (currTries < config.maxRetries && (
+                            (fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) ||
+                            (e instanceof RecordStoreStaleMetaDataVersionException))) {
+                        if (handleLessenWork != null && fdbE != null) {
                             handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
                         }
                         long delay = (long)(Math.random() * toWait.get());
