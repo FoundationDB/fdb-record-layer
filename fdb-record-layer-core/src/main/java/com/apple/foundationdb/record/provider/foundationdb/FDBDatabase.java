@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
@@ -410,7 +409,7 @@ public class FDBDatabase {
         openFDB();
         final boolean transactionIsTraced = transactionIsTracedSupplier.get();
         final Executor executor = newContextExecutor(contextConfig.getMdcContext());
-        final Transaction transaction = createTransaction(executor, contextConfig.getTimer(), contextConfig.getMdcContext(), transactionIsTraced);
+        final Transaction transaction = createTransaction(contextConfig, executor, transactionIsTraced);
 
         FDBRecordContext context = new FDBRecordContext(this, transaction, contextConfig, transactionIsTraced);
         final WeakReadSemantics weakReadSemantics = context.getWeakReadSemantics();
@@ -733,29 +732,35 @@ public class FDBDatabase {
     @Deprecated
     @API(API.Status.DEPRECATED)
     public Transaction createTransaction(Executor executor, @Nullable Map<String, String> mdcContext, boolean transactionIsTraced) {
-        return createTransaction(executor, null, mdcContext, transactionIsTraced);
+        return createTransaction(
+                FDBRecordContextConfig.newBuilder()
+                        .setMdcContext(mdcContext)
+                        .build(),
+                executor,
+                transactionIsTraced);
     }
 
     /**
      * Creates a new transaction against the database.
      *
      * @param executor the executor to be used for asynchronous operations
-     * @param storeTimer if not {@code null}, will be used too track low level operations (e.g. reads/writes/deletes)
-     * @param mdcContext if not [@code null} and tracing is enabled, information in the context will be included
-     *      in tracing log messages
      * @param transactionIsTraced if true, the transaction will produce tracing messages (for example, logging when
      *      the transaction is cleaned up without having been closed)
      * @return newly created transaction
      */
-    private Transaction createTransaction(Executor executor, @Nullable StoreTimer storeTimer, @Nullable Map<String, String> mdcContext, boolean transactionIsTraced) {
+    private Transaction createTransaction(@Nonnull FDBRecordContextConfig config,
+                                          @Nonnull Executor executor,
+                                          boolean transactionIsTraced) {
         Transaction transaction = database.createTransaction(executor);
 
-        if (storeTimer != null) {
-            transaction = new InstrumentedTransaction(storeTimer, transaction);
+        if (config.getTimer() != null) {
+            transaction = new InstrumentedTransaction(config.getTimer(), transaction, config.areAssertionsEnabled());
+        } else if (config.areAssertionsEnabled()) {
+            transaction = new InstrumentedTransaction(null, transaction, true);
         }
 
         if (transactionIsTraced) {
-            transaction = new TracedTransaction(transaction, mdcContext);
+            transaction = new TracedTransaction(transaction, config.getMdcContext());
         }
 
         return transaction;

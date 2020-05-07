@@ -26,6 +26,7 @@ import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
@@ -38,79 +39,83 @@ import java.util.function.Function;
  * Wrapper around {@link Transaction} that instruments certain calls to expose their behavior with
  * {@link FDBStoreTimer} metrics.
  */
+@API(API.Status.INTERNAL)
 public class InstrumentedTransaction extends InstrumentedReadTransaction<Transaction> implements Transaction {
 
     @Nullable
     protected ReadTransaction snapshot; // lazily cached snapshot wrapper
 
-    public InstrumentedTransaction(@Nonnull StoreTimer timer, @Nonnull Transaction underlying) {
-        super(timer, underlying);
+    public InstrumentedTransaction(@Nullable StoreTimer timer, @Nonnull Transaction underlying, boolean enableAssertions) {
+        super(timer, underlying, enableAssertions);
     }
 
     @Override
     public void addReadConflictRange(byte[] keyBegin, byte[] keyEnd) {
-        underlying.addReadConflictRange(keyBegin, keyEnd);
+        underlying.addReadConflictRange(checkKey(keyBegin), checkKey(keyEnd));
     }
 
     @Override
     public void addReadConflictKey(byte[] key) {
-        underlying.addReadConflictKey(key);
+        underlying.addReadConflictKey(checkKey(key));
     }
 
     @Override
     public void addWriteConflictRange(byte[] keyBegin, byte[] keyEnd) {
-        underlying.addWriteConflictRange(keyBegin, keyEnd);
+        underlying.addWriteConflictRange(checkKey(keyBegin), checkKey(keyEnd));
     }
 
     @Override
     public void addWriteConflictKey(byte[] key) {
-        underlying.addWriteConflictKey(key);
+        underlying.addWriteConflictKey(checkKey(key));
     }
 
     @Override
     public void set(byte[] key, byte[] value) {
-        underlying.set(key, value);
-        timer.increment(FDBStoreTimer.Counts.WRITES);
-        timer.increment(FDBStoreTimer.Counts.BYTES_WRITTEN, key.length + value.length);
+        underlying.set(checkKey(key), checkValue(value));
+        increment(FDBStoreTimer.Counts.WRITES);
+        increment(FDBStoreTimer.Counts.BYTES_WRITTEN, key.length + value.length);
     }
 
     @Override
     public void clear(byte[] key) {
-        underlying.clear(key);
-        timer.increment(FDBStoreTimer.Counts.DELETES);
+        underlying.clear(checkKey(key));
+        increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     public void clear(byte[] keyBegin, byte[] keyEnd) {
-        underlying.clear(keyBegin, keyEnd);
-        timer.increment(FDBStoreTimer.Counts.DELETES);
+        underlying.clear(checkKey(keyBegin), checkKey(keyEnd));
+        increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     public void clear(Range range) {
+        checkKey(range.begin);
+        checkKey(range.end);
+
         underlying.clear(range);
-        timer.increment(FDBStoreTimer.Counts.DELETES);
+        increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     @Deprecated
     public void clearRangeStartsWith(byte[] prefix) {
-        underlying.clearRangeStartsWith(prefix);
-        timer.increment(FDBStoreTimer.Counts.DELETES);
+        underlying.clearRangeStartsWith(checkKey(prefix));
+        increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     public void mutate(MutationType opType, byte[] key, byte[] param) {
-        underlying.mutate(opType, key, param);
+        underlying.mutate(opType, checkKey(key), param);
         /* Do we want to track each mutation type separately as well? */
-        timer.increment(FDBStoreTimer.Counts.MUTATIONS);
+        increment(FDBStoreTimer.Counts.MUTATIONS);
     }
 
     @Override
     public CompletableFuture<Void> commit() {
         long startTimeNanos = System.nanoTime();
         return underlying.commit().whenComplete((v, ex) ->
-                timer.recordSinceNanoTime(FDBStoreTimer.Events.COMMITS, startTimeNanos));
+                recordSinceNanoTime(FDBStoreTimer.Events.COMMITS, startTimeNanos));
     }
 
     @Override
@@ -135,7 +140,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     @Override
     public CompletableFuture<Void> watch(byte[] bytes) throws FDBException {
-        return underlying.watch(bytes);
+        return underlying.watch(checkKey(bytes));
     }
 
     @Override
@@ -166,7 +171,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     public ReadTransaction snapshot() {
         if (snapshot == null) {
-            snapshot = new Snapshot(timer, underlying.snapshot());
+            snapshot = new Snapshot(timer, underlying.snapshot(), enableAssertions);
         }
         return snapshot;
     }
@@ -181,19 +186,9 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         underlying.setReadVersion(l);
     }
 
-    @Override
-    public boolean addReadConflictRangeIfNotSnapshot(byte[] keyBegin, byte[] keyEnd) {
-        return underlying.addReadConflictRangeIfNotSnapshot(keyBegin, keyEnd);
-    }
-
-    @Override
-    public boolean addReadConflictKeyIfNotSnapshot(byte[] key) {
-        return underlying.addReadConflictKeyIfNotSnapshot(key);
-    }
-
     private static class Snapshot extends InstrumentedReadTransaction<ReadTransaction> implements ReadTransaction {
-        public Snapshot(@Nonnull StoreTimer timer, @Nonnull ReadTransaction underlying) {
-            super(timer, underlying);
+        public Snapshot(@Nullable StoreTimer timer, @Nonnull ReadTransaction underlying, boolean enableAssertions) {
+            super(timer, underlying, enableAssertions);
         }
 
         @Override
