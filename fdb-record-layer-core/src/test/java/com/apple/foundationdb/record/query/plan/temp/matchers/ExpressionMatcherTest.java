@@ -63,8 +63,7 @@ public class ExpressionMatcherTest {
             TypeMatcher.of(RelationalExpression.class));
     private static List<Bindable> existingBindables = ImmutableList.of(
             new RecordQueryIndexPlan("fake_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
-            //Query.field("fake_field").equalsParameter("x"),
-            (RelationalExpression) new RecordQueryScanPlan(ScanComparisons.EMPTY, false));
+            new RecordQueryScanPlan(ScanComparisons.EMPTY, false));
 
 
 

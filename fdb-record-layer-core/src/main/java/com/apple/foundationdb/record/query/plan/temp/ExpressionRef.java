@@ -92,7 +92,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable 
 
     boolean containsAllInMemo(@Nonnull ExpressionRef<? extends RelationalExpression> otherRef);
 
-    PlannerExpressionPointerSet<T> getMembers();
+    RelationalExpressionPointerSet<T> getMembers();
 
     /**
      * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.

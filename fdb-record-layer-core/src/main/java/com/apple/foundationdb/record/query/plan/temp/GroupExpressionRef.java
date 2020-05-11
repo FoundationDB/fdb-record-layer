@@ -59,19 +59,19 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     static final GroupExpressionRef<RelationalExpression> EMPTY = new GroupExpressionRef<>();
 
     @Nonnull
-    private final PlannerExpressionPointerSet<T> members;
+    private final RelationalExpressionPointerSet<T> members;
     private boolean explored = false;
 
     public GroupExpressionRef() {
-        members = new PlannerExpressionPointerSet<>();
+        members = new RelationalExpressionPointerSet<>();
     }
 
     protected GroupExpressionRef(@Nonnull T expression) {
-        members = new PlannerExpressionPointerSet<>();
+        members = new RelationalExpressionPointerSet<>();
         members.add(expression);
     }
 
-    private GroupExpressionRef(@Nonnull PlannerExpressionPointerSet<T> members) {
+    private GroupExpressionRef(@Nonnull RelationalExpressionPointerSet<T> members) {
         this.members =  members;
     }
 
@@ -160,7 +160,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @Nonnull
     @Override
-    public PlannerExpressionPointerSet<T> getMembers() {
+    public RelationalExpressionPointerSet<T> getMembers() {
         return members;
     }
 
@@ -199,7 +199,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Nonnull
     @Override
     public <U extends RelationalExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func) {
-        PlannerExpressionPointerSet<U> resultMembers = new PlannerExpressionPointerSet<>();
+        RelationalExpressionPointerSet<U> resultMembers = new RelationalExpressionPointerSet<>();
         members.iterator().forEachRemaining(member -> resultMembers.add(func.apply(member)));
         return new GroupExpressionRef<U>(resultMembers);
     }
@@ -207,7 +207,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Nullable
     @Override
     public <U extends RelationalExpression> ExpressionRef<U> flatMapNullable(@Nonnull Function<T, ExpressionRef<U>> nullableFunc) {
-        PlannerExpressionPointerSet<U> mappedMembers = new PlannerExpressionPointerSet<>();
+        RelationalExpressionPointerSet<U> mappedMembers = new RelationalExpressionPointerSet<>();
         for (T member : members) {
             ExpressionRef<U> mapped = nullableFunc.apply(member);
             if (mapped instanceof GroupExpressionRef) {
@@ -232,7 +232,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull Collection<T> expressions) {
-        PlannerExpressionPointerSet<T> members = new PlannerExpressionPointerSet<>();
+        RelationalExpressionPointerSet<T> members = new RelationalExpressionPointerSet<>();
         for (T expression : expressions) {
             members.add(expression);
         }

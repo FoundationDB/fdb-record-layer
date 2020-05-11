@@ -43,7 +43,7 @@ public class CascadesRuleCall implements PlannerRuleCall {
     @Nonnull
     private final PlanContext context;
     @Nonnull
-    private final PlannerExpressionPointerSet<RelationalExpression> newExpressions;
+    private final RelationalExpressionPointerSet<RelationalExpression> newExpressions;
 
     public CascadesRuleCall(@Nonnull PlanContext context,
                              @Nonnull PlannerRule<? extends RelationalExpression> rule,
@@ -53,7 +53,7 @@ public class CascadesRuleCall implements PlannerRuleCall {
         this.rule = rule;
         this.root = root;
         this.bindings = bindings;
-        this.newExpressions = new PlannerExpressionPointerSet<>();
+        this.newExpressions = new RelationalExpressionPointerSet<>();
     }
 
     public void run() {
@@ -97,7 +97,7 @@ public class CascadesRuleCall implements PlannerRuleCall {
     }
 
     @Nonnull
-    PlannerExpressionPointerSet<RelationalExpression> getNewExpressions() {
+    RelationalExpressionPointerSet<RelationalExpression> getNewExpressions() {
         return newExpressions;
     }
 }

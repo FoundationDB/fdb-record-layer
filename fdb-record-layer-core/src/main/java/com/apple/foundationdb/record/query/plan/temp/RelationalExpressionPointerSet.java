@@ -1,5 +1,5 @@
 /*
- * PlannerExpressionPointerSet.java
+ * RelationalExpressionPointerSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,15 +32,15 @@ import java.util.Set;
  * This is important for implementing the memo data structure in {@link GroupExpressionRef}
  * @param <T> the planner expression type contained in the set
  */
-public class PlannerExpressionPointerSet<T extends Bindable> extends AbstractCollection<T> {
+public class RelationalExpressionPointerSet<T extends RelationalExpression> extends AbstractCollection<T> {
     @Nonnull
     private final Set<Wrapper<T>> members;
 
-    public PlannerExpressionPointerSet() {
+    public RelationalExpressionPointerSet() {
         this.members = new HashSet<>();
     }
 
-    private PlannerExpressionPointerSet(@Nonnull Set<Wrapper<T>> members) {
+    private RelationalExpressionPointerSet(@Nonnull Set<Wrapper<T>> members) {
         this.members = members;
     }
 
@@ -49,7 +49,7 @@ public class PlannerExpressionPointerSet<T extends Bindable> extends AbstractCol
         return members.add(new Wrapper<>(expression));
     }
 
-    public void addAll(@Nonnull PlannerExpressionPointerSet<T> otherSet) {
+    public void addAll(@Nonnull RelationalExpressionPointerSet<T> otherSet) {
         members.addAll(otherSet.members);
     }
 
@@ -112,7 +112,7 @@ public class PlannerExpressionPointerSet<T extends Bindable> extends AbstractCol
      * method but are not the same object.
      * @param <T> the type of object being wrapped
      */
-    private static class Wrapper<T extends Bindable> {
+    private static class Wrapper<T extends RelationalExpression> {
         @Nonnull
         private final T expression;
 

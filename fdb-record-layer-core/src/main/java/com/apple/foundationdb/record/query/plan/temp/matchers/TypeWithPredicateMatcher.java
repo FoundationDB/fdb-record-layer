@@ -30,8 +30,9 @@ import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 /**
- * TODO.
- * @param <T> tood
+ * Matches a subclass of {@link RelationalExpressionWithPredicate} with a given predicate (as determined by
+ * {@link RelationalExpressionWithPredicate#getPredicate()} and a given matcher against the children.
+ * @param <T> the type of {@link RelationalExpressionWithPredicate} to match against
  */
 public class TypeWithPredicateMatcher<T extends RelationalExpressionWithPredicate> extends TypeMatcher<T> {
     @Nonnull
