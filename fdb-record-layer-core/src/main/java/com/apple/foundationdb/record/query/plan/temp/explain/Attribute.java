@@ -47,7 +47,7 @@ public abstract class Attribute {
     public abstract boolean isSemanticAttribute();
 
     /**
-     * This method returns the underlying object this attribute refers to.
+     * Return the underlying object this attribute refers to.
      * @return the object.
      */
     @Nullable
