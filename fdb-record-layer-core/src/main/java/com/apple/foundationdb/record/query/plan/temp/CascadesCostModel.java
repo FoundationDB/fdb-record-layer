@@ -23,11 +23,9 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.properties.ElementPredicateCountProperty;
-import com.apple.foundationdb.record.query.plan.temp.properties.PredicateHeightProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.RelationalExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.TypeFilterCountProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.UnmatchedFieldsProperty;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
@@ -36,7 +34,7 @@ import java.util.Comparator;
  * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class CascadesCostModel implements Comparator<PlannerExpression> {
+public class CascadesCostModel implements Comparator<RelationalExpression> {
     @Nonnull
     private final PlanContext planContext;
 
@@ -45,15 +43,7 @@ public class CascadesCostModel implements Comparator<PlannerExpression> {
     }
 
     @Override
-    public int compare(@Nonnull PlannerExpression a, @Nonnull PlannerExpression b) {
-        if (a instanceof QueryPredicate && b instanceof QueryPredicate) {
-            int unsatisfiedFilterCompare = Integer.compare(ElementPredicateCountProperty.evaluate(a),
-                    ElementPredicateCountProperty.evaluate(b));
-            if (unsatisfiedFilterCompare != 0) {
-                return unsatisfiedFilterCompare;
-            }
-            return Integer.compare(PredicateHeightProperty.evaluate(a), PredicateHeightProperty.evaluate(b));
-        }
+    public int compare(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b) {
         if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
             return -1;
         }

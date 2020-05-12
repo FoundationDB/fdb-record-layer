@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests of the Memo data structure implemented by {@link GroupExpressionRef} and {@link PlannerExpression}.
+ * Tests of the Memo data structure implemented by {@link GroupExpressionRef} and {@link RelationalExpression}.
  */
 public class MemoExpressionTest {
     @Nonnull
@@ -167,7 +167,7 @@ public class MemoExpressionTest {
      * A mock planner expression with very general semantics to test the correctness of various operations on the memo
      * data structure.
      */
-    private static class SyntheticPlannerExpression implements PlannerExpression {
+    private static class SyntheticPlannerExpression implements RelationalExpression {
         @Nonnull
         private final String identity;
         @Nonnull
@@ -185,12 +185,12 @@ public class MemoExpressionTest {
 
         @Nonnull
         @Override
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+        public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
             return childRefs.iterator();
         }
 
         @Override
-        public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+        public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
             if (!(otherExpression instanceof SyntheticPlannerExpression)) {
                 return false;
             }

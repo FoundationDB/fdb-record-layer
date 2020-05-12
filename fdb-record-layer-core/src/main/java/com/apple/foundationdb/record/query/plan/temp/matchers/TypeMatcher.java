@@ -23,7 +23,8 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -36,13 +37,13 @@ import java.util.stream.Stream;
  * @param <T> the planner expression type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
-public class TypeMatcher<T extends PlannerExpression> implements ExpressionMatcher<T> {
+public class TypeMatcher<T extends Bindable> implements ExpressionMatcher<T> {
     @Nonnull
     private final Class<? extends T> expressionClass;
     @Nonnull
     private final ExpressionChildrenMatcher childrenMatcher;
 
-    private TypeMatcher(@Nonnull Class<? extends T> expressionClass,
+    protected TypeMatcher(@Nonnull Class<? extends T> expressionClass,
                         @Nonnull ExpressionChildrenMatcher childrenMatcher) {
         this.expressionClass = expressionClass;
         this.childrenMatcher = childrenMatcher;
@@ -50,7 +51,7 @@ public class TypeMatcher<T extends PlannerExpression> implements ExpressionMatch
 
     @Override
     @Nonnull
-    public Class<? extends T> getRootClass() {
+    public Class<? extends Bindable> getRootClass() {
         return expressionClass;
     }
 
@@ -60,12 +61,12 @@ public class TypeMatcher<T extends PlannerExpression> implements ExpressionMatch
         return childrenMatcher;
     }
 
-    public static <U extends PlannerExpression> TypeMatcher<U> of(@Nonnull Class<? extends U> expressionClass) {
+    public static <U extends Bindable> TypeMatcher<U> of(@Nonnull Class<? extends U> expressionClass) {
         return new TypeMatcher<>(expressionClass, ListChildrenMatcher.empty());
     }
 
     @SafeVarargs
-    public static <U extends PlannerExpression> TypeMatcher<U> of(@Nonnull Class<? extends U> expressionClass,
+    public static <U extends Bindable> TypeMatcher<U> of(@Nonnull Class<? extends U> expressionClass,
                                                                   @Nonnull ExpressionMatcher<? extends Bindable>... children) {
         ImmutableList.Builder<ExpressionMatcher<? extends Bindable>> builder = ImmutableList.builder();
         for (ExpressionMatcher<? extends Bindable> child : children) {
@@ -74,23 +75,33 @@ public class TypeMatcher<T extends PlannerExpression> implements ExpressionMatch
         return of(expressionClass, ListChildrenMatcher.of(builder.build()));
     }
 
-    public static <U extends PlannerExpression> TypeMatcher<U> of(@Nonnull Class<? extends U> expressionClass,
+    public static <U extends Bindable> TypeMatcher<U> of(@Nonnull Class<? extends U> expressionClass,
                                                                   @Nonnull ExpressionChildrenMatcher childrenMatcher) {
         return new TypeMatcher<>(expressionClass, childrenMatcher);
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         // A type matcher will never match a reference. Ask the reference whether its contents match properly.
         return ref.bindWithin(this);
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull PlannerExpression expression) {
+    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression) {
         if (expressionClass.isInstance(expression)) {
             return Stream.of(PlannerBindings.from(this, expression));
+        } else {
+            return Stream.empty();
+        }
+    }
+
+    @Nonnull
+    @Override
+    public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate) {
+        if (expressionClass.isInstance(predicate)) {
+            return Stream.of(PlannerBindings.from(this, predicate));
         } else {
             return Stream.empty();
         }

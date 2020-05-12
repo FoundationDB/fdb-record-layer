@@ -28,20 +28,18 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimar
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 
 /**
  * A property that determines whether the expression may produce duplicate entries. If the given expression is a
- * {@link RelationalPlannerExpression}, this will return whether the expression might produce multiple instances
+ * {@link RelationalExpression}, this will return whether the expression might produce multiple instances
  * of the same record. If the given expression is a {@link KeyExpression}, then this will return whether the
  * expression might return multiple results for the same record.
  */
@@ -55,18 +53,18 @@ public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
-        return expression instanceof RelationalPlannerExpression;
+    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
+        return true;
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         return true;
     }
 
     @Nonnull
     @Override
-    public Boolean evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<Boolean> childResults) {
+    public Boolean evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Boolean> childResults) {
         String indexName = null;
         if (expression instanceof RecordQueryPlanWithIndex) {
             indexName = ((RecordQueryPlanWithIndex)expression).getIndexName();
@@ -94,20 +92,15 @@ public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
 
     @Nonnull
     @Override
-    public Boolean evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<Boolean> memberResults) {
+    public Boolean evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Boolean> memberResults) {
         return memberResults.stream().anyMatch(b -> b != null && b);
     }
 
-    public static boolean evaluate(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull PlanContext context) {
+    public static boolean evaluate(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull PlanContext context) {
         return ref.acceptPropertyVisitor(new CreatesDuplicatesProperty(context));
     }
 
-    @Nullable
-    public static Boolean evaluate(@Nonnull PlannerExpression expression, @Nonnull PlanContext context) {
-        return expression.acceptPropertyVisitor(new CreatesDuplicatesProperty(context));
-    }
-
-    public static boolean evaluate(@Nonnull RelationalPlannerExpression expression, @Nonnull PlanContext context) {
+    public static boolean evaluate(@Nonnull RelationalExpression expression, @Nonnull PlanContext context) {
         // Won't actually be null for relational planner expressions.
         return expression.acceptPropertyVisitor(new CreatesDuplicatesProperty(context));
     }

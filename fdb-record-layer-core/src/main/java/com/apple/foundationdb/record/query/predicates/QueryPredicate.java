@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.protobuf.Message;
 
@@ -65,7 +65,7 @@ import javax.annotation.Nullable;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryPredicate extends PlannerExpression, PlanHashable {
+public interface QueryPredicate extends Bindable, PlanHashable {
     @Nullable
     <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                      @Nonnull SourceEntry sourceEntry);

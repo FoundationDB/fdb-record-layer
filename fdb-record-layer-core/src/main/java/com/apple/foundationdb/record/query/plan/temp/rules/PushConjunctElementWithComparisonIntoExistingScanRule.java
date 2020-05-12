@@ -21,15 +21,15 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
@@ -47,11 +47,11 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public class PushConjunctElementWithComparisonIntoExistingScanRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<ElementPredicate> filterMatcher = TypeMatcher.of(ElementPredicate.class);
-    private static final ReferenceMatcher<QueryPredicate> otherFilterMatchers = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<QueryPredicate> otherFilterMatchers = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<AndPredicate> andMatcher = TypeMatcher.of(AndPredicate.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(filterMatcher, otherFilterMatchers));
     private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, andMatcher, indexScanMatcher);
+    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class, andMatcher, indexScanMatcher);
 
     public PushConjunctElementWithComparisonIntoExistingScanRule() {
         super(root);
@@ -62,7 +62,7 @@ public class PushConjunctElementWithComparisonIntoExistingScanRule extends Plann
         final LogicalFilterExpression filterExpression = call.get(root);
         final IndexEntrySourceScanExpression indexScan = call.get(indexScanMatcher);
         final ElementPredicate field = call.get(filterMatcher);
-        final List<ExpressionRef<QueryPredicate>> residualFields = call.getBindings().getAll(otherFilterMatchers);
+        final List<QueryPredicate> residualFields = call.getBindings().getAll(otherFilterMatchers);
 
         final Optional<ViewExpressionComparisons> matchedComparisons = indexScan.getComparisons().matchWith(field);
         if (matchedComparisons.isPresent()) {
@@ -73,9 +73,9 @@ public class PushConjunctElementWithComparisonIntoExistingScanRule extends Plann
                 return;
             }
 
-            final ExpressionRef<QueryPredicate> residualFilter;
+            final QueryPredicate residualFilter;
             if (residualFields.size() > 1) {
-                residualFilter = call.ref(new AndPredicate(residualFields));
+                residualFilter = new AndPredicate(residualFields);
             } else {
                 residualFilter = residualFields.get(0);
             }

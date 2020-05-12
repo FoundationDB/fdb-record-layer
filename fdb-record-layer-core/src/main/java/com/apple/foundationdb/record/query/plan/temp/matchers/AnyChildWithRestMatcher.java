@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -40,30 +40,29 @@ import java.util.stream.Stream;
  * expression that might have an unbounded number of children when a planner rule wants to inspect exactly one of those
  * children deeply. This matcher might produce several possible bindings because the {@code ExpressionMatcher} for the
  * distinguished child might match several children.
- * @param <T> the type of the matcher for the selected child
  */
 @API(API.Status.EXPERIMENTAL)
-public class AnyChildWithRestMatcher<T extends PlannerExpression> implements ExpressionChildrenMatcher {
+public class AnyChildWithRestMatcher implements ExpressionChildrenMatcher {
     @Nonnull
-    private ExpressionMatcher<T> selectedChildMatcher;
+    private ExpressionMatcher<? extends QueryPredicate> selectedChildMatcher;
     @Nonnull
     private AllChildrenMatcher otherChildrenMatcher;
 
-    private AnyChildWithRestMatcher(@Nonnull ExpressionMatcher<T> selectedChildMatcher,
-                                    @Nonnull ReferenceMatcher<? super T> otherChildrenMatcher) {
+    private AnyChildWithRestMatcher(@Nonnull ExpressionMatcher<? extends QueryPredicate> selectedChildMatcher,
+                                    @Nonnull ExpressionMatcher<QueryPredicate> otherChildrenMatcher) {
         this.selectedChildMatcher = selectedChildMatcher;
         this.otherChildrenMatcher = new AllChildrenMatcher(otherChildrenMatcher);
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull Iterator<? extends ExpressionRef<? extends PlannerExpression>> childIterator) {
-        List<? extends ExpressionRef<? extends PlannerExpression>> children = Lists.newArrayList(childIterator);
+    public Stream<PlannerBindings> matches(@Nonnull Iterator<? extends Bindable> childIterator) {
+        List<Bindable> children = Lists.newArrayList(childIterator);
 
         Stream.Builder<Stream<PlannerBindings>> streams = Stream.builder();
         for (int i = 0; i < children.size(); i++) {
-            ExpressionRef<? extends PlannerExpression> child = children.get(i);
-            List<ExpressionRef<? extends PlannerExpression>> otherChildren = new ArrayList<>(children.size() - 1);
+            Bindable child = children.get(i);
+            List<Bindable> otherChildren = new ArrayList<>(children.size() - 1);
             otherChildren.addAll(children.subList(0, i));
             otherChildren.addAll(children.subList(i + 1, children.size()));
 
@@ -80,9 +79,9 @@ public class AnyChildWithRestMatcher<T extends PlannerExpression> implements Exp
     }
 
     @Nonnull
-    public static <T extends PlannerExpression> AnyChildWithRestMatcher<T> anyMatchingWithRest(
-            @Nonnull ExpressionMatcher<T> selectedChildMatcher,
-            @Nonnull ReferenceMatcher<? super T> otherChildrenMatcher) {
-        return new AnyChildWithRestMatcher<>(selectedChildMatcher, otherChildrenMatcher);
+    public static <T extends Bindable> AnyChildWithRestMatcher anyMatchingWithRest(
+            @Nonnull ExpressionMatcher<? extends QueryPredicate> selectedChildMatcher,
+            @Nonnull ExpressionMatcher<QueryPredicate> otherChildrenMatcher) {
+        return new AnyChildWithRestMatcher(selectedChildMatcher, otherChildrenMatcher);
     }
 }

@@ -22,16 +22,18 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
@@ -46,13 +48,13 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class OrToUnorderedUnionRule extends PlannerRule<LogicalFilterExpression> {
     @Nonnull
-    private static final ReferenceMatcher<QueryPredicate> childMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<QueryPredicate> childMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     @Nonnull
     private static final ExpressionMatcher<OrPredicate> orMatcher = TypeMatcher.of(OrPredicate.class, AllChildrenMatcher.allMatching(childMatcher));
     @Nonnull
-    private static final ReferenceMatcher<RelationalPlannerExpression> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ReferenceMatcher<RelationalExpression> innerMatcher = ReferenceMatcher.anyRef();
     @Nonnull
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, orMatcher, innerMatcher);
+    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class, orMatcher, innerMatcher);
 
     public OrToUnorderedUnionRule() {
         super(root);
@@ -61,12 +63,12 @@ public class OrToUnorderedUnionRule extends PlannerRule<LogicalFilterExpression>
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalFilterExpression filterExpression = call.get(root);
-        final ExpressionRef<RelationalPlannerExpression> inner = call.get(innerMatcher);
-        final List<ExpressionRef<QueryPredicate>> children = call.getBindings().getAll(childMatcher);
-        List<ExpressionRef<RelationalPlannerExpression>> relationalExpressionRefs = new ArrayList<>(children.size());
-        for (ExpressionRef<QueryPredicate> child : children) {
+        final ExpressionRef<RelationalExpression> inner = call.get(innerMatcher);
+        final List<QueryPredicate> children = call.getBindings().getAll(childMatcher);
+        List<ExpressionRef<RelationalExpression>> relationalExpressionRefs = new ArrayList<>(children.size());
+        for (QueryPredicate child : children) {
             relationalExpressionRefs.add(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(), child, inner)));
         }
-        call.yield(SingleExpressionRef.of(new LogicalUnorderedUnionExpression(relationalExpressionRefs)));
+        call.yield(GroupExpressionRef.of(new LogicalUnorderedUnionExpression(relationalExpressionRefs)));
     }
 }

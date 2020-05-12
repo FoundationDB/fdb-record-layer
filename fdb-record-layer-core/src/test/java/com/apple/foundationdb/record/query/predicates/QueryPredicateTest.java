@@ -24,8 +24,9 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -33,8 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -56,14 +56,14 @@ public class QueryPredicateTest {
     }
 
     private QueryPredicate and(@Nonnull QueryPredicate... predicates) {
-        return AndPredicate.from(ImmutableList.copyOf(predicates));
+        return new AndPredicate(ImmutableList.copyOf(predicates));
     }
 
     private QueryPredicate or(@Nonnull QueryPredicate... predicates) {
-        return OrPredicate.from(ImmutableList.copyOf(predicates));
+        return new OrPredicate(ImmutableList.copyOf(predicates));
     }
 
-    private abstract static class TestPredicate implements  QueryPredicate {
+    private abstract static class TestPredicate implements QueryPredicate {
         @Override
         public int planHash() {
             return 0;
@@ -71,13 +71,8 @@ public class QueryPredicateTest {
 
         @Nonnull
         @Override
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
-        }
-
-        @Override
-        public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-            return false;
+        public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
+            return Stream.empty();
         }
     }
 

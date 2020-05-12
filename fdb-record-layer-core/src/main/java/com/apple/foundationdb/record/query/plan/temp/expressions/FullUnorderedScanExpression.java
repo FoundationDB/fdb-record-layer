@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -41,15 +41,15 @@ import java.util.Iterator;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class FullUnorderedScanExpression implements RelationalPlannerExpression {
+public class FullUnorderedScanExpression implements RelationalExpression {
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return Collections.emptyIterator();
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         return equals(otherExpression);
     }
 

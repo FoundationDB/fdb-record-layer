@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
@@ -33,12 +35,12 @@ import java.util.stream.Stream;
  * do not provide any access to what was matched. However, the references from the binding can be used when constructing
  * new planner expressions to yield to the planner, which is especially efficient when the references are groups.
  *
- * Although the {@code ReferenceMatcher} has a type parameter, it cannot statically verify that the type of {@link PlannerExpression}
+ * Although the {@code ReferenceMatcher} has a type parameter, it cannot statically verify that the type of {@link RelationalExpression}
  * behind a reference actually matches its type parameter, because of type erasure. It is up to the programmer to verify
  * that the type parameter is general enough to cover every possible type of {@code PlannerExpression} that might be behind
  * any reference that it could be matched to. In general, the programmer will be certain that a reference would contain
  * a particular type because an expression of a certain type is always found in a particular position of the iterator
- * returned by {@link PlannerExpression#getPlannerExpressionChildren()}. For example, it would be safe to use a
+ * returned by {@link RelationalExpression#getPlannerExpressionChildren()}. For example, it would be safe to use a
  * {@code ReferenceMatcher<QueryComponent>} to match against the second planner expression child of a
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} because that child is necessarily a
  * {@code QueryComponent}; note that there is no way for the type system to know that, so the programmer must track
@@ -47,11 +49,11 @@ import java.util.stream.Stream;
  * @param <T> the type of planner expression that this matcher will always bind to
  */
 @API(API.Status.EXPERIMENTAL)
-public class ReferenceMatcher<T extends PlannerExpression> implements ExpressionMatcher<ExpressionRef<T>> {
+public class ReferenceMatcher<T extends RelationalExpression> implements ExpressionMatcher<ExpressionRef<T>> {
     @Nonnull
     @Override
-    public Class<? extends PlannerExpression> getRootClass() {
-        return PlannerExpression.class;
+    public Class<? extends Bindable> getRootClass() {
+        return RelationalExpression.class;
     }
 
     @Nonnull
@@ -62,13 +64,19 @@ public class ReferenceMatcher<T extends PlannerExpression> implements Expression
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         return Stream.of(PlannerBindings.from(this, ref));
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull PlannerExpression expression) {
+    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression) {
+        return Stream.empty();
+    }
+
+    @Nonnull
+    @Override
+    public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate) {
         return Stream.empty();
     }
 
@@ -76,10 +84,10 @@ public class ReferenceMatcher<T extends PlannerExpression> implements Expression
      * Return a new {@code ReferenceMatcher} instance. The returned matcher is guaranteed to be distinct (according to
      * pointer comparison) from the matchers returned by other calls to {@code anyRef()}, so that multiple such matchers
      * may be used in a single {@link PlannerBindings} object.
-     * @param <U> the type of {@link PlannerExpression} that is guaranteed (by programmer knowledge) to be behind the references that this matcher will bind to
+     * @param <U> the type of {@link RelationalExpression} that is guaranteed (by programmer knowledge) to be behind the references that this matcher will bind to
      * @return a new, distinct matcher that matches to any reference
      */
-    public static <U extends PlannerExpression> ReferenceMatcher<U> anyRef() {
+    public static <U extends RelationalExpression> ReferenceMatcher<U> anyRef() {
         // This must return a new matcher so that it is distinct from other ReferenceMatchers according to pointer comparison.
         return new ReferenceMatcher<>();
     }

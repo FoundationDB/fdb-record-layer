@@ -24,15 +24,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
@@ -43,8 +44,8 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class, AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
-    private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> filterMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
+    private static final ExpressionMatcher<QueryPredicate> filterMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
+    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
             filterMatcher, innerMatcher);
 
     public ImplementFilterRule() {
@@ -55,9 +56,9 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalFilterExpression filterExpression = call.get(root);
         final RecordQueryPlan inner = call.get(innerMatcher);
-        final ExpressionRef<QueryPredicate> filter = call.get(filterMatcher);
+        final QueryPredicate filter = call.get(filterMatcher);
 
-        call.yield(SingleExpressionRef.of(
+        call.yield(GroupExpressionRef.of(
                 new RecordQueryPredicateFilterPlan(call.ref(inner), filterExpression.getBaseSource(), filter)));
     }
 }

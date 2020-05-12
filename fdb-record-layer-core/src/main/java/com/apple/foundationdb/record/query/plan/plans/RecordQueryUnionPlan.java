@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
@@ -60,7 +60,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Nonnull
     private final KeyExpression comparisonKey;
     @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
+    private final List<ExpressionRef<? extends RelationalExpression>> expressionChildren;
     private final boolean showComparisonKey;
 
     /**
@@ -95,7 +95,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Deprecated
     public RecordQueryUnionPlan(@Nonnull List<RecordQueryPlan> children,
                                 @Nonnull KeyExpression comparisonKey, boolean reverse, boolean showComparisonKey) {
-        this(children.stream().map(SingleExpressionRef::of).collect(Collectors.toList()), comparisonKey,
+        this(children.stream().map(GroupExpressionRef::of).collect(Collectors.toList()), comparisonKey,
                 reverse, showComparisonKey, false);
     }
 
@@ -126,13 +126,13 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
     }
 
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         if (!(otherExpression instanceof RecordQueryUnionPlan)) {
             return false;
         }
@@ -194,7 +194,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
-        final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right));
+        final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right));
         return new RecordQueryUnionPlan(childRefs, comparisonKey, left.isReverse(), showComparisonKey, false);
     }
 
@@ -222,7 +222,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         }
         final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(SingleExpressionRef.of(child));
+            childRefsBuilder.add(GroupExpressionRef.of(child));
         }
         return new RecordQueryUnionPlan(childRefsBuilder.build(), comparisonKey, firstReverse, showComparisonKey, false);
     }

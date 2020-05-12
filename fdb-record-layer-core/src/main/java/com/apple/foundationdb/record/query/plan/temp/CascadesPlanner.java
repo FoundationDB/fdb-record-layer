@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,11 +46,11 @@ import java.util.Iterator;
  * <p>
  * <a href="https://15721.courses.cs.cmu.edu/spring2017/papers/15-optimizer2/graefe-ieee1995.pdf">Cascades</a> is a
  * framework for a query optimization introduced by Graefe in 1995. In Cascades, all parsed queries, query plans, and
- * intermediate state between the two are represented in a unified tree of {@link PlannerExpression}, which includes
+ * intermediate state between the two are represented in a unified tree of {@link RelationalExpression}, which includes
  * types such as {@link RecordQueryPlan} and {@link com.apple.foundationdb.record.query.expressions.QueryComponent}.
  * This highly flexible data structure reifies essentially the entire state of the planner (i.e., partially planned
  * elements, current optimization, goals, etc.) and allows individual planning steps to be modular and stateless by
- * keeping all state in the {@link PlannerExpression} tree.
+ * keeping all state in the {@link RelationalExpression} tree.
  * </p>
  *
  * <p>
@@ -81,9 +80,9 @@ import java.util.Iterator;
  * different trees in the forest. The memo is composed of expression groups (or just <em>groups</em>), which are
  * equivalence classes of expressions. In this implementation, the memo structure is an implicit data structure
  * represented by {@link GroupExpressionRef}s, each of which represents a group expression in Cascades and contains
- * a set of {@link PlannerExpression}s. In turn, {@link PlannerExpression}s have some number of <em>children</em>, each
+ * a set of {@link RelationalExpression}s. In turn, {@link RelationalExpression}s have some number of <em>children</em>, each
  * of which is a {@link GroupExpressionRef} and which can be traversed by the planner via the
- * {@link PlannerExpression#getPlannerExpressionChildren()} method.
+ * {@link RelationalExpression#getPlannerExpressionChildren()} method.
  * </p>
  *
  * <p>
@@ -99,7 +98,7 @@ import java.util.Iterator;
  * </p>
  *
  * @see GroupExpressionRef
- * @see PlannerExpression
+ * @see RelationalExpression
  * @see PlannerRule
  * @see CascadesCostModel
  */
@@ -114,7 +113,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private final PlannerRuleSet ruleSet;
     @Nonnull
-    private GroupExpressionRef<PlannerExpression> currentRoot;
+    private GroupExpressionRef<RelationalExpression> currentRoot;
     @Nonnull
     private Deque<Task> taskStack; // Use a Dequeue instead of a Stack because we don't need synchronization.
 
@@ -135,9 +134,9 @@ public class CascadesPlanner implements QueryPlanner {
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query) {
         final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query);
-        planPartial(context, RelationalPlannerExpression.fromRecordQuery(query, context));
+        planPartial(context, RelationalExpression.fromRecordQuery(query, context));
 
-        final PlannerExpression singleRoot = currentRoot.getMembers().iterator().next();
+        final RelationalExpression singleRoot = currentRoot.getMembers().iterator().next();
         if (singleRoot instanceof RecordQueryPlan) {
             if (logger.isDebugEnabled()) {
                 logger.debug(KeyValueLogMessage.of("explain of plan",
@@ -154,7 +153,7 @@ public class CascadesPlanner implements QueryPlanner {
 
     @VisibleForTesting
     @Nonnull
-    GroupExpressionRef<PlannerExpression> planPartial(@Nonnull PlanContext context, @Nonnull PlannerExpression initialPlannerExpression) {
+    GroupExpressionRef<RelationalExpression> planPartial(@Nonnull PlanContext context, @Nonnull RelationalExpression initialPlannerExpression) {
         currentRoot = GroupExpressionRef.of(initialPlannerExpression);
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
@@ -186,19 +185,19 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<PlannerExpression> group;
+        private final GroupExpressionRef<RelationalExpression> group;
 
         @SuppressWarnings("unchecked")
-        public OptimizeGroup(@Nonnull PlanContext context, @Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+        public OptimizeGroup(@Nonnull PlanContext context, @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
             this.context = context;
             if (ref instanceof GroupExpressionRef) {
-                this.group = (GroupExpressionRef<PlannerExpression>) ref;
+                this.group = (GroupExpressionRef<RelationalExpression>) ref;
             } else {
                 throw new RecordCoreArgumentException("illegal non-group reference in group expression");
             }
         }
 
-        public OptimizeGroup(@Nonnull PlanContext context, @Nonnull GroupExpressionRef<PlannerExpression> group) {
+        public OptimizeGroup(@Nonnull PlanContext context, @Nonnull GroupExpressionRef<RelationalExpression> group) {
             this.context = context;
             this.group = group;
         }
@@ -208,14 +207,14 @@ public class CascadesPlanner implements QueryPlanner {
             if (!group.isExplored()) {
                 // Explore the group, then come back here to pick an optimal expression.
                 taskStack.push(this);
-                for (PlannerExpression member : group.getMembers()) {
+                for (RelationalExpression member : group.getMembers()) {
                     taskStack.push(new ExploreExpression(context, group, member));
                 }
                 group.setExplored();
             } else {
                 // TODO this is very Volcano-style rather than Cascades, because there's no branch-and-bound pruning.
-                PlannerExpression bestMember = null;
-                for (PlannerExpression member : group.getMembers()) {
+                RelationalExpression bestMember = null;
+                for (RelationalExpression member : group.getMembers()) {
                     if (bestMember == null || new CascadesCostModel(context).compare(member, bestMember) < 0) {
                         bestMember = member;
                     }
@@ -238,13 +237,13 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         protected final PlanContext context;
         @Nonnull
-        protected final GroupExpressionRef<PlannerExpression> group;
+        protected final GroupExpressionRef<RelationalExpression> group;
         @Nonnull
-        protected final PlannerExpression expression;
+        protected final RelationalExpression expression;
 
         public ExploreExpression(@Nonnull PlanContext context,
-                                 @Nonnull GroupExpressionRef<PlannerExpression> group,
-                                 @Nonnull PlannerExpression expression) {
+                                 @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                 @Nonnull RelationalExpression expression) {
             this.context = context;
             this.group = group;
             this.expression = expression;
@@ -255,7 +254,7 @@ public class CascadesPlanner implements QueryPlanner {
             return ruleSet;
         }
 
-        protected void addTransformTask(@Nonnull PlannerRule<? extends PlannerExpression> rule) {
+        protected void addTransformTask(@Nonnull PlannerRule<? extends RelationalExpression> rule) {
             taskStack.push(new Transform(context, group, expression, rule));
         }
 
@@ -268,7 +267,7 @@ public class CascadesPlanner implements QueryPlanner {
             getRules().getRulesMatching(expression).forEachRemaining(this::addTransformTask);
 
             final PlanContext relativeContext = context;
-            Iterator<? extends ExpressionRef<? extends PlannerExpression>> expressionChildren = expression.getPlannerExpressionChildren();
+            Iterator<? extends ExpressionRef<? extends RelationalExpression>> expressionChildren = expression.getPlannerExpressionChildren();
             while (expressionChildren.hasNext()) {
                 taskStack.push(new ExploreGroup(relativeContext, expressionChildren.next()));
             }
@@ -284,13 +283,13 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<PlannerExpression> group;
+        private final GroupExpressionRef<RelationalExpression> group;
 
         @SuppressWarnings("unchecked")
-        public ExploreGroup(@Nonnull PlanContext context, @Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+        public ExploreGroup(@Nonnull PlanContext context, @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
             this.context = context;
             if (ref instanceof GroupExpressionRef) {
-                this.group = (GroupExpressionRef<PlannerExpression>) ref;
+                this.group = (GroupExpressionRef<RelationalExpression>) ref;
             } else {
                 throw new RecordCoreArgumentException("illegal non-group reference in group expression");
             }
@@ -302,7 +301,7 @@ public class CascadesPlanner implements QueryPlanner {
                 return;
             }
 
-            for (PlannerExpression expression : group.getMembers()) {
+            for (RelationalExpression expression : group.getMembers()) {
                 taskStack.push(new ExploreExpression(context, group, expression));
             }
 
@@ -320,16 +319,16 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<PlannerExpression> group;
+        private final GroupExpressionRef<RelationalExpression> group;
         @Nonnull
-        private final PlannerExpression expression;
+        private final RelationalExpression expression;
         @Nonnull
-        private final PlannerRule<? extends PlannerExpression> rule;
+        private final PlannerRule<? extends RelationalExpression> rule;
 
         public Transform(@Nonnull PlanContext context,
-                         @Nonnull GroupExpressionRef<PlannerExpression> group,
-                         @Nonnull PlannerExpression expression,
-                         @Nonnull PlannerRule<? extends PlannerExpression> rule) {
+                         @Nonnull GroupExpressionRef<RelationalExpression> group,
+                         @Nonnull RelationalExpression expression,
+                         @Nonnull PlannerRule<? extends RelationalExpression> rule) {
             this.context = context;
             this.group = group;
             this.expression = expression;
@@ -350,7 +349,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         private void executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
             ruleCall.run();
-            for (PlannerExpression newExpression : ruleCall.getNewExpressions()) {
+            for (RelationalExpression newExpression : ruleCall.getNewExpressions()) {
                 if (newExpression instanceof QueryPlan) {
                     taskStack.push(new OptimizeInputs(context, group, newExpression));
                     taskStack.push(new ExploreExpression(context, group, newExpression));
@@ -370,13 +369,13 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<PlannerExpression> group;
+        private final GroupExpressionRef<RelationalExpression> group;
         @Nonnull
-        private final PlannerExpression expression;
+        private final RelationalExpression expression;
 
         public OptimizeInputs(@Nonnull PlanContext context,
-                              @Nonnull GroupExpressionRef<PlannerExpression> group,
-                              @Nonnull PlannerExpression expression) {
+                              @Nonnull GroupExpressionRef<RelationalExpression> group,
+                              @Nonnull RelationalExpression expression) {
             this.context = context;
             this.group = group;
             this.expression = expression;
@@ -390,7 +389,7 @@ public class CascadesPlanner implements QueryPlanner {
 
             final PlanContext relativeContext = context;
 
-            Iterator<? extends ExpressionRef<? extends PlannerExpression>> expressionChildren = expression.getPlannerExpressionChildren();
+            Iterator<? extends ExpressionRef<? extends RelationalExpression>> expressionChildren = expression.getPlannerExpressionChildren();
             while (expressionChildren.hasNext()) {
                 taskStack.push(new OptimizeGroup(relativeContext, expressionChildren.next()));
             }

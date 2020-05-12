@@ -22,37 +22,28 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @API(API.Status.INTERNAL)
-abstract class SimpleComponentWithChildren implements PlannerExpression {
+class SimpleComponentWithChildren {
     /**
      * Children for this component, at least 2 of them.
      */
     @Nonnull
-    private final List<ExpressionRef<QueryComponent>> children;
-    @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> childrenRefView;
+    private final List<QueryComponent> children;
 
     /**
      * Creates a new component with children, must have at least 2 children. The planner assumes this.
      * @param children the operands
      */
-    SimpleComponentWithChildren(@Nonnull List<ExpressionRef<QueryComponent>> children) {
+    protected SimpleComponentWithChildren(@Nonnull List<QueryComponent> children) {
         if (children.size() < 2) {
             throw new RecordCoreException(getClass().getSimpleName() + " must have at least two children");
         }
         this.children = children;
-        this.childrenRefView = new ArrayList<>();
-        this.childrenRefView.addAll(this.children);
     }
 
     public void validate(@Nonnull Descriptors.Descriptor descriptor) {
@@ -67,18 +58,6 @@ abstract class SimpleComponentWithChildren implements PlannerExpression {
      */
     @Nonnull
     public List<QueryComponent> getChildren() {
-        return children.stream().map(ExpressionRef::get).collect(Collectors.toList());
-    }
-
-    @Nonnull
-    public List<ExpressionRef<QueryComponent>> getChildrenRefs() {
         return children;
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return childrenRefView.iterator();
     }
 }

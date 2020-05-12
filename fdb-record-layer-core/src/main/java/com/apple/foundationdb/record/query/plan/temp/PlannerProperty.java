@@ -31,11 +31,11 @@ import java.util.List;
  * the contents of the subtree rooted at the expression on which it is evaluated, rather than just a finite depth set
  * of paths as a {@link com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher} would. For example,
  * the sort order and set of record types produced by a
- * {@link com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression} could be a
+ * {@link RelationalExpression} could be a
  * {@code PlannerProperty}.
  *
  * <p>
- * To avoid littering {@link PlannerExpression} classes with methods for various properties, properties are implemented
+ * To avoid littering {@link RelationalExpression} classes with methods for various properties, properties are implemented
  * using a variant of the hierarchical visitor pattern the tree of {@code PlannerExpression}s and {@link ExpressionRef}s.
  * A property can be evaluated against an expression tree by having the visitor traverse the tree. Note that the
  * "{@code visitLeave()}" methods {@link #evaluateAtExpression} and {@link #evaluateAtRef} are handed the results of the
@@ -51,12 +51,12 @@ public interface PlannerProperty<T> {
      * Return whether the property should visit the subtree rooted at the given expression.
      * Called on nodes in the expression tree in visit pre-order of the depth-first traversal of the tree.
      * That is, as each node is visited for the first time, {@code shouldVisit()} is called on that node.
-     * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtExpression(PlannerExpression, List)} will
+     * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtExpression(RelationalExpression, List)} will
      * not be called on the given expression.
      * @param expression the planner expression to visit
      * @return {@code true} if the children of {@code expression} should be visited and {@code false} if they should not be visited
      */
-    boolean shouldVisit(@Nonnull PlannerExpression expression);
+    boolean shouldVisit(@Nonnull RelationalExpression expression);
 
     /**
      * Return whether the property should visit the subtree rooted at the given expression.
@@ -67,7 +67,7 @@ public interface PlannerProperty<T> {
      * @param ref the expression reference to visit
      * @return {@code true} if the members of {@code ref} should be visited and {@code false} if they should not be visited
      */
-    boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref);
+    boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref);
 
     /**
      * Evaluate the property at the given expression, using the results of evaluating the property at its children.
@@ -79,7 +79,7 @@ public interface PlannerProperty<T> {
      * @return the value of property at the given expression
      */
     @Nonnull
-    T evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<T> childResults);
+    T evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<T> childResults);
 
     /**
      * Evaluate the property at the given reference, using the results of evaluating the property at its members.
@@ -91,5 +91,5 @@ public interface PlannerProperty<T> {
      * @return the value of property at the given reference
      */
     @Nonnull
-    T evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<T> memberResults);
+    T evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<T> memberResults);
 }

@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
 
 import javax.annotation.Nonnull;
@@ -44,7 +44,7 @@ import java.util.Objects;
  *
  * @see LogicalToPhysicalScanRule which converts this to a {@code RecordQueryIndexPlan}
  */
-public class IndexEntrySourceScanExpression implements RelationalPlannerExpression  {
+public class IndexEntrySourceScanExpression implements RelationalExpression {
     @Nonnull
     private final IndexEntrySource indexEntrySource;
     @Nonnull
@@ -63,7 +63,7 @@ public class IndexEntrySourceScanExpression implements RelationalPlannerExpressi
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return Collections.emptyIterator();
     }
 
@@ -92,7 +92,7 @@ public class IndexEntrySourceScanExpression implements RelationalPlannerExpressi
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         if (!(otherExpression instanceof IndexEntrySourceScanExpression)) {
             return false;
         }

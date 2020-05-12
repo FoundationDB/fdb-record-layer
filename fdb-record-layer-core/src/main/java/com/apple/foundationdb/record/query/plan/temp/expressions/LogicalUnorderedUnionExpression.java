@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.Iterator;
@@ -35,9 +35,9 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalUnorderedUnionExpression implements RelationalExpressionWithChildren {
     @Nonnull
-    private List<ExpressionRef<RelationalPlannerExpression>> expressionChildren;
+    private List<ExpressionRef<RelationalExpression>> expressionChildren;
 
-    public LogicalUnorderedUnionExpression(@Nonnull List<ExpressionRef<RelationalPlannerExpression>> expressionChildren) {
+    public LogicalUnorderedUnionExpression(@Nonnull List<ExpressionRef<RelationalExpression>> expressionChildren) {
         this.expressionChildren = expressionChildren;
     }
 
@@ -48,12 +48,12 @@ public class LogicalUnorderedUnionExpression implements RelationalExpressionWith
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         return otherExpression instanceof LogicalUnorderedUnionExpression;
     }
 

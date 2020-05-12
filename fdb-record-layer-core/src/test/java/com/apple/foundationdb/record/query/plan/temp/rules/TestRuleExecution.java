@@ -20,11 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,9 +38,9 @@ import java.util.Iterator;
 public class TestRuleExecution {
     private final boolean ruleMatched;
     @Nonnull
-    private final GroupExpressionRef<PlannerExpression> result;
+    private final GroupExpressionRef<RelationalExpression> result;
 
-    private TestRuleExecution(boolean ruleMatched, @Nonnull GroupExpressionRef<PlannerExpression> result) {
+    private TestRuleExecution(boolean ruleMatched, @Nonnull GroupExpressionRef<RelationalExpression> result) {
         this.ruleMatched = ruleMatched;
         this.result = result;
     }
@@ -49,14 +50,14 @@ public class TestRuleExecution {
     }
 
     @Nonnull
-    public GroupExpressionRef<PlannerExpression> getResult() {
+    public GroupExpressionRef<RelationalExpression> getResult() {
         return result;
     }
 
     @SuppressWarnings("unchecked")
     @Nullable
-    public <T extends PlannerExpression> T getResultMemberWithClass(@Nonnull Class<T> clazz) {
-        for (PlannerExpression member : result.getMembers()) {
+    public <T extends Bindable> T getResultMemberWithClass(@Nonnull Class<T> clazz) {
+        for (RelationalExpression member : result.getMembers()) {
             if (clazz.isInstance(member)) {
                 return (T) member;
             }
@@ -65,10 +66,10 @@ public class TestRuleExecution {
     }
 
     public static TestRuleExecution applyRule(@Nonnull PlanContext context,
-                                              @Nonnull PlannerRule<? extends PlannerExpression> rule,
-                                              @Nonnull GroupExpressionRef<PlannerExpression> group) {
+                                              @Nonnull PlannerRule<? extends RelationalExpression> rule,
+                                              @Nonnull GroupExpressionRef<RelationalExpression> group) {
         boolean ruleMatched = false;
-        for (PlannerExpression expression : group.getMembers()) {
+        for (RelationalExpression expression : group.getMembers()) {
             final Iterator<CascadesRuleCall> ruleCalls = expression.bindTo(rule.getMatcher())
                     .map(bindings -> new CascadesRuleCall(context, rule, group, bindings))
                     .iterator();

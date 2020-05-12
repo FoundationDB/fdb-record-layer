@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -41,15 +41,15 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
-    private final ExpressionRef<RelationalPlannerExpression> inner;
+    private final ExpressionRef<RelationalExpression> inner;
     @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
+    private final List<ExpressionRef<? extends RelationalExpression>> expressionChildren;
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalPlannerExpression inner) {
-        this(recordTypes, SingleExpressionRef.of(inner));
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalExpression inner) {
+        this(recordTypes, GroupExpressionRef.of(inner));
     }
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull ExpressionRef<RelationalExpression> inner) {
         this.recordTypes = recordTypes;
         this.inner = inner;
         this.expressionChildren = ImmutableList.of(this.inner);
@@ -57,7 +57,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
 
     @Override
     @Nonnull
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
     }
 
@@ -73,12 +73,12 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
     }
 
     @Nonnull
-    public RelationalPlannerExpression getInner() {
+    public RelationalExpression getInner() {
         return inner.get();
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         return otherExpression instanceof LogicalTypeFilterExpression &&
                ((LogicalTypeFilterExpression)otherExpression).getRecordTypes().equals(getRecordTypes());
     }

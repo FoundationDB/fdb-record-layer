@@ -28,8 +28,8 @@ import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 /**
- * A planner type that supports rule binding. Both {@link PlannerExpression} and {@link ExpressionRef} implement
- * <code>Bindable</code> to allow binding to both concrete expressions and groups.
+ * A planner type that supports rule binding. Both {@link RelationalExpression}
+ * and {@link ExpressionRef} implement <code>Bindable</code> to allow binding to both concrete expressions and groups.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface Bindable {

@@ -147,9 +147,9 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
      */
     public static class ExpressionRefHeadNode extends Node {
         @Nonnull
-        final ExpressionRef<? extends PlannerExpression> ref;
+        final ExpressionRef<? extends RelationalExpression> ref;
 
-        public ExpressionRefHeadNode(final ExpressionRef<? extends PlannerExpression> ref) {
+        public ExpressionRefHeadNode(final ExpressionRef<? extends RelationalExpression> ref) {
             super(ExpressionRef.class.getSimpleName());
             this.ref = ref;
         }
@@ -330,7 +330,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
      * @return the word "done" (IntelliJ really likes a return of String).
      */
     @Nonnull
-    public static String show(final PlannerExpression plannerExpression) {
+    public static String show(final RelationalExpression plannerExpression) {
         try {
             final PlannerGraph<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> plannerGraph =
                     Objects.requireNonNull(plannerExpression.acceptPropertyVisitor(new InternalPlannerGraphProperty()));
@@ -438,18 +438,18 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull PlannerExpression expression) {
+    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
         return true;
     }
 
     @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         return true;
     }
 
     @Nonnull
     @Override
-    public PlannerGraph<Node, Edge> evaluateAtExpression(@Nonnull PlannerExpression expression, @Nonnull List<PlannerGraph<Node, Edge>> childGraphs) {
+    public PlannerGraph<Node, Edge> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<PlannerGraph<Node, Edge>> childGraphs) {
         final PlannerGraphBuilder<Node, Edge> plannerGraphBuilder = expression.showYourself();
         for (final PlannerGraph<Node, Edge> childGraph : childGraphs) {
             plannerGraphBuilder
@@ -461,7 +461,7 @@ public class InternalPlannerGraphProperty implements PlannerProperty<PlannerGrap
 
     @Nonnull
     @Override
-    public PlannerGraph<Node, Edge> evaluateAtRef(@Nonnull ExpressionRef<? extends PlannerExpression> ref, @Nonnull List<PlannerGraph<Node, Edge>> memberResults) {
+    public PlannerGraph<Node, Edge> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<PlannerGraph<Node, Edge>> memberResults) {
         if (memberResults.isEmpty()) {
             // should not happen
             return PlannerGraph.<Node, Edge>builder(new ExpressionRefHeadNode(ref)).build();

@@ -29,7 +29,7 @@ import java.util.Optional;
 
 /**
  * Classes that inherit from <code>PlannerRule</code> form the base of the Cascades planning system. During the planning
- * process, rules are matched to a current {@link PlannerExpression} and then provide zero or more logically equivalent
+ * process, rules are matched to a current {@link RelationalExpression} and then provide zero or more logically equivalent
  * expressions.
  *
  * The rule matching occurs in two stages: first, the planner examines the {@link #matcher} of the rule,
@@ -41,12 +41,12 @@ import java.util.Optional;
  *
  * The <code>onMatch()</code> method returns logically equivalent expressions to the planner by calling the
  * {@link PlannerRuleCall#yield(ExpressionRef)} method on its rule call, with a new
- * {@link MutableExpressionRef}. The <code>yield()</code> method can be called more than once, or zero times if no
+ * {@link ExpressionRef}. The <code>yield()</code> method can be called more than once, or zero times if no
  * alternative expressions are found.
  *
  * A rule should not attempt to modify any of the bound objects that the rule call provides. Nearly all such objects are
  * immutable, and the mutable ones are hidden behind interfaces that do not expose mutation methods. In particular,
- * a rule should never cast an {@link ExpressionRef} to {@link MutableExpressionRef}, in an attempt to access it.
+ * a rule should never cast an {@link ExpressionRef} in an attempt to access it.
  *
  * A <code>PlannerRule</code> should not store state between successive calls to {@link #onMatch(PlannerRuleCall)},
  * since it may be reused an arbitrary number of times and may be reinstantiated at any time. To simplify cleanup,
@@ -58,7 +58,7 @@ import java.util.Optional;
  * @see PlannerRuleCall
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class PlannerRule<T extends PlannerExpression> {
+public abstract class PlannerRule<T extends Bindable> {
     @Nonnull
     private final ExpressionMatcher<T> matcher;
 
@@ -68,7 +68,7 @@ public abstract class PlannerRule<T extends PlannerExpression> {
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
      * @see PlannerRuleSet
      */
-    public Optional<Class<? extends PlannerExpression>> getRootOperator() {
+    public Optional<Class<? extends Bindable>> getRootOperator() {
         return Optional.of(matcher.getRootClass());
     }
 

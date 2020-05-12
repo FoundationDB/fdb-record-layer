@@ -24,19 +24,14 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.collect.Iterators;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -49,13 +44,9 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.MAINTAINED)
 public class NotComponent implements ComponentWithSingleChild {
     @Nonnull
-    private final ExpressionRef<QueryComponent> child;
+    private final QueryComponent child;
 
     public NotComponent(@Nonnull QueryComponent child) {
-        this.child = SingleExpressionRef.of(child);
-    }
-
-    public NotComponent(@Nonnull ExpressionRef<QueryComponent> child) {
         this.child = child;
     }
 
@@ -103,7 +94,7 @@ public class NotComponent implements ComponentWithSingleChild {
     @Override
     @Nonnull
     public QueryComponent getChild() {
-        return child.get();
+        return child;
     }
 
     @Override
@@ -112,12 +103,6 @@ public class NotComponent implements ComponentWithSingleChild {
             return this;
         }
         return new NotComponent(newChild);
-    }
-
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof NotComponent;
     }
 
     @Override
@@ -142,16 +127,9 @@ public class NotComponent implements ComponentWithSingleChild {
         return getChild().planHash() + 1;
     }
 
-    @Override
-    @Nonnull
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.child);
-    }
-
     @Nonnull
     @Override
     public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new NotPredicate(child.get().normalizeForPlanner(source, fieldNamePrefix));
+        return new NotPredicate(child.normalizeForPlanner(source, fieldNamePrefix));
     }
 }

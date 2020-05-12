@@ -74,7 +74,7 @@ public interface PlannerRuleCall {
      * produced by the rule. This method may be called zero or more times by the rule's <code>onMatch()</code> method.
      * @param expression the expression produced by the rule
      */
-    void yield(@Nonnull ExpressionRef<? extends PlannerExpression> expression);
+    void yield(@Nonnull ExpressionRef<? extends RelationalExpression> expression);
 
     /**
      * Wrap the given planner expression in an implementation of {@link ExpressionRef} suitable for the planner associated
@@ -84,5 +84,5 @@ public interface PlannerRuleCall {
      * @param <U> the type of the planner expression
      * @return {@code expression} wrapped in a reference
      */
-    <U extends PlannerExpression> ExpressionRef<U> ref(U expression);
+    <U extends RelationalExpression> ExpressionRef<U> ref(U expression);
 }

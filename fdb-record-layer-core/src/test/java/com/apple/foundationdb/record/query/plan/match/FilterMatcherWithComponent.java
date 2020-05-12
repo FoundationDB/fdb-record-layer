@@ -60,7 +60,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
         if (plan instanceof RecordQueryFilterPlan) {
             return component.equals(((RecordQueryFilterPlan)plan).getFilter()) && super.matchesSafely(plan);
         } else if (plan instanceof RecordQueryPredicateFilterPlan) {
-            QueryPredicate predicate = ((RecordQueryPredicateFilterPlan)plan).getFilter();
+            QueryPredicate predicate = ((RecordQueryPredicateFilterPlan)plan).getPredicate();
             return predicate.equals(component.normalizeForPlanner(((RecordQueryPredicateFilterPlan)plan).getBaseSource()))
                     && super.matchesSafely(plan);
         } else {

@@ -24,11 +24,15 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
@@ -56,13 +60,17 @@ import java.util.List;
  * </code>
  */
 @API(API.Status.EXPERIMENTAL)
-public class FlattenNestedAndPredicateRule extends PlannerRule<AndPredicate> {
-    private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> andChildrenMatcher = ReferenceMatcher.anyRef();
-    private static final ReferenceMatcher<QueryPredicate> otherInnerComponentsMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<AndPredicate> root = TypeMatcher.of(AndPredicate.class,
-            AnyChildWithRestMatcher.anyMatchingWithRest(
-                    TypeMatcher.of(AndPredicate.class, AllChildrenMatcher.allMatching(andChildrenMatcher)),
-                    otherInnerComponentsMatcher));
+public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpression> {
+    private static final ExpressionMatcher<QueryPredicate> andChildrenMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
+    private static final ExpressionMatcher<QueryPredicate> otherInnerComponentsMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
+    private static final ExpressionMatcher<ExpressionRef<RelationalExpression>> inner = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
+            TypeMatcher.of(AndPredicate.class,
+                    AnyChildWithRestMatcher.anyMatchingWithRest(
+                            TypeMatcher.of(AndPredicate.class, AllChildrenMatcher.allMatching(andChildrenMatcher)),
+                    otherInnerComponentsMatcher)),
+            inner);
+
 
     public FlattenNestedAndPredicateRule() {
         super(root);
@@ -70,11 +78,13 @@ public class FlattenNestedAndPredicateRule extends PlannerRule<AndPredicate> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        List<ExpressionRef<QueryPredicate>> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
-        List<ExpressionRef<QueryPredicate>> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
-        List<ExpressionRef<QueryPredicate>> allConjuncts = new ArrayList<>(innerAndChildren);
+        LogicalFilterExpression rootFilter = call.getBindings().get(root);
+        ExpressionRef<RelationalExpression> innerPlan = call.getBindings().get(inner);
+        List<QueryPredicate> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
+        List<QueryPredicate> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
+        List<QueryPredicate> allConjuncts = new ArrayList<>(innerAndChildren);
         allConjuncts.addAll(otherOuterAndChildren);
 
-        call.yield(call.ref(new AndPredicate(allConjuncts)));
+        call.yield(call.ref(new LogicalFilterExpression(rootFilter.getBaseSource(), new AndPredicate(allConjuncts), innerPlan)));
     }
 }

@@ -22,11 +22,11 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
@@ -42,7 +42,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static ExpressionMatcher<ExpressionRef<RelationalPlannerExpression>> childMatcher = ReferenceMatcher.anyRef();
+    private static ExpressionMatcher<ExpressionRef<RelationalExpression>> childMatcher = ReferenceMatcher.anyRef();
     private static ExpressionMatcher<LogicalTypeFilterExpression> root = TypeMatcher.of(LogicalTypeFilterExpression.class, childMatcher);
 
     public RemoveRedundantTypeFilterRule() {
@@ -52,7 +52,7 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         LogicalTypeFilterExpression typeFilter = call.get(root);
-        ExpressionRef<RelationalPlannerExpression> child = call.get(childMatcher);
+        ExpressionRef<RelationalExpression> child = call.get(childMatcher);
 
         Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), child);
         Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
@@ -64,7 +64,7 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
             Set<String> unsatisfiedTypeFilters = Sets.intersection(childRecordTypes, filterRecordTypes);
             if (!unsatisfiedTypeFilters.equals(filterRecordTypes)) {
                 // there were some unnecessary filters, so remove them
-                call.yield(SingleExpressionRef.of(new LogicalTypeFilterExpression(unsatisfiedTypeFilters, child)));
+                call.yield(GroupExpressionRef.of(new LogicalTypeFilterExpression(unsatisfiedTypeFilters, child)));
             } // otherwise, nothing changes
         }
     }

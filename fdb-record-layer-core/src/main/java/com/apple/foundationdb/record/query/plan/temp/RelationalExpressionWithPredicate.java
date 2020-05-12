@@ -1,9 +1,9 @@
 /*
- * package-info.java
+ * RelationalExpressionWithPredicate.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,16 @@
  * limitations under the License.
  */
 
+package com.apple.foundationdb.record.query.plan.temp;
+
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+
+import javax.annotation.Nonnull;
+
 /**
- * A variety of planner-specific {@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression} implementations
- * which will never be used outside of the planner.
+ * A (relational) expression that has a predicate on it.
  */
-package com.apple.foundationdb.record.query.plan.temp.expressions;
+public interface RelationalExpressionWithPredicate extends RelationalExpression {
+    @Nonnull
+    QueryPredicate getPredicate();
+}

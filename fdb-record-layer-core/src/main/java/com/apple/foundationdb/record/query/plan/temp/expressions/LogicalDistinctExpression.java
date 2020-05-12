@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
@@ -31,7 +31,7 @@ import java.util.Iterator;
 
 /**
  * A relational planner expression representing a stream of unique records. This expression has a single child which
- * is also a {@link RelationalPlannerExpression}. This expression represents this underlying expression with its result
+ * is also a {@link RelationalExpression}. This expression represents this underlying expression with its result
  * set de-duplicated.
  *
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan for the fallback implementation
@@ -39,13 +39,13 @@ import java.util.Iterator;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalDistinctExpression implements RelationalExpressionWithChildren {
     @Nonnull
-    private ExpressionRef<RelationalPlannerExpression> inner;
+    private ExpressionRef<RelationalExpression> inner;
 
-    public LogicalDistinctExpression(@Nonnull RelationalPlannerExpression inner) {
-        this(SingleExpressionRef.of(inner));
+    public LogicalDistinctExpression(@Nonnull RelationalExpression inner) {
+        this(GroupExpressionRef.of(inner));
     }
 
-    public LogicalDistinctExpression(@Nonnull ExpressionRef<RelationalPlannerExpression> inner) {
+    public LogicalDistinctExpression(@Nonnull ExpressionRef<RelationalExpression> inner) {
         this.inner = inner;
     }
 
@@ -56,12 +56,12 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(inner);
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         return otherExpression instanceof LogicalDistinctExpression;
     }
 

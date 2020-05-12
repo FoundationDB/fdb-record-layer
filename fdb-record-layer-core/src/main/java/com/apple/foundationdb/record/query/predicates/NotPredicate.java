@@ -23,17 +23,17 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * A {@link QueryPredicate} that is satisfied when its child component is not satisfied.
@@ -43,20 +43,16 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class NotPredicate implements QueryPredicate {
     @Nonnull
-    public final ExpressionRef<QueryPredicate> child;
-
-    public NotPredicate(@Nonnull ExpressionRef<QueryPredicate> child) {
-        this.child = child;
-    }
+    public final QueryPredicate child;
 
     public NotPredicate(@Nonnull QueryPredicate child) {
-        this.child = SingleExpressionRef.of(child);
+        this.child = child;
     }
 
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull SourceEntry sourceEntry) {
-        return invert(child.get().eval(store, context, sourceEntry));
+        return invert(child.eval(store, context, sourceEntry));
     }
 
     @Nullable
@@ -70,18 +66,15 @@ public class NotPredicate implements QueryPredicate {
 
     @Nonnull
     public QueryPredicate getChild() {
-        return child.get();
+        return child;
     }
 
+    @Override
     @Nonnull
-    @Override
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(child);
-    }
-
-    @Override
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof NotPredicate;
+    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
+        Stream<PlannerBindings> bindings = binding.matchWith(this);
+        return bindings.flatMap(outerBindings -> binding.getChildrenMatcher().matches(Iterators.singletonIterator(getChild()))
+                .map(outerBindings::mergedWith));
     }
 
     @Override

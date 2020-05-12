@@ -22,9 +22,6 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -47,15 +44,15 @@ import java.util.Objects;
 @API(API.Status.MAINTAINED)
 public class AndComponent extends AndOrComponent {
 
-    public AndComponent(@Nonnull List<ExpressionRef<QueryComponent>> operands) {
+    public AndComponent(@Nonnull List<QueryComponent> operands) {
         super(operands);
     }
 
     @Nonnull
     public static AndComponent from(@Nonnull List<? extends QueryComponent> operands) {
-        ImmutableList.Builder<ExpressionRef<QueryComponent>> operandRefs = ImmutableList.builder();
+        ImmutableList.Builder<QueryComponent> operandRefs = ImmutableList.builder();
         for (QueryComponent operand : operands) {
-            operandRefs.add(SingleExpressionRef.of(operand));
+            operandRefs.add(operand);
         }
         return new AndComponent(operandRefs.build());
     }
@@ -75,16 +72,10 @@ public class AndComponent extends AndOrComponent {
         return AndComponent.from(newChildren);
     }
 
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-        return otherExpression instanceof AndComponent;
-    }
-
     @Nonnull
     @Override
     public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return AndPredicate.from(normalizeChildrenForPlanner(source, fieldNamePrefix));
+        return new AndPredicate(normalizeChildrenForPlanner(source, fieldNamePrefix));
     }
 
     @Override

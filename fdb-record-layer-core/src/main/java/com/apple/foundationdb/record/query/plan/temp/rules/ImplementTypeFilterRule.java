@@ -23,13 +23,12 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesProperty;
 import com.google.common.collect.Sets;
@@ -44,7 +43,7 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
     private static ExpressionMatcher<RecordQueryPlan> childMatcher = TypeMatcher.of(RecordQueryPlan.class,
-            AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
+            AnyChildrenMatcher.ANY);
     private static ExpressionMatcher<LogicalTypeFilterExpression> root = TypeMatcher.of(LogicalTypeFilterExpression.class, childMatcher);
 
     public ImplementTypeFilterRule() {
@@ -64,7 +63,7 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
         } else {
             // otherwise, keep a filter on record types which the child might produce and are included in the filter
             Set<String> unsatisfiedTypeFilters = Sets.intersection(filterRecordTypes, childRecordTypes);
-            call.yield(SingleExpressionRef.of(new RecordQueryTypeFilterPlan(child, unsatisfiedTypeFilters)));
+            call.yield(GroupExpressionRef.of(new RecordQueryTypeFilterPlan(child, unsatisfiedTypeFilters)));
         }
     }
 }

@@ -25,10 +25,12 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
@@ -41,13 +43,14 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> firstMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> secondMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<ExpressionRef<RelationalPlannerExpression>> childMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class,
+    private static final ExpressionMatcher<QueryPredicate> firstMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
+    private static final ExpressionMatcher<QueryPredicate> secondMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
+    private static final ExpressionMatcher<ExpressionRef<RelationalExpression>> childMatcher = ReferenceMatcher.anyRef();
+
+    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(
+            LogicalFilterExpression.class,
             firstMatcher,
-            TypeMatcher.of(LogicalFilterExpression.class,
-                    secondMatcher, childMatcher));
+            TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class, secondMatcher, childMatcher));
 
     public CombineFilterRule() {
         super(root);
@@ -56,11 +59,11 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         LogicalFilterExpression filterExpression = call.get(root);
-        ExpressionRef<QueryPredicate> first = call.get(firstMatcher);
-        ExpressionRef<QueryPredicate> second = call.get(secondMatcher);
-        ExpressionRef<RelationalPlannerExpression> child = call.get(childMatcher);
+        QueryPredicate first = call.get(firstMatcher);
+        QueryPredicate second = call.get(secondMatcher);
+        ExpressionRef<RelationalExpression> child = call.get(childMatcher);
 
-        ExpressionRef<QueryPredicate> combined = call.ref(new AndPredicate(ImmutableList.of(first, second)));
+        QueryPredicate combined = new AndPredicate(ImmutableList.of(first, second));
         call.yield(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(), combined, child)));
     }
 }

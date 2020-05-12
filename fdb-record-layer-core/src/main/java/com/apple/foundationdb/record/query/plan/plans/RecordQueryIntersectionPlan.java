@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
@@ -69,7 +69,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Nonnull
     private final KeyExpression comparisonKey;
     @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> expressionChildren;
+    private final List<ExpressionRef<? extends RelationalExpression>> expressionChildren;
     private boolean reverse;
 
     /**
@@ -86,7 +86,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Deprecated
     public RecordQueryIntersectionPlan(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
                                        @Nonnull KeyExpression comparisonKey, boolean reverse) {
-        this(ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right)), comparisonKey, reverse, false);
+        this(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right)), comparisonKey, reverse, false);
     }
 
     /**
@@ -102,7 +102,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Deprecated
     public RecordQueryIntersectionPlan(@Nonnull List<RecordQueryPlan> children,
                                        @Nonnull KeyExpression comparisonKey, boolean reverse) {
-        this(children.stream().map(SingleExpressionRef::of).collect(Collectors.toList()), comparisonKey, reverse, false);
+        this(children.stream().map(GroupExpressionRef::of).collect(Collectors.toList()), comparisonKey, reverse, false);
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -113,7 +113,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
         this.comparisonKey = comparisonKey;
         this.reverse = reverse;
 
-        final ImmutableList.Builder<ExpressionRef<? extends PlannerExpression>> expressionChildrenBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<ExpressionRef<? extends RelationalExpression>> expressionChildrenBuilder = ImmutableList.builder();
         expressionChildrenBuilder.addAll(children);
         expressionChildren = expressionChildrenBuilder.build();
     }
@@ -158,7 +158,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return expressionChildren.iterator();
     }
 
@@ -171,7 +171,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
 
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         if (!(otherExpression instanceof RecordQueryIntersectionPlan)) {
             return false;
         }
@@ -240,7 +240,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
-        final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right));
+        final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right));
         return new RecordQueryIntersectionPlan(childRefs, comparisonKey, left.isReverse(), false);
     }
 
@@ -266,7 +266,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
         }
         final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(SingleExpressionRef.of(child));
+            childRefsBuilder.add(GroupExpressionRef.of(child));
         }
         return new RecordQueryIntersectionPlan(childRefsBuilder.build(), comparisonKey, firstReverse, false);
     }

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourc
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 
@@ -41,7 +42,7 @@ import java.util.Optional;
 public class PushElementWithComparisonIntoExistingScanRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<ElementPredicate> filterMatcher = TypeMatcher.of(ElementPredicate.class);
     private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeMatcher.of(LogicalFilterExpression.class, filterMatcher, indexScanMatcher);
+    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class, filterMatcher, indexScanMatcher);
 
     public PushElementWithComparisonIntoExistingScanRule() {
         super(root);

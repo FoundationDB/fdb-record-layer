@@ -32,21 +32,21 @@ import java.util.Map;
 /**
  * A utility class for printing out a {@link GroupExpressionRef} in a readable form.
  *
- * It is generally a bit tricky to look at memoized {@link PlannerExpression}s inside a complex {@link GroupExpressionRef}
+ * It is generally a bit tricky to look at memoized {@link RelationalExpression}s inside a complex {@link GroupExpressionRef}
  * structure because the structure is a directed acyclic graph rather than a tree. The {@code GroupExpressionPrinter}
  * walks the reference structure and produces a compact representation of the DAG by referring to groups by
  * pre-determined identifiers.
  */
 public class GroupExpressionPrinter {
     @Nonnull
-    private final GroupExpressionRef<? extends PlannerExpression> rootGroup;
+    private final GroupExpressionRef<? extends RelationalExpression> rootGroup;
     @Nonnull
-    private final Map<ExpressionRef<? extends PlannerExpression>, Integer> seenGroups;
+    private final Map<ExpressionRef<? extends RelationalExpression>, Integer> seenGroups;
     @Nonnull
-    private final List<ExpressionRef<? extends PlannerExpression>> groups;
+    private final List<ExpressionRef<? extends RelationalExpression>> groups;
     private int nextId;
 
-    public GroupExpressionPrinter(@Nonnull GroupExpressionRef<? extends PlannerExpression> rootGroup) {
+    public GroupExpressionPrinter(@Nonnull GroupExpressionRef<? extends RelationalExpression> rootGroup) {
         this.rootGroup = rootGroup;
         this.seenGroups = new HashMap<>();
         this.groups = new ArrayList<>();
@@ -57,12 +57,12 @@ public class GroupExpressionPrinter {
     public String toString() {
         final StringBuilder builder = new StringBuilder();
         exploreGroup(rootGroup);
-        for (ExpressionRef<? extends PlannerExpression> group : groups) {
+        for (ExpressionRef<? extends RelationalExpression> group : groups) {
             builder.append("Group ")
                     .append(group.hashCode())
                     .append(": [");
-            for (PlannerExpression member : group.getMembers()) {
-                Iterator<? extends ExpressionRef<? extends PlannerExpression>> children = member.getPlannerExpressionChildren();
+            for (RelationalExpression member : group.getMembers()) {
+                Iterator<? extends ExpressionRef<? extends RelationalExpression>> children = member.getPlannerExpressionChildren();
                 if (!children.hasNext()) {
                     builder.append(member);
                 } else {
@@ -81,23 +81,23 @@ public class GroupExpressionPrinter {
         return builder.toString();
     }
 
-    private void exploreGroup(@Nonnull ExpressionRef<? extends PlannerExpression> ref) {
+    private void exploreGroup(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
         if (!(ref instanceof GroupExpressionRef)) {
             throw new RecordCoreException("tried to print a non-group reference with the GroupExpressionPrinter");
         }
-        GroupExpressionRef<? extends PlannerExpression> groupRef = (GroupExpressionRef<? extends PlannerExpression>) ref;
+        GroupExpressionRef<? extends RelationalExpression> groupRef = (GroupExpressionRef<? extends RelationalExpression>) ref;
         seenGroups.put(groupRef, nextId);
         groups.add(groupRef);
         nextId++;
-        for (PlannerExpression member : groupRef.getMembers()) {
+        for (RelationalExpression member : groupRef.getMembers()) {
             exploreExpression(member);
         }
     }
 
-    private void exploreExpression(@Nonnull PlannerExpression expression) {
-        final Iterator<? extends ExpressionRef<? extends PlannerExpression>> childIterator = expression.getPlannerExpressionChildren();
+    private void exploreExpression(@Nonnull RelationalExpression expression) {
+        final Iterator<? extends ExpressionRef<? extends RelationalExpression>> childIterator = expression.getPlannerExpressionChildren();
         while (childIterator.hasNext()) {
-            ExpressionRef<? extends PlannerExpression> childRef = childIterator.next();
+            ExpressionRef<? extends RelationalExpression> childRef = childIterator.next();
             if (!seenGroups.containsKey(childRef)) {
                 exploreGroup(childRef);
             }

@@ -31,8 +31,6 @@ import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.test.Tags;
@@ -49,7 +47,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
@@ -89,20 +86,9 @@ public class QueryExpressionTest {
         public void validate(@Nonnull Descriptors.Descriptor descriptor) {
         }
 
-        @Nonnull
-        @Override
-        public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
-            return Collections.emptyIterator();
-        }
-
         @Override
         public int planHash() {
             return 0;
-        }
-
-        @Override
-        public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
-            return false;
         }
 
         @Nonnull

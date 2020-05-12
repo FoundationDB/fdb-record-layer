@@ -1,5 +1,5 @@
 /*
- * PlannerExpressionPointerSet.java
+ * RelationalExpressionPointerSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,20 +27,20 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * A set of {@link PlannerExpression}s that uses reference ("pointer") equality to determine equivalence for the
+ * A set of {@link RelationalExpression}s that uses reference ("pointer") equality to determine equivalence for the
  * purposes of set membership, rather than the {@link #equals(Object)} method used by the Java {@link Set} interface.
  * This is important for implementing the memo data structure in {@link GroupExpressionRef}
  * @param <T> the planner expression type contained in the set
  */
-public class PlannerExpressionPointerSet<T extends PlannerExpression> extends AbstractCollection<T> {
+public class RelationalExpressionPointerSet<T extends RelationalExpression> extends AbstractCollection<T> {
     @Nonnull
     private final Set<Wrapper<T>> members;
 
-    public PlannerExpressionPointerSet() {
+    public RelationalExpressionPointerSet() {
         this.members = new HashSet<>();
     }
 
-    private PlannerExpressionPointerSet(@Nonnull Set<Wrapper<T>> members) {
+    private RelationalExpressionPointerSet(@Nonnull Set<Wrapper<T>> members) {
         this.members = members;
     }
 
@@ -49,16 +49,16 @@ public class PlannerExpressionPointerSet<T extends PlannerExpression> extends Ab
         return members.add(new Wrapper<>(expression));
     }
 
-    public void addAll(@Nonnull PlannerExpressionPointerSet<T> otherSet) {
+    public void addAll(@Nonnull RelationalExpressionPointerSet<T> otherSet) {
         members.addAll(otherSet.members);
     }
 
     @Override
     public boolean contains(Object o) {
-        if (!(o instanceof PlannerExpression)) { // also handles null check
+        if (!(o instanceof RelationalExpression)) { // also handles null check
             return false;
         } else {
-            return members.contains(new Wrapper<>((PlannerExpression) o));
+            return members.contains(new Wrapper<>((RelationalExpression) o));
         }
 
     }
@@ -112,7 +112,7 @@ public class PlannerExpressionPointerSet<T extends PlannerExpression> extends Ab
      * method but are not the same object.
      * @param <T> the type of object being wrapped
      */
-    private static class Wrapper<T extends PlannerExpression> {
+    private static class Wrapper<T extends RelationalExpression> {
         @Nonnull
         private final T expression;
 

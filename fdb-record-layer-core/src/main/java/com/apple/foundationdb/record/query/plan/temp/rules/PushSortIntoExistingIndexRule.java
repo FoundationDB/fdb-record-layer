@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalPlannerExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
@@ -54,7 +54,7 @@ public class PushSortIntoExistingIndexRule extends PlannerRule<LogicalSortExpres
         final Optional<ViewExpressionComparisons> matchedViewExpression = scan.getComparisons()
                 .matchWithSort(sortExpression.getSortPrefix());
         if (matchedViewExpression.isPresent() && scan.isReverse() == sortExpression.isReverse()) {
-            RelationalPlannerExpression indexScan = new IndexEntrySourceScanExpression(
+            RelationalExpression indexScan = new IndexEntrySourceScanExpression(
                     scan.getIndexEntrySource(), scan.getScanType(), matchedViewExpression.get(), scan.isReverse());
             if (sortExpression.getSortSuffix().isEmpty()) {
                 call.yield(call.ref(indexScan));

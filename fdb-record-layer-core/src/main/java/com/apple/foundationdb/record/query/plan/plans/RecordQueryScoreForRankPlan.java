@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
@@ -64,7 +64,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     private final List<ScoreForRank> ranks;
 
     public RecordQueryScoreForRankPlan(RecordQueryPlan plan, List<ScoreForRank> ranks) {
-        this.plan = SingleExpressionRef.of(plan);
+        this.plan = GroupExpressionRef.of(plan);
         this.ranks = ranks;
     }
 
@@ -123,7 +123,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return Iterators.singletonIterator(this.plan);
     }
 
@@ -139,7 +139,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull PlannerExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         return otherExpression instanceof RecordQueryScoreForRankPlan &&
                ranks.equals(((RecordQueryScoreForRankPlan) otherExpression).ranks);
     }

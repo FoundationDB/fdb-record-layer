@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlannerExpression;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
@@ -61,7 +61,7 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     private final boolean reverse;
 
     public RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
-        this(ImmutableList.of(SingleExpressionRef.of(left), SingleExpressionRef.of(right)), reverse);
+        this(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right)), reverse);
     }
 
     public RecordQueryUnionPlanBase(@Nonnull List<ExpressionRef<RecordQueryPlan>> children, boolean reverse) {
@@ -114,7 +114,7 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends PlannerExpression>> getPlannerExpressionChildren() {
+    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
         return children.iterator();
     }
 

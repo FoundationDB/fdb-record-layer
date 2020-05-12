@@ -26,12 +26,14 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.SingleExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
@@ -45,9 +47,9 @@ import java.util.Collection;
 @API(API.Status.EXPERIMENTAL)
 public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFilterPlan> {
     private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<ExpressionRef<QueryPredicate>> filterMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<QueryPredicate> filterMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher =
-            TypeMatcher.of(RecordQueryPredicateFilterPlan.class, innerMatcher, filterMatcher);
+            TypeWithPredicateMatcher.ofPredicate(RecordQueryPredicateFilterPlan.class, filterMatcher, innerMatcher);
     private static final ExpressionMatcher<RecordQueryTypeFilterPlan> root = TypeMatcher.of(RecordQueryTypeFilterPlan.class, filterPlanMatcher);
 
     public PushTypeFilterBelowFilterRule() {
@@ -58,10 +60,10 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
         final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
-        final ExpressionRef<QueryPredicate> filter = call.get(filterMatcher);
+        final QueryPredicate filter = call.get(filterMatcher);
         final Collection<String> recordTypes = call.get(root).getRecordTypes();
 
-        call.yield(SingleExpressionRef.of(new RecordQueryPredicateFilterPlan(
-                SingleExpressionRef.of(new RecordQueryTypeFilterPlan(inner, recordTypes)), filterPlan.getBaseSource(), filter)));
+        call.yield(GroupExpressionRef.of(new RecordQueryPredicateFilterPlan(
+                GroupExpressionRef.of(new RecordQueryTypeFilterPlan(inner, recordTypes)), filterPlan.getBaseSource(), filter)));
     }
 }
