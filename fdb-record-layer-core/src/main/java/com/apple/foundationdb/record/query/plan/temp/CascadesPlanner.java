@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,7 +141,7 @@ public class CascadesPlanner implements QueryPlanner {
         if (singleRoot instanceof RecordQueryPlan) {
             if (logger.isDebugEnabled()) {
                 logger.debug(KeyValueLogMessage.of("explain of plan",
-                        "explain", ExplainPlannerGraphProperty.explain(singleRoot)));
+                        "explain", PlannerGraphProperty.explain(singleRoot)));
             }
 
             return (RecordQueryPlan)singleRoot;

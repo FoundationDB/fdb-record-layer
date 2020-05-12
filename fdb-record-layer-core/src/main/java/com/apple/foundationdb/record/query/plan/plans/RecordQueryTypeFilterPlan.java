@@ -30,10 +30,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -44,6 +47,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -51,7 +55,7 @@ import java.util.Set;
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, TypeFilterExpression {
+public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, TypeFilterExpression, PlannerGraphRewritable {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryTypeFilterPlan.class);
 
     @Nonnull
@@ -164,5 +168,26 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Override
     public int getComplexity() {
         return 1 + getInner().getComplexity();
+    }
+
+    /**
+     * Rewrite the planner graph for better visualization of a query index plan.
+     * @param childGraphs planner graphs of children expression that already have been computed
+     * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
+     *         to depict the record types this operator filters.
+     */
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+        final PlannerGraph.Node root =
+                new PlannerGraph.Node(this,
+                        getClass().getSimpleName(),
+                        "[" + String.join(" v ", recordTypes) + "]");
+        final PlannerGraph graphForInner =
+                Iterables.getOnlyElement(childGraphs);
+        return PlannerGraph.builder(root)
+                .addGraph(graphForInner)
+                .addEdge(graphForInner.getRoot(), root, new PlannerGraph.GroupExpressionRefEdge())
+                .build();
     }
 }

@@ -1,5 +1,5 @@
 /*
- * PlannerGraph.java
+ * AbstractPlannerGraph.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,9 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.temp;
+package com.apple.foundationdb.record.query.plan.temp.explain;
 
-import com.google.common.collect.ImmutableMap;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.EndpointPair;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.MutableNetwork;
@@ -31,11 +32,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Queue;
+import java.util.Set;
 
 /**
- * The planner graph class. Objects of this class are computed by {@link InternalPlannerGraphProperty},
+ * The planner graph class. Objects of this class are computed by {@link PlannerGraphProperty},
  * i.e., they get computed by walking a {@link RelationalExpression} DAG.
  *
  * Once computed, the property is immutable.
@@ -44,8 +45,7 @@ import java.util.Queue;
  * @param <E> edge type
  */
 @SuppressWarnings("UnstableApiUsage") // Guava Graph API
-public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends PlannerGraph.AbstractEdge> {
-
+public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E extends AbstractPlannerGraph.AbstractEdge> {
     /**
      * The root of this graph.
      */
@@ -60,17 +60,18 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
 
     /**
      * Builder class for planner graph. Used during computation of the planner expression property.
-     * Note that each PlannerGraph will have a root which is mandatory.
+     * Note that each AbstractPlannerGraph will have a root which is mandatory.
      * @param <N> node type
      * @param <E> edge type
+     * @param <B> self type for subclass builders
      */
-    public static class PlannerGraphBuilder<N extends AbstractNode, E extends AbstractEdge> {
+    public abstract static class PlannerGraphBuilder<N extends AbstractNode, E extends AbstractEdge, B extends AbstractPlannerGraph<N, E>> {
         @Nonnull
         final N root;
         @Nonnull
         final MutableNetwork<N, E> network;
 
-        private PlannerGraphBuilder(final N root) {
+        protected PlannerGraphBuilder(final N root) {
             this.root = root;
             this.network =
                     NetworkBuilder.directed()
@@ -86,19 +87,24 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
         }
 
         @Nonnull
-        public PlannerGraphBuilder<N, E> addNode(final N node) {
+        public MutableNetwork<N, E> getNetwork() {
+            return network;
+        }
+
+        @Nonnull
+        public PlannerGraphBuilder<N, E, B> addNode(final N node) {
             network.addNode(node);
             return this;
         }
 
         @Nonnull
-        public PlannerGraphBuilder<N, E> addEdge(final N source, final N target, final E edge) {
+        public PlannerGraphBuilder<N, E, B> addEdge(final N source, final N target, final E edge) {
             network.addEdge(source, target, edge);
             return this;
         }
 
         @Nonnull
-        public PlannerGraphBuilder<N, E> addGraph(final PlannerGraph<N, E> other) {
+        public PlannerGraphBuilder<N, E, B> addGraph(final AbstractPlannerGraph<N, E> other) {
             final ImmutableNetwork<N, E> otherNetwork = other.network;
 
             // Starting from the root node, stop at any edge that leads to a node that is already in this network using
@@ -126,9 +132,7 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
         }
 
         @Nonnull
-        public PlannerGraph<N, E> build() {
-            return new PlannerGraph<>(root, network);
-        }
+        public abstract B build();
     }
 
     /**
@@ -136,17 +140,27 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
      */
     public abstract static class AbstractNode {
         @Nonnull
+        final Object identity;
+
+        @Nonnull
         final String name;
         @Nullable
         final String expression;
 
-        public AbstractNode(final String name) {
-            this(name, null);
+        @SuppressWarnings("unused") // used in clients
+        public AbstractNode(final Object identity, final String name) {
+            this(identity, name, null);
         }
 
-        public AbstractNode(final String name, @Nullable final String expression) {
+        public AbstractNode(final Object identity, final String name, @Nullable final String expression) {
+            this.identity = identity;
             this.name = name;
             this.expression = expression;
+        }
+
+        @Nonnull
+        public Object getIdentity() {
+            return identity;
         }
 
         @Nonnull
@@ -160,42 +174,73 @@ public class PlannerGraph<N extends PlannerGraph.AbstractNode, E extends Planner
         }
 
         @Nonnull
-        public Map<String, String> getAttributes() {
-            final ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-            Optional.ofNullable(getLabel())
-                    .ifPresent(label -> builder.put("label", label));
-            return builder.build();
+        public abstract Map<String, Attribute> getAttributes();
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof AbstractNode)) {
+                return false;
+            }
+            AbstractNode that = (AbstractNode)o;
+            return getIdentity() == that.getIdentity();
         }
 
-        @Nullable
-        public abstract String getLabel();
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(getIdentity());
+        }
     }
 
     /**
      * Edge class.
      */
     public abstract static class AbstractEdge {
-        public Map<String, String> getAttributes() {
-            final ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-            Optional.ofNullable(getLabel())
-                    .ifPresent(label -> builder.put("label", label));
-            return builder.build();
+        /**
+         * Label of edge, can be null.
+         */
+        @Nullable
+        private final String label;
+
+        /**
+         * The dependsOn set is the set of other sibling edges of this edge this edge depends on. This
+         * is important for modelling things like join-order.
+         */
+        @Nonnull
+        private final ImmutableSet<? extends AbstractEdge> dependsOn;
+
+        public AbstractEdge(final Set<? extends AbstractEdge> dependsOn) {
+            this(null, dependsOn);
+        }
+
+        public AbstractEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+            this.label = label;
+            this.dependsOn = ImmutableSet.copyOf(dependsOn);
         }
 
         @Nullable
-        public abstract String getLabel();
-    }
+        public String getLabel() {
+            return label;
+        }
 
-    @Nonnull
-    public static <N extends AbstractNode, E extends AbstractEdge> PlannerGraphBuilder<N, E> builder(final N root) {
-        return new PlannerGraphBuilder<>(root);
+        @Nonnull
+        public Set<? extends AbstractEdge> getDependsOn() {
+            return dependsOn;
+        }
+
+        @Nonnull
+        public abstract Map<String, Attribute> getAttributes();
     }
 
     /**
-     * Private constructor. Objects of this class are built by a builder.
+     * Protected constructor. Objects of this class are built by a builder.
+     * @param root root of this graph
+     * @param network a network describing the query execution plan rooted at {@code root}
      */
-    private PlannerGraph(final N root,
-                         final Network<N, E> network) {
+    protected AbstractPlannerGraph(final N root,
+                                   final Network<N, E> network) {
         this.root = root;
         final MutableNetwork<AbstractNode, AbstractEdge> mutableNetwork =
                 NetworkBuilder.directed()
