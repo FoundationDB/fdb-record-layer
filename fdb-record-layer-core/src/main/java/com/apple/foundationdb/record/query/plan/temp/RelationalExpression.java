@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
@@ -161,23 +162,11 @@ public interface RelationalExpression extends Bindable {
      * This is needed for graph integration into IntelliJ as IntelliJ only ever evaluates selfish methods. Add this
      * method as a custom renderer for the type {@link RelationalExpression}. During debugging you can then for instance
      * click show() on an instance and enjoy the query graph it represents rendered in your standard browser.
-     *
+     * @param renderSingleGroups whether to render group references with just one member
      * @return the String "Done."
      */
     @Nonnull
-    default String show() {
-        return InternalPlannerGraphProperty.show(this);
-    }
-
-    @Nonnull
-    default PlannerGraph.PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
-        final InternalPlannerGraphProperty.Node root = new InternalPlannerGraphProperty.Node(getClass().getSimpleName());
-        return PlannerGraph.builder(root);
-    }
-
-    @Nonnull
-    default PlannerGraph.PlannerGraphBuilder<ExplainPlannerGraphProperty.Node, ExplainPlannerGraphProperty.Edge> explainYourself() {
-        final ExplainPlannerGraphProperty.Node root = new ExplainPlannerGraphProperty.Node(getClass().getSimpleName());
-        return PlannerGraph.builder(root);
+    default String show(final boolean renderSingleGroups) {
+        return PlannerGraphProperty.show(renderSingleGroups, this);
     }
 }

@@ -29,13 +29,13 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
-import com.apple.foundationdb.record.query.plan.temp.InternalPlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.temp.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.PlannerGraph.PlannerGraphBuilder;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * A query plan that uses a single index. This is usually by scanning
@@ -44,7 +44,7 @@ import javax.annotation.Nullable;
  * through one of their child plans will not implement this interface.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
+public interface RecordQueryPlanWithIndex extends RecordQueryPlan, PlannerGraphRewritable {
 
     /**
      * Gets the name of the index used by this plan.
@@ -65,22 +65,32 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
 
     @Nonnull
     @Override
-    default  <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                           @Nonnull EvaluationContext context,
-                                                                           @Nullable byte[] continuation,
-                                                                           @Nonnull ExecuteProperties executeProperties) {
+    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+                                                                          @Nonnull EvaluationContext context,
+                                                                          @Nullable byte[] continuation,
+                                                                          @Nonnull ExecuteProperties executeProperties) {
         final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
         return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
                 .map(store::queriedRecord);
     }
 
+    /**
+     * Rewrite the planner graph for better visualization of a query index plan.
+     * @param childGraphs planner graphs of children expression that already have been computed
+     * @return the rewritten planner graph that models the index as a separate node that is connected to the
+     *         actual index scan plan node.
+     */
     @Nonnull
     @Override
-    default PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
-        final InternalPlannerGraphProperty.Node root = new InternalPlannerGraphProperty.Node(getClass().getSimpleName(), toString());
-        final InternalPlannerGraphProperty.SourceNode source = new InternalPlannerGraphProperty.SourceNode(getIndexName());
-        return PlannerGraph.<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge>builder(root)
+    default PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final PlannerGraph.Node root =
+                new PlannerGraph.Node(this,
+                        getClass().getSimpleName(),
+                        toString());
+        final PlannerGraph.SourceNode source = new PlannerGraph.SourceNode(getIndexName());
+        return PlannerGraph.builder(root)
                 .addNode(source)
-                .addEdge(source, root, new InternalPlannerGraphProperty.Edge());
+                .addEdge(source, root, new PlannerGraph.Edge())
+                .build();
     }
 }

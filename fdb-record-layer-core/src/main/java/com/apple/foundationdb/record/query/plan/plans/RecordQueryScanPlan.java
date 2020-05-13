@@ -32,10 +32,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.InternalPlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.temp.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.PlannerGraph.PlannerGraphBuilder;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -43,6 +43,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -50,7 +51,7 @@ import java.util.Set;
  * A query plan that scans records directly from the main tree within a range of primary keys.
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons {
+public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable {
     @Nonnull
     private final ScanComparisons comparisons;
     private boolean reverse;
@@ -176,13 +177,22 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         return 1;
     }
 
+    /**
+     * Rewrite the planner graph for better visualization of a query scan plan.
+     * @param childGraphs planner graphs of children expression that already have been computed
+     * @return the rewritten planner graph that models scanned storage as a separate node that is connected to the
+     *         actual scan plan node.
+     */
     @Nonnull
     @Override
-    public PlannerGraphBuilder<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge> showYourself() {
-        final InternalPlannerGraphProperty.Node root = new InternalPlannerGraphProperty.Node(getClass().getSimpleName());
-        final InternalPlannerGraphProperty.SourceNode source = new InternalPlannerGraphProperty.SourceNode(getRange());
-        return PlannerGraph.<InternalPlannerGraphProperty.Node, InternalPlannerGraphProperty.Edge>builder(root)
+    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+        Verify.verify(childGraphs.isEmpty());
+        final PlannerGraph.Node root = new PlannerGraph.Node(this,
+                getClass().getSimpleName());
+        final PlannerGraph.SourceNode source = new PlannerGraph.SourceNode(getRange());
+        return PlannerGraph.builder(root)
                 .addNode(source)
-                .addEdge(source, root, new InternalPlannerGraphProperty.Edge());
+                .addEdge(source, root, new PlannerGraph.Edge())
+                .build();
     }
 }

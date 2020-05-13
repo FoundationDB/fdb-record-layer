@@ -25,18 +25,23 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * A query plan that executes a child plan once for each of the elements of a constant {@code IN} list.
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
+public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan implements PlannerGraphRewritable {
     @Nullable
     private final List<Object> values;
 
@@ -85,7 +90,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
         if (!super.equals(o)) {
             return false;
         }
-        RecordQueryInValuesJoinPlan that = (RecordQueryInValuesJoinPlan) o;
+        RecordQueryInValuesJoinPlan that = (RecordQueryInValuesJoinPlan)o;
         return Objects.equals(values, that.values);
     }
 
@@ -103,5 +108,31 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     public void logPlanStructure(StoreTimer timer) {
         timer.increment(FDBStoreTimer.Counts.PLAN_IN_VALUES);
         getChild().logPlanStructure(timer);
+    }
+
+    /**
+     * Rewrite the planner graph for better visualization of a query index plan.
+     * @param childGraphs planner graphs of children expression that already have been computed
+     * @return the rewritten planner graph that models this operator as a logical nested loop join
+     *         joining an outer table of values in the IN clause to the correlated inner result of executing (usually)
+     *         a index lookup for each bound outer value.
+     */
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+        final PlannerGraph.Node root =
+                new PlannerGraph.Node(this,
+                        getClass().getSimpleName());
+        final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
+        final PlannerGraph.SourceNode valuesNode =
+                new PlannerGraph.SourceNode("Values",
+                        Objects.requireNonNull(values).stream().map(String::valueOf).collect(Collectors.joining(", ")));
+        final PlannerGraph.Edge fromValuesEdge = new PlannerGraph.Edge();
+        return PlannerGraph.builder(root)
+                .addGraph(graphForInner)
+                .addNode(valuesNode)
+                .addEdge(valuesNode, root, fromValuesEdge)
+                .addEdge(graphForInner.getRoot(), root, new PlannerGraph.Edge(ImmutableSet.of(fromValuesEdge)))
+                .build();
     }
 }

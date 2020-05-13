@@ -24,7 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,7 +39,7 @@ import java.util.Objects;
  * A query plan that executes a child plan once for each of the elements of an {@code IN} list taken from a parameter.
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
+public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan implements PlannerGraphRewritable {
     private final String externalBinding;
 
     public RecordQueryInParameterJoinPlan(RecordQueryPlan plan, String bindingName, String externalBinding, boolean sortValues, boolean sortReverse) {
@@ -104,5 +108,29 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     public void logPlanStructure(StoreTimer timer) {
         timer.increment(FDBStoreTimer.Counts.PLAN_IN_PARAMETER);
         getInner().logPlanStructure(timer);
+    }
+
+    /**
+     * Rewrite the planner graph for better visualization of a query index plan.
+     * @param childGraphs planner graphs of children expression that already have been computed
+     * @return the rewritten planner graph that models this operator as a logical nested loop join
+     *         joining an outer table of iterated values over a parameter in the IN clause to the correlated inner
+     *         result of executing (usually) a index lookup for each bound outer value.
+     */
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+        final PlannerGraph.Node root =
+                new PlannerGraph.Node(this,
+                        getClass().getSimpleName());
+        final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
+        final PlannerGraph.SourceNode explodeNode = new PlannerGraph.SourceNode("Explode", externalBinding);
+        final PlannerGraph.Edge fromExplodeEdge = new PlannerGraph.Edge();
+        return PlannerGraph.builder(root)
+                .addGraph(graphForInner)
+                .addNode(explodeNode)
+                .addEdge(explodeNode, root, fromExplodeEdge)
+                .addEdge(graphForInner.getRoot(), root, new PlannerGraph.Edge(ImmutableSet.of(fromExplodeEdge)))
+                .build();
     }
 }
