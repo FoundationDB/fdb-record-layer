@@ -501,6 +501,23 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
+        // Delete everything except a value in the index build space
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = storeBuilder.setContext(context).open();
+            final Subspace subspace = OnlineIndexer.indexBuildScannedRecordsSubspace(store, metaData.getIndex("MySimpleRecord$str_value_indexed"));
+            context.ensureActive().set(subspace.getKey(), FDBRecordStore.encodeRecordCount(1215)); // set a key in the INDEX_BUILD_SPACE
+            context.ensureActive().clear(store.getSubspace().getKey(), subspace.getKey());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context);
+            assertThrows(RecordStoreNoInfoAndNotEmptyException.class, storeBuilder::createOrOpen);
+        }
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context).createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES);
+            commit(context);
+        }
+
         // Insert a record, then delete the store header
         try (FDBRecordContext context = openContext()) {
             // open as the previous open with the relaxed existence check should have fixed the store header
