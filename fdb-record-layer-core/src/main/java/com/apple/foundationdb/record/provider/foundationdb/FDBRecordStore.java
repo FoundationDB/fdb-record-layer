@@ -1866,14 +1866,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else if (existenceCheck == StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES) {
             final FDBRecordStoreKeyspace keyspace = determineRecordStoreKeyspace(firstKey, subspaceProvider, context);
             // White list of acceptable key ranges for the first key. This may need to be updated as more keyspaces are added.
-            // Includes: INDEX_STATE_SPACE and INDEX_RANGE_SPACE as that contains only meta-data about the state of the index but no "user data"
+            // Includes: INDEX_STATE_SPACE, INDEX_RANGE_SPACE, and INDEX_BUILD_SPACE as those contain only meta-data about the state of the
+            // index or index build but no "user data"
             // Excludes: anything with records or data about records, i.e., RECORD (as it contains records), INDEX and INDEX_SECONDARY space (as
             // they contains data from indexes), RECORD_COUNT (as that is/was effectively an index), INDEX_UNIQUENESS_VIOLATIONS_SPACE (as it
             // contains data that should be consistent with the index), and RECORD_VERSION_SPACE (as it contains data that is effectively tied
             // to the records). In a record store where the only corruption is the lack of a store header, then if the store has no records,
             // INDEX_UNIQUENESS_VIOLATIONS_SPACE and RECORD_VERSION_SPACE should be empty as well, but this isn't validated. In theory, if the
             // RECORD_COUNT keyspace was zero, that would be consistent, so it would be "safe" to only warn then as well.
-            if (FDBRecordStoreKeyspace.INDEX_STATE_SPACE.equals(keyspace) || FDBRecordStoreKeyspace.INDEX_RANGE_SPACE.equals(keyspace)) {
+            if (FDBRecordStoreKeyspace.INDEX_STATE_SPACE.equals(keyspace) || FDBRecordStoreKeyspace.INDEX_RANGE_SPACE.equals(keyspace) || FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.equals(keyspace)) {
                 LOGGER.warn(KeyValueLogMessage.of("Record store has no info or records but is not empty",
                         subspaceProvider.logKey(), subspaceProvider.toString(context),
                         LogMessageKeys.KEY, firstKey));

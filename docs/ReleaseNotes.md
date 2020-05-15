@@ -62,6 +62,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* All changes from version [2.8.118.30](#2811830)
 
 // end next release
 -->
@@ -78,6 +79,10 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 ### 2.8.119.0
 
 * **Bug fix** A race condition was fixed in the `RankIndexMaintainer` that could result in corrupt index data if a record had multiple entries inserted into the index with the same grouping key [(Issue #482)](https://github.com/FoundationDB/fdb-record-layer/issues/482)
+
+### 2.8.118.30
+
+* **Bug fix** Opening a store with `ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES` now allows opening a record store if the data is in the `INDEX_BUILD_SPACE` [(Issue #941)](https://github.com/FoundationDB/fdb-record-layer/issues/941)
 
 ### 2.8.118.0
 
