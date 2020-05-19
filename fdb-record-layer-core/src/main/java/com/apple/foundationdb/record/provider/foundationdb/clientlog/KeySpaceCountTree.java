@@ -391,8 +391,8 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
 
     @Override
     @Nonnull
-    protected TupleKeyCountTree newPrefixChild(@Nonnull Object prefix) {
-        TupleKeyCountTree result = super.newPrefixChild(prefix);
+    protected TupleKeyCountTree newPrefixChild(@Nonnull byte[] bytes, @Nonnull Object prefix) {
+        TupleKeyCountTree result = super.newPrefixChild(bytes, prefix);
         ((KeySpaceCountTree)result).resolved = new ResolvedPrefixRoot(resolved, prefix);
         return result;
     }
