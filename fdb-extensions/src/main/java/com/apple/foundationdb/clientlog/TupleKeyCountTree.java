@@ -153,7 +153,7 @@ public class TupleKeyCountTree {
     public TupleKeyCountTree addPrefixChild(@Nonnull Object prefix) {
         count++;
         final byte[] prefixBytes = Tuple.from(prefix).pack();
-        return children.computeIfAbsent(bytes, b -> newPrefixChild(prefixBytes, prefix));
+        return children.computeIfAbsent(prefixBytes, b -> newPrefixChild(prefixBytes, prefix));
     }
 
     @Nonnull
