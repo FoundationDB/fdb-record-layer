@@ -42,7 +42,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** TupleKeyCountTree.addPrefixChild only ever adds one child [(Issue #947)](https://github.com/FoundationDB/fdb-record-layer/issues/947)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -65,6 +65,10 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.123.0
+
+* **Bug fix** TupleKeyCountTree.addPrefixChild only ever adds one child [(Issue #947)](https://github.com/FoundationDB/fdb-record-layer/issues/947)
 
 ### 2.8.122.0
 
