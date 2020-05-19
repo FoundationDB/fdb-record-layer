@@ -152,18 +152,18 @@ public class TupleKeyCountTree {
     @Nonnull
     public TupleKeyCountTree addPrefixChild(@Nonnull Object prefix) {
         count++;
-        return children.computeIfAbsent(bytes, b -> newPrefixChild(prefix));
+        final byte[] prefixBytes = Tuple.from(prefix).pack();
+        return children.computeIfAbsent(prefixBytes, b -> newPrefixChild(prefixBytes, prefix));
     }
 
     @Nonnull
-    protected TupleKeyCountTree newPrefixChild(@Nonnull Object prefix) {
-        final byte[] bytes = Tuple.from(prefix).pack();
-        return newChild(bytes, prefix);
+    protected TupleKeyCountTree newPrefixChild(@Nonnull byte[] prefixBytes, @Nonnull Object prefix) {
+        return newChild(prefixBytes, prefix);
     }
 
     @Nonnull
-    protected TupleKeyCountTree newChild(@Nonnull byte[] bytes, @Nonnull Object object) {
-        return new TupleKeyCountTree(this, bytes, object);
+    protected TupleKeyCountTree newChild(@Nonnull byte[] childBytes, @Nonnull Object object) {
+        return new TupleKeyCountTree(this, childBytes, object);
     }
 
     public int getCount() {
