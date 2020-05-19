@@ -157,13 +157,13 @@ public class TupleKeyCountTree {
     }
 
     @Nonnull
-    protected TupleKeyCountTree newPrefixChild(@Nonnull byte[] bytes, @Nonnull Object prefix) {
-        return newChild(bytes, prefix);
+    protected TupleKeyCountTree newPrefixChild(@Nonnull byte[] prefixBytes, @Nonnull Object prefix) {
+        return newChild(prefixBytes, prefix);
     }
 
     @Nonnull
-    protected TupleKeyCountTree newChild(@Nonnull byte[] bytes, @Nonnull Object object) {
-        return new TupleKeyCountTree(this, bytes, object);
+    protected TupleKeyCountTree newChild(@Nonnull byte[] childBytes, @Nonnull Object object) {
+        return new TupleKeyCountTree(this, childBytes, object);
     }
 
     public int getCount() {
