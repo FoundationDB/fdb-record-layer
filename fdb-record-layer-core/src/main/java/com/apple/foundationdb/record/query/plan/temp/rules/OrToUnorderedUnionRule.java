@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
@@ -54,7 +55,10 @@ public class OrToUnorderedUnionRule extends PlannerRule<LogicalFilterExpression>
     @Nonnull
     private static final ReferenceMatcher<RelationalExpression> innerMatcher = ReferenceMatcher.anyRef();
     @Nonnull
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class, orMatcher, innerMatcher);
+    private static final ExpressionMatcher<LogicalFilterExpression> root =
+            TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
+                    orMatcher,
+                    QuantifierMatcher.forEach(innerMatcher));
 
     public OrToUnorderedUnionRule() {
         super(root);

@@ -23,12 +23,13 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -41,9 +42,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
-    private final ExpressionRef<RelationalExpression> inner;
-    @Nonnull
-    private final List<ExpressionRef<? extends RelationalExpression>> expressionChildren;
+    private final Quantifier.ForEach inner;
 
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalExpression inner) {
         this(recordTypes, GroupExpressionRef.of(inner));
@@ -51,14 +50,13 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
 
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull ExpressionRef<RelationalExpression> inner) {
         this.recordTypes = recordTypes;
-        this.inner = inner;
-        this.expressionChildren = ImmutableList.of(this.inner);
+        this.inner = Quantifier.forEach(inner);
     }
 
     @Override
     @Nonnull
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return expressionChildren.iterator();
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of(inner);
     }
 
     @Override
@@ -73,13 +71,31 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
     }
 
     @Nonnull
-    public RelationalExpression getInner() {
-        return inner.get();
+    private Quantifier getInner() {
+        return inner;
     }
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         return otherExpression instanceof LogicalTypeFilterExpression &&
                ((LogicalTypeFilterExpression)otherExpression).getRecordTypes().equals(getRecordTypes());
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof LogicalTypeFilterExpression)) {
+            return false;
+        }
+        final LogicalTypeFilterExpression that = (LogicalTypeFilterExpression)o;
+        return getRecordTypes().equals(that.getRecordTypes()) &&
+               getInner().equals(that.getInner());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getRecordTypes(), getInner());
     }
 }

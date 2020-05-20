@@ -113,15 +113,15 @@ public interface RelationalExpression extends Bindable {
 
     /**
      * Matches a matcher expression to an expression tree rooted at this node, adding to some existing bindings.
-     * @param binding the binding to match against
+     * @param matcher the matcher to match against
      * @return the existing bindings extended with some new ones if the match was successful or <code>Optional.empty()</code> otherwise
      */
     @Override
     @Nonnull
-    default Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
-        Stream<PlannerBindings> bindings = binding.matchWith(this);
+    default Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        Stream<PlannerBindings> bindings = matcher.matchWith(this);
         // TODO this is probably kind of inefficient for the really common case where we don't match at all.
-        return bindings.flatMap(outerBindings -> binding.getChildrenMatcher().matches(getPlannerExpressionChildren())
+        return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(getQuantifiers())
                 .map(outerBindings::mergedWith));
     }
 
@@ -134,7 +134,7 @@ public interface RelationalExpression extends Bindable {
      * @return an iterator of references to the children of this planner expression
      */
     @Nonnull
-    Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren();
+    List<? extends Quantifier> getQuantifiers();
 
     boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression);
 
@@ -148,12 +148,13 @@ public interface RelationalExpression extends Bindable {
     @Nullable
     default <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> visitor) {
         if (visitor.shouldVisit(this)) {
-            final List<U> childResults = new ArrayList<>();
-            Iterator<? extends ExpressionRef<? extends RelationalExpression>> children = getPlannerExpressionChildren();
-            while (children.hasNext()) {
-                childResults.add(children.next().acceptPropertyVisitor(visitor));
+            final List<U> quantifierResults = new ArrayList<>();
+            final List<? extends Quantifier> quantifiers = getQuantifiers();
+            for (final Quantifier quantifier : quantifiers) {
+                quantifierResults.add(quantifier.acceptPropertyVisitor(visitor));
             }
-            return visitor.evaluateAtExpression(this, childResults);
+
+            return visitor.evaluateAtExpression(this, quantifierResults);
         }
         return null;
     }

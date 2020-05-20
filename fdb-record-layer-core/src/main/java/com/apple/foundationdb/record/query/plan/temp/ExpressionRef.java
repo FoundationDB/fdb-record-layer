@@ -48,6 +48,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable 
     @Nonnull
     T get();
 
+    @Nullable
     <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> property);
 
     /**

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -36,20 +37,24 @@ import java.util.List;
  *
  * <p>
  * To avoid littering {@link RelationalExpression} classes with methods for various properties, properties are implemented
- * using a variant of the hierarchical visitor pattern the tree of {@code PlannerExpression}s and {@link ExpressionRef}s.
- * A property can be evaluated against an expression tree by having the visitor traverse the tree. Note that the
- * "{@code visitLeave()}" methods {@link #evaluateAtExpression} and {@link #evaluateAtRef} are handed the results of the
- * visitor evaluated at their children and members respectively. Since most properties are easy to describe as a
- * recursion with depth one, this makes properties easier to read and write.
- * </p>
+ * using a variant of the hierarchical visitor pattern over a dag of {@link RelationalExpression}s, {@link Quantifier},
+ * and {@link ExpressionRef}s.
+ * A property can be evaluated against an expression tree by having the visitor traverse a DAG of heterogeneous objects
+ * where expressions are said to own quantifiers which range over expression references which then contain expressions
+ * again. Shared sub graphs are visited multiple times. If desired, the caller must ensure that a sub graph is not
+ * revisited if visited before.
+ *
+ * Note that the methods {@link #evaluateAtExpression}, {@link #evaluateAtQuantifier}, and {@link #evaluateAtRef} are handed the
+ * results of the visitor evaluated at their owned quantifiers, references, and members respectively. Since most properties
+ * are easy to describe as a recursion with depth one, this makes properties easier to read and write.
  *
  * @param <T> the result type of the property
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlannerProperty<T> {
     /**
-     * Return whether the property should visit the subtree rooted at the given expression.
-     * Called on nodes in the expression tree in visit pre-order of the depth-first traversal of the tree.
+     * Return whether the property should visit the sub graph rooted at the given expression.
+     * Called on nodes in the expression graph in visit pre-order of the depth-first traversal of the graph.
      * That is, as each node is visited for the first time, {@code shouldVisit()} is called on that node.
      * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtExpression(RelationalExpression, List)} will
      * not be called on the given expression.
@@ -59,21 +64,35 @@ public interface PlannerProperty<T> {
     boolean shouldVisit(@Nonnull RelationalExpression expression);
 
     /**
-     * Return whether the property should visit the subtree rooted at the given expression.
-     * Called on nodes in the expression tree in visit pre-order of the depth-first traversal of the tree.
-     * That is, as each node is visited for the first time, {@code shouldVisit()} is called on that node.
+     * Return whether the property should visit the given expression reference and by transitive property the expressions
+     * the {@link ExpressionRef} references.
+     * Called on expression references in the graph in visit pre-order of the depth-first traversal of the graph.
+     * That is, as a reference is visited, {@code shouldVisit()} is called on that reference.
      * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtRef(ExpressionRef, List)} will
-     * not be called on the given expression.
+     * not be called on the given expression reference.
      * @param ref the expression reference to visit
      * @return {@code true} if the members of {@code ref} should be visited and {@code false} if they should not be visited
      */
     boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref);
 
     /**
+     * Return whether the property should visit the given quantifier and the expression reference that the quantifier
+     * ranges over.
+     * Called on quantifiers in the graph in visit pre-order of the depth-first traversal of the graph.
+     * That is, as a quantifier is visited, {@code shouldVisit()} is called on that quantifier.
+     * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtQuantifier(Quantifier, Object)} will
+     * not be called on the given quantifier.
+     * @param quantifier the quantifier to visit
+     * @return {@code true} if the expression reference {@code quantifier} ranges over should be visited and
+     *         {@code false} if it should not be visited
+     */
+    boolean shouldVisit(@Nonnull Quantifier quantifier);
+
+    /**
      * Evaluate the property at the given expression, using the results of evaluating the property at its children.
-     * Called on nodes in the expression tree in visit post-order of the depth-first traversal of the tree.
-     * That is, as each node is visited for the last time (after all of its children have been visited, if applicable),
-     * {@code evaluateAtExpression()} is called on that node.
+     * Called on nodes in the graph in visit post-order of the depth-first traversal of the graph.
+     * That is, as each expression is visited (after all of its children have been visited, if applicable),
+     * {@code evaluateAtExpression()} is called on that expression.
      * @param expression the cursor to visit
      * @param childResults the results of the property evaluated at the children of {@code expression}
      * @return the value of property at the given expression
@@ -83,13 +102,27 @@ public interface PlannerProperty<T> {
 
     /**
      * Evaluate the property at the given reference, using the results of evaluating the property at its members.
-     * Called on nodes in the expression tree in visit post-order of the depth-first traversal of the tree.
-     * That is, as each node is visited for the last time (after all of its children have been visited, if applicable),
-     * {@code evaluateAtRef()} is called on that node.
+     * Called on nodes in the graph in visit post-order of the depth-first traversal of the graph.
+     * That is, as each reference is visited (after all of its members have been visited, if applicable),
+     * {@code evaluateAtRef()} is called on that reference.
      * @param ref the expression reference to visit
      * @param memberResults the results of the property evaluated at the members of {@code ref}
      * @return the value of property at the given reference
      */
     @Nonnull
     T evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<T> memberResults);
+
+    /**
+     * Evaluate the property at the given quantifier, using the result of evaluating the property at the expression
+     * reference the quantifier ranges over.
+     * Called on quantifiers in the graph in visit post-order of the depth-first traversal of the graph.
+     * That is, as each quantifier is visited (after the expression reference it ranges over has been visited, if applicable),
+     * {@code evaluateAtQuantifier()} is called on that quantifier.
+     * @param quantifier the quantifier to visit
+     * @param rangesOverResult the result of the property evaluated at the {@link ExpressionRef} {@code quantifier}
+     *        ranges over
+     * @return the value of property at the given quantifier
+     */
+    @Nonnull
+    T evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable T rangesOverResult);
 }

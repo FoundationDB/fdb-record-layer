@@ -21,12 +21,12 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.List;
 
 /**
  * A planner expression representing a full, unordered scan of the records by primary key, which is the logical version
@@ -44,8 +44,8 @@ import java.util.Iterator;
 public class FullUnorderedScanExpression implements RelationalExpression {
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Collections.emptyIterator();
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of();
     }
 
     @Override

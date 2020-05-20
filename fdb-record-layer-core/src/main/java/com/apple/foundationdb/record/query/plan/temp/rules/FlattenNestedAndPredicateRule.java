@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
@@ -69,7 +70,7 @@ public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpr
                     AnyChildWithRestMatcher.anyMatchingWithRest(
                             TypeMatcher.of(AndPredicate.class, AllChildrenMatcher.allMatching(andChildrenMatcher)),
                     otherInnerComponentsMatcher)),
-            inner);
+            QuantifierMatcher.forEach(inner));
 
 
     public FlattenNestedAndPredicateRule() {

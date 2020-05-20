@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterEx
 import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
@@ -45,8 +46,10 @@ import javax.annotation.Nonnull;
 public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class, AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
     private static final ExpressionMatcher<QueryPredicate> filterMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
-            filterMatcher, innerMatcher);
+    private static final ExpressionMatcher<LogicalFilterExpression> root =
+            TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
+                    filterMatcher,
+                    QuantifierMatcher.forEach(innerMatcher));
 
     public ImplementFilterRule() {
         super(root);

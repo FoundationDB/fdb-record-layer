@@ -31,9 +31,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeSource;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
@@ -124,7 +124,8 @@ public class ExpressionMatcherTest {
         ExpressionMatcher<RecordQueryIndexPlan> childMatcher1 = TypeMatcher.of(RecordQueryIndexPlan.class);
         ExpressionMatcher<RecordQueryScanPlan> childMatcher2 = TypeMatcher.of(RecordQueryScanPlan.class);
         ExpressionMatcher<RecordQueryUnionPlan> parentMatcher = TypeMatcher.of(RecordQueryUnionPlan.class,
-                childMatcher1, childMatcher2);
+                QuantifierMatcher.physical(childMatcher1),
+                QuantifierMatcher.physical(childMatcher2));
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
 
@@ -146,14 +147,20 @@ public class ExpressionMatcherTest {
     }
 
     @Test
-    public void wrongChildTypes() {
-        ExpressionMatcher<RecordQueryUnionPlan> parentMatcher = TypeMatcher.of(RecordQueryUnionPlan.class,
-                // types are wrong based on ordering of children in getPlannerExpressionChildren()
-                TypeMatcher.of(RecordQueryIndexPlan.class, TypeMatcher.of(RecordQueryScanPlan.class)));
+    public void matchChildOrder() {
+        ExpressionMatcher<RecordQueryUnionPlan> parentMatcher =
+                TypeMatcher.of(RecordQueryUnionPlan.class,
+                        // types are wrong based on ordering of children in getPlannerExpressionChildren()
+                        QuantifierMatcher.physical(TypeMatcher.of(RecordQueryIndexPlan.class)),
+                        QuantifierMatcher.physical(TypeMatcher.of(RecordQueryScanPlan.class)));
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
                 child1, child2, EmptyKeyExpression.EMPTY, false));
+        assertTrue(root.bindTo(parentMatcher).findFirst().isPresent());
+
+        root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child2, child1, EmptyKeyExpression.EMPTY, false));
         assertFalse(root.bindTo(parentMatcher).findFirst().isPresent());
     }
 
@@ -161,8 +168,10 @@ public class ExpressionMatcherTest {
     public void matchChildrenAsReferences() {
         ExpressionMatcher<ExpressionRef<RelationalExpression>> childMatcher1 = ReferenceMatcher.anyRef();
         ExpressionMatcher<ExpressionRef<RelationalExpression>> childMatcher2 = ReferenceMatcher.anyRef();
-        ExpressionMatcher<RecordQueryUnionPlan> matcher = TypeMatcher.of(RecordQueryUnionPlan.class,
-                childMatcher1, childMatcher2);
+        ExpressionMatcher<RecordQueryUnionPlan> matcher =
+                TypeMatcher.of(RecordQueryUnionPlan.class,
+                        QuantifierMatcher.physical(childMatcher1),
+                        QuantifierMatcher.physical(childMatcher2));
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
@@ -185,11 +194,14 @@ public class ExpressionMatcherTest {
         // build a relatively complicated matcher
         ExpressionMatcher<ExpressionRef<RelationalExpression>> filterLeafMatcher = ReferenceMatcher.anyRef();
         ExpressionMatcher<QueryPredicate> andMatcher = TypeMatcher.of(AndPredicate.class, AnyChildrenMatcher.ANY);
-        ExpressionMatcher<LogicalFilterExpression> filterPlanMatcher = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
-                andMatcher, filterLeafMatcher);
+        ExpressionMatcher<LogicalFilterExpression> filterPlanMatcher =
+                TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
+                        andMatcher,
+                        QuantifierMatcher.forEach(filterLeafMatcher));
         ExpressionMatcher<RecordQueryScanPlan> scanMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
         ExpressionMatcher<LogicalUnorderedUnionExpression> matcher = TypeMatcher.of(LogicalUnorderedUnionExpression.class,
-                filterPlanMatcher, scanMatcher);
+                QuantifierMatcher.forEach(filterPlanMatcher),
+                QuantifierMatcher.forEach(scanMatcher));
 
         // build a relatively complicated expression
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
@@ -214,6 +226,6 @@ public class ExpressionMatcherTest {
         assertEquals(filterPlan, bindings.get(filterPlanMatcher));
         assertEquals(scanPlan, bindings.get(scanMatcher));
         assertEquals(filterPlan.getPredicate(), bindings.get(andMatcher));
-        assertEquals(filterPlan.getInner(), bindings.get(filterLeafMatcher).get()); // dereference
+        assertEquals(filterPlan.getInner().getRangesOver().get(), bindings.get(filterLeafMatcher).get()); // dereference
     }
 }

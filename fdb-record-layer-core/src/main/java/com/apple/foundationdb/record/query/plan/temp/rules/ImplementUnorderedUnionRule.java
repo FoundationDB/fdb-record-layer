@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
@@ -44,8 +45,9 @@ public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnorderedUni
     @Nonnull
     private static final ExpressionMatcher<RecordQueryPlan> childMatcher = TypeMatcher.of(RecordQueryPlan.class, AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
     @Nonnull
-    private static final ExpressionMatcher<LogicalUnorderedUnionExpression> root = TypeMatcher.of(LogicalUnorderedUnionExpression.class,
-            AllChildrenMatcher.allMatching(childMatcher));
+    private static final ExpressionMatcher<LogicalUnorderedUnionExpression> root =
+            TypeMatcher.of(LogicalUnorderedUnionExpression.class,
+                    AllChildrenMatcher.allMatching(QuantifierMatcher.forEach(childMatcher)));
 
     public ImplementUnorderedUnionRule() {
         super(root);

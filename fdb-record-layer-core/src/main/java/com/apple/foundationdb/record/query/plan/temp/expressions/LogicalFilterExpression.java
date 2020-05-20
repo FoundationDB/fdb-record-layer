@@ -23,14 +23,16 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.collect.Iterators;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -45,7 +47,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     @Nonnull
     private final QueryPredicate filter;
     @Nonnull
-    private final ExpressionRef<RelationalExpression> inner;
+    private final Quantifier.ForEach inner;
 
     public LogicalFilterExpression(@Nonnull Source baseSource,
                                    @Nonnull QueryPredicate filter,
@@ -58,13 +60,13 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
                                    @Nonnull ExpressionRef<RelationalExpression> inner) {
         this.baseSource = baseSource;
         this.filter = filter;
-        this.inner = inner;
+        this.inner = Quantifier.forEach(inner);
     }
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(inner);
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of(inner);
     }
 
     @Override
@@ -84,8 +86,9 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     }
 
     @Nonnull
-    public RelationalExpression getInner() {
-        return inner.get();
+    @VisibleForTesting
+    public Quantifier getInner() {
+        return inner;
     }
 
     @Override

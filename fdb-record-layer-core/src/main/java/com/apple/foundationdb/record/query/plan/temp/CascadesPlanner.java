@@ -38,7 +38,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Iterator;
 
 /**
  * A Cascades-style query planner that converts a {@link RecordQuery} to a {@link RecordQueryPlan}, possibly using
@@ -83,7 +82,7 @@ import java.util.Iterator;
  * represented by {@link GroupExpressionRef}s, each of which represents a group expression in Cascades and contains
  * a set of {@link RelationalExpression}s. In turn, {@link RelationalExpression}s have some number of <em>children</em>, each
  * of which is a {@link GroupExpressionRef} and which can be traversed by the planner via the
- * {@link RelationalExpression#getPlannerExpressionChildren()} method.
+ * {@link RelationalExpression#getQuantifiers()} method.
  * </p>
  *
  * <p>
@@ -267,10 +266,9 @@ public class CascadesPlanner implements QueryPlanner {
             // what happens towards the leaves of the tree.
             getRules().getRulesMatching(expression).forEachRemaining(this::addTransformTask);
 
-            final PlanContext relativeContext = context;
-            Iterator<? extends ExpressionRef<? extends RelationalExpression>> expressionChildren = expression.getPlannerExpressionChildren();
-            while (expressionChildren.hasNext()) {
-                taskStack.push(new ExploreGroup(relativeContext, expressionChildren.next()));
+            for (final Quantifier quantifier : expression.getQuantifiers()) {
+                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                taskStack.push(new ExploreGroup(context, rangesOver));
             }
         }
 
@@ -302,7 +300,7 @@ public class CascadesPlanner implements QueryPlanner {
                 return;
             }
 
-            for (RelationalExpression expression : group.getMembers()) {
+            for (final RelationalExpression expression : group.getMembers()) {
                 taskStack.push(new ExploreExpression(context, group, expression));
             }
 
@@ -387,12 +385,9 @@ public class CascadesPlanner implements QueryPlanner {
             if (!group.containsExactly(expression)) {
                 return;
             }
-
-            final PlanContext relativeContext = context;
-
-            Iterator<? extends ExpressionRef<? extends RelationalExpression>> expressionChildren = expression.getPlannerExpressionChildren();
-            while (expressionChildren.hasNext()) {
-                taskStack.push(new OptimizeGroup(relativeContext, expressionChildren.next()));
+            for (final Quantifier quantifier : expression.getQuantifiers()) {
+                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                taskStack.push(new OptimizeGroup(context, rangesOver));
             }
         }
 

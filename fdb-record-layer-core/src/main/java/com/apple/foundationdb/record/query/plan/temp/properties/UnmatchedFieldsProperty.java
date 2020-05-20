@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -30,11 +31,14 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A property for counting the total number of {@link KeyExpression} columns (i.e., field-like {@code KeyExpression}s
@@ -67,6 +71,11 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
 
     @Override
     public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+        return true;
+    }
+
+    @Override
+    public boolean shouldVisit(@Nonnull final Quantifier quantifier) {
         return true;
     }
 
@@ -118,5 +127,13 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
             return Integer.MAX_VALUE;
         }
         return result;
+    }
+
+    @Nonnull
+    @Override
+    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
+    public Integer evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable final Integer rangesOverResult) {
+        // since we do visit expression references in this property we can insist on rangesOverResult not being null
+        return Objects.requireNonNull(rangesOverResult);
     }
 }

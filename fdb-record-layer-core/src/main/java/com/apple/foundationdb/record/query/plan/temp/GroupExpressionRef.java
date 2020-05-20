@@ -30,7 +30,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -136,14 +135,22 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
             return false;
         }
 
-        Iterator<? extends ExpressionRef<? extends RelationalExpression>> memberChildren = member.getPlannerExpressionChildren();
-        Iterator<? extends ExpressionRef<? extends RelationalExpression>> otherMemberChildren = otherMember.getPlannerExpressionChildren();
-        while (memberChildren.hasNext() && otherMemberChildren.hasNext()) {
-            if (!memberChildren.next().containsAllInMemo(otherMemberChildren.next())) {
+        final List<? extends Quantifier> memberQuantifiers = member.getQuantifiers();
+        final List<? extends Quantifier> otherMemberQuantifiers = otherMember.getQuantifiers();
+        if (memberQuantifiers.size() != otherMemberQuantifiers.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < memberQuantifiers.size(); i++) {
+            final ExpressionRef<? extends RelationalExpression> memberRangesOver = memberQuantifiers.get(i).getRangesOver();
+            final ExpressionRef<? extends RelationalExpression> otherMemberRangesOver = otherMemberQuantifiers.get(i).getRangesOver();
+
+            if (!memberRangesOver.containsAllInMemo(otherMemberRangesOver)) {
                 return false;
             }
         }
-        return !memberChildren.hasNext() && !otherMemberChildren.hasNext();
+
+        return true;
     }
 
     public void clear() {
@@ -180,6 +187,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return memberStreams.build().flatMap(Function.identity()); // concat
     }
 
+    @Nullable
     @Override
     public <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> property) {
         if (property.shouldVisit(this)) {
@@ -201,7 +209,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     public <U extends RelationalExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func) {
         RelationalExpressionPointerSet<U> resultMembers = new RelationalExpressionPointerSet<>();
         members.iterator().forEachRemaining(member -> resultMembers.add(func.apply(member)));
-        return new GroupExpressionRef<U>(resultMembers);
+        return new GroupExpressionRef<>(resultMembers);
     }
 
     @Nullable
@@ -233,9 +241,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull Collection<T> expressions) {
         RelationalExpressionPointerSet<T> members = new RelationalExpressionPointerSet<>();
-        for (T expression : expressions) {
-            members.add(expression);
-        }
+        members.addAll(expressions);
         return new GroupExpressionRef<>(members);
     }
 }

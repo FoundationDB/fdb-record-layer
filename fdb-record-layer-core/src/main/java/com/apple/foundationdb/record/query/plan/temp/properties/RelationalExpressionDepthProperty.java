@@ -20,18 +20,22 @@
 
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -59,6 +63,11 @@ public class RelationalExpressionDepthProperty implements PlannerProperty<Intege
 
     @Override
     public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+        return true;
+    }
+
+    @Override
+    public boolean shouldVisit(@Nonnull final Quantifier quantifier) {
         return true;
     }
 
@@ -90,4 +99,11 @@ public class RelationalExpressionDepthProperty implements PlannerProperty<Intege
         return expression.acceptPropertyVisitor(this);
     }
 
+    @Nonnull
+    @Override
+    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
+    public Integer evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable final Integer rangesOverResult) {
+        // since we do visit expression references in this property we can insist on rangesOverResult not being null
+        return Objects.requireNonNull(rangesOverResult);
+    }
 }

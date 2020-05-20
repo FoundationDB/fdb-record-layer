@@ -22,11 +22,13 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A relational planner expression that represents an unimplemented unordered union of its children.
@@ -35,21 +37,21 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalUnorderedUnionExpression implements RelationalExpressionWithChildren {
     @Nonnull
-    private List<ExpressionRef<RelationalExpression>> expressionChildren;
+    private List<Quantifier.ForEach> children;
 
     public LogicalUnorderedUnionExpression(@Nonnull List<ExpressionRef<RelationalExpression>> expressionChildren) {
-        this.expressionChildren = expressionChildren;
+        this.children = Quantifiers.forEachQuantifiers(expressionChildren);
     }
 
     @Override
     public int getRelationalChildCount() {
-        return expressionChildren.size();
+        return children.size();
     }
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return expressionChildren.iterator();
+    public List<? extends Quantifier> getQuantifiers() {
+        return children;
     }
 
     @Override
@@ -58,19 +60,19 @@ public class LogicalUnorderedUnionExpression implements RelationalExpressionWith
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (o == this) {
+    public boolean equals(final Object o) {
+        if (this == o) {
             return true;
         }
-        if (o == null || o.getClass() != getClass())  {
+        if (!(o instanceof LogicalUnorderedUnionExpression)) {
             return false;
         }
-        LogicalUnorderedUnionExpression that = (LogicalUnorderedUnionExpression)o;
-        return expressionChildren.equals(that.expressionChildren);
+        final LogicalUnorderedUnionExpression that = (LogicalUnorderedUnionExpression)o;
+        return children.equals(that.children);
     }
 
     @Override
     public int hashCode() {
-        return expressionChildren.hashCode();
+        return Objects.hash(children);
     }
 }

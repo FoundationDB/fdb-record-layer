@@ -36,14 +36,15 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -65,9 +66,9 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
         this(new RecordQueryIndexPlan(indexName, scanType, comparisons, reverse), recordTypeName, toRecord);
     }
 
-    public RecordQueryCoveringIndexPlan(@Nonnull RecordQueryPlanWithIndex plan,
+    public RecordQueryCoveringIndexPlan(@Nonnull RecordQueryPlanWithIndex indexPlan,
                                         @Nonnull final String recordTypeName, @Nonnull IndexKeyValueToPartialRecord toRecord) {
-        this.indexPlan = GroupExpressionRef.of(plan);
+        this.indexPlan = GroupExpressionRef.of(indexPlan);
         this.recordTypeName = recordTypeName;
         this.toRecord = toRecord;
     }
@@ -84,7 +85,9 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
         final Index index = metaData.getIndex(getIndexName());
         final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
         boolean hasPrimaryKey = getScanType() != IndexScanType.BY_GROUP;
-        return indexPlan.get().executeEntries(store, context, continuation, executeProperties)
+        return indexPlan
+                .get()
+                .executeEntries(store, context, continuation, executeProperties)
                 .map(indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey));
     }
 
@@ -190,7 +193,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(indexPlan);
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of(Quantifier.physical(indexPlan));
     }
 }

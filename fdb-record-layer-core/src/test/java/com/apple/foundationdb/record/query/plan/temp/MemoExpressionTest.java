@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -171,7 +170,7 @@ public class MemoExpressionTest {
         @Nonnull
         private final String identity;
         @Nonnull
-        private final List<ExpressionRef<SyntheticPlannerExpression>> childRefs;
+        private final List<Quantifier.ForEach> quantifiers;
 
         public SyntheticPlannerExpression(@Nonnull String identity) {
             this(identity, Collections.emptyList());
@@ -180,13 +179,13 @@ public class MemoExpressionTest {
         public SyntheticPlannerExpression(@Nonnull String identity,
                                           @Nonnull List<ExpressionRef<SyntheticPlannerExpression>> children) {
             this.identity = identity;
-            this.childRefs = children;
+            this.quantifiers = Quantifiers.forEachQuantifiers(children);
         }
 
         @Nonnull
         @Override
-        public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-            return childRefs.iterator();
+        public List<? extends Quantifier> getQuantifiers() {
+            return quantifiers;
         }
 
         @Override
@@ -206,12 +205,11 @@ public class MemoExpressionTest {
                 return false;
             }
             SyntheticPlannerExpression that = (SyntheticPlannerExpression)o;
-            if (!Objects.equals(identity, that.identity) ||
-                    childRefs.size() != that.childRefs.size()) {
+            if (!Objects.equals(identity, that.identity) || quantifiers.size() != that.quantifiers.size()) {
                 return false;
             }
-            for (int i = 0; i < childRefs.size(); i++) {
-                if (!childRefs.get(i).get().equals(that.childRefs.get(i).get())) {
+            for (int i = 0; i < quantifiers.size(); i++) {
+                if (!quantifiers.get(i).getRangesOver().get().equals(that.quantifiers.get(i).getRangesOver().get())) {
                     return false;
                 }
             }
@@ -220,7 +218,11 @@ public class MemoExpressionTest {
 
         @Override
         public int hashCode() {
-            return Objects.hash(identity, childRefs.stream().map(ExpressionRef::get).collect(Collectors.toList()));
+            return Objects.hash(identity,
+                    quantifiers.stream()
+                            .map(Quantifier.ForEach::getRangesOver)
+                            .map(ExpressionRef::get)
+                            .collect(Collectors.toList()));
         }
 
         @Nonnull

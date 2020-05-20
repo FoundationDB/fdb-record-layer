@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
@@ -85,7 +86,7 @@ public interface ExpressionMatcher<T extends Bindable> {
     Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref);
 
     /**
-     * Attempt to match this matcher against the given expression reference.
+     * Attempt to match this matcher against the given {@link ExpressionMatcher}.
      * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
      * expression and should not call into the {@link ExpressionChildrenMatcher} returned by {@link #getChildrenMatcher()}
      * or attempt to access children of the given expression.
@@ -95,7 +96,26 @@ public interface ExpressionMatcher<T extends Bindable> {
     @Nonnull
     Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression);
 
+    /**
+     * Attempt to match this matcher against the given {@link QueryPredicate}.
+     * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
+     * expression and should not call into the {@link ExpressionChildrenMatcher} returned by {@link #getChildrenMatcher()}
+     * or attempt to access children of the given expression.
+     * @param predicate a predicate to match with
+     * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
+     */
     @Nonnull
     Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate);
 
+
+    /**
+     * Attempt to match this matcher against the given {@link Quantifier}.
+     * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
+     * expression and should not call into the {@link ExpressionChildrenMatcher} returned by {@link #getChildrenMatcher()}
+     * or attempt to access children of the given expression.
+     * @param quantifier a quantifier to match with
+     * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
+     */
+    @Nonnull
+    Stream<PlannerBindings> matchWith(@Nonnull Quantifier quantifier);
 }

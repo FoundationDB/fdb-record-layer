@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -62,14 +61,16 @@ public class GroupExpressionPrinter {
                     .append(group.hashCode())
                     .append(": [");
             for (RelationalExpression member : group.getMembers()) {
-                Iterator<? extends ExpressionRef<? extends RelationalExpression>> children = member.getPlannerExpressionChildren();
-                if (!children.hasNext()) {
+                final List<? extends Quantifier> quantifiers = member.getQuantifiers();
+                if (quantifiers.isEmpty()) {
                     builder.append(member);
                 } else {
                     builder.append(member.getClass().getSimpleName())
                             .append("{ ");
-                    while (children.hasNext()) {
-                        builder.append(children.next().hashCode())
+                    for (final Quantifier quantifier : quantifiers) {
+                        builder.append(quantifier.getShorthand()).append(" ");
+                        final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                        builder.append(rangesOver.hashCode())
                                 .append(", ");
                     }
                     builder.append("}");
@@ -95,13 +96,12 @@ public class GroupExpressionPrinter {
     }
 
     private void exploreExpression(@Nonnull RelationalExpression expression) {
-        final Iterator<? extends ExpressionRef<? extends RelationalExpression>> childIterator = expression.getPlannerExpressionChildren();
-        while (childIterator.hasNext()) {
-            ExpressionRef<? extends RelationalExpression> childRef = childIterator.next();
-            if (!seenGroups.containsKey(childRef)) {
-                exploreGroup(childRef);
+        final List<? extends Quantifier> quantifiers = expression.getQuantifiers();
+        for (final Quantifier quantifier : quantifiers) {
+            final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+            if (!seenGroups.containsKey(rangesOver)) {
+                exploreGroup(rangesOver);
             }
         }
     }
-
 }
