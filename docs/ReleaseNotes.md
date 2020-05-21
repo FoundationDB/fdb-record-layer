@@ -56,7 +56,7 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Errors from `SplitHelper` now have more helpful log info [(Issue #932)](https://github.com/FoundationDB/fdb-record-layer/issues/932)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -65,6 +65,10 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 // end next release
 -->
+
+### 2.8.124.0
+
+* **Feature** Errors from `SplitHelper` now have more helpful log info [(Issue #932)](https://github.com/FoundationDB/fdb-record-layer/issues/932)
 
 ### 2.8.123.0
 
