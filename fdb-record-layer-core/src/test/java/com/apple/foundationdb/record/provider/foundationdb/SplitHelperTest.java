@@ -61,9 +61,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.isOneOf;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -804,7 +804,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                         // as we needed to do another speculative read to determine if a split record
                         // continues or not.
                         assertEquals(readLimit, rowsScanned);
-                        assertThat(recordCursor.getNoNextReason(), isOneOf(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED , RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
+                        assertThat(recordCursor.getNoNextReason(), is(oneOf(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED , RecordCursor.NoNextReason.SOURCE_EXHAUSTED)));
                         if (!recordCursor.getNoNextReason().isSourceExhausted()) {
                             assertNotNull(recordCursor.getContinuation());
                         }

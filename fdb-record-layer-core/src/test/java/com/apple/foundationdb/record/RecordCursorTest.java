@@ -70,7 +70,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.isOneOf;
+import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -413,7 +413,7 @@ public class RecordCursorTest {
                 }
                 results++;
             }
-            assertThat(cursor.getNoNextReason(), isOneOf(possibleNoNextReasons));
+            assertThat(cursor.getNoNextReason(), is(oneOf(possibleNoNextReasons)));
             continuation = cursor.getContinuation();
             if (cursor.getNoNextReason().isSourceExhausted()) {
                 assertNull(continuation);

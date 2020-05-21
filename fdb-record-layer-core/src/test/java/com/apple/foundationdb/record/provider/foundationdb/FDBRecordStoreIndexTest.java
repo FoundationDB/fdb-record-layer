@@ -110,8 +110,8 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.isOneOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -1634,19 +1634,19 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             RecordIndexUniquenessViolation next = cursor.next();
             assertEquals(Tuple.from(3L), next.getIndexEntry().getKey());
             assertEquals(Tuple.from(1066L), next.getPrimaryKey());
-            assertThat(next.getExistingKey(), isOneOf(Tuple.from(1793L), Tuple.from(1849L)));
+            assertThat(next.getExistingKey(), is(oneOf(Tuple.from(1793L), Tuple.from(1849L))));
 
             assertTrue(cursor.hasNext());
             next = cursor.next();
             assertEquals(Tuple.from(3L), next.getIndexEntry().getKey());
             assertEquals(Tuple.from(1793L), next.getPrimaryKey());
-            assertThat(next.getExistingKey(), isOneOf(Tuple.from(1066L), Tuple.from(1849L)));
+            assertThat(next.getExistingKey(), is(oneOf(Tuple.from(1066L), Tuple.from(1849L))));
 
             assertTrue(cursor.hasNext());
             next = cursor.next();
             assertEquals(Tuple.from(3L), next.getIndexEntry().getKey());
             assertEquals(Tuple.from(1849L), next.getPrimaryKey());
-            assertThat(next.getExistingKey(), isOneOf(Tuple.from(1066L), Tuple.from(1793L)));
+            assertThat(next.getExistingKey(), is(oneOf(Tuple.from(1066L), Tuple.from(1793L))));
 
             assertFalse(cursor.hasNext());
 

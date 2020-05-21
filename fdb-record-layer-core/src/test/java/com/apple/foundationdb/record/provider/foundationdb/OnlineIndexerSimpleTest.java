@@ -63,8 +63,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.isOneOf;
 import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -800,7 +800,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         Thread.sleep(50);
         int count2 = timer.getCount(FDBStoreTimer.Events.COMMIT);
         // Might close just after committing but before recording.
-        assertThat("At most one more commits should have occurred", count2, isOneOf(count1, count1 + 1));
+        assertThat("At most one more commits should have occurred", count2, is(oneOf(count1, count1 + 1)));
         Thread.sleep(50);
         int count3 = timer.getCount(FDBStoreTimer.Events.COMMIT);
         assertThat("No more commits should have occurred", count3, is(count2));
