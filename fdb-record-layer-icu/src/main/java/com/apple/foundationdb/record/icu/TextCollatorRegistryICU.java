@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.icu;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
+import com.apple.foundationdb.record.util.MapUtils;
 import com.google.protobuf.ByteString;
 import com.ibm.icu.text.Collator;
 import com.ibm.icu.util.ULocale;
@@ -65,7 +66,7 @@ public class TextCollatorRegistryICU implements TextCollatorRegistry {
     @Override
     @Nonnull
     public TextCollator getTextCollator(@Nonnull String locale, int strength) {
-        return collators.computeIfAbsent(Pair.of(locale, strength), key -> {
+        return MapUtils.computeIfAbsent(collators, Pair.of(locale, strength), key -> {
             final Collator collator = DEFAULT_LOCALE.equals(locale) ?
                                       Collator.getInstance() :
                                       Collator.getInstance(new ULocale(locale));

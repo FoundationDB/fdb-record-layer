@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.common.text;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.util.MapUtils;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -63,7 +64,7 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
     @Override
     @Nonnull
     public TextCollator getTextCollator(@Nonnull String locale, int strength) {
-        return collators.computeIfAbsent(Pair.of(locale, strength), key -> {
+        return MapUtils.computeIfAbsent(collators, Pair.of(locale, strength), key -> {
             final Collator collator = DEFAULT_LOCALE.equals(locale) ?
                                       Collator.getInstance() :
                                       // Some minimal consistency between BCP 47 and C-like identifiers.

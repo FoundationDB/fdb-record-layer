@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.util.MapUtils;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -172,7 +173,7 @@ public class StoreTimer {
             return counter;
         } else {
             if (createIfNotExists) {
-                return counters.computeIfAbsent(event, evignore -> new Counter());
+                return MapUtils.computeIfAbsent(counters, event, evignore -> new Counter());
             }
             return counters.get(event);
         }
@@ -192,7 +193,7 @@ public class StoreTimer {
     @Nullable
     protected Counter getTimeoutCounter(@Nonnull Event event, boolean createIfNotExists) {
         if (createIfNotExists) {
-            return timeoutCounters.computeIfAbsent(event, evignore -> new Counter());
+            return MapUtils.computeIfAbsent(timeoutCounters, event, evignore -> new Counter());
         }
         return timeoutCounters.get(event);
     }
@@ -238,8 +239,8 @@ public class StoreTimer {
          * @return the log key with suffix appended
          */
         default String logKeyWithSuffix(@Nonnull String suffix) {
-            return LOG_KEY_SUFFIX_CACHE.computeIfAbsent(suffix, ignoredPostfix -> new ConcurrentHashMap<>())
-                    .computeIfAbsent(this, event -> event.logKey() + suffix);
+            return MapUtils.computeIfAbsent(MapUtils.computeIfAbsent(LOG_KEY_SUFFIX_CACHE, suffix, ignoredPostfix -> new ConcurrentHashMap<>()),
+                    this, event -> event.logKey() + suffix);
         }
     }
 

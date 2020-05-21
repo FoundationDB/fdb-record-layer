@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.AtomicMutation;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
+import com.apple.foundationdb.record.util.MapUtils;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -802,7 +803,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         if (includesGroup) {
             for (IndexEntry indexEntry : indexEntries) {
                 Tuple groupKey = TupleHelpers.subTuple(indexEntry.getKey(), 0, groupPrefixSize);
-                groupDirections.computeIfAbsent(groupKey, group -> isHighScoreFirst(directory, group));
+                MapUtils.computeIfAbsent(groupDirections, groupKey, group -> isHighScoreFirst(directory, group));
             }
         }
         return AsyncUtil.whenAll(groupDirections.values()).thenApply(vignore -> {
