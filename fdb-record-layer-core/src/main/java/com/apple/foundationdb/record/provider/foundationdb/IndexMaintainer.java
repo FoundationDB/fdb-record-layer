@@ -106,18 +106,6 @@ public abstract class IndexMaintainer {
     public abstract <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                        @Nullable FDBIndexableRecord<M> newRecord);
 
-    /**
-     * Remove or add a uniqueness violation within the database. This is used to keep track of
-     * uniqueness violations that occur when an index is in write-only mode, both during
-     * the built itself and by other writes. This means that the writes will succeed, but
-     * it will cause a later attempt to make the index readable to fail.
-     * @param valueKey the indexed key that is (apparently) not unique
-     * @param primaryKey the primary key of one record that is causing a violation
-     * @param existingKey the primary key of another record that is causing a violation (or <code>null</code> if none specified)
-     * @param remove <code>true</code> if removing the violation and <code>false</code> if adding it
-     */
-    @Nonnull
-    public abstract void updateUniquenessViolations(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey, boolean remove);
 
     /**
      * Scans through the list of uniqueness violations within the database.

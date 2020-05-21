@@ -20,9 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
@@ -115,8 +116,12 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
         final Subspace extraSubspace = getSecondarySubspace();
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (IndexEntry indexEntry : indexEntries) {
-            // First maintain an ordinary B-tree index by score.
-            updateOneKey(savedRecord, remove, indexEntry);
+            // Maintain an ordinary B-tree index by score.
+            CompletableFuture<Void> updateOrdinaryIndex = updateOneKeyAsync(savedRecord, remove, indexEntry);
+            if (!MoreAsyncUtil.isCompletedNormally(updateOrdinaryIndex)) {
+                futures.add(updateOrdinaryIndex);
+            }
+
             final Subspace rankSubspace;
             final Tuple scoreKey;
             if (groupPrefixSize > 0) {
