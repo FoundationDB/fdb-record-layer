@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.util.MapUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -735,7 +736,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     public PostCommit getOrCreatePostCommit(@Nonnull String name, @Nonnull Function<String, PostCommit> ifNotExists) {
         checkPostCommitName(name);
         synchronized (postCommits) {
-            return postCommits.computeIfAbsent(name, ifNotExists);
+            return MapUtils.computeIfAbsent(postCommits, name, ifNotExists);
         }
     }
 

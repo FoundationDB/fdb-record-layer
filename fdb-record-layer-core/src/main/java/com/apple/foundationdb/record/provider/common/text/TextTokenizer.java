@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
+import com.apple.foundationdb.record.util.MapUtils;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -139,7 +140,7 @@ public interface TextTokenizer {
         while (tokens.hasNext()) {
             final String token = tokens.next().toString();
             if (!token.isEmpty()) {
-                offsetMap.computeIfAbsent(token, ignore -> new ArrayList<>()).add(offset);
+                MapUtils.computeIfAbsent(offsetMap, token, ignore -> new ArrayList<>()).add(offset);
             }
             offset += 1;
         }
