@@ -19,6 +19,7 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 ### NEXT_RELEASE
 
 * **Bug fix** False positive of uniqueness violations prevents building indexes [(Issue #901)](https://github.com/FoundationDB/fdb-record-layer/issues/901)
+* **Bug fix** Incomplete record versions are no longer cached in a way that can lead to cache entries for one record store polluting the values for another [(Issue #952)](https://github.com/FoundationDB/fdb-record-layer/issues/952)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -36,6 +37,7 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 * **Breaking change** Requires a minimum FoundationDB client and server version of 6.2 [(Issue #702)](https://github.com/FoundationDB/fdb-record-layer/issues/702)
 * **Breaking change** Builds now require JDK 11 [(Issue #910)](https://github.com/FoundationDB/fdb-record-layer/issues/910)
 * **Breaking change** `FDBRecordStore` does not have `addUniquenessCheck` anymore, which is replaced by `checkUniqueness` in `StandardIndexMaintainer` now; `IndexMaintainer` does not have `updateUniquenessViolations` anymore, which is replaced by `addUniquenessViolation` and `removeUniquenessViolationsAsync` in `StandardIndexMaintainer` now; `StandardIndexMaintainer` now has `updateOneKeyAsync` in replace of `updateOneKey` [(Issue #901)](https://github.com/FoundationDB/fdb-record-layer/issues/901)
+* **Breaking change** Methods interacting with the local version cache on an `FDBRecordContext` have been removed as they were previously unsafe and should have been internal only [(Issue #952)](https://github.com/FoundationDB/fdb-record-layer/issues/952)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 

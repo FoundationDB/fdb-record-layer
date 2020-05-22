@@ -485,7 +485,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (version.isComplete()) {
             context.ensureActive().set(versionKey, version.toBytes());
         } else {
-            context.addToLocalVersionCache(primaryKey, version.getLocalVersion());
+            context.addToLocalVersionCache(versionKey, version.getLocalVersion());
             final byte[] valueBytes = version.writeTo(ByteBuffer.allocate(FDBRecordVersion.VERSION_LENGTH + Integer.BYTES).order(ByteOrder.BIG_ENDIAN))
                     .putInt(0)
                     .array();
@@ -890,13 +890,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // a priori that this will return an empty optional, so we return it without doing any I/O.
             return Optional.empty();
         } else {
-            Optional<CompletableFuture<FDBRecordVersion>> cachedOptional = context.getLocalVersion(primaryKey)
+            byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
+            Optional<CompletableFuture<FDBRecordVersion>> cachedOptional = context.getLocalVersion(versionKey)
                     .map(localVersion -> CompletableFuture.completedFuture(FDBRecordVersion.incomplete(localVersion)));
             if (cachedOptional.isPresent()) {
                 return cachedOptional;
             }
 
-            byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
             final ReadTransaction tr = snapshot ? ensureContextActive().snapshot() : ensureContextActive();
             return Optional.of(tr.get(versionKey).thenApply(valueBytes -> {
                 if (valueBytes == null) {
@@ -1239,17 +1239,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
             final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
             if (useOldVersionFormat()) {
+                byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
                 if (oldHasIncompleteVersion) {
-                    byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
                     context.removeVersionMutation(versionKey);
                 } else if (metaData.isStoreRecordVersions()) {
-                    ensureContextActive().clear(getSubspace().pack(recordVersionKey(primaryKey)));
+                    ensureContextActive().clear(versionKey);
                 }
             }
             CompletableFuture<Void> updateIndexesFuture = updateSecondaryIndexes(oldRecord, null);
             if (oldHasIncompleteVersion) {
                 return updateIndexesFuture.thenApply(vignore -> {
-                    context.removeLocalVersion(primaryKey);
+                    byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
+                    context.removeLocalVersion(versionKey);
                     return true;
                 });
             } else {
