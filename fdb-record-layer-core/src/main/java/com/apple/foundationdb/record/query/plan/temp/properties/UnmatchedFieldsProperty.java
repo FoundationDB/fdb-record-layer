@@ -133,7 +133,8 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     public Integer evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable final Integer rangesOverResult) {
-        // since we do visit expression references in this property we can insist on rangesOverResult not being null
+        // since we visit the expression reference under the quantifier, and don't return null ourselves, we can
+        // insist that rangesOverResult is never null
         return Objects.requireNonNull(rangesOverResult);
     }
 }

@@ -31,24 +31,24 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
- * A quantifier is a conduit facilitating the data flow between the output of one {@link RelationalExpression} R and the
- * consumption of that data by another {@link RelationalExpression} S. S is said to own the quantifier, while the
- * quantifier is said to range over R. Quantifiers come in very few but very distinct flavors. All flavors are
- * implemented by static inner final classes as to emulate a sealed trait.
+ * A quantifier describes the data flow between the output of one {@link RelationalExpression} {@code R} and the
+ * consumption of that data by another {@code RelationalExpression} {@code S}. {@code S} is said to own the quantifier, while the
+ * quantifier is said to range over {@code R}. Quantifiers come in very few but very distinct flavors. All flavors are
+ * implemented by static inner final classes in order to emulate a sealed trait.
  *
  * Quantifiers separate what it means to be producing versus consuming records. The expression a quantifier ranges over
- * produces records, the quantifier flows information (according to the flavor) which is then consumed by the expression
+ * produces records, the quantifier flows information (in a manner determined by the flavor) that is consumed by the expression
  * containing or owning the quantifier. That expression can consume the data in a way independent of how the data was
  * produced in the first place.
  *
  * A quantifier works closely with the expression that owns it. Depending on the semantics of the owning expression
- * it becomes possible to model correlations,  e.g. for a logical join expression the quantifier can provide a binding
+ * it becomes possible to model correlations. For example, in a logical join expression the quantifier can provide a binding
  * of the record being currently consumed by the join's outer to other (inner) parts of the data flow that are also rooted
  * at the owning (join) expression.
  */
 public abstract class Quantifier implements Bindable {
     /**
-     * For Each quantifier. Conceptually flows one record at a time from the expression it ranges over to
+     * A quantifier that conceptually flows one record at a time from the expression it ranges over to
      * the owning expression.
      */
     public static final class ForEach extends Quantifier {
@@ -83,13 +83,13 @@ public abstract class Quantifier implements Bindable {
     }
 
     /**
-     * Existential quantifier. Conceptually flows exactly one record containing a boolean to the owning
-     * expression indicating whether the sub graph the quantifier ranges over produced a non-empty or an empty
+     * A quantifier that conceptually flows exactly one record containing a boolean to the owning
+     * expression indicating whether the sub-graph that the quantifier ranges over produced a non-empty or an empty
      * result. When the semantics of this quantifiers are realized in an execution strategy that strategy should
-     * facilitate an early out mechanism as the result will be {@code record(true)} as soon as the sub graph produces
+     * facilitate a boolean "short-circuit" mechanism as the result will be {@code record(true)} as soon as the sub-graph produces
      * the first record.
      */
-    @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and heshCode() should be overwritten which is not necessary
+    @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class Existential extends Quantifier {
         private final ExpressionRef<? extends RelationalExpression> rangesOver;
 
@@ -117,20 +117,20 @@ public abstract class Quantifier implements Bindable {
      * @return a for-each quantifier ranging over the given expression reference
      */
     @Nonnull
-    public static Existential existential(final ExpressionRef<? extends RelationalExpression> rangesOver) {
+    public static Existential existential(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
         return new Existential(rangesOver);
     }
 
     /**
      * Physical quantifier. This kind of quantifier is the conduit between two {@link RecordQueryPlan}s. It does
-     * not have an associated semantics as by that time all semantics and execution details must have been subsumed
+     * not have any associated semantics; all semantics and execution details must be subsumed
      * by the query plans themselves.
      */
-    @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and heshCode() should be overwritten which is not necessary
+    @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class Physical extends Quantifier {
         private final ExpressionRef<? extends RecordQueryPlan> rangesOver;
 
-        private Physical(final ExpressionRef<? extends RecordQueryPlan> rangesOver) {
+        private Physical(@Nonnull final ExpressionRef<? extends RecordQueryPlan> rangesOver) {
             this.rangesOver = rangesOver;
         }
 
@@ -148,12 +148,12 @@ public abstract class Quantifier implements Bindable {
     }
 
     /**
-     * Factory method to create a physical quantifier over a given expression reference containing record plans.
+     * Factory method to create a physical quantifier over a given expression reference containing query plans.
      * @param rangesOver expression reference to {@link RecordQueryPlan}s
-     * @return a physical quantifier ranging over the given expression reference
+     * @return a physical quantifier ranging over the given reference
      */
     @Nonnull
-    public static Physical physical(final ExpressionRef<? extends RecordQueryPlan> rangesOver) {
+    public static Physical physical(@Nonnull final ExpressionRef<? extends RecordQueryPlan> rangesOver) {
         return new Physical(rangesOver);
     }
 
@@ -164,12 +164,12 @@ public abstract class Quantifier implements Bindable {
      * @return a physical quantifier ranging over a new expression reference containing the given expression reference
      */
     @Nonnull
-    public static Physical physical(final RecordQueryPlan rangesOverPlan) {
+    public static Physical physical(@Nonnull final RecordQueryPlan rangesOverPlan) {
         return new Physical(GroupExpressionRef.of(rangesOverPlan));
     }
 
     /**
-     * Getter to retrieve the expression reference the quantifier ranges over.
+     * Return the reference that the quantifier ranges over.
      * @return {@link ExpressionRef} this quantifier ranges over
      */
     @Nonnull
@@ -177,7 +177,8 @@ public abstract class Quantifier implements Bindable {
 
     /**
      * Return a short hand string for the quantifier. As a quantifier's semantics is usually quite subtle and should
-     * not distract from expressions when e.g. a data flow is visualized the returned string should be _short_.
+     * not distract from expressions. For example, when a data flow is visualized the returned string should be <em>short</em>.
+``
      * @return a short string representing the quantifier.
      */
     @Nonnull
@@ -192,9 +193,9 @@ public abstract class Quantifier implements Bindable {
     }
 
     /**
-     * This method allows for computation of {@link PlannerProperty}s across the data flow graph.
+     * Allow the computation of {@link PlannerProperty}s across the quantifiers in the data flow graph.
      * @param visitor the planner property that is being computed
-     * @param <U> the type of the property we are computing
+     * @param <U> the type of the property being computed
      * @return the property
      */
     @Nullable

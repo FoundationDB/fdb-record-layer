@@ -37,12 +37,12 @@ import java.util.List;
  *
  * <p>
  * To avoid littering {@link RelationalExpression} classes with methods for various properties, properties are implemented
- * using a variant of the hierarchical visitor pattern over a dag of {@link RelationalExpression}s, {@link Quantifier},
+ * using a variant of the hierarchical visitor pattern over a DAG of {@link RelationalExpression}s, {@link Quantifier}s,
  * and {@link ExpressionRef}s.
  * A property can be evaluated against an expression tree by having the visitor traverse a DAG of heterogeneous objects
  * where expressions are said to own quantifiers which range over expression references which then contain expressions
- * again. Shared sub graphs are visited multiple times. If desired, the caller must ensure that a sub graph is not
- * revisited if visited before.
+ * again. Shared sub graphs are visited multiple times. If desired, the caller must ensure that a sub-graph is not
+ * visited more than once.
  *
  * Note that the methods {@link #evaluateAtExpression}, {@link #evaluateAtQuantifier}, and {@link #evaluateAtRef} are handed the
  * results of the visitor evaluated at their owned quantifiers, references, and members respectively. Since most properties
@@ -53,7 +53,7 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public interface PlannerProperty<T> {
     /**
-     * Return whether the property should visit the sub graph rooted at the given expression.
+     * Return whether the property should visit the sub-graph rooted at the given expression.
      * Called on nodes in the expression graph in visit pre-order of the depth-first traversal of the graph.
      * That is, as each node is visited for the first time, {@code shouldVisit()} is called on that node.
      * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtExpression(RelationalExpression, List)} will
@@ -64,19 +64,18 @@ public interface PlannerProperty<T> {
     boolean shouldVisit(@Nonnull RelationalExpression expression);
 
     /**
-     * Return whether the property should visit the given expression reference and by transitive property the expressions
-     * the {@link ExpressionRef} references.
+     * Return whether the property should visit the given reference and, transitively, the members of the reference.
      * Called on expression references in the graph in visit pre-order of the depth-first traversal of the graph.
      * That is, as a reference is visited, {@code shouldVisit()} is called on that reference.
      * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtRef(ExpressionRef, List)} will
-     * not be called on the given expression reference.
+     * not be called on the given reference.
      * @param ref the expression reference to visit
      * @return {@code true} if the members of {@code ref} should be visited and {@code false} if they should not be visited
      */
     boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref);
 
     /**
-     * Return whether the property should visit the given quantifier and the expression reference that the quantifier
+     * Return whether the property should visit the given quantifier and the references that the quantifier
      * ranges over.
      * Called on quantifiers in the graph in visit pre-order of the depth-first traversal of the graph.
      * That is, as a quantifier is visited, {@code shouldVisit()} is called on that quantifier.
@@ -113,7 +112,7 @@ public interface PlannerProperty<T> {
     T evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<T> memberResults);
 
     /**
-     * Evaluate the property at the given quantifier, using the result of evaluating the property at the expression
+     * Evaluate the property at the given quantifier, using the result of evaluating the property at the
      * reference the quantifier ranges over.
      * Called on quantifiers in the graph in visit post-order of the depth-first traversal of the graph.
      * That is, as each quantifier is visited (after the expression reference it ranges over has been visited, if applicable),
