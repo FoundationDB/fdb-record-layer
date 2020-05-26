@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -33,19 +32,16 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -60,21 +56,6 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
 
     private RecordTypesProperty(@Nonnull PlanContext context) {
         this.context = context;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull final Quantifier quantifier) {
-        return true;
     }
 
     @Nonnull
@@ -160,13 +141,5 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
     @Nonnull
     public static Set<String> evaluate(@Nonnull PlanContext context, @Nonnull RelationalExpression ref) {
         return ref.acceptPropertyVisitor(new RecordTypesProperty(context));
-    }
-
-    @Nonnull
-    @Override
-    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public Set<String> evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable final Set<String> rangesOverResult) {
-        // since we do visit expression references in this property we can insist on rangesOverResult not being null
-        return Objects.requireNonNull(rangesOverResult);
     }
 }

@@ -20,10 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.ClusterProvider;
 import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.ComponentAttributeProvider;
@@ -36,7 +34,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.CharStreams;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.InputStream;
@@ -251,21 +248,6 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
         this.renderSingleGroups = renderSingleGroups;
     }
 
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull final Quantifier quantifier) {
-        return true;
-    }
-
     @Nonnull
     @Override
     public PlannerGraph evaluateAtExpression(@Nonnull final RelationalExpression expression, @Nonnull final List<PlannerGraph> childGraphs) {
@@ -330,13 +312,5 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
         } else { // !renderSingleGroups && memberResults.size() == 1
             return Iterables.getOnlyElement(memberResults);
         }
-    }
-
-    @Nonnull
-    @Override
-    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public PlannerGraph evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable final PlannerGraph rangesOverResult) {
-        // since we do visit expression references in this property we can insist on rangesOverResult not being null
-        return Objects.requireNonNull(rangesOverResult);
     }
 }

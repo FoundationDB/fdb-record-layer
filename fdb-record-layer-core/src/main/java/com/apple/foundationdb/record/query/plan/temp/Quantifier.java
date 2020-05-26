@@ -31,26 +31,35 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
+ * Models the concept of quantification.
+ * 
+ * <p>
  * A quantifier describes the data flow between the output of one {@link RelationalExpression} {@code R} and the
- * consumption of that data by another {@code RelationalExpression} {@code S}. {@code S} is said to own the quantifier, while the
- * quantifier is said to range over {@code R}. Quantifiers come in very few but very distinct flavors. All flavors are
- * implemented by static inner final classes in order to emulate a sealed trait.
+ * consumption of that data by another {@code RelationalExpression} {@code S}. {@code S} is said to own the quantifier,
+ * while the quantifier is said to range over {@code R}. Quantifiers come in very few but very distinct flavors.
+ * All flavors are implemented by static inner final classes in order to emulate a sealed trait.
+ * </p>
  *
- * Quantifiers separate what it means to be producing versus consuming records. The expression a quantifier ranges over
+ * <p>
+ * Quantifiers separate what it means to be producing versus consuming items. The expression a quantifier ranges over
  * produces records, the quantifier flows information (in a manner determined by the flavor) that is consumed by the expression
  * containing or owning the quantifier. That expression can consume the data in a way independent of how the data was
  * produced in the first place.
+ * </p>
  *
+ * <p>
  * A quantifier works closely with the expression that owns it. Depending on the semantics of the owning expression
  * it becomes possible to model correlations. For example, in a logical join expression the quantifier can provide a binding
- * of the record being currently consumed by the join's outer to other (inner) parts of the data flow that are also rooted
+ * of the item being currently consumed by the join's outer to other (inner) parts of the data flow that are also rooted
  * at the owning (join) expression.
+ * </p>
  */
 public abstract class Quantifier implements Bindable {
     /**
-     * A quantifier that conceptually flows one record at a time from the expression it ranges over to
+     * A quantifier that conceptually flows one item at a time from the expression it ranges over to
      * the owning expression.
      */
+    @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class ForEach extends Quantifier {
         private final ExpressionRef<? extends RelationalExpression> rangesOver;
 
@@ -83,11 +92,11 @@ public abstract class Quantifier implements Bindable {
     }
 
     /**
-     * A quantifier that conceptually flows exactly one record containing a boolean to the owning
+     * A quantifier that conceptually flows exactly one item containing a boolean to the owning
      * expression indicating whether the sub-graph that the quantifier ranges over produced a non-empty or an empty
      * result. When the semantics of this quantifiers are realized in an execution strategy that strategy should
-     * facilitate a boolean "short-circuit" mechanism as the result will be {@code record(true)} as soon as the sub-graph produces
-     * the first record.
+     * facilitate a boolean "short-circuit" mechanism as the result will be {@code true} as soon as the sub-graph produces
+     * the first item.
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class Existential extends Quantifier {
@@ -178,7 +187,6 @@ public abstract class Quantifier implements Bindable {
     /**
      * Return a short hand string for the quantifier. As a quantifier's semantics is usually quite subtle and should
      * not distract from expressions. For example, when a data flow is visualized the returned string should be <em>short</em>.
-``
      * @return a short string representing the quantifier.
      */
     @Nonnull
@@ -211,11 +219,11 @@ public abstract class Quantifier implements Bindable {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof ForEach)) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        final ForEach forEach = (ForEach)o;
-        return Objects.equals(getRangesOver(), forEach.getRangesOver());
+        final Quantifier that = (Quantifier)o;
+        return Objects.equals(getRangesOver(), that.getRangesOver());
     }
 
     @Override

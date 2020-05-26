@@ -21,10 +21,12 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * An interface for certain Cascades-style properties, which are measurable features of an expression other than the
@@ -43,10 +45,22 @@ import java.util.List;
  * where expressions are said to own quantifiers which range over expression references which then contain expressions
  * again. Shared sub graphs are visited multiple times. If desired, the caller must ensure that a sub-graph is not
  * visited more than once.
+ * </p>
  *
+ * <p>
  * Note that the methods {@link #evaluateAtExpression}, {@link #evaluateAtQuantifier}, and {@link #evaluateAtRef} are handed the
  * results of the visitor evaluated at their owned quantifiers, references, and members respectively. Since most properties
  * are easy to describe as a recursion with depth one, this makes properties easier to read and write.
+ * </p>
+ *
+ * <p>
+ * Note that the default implementations provided in this interface walk the entire DAG, i.e. all {@link #shouldVisit}
+ * methods return {@code true}. That implies that properties have been computed for sub-structures of the graph when
+ * {@code evaluateAtXXX()} is called and therefore are not {@code null}. That means that all such arguments can be
+ * assumed to be non-nullable even though parameters are annotated as {@link Nullable}. On the other hand, if the
+ * implementor also overrides {@code shouldVisit} to return {@code false}, arguments to {@code evaluateAtXXX} may become
+ * nullable or contain {@code null}s if they are collections and should be dealt with gracefully.
+ * </p>
  *
  * @param <T> the result type of the property
  */
@@ -61,7 +75,10 @@ public interface PlannerProperty<T> {
      * @param expression the planner expression to visit
      * @return {@code true} if the children of {@code expression} should be visited and {@code false} if they should not be visited
      */
-    boolean shouldVisit(@Nonnull RelationalExpression expression);
+    @SuppressWarnings("unused")
+    default boolean shouldVisit(@Nonnull RelationalExpression expression) {
+        return true;
+    }
 
     /**
      * Return whether the property should visit the given reference and, transitively, the members of the reference.
@@ -72,7 +89,10 @@ public interface PlannerProperty<T> {
      * @param ref the expression reference to visit
      * @return {@code true} if the members of {@code ref} should be visited and {@code false} if they should not be visited
      */
-    boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref);
+    @SuppressWarnings("unused")
+    default boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+        return true;
+    }
 
     /**
      * Return whether the property should visit the given quantifier and the references that the quantifier
@@ -85,7 +105,10 @@ public interface PlannerProperty<T> {
      * @return {@code true} if the expression reference {@code quantifier} ranges over should be visited and
      *         {@code false} if it should not be visited
      */
-    boolean shouldVisit(@Nonnull Quantifier quantifier);
+    @SuppressWarnings("unused")
+    default boolean shouldVisit(@Nonnull Quantifier quantifier) {
+        return true;
+    }
 
     /**
      * Evaluate the property at the given expression, using the results of evaluating the property at its children.
@@ -123,5 +146,10 @@ public interface PlannerProperty<T> {
      * @return the value of property at the given quantifier
      */
     @Nonnull
-    T evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable T rangesOverResult);
+    @SuppressWarnings("unused")
+    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
+    default T evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable T rangesOverResult) {
+        // since we visit the expression reference under the quantifier, we can insist that rangesOverResult is never null
+        return Objects.requireNonNull(rangesOverResult);
+    }
 }

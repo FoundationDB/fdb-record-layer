@@ -21,21 +21,17 @@
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
 import com.apple.foundationdb.record.query.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * A property that counts the number of {@link ElementPredicate}s that appear in a planner expression tree.
@@ -45,21 +41,6 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class ElementPredicateCountProperty implements PlannerProperty<Integer> {
     private static final ElementPredicateCountProperty INSTANCE = new ElementPredicateCountProperty();
-
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull final Quantifier quantifier) {
-        return true;
-    }
 
     @Nonnull
     @Override
@@ -112,14 +93,5 @@ public class ElementPredicateCountProperty implements PlannerProperty<Integer> {
             return Integer.MAX_VALUE;
         }
         return result;
-    }
-
-    @Nonnull
-    @Override
-    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public Integer evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable final Integer rangesOverResult) {
-        // since we visit the expression reference under the quantifier, and don't return null ourselves, we can
-        // insist that rangesOverResult is never null
-        return Objects.requireNonNull(rangesOverResult);
     }
 }

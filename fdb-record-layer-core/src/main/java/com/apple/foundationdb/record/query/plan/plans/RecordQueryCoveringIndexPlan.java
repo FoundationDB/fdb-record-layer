@@ -34,8 +34,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
@@ -55,7 +53,7 @@ import java.util.Set;
 public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
-    private final ExpressionRef<RecordQueryPlanWithIndex> indexPlan;
+    private final RecordQueryPlanWithIndex indexPlan;
     @Nonnull
     private final String recordTypeName;
     @Nonnull
@@ -68,7 +66,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
 
     public RecordQueryCoveringIndexPlan(@Nonnull RecordQueryPlanWithIndex indexPlan,
                                         @Nonnull final String recordTypeName, @Nonnull IndexKeyValueToPartialRecord toRecord) {
-        this.indexPlan = GroupExpressionRef.of(indexPlan);
+        this.indexPlan = indexPlan;
         this.recordTypeName = recordTypeName;
         this.toRecord = toRecord;
     }
@@ -86,19 +84,18 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
         final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
         boolean hasPrimaryKey = getScanType() != IndexScanType.BY_GROUP;
         return indexPlan
-                .get()
                 .executeEntries(store, context, continuation, executeProperties)
                 .map(indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey));
     }
 
     @Nonnull
     public String getIndexName() {
-        return indexPlan.get().getIndexName();
+        return indexPlan.getIndexName();
     }
 
     @Nonnull
     public IndexScanType getScanType() {
-        return indexPlan.get().getScanType();
+        return indexPlan.getScanType();
     }
 
     @Override
@@ -182,7 +179,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
 
     @Override
     public RecordQueryPlan getChild() {
-        return indexPlan.get();
+        return indexPlan;
     }
 
     @Override
@@ -194,6 +191,6 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     @Override
     @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(Quantifier.physical(indexPlan));
+        return ImmutableList.of();
     }
 }
