@@ -124,7 +124,7 @@ public abstract class Quantifier implements Bindable {
     /**
      * Physical quantifier. This kind of quantifier is the conduit between two {@link RecordQueryPlan}s. It does
      * not have an associated semantics as by that time all semantics and execution details must have been subsumed
-     * by the record plans themselves.
+     * by the query plans themselves.
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and heshCode() should be overwritten which is not necessary
     public static final class Physical extends Quantifier {
