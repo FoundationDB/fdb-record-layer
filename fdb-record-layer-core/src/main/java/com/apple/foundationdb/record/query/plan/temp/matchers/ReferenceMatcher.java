@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
@@ -40,7 +41,7 @@ import java.util.stream.Stream;
  * that the type parameter is general enough to cover every possible type of {@code PlannerExpression} that might be behind
  * any reference that it could be matched to. In general, the programmer will be certain that a reference would contain
  * a particular type because an expression of a certain type is always found in a particular position of the iterator
- * returned by {@link RelationalExpression#getPlannerExpressionChildren()}. For example, it would be safe to use a
+ * returned by {@link RelationalExpression#getQuantifiers()}. For example, it would be safe to use a
  * {@code ReferenceMatcher<QueryComponent>} to match against the second planner expression child of a
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} because that child is necessarily a
  * {@code QueryComponent}; note that there is no way for the type system to know that, so the programmer must track
@@ -77,6 +78,12 @@ public class ReferenceMatcher<T extends RelationalExpression> implements Express
     @Nonnull
     @Override
     public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate) {
+        return Stream.empty();
+    }
+
+    @Nonnull
+    @Override
+    public Stream<PlannerBindings> matchWith(@Nonnull final Quantifier quantifier) {
         return Stream.empty();
     }
 

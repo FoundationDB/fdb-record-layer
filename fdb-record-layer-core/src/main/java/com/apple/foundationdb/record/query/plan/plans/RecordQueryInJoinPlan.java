@@ -31,16 +31,16 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
@@ -53,14 +53,12 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     protected static final Comparator<Object> VALUE_COMPARATOR = (o1, o2) -> ((Comparable)o1).compareTo((Comparable)o2);
 
     protected final ExpressionRef<RecordQueryPlan> plan;
-    protected final List<ExpressionRef<? extends RelationalExpression>> children;
     protected final String bindingName;
     protected final boolean sortValuesNeeded;
     protected final boolean sortReverse;
 
     public RecordQueryInJoinPlan(RecordQueryPlan plan, String bindingName, boolean sortValuesNeeded, boolean sortReverse) {
         this.plan = GroupExpressionRef.of(plan);
-        this.children = Collections.singletonList(this.plan);
         this.bindingName = bindingName;
         this.sortValuesNeeded = sortValuesNeeded;
         this.sortReverse = sortReverse;
@@ -107,8 +105,8 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return children.iterator();
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of(Quantifier.physical(plan));
     }
 
     @Override

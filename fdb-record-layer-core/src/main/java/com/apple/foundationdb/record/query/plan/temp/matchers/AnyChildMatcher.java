@@ -24,10 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
-import java.util.Spliterators;
+import java.util.List;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * An expression children matcher that tries to match any child to the given {@link ExpressionMatcher}, producing a
@@ -45,10 +43,10 @@ public class AnyChildMatcher implements ExpressionChildrenMatcher {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull Iterator<? extends Bindable> childIterator) {
-        Stream<? extends Bindable> childStream = StreamSupport.stream(
-                Spliterators.spliteratorUnknownSize(childIterator, 0), false);
-        return childStream.flatMap(child -> child.bindTo(childMatcher));
+    public Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children) {
+        return children
+                .stream()
+                .flatMap(child -> child.bindTo(childMatcher));
     }
 
     /**

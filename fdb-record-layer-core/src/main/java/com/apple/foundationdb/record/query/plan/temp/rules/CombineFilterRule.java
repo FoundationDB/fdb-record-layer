@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterEx
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
@@ -50,7 +51,10 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(
             LogicalFilterExpression.class,
             firstMatcher,
-            TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class, secondMatcher, childMatcher));
+            QuantifierMatcher.forEach(
+                    TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
+                            secondMatcher,
+                            QuantifierMatcher.forEach(childMatcher))));
 
     public CombineFilterRule() {
         super(root);

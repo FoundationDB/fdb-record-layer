@@ -76,8 +76,8 @@ public class ElementPredicate implements QueryPredicate {
 
     @Override
     @Nonnull
-    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
-        return  binding.matchWith(this);
+    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        return  matcher.matchWith(this);
     }
 
     @Override

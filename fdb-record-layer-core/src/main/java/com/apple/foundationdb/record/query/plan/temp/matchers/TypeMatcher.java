@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
@@ -67,7 +68,7 @@ public class TypeMatcher<T extends Bindable> implements ExpressionMatcher<T> {
 
     @SafeVarargs
     public static <U extends Bindable> TypeMatcher<U> of(@Nonnull Class<? extends U> expressionClass,
-                                                                  @Nonnull ExpressionMatcher<? extends Bindable>... children) {
+                                                         @Nonnull ExpressionMatcher<? extends Bindable>... children) {
         ImmutableList.Builder<ExpressionMatcher<? extends Bindable>> builder = ImmutableList.builder();
         for (ExpressionMatcher<? extends Bindable> child : children) {
             builder.add(child);
@@ -76,7 +77,7 @@ public class TypeMatcher<T extends Bindable> implements ExpressionMatcher<T> {
     }
 
     public static <U extends Bindable> TypeMatcher<U> of(@Nonnull Class<? extends U> expressionClass,
-                                                                  @Nonnull ExpressionChildrenMatcher childrenMatcher) {
+                                                         @Nonnull ExpressionChildrenMatcher childrenMatcher) {
         return new TypeMatcher<>(expressionClass, childrenMatcher);
     }
 
@@ -90,18 +91,25 @@ public class TypeMatcher<T extends Bindable> implements ExpressionMatcher<T> {
     @Nonnull
     @Override
     public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression) {
-        if (expressionClass.isInstance(expression)) {
-            return Stream.of(PlannerBindings.from(this, expression));
-        } else {
-            return Stream.empty();
-        }
+        return matchClassWith(expression);
     }
 
     @Nonnull
     @Override
     public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate) {
-        if (expressionClass.isInstance(predicate)) {
-            return Stream.of(PlannerBindings.from(this, predicate));
+        return matchClassWith(predicate);
+    }
+
+    @Nonnull
+    @Override
+    public Stream<PlannerBindings> matchWith(@Nonnull final Quantifier quantifier) {
+        return matchClassWith(quantifier);
+    }
+
+    @Nonnull
+    private Stream<PlannerBindings> matchClassWith(final Bindable bindable) {
+        if (expressionClass.isInstance(bindable)) {
+            return Stream.of(PlannerBindings.from(this, bindable));
         } else {
             return Stream.empty();
         }

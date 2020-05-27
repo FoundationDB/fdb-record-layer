@@ -21,16 +21,16 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
+import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -63,8 +63,8 @@ public class IndexEntrySourceScanExpression implements RelationalExpression {
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Collections.emptyIterator();
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of();
     }
 
     @Nonnull

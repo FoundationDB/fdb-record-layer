@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
@@ -49,8 +50,12 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
     private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<QueryPredicate> filterMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher =
-            TypeWithPredicateMatcher.ofPredicate(RecordQueryPredicateFilterPlan.class, filterMatcher, innerMatcher);
-    private static final ExpressionMatcher<RecordQueryTypeFilterPlan> root = TypeMatcher.of(RecordQueryTypeFilterPlan.class, filterPlanMatcher);
+            TypeWithPredicateMatcher.ofPredicate(RecordQueryPredicateFilterPlan.class,
+                    filterMatcher,
+                    QuantifierMatcher.physical(innerMatcher));
+    private static final ExpressionMatcher<RecordQueryTypeFilterPlan> root =
+            TypeMatcher.of(RecordQueryTypeFilterPlan.class,
+                    QuantifierMatcher.physical(filterPlanMatcher));
 
     public PushTypeFilterBelowFilterRule() {
         super(root);

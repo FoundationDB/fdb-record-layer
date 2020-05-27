@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -37,7 +37,7 @@ public class AnyChildrenMatcher implements ExpressionChildrenMatcher {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull Iterator<? extends Bindable> childIterator) {
+    public Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children) {
         return Stream.of(PlannerBindings.empty());
     }
 }

@@ -41,7 +41,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -59,8 +58,6 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     private final KeyExpression comparisonKey;
-    @Nonnull
-    private final List<ExpressionRef<? extends RelationalExpression>> expressionChildren;
     private final boolean showComparisonKey;
 
     /**
@@ -106,7 +103,6 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
                                  boolean ignoredTemporaryFlag) {
         super(children, reverse);
         this.comparisonKey = comparisonKey;
-        this.expressionChildren = ImmutableList.copyOf(super.getPlannerExpressionChildren());
         this.showComparisonKey = showComparisonKey;
     }
 
@@ -121,13 +117,6 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Nonnull
     public KeyExpression getComparisonKey() {
         return comparisonKey;
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return expressionChildren.iterator();
     }
 
     @Override

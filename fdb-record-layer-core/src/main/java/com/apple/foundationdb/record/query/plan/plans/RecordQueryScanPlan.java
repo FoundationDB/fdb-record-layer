@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
@@ -40,9 +39,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -110,13 +107,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Override
     public boolean hasLoadBykeys() {
         return false;
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Collections.emptyIterator();
     }
 
     @Nonnull

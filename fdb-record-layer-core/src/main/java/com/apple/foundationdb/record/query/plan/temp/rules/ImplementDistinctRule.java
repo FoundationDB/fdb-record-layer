@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.CreatesDuplicatesProperty;
 
@@ -52,7 +53,9 @@ public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression
     @Nonnull
     private static final ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class, AnyChildrenMatcher.ANY);
     @Nonnull
-    private static final ExpressionMatcher<LogicalDistinctExpression> root = TypeMatcher.of(LogicalDistinctExpression.class, innerMatcher);
+    private static final ExpressionMatcher<LogicalDistinctExpression> root =
+            TypeMatcher.of(LogicalDistinctExpression.class,
+                    QuantifierMatcher.forEach(innerMatcher));
 
     public ImplementDistinctRule() {
         super(root);

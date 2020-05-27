@@ -29,10 +29,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -50,16 +50,6 @@ public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
 
     private CreatesDuplicatesProperty(@Nonnull PlanContext context) {
         this.context = context;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
     }
 
     @Nonnull

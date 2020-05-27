@@ -43,16 +43,6 @@ import java.util.List;
 public class FieldWithComparisonCountProperty implements PlannerProperty<Integer> {
     private static final FieldWithComparisonCountProperty INSTANCE = new FieldWithComparisonCountProperty();
 
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
-    }
-
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {

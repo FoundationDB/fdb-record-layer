@@ -30,7 +30,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
@@ -39,7 +40,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -114,8 +114,8 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return children.iterator();
+    public List<? extends Quantifier> getQuantifiers() {
+        return Quantifiers.fromPlans(children);
     }
 
     @Override

@@ -248,16 +248,6 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
         this.renderSingleGroups = renderSingleGroups;
     }
 
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
-    }
-
     @Nonnull
     @Override
     public PlannerGraph evaluateAtExpression(@Nonnull final RelationalExpression expression, @Nonnull final List<PlannerGraph> childGraphs) {

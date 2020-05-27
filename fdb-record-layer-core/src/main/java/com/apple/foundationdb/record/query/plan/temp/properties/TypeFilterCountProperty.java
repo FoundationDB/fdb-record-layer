@@ -43,16 +43,6 @@ import java.util.List;
 public class TypeFilterCountProperty implements PlannerProperty<Integer> {
     private static final TypeFilterCountProperty INSTANCE = new TypeFilterCountProperty();
 
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {

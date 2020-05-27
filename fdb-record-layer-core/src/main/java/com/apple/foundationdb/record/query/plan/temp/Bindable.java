@@ -34,10 +34,10 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public interface Bindable {
     /**
-     * Attempt to match the binding to this bindable object.
-     * @param binding the binding to match against
+     * Attempt to match the matcher to this bindable object.
+     * @param matcher the matcher to match against
      * @return a map of bindings if the match succeeded, or an empty <code>Optional</code> if it failed
      */
     @Nonnull
-    Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding);
+    Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher);
 }

@@ -24,11 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -56,9 +54,7 @@ public class AnyChildWithRestMatcher implements ExpressionChildrenMatcher {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull Iterator<? extends Bindable> childIterator) {
-        List<Bindable> children = Lists.newArrayList(childIterator);
-
+    public Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children) {
         Stream.Builder<Stream<PlannerBindings>> streams = Stream.builder();
         for (int i = 0; i < children.size(); i++) {
             Bindable child = children.get(i);
@@ -69,7 +65,7 @@ public class AnyChildWithRestMatcher implements ExpressionChildrenMatcher {
             Stream<PlannerBindings> childBindings = child.bindTo(selectedChildMatcher);
             // The otherChildrenMatcher is an AllChildrenMatcher wrapping a ReferenceMatcher, so it is guaranteed to
             // produce a single set of PlannerBindings.
-            Optional<PlannerBindings> otherBindings = otherChildrenMatcher.matches(otherChildren.iterator()).findFirst();
+            Optional<PlannerBindings> otherBindings = otherChildrenMatcher.matches(otherChildren).findFirst();
             if (!otherBindings.isPresent()) {
                 throw new RecordCoreException("invariant violated: couldn't match reference matcher to one of the other children");
             }

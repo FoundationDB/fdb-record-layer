@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -71,9 +71,9 @@ public class NotPredicate implements QueryPredicate {
 
     @Override
     @Nonnull
-    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
-        Stream<PlannerBindings> bindings = binding.matchWith(this);
-        return bindings.flatMap(outerBindings -> binding.getChildrenMatcher().matches(Iterators.singletonIterator(getChild()))
+    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        Stream<PlannerBindings> bindings = matcher.matchWith(this);
+        return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(ImmutableList.of(getChild()))
                 .map(outerBindings::mergedWith));
     }
 

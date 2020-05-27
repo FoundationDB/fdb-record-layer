@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
 import com.apple.foundationdb.record.query.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
@@ -41,16 +41,6 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class ElementPredicateCountProperty implements PlannerProperty<Integer> {
     private static final ElementPredicateCountProperty INSTANCE = new ElementPredicateCountProperty();
-
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
-    }
 
     @Nonnull
     @Override

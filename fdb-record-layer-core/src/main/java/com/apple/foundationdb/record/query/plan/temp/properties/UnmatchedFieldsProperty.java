@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -58,16 +58,6 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
 
     public UnmatchedFieldsProperty(@Nonnull PlanContext context) {
         this.planContext = context;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
     }
 
     @Nonnull

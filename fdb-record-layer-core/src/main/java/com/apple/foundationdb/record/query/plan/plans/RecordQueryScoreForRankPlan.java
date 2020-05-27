@@ -38,15 +38,15 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetInde
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -123,8 +123,8 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(this.plan);
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of(Quantifier.physical(plan));
     }
 
     @Override

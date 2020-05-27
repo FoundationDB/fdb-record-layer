@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterEx
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
@@ -51,7 +52,10 @@ public class PushConjunctElementWithComparisonIntoExistingScanRule extends Plann
     private static final ExpressionMatcher<AndPredicate> andMatcher = TypeMatcher.of(AndPredicate.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(filterMatcher, otherFilterMatchers));
     private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class, andMatcher, indexScanMatcher);
+    private static final ExpressionMatcher<LogicalFilterExpression> root =
+            TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
+                    andMatcher,
+                    QuantifierMatcher.forEach(indexScanMatcher));
 
     public PushConjunctElementWithComparisonIntoExistingScanRule() {
         super(root);

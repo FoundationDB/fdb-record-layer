@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesProperty;
@@ -43,7 +44,9 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
     private static ExpressionMatcher<ExpressionRef<RelationalExpression>> childMatcher = ReferenceMatcher.anyRef();
-    private static ExpressionMatcher<LogicalTypeFilterExpression> root = TypeMatcher.of(LogicalTypeFilterExpression.class, childMatcher);
+    private static ExpressionMatcher<LogicalTypeFilterExpression> root =
+            TypeMatcher.of(LogicalTypeFilterExpression.class,
+                    QuantifierMatcher.forEach(childMatcher));
 
     public RemoveRedundantTypeFilterRule() {
         super(root);

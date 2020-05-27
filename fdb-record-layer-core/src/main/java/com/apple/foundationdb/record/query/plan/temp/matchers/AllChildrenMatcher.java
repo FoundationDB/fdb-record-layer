@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -49,13 +48,13 @@ public class AllChildrenMatcher implements ExpressionChildrenMatcher {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull Iterator<? extends Bindable> childIterator) {
+    public Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
 
         // The children need to be merged in the same order that they appear to satisfy the contract of
         // PlannerBindings.getAll().
-        while (childIterator.hasNext()) {
-            List<PlannerBindings> individualBindings = childIterator.next().bindTo(childMatcher).collect(Collectors.toList());
+        for (final Bindable child : children) {
+            final List<PlannerBindings> individualBindings = child.bindTo(childMatcher).collect(Collectors.toList());
             if (individualBindings.isEmpty()) {
                 return Stream.empty();
             }

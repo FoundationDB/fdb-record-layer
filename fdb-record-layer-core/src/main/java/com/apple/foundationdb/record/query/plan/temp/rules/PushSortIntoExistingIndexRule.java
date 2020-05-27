@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourc
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 
@@ -40,7 +41,9 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public class PushSortIntoExistingIndexRule extends PlannerRule<LogicalSortExpression> {
     private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
-    private static final ExpressionMatcher<LogicalSortExpression> root = TypeMatcher.of(LogicalSortExpression.class, indexScanMatcher);
+    private static final ExpressionMatcher<LogicalSortExpression> root =
+            TypeMatcher.of(LogicalSortExpression.class,
+                    QuantifierMatcher.forEach(indexScanMatcher));
 
     public PushSortIntoExistingIndexRule() {
         super(root);

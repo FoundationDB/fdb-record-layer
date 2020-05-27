@@ -25,19 +25,19 @@ import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
  * An {@code ExpressionChildrenMatcher} describes how to match the children of a {@link RelationalExpression} (i.e., the
- * references returned by the {@link RelationalExpression#getPlannerExpressionChildren()} method). Bindings can be
+ * references returned by the {@link RelationalExpression#getQuantifiers()} method). Bindings can be
  * retrieved from the rule call using the {@code ExpressionChildMatcher} that produced them.
  *
  * <p>
  * In most cases, the most natural way to bind to the children of a planner expression is by defining a matcher for each
  * child. This behavior is implemented in the {@link ListChildrenMatcher} and exposed by the
  * {@link TypeMatcher#of(Class, ExpressionMatcher[])} helper method. However, this does not work when there is no
- * <i>a priori</i> bound on the number of children returned by {@link RelationalExpression#getPlannerExpressionChildren()}
+ * <i>a priori</i> bound on the number of children returned by {@link RelationalExpression#getQuantifiers()}
  * For example, an {@link com.apple.foundationdb.record.query.expressions.AndComponent} can have an arbitrary number of
  * other {@code QueryComponent}s as children.
  * </p>
@@ -56,9 +56,9 @@ public interface ExpressionChildrenMatcher {
      * Apply this matcher to the children provided by the given iterator and produce a stream of possible bindings.
      * If the match is not successful, produce an empty stream. Note that this method should not generally match to the
      * children themselves; instead, it should delegate that work to one or more inner {@link ExpressionMatcher}s.
-     * @param childIterator an iterator of references to the children of a planner expression
+     * @param children a list of references to the children of a planner expression
      * @return a stream of the possible bindings from applying this match to the children in the given iterator
      */
     @Nonnull
-    Stream<PlannerBindings> matches(@Nonnull Iterator<? extends Bindable> childIterator);
+    Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children);
 }

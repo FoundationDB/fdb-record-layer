@@ -30,15 +30,12 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.TextScan;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -47,7 +44,7 @@ import java.util.Set;
  * in that the comparison on a query might actually be split into multiple queries.
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex {
+public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, RecordQueryPlanWithNoChildren {
 
     @Nonnull
     private final String indexName;
@@ -127,12 +124,6 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex {
         return 1;
     }
 
-    @Nonnull
-    @Override
-    public List<RecordQueryPlan> getChildren() {
-        return Collections.emptyList();
-    }
-
     @Override
     @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
@@ -164,13 +155,6 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex {
     @Override
     public int planHash() {
         return indexName.hashCode() + textScan.planHash() + (reverse ? 1 : 0);
-    }
-
-    @Nonnull
-    @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Collections.emptyIterator();
     }
 
     @Nonnull

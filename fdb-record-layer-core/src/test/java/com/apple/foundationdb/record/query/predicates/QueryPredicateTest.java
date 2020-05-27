@@ -71,7 +71,7 @@ public class QueryPredicateTest {
 
         @Nonnull
         @Override
-        public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
+        public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
             return Stream.empty();
         }
     }

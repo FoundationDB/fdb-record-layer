@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterEx
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
@@ -54,8 +55,10 @@ public class FindPossibleIndexForAndPredicateRule extends PlannerRule<LogicalFil
     private static ExpressionMatcher<AndPredicate> andFilterMatcher = TypeMatcher.of(AndPredicate.class,
             AnyChildWithRestMatcher.anyMatchingWithRest(fieldMatcher, residualFieldsMatcher));
     private static ExpressionMatcher<FullUnorderedScanExpression> scanMatcher = TypeMatcher.of(FullUnorderedScanExpression.class);
-    private static ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
-            andFilterMatcher, scanMatcher);
+    private static ExpressionMatcher<LogicalFilterExpression> root =
+            TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
+                    andFilterMatcher,
+                    QuantifierMatcher.forEach(scanMatcher));
 
     public FindPossibleIndexForAndPredicateRule() {
         super(root);

@@ -35,8 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -93,13 +91,6 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Collections.emptyIterator();
-    }
-
-    @Nonnull
-    @Override
     public String toString() {
         return getInner() + " | " + getFilter();
     }
@@ -137,5 +128,4 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     public QueryComponent getFilter() {
         return filter;
     }
-
 }

@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.temp.Bindable;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -53,21 +52,22 @@ public class ListChildrenMatcher implements ExpressionChildrenMatcher {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull Iterator<? extends Bindable> childIterator) {
-        Iterator<ExpressionMatcher<? extends Bindable>> bindingIterator = childMatchers.iterator();
+    public Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children) {
+        if (children.size() != childMatchers.size()) {
+            return Stream.empty();
+        }
 
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
-        while (childIterator.hasNext() && bindingIterator.hasNext()) {
-            List<PlannerBindings> possible = childIterator.next().bindTo(bindingIterator.next()).collect(Collectors.toList());
+        for (int i = 0; i < children.size(); i++) {
+            final Bindable child = children.get(i);
+            final ExpressionMatcher<? extends Bindable> matcher = childMatchers.get(i);
+            List<PlannerBindings> possible = child.bindTo(matcher).collect(Collectors.toList());
             if (possible.isEmpty()) {
                 return Stream.empty();
             }
             bindingStream = bindingStream.flatMap(existing -> possible.stream().map(existing::mergedWith));
         }
 
-        if (childIterator.hasNext() || bindingIterator.hasNext()) { // unable to match completely
-            return Stream.empty();
-        }
         return bindingStream;
     }
 

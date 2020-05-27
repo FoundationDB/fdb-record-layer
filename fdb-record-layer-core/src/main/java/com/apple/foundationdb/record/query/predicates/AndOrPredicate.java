@@ -53,9 +53,9 @@ public abstract class AndOrPredicate implements QueryPredicate {
 
     @Override
     @Nonnull
-    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> binding) {
-        Stream<PlannerBindings> bindings = binding.matchWith(this);
-        return bindings.flatMap(outerBindings -> binding.getChildrenMatcher().matches(getChildren().iterator())
+    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        Stream<PlannerBindings> bindings = matcher.matchWith(this);
+        return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(getChildren())
                 .map(outerBindings::mergedWith));
     }
 

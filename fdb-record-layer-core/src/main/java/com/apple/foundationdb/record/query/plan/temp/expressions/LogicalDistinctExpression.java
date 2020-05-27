@@ -23,11 +23,12 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Iterator;
+import java.util.List;
 
 /**
  * A relational planner expression representing a stream of unique records. This expression has a single child which
@@ -39,14 +40,14 @@ import java.util.Iterator;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalDistinctExpression implements RelationalExpressionWithChildren {
     @Nonnull
-    private ExpressionRef<RelationalExpression> inner;
+    private Quantifier.ForEach inner;
 
     public LogicalDistinctExpression(@Nonnull RelationalExpression inner) {
         this(GroupExpressionRef.of(inner));
     }
 
     public LogicalDistinctExpression(@Nonnull ExpressionRef<RelationalExpression> inner) {
-        this.inner = inner;
+        this.inner = Quantifier.forEach(inner);
     }
 
     @Override
@@ -56,8 +57,8 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(inner);
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of(inner);
     }
 
     @Override

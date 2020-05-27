@@ -23,14 +23,13 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
@@ -46,7 +45,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     private final List<Element> sort;
     private final boolean reverse;
     @Nonnull
-    private final ExpressionRef<RelationalExpression> inner;
+    private final Quantifier.ForEach inner;
 
     public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalExpression inner) {
         this(sort, reverse, GroupExpressionRef.of(inner));
@@ -66,13 +65,13 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
         this.grouping = grouping;
         this.sort = sort;
         this.reverse = reverse;
-        this.inner = inner;
+        this.inner = Quantifier.forEach(inner);
     }
 
     @Nonnull
     @Override
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return Iterators.singletonIterator(inner);
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of(inner);
     }
 
     @Override
@@ -108,8 +107,8 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     }
 
     @Nonnull
-    public RelationalExpression getInner() {
-        return inner.get();
+    private Quantifier getInner() {
+        return inner;
     }
 
     @Override

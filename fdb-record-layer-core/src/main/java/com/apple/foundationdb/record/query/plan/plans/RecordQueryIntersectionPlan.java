@@ -34,6 +34,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -43,7 +45,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -68,8 +69,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     private final List<ExpressionRef<RecordQueryPlan>> children;
     @Nonnull
     private final KeyExpression comparisonKey;
-    @Nonnull
-    private final List<ExpressionRef<? extends RelationalExpression>> expressionChildren;
+
     private boolean reverse;
 
     /**
@@ -112,10 +112,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
         this.children = children;
         this.comparisonKey = comparisonKey;
         this.reverse = reverse;
-
-        final ImmutableList.Builder<ExpressionRef<? extends RelationalExpression>> expressionChildrenBuilder = ImmutableList.builder();
-        expressionChildrenBuilder.addAll(children);
-        expressionChildren = expressionChildrenBuilder.build();
     }
 
     @Nonnull
@@ -158,15 +154,14 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public Iterator<? extends ExpressionRef<? extends RelationalExpression>> getPlannerExpressionChildren() {
-        return expressionChildren.iterator();
+    public List<? extends Quantifier> getQuantifiers() {
+        return Quantifiers.fromPlans(children);
     }
 
     @Nonnull
     @Override
     public String toString() {
-        return String.join(" " + INTERSECT + " ",
-                getChildStream().map(RecordQueryPlan::toString).collect(Collectors.toList()));
+        return getChildStream().map(RecordQueryPlan::toString).collect(Collectors.joining(" " + INTERSECT + " "));
     }
 
     @Override

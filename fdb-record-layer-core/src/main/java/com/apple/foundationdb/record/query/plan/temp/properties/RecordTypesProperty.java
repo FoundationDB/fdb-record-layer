@@ -32,10 +32,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.Sets;
 
@@ -56,16 +56,6 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
 
     private RecordTypesProperty(@Nonnull PlanContext context) {
         this.context = context;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull RelationalExpression expression) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return true;
     }
 
     @Nonnull
