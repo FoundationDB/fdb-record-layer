@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.util.MapUtils;
+import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.annotations.VisibleForTesting;
@@ -88,7 +89,6 @@ import java.util.stream.Collectors;
 @API(API.Status.STABLE)
 public class FDBRecordContext extends FDBTransactionContext implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordContext.class);
-    private static final byte[] META_DATA_VERSION_STAMP_KEY = new byte[]{(byte)0xff, '/', 'm', 'e', 't', 'a', 'd', 'a', 't', 'a', 'V', 'e', 'r', 's', 'i', 'o', 'n'};
     private static final byte[] META_DATA_VERSION_STAMP_VALUE = new byte[FDBRecordVersion.GLOBAL_VERSION_LENGTH + Integer.BYTES];
     private static final long UNSET_VERSION = 0L;
 
@@ -978,7 +978,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             ensureActive();
             return CompletableFuture.completedFuture(null);
         }
-        return readTransaction(isolationLevel.isSnapshot()).get(META_DATA_VERSION_STAMP_KEY).handle((val, err) -> {
+        return readTransaction(isolationLevel.isSnapshot()).get(SystemKeyspace.METADATA_VERSION_KEY).handle((val, err) -> {
             if (err == null) {
                 return val;
             } else {
@@ -1023,7 +1023,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     public void setMetaDataVersionStamp() {
         ensureActive();
         dirtyMetaDataVersionStamp = true;
-        transaction.mutate(MutationType.SET_VERSIONSTAMPED_VALUE, META_DATA_VERSION_STAMP_KEY, META_DATA_VERSION_STAMP_VALUE);
+        transaction.mutate(MutationType.SET_VERSIONSTAMPED_VALUE, SystemKeyspace.METADATA_VERSION_KEY, META_DATA_VERSION_STAMP_VALUE);
     }
 
     @Nullable
