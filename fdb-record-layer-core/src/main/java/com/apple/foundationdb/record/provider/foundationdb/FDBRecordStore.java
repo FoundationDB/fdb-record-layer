@@ -250,6 +250,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private final Cache<Tuple, FDBRawRecord> preloadCache;
 
+    private boolean recordsReadConflict;
+
+    private boolean storeStateReadConflict;
+
+    @Nonnull
+    private final Set<String> indexStateReadConflicts = ConcurrentHashMap.newKeySet(8);
+
     @SuppressWarnings("squid:S00107")
     protected FDBRecordStore(@Nonnull FDBRecordContext context,
                              @Nonnull SubspaceProvider subspaceProvider,
@@ -2771,6 +2778,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Add a read conflict key for all records.
      */
     private void addRecordsReadConflict() {
+        if (recordsReadConflict) {
+            return;
+        }
+        recordsReadConflict = true;
         Transaction tr = ensureContextActive();
         byte[] recordKey = getSubspace().pack(Tuple.from(RECORD_KEY));
         tr.addReadConflictRange(recordKey, ByteArrayUtil.strinc(recordKey));
@@ -2784,6 +2795,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (!getRecordMetaData().hasIndex(indexName)) {
             throw new MetaDataException("Index " + indexName + " does not exist in meta-data.");
         }
+        if (indexStateReadConflicts.contains(indexName)) {
+            return;
+        } else {
+            indexStateReadConflicts.add(indexName);
+        }
         Transaction tr = ensureContextActive();
         byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, indexName));
         tr.addReadConflictKey(indexStateKey);
@@ -2793,6 +2809,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Add a read conflict key for the whole record store state.
      */
     private void addStoreStateReadConflict() {
+        if (storeStateReadConflict) {
+            return;
+        }
+        storeStateReadConflict = true;
         Transaction tr = ensureContextActive();
         byte[] indexStateKey = getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY));
         tr.addReadConflictRange(indexStateKey, ByteArrayUtil.strinc(indexStateKey));
