@@ -31,17 +31,21 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -134,7 +138,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         if (this == o) {
             return true;
         }
-        if (o == null || !(o instanceof RecordQueryIndexPlan)) {
+        if (!(o instanceof RecordQueryIndexPlan)) {
             return false;
         }
         RecordQueryIndexPlan that = (RecordQueryIndexPlan) o;
@@ -169,9 +173,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     protected void appendScanDetails(StringBuilder str) {
-        String range;
-        range = getRange();
-
+        @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
+        final String range = tupleRange == null ? comparisons.toString() : tupleRange.toString();
         str.append(indexName).append(" ").append(range);
         if (scanType != IndexScanType.BY_VALUE) {
             str.append(" ").append(scanType);
@@ -181,16 +184,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         }
     }
 
-    @Nonnull
-    private String getRange() {
-        String range;
-        try {
-            range = comparisons.toTupleRange().toString();
-        } catch (Comparisons.EvaluationContextRequiredException ex) {
-            range = comparisons.toString();
-        }
-        return range;
-    }
 
     @Override
     public int getComplexity() {
@@ -198,22 +191,53 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     /**
-     * Rewrite the planner graph for better visualization of a query index plan.
-     * @param childGraphs planner graphs of children expression that already have been computed
+     * Create a planner graph for better visualization of a query index plan.
      * @return the rewritten planner graph that models the index as a separate node that is connected to the
      *         actual index scan plan node.
      */
     @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        final PlannerGraph.Node root =
-                new PlannerGraph.Node(this,
-                        getClass().getSimpleName(),
-                        getRange() + "; " + (scanType == IndexScanType.BY_VALUE ? scanType : "") + "; " + (reverse ? "reverse" : ""));
-        final PlannerGraph.SourceNode source = new PlannerGraph.SourceNode(getIndexName());
-        return PlannerGraph.builder(root)
-                .addNode(source)
-                .addEdge(source, root, new PlannerGraph.Edge())
-                .build();
+    public PlannerGraph createIndexPlannerGraph(@Nonnull RecordQueryPlan identity,
+                                                @Nonnull final NodeInfo nodeInfo,
+                                                @Nonnull final List<String> additionalDetails,
+                                                @Nonnull final Map<String, Attribute> additionalAttributeMap) {
+        @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
+
+        final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
+        final ImmutableMap.Builder<String, Attribute> attributeMapBuilder = ImmutableMap.builder();
+
+        detailsBuilder
+                .addAll(additionalDetails);
+        attributeMapBuilder
+                .putAll(additionalAttributeMap);
+
+        if (scanType != IndexScanType.BY_VALUE) {
+            detailsBuilder.add("scan type: {{scanType}}");
+            attributeMapBuilder.put("scanType", Attribute.gml(scanType.toString()));
+        }
+
+        if (tupleRange != null) {
+            detailsBuilder.add("range: " + tupleRange.getLowEndpoint().toString(false) + "{{low}}, {{high}}" + tupleRange.getHighEndpoint().toString(true));
+            attributeMapBuilder.put("low", Attribute.gml(tupleRange.getLow() == null ? "-∞" : tupleRange.getLow().toString()));
+            attributeMapBuilder.put("high", Attribute.gml(tupleRange.getHigh() == null ? "∞" : tupleRange.getHigh().toString()));
+        } else {
+            detailsBuilder.add("comparisons: {{comparisons}}");
+            attributeMapBuilder.put("comparisons", Attribute.gml(comparisons.toString()));
+        }
+
+        if (reverse) {
+            detailsBuilder.add("direction: {{direction}}");
+            attributeMapBuilder.put("direction", Attribute.gml("reversed"));
+        }
+
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(identity,
+                        nodeInfo,
+                        detailsBuilder.build(),
+                        attributeMapBuilder.build()),
+                ImmutableList.of(
+                        PlannerGraph.fromNodeAndChildGraphs(
+                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.copyOf(getUsedIndexes())),
+                                ImmutableList.of())));
     }
 }

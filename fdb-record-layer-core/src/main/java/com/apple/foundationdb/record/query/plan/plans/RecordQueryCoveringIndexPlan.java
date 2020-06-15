@@ -36,7 +36,10 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -192,5 +195,14 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of();
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return indexPlan.createIndexPlannerGraph(this,
+                NodeInfo.COVERING_INDEX_SCAN_OPERATOR,
+                ImmutableList.of(),
+                ImmutableMap.of());
     }
 }

@@ -32,7 +32,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -161,6 +166,17 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     @Override
     public int getComplexity() {
         return 1;
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.LOAD_BY_KEYS_OPERATOR,
+                        ImmutableList.of("BY KEYS {{keysSource}}"),
+                        ImmutableMap.of("keysSource", Attribute.gml(getKeysSource().toString()))),
+                childGraphs);
     }
 
     private static class PrimaryKeysKeySource implements KeysSource {

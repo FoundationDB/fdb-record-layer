@@ -1,5 +1,5 @@
 /*
- * SemanticAttribute.java
+ * NodeIcon.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,24 +21,22 @@
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
 /**
- * Semantic attribute.
+ * NodeIcon Ids. Do not change!
  */
-public class SemanticAttribute extends Attribute {
-    /**
-     * Static factory method to call the private constructor.
-     * @param reference the reference
-     * @return a newly constructed semantic attribute
-     */
-    public static SemanticAttribute of(final Object reference) {
-        return new SemanticAttribute(reference);
-    }
-    
-    public SemanticAttribute(final Object reference) {
-        super(reference);
+public class NodeIcon {
+    public static final NodeIcon BASE_DATA = new NodeIcon("BaseData");
+    public static final NodeIcon INDEX_DATA = new NodeIcon("IndexData");
+    public static final NodeIcon IN_MEMORY_TEMPORARY_DATA = new NodeIcon("InMemoryTemporaryData");
+    public static final NodeIcon DATA_ACCESS_OPERATOR = new NodeIcon("DataAccessOperator");
+    public static final NodeIcon COMPUTATION_OPERATOR = new NodeIcon("ComputationOperator");
+
+    private String id;
+
+    public NodeIcon(final String id) {
+        this.id = id;
     }
 
-    @Override
-    public boolean isSemanticAttribute() {
-        return true;
+    public String getId() {
+        return id;
     }
 }

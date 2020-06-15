@@ -25,12 +25,14 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.ClusterProvider;
 import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.ComponentAttributeProvider;
-import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.ComponentNameProvider;
+import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.ComponentIdProvider;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.io.CharStreams;
 
 import javax.annotation.Nonnull;
@@ -44,6 +46,7 @@ import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -56,13 +59,27 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
     private final boolean renderSingleGroups;
 
     /**
+     * Helper class to provide an incrementing integer identifier per use.
+     * @param <T> the class of the component the {@code apply} method generates an identifier for.
+     */
+    private static class CountingIdProvider<T> implements ComponentIdProvider<T> {
+        int counter = 0;
+
+        @Override
+        public String apply(@Nonnull final T t) {
+            counter++;
+            return String.valueOf(counter);
+        }
+    }
+
+    /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
      * @param renderSingleGroups iff true group references with just one member are not rendered
      * @param relationalExpression the planner expression to be rendered.
      * @return the word "done" (IntelliJ really likes a return of String).
      */
     @Nonnull
-    public static String show(final boolean renderSingleGroups, final RelationalExpression relationalExpression) {
+    public static String show(final boolean renderSingleGroups, @Nonnull final RelationalExpression relationalExpression) {
         try {
             final AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> plannerGraph =
                     Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(forInternalShow(renderSingleGroups)));
@@ -85,7 +102,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      * @throws Exception -- thrown from methods called in here.
      */
     @Nonnull
-    public static URI createHtmlLauncher(final AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> plannerGraph) throws Exception {
+    public static URI createHtmlLauncher(@Nonnull final AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> plannerGraph) throws Exception {
         final InputStream launcherHtmlInputStream =
                 plannerGraph.getClass()
                         .getResourceAsStream("/showPlannerExpression.html");
@@ -113,7 +130,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      * @return the graph as string in dot format.
      */
     @Nonnull
-    public static String exportToDot(final AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> plannerGraph) {
+    public static String exportToDot(@Nonnull final AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> plannerGraph) {
         final GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> exporter = createDotExporter();
         // export as string
         final Writer writer = new StringWriter();
@@ -123,18 +140,6 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
 
     @Nonnull
     private static GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> createDotExporter() {
-        /*
-         * Generate a unique identifier for each node.
-         */
-        final ComponentNameProvider<PlannerGraph.Node> vertexIdProvider = new ComponentNameProvider<PlannerGraph.Node>() {
-            int counter = 0;
-            @Override
-            public String apply(final PlannerGraph.Node component) {
-                counter++;
-                return component.getClass().getSimpleName() + counter;
-            }
-        };
-
         final ClusterProvider<PlannerGraph.Node, PlannerGraph.Edge> clusterProvider =
                 n -> n.nodes()
                         .stream()
@@ -155,18 +160,18 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
 
         final ComponentAttributeProvider<PlannerGraph.Node> clusterAttributeProvider =
                 node -> ImmutableMap.<String, Attribute>builder()
-                        .put("style", VisualAttribute.of("filled"))
-                        .put("fillcolor", VisualAttribute.of("lightgrey"))
-                        .put("fontsize", VisualAttribute.of("6"))
-                        .put("rank", VisualAttribute.of("same"))
-                        .put("label", VisualAttribute.of("group"))
+                        .put("style", Attribute.dot("filled"))
+                        .put("fillcolor", Attribute.dot("lightgrey"))
+                        .put("fontsize", Attribute.dot("6"))
+                        .put("rank", Attribute.dot("same"))
+                        .put("label", Attribute.dot("group"))
                         .build();
 
-        return new DotExporter<>(vertexIdProvider,
+        return new DotExporter<>(new CountingIdProvider<>(),
                 PlannerGraph.Node::getAttributes,
                 PlannerGraph.Edge::getAttributes,
-                ImmutableMap.of("fontname", VisualAttribute.of("courier"),
-                        "rankdir", VisualAttribute.of("BT")),
+                ImmutableMap.of("fontname", Attribute.dot("courier"),
+                        "rankdir", Attribute.dot("BT")),
                 clusterProvider,
                 clusterAttributeProvider);
     }
@@ -177,11 +182,24 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      * @return the explain of the planner expression handing in as a string in GML format.
      */
     @Nonnull
-    public static String explain(final RelationalExpression relationalExpression) {
+    public static String explain(@Nonnull final RelationalExpression relationalExpression) {
+        return explain(relationalExpression, ImmutableMap.of());
+    }
+
+
+    /**
+     * Generate the explain of the planner expression that is passed in.
+     * @param relationalExpression the planner expression to be explained.
+     * @param additionalDescriptionMap a map used to generate names and descriptions for operators.
+     * @return the explain of the planner expression handing in as a string in GML format.
+     */
+    @Nonnull
+    public static String explain(@Nonnull final RelationalExpression relationalExpression,
+                                 @Nonnull final Map<String, Attribute> additionalDescriptionMap) {
         try {
             final PlannerGraph plannerGraph =
                     Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(forExplain()));
-            return exportToGml(plannerGraph);
+            return exportToGml(plannerGraph, additionalDescriptionMap);
         } catch (final Exception ex) {
             Throwables.throwIfUnchecked(ex);
             throw new RuntimeException(ex);
@@ -191,12 +209,29 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
     /**
      * Creates a serialized format of this graph as a gml-compatible definition.
      * @param plannerGraph the planner graph to be exported
-     *
+     * @param additionalInfoMap a map used to generate names and descriptions for operators.
      * @return the graph as string in gml format.
      */
     @Nonnull
-    public static String exportToGml(final PlannerGraph plannerGraph) {
-        final GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> exporter = createGmlExporter();
+    public static String exportToGml(@Nonnull final PlannerGraph plannerGraph,
+                                     @Nonnull final Map<String, Attribute> additionalInfoMap) {
+        // Synthesize the set of NodeWithInfo nodes that are in the plan.
+        final ImmutableSet<String> usedInfoIds =
+                plannerGraph.getNetwork()
+                        .nodes()
+                        .stream()
+                        .filter(n -> n instanceof PlannerGraph.WithInfoId)
+                        .map(n -> (PlannerGraph.WithInfoId)n)
+                        .map(PlannerGraph.WithInfoId::getInfoId)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final ImmutableMap.Builder<String, Attribute> infoMapBuilder = ImmutableMap.builder();
+        infoMapBuilder.putAll(Maps.filterEntries(NodeInfo.getInfoAttributeMap(NodeInfo.getNodeInfos()), e -> usedInfoIds.contains(Objects.requireNonNull(e).getKey())));
+        infoMapBuilder.putAll(Maps.filterEntries(additionalInfoMap, e -> usedInfoIds.contains(Objects.requireNonNull(e).getKey())));
+        final ImmutableMap<String, Attribute> infoMap = infoMapBuilder.build();
+
+        final GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> exporter =
+                createGmlExporter(infoMap);
         // export as string
         final Writer writer = new StringWriter();
         exporter.exportGraph(plannerGraph.getNetwork(), writer);
@@ -204,23 +239,12 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
     }
 
     @Nonnull
-    private static GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> createGmlExporter() {
-        /*
-         * Generate a unique identifier for each node.
-         */
-        final ComponentNameProvider<PlannerGraph.Node> vertexIdProvider = new ComponentNameProvider<PlannerGraph.Node>() {
-            int counter = 0;
-            @Override
-            public String apply(final PlannerGraph.Node component) {
-                counter++;
-                return String.valueOf(counter);
-            }
-        };
-
-        return new GmlExporter<>(vertexIdProvider,
+    private static GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> createGmlExporter(@Nonnull final Map<String, Attribute> infoMap) {
+        return new GmlExporter<>(new CountingIdProvider<>(),
                 PlannerGraph.Node::getAttributes,
+                new CountingIdProvider<>(),
                 PlannerGraph.Edge::getAttributes,
-                ImmutableMap.of());
+                ImmutableMap.of("infos", Attribute.gml(infoMap)));
     }
 
     public static PlannerGraphProperty forExplain() {
@@ -258,25 +282,12 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
         } else if (!isForExplain && expression instanceof InternalPlannerGraphRewritable) {
             return ((InternalPlannerGraphRewritable)expression).rewriteInternalPlannerGraph(childGraphs);
         } else {
-            final PlannerGraph.Node root = new PlannerGraph.Node(expression, expression.getClass().getSimpleName());
-            final PlannerGraph.InternalPlannerGraphBuilder plannerGraphBuilder =
-                    PlannerGraph.builder(root);
-
-            // Traverse results from children and create graph edges. Hand in the directly preceding edge
-            // in the dependsOn set. That in turn causes the dot exporter to render the graph left to right which
-            // is important for e.g. join order, etc.
-            PlannerGraph.Edge previousEdge = null;
-            for (final AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> childGraph : childGraphs) {
-                final PlannerGraph.GroupExpressionRefEdge edge =
-                        new PlannerGraph.GroupExpressionRefEdge(previousEdge == null
-                                                                        ? ImmutableSet.of()
-                                                                        : ImmutableSet.of(previousEdge));
-                plannerGraphBuilder
-                        .addGraph(childGraph)
-                        .addEdge(childGraph.getRoot(), plannerGraphBuilder.getRoot(), edge);
-                previousEdge = edge;
-            }
-            return plannerGraphBuilder.build();
+            return PlannerGraph.fromNodeAndChildGraphs(
+                    new PlannerGraph.LogicalOperatorNode(expression,
+                            expression.getClass().getSimpleName(),
+                            ImmutableList.of(),
+                            ImmutableMap.of()),
+                    childGraphs);
         }
     }
 

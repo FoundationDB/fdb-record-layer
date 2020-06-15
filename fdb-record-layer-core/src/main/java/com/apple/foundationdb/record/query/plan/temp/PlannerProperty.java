@@ -43,7 +43,7 @@ import java.util.Objects;
  * and {@link ExpressionRef}s.
  * A property can be evaluated against an expression tree by having the visitor traverse a DAG of heterogeneous objects
  * where expressions are said to own quantifiers which range over expression references which then contain expressions
- * again. Shared sub graphs are visited multiple times. If desired, the caller must ensure that a sub-graph is not
+ * again. Shared subgraphs are visited multiple times. If desired, the caller must ensure that a subgraph is not
  * visited more than once.
  * </p>
  *
@@ -67,7 +67,7 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public interface PlannerProperty<T> {
     /**
-     * Return whether the property should visit the sub-graph rooted at the given expression.
+     * Return whether the property should visit the subgraph rooted at the given expression.
      * Called on nodes in the expression graph in visit pre-order of the depth-first traversal of the graph.
      * That is, as each node is visited for the first time, {@code shouldVisit()} is called on that node.
      * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtExpression(RelationalExpression, List)} will

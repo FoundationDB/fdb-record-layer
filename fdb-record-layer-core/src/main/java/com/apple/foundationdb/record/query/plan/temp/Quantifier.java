@@ -93,9 +93,9 @@ public abstract class Quantifier implements Bindable {
 
     /**
      * A quantifier that conceptually flows exactly one item containing a boolean to the owning
-     * expression indicating whether the sub-graph that the quantifier ranges over produced a non-empty or an empty
+     * expression indicating whether the subgraph that the quantifier ranges over produced a non-empty or an empty
      * result. When the semantics of this quantifiers are realized in an execution strategy that strategy should
-     * facilitate a boolean "short-circuit" mechanism as the result will be {@code true} as soon as the sub-graph produces
+     * facilitate a boolean "short-circuit" mechanism as the result will be {@code true} as soon as the subgraph produces
      * the first item.
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary

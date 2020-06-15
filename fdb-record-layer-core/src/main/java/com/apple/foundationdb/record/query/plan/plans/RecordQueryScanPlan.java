@@ -29,12 +29,16 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -49,11 +53,32 @@ import java.util.Set;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable {
+    @Nullable
+    private final Set<String> recordTypes;
+
     @Nonnull
     private final ScanComparisons comparisons;
     private boolean reverse;
 
+    /**
+     * Overloaded constructor.
+     * Use the overloaded constructor {@link #RecordQueryScanPlan(Set, ScanComparisons, boolean)}
+     * to also pass in a set of record types.
+     * @param comparisons comparisons to be applied by the operator
+     * @param reverse indicator whether this scan is reverse
+     */
     public RecordQueryScanPlan(@Nonnull ScanComparisons comparisons, boolean reverse) {
+        this(null, comparisons, reverse);
+    }
+
+    /**
+     * Overloaded constructor.
+     * @param recordTypes a super set of record types of the records that this scan operator can produce
+     * @param comparisons comparisons to be applied by the operator
+     * @param reverse indicator whether this scan is reverse
+     */
+    public RecordQueryScanPlan(@Nullable Set<String> recordTypes, @Nonnull ScanComparisons comparisons, boolean reverse) {
+        this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.comparisons = comparisons;
         this.reverse = reverse;
     }
@@ -69,6 +94,11 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                 range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation,
                 executeProperties.asScanProperties(reverse))
                 .map(store::queriedRecord);
+    }
+
+    @Nullable
+    public Set<String> getRecordTypes() {
+        return recordTypes;
     }
 
     @Nonnull
@@ -112,20 +142,9 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Nonnull
     @Override
     public String toString() {
-        String range;
-        range = getRange();
+        @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
+        final String range = tupleRange == null ? comparisons.toString() : tupleRange.toString();
         return "Scan(" + range + ")";
-    }
-
-    @Nonnull
-    private String getRange() {
-        String range;
-        try {
-            range = comparisons.toTupleRange().toString();
-        } catch (Comparisons.EvaluationContextRequiredException ex) {
-            range = comparisons.toString();
-        }
-        return range;
     }
 
     @Override
@@ -143,13 +162,14 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
             return false;
         }
         RecordQueryScanPlan that = (RecordQueryScanPlan) o;
-        return reverse == that.reverse &&
-                Objects.equals(comparisons, that.comparisons);
+        return Objects.equals(recordTypes, that.recordTypes) &&
+               reverse == that.reverse &&
+               Objects.equals(comparisons, that.comparisons);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(comparisons, reverse);
+        return Objects.hash(recordTypes, comparisons, reverse);
     }
 
     @Override
@@ -173,16 +193,49 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      * @return the rewritten planner graph that models scanned storage as a separate node that is connected to the
      *         actual scan plan node.
      */
+    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
-        final PlannerGraph.Node root = new PlannerGraph.Node(this,
-                getClass().getSimpleName());
-        final PlannerGraph.SourceNode source = new PlannerGraph.SourceNode(getRange());
-        return PlannerGraph.builder(root)
-                .addNode(source)
-                .addEdge(source, root, new PlannerGraph.Edge())
-                .build();
+
+        @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
+
+        final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
+        final ImmutableMap.Builder<String, Attribute> additionalAttributes = ImmutableMap.builder();
+
+        if (tupleRange != null) {
+            detailsBuilder.add("range: " + tupleRange.getLowEndpoint().toString(false) + "{{low}}, {{high}}" + tupleRange.getHighEndpoint().toString(true));
+            additionalAttributes.put("low", Attribute.gml(tupleRange.getLow() == null ? "-∞" : tupleRange.getLow().toString()));
+            additionalAttributes.put("high", Attribute.gml(tupleRange.getHigh() == null ? "∞" : tupleRange.getHigh().toString()));
+        } else {
+            detailsBuilder.add("comparisons: {{comparisons}}");
+            additionalAttributes.put("comparisons", Attribute.gml(comparisons.toString()));
+        }
+
+        if (reverse) {
+            detailsBuilder.add("direction: {{direction}}");
+            additionalAttributes.put("direction", Attribute.gml("reversed"));
+        }
+
+        final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
+        if (getRecordTypes() == null) {
+            dataNodeWithInfo =
+                    new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                            ImmutableList.of("ALL"));
+        } else {
+            dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                    ImmutableList.of("record types: {{types}}"),
+                    ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList()))));
+        }
+
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.SCAN_OPERATOR,
+                        detailsBuilder.build(),
+                        additionalAttributes.build()),
+                ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(
+                        dataNodeWithInfo,
+                        childGraphs)));
     }
 }

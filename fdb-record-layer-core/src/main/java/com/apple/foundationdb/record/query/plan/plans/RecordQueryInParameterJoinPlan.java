@@ -24,9 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -39,7 +42,7 @@ import java.util.Objects;
  * A query plan that executes a child plan once for each of the elements of an {@code IN} list taken from a parameter.
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan implements PlannerGraphRewritable {
+public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     private final String externalBinding;
 
     public RecordQueryInParameterJoinPlan(RecordQueryPlan plan, String bindingName, String externalBinding, boolean sortValues, boolean sortReverse) {
@@ -121,10 +124,13 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan implem
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
         final PlannerGraph.Node root =
-                new PlannerGraph.Node(this,
-                        getClass().getSimpleName());
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.NESTED_LOOP_JOIN_OPERATOR);
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
-        final PlannerGraph.SourceNode explodeNode = new PlannerGraph.SourceNode("Explode", externalBinding);
+        final PlannerGraph.NodeWithInfo explodeNode =
+                new PlannerGraph.LogicalOperatorNodeWithInfo(NodeInfo.TABLE_FUNCTION_OPERATOR,
+                        ImmutableList.of("EXPLODE({{externalBinding}})"),
+                        ImmutableMap.of("externalBinding", Attribute.gml(externalBinding)));
         final PlannerGraph.Edge fromExplodeEdge = new PlannerGraph.Edge();
         return PlannerGraph.builder(root)
                 .addGraph(graphForInner)

@@ -33,12 +33,13 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +56,7 @@ import java.util.Set;
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, TypeFilterExpression, PlannerGraphRewritable {
+public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, TypeFilterExpression {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryTypeFilterPlan.class);
 
     @Nonnull
@@ -176,18 +177,15 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      *         to depict the record types this operator filters.
      */
+    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
-        final PlannerGraph.Node root =
-                new PlannerGraph.Node(this,
-                        getClass().getSimpleName(),
-                        "[" + String.join(" v ", recordTypes) + "]");
-        final PlannerGraph graphForInner =
-                Iterables.getOnlyElement(childGraphs);
-        return PlannerGraph.builder(root)
-                .addGraph(graphForInner)
-                .addEdge(graphForInner.getRoot(), root, new PlannerGraph.GroupExpressionRefEdge())
-                .build();
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.TYPE_FILTER_OPERATOR,
+                        ImmutableList.of("WHERE record IS {{types}}"),
+                        ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
+                childGraphs);
     }
 }

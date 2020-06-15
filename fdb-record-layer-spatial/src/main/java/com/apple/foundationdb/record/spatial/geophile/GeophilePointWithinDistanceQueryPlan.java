@@ -25,18 +25,26 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.spatial.common.DoubleValueOrParameter;
 import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.SpatialJoin;
 import com.geophile.z.SpatialObject;
 import com.geophile.z.index.RecordWithSpatialObject;
 import com.geophile.z.spatialobject.d2.Point;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
 
@@ -134,5 +142,48 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), centerLatitude, centerLongitude, distance, covering);
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return createIndexPlannerGraph(this,
+                covering ? NodeInfo.COVERING_SPATIAL_INDEX_SCAN_OPERATOR : NodeInfo.SPATIAL_INDEX_SCAN_OPERATOR,
+                ImmutableList.of(),
+                ImmutableMap.of());
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph createIndexPlannerGraph(@Nonnull final RecordQueryPlan identity,
+                                                @Nonnull final NodeInfo nodeInfo,
+                                                @Nonnull final List<String> additionalDetails,
+                                                @Nonnull final Map<String, Attribute> additionalAttributeMap) {
+        final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
+        final ImmutableMap.Builder<String, Attribute> attributeMapBuilder = ImmutableMap.builder();
+
+        detailsBuilder
+                .addAll(additionalDetails);
+        attributeMapBuilder
+                .putAll(additionalAttributeMap);
+
+        detailsBuilder.add("center latitude: {{centerLatitude}}");
+        attributeMapBuilder.put("centerLatitude", Attribute.gml(centerLatitude));
+
+        detailsBuilder.add("center longitude: {{centerLongitude}}");
+        attributeMapBuilder.put("centerLongitude", Attribute.gml(centerLongitude));
+
+        detailsBuilder.add("distance: {{distance}}");
+        attributeMapBuilder.put("distance", Attribute.gml(distance));
+
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(identity,
+                        nodeInfo,
+                        detailsBuilder.build(),
+                        attributeMapBuilder.build()),
+                ImmutableList.of(
+                        PlannerGraph.fromNodeAndChildGraphs(
+                                new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.copyOf(getUsedIndexes())),
+                                ImmutableList.of())));
     }
 }

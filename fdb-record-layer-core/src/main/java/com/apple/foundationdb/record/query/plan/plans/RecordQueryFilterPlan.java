@@ -29,6 +29,11 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,5 +132,16 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Nonnull
     public QueryComponent getFilter() {
         return filter;
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.PREDICATE_FILTER_OPERATOR,
+                        ImmutableList.of("WHERE {{pred}}"),
+                        ImmutableMap.of("pred", Attribute.gml(getFilter().toString()))),
+                childGraphs);
     }
 }

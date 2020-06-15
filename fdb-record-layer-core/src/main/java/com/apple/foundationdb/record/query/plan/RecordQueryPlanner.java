@@ -1139,12 +1139,12 @@ public class RecordQueryPlanner implements QueryPlanner {
         RecordQueryPlan plan;
         Set<String> possibleTypes;
         if (candidateScan.index == null) {
-            plan = new RecordQueryScanPlan(scanComparisons, candidateScan.reverse);
             if (primaryKeyHasRecordTypePrefix && RecordTypeKeyComparison.hasRecordTypeKeyComparison(scanComparisons)) {
                 possibleTypes = RecordTypeKeyComparison.recordTypeKeyComparisonTypes(scanComparisons);
             } else {
                 possibleTypes = metaData.getRecordTypes().keySet();
             }
+            plan = new RecordQueryScanPlan(possibleTypes, scanComparisons, candidateScan.reverse);
         } else {
             if (scanType == null) {
                 scanType = IndexScanType.BY_VALUE;

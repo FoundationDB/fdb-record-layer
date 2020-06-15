@@ -29,13 +29,18 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A query plan that uses a single index. This is usually by scanning
@@ -44,7 +49,7 @@ import java.util.List;
  * through one of their child plans will not implement this interface.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RecordQueryPlanWithIndex extends RecordQueryPlan, PlannerGraphRewritable {
+public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
 
     /**
      * Gets the name of the index used by this plan.
@@ -83,14 +88,27 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, PlannerGraphR
     @Nonnull
     @Override
     default PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        final PlannerGraph.Node root =
-                new PlannerGraph.Node(this,
-                        getClass().getSimpleName(),
-                        toString());
-        final PlannerGraph.SourceNode source = new PlannerGraph.SourceNode(getIndexName());
-        return PlannerGraph.builder(root)
-                .addNode(source)
-                .addEdge(source, root, new PlannerGraph.Edge())
-                .build();
+        Verify.verify(childGraphs.isEmpty());
+        return createIndexPlannerGraph(this,
+                NodeInfo.INDEX_SCAN_OPERATOR,
+                ImmutableList.of(),
+                ImmutableMap.of());
     }
+
+    /**
+     * Create an planner graph for this index scan. Note that this method allows for composition with the covering
+     * index scan path. It is called by {@link #rewritePlannerGraph} to create the subgraph but allows for greater
+     * flexibility and parameterization of the constituent parts.
+     *
+     * @param identity identity of the node representing the index scan, may be {@code this} or some other plan object
+     * @param nodeInfo node info to determine the actul flavor of index scan
+     * @param additionalDetails additional details to be kept with the index scan node
+     * @param additionalAttributeMap additional attributes to be kept with the index scan node
+     * @return a new planner graph representing the index scan
+     */
+    @Nonnull
+    PlannerGraph createIndexPlannerGraph(@Nonnull RecordQueryPlan identity,
+                                         @Nonnull final NodeInfo nodeInfo,
+                                         @Nonnull final List<String> additionalDetails,
+                                         @Nonnull final Map<String, Attribute> additionalAttributeMap);
 }
