@@ -14,13 +14,15 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 
 `FDBRecordStore` does not have `addUniquenessCheck` anymore, which is replaced by `checkUniqueness` in `StandardIndexMaintainer` now; `IndexMaintainer` does not have `updateUniquenessViolations` anymore, which is replaced by `addUniquenessViolation` and `removeUniquenessViolationsAsync` in `StandardIndexMaintainer` now; `StandardIndexMaintainer` now has `updateOneKeyAsync` in place of `updateOneKey` .
 
+`OrElseCursor` now uses a structured continuation instead of the previous pass-through style. This breaks the continuations of all `OrElseCursor`s from previous builds. Furthermore, the fluent `RecordCursor.orElse()` method is deprecated in favor of a static method that also takes a continuation.
+
 <!--
 // begin next release
 ### NEXT_RELEASE
 
 * **Bug fix** False positive of uniqueness violations prevents building indexes [(Issue #901)](https://github.com/FoundationDB/fdb-record-layer/issues/901)
 * **Bug fix** Incomplete record versions are no longer cached in a way that can lead to cache entries for one record store polluting the values for another [(Issue #952)](https://github.com/FoundationDB/fdb-record-layer/issues/952)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** `OrElseCursor` properly support continuations when using the else branch [(Issue #974)](https://github.com/FoundationDB/fdb-record-layer/issues/974)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,7 +40,7 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 * **Breaking change** Builds now require JDK 11 [(Issue #910)](https://github.com/FoundationDB/fdb-record-layer/issues/910)
 * **Breaking change** `FDBRecordStore` does not have `addUniquenessCheck` anymore, which is replaced by `checkUniqueness` in `StandardIndexMaintainer` now; `IndexMaintainer` does not have `updateUniquenessViolations` anymore, which is replaced by `addUniquenessViolation` and `removeUniquenessViolationsAsync` in `StandardIndexMaintainer` now; `StandardIndexMaintainer` now has `updateOneKeyAsync` in replace of `updateOneKey` [(Issue #901)](https://github.com/FoundationDB/fdb-record-layer/issues/901)
 * **Breaking change** Methods interacting with the local version cache on an `FDBRecordContext` have been removed as they were previously unsafe and should have been internal only [(Issue #952)](https://github.com/FoundationDB/fdb-record-layer/issues/952)
-* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** `OrElseCursor` has a new continuation format that is incompatible with the previous continuation format [(Issue #974)](https://github.com/FoundationDB/fdb-record-layer/issues/974)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
