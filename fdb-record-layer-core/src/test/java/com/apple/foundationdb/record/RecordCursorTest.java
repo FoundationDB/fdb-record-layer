@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.cursors.SkipCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.test.BooleanSource;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
@@ -216,19 +217,20 @@ public class RecordCursorTest {
     @Test
     public void orElseTest() throws Exception {
         List<Integer> ints = Arrays.asList(1, 2, 3);
-        Function<Executor, RecordCursor<Integer>> elseZero = (executor) -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(0));
+        BiFunction<Executor, byte[], RecordCursor<Integer>> elseZero = (executor, cont) -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(0), cont);
         assertEquals(ints, RecordCursor.fromList(ints).asList().join());
-        assertEquals(ints, RecordCursor.fromList(ints).orElse(elseZero).asList().join());
+        assertEquals(ints, RecordCursor.orElse(cont -> RecordCursor.fromList(ints, cont), elseZero, null).asList().join());
 
-        assertEquals(Arrays.asList(0), RecordCursor.fromList(Collections.<Integer>emptyList()).orElse(elseZero).asList().join());
+        assertEquals(Arrays.asList(0), RecordCursor.orElse(
+                cont -> RecordCursor.fromList(Collections.<Integer>emptyList(), cont), elseZero, null).asList().join());
     }
 
     //@Test @Slow
     // Will get either NPE or NoSuchElementException after a while.
     public void orElseTimingErrorTest() throws Exception {
-        Function<Executor, RecordCursor<Integer>> elseZero = (executor) -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(0));
+        BiFunction<Executor, byte[], RecordCursor<Integer>> elseZero = (executor, cont) -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(0), cont);
         for (int i = 0; i < 100000; i++) {
-            RecordCursorIterator<Integer> cursor = RecordCursor.fromList(Collections.<Integer>emptyList()).orElse(elseZero).asIterator();
+            RecordCursorIterator<Integer> cursor = RecordCursor.orElse(cont -> RecordCursor.fromList(Collections.<Integer>emptyList(), cont), elseZero, null).asIterator();
             List<CompletableFuture<Boolean>> futures = new ArrayList<>();
             for (int j = 0; j < 100; j++) {
                 futures.add(cursor.onHasNext());
@@ -1012,19 +1014,101 @@ public class RecordCursorTest {
     public void testOrElseReasons() throws Exception {
         // Don't take else path if inside stops prematurely.
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
-        final Function<Executor, RecordCursor<Integer>> orElse = x -> RecordCursor.fromList(Collections.singletonList(0));
-        RecordCursor<Integer> cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(list), 3)
-                .filter(i -> false)
-                .orElse(orElse);
+        final BiFunction<Executor, byte[], RecordCursor<Integer>> orElse = (x, cont) -> RecordCursor.fromList(Collections.singletonList(0), cont);
+        RecordCursor<Integer> cursor = RecordCursor.orElse(cont -> new FakeOutOfBandCursor<>(RecordCursor.fromList(list, cont), 3)
+                .filter(i -> false), orElse, null);
         assertEquals(Collections.emptyList(), cursor.asList().join());
         RecordCursorResult<Integer> noNextResult = cursor.getNext();
         assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, noNextResult.getNoNextReason());
-        cursor = new FakeOutOfBandCursor<>(RecordCursor.fromList(list, noNextResult.getContinuation().toBytes()), 3)
-                .filter(i -> false)
-                .orElse(orElse);
+
+        cursor = RecordCursor.orElse(cont -> new FakeOutOfBandCursor<>(RecordCursor.fromList(list, cont), 3)
+                .filter(i -> false), orElse, noNextResult.getContinuation().toBytes());
         assertEquals(Collections.singletonList(0), cursor.asList().join());
         noNextResult = cursor.getNext();
         assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, noNextResult.getNoNextReason());
+    }
+
+    @Test
+    public void orElseWithEventuallyNonEmptyInner() {
+        final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
+        RecordCursor<Integer> cursor = getOrElseOfFilteredFakeOutOfBandCursor(list, 3, 4, null);
+        assertEquals(Collections.emptyList(), cursor.asList().join());
+        RecordCursorResult<Integer> nextResult = cursor.getNext();
+        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, nextResult.getNoNextReason());
+        cursor = getOrElseOfFilteredFakeOutOfBandCursor(list, 3, 4, nextResult.getContinuation().toBytes());
+
+        // Choose the inner branch since we eventually get a value
+        assertEquals(Collections.singletonList(5), cursor.asList().join());
+        nextResult = cursor.getNext();
+        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, nextResult.getNoNextReason());
+    }
+
+    @Test
+    public void orElseContinueWithInnerBranchAfterDecision() {
+        final List<Integer> longList = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+        RecordCursor<Integer> cursor = getOrElseOfFilteredFakeOutOfBandCursor(longList, 3, 10, null);
+
+        RecordCursorResult<Integer> nextResult = null;
+        for (int i = 0; i < 3; i++) { // three rounds with no results
+            nextResult = cursor.getNext();
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, nextResult.getNoNextReason());
+            cursor = getOrElseOfFilteredFakeOutOfBandCursor(longList, 3, 10, nextResult.getContinuation().toBytes());
+        }
+
+        // Choose the inner branch
+        assertEquals(ImmutableList.of(11, 12), cursor.asList().join());
+        nextResult = cursor.getNext();
+        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, nextResult.getNoNextReason());
+
+        byte[] continuation = nextResult.getContinuation().toBytes();
+        int i = 13;
+        while (continuation != null) {
+            cursor = getOrElseOfFilteredFakeOutOfBandCursor(longList, 3, 10, continuation);
+            nextResult = cursor.getNext();
+            if (nextResult.hasNext()) {
+                assertEquals(i, nextResult.get());
+                i++;
+            }
+
+            continuation = nextResult.getContinuation().toBytes();
+        }
+    }
+
+    @Test
+    public void orElseContinueWithElseBranchAfterDecision() {
+        final List<Integer> innerList = Arrays.asList(1, 2, 3, 4, 5);
+        final List<Integer> elseList = Arrays.asList(-1, -2, -3, -4, -5);
+        final BiFunction<Executor, byte[], RecordCursor<Integer>> orElse = (x, cont) ->
+                new FakeOutOfBandCursor<>(RecordCursor.fromList(elseList, cont), 3, RecordCursor.NoNextReason.TIME_LIMIT_REACHED);
+
+        // Go through inner cursor to determine that it's empty.
+        RecordCursor<Integer> cursor = RecordCursor.orElse(cont -> new FakeOutOfBandCursor<>(RecordCursor.fromList(innerList, cont), 3)
+                .filter(i -> false), orElse, null);
+        assertEquals(Collections.emptyList(), cursor.asList().join());
+        RecordCursorResult<Integer> nextResult = cursor.getNext();
+        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, nextResult.getNoNextReason());
+        cursor = RecordCursor.orElse(cont -> new FakeOutOfBandCursor<>(RecordCursor.fromList(innerList, cont), 3)
+                .filter(i -> false), orElse, nextResult.getContinuation().toBytes());
+
+        // Switch to else branch, but get stuck with an out-of-band limit.
+        assertEquals(ImmutableList.of(-1, -2, -3), cursor.asList().join());
+        nextResult = cursor.getNext();
+        assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, nextResult.getNoNextReason());
+
+        // Continue else branch
+        cursor = RecordCursor.orElse(cont -> new FakeOutOfBandCursor<>(RecordCursor.fromList(innerList, cont), 3)
+                .filter(i -> false), orElse, nextResult.getContinuation().toBytes());
+        assertEquals(ImmutableList.of(-4, -5), cursor.asList().join());
+        nextResult = cursor.getNext();
+        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, nextResult.getNoNextReason());
+    }
+
+    @Nonnull
+    private static RecordCursor<Integer> getOrElseOfFilteredFakeOutOfBandCursor(@Nonnull List<Integer> list, int limit, int threshold,
+                                                               @Nullable byte[] continuation) {
+        final BiFunction<Executor, byte[], RecordCursor<Integer>> orElse = (x, cont) -> RecordCursor.fromList(Collections.singletonList(0), cont);
+        return RecordCursor.orElse(cont -> new FakeOutOfBandCursor<>(RecordCursor.fromList(list, cont), limit)
+                .filter(i -> i > threshold), orElse, continuation);
     }
 
     static class BrokenCursor implements RecordCursor<String> {

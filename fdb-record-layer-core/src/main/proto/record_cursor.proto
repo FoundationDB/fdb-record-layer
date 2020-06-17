@@ -84,3 +84,13 @@ message SizeStatisticsPartialResults {
     optional uint64 maxValueSize = 5;
     repeated uint64 sizeBuckets = 6 [packed = true];
 }
+
+message OrElseContinuation {
+    enum State {
+        UNDECIDED = 0;
+        USE_INNER = 1;
+        USE_OTHER = 2;
+    };
+    optional State state = 1;
+    optional bytes continuation = 2;
+}
