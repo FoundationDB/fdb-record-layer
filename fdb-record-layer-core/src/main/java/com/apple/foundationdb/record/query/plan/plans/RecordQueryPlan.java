@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -45,7 +46,7 @@ import java.util.List;
  *
  */
 @API(API.Status.STABLE)
-public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>> {
+public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, PlannerGraphRewritable {
 
     /**
      * Execute this query plan.

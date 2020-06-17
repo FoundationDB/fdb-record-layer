@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnio
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
@@ -109,5 +111,13 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
         return otherExpression instanceof RecordQueryUnorderedUnionPlan &&
                isReverse() == ((RecordQueryUnorderedUnionPlan)otherExpression).isReverse();
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNORDERED_UNION_OPERATOR),
+                childGraphs);
     }
 }

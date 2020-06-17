@@ -59,7 +59,8 @@ public class LogicalToPhysicalScanRule extends PlannerRule<IndexEntrySourceScanE
                         logical.getComparisons().toScanComparisons(), logical.isReverse())));
             }
         } else {
-            call.yield(call.ref(new RecordQueryScanPlan(logical.getComparisons().toScanComparisons(), logical.isReverse())));
+            call.yield(call.ref(new RecordQueryScanPlan(call.getContext().getMetaData().getRecordTypes().keySet(),
+                    logical.getComparisons().toScanComparisons(), logical.isReverse())));
         }
     }
 }

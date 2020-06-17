@@ -260,6 +260,14 @@ public class ScanComparisons implements PlanHashable {
         return rangeCombiner.toTupleRange();
     }
 
+    @Nullable
+    public TupleRange toTupleRangeWithoutContext() {
+        try {
+            return toTupleRange();
+        } catch (Comparisons.EvaluationContextRequiredException ex) {
+            return null;
+        }
+    }
 
     public static Object toTupleItem(@Nullable Object item) {
         if (item instanceof ByteString) {

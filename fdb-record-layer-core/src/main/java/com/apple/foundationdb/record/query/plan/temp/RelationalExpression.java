@@ -84,7 +84,7 @@ public interface RelationalExpression extends Bindable {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull RecordQuery query, @Nonnull PlanContext context) {
 
-        RelationalExpression expression = new FullUnorderedScanExpression();
+        RelationalExpression expression = new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet());
         final ViewExpression.Builder builder = ViewExpression.builder();
         for (String recordType : context.getRecordTypes()) {
             builder.addRecordType(recordType);

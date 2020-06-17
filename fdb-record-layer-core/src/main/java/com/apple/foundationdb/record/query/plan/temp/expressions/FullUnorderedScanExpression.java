@@ -23,10 +23,18 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A planner expression representing a full, unordered scan of the records by primary key, which is the logical version
@@ -41,7 +49,19 @@ import java.util.List;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class FullUnorderedScanExpression implements RelationalExpression {
+public class FullUnorderedScanExpression implements RelationalExpression, PlannerGraphRewritable {
+    @Nonnull
+    private final Set<String> recordTypes;
+
+    public FullUnorderedScanExpression(final Set<String> recordTypes) {
+        this.recordTypes = ImmutableSet.copyOf(recordTypes);
+    }
+
+    @Nonnull
+    public Set<String> getRecordTypes() {
+        return recordTypes;
+    }
+
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
@@ -66,5 +86,26 @@ public class FullUnorderedScanExpression implements RelationalExpression {
     @Override
     public String toString() {
         return "FullUnorderedScan";
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+        Verify.verify(childGraphs.isEmpty());
+
+        final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
+        dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                ImmutableList.of("record types: {{types}}"),
+                ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList()))));
+
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                        NodeInfo.SCAN_OPERATOR,
+                        ImmutableList.of(),
+                        ImmutableMap.of()),
+                ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(
+                        dataNodeWithInfo,
+                        childGraphs)));
     }
 }

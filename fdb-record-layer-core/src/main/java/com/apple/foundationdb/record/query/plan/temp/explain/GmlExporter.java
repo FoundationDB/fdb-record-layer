@@ -21,17 +21,17 @@
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.graph.EndpointPair;
+import com.google.common.escape.Escaper;
 import com.google.common.graph.ImmutableNetwork;
+import com.google.common.html.HtmlEscapers;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -44,13 +44,11 @@ import java.util.regex.Pattern;
 @SuppressWarnings("UnstableApiUsage")
 public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edge> extends GraphExporter<N, E> {
     // patterns for IDs
-    private static final Pattern ALPHA_DIG = Pattern.compile("[a-zA-Z_][\\w]*");
-    private static final Pattern DOUBLE_QUOTE = Pattern.compile("\".*\"");
-    private static final Pattern DOT_NUMBER = Pattern.compile("[-]?([.][0-9]+|[0-9]+([.][0-9]*)?)");
-    private static final Pattern HTML = Pattern.compile("<.*>");
-
+    private static final Pattern NUMBER = Pattern.compile("([0-9]+|[0-9]+([.][0-9]*)?)");
     private static final String INDENT = "  ";
     private static final String INDENT2 = INDENT + INDENT;
+
+    private static final Escaper escaper = HtmlEscapers.htmlEscaper();
 
     /**
      * Constructs a new GmlExporter object with the given ID, label, attribute, and graph ID
@@ -60,16 +58,19 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param vertexIDProvider for generating vertex IDs. Must not be null.
      * @param vertexAttributeProvider for generating vertex attributes. If null, vertex attributes
      *        will not be written to the file.
+     * @param edgeIDProvider for generating edge IDs. Must not be null.
      * @param edgeAttributeProvider for generating edge attributes. If null, edge attributes will
      *        not be written to the file.
      * @param graphAttributes map of global graph-wide attributes
      */
-    public GmlExporter(@Nonnull final ComponentNameProvider<N> vertexIDProvider,
+    public GmlExporter(@Nonnull final ComponentIdProvider<N> vertexIDProvider,
                        @Nonnull final ComponentAttributeProvider<N> vertexAttributeProvider,
+                       @Nonnull final ComponentIdProvider<E> edgeIDProvider,
                        @Nonnull final ComponentAttributeProvider<E> edgeAttributeProvider,
                        @Nonnull final Map<String, Attribute> graphAttributes) {
         super(vertexIDProvider,
                 vertexAttributeProvider,
+                edgeIDProvider,
                 edgeAttributeProvider,
                 graphAttributes,
                 network -> ImmutableMap.of(),
@@ -84,46 +85,55 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @return <code>true</code> if it is valid; <code>false</code> otherwise.
      */
     @Override
-    protected boolean isValidId(final String idCandidate) {
-        return ALPHA_DIG.matcher(idCandidate).matches()
-               || DOUBLE_QUOTE.matcher(idCandidate).matches()
-               || DOT_NUMBER.matcher(idCandidate).matches() || HTML.matcher(idCandidate).matches();
+    protected boolean isValidId(@Nonnull final String idCandidate) {
+        return NUMBER.matcher(idCandidate).matches();
     }
 
     @Override
-    protected void renderHeader(final ExporterContext context, final ImmutableNetwork<N, E> graph) {
+    protected void renderHeader(@Nonnull final ExporterContext context,
+                                @Nonnull final ImmutableNetwork<N, E> graph) {
         context.getPrintWriter().println("graph [");
     }
 
     @Override
-    protected void renderGraphAttributes(final ExporterContext context, final Map<String, Attribute> attributes) {
+    protected void renderGraphAttributes(@Nonnull final ExporterContext context,
+                                         @Nonnull final Map<String, Attribute> attributes) {
         // graph attributes
-        for (final Entry<String, Attribute> attr : attributes.entrySet()) {
-            renderGraphAttribute(context, attr.getKey(), attr.getValue());
-        }
-        renderGraphAttribute(context, "directed", SemanticAttribute.of("1"));
-    }
-
-    private void renderGraphAttribute(final ExporterContext context, final String key, @Nullable final Attribute value) {
-        if (value != null && value.isSemanticAttribute()) {
-            final PrintWriter out = context.getPrintWriter();
+        final PrintWriter out = context.getPrintWriter();
+        for (final Entry<String, Attribute> entry : attributes.entrySet()) {
             out.print(INDENT);
-            out.print(key);
-            out.print(' ');
-            out.print(value);
+            renderAttribute(context, INDENT, entry.getKey(), entry.getValue());
             out.println();
         }
+        out.print(INDENT);
+        renderAttribute(context, INDENT, "directed", Attribute.gml(1));
+        out.println();
     }
 
     @Override
-    protected void renderNode(final ExporterContext context, final N node, final Map<String, Attribute> attributes) {
+    protected void renderNode(@Nonnull final ExporterContext context,
+                              @Nonnull final N node,
+                              @Nonnull final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
         out.print(INDENT);
         out.println("node [");
-        out.print(INDENT);
-        out.print(INDENT);
+        out.print(INDENT2);
         out.print("id ");
         out.println(getVertexID(node));
+
+        if (attributes.get("label") == null) {
+            if (attributes.containsKey("details")) {
+                out.print(INDENT2);
+                final Attribute detailsAttribute = attributes.get("details");
+                renderAttribute(context, INDENT2, "details", Attribute.gml(detailsAttribute.getReference()));
+                out.println();
+            }
+        } else {
+            out.print(INDENT2);
+            final Attribute nameAttribute = attributes.get("label");
+            renderAttribute(context, INDENT2, "label", Attribute.gml(nameAttribute.getReference()));
+            out.println();
+        }
 
         renderAttributes(context, INDENT2, attributes);
 
@@ -132,20 +142,26 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
-    protected void renderEdge(final ExporterContext context,
+    protected void renderEdge(@Nonnull final ExporterContext context,
                               final boolean isDirected,
-                              final N source,
-                              final N target,
-                              final Map<String, Attribute> attributes) {
+                              @Nonnull final N source,
+                              @Nonnull final N target,
+                              @Nonnull final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
         out.print(INDENT);
         out.println("edge [");
-        out.print(INDENT);
-        out.print(INDENT);
+        final ImmutableNetwork<N, E> network = context.getNetwork();
+        final Optional<E> edgeOptional = network.edgeConnecting(source, target);
+        edgeOptional.ifPresent(edge -> {
+            out.print(INDENT2);
+            out.print("id ");
+            out.println(getEdgeID(edge));
+        });
+
+        out.print(INDENT2);
         out.print("source ");
         out.println(getVertexID(source));
-        out.print(INDENT);
-        out.print(INDENT);
+        out.print(INDENT2);
         out.print("target ");
         out.println(getVertexID(target));
 
@@ -156,16 +172,16 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
-    protected void renderCluster(final ExporterContext context,
-                                 final String clusterId,
-                                 final N head,
-                                 final Set<N> nodeSet,
-                                 final Map<String, Attribute> attributes) {
+    protected void renderCluster(@Nonnull final ExporterContext context,
+                                 @Nonnull final String clusterId,
+                                 @Nonnull final N head,
+                                 @Nonnull final Set<N> nodeSet,
+                                 @Nonnull final Map<String, Attribute> attributes) {
         // no clusters in GML
     }
 
     @Override
-    protected void renderFooter(final ExporterContext context) {
+    protected void renderFooter(@Nonnull final ExporterContext context) {
         context.getPrintWriter().print("]");
     }
 
@@ -175,15 +191,15 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param indentation current indentation of the writer
      * @param attributes attributes
      */
-    private void renderAttributes(final ExporterContext context,
-                                  final String indentation,
-                                  final Map<String, Attribute> attributes) {
+    private void renderAttributes(@Nonnull final ExporterContext context,
+                                  @Nonnull final String indentation,
+                                  @Nonnull final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
 
         for (final Entry<String, Attribute> entry : attributes.entrySet()) {
             final String key = entry.getKey();
             final Attribute value = entry.getValue();
-            if (value.isSemanticAttribute()) {
+            if (value.isVisible(context)) {
                 out.print(indentation);
                 renderAttribute(context, indentation, key, value);
                 out.print("\n");
@@ -199,17 +215,18 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param attribute attribute; may be any type
      */
     @SuppressWarnings("unchecked")
-    private void renderAttribute(final ExporterContext context,
-                                 final String indentation,
-                                 final String attrName,
-                                 final Attribute attribute) {
-        if (attribute.isSemanticAttribute()) {
+    private void renderAttribute(@Nonnull final ExporterContext context,
+                                 @Nonnull final String indentation,
+                                 @Nonnull final String attrName,
+                                 @Nonnull final Attribute attribute) {
+        if (attribute.isVisible(context)) {
             final PrintWriter out = context.getPrintWriter();
-            if (attribute.getReference() instanceof Map) {
-                final Map<String, Attribute> nestedAttributes = (Map<String, Attribute>)attribute.getReference();
+            final Object reference = attribute.getReference();
+            if (reference instanceof Map) {
+                final Map<String, Attribute> nestedAttributes = (Map<String, Attribute>)reference;
                 out.print(attrName);
                 if (nestedAttributes.isEmpty()) {
-                    out.print("[ ]");
+                    out.print(" [ ]");
                 } else {
                     out.println(" [");
                     renderAttributes(context,
@@ -218,47 +235,41 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                     out.print(indentation);
                     out.print("]");
                 }
-            } else if (attribute.getReference() instanceof Collection) {
+            } else if (reference instanceof Collection) {
                 // GML uses a weird way of describing bags: make it a map where every key is the same. Not very nice
                 // as Java does not like that. Thus special code!
-                final Collection<Object> nestedObjects = (Collection<Object>)attribute.getReference();
+                final Collection<Attribute> nestedAttributes = (Collection<Attribute>)reference;
                 out.print(attrName);
-                if (nestedObjects.isEmpty()) {
+                if (nestedAttributes.isEmpty()) {
                     out.print(" [ ]");
                 } else {
                     out.println(" [");
                     out.print(indentation);
-                    for (final Object nestedObject : nestedObjects) {
+                    for (final Attribute nestedAttribute : nestedAttributes) {
                         out.print(INDENT);
-                        renderAttribute(context, indentation + INDENT, "x", SemanticAttribute.of(nestedObject));
+                        renderAttribute(context, indentation + INDENT, "x", nestedAttribute);
                         out.println();
                         out.print(indentation);
                     }
                     out.print("]");
                 }
-            } else if (attribute.getReference() instanceof AbstractPlannerGraph.AbstractEdge) {
-                final E edge = (E)attribute.getReference();
-                final ImmutableNetwork<N, E> network = context.getNetwork();
-                final EndpointPair<N> incidentNodes = network.incidentNodes(edge);
-
+            } else if (reference instanceof AbstractPlannerGraph.AbstractEdge) {
+                final E edge = (E)reference;
                 // treat this attribute as a map to denote the source -> target of an edge
                 renderAttribute(context,
                         indentation,
                         attrName,
-                        SemanticAttribute.of(ImmutableMap.<String, Attribute>builder()
-                                .put("source", SemanticAttribute.of(getVertexID(incidentNodes.nodeU())))
-                                .put("target", SemanticAttribute.of(getVertexID(incidentNodes.nodeV())))
-                                .build()));
+                        Attribute.gml(Integer.parseInt(getEdgeID(edge))));
 
+            } else if (reference instanceof Number) {
+                out.print(attrName);
+                out.print(" ");
+                out.print(reference);
             } else {
                 out.print(attrName);
                 out.print(" ");
-                out.print("\"" + escapeDoubleQuotes(String.valueOf(attribute)) + "\"");
+                out.print("\"" + escaper.escape(reference.toString()) + "\"");
             }
         }
-    }
-
-    private static String escapeDoubleQuotes(final String labelName) {
-        return labelName.replaceAll("\"", Matcher.quoteReplacement("\\\""));
     }
 }

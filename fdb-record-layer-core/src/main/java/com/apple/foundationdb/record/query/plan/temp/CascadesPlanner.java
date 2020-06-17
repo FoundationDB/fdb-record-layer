@@ -62,7 +62,7 @@ import java.util.Deque;
  * <ul>
  *     <li>
  *         An {@link com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher} that defines a
- *         finite-depth tree of matchers that inspect the structure (i.e., the type-level information) of some sub-graph
+ *         finite-depth tree of matchers that inspect the structure (i.e., the type-level information) of some subgraph
  *         of the current planner expression.
  *     </li>
  *     <li>

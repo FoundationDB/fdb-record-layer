@@ -31,11 +31,19 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -161,5 +169,60 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
     @Override
     public String toString() {
         return "TextIndex(" + textScan.getIndex().getName() + " " + textScan.getGroupingComparisons() + ", " + textScan.getTextComparison() + ", " + textScan.getSuffixComparisons() + ")";
+    }
+
+    /**
+     * Rewrite the planner graph for better visualization of a query index plan.
+     * @return the rewritten planner graph that models the index as a separate node that is connected to the
+     *         actual index scan plan node.
+     */
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        Verify.verify(childGraphs.isEmpty());
+        return createIndexPlannerGraph(this,
+                NodeInfo.TEXT_INDEX_SCAN_OPERATOR,
+                ImmutableList.of(),
+                ImmutableMap.of());
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph createIndexPlannerGraph(@Nonnull final RecordQueryPlan identity,
+                                                @Nonnull final NodeInfo nodeInfo,
+                                                @Nonnull final List<String> additionalDetails,
+                                                @Nonnull final Map<String, Attribute> additionalAttributeMap) {
+        final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
+        final ImmutableMap.Builder<String, Attribute> attributeMapBuilder = ImmutableMap.builder();
+
+        detailsBuilder.addAll(additionalDetails);
+        detailsBuilder.add("grouping comparisons: {{groupingComparisons}}",
+                "text comparisons: {{textComparisons}}",
+                "suffix comparisons: {{suffixComparisons}}");
+
+        attributeMapBuilder.putAll(additionalAttributeMap);
+
+        if (textScan.getGroupingComparisons() != null) {
+            attributeMapBuilder.put("groupingComparisons", Attribute.gml(Objects.requireNonNull(textScan.getGroupingComparisons()).toString()));
+        } else {
+            attributeMapBuilder.put("groupingComparisons", Attribute.gml("none"));
+        }
+        if (textScan.getSuffixComparisons() != null) {
+            attributeMapBuilder.put("suffixComparisons", Attribute.gml(Objects.requireNonNull(textScan.getSuffixComparisons()).toString()));
+        } else {
+            attributeMapBuilder.put("suffixComparisons", Attribute.gml("none"));
+        }
+        attributeMapBuilder.put("textComparisons", Attribute.gml(Objects.requireNonNull(textScan.getTextComparison()).toString()));
+
+        final PlannerGraph.Node root =
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        nodeInfo,
+                        detailsBuilder.build(),
+                        attributeMapBuilder.build());
+        final PlannerGraph.DataNodeWithInfo source = new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.of(getIndexName()));
+        return PlannerGraph.builder(root)
+                .addNode(source)
+                .addEdge(source, root, new PlannerGraph.Edge())
+                .build();
     }
 }

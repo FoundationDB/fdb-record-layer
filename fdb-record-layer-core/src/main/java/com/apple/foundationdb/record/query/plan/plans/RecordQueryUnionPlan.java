@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
@@ -214,5 +216,13 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
             childRefsBuilder.add(GroupExpressionRef.of(child));
         }
         return new RecordQueryUnionPlan(childRefsBuilder.build(), comparisonKey, firstReverse, showComparisonKey, false);
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNION_OPERATOR),
+                childGraphs);
     }
 }

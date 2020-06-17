@@ -21,42 +21,162 @@
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Objects;
 
 /**
- * Basic class for all attributes of {@link AbstractPlannerGraph.AbstractNode}
+ * Basic interface for all attributes of {@link AbstractPlannerGraph.AbstractNode}
  * as well as {@link AbstractPlannerGraph.AbstractEdge}.
  *
  * Represents a tag object that annotates an {@link AbstractPlannerGraph.AbstractNode} or an
  * {@link AbstractPlannerGraph.AbstractEdge}, providing additional information to a {@link GraphExporter}.
  */
-public abstract class Attribute {
-    @Nonnull
-    private final Object reference;
-
-    protected Attribute(final Object reference) {
-        this.reference = reference;
-    }
-
+public interface Attribute {
     /**
-     * Returns whether this method is semantic of it contains visual cues of other non-semantic information.
-     *
+     * Returns whether this method is visible in the given context.
+     * @param context the exporter context of the exporter being used
+     * @param <N> node type
+     * @param <E> edge type
      * @return {@code true} if the attribute is semantic, {@code false} otherwise.
      */
-    public abstract boolean isSemanticAttribute();
+    <N, E> boolean isVisible(@Nonnull GraphExporter<N, E>.ExporterContext context);
 
     /**
      * Return the underlying object this attribute refers to.
      * @return the object.
      */
-    @Nullable
-    public Object getReference() {
-        return reference;
+    @Nonnull
+    Object getReference();
+
+    /**
+     * Basic interface all attributes of {@link AbstractPlannerGraph.AbstractNode}
+     * as well as {@link AbstractPlannerGraph.AbstractEdge} that are use to serialize to GML.
+     */
+    interface GmlAttribute extends Attribute {
+        @Override
+        default <N, E> boolean isVisible(@Nonnull final GraphExporter<N, E>.ExporterContext context) {
+            return context.getExporter() instanceof GmlExporter;
+        }
     }
 
-    @Override
-    public String toString() {
-        return Objects.requireNonNull(reference).toString();
+    /**
+     * Interface for attributes of {@link AbstractPlannerGraph.AbstractNode}
+     * as well as {@link AbstractPlannerGraph.AbstractEdge} that are used to serialize to DOT.
+     */
+    interface DotAttribute extends Attribute {
+        @Override
+        default <N, E> boolean isVisible(@Nonnull final GraphExporter<N, E>.ExporterContext context) {
+            return context.getExporter() instanceof DotExporter;
+        }
+    }
+
+    /**
+     * Interface for attributes of {@link AbstractPlannerGraph.AbstractNode}
+     * as well as {@link AbstractPlannerGraph.AbstractEdge} that are used to serialize to GML or to DOT.
+     */
+    interface CommonAttribute extends GmlAttribute, DotAttribute {
+        @Override
+        default <N, E> boolean isVisible(@Nonnull final GraphExporter<N, E>.ExporterContext context) {
+            return true;
+        }
+    }
+
+    /**
+     * Interface for attributes of {@link AbstractPlannerGraph.AbstractNode}
+     * as well as {@link AbstractPlannerGraph.AbstractEdge} that are used to neither serialize to GML or to DOT.
+     * Attributes of this kind can only be referred to via variable substitution.
+     */
+    interface InvisibleAttribute extends GmlAttribute, DotAttribute {
+        @Override
+        default <N, E> boolean isVisible(@Nonnull final GraphExporter<N, E>.ExporterContext context) {
+            return false;
+        }
+    }
+
+    /**
+     * Static factory method to create a GML attribute based on a reference to some object.
+     * @param reference the reference
+     * @return a new attribute that is only visible to the GML exporter
+     */
+    @Nonnull
+    static GmlAttribute gml(@Nonnull final Object reference) {
+        return new GmlAttribute() {
+            @Override
+            @Nonnull
+            public Object getReference() {
+                return reference;
+            }
+
+            @Override
+            @Nonnull
+            public String toString() {
+                return getReference().toString();
+            }
+        };
+    }
+
+    /**
+     * Static factory method to create a DOT attribute based on a reference to some object.
+     * @param reference the reference
+     * @return a new attribute that is only visible to the DOT exporter
+     */
+    @Nonnull
+    static DotAttribute dot(@Nonnull final Object reference) {
+        return new DotAttribute() {
+            @Override
+            @Nonnull
+            public Object getReference() {
+                return reference;
+            }
+
+            @Override
+            @Nonnull
+            public String toString() {
+                return getReference().toString();
+            }
+        };
+    }
+
+    /**
+     * Static factory method to create an attribute based on a reference to some object.
+     * @param reference the reference
+     * @return a new attribute that is visible to all exporters
+     */
+    @Nonnull
+    static CommonAttribute common(@Nonnull final Object reference) {
+        return new CommonAttribute() {
+            @Override
+            @Nonnull
+            public Object getReference() {
+                return reference;
+            }
+
+            @Override
+            @Nonnull
+            public String toString() {
+                return getReference().toString();
+            }
+        };
+    }
+
+    /**
+     * Static factory method to create an attribute based on a reference to some object.
+     * @param reference the reference
+     * @return a new attribute that is invisible to all exporters. Attributes of this kind can only be used in variable
+     *         substitutions.
+     */
+    @Nonnull
+    static InvisibleAttribute invisible(@Nonnull final Object reference) {
+        return new InvisibleAttribute() {
+            @Override
+            @Nonnull
+            public Object getReference() {
+                return reference;
+            }
+
+            @Override
+            @Nonnull
+            public String toString() {
+                return getReference().toString();
+            }
+        };
     }
 }

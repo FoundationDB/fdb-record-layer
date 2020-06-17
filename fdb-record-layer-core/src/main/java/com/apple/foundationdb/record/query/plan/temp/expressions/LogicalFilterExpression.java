@@ -26,10 +26,15 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -41,7 +46,7 @@ import java.util.Objects;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalFilterExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicate {
+public class LogicalFilterExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicate, PlannerGraphRewritable {
     @Nonnull
     private final Source baseSource;
     @Nonnull
@@ -112,5 +117,15 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     @Override
     public int hashCode() {
         return Objects.hash(getPredicate(), getInner());
+    }
+
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.LogicalOperatorNodeWithInfo(
+                        NodeInfo.PREDICATE_FILTER_OPERATOR,
+                        ImmutableList.of("WHERE {{pred}}"),
+                        ImmutableMap.of("pred", Attribute.gml(getPredicate().toString()))),
+                childGraphs);
     }
 }

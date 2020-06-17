@@ -25,7 +25,12 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -38,7 +43,7 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalTypeFilterExpression implements TypeFilterExpression {
+public class LogicalTypeFilterExpression implements TypeFilterExpression, PlannerGraphRewritable {
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
@@ -97,5 +102,17 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression {
     @Override
     public int hashCode() {
         return Objects.hash(getRecordTypes(), getInner());
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
+    @Override
+    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                        NodeInfo.TYPE_FILTER_OPERATOR,
+                        ImmutableList.of("WHERE record IS {{types}}"),
+                        ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
+                childGraphs);
     }
 }

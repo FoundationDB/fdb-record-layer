@@ -25,9 +25,12 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -35,13 +38,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * A query plan that executes a child plan once for each of the elements of a constant {@code IN} list.
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan implements PlannerGraphRewritable {
+public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     @Nullable
     private final List<Object> values;
 
@@ -117,16 +119,22 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan implement
      *         joining an outer table of values in the IN clause to the correlated inner result of executing (usually)
      *         a index lookup for each bound outer value.
      */
+    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
         final PlannerGraph.Node root =
-                new PlannerGraph.Node(this,
-                        getClass().getSimpleName());
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.NESTED_LOOP_JOIN_OPERATOR);
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
-        final PlannerGraph.SourceNode valuesNode =
-                new PlannerGraph.SourceNode("Values",
-                        Objects.requireNonNull(values).stream().map(String::valueOf).collect(Collectors.joining(", ")));
+        final PlannerGraph.DataNodeWithInfo valuesNode =
+                new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
+                        ImmutableList.of("VALUES({{values}}"),
+                        ImmutableMap.of("values",
+                                Attribute.gml(Objects.requireNonNull(values).stream()
+                                        .map(String::valueOf)
+                                        .map(Attribute::gml)
+                                        .collect(ImmutableList.toImmutableList()))));
         final PlannerGraph.Edge fromValuesEdge = new PlannerGraph.Edge();
         return PlannerGraph.builder(root)
                 .addGraph(graphForInner)
