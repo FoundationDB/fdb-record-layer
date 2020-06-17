@@ -306,13 +306,13 @@ public class TestHelpers {
         private List<LogEvent> matchedEvents = new ArrayList<>();
 
         protected MatchingAppender(@Nonnull String name, @Nonnull Pattern pattern) {
-            super(name, null, null);
+            super(name, null, null, true, null);
             this.pattern = pattern;
             this.messagePrefix = null;
         }
 
         protected MatchingAppender(@Nonnull String name, @Nonnull String messagePrefix) {
-            super(name, null, null);
+            super(name, null, null, true, null);
             this.pattern = null;
             this.messagePrefix = messagePrefix;
         }

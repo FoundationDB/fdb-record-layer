@@ -122,6 +122,7 @@ public class VersionIndexTest extends FDBTestBase {
     private boolean splitLongRecords;
     private FDBDatabase fdb;
     private Subspace subspace;
+    private Subspace subspace2;
 
     @BeforeEach
     public void setUp() {
@@ -130,9 +131,11 @@ public class VersionIndexTest extends FDBTestBase {
         }
         if (subspace == null) {
             subspace = fdb.run(context -> TestKeySpace.getKeyspacePath("record-test", "unit", "indexTest", "version").toSubspace(context));
+            subspace2 = fdb.run(context -> TestKeySpace.getKeyspacePath("record-test", "unit", "indexTest", "version2").toSubspace(context));
         }
         fdb.run(context -> {
             FDBRecordStore.deleteStore(context, subspace);
+            FDBRecordStore.deleteStore(context, subspace2);
             return null;
         });
         formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
@@ -937,6 +940,239 @@ public class VersionIndexTest extends FDBTestBase {
         }
     }
 
+    /**
+     * Store two records with the same primary key in two record stores. Each one should get its own version.
+     * This validates that the local version cache is per-record-store.
+     */
+    @ParameterizedTest(name = "saveSameRecordTwoStores [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionArguments")
+    @SuppressWarnings("try")
+    public void saveSameRecordTwoStores(int testFormatVersion, boolean testSplitLongRecords) {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066).setNumValue2(42).build();
+        final MySimpleRecord record2 = MySimpleRecord.newBuilder().setRecNo(1066).setNumValue2(1729).build();
+
+        final FDBRecordVersion version1;
+        final FDBRecordVersion version2;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .create();
+
+            FDBStoredRecord<?> storedRecord1 = recordStore.saveRecord(record1);
+            assertNotNull(storedRecord1.getVersion());
+            assertFalse(storedRecord1.getVersion().isComplete());
+
+            assertNull(recordStore2.loadRecord(Tuple.from(record1.getRecNo())));
+            FDBStoredRecord<?> storedRecord2 = recordStore2.saveRecord(record2);
+            assertNotNull(storedRecord2.getVersion());
+            assertFalse(storedRecord2.getVersion().isComplete());
+            assertThat(storedRecord2.getVersion(), greaterThan(storedRecord1.getVersion()));
+
+            context.commit();
+            assertNotNull(context.getVersionStamp());
+            version1 = storedRecord1.getVersion().withCommittedVersion(context.getVersionStamp());
+            version2 = storedRecord2.getVersion().withCommittedVersion(context.getVersionStamp());
+        }
+
+        // Validate that the right versions are associated with the right records
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .open();
+
+            FDBStoredRecord<?> storedRecord1 = recordStore.loadRecord(Tuple.from(record1.getRecNo()));
+            assertNotNull(storedRecord1);
+            assertEquals(version1, storedRecord1.getVersion());
+            assertEquals(record1, storedRecord1.getRecord());
+
+            FDBStoredRecord<?> storedRecord2 = recordStore2.loadRecord(Tuple.from(record2.getRecNo()));
+            assertNotNull(storedRecord2);
+            assertEquals(version2, storedRecord2.getVersion());
+            assertEquals(record2, storedRecord2.getRecord());
+        }
+    }
+
+    @ParameterizedTest(name = "updateRecordInTwoStores [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionArguments")
+    @SuppressWarnings("try")
+    public void updateRecordInTwoStores(int testFormatVersion, boolean testSplitLongRecords) {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(42).build();
+        final MySimpleRecord record2 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(1729).build();
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .create();
+
+            // Store the records with a fake complete pseudo version to avoid potential problems
+            // tested in saveSameRecordInTwoStores
+            final FDBRecordVersion pseudoVersion = FDBRecordVersion.firstInDBVersion(context.getReadVersion());
+            recordStore.saveRecord(record1, FDBRecordVersion.complete(pseudoVersion.getGlobalVersion(), 1));
+            recordStore2.saveRecord(record2, FDBRecordVersion.complete(pseudoVersion.getGlobalVersion(), 2));
+
+            context.commit();
+        }
+
+        final FDBRecordVersion version1;
+        final FDBRecordVersion version2;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .open();
+
+            // Update each record (just by saving with a new version)
+            FDBStoredRecord<?> storedRecord1 = recordStore.saveRecord(record1);
+            assertNotNull(storedRecord1.getVersion());
+            assertFalse(storedRecord1.getVersion().isComplete());
+
+            FDBStoredRecord<?> storedRecord2 = recordStore2.saveRecord(record2);
+            assertNotNull(storedRecord2.getVersion());
+            assertFalse(storedRecord2.getVersion().isComplete());
+            assertThat(storedRecord2.getVersion(), greaterThan(storedRecord1.getVersion()));
+
+            context.commit();
+            assertNotNull(context.getVersionStamp());
+            version1 = storedRecord1.getVersion().withCommittedVersion(context.getVersionStamp());
+            version2 = storedRecord2.getVersion().withCommittedVersion(context.getVersionStamp());
+        }
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .open();
+
+            FDBStoredRecord<?> storedRecord1 = recordStore.loadRecord(Tuple.from(record1.getRecNo()));
+            assertNotNull(storedRecord1);
+            assertEquals(version1, storedRecord1.getVersion());
+
+            FDBStoredRecord<?> storedRecord2 = recordStore2.loadRecord(Tuple.from(record2.getRecNo()));
+            assertNotNull(storedRecord2);
+            assertEquals(version2, storedRecord2.getVersion());
+        }
+    }
+
+    @ParameterizedTest(name = "deleteRecordInTwoStores [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionArguments")
+    @SuppressWarnings("try")
+    public void deleteRecordInTwoStores(int testFormatVersion, boolean testSplitLongRecords) {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(42).build();
+        final MySimpleRecord record2 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(1729).build();
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .create();
+
+            // Store the records with a fake complete pseudo version to avoid potential problems
+            // tested in saveSameRecordInTwoStores
+            final FDBRecordVersion pseudoVersion = FDBRecordVersion.firstInDBVersion(context.getReadVersion());
+            recordStore.saveRecord(record1, FDBRecordVersion.complete(pseudoVersion.getGlobalVersion(), 1));
+            recordStore2.saveRecord(record2, FDBRecordVersion.complete(pseudoVersion.getGlobalVersion(), 2));
+
+            context.commit();
+        }
+
+        final FDBRecordVersion version1;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .open();
+
+            // Change the version in one record store
+            FDBStoredRecord<?> storedRecord1 = recordStore.saveRecord(record1);
+            assertNotNull(storedRecord1.getVersion());
+            assertFalse(storedRecord1.getVersion().isComplete());
+
+            // Delete the record in the other record store
+            assertTrue(recordStore2.deleteRecord(Tuple.from(record2.getRecNo())));
+
+            context.commit();
+            assertNotNull(context.getVersionStamp());
+            version1 = storedRecord1.getVersion().withCommittedVersion(context.getVersionStamp());
+        }
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .open();
+
+            FDBStoredRecord<?> storedRecord1 = recordStore.loadRecord(Tuple.from(record1.getRecNo()));
+            assertNotNull(storedRecord1);
+            assertEquals(version1, storedRecord1.getVersion());
+
+            assertNull(recordStore2.loadRecord(Tuple.from(record2.getRecNo())));
+        }
+    }
+
+    /**
+     * Store a record in one store, then store a different record in a different store with the same primary key
+     * and validate that the version read for the first record matches the version written and not the version
+     * for the second record (which could happen if the local version cache leaks information between stores).
+     */
+    @ParameterizedTest(name = "readVersionFromStoredRecordInTwoStores [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionArguments")
+    @SuppressWarnings("try")
+    public void readVersionFromStoredRecordInTwoStores(int testFormatVersion, boolean testSplitLongRecords) {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(42).build();
+        final MySimpleRecord record2 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(1729).build();
+
+        final FDBRecordVersion version1;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            FDBStoredRecord<?> storedRecord1 = recordStore.saveRecord(record1);
+            assertNotNull(storedRecord1.getVersion());
+
+            context.commit();
+            assertNotNull(context.getVersionStamp());
+            version1 = storedRecord1.getVersion().withCommittedVersion(context.getVersionStamp());
+        }
+
+        final FDBRecordVersion version2;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .create();
+
+            FDBStoredRecord<?> storedRecord2 = recordStore2.saveRecord(record2);
+            assertNotNull(storedRecord2.getVersion());
+
+            FDBStoredRecord<?> storedRecord1 = recordStore.loadRecord(Tuple.from(record1.getRecNo()));
+            assertNotNull(storedRecord1);
+            assertEquals(version1, storedRecord1.getVersion());
+
+            context.commit();
+            assertNotNull(context.getVersionStamp());
+            version2 = storedRecord2.getVersion().withCommittedVersion(context.getVersionStamp());
+        }
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            final FDBRecordStore recordStore2 = recordStore.asBuilder()
+                    .setSubspace(subspace2)
+                    .open();
+
+            FDBStoredRecord<?> storedRecord1 = recordStore.loadRecord(Tuple.from(record1.getRecNo()));
+            assertNotNull(storedRecord1);
+            assertEquals(version1, storedRecord1.getVersion());
+            assertEquals(record1, storedRecord1.getRecord());
+
+            FDBStoredRecord<?> storedRecord2 = recordStore2.loadRecord(Tuple.from(record2.getRecNo()));
+            assertNotNull(storedRecord2);
+            assertEquals(version2, storedRecord2.getVersion());
+            assertEquals(record2, storedRecord2.getRecord());
+        }
+    }
+
     private void assertMaxVersionEntries(@Nonnull Index index, @Nonnull List<IndexEntry> expectedEntries) {
         List<IndexEntry> actualEntries = recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
                 .asList()
@@ -995,11 +1231,12 @@ public class VersionIndexTest extends FDBTestBase {
             MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).build();
             recordStore.saveRecord(record1);
             MySimpleRecord record2 = MySimpleRecord.newBuilder().setRecNo(1776L).build();
-            recordStore.saveRecord(record2);
+            FDBStoredRecord<?> storedRecord2 = recordStore.saveRecord(record2);
+            assertNotNull(storedRecord2.getVersion());
             context.commit();
             assertNotNull(context.getVersionStamp());
-            expectedMaxVersion = FDBRecordVersion.complete(context.getVersionStamp(),
-                    context.getLocalVersion(Tuple.from(1776L)).get());
+
+            expectedMaxVersion = storedRecord2.getVersion().withCommittedVersion(context.getVersionStamp());
         }
         assertMaxVersion(expectedMaxVersion);
 
@@ -1059,13 +1296,14 @@ public class VersionIndexTest extends FDBTestBase {
         try (FDBRecordContext context = openContext(maxEverVersionHook)) {
             MySimpleRecord record3 = MySimpleRecord.newBuilder().setRecNo(1066L).build();
             MySimpleRecord record4 = MySimpleRecord.newBuilder().setRecNo(1415L).build();
-            recordStore.saveRecord(record3);
+            FDBStoredRecord<?> storedRecord3 = recordStore.saveRecord(record3);
+            assertNotNull(storedRecord3.getVersion());
             FDBRecordVersion version4 = getBiggerVersion(expectedMaxVersion);
-            recordStore.saveRecord(record4, version4);
+            FDBStoredRecord<?> storedRecord4 = recordStore.saveRecord(record4, version4);
 
             context.commit();
             assertNotNull(context.getVersionStamp());
-            FDBRecordVersion version3 = FDBRecordVersion.complete(context.getVersionStamp(), context.getLocalVersion(Tuple.from(record3.getRecNo())).get());
+            FDBRecordVersion version3 = storedRecord3.getVersion().withCommittedVersion(context.getVersionStamp());
             Assumptions.assumeTrue(version3.compareTo(version4) < 0, "committed version should be less than incremented version");
             expectedMaxVersion = version3;
         }
@@ -1077,11 +1315,12 @@ public class VersionIndexTest extends FDBTestBase {
             MySimpleRecord record6 = MySimpleRecord.newBuilder().setRecNo(1455L).build();
             FDBRecordVersion version5 = getBiggerVersion(expectedMaxVersion);
             recordStore.saveRecord(record5, version5);
-            recordStore.saveRecord(record6);
+            FDBStoredRecord<?> storedRecord6 = recordStore.saveRecord(record6);
+            assertNotNull(storedRecord6.getVersion());
 
             context.commit();
             assertNotNull(context.getVersionStamp());
-            FDBRecordVersion version6 = FDBRecordVersion.complete(context.getVersionStamp(), context.getLocalVersion(Tuple.from(record6.getRecNo())).get());
+            FDBRecordVersion version6 = storedRecord6.getVersion().withCommittedVersion(context.getVersionStamp());
             Assumptions.assumeTrue(version6.compareTo(version5) < 0, "committed version should be less than incremented version");
             expectedMaxVersion = version6;
         }

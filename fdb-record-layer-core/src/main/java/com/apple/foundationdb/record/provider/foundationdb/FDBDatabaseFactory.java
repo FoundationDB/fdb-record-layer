@@ -73,7 +73,7 @@ public class FDBDatabaseFactory {
      */
     public static final long UNLIMITED_TR_TIMEOUT_MILLIS = 0L;
 
-    private static final int API_VERSION = 610;
+    private static final int API_VERSION = 620;
 
     @Nonnull
     private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactory();

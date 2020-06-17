@@ -129,6 +129,11 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     }
 
     @Override
+    public CompletableFuture<Long> getApproximateSize() {
+        return underlying.getApproximateSize();
+    }
+
+    @Override
     public CompletableFuture<Transaction> onError(Throwable throwable) {
         return underlying.onError(throwable);
     }

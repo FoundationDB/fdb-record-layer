@@ -93,10 +93,6 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
         }
     }
 
-    @Override
-    public void updateUniquenessViolations(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple indexKey, boolean remove) {
-    }
-
     @Nonnull
     @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {

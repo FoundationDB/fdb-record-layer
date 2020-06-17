@@ -21,15 +21,22 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -42,7 +49,8 @@ public class OrElseCursor<T> implements RecordCursor<T> {
     private final RecordCursor<T> inner;
     @Nonnull
     private final Function<Executor, RecordCursor<T>> func;
-    private boolean first;
+    @Nonnull
+    private RecordCursorProto.OrElseContinuation.State state;
     @Nullable
     private RecordCursor<T> other;
 
@@ -54,10 +62,56 @@ public class OrElseCursor<T> implements RecordCursor<T> {
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
 
+    /**
+     * Deprecated constructor that does not support continuations.
+     * @param inner the inner branch of the cursor
+     * @param func a function to generate the else branch
+     * @deprecated in favor of the a constructor that does support continuations
+     */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     public OrElseCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<Executor, RecordCursor<T>> func) {
         this.inner = inner;
         this.func = func;
-        this.first = true;
+        this.state = RecordCursorProto.OrElseContinuation.State.UNDECIDED;
+    }
+
+    @API(API.Status.INTERNAL)
+    public OrElseCursor(@Nonnull Function<byte[], ? extends RecordCursor<T>> innerFunc,
+                        @Nonnull BiFunction<Executor, byte[], ? extends RecordCursor<T>> elseFunc,
+                        @Nullable byte[] continuation) {
+        final Function<Executor, RecordCursor<T>> newElseFunc = executor -> elseFunc.apply(executor, null);
+
+        if (continuation == null) {
+            this.state = RecordCursorProto.OrElseContinuation.State.UNDECIDED;
+            this.inner = innerFunc.apply(null);
+            this.func = newElseFunc;
+        } else {
+            RecordCursorProto.OrElseContinuation parsed;
+            try {
+                parsed = RecordCursorProto.OrElseContinuation.parseFrom(continuation);
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreException("error parsing continuation", ex)
+                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
+            }
+            this.state = parsed.getState();
+
+            switch (this.state) {
+                case UNDECIDED:
+                case USE_INNER:
+                    this.inner = innerFunc.apply(parsed.getContinuation().toByteArray());
+                    this.func = newElseFunc;
+                    break;
+                case USE_OTHER:
+                    this.inner = RecordCursor.empty();
+                    final byte[] otherContinuation = parsed.getContinuation().toByteArray();
+                    this.func = executor -> elseFunc.apply(executor, otherContinuation);
+                    this.other = func.apply(getExecutor());
+                    break;
+                default:
+                    throw new UnknownOrElseCursorStateException();
+            }
+        }
     }
 
     @Nonnull
@@ -66,22 +120,37 @@ public class OrElseCursor<T> implements RecordCursor<T> {
         if (nextResult != null && !nextResult.hasNext()) {
             return CompletableFuture.completedFuture(nextResult);
         }
-        if (first) {
-            return inner.onNext().thenCompose(result -> {
-                first = false;
-                if (result.hasNext() || result.getNoNextReason().isOutOfBand()) {
-                    // Either have result or do not know whether to select else yet or not.
-                    return CompletableFuture.completedFuture(result);
-                } else {
-                    other = func.apply(getExecutor());
-                    return other.onNext();
-                }
-            }).thenApply(this::postProcess);
+        final CompletableFuture<RecordCursorResult<T>> innerFuture;
+        switch (state) {
+            case USE_INNER:
+                innerFuture = inner.onNext();
+                break;
+            case USE_OTHER:
+                innerFuture = other.onNext();
+                break;
+            case UNDECIDED:
+                innerFuture = inner.onNext().thenCompose(result -> {
+                    if (result.hasNext()) {
+                        // Inner cursor has produced a value, so we take the inner branch.
+                        state = RecordCursorProto.OrElseContinuation.State.USE_INNER;
+                        return CompletableFuture.completedFuture(result);
+                    } else if (result.getNoNextReason().isOutOfBand()) {
+                        // Not sure if the inner cursor will ever produce a value.
+                        return CompletableFuture.completedFuture(result);
+                    } else {
+                        // Inner cursor will never produce a value.
+                        state = RecordCursorProto.OrElseContinuation.State.USE_OTHER;
+                        other = func.apply(getExecutor());
+                        return other.onNext();
+                    }
+                });
+                break;
+            default:
+                throw new UnknownOrElseCursorStateException();
         }
-        if (other != null) {
-            return other.onNext().thenApply(this::postProcess);
-        }
-        return inner.onNext().thenApply(this::postProcess);
+
+        return innerFuture.thenApply(result -> result.withContinuation(new Continuation(state, result.getContinuation())))
+                .thenApply(this::postProcess);
     }
 
     // shim to support old continuation style
@@ -154,4 +223,44 @@ public class OrElseCursor<T> implements RecordCursor<T> {
         }
         return visitor.visitLeave(this);
     }
+
+    private static class UnknownOrElseCursorStateException extends RecordCoreException {
+        public static final long serialVersionUID = 1;
+
+        public UnknownOrElseCursorStateException() {
+            super("unknown state for OrElseCursor");
+        }
+    }
+
+    private static class Continuation implements RecordCursorContinuation {
+        private final RecordCursorProto.OrElseContinuation.State state;
+        @Nonnull
+        private RecordCursorContinuation innerOrOtherContinuation;
+
+        public Continuation(@Nonnull RecordCursorProto.OrElseContinuation.State state, @Nonnull RecordCursorContinuation innerOrOtherContinuation) {
+            this.state = state;
+            this.innerOrOtherContinuation = innerOrOtherContinuation;
+        }
+
+        @Override
+        public boolean isEnd() {
+            return innerOrOtherContinuation.isEnd();
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            byte[] bytes = innerOrOtherContinuation.toBytes();
+            if (isEnd() || bytes == null) {
+                return null;
+            }
+
+            return RecordCursorProto.OrElseContinuation.newBuilder()
+                    .setState(state)
+                    .setContinuation(ByteString.copyFrom(bytes))
+                    .build()
+                    .toByteArray();
+        }
+    }
+
 }

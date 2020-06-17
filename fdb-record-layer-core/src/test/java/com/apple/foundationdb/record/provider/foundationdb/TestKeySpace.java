@@ -47,6 +47,7 @@ public class TestKeySpace {
                             .addSubdirectory(new DirectoryLayerDirectory("indexTest", "indexTest")
                                     .addSubdirectory(new KeySpaceDirectory("leaderboard", KeySpaceDirectory.KeyType.LONG, 8L))
                                     .addSubdirectory(new KeySpaceDirectory("version", KeySpaceDirectory.KeyType.LONG, 9L))
+                                    .addSubdirectory(new KeySpaceDirectory("version2", KeySpaceDirectory.KeyType.LONG, 10L))
                             )
                             .addSubdirectory(new DirectoryLayerDirectory("synchronizedsession", "synchronizedsession")
                                     .addSubdirectory(new KeySpaceDirectory("lock", KeySpaceDirectory.KeyType.LONG))
