@@ -200,7 +200,7 @@ public class SplitHelper {
             tr.set(keyBytes, valueBytes);
         } else {
             context.addVersionMutation(MutationType.SET_VERSIONSTAMPED_VALUE, keyBytes, valueBytes);
-            context.addToLocalVersionCache(key, version.getLocalVersion());
+            context.addToLocalVersionCache(keyBytes, version.getLocalVersion());
         }
         if (sizeInfo != null) {
             sizeInfo.setVersionedInline(true);
@@ -249,7 +249,8 @@ public class SplitHelper {
         } else {
             tr.clear(keySplitSubspace.range()); // Clears both unsplit and previous longer split.
         }
-        context.getLocalVersion(key).ifPresent(localVersion -> context.removeVersionMutation(keySplitSubspace.pack(RECORD_VERSION)));
+        final byte[] versionKey = keySplitSubspace.pack(RECORD_VERSION);
+        context.getLocalVersion(versionKey).ifPresent(localVersion -> context.removeVersionMutation(versionKey));
     }
 
     /**
@@ -502,11 +503,12 @@ public class SplitHelper {
         @Nonnull
         public CompletableFuture<FDBRawRecord> run(Executor executor) {
             sizeInfo.reset();
-            context.getLocalVersion(key).ifPresent(localVersion -> {
+            final byte[] versionKey = keySplitSubspace.pack(RECORD_VERSION);
+            context.getLocalVersion(versionKey).ifPresent(localVersion -> {
                 version = FDBRecordVersion.incomplete(localVersion);
                 sizeInfo.setVersionedInline(true);
                 sizeInfo.keyCount += 1;
-                sizeInfo.keySize += keySplitSubspace.pack(RECORD_VERSION).length;
+                sizeInfo.keySize += versionKey.length;
                 sizeInfo.valueSize += 1 + FDBRecordVersion.VERSION_LENGTH;
             });
             return AsyncUtil.whileTrue(() -> iter.onHasNext()
@@ -663,11 +665,12 @@ public class SplitHelper {
                     }
                     if (!oldVersionFormat && nextKey != null) {
                         // Account for incomplete version
-                        context.getLocalVersion(nextKey).ifPresent(localVersion -> {
+                        final byte[] versionKey = subspace.subspace(nextKey).pack(RECORD_VERSION);
+                        context.getLocalVersion(versionKey).ifPresent(localVersion -> {
                             nextVersion = FDBRecordVersion.incomplete(localVersion);
                             sizeInfo.setVersionedInline(true);
                             sizeInfo.keyCount += 1;
-                            sizeInfo.keySize += subspace.subspace(nextKey).pack(RECORD_VERSION).length;
+                            sizeInfo.keySize += versionKey.length;
                             sizeInfo.valueSize += 1 + FDBRecordVersion.VERSION_LENGTH;
                         });
                     }
