@@ -115,8 +115,6 @@ The `FDBDatabase::getReadVersion()` method has been replaced with the `FDBRecord
 
 * **Bug fix** Opening a store with `ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES` now allows opening a record store if the data is in the `INDEX_BUILD_SPACE` [(Issue #941)](https://github.com/FoundationDB/fdb-record-layer/issues/941)
 
-=======
->>>>>>> upstream/fdb-record-layer-develop-2.9
 ### 2.8.118.0
 
 * **Bug fix** `FDBDatabaseRunner`s will now refetch a fresh read version on retry to avoid hitting the same conflict multiple times [(Issue #905)](https://github.com/FoundationDB/fdb-record-layer/issues/905)
