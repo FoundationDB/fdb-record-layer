@@ -492,7 +492,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (version.isComplete()) {
             context.ensureActive().set(versionKey, version.toBytes());
         } else {
-            context.addToLocalVersionCache(primaryKey, version.getLocalVersion());
+            context.addToLocalVersionCache(versionKey, version.getLocalVersion());
             final byte[] valueBytes = version.writeTo(ByteBuffer.allocate(FDBRecordVersion.VERSION_LENGTH + Integer.BYTES).order(ByteOrder.BIG_ENDIAN))
                     .putInt(0)
                     .array();
@@ -816,28 +816,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return VALUE_SIZE_LIMIT;
     }
 
-    public void addUniquenessCheck(@Nonnull AsyncIterable<KeyValue> kvs,
-                                   @Nonnull Index index,
-                                   @Nonnull IndexEntry indexEntry,
-                                   @Nonnull Tuple primaryKey) {
-        final IndexMaintainer indexMaintainer = getIndexMaintainer(index);
-        final CompletableFuture<Void> checker = context.instrument(FDBStoreTimer.Events.CHECK_INDEX_UNIQUENESS,
-                AsyncUtil.forEach(kvs, kv -> {
-                    Tuple existingEntry = SplitHelper.unpackKey(indexMaintainer.getIndexSubspace(), kv);
-                    Tuple existingKey = index.getEntryPrimaryKey(existingEntry);
-                    if (!TupleHelpers.equals(primaryKey, existingKey)) {
-                        if (isIndexWriteOnly(index)) {
-                            Tuple valueKey = indexEntry.getKey();
-                            indexMaintainer.updateUniquenessViolations(valueKey, primaryKey, existingKey, false);
-                            indexMaintainer.updateUniquenessViolations(valueKey, existingKey, primaryKey, false);
-                        } else {
-                            throw new RecordIndexUniquenessViolation(index, indexEntry, primaryKey, existingKey);
-                        }
-                    }
-                }, getExecutor()));
-        getRecordContext().addCommitCheck(checker);
-    }
-
     public CompletableFuture<IndexOperationResult> performIndexOperationAsync(@Nonnull String indexName,
                                                                               @Nonnull IndexOperation operation) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
@@ -919,13 +897,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // a priori that this will return an empty optional, so we return it without doing any I/O.
             return Optional.empty();
         } else {
-            Optional<CompletableFuture<FDBRecordVersion>> cachedOptional = context.getLocalVersion(primaryKey)
+            byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
+            Optional<CompletableFuture<FDBRecordVersion>> cachedOptional = context.getLocalVersion(versionKey)
                     .map(localVersion -> CompletableFuture.completedFuture(FDBRecordVersion.incomplete(localVersion)));
             if (cachedOptional.isPresent()) {
                 return cachedOptional;
             }
 
-            byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
             final ReadTransaction tr = snapshot ? ensureContextActive().snapshot() : ensureContextActive();
             return Optional.of(tr.get(versionKey).thenApply(valueBytes -> {
                 if (valueBytes == null) {
@@ -1235,12 +1213,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
-    public CompletableFuture<Void> resolveUniquenessViolation(@Nonnull Index index, @Nonnull Tuple valueKey, @Nullable Tuple primaryKey) {
+    public CompletableFuture<Void> resolveUniquenessViolation(@Nonnull Index index, @Nonnull Tuple valueKey, @Nullable Tuple remainPrimaryKey) {
         return scanUniquenessViolations(index, valueKey).forEachAsync(uniquenessViolation -> {
-            if (primaryKey == null || !primaryKey.equals(uniquenessViolation.getPrimaryKey())) {
+            if (remainPrimaryKey == null || !remainPrimaryKey.equals(uniquenessViolation.getPrimaryKey())) {
                 return deleteRecordAsync(uniquenessViolation.getPrimaryKey()).thenApply(ignore -> null);
             } else {
-                getIndexMaintainer(index).updateUniquenessViolations(valueKey, primaryKey, null, true);
+                // The uniqueness violation entry of the remained primary key will be removed as part of
+                // removeUniquenessViolationsAsync when deleting the second to last record that contains the value key.
                 return AsyncUtil.DONE;
             }
         }, getPipelineSize(PipelineOperation.RESOLVE_UNIQUENESS));
@@ -1267,17 +1246,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
             final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
             if (useOldVersionFormat()) {
+                byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
                 if (oldHasIncompleteVersion) {
-                    byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
                     context.removeVersionMutation(versionKey);
                 } else if (metaData.isStoreRecordVersions()) {
-                    ensureContextActive().clear(getSubspace().pack(recordVersionKey(primaryKey)));
+                    ensureContextActive().clear(versionKey);
                 }
             }
             CompletableFuture<Void> updateIndexesFuture = updateSecondaryIndexes(oldRecord, null);
             if (oldHasIncompleteVersion) {
                 return updateIndexesFuture.thenApply(vignore -> {
-                    context.removeLocalVersion(primaryKey);
+                    byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
+                    context.removeLocalVersion(versionKey);
                     return true;
                 });
             } else {

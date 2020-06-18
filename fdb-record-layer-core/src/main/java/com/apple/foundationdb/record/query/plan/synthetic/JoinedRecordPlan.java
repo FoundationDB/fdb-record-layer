@@ -222,10 +222,14 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
 
     private RecordCursor<EvaluationContext> query(int depth, @Nonnull FDBRecordStore store, @Nonnull EvaluationContext context,
                                                   @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
-        RecordCursor<FDBQueriedRecord<Message>> records = queries.get(depth).execute(store, context, continuation, executeProperties);
+        final RecordCursor<FDBQueriedRecord<Message>> records;
         final JoinedType joinedType = joinedTypes.get(depth + 1);
         if (joinedType.constituent.isOuterJoined()) {
-            records = records.orElse(executor -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(null)));
+            records = RecordCursor.orElse(innerContinuation -> queries.get(depth).execute(store, context, innerContinuation, executeProperties),
+                    (executor, elseContinuation) -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(null), elseContinuation),
+                    continuation);
+        } else {
+            records = queries.get(depth).execute(store, context, continuation, executeProperties);
         }
         return records.map(qr -> joinedType.bind(context, qr == null ? null : qr.getStoredRecord()));
     }

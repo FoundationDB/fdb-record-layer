@@ -21,19 +21,23 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -292,10 +296,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
                                                                           @Nonnull final List<IndexEntry> indexEntries) {
-        for (IndexEntry entry : indexEntries) {
-            updateOneKey(savedRecord, remove, entry);
-        }
-        return AsyncUtil.DONE;
+        return CompletableFuture.allOf(indexEntries.stream()
+                .map(entry -> updateOneKeyAsync(savedRecord, remove, entry))
+                .toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -304,10 +307,11 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param savedRecord the record being indexed
      * @param remove <code>true</code> if removing from index
      * @param indexEntry the entry for the index to be updated
+     * @return a future completed when the key is updated
      */
-    protected <M extends Message> void updateOneKey(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                    final boolean remove,
-                                                    @Nonnull final IndexEntry indexEntry) {
+    protected <M extends Message> CompletableFuture<Void> updateOneKeyAsync(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                            final boolean remove,
+                                                                            @Nonnull final IndexEntry indexEntry) {
         final Tuple valueKey = indexEntry.getKey();
         final Tuple value = indexEntry.getValue();
         final long startTime = System.nanoTime();
@@ -316,13 +320,15 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         final byte[] valueBytes = value.pack();
         if (remove) {
             state.transaction.clear(keyBytes);
-            if (state.store.isIndexWriteOnly(state.index) && state.index.isUnique()) {
-                updateUniquenessViolations(valueKey, savedRecord.getPrimaryKey(), null, true);
-            }
             if (state.store.getTimer() != null) {
                 state.store.getTimer().recordSinceNanoTime(FDBStoreTimer.Events.DELETE_INDEX_ENTRY, startTime);
                 state.store.countKeyValue(FDBStoreTimer.Counts.DELETE_INDEX_KEY, FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES, FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES,
                         keyBytes, valueBytes);
+            }
+            if (state.store.isIndexWriteOnly(state.index) && state.index.isUnique()) {
+                return removeUniquenessViolationsAsync(valueKey, savedRecord.getPrimaryKey());
+            } else {
+                return AsyncUtil.DONE;
             }
         } else {
             checkKeyValueSizes(savedRecord, valueKey, value, keyBytes, valueBytes);
@@ -332,8 +338,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 // from the other one and trigger an error.
                 synchronized (state.context) {
                     if (!indexEntry.keyContainsNonUniqueNull()) {
-                        AsyncIterable<KeyValue> kvs = state.transaction.getRange(state.indexSubspace.range(valueKey));
-                        state.store.addUniquenessCheck(kvs, state.index, indexEntry, savedRecord.getPrimaryKey());
+                        checkUniqueness(savedRecord, indexEntry);
                     }
                     state.transaction.set(keyBytes, valueBytes);
                 }
@@ -345,18 +350,75 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 state.store.countKeyValue(FDBStoreTimer.Counts.SAVE_INDEX_KEY, FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES,
                         keyBytes, valueBytes);
             }
+            return AsyncUtil.DONE;
         }
     }
 
-    @Override
-    @Nonnull
-    public void updateUniquenessViolations(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey, boolean remove) {
+    protected <M extends Message> void checkUniqueness(@Nonnull FDBIndexableRecord<M> savedRecord, @Nonnull IndexEntry indexEntry) {
+        Tuple valueKey = indexEntry.getKey();
+        AsyncIterable<KeyValue> kvs = state.transaction.getRange(state.indexSubspace.range(valueKey));
+        Tuple primaryKey = savedRecord.getPrimaryKey();
+        final CompletableFuture<Void> checker = state.store.getContext().instrument(FDBStoreTimer.Events.CHECK_INDEX_UNIQUENESS,
+                AsyncUtil.forEach(kvs, kv -> {
+                    Tuple existingEntry = unpackKey(getIndexSubspace(), kv);
+                    Tuple existingKey = state.index.getEntryPrimaryKey(existingEntry);
+                    if (!TupleHelpers.equals(primaryKey, existingKey)) {
+                        if (state.store.isIndexWriteOnly(state.index)) {
+                            addUniquenessViolation(valueKey, primaryKey, existingKey);
+                            addUniquenessViolation(valueKey, existingKey, primaryKey);
+                        } else {
+                            throw new RecordIndexUniquenessViolation(state.index, indexEntry, primaryKey, existingKey);
+                        }
+                    }
+                }, getExecutor()));
+        // Add a pre-commit check to prevent accidentally committing and getting into an invalid state.
+        state.store.getRecordContext().addCommitCheck(checker);
+    }
+
+    /**
+     * Add a uniqueness violation within the database. This is used to keep track of
+     * uniqueness violations that occur when an index is in write-only mode, both during
+     * the built itself and by other writes. This means that the writes will succeed, but
+     * it will cause a later attempt to make the index readable to fail.
+     * @param valueKey the indexed key that is (apparently) not unique
+     * @param primaryKey the primary key of one record that is causing a violation
+     * @param existingKey the primary key of another record that is causing a violation (or <code>null</code> if none specified)
+     */
+    protected void addUniquenessViolation(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey) {
         byte[] uniquenessKeyBytes = state.store.indexUniquenessViolationsSubspace(state.index).pack(FDBRecordStoreBase.uniquenessViolationKey(valueKey, primaryKey));
-        if (remove) {
-            state.transaction.clear(uniquenessKeyBytes);
-        } else {
-            state.transaction.set(uniquenessKeyBytes, (existingKey == null) ? new byte[0] : existingKey.pack());
-        }
+        state.transaction.set(uniquenessKeyBytes, (existingKey == null) ? new byte[0] : existingKey.pack());
+    }
+
+    /**
+     * Remove a uniqueness violation within the database. This is used to keep track of
+     * uniqueness violations that occur when an index is in write-only mode, both during
+     * the built itself and by other writes. This means that the writes will succeed, but
+     * it will cause a later attempt to make the index readable to fail.
+     *
+     * <p>This will remove the last uniqueness violation entry when removing the second
+     * last entry that contains the value key.</p>
+     * @param valueKey the indexed key that is (apparently) not unique
+     * @param primaryKey the primary key of one record that is causing a violation
+     * @return a future that is complete when the uniqueness violation is removed
+     */
+    @Nonnull
+    protected CompletableFuture<Void> removeUniquenessViolationsAsync(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
+        Subspace uniqueValueSubspace = state.store.indexUniquenessViolationsSubspace(state.index).subspace(valueKey);
+        state.transaction.clear(uniqueValueSubspace.pack(primaryKey));
+        // Remove the last entry if it was the second last entry in the unique value subspace.
+        RecordCursor<KeyValue> uniquenessViolationEntries = KeyValueCursor.Builder.withSubspace(uniqueValueSubspace)
+                .setContext(state.context)
+                .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder()
+                        .setReturnedRowLimit(2)
+                        .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                        .setDefaultCursorStreamingMode(CursorStreamingMode.WANT_ALL)
+                        .build()))
+                .build();
+        return uniquenessViolationEntries.getCount().thenAccept(count -> {
+            if (count == 1) {
+                state.transaction.clear(Range.startsWith(uniqueValueSubspace.pack()));
+            }
+        });
     }
 
     @Override

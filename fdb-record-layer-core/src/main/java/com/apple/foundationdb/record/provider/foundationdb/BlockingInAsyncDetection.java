@@ -23,7 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 
 /**
- * Indicates whether <code>FDBDatabase.asyncToSync()</code> or <code>FDBRecordContext.asyncToSync()</code> should
+ * Indicates whether {@link FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, java.util.concurrent.CompletableFuture)} or
+ * {@link FDBRecordContext#asyncToSync(FDBStoreTimer.Wait, java.util.concurrent.CompletableFuture)} should
  * attempt to detect when it is being called from an asynchronous context and, if so, how it should react to
  * this fact.  When this situation is detected, there are two scenarios that need to be dealt with:
  * <ul>
@@ -46,25 +47,27 @@ public enum BlockingInAsyncDetection {
     DISABLED(true, false),
 
     /**
-     * When <code>asyncToSync</code> is called in an asynchronous context and the future it is passed would
-     * block, an exception will be thrown.
+     * When {@link FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, java.util.concurrent.CompletableFuture) asyncToSync()}
+     * is called in an asynchronous context and the future it is passed would block, an exception will be thrown.
      */
     IGNORE_COMPLETE_EXCEPTION_BLOCKING(true, true),
 
     /**
-     * When <code>asyncToSync</code> is called in an asynchronous context and the future it is passed would
-     * block, an exception will be thrown; however, if the future is complete, then a warning will be logged.
+     * When {@link FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, java.util.concurrent.CompletableFuture) asyncToSync()}
+     * is called in an asynchronous context and the future it is passed would block, an exception will be thrown;
+     * however, if the future is complete, then a warning will be logged.
      */
     WARN_COMPLETE_EXCEPTION_BLOCKING(false, true),
 
     /**
-     * When <code>asyncToSync</code> is called in an asynchronous context and the future it is passed would
-     * block, a warning is logged.
+     * When {@link FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, java.util.concurrent.CompletableFuture) asyncToSync()}
+     * is called in an asynchronous context and the future it is passed would block, a warning is logged.
      */
     IGNORE_COMPLETE_WARN_BLOCKING(true, false),
 
     /**
-     * When <code>asyncToSync</code> is called in an asynchronous context, a warning is logged.
+     * When {@link FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, java.util.concurrent.CompletableFuture) asyncToSync()}
+     * is called in an asynchronous context, a warning is logged.
      */
     WARN_COMPLETE_WARN_BLOCKING(false, false)
     ;
@@ -78,9 +81,10 @@ public enum BlockingInAsyncDetection {
     }
 
     /**
-     * Indicates how to react if the future passed into <code>asyncToSync()</code> was completed. A return
-     * value of <code>true</code> indicates that this situation should be ignored, and a value of <code>false</code>
-     * indicates that a warning should be logged.
+     * Indicates how to react if the future passed into
+     * {@link FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, java.util.concurrent.CompletableFuture) asyncToSync()}
+     * was completed. A return value of <code>true</code> indicates that this situation should be ignored, and a value
+     * of <code>false</code> indicates that a warning should be logged.
      *
      * @return whether completed future should be ignored
      */
@@ -89,9 +93,10 @@ public enum BlockingInAsyncDetection {
     }
 
     /**
-     * Indicates how to react if the future passed into <code>asyncToSync()</code> has not yet been completed. A return
-     * value of <code>true</code> indicates that this situation should result in a {@link BlockingInAsyncException},
-     * and a value of <code>false</code> indicates that a warning should be logged.
+     * Indicates how to react if the future passed into
+     * {@link FDBDatabase#asyncToSync(FDBStoreTimer, FDBStoreTimer.Wait, java.util.concurrent.CompletableFuture) asyncToSync()}
+     * has not yet been completed. A return value of <code>true</code> indicates that this situation should result in a
+     * {@link BlockingInAsyncException}, and a value of <code>false</code> indicates that a warning should be logged.
      *
      * @return whether non-completed future should throw an exception
      */

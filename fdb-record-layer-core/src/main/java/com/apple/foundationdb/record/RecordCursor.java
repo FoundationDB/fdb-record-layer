@@ -781,10 +781,32 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
      * @param func function to be called if the cursor is empty to give another source of records
      * @return a new cursor that returns the same records as this cursor 
      * or the result of {@code func} if this cursor does not produce any records
+     * @deprecated because it does not support continuations and is easy to misuse.
+     *             Use {@link #flatMapPipelined(Function, BiFunction, byte[], int)} instead.
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     default RecordCursor<T> orElse(@Nonnull Function<Executor, RecordCursor<T>> func) {
         return new OrElseCursor<>(this, func);
+    }
+
+    /**
+     * Get a new cursor that substitutes another cursor if a given inner cursor is empty.
+     * If a nonnull continuation is provided, it must come from a cursor that is structurally identical to the
+     * cursor being defined.
+     * @param innerFunc a function that takes a continuation and creates an inner cursor
+     * @param elseFunc a function to be called if the cursor is empty to give another source of records
+     * @param continuation a continuation (from a cursor with the same structure) to resume where it left off
+     * @param <T> the type of result returned by the cursor
+     * @return a new cursor that returns the same records as the generated inner cursor
+     * or the result of {@code func} if this cursor does not produce any records
+     */
+    @Nonnull
+    static <T> RecordCursor<T> orElse(@Nonnull Function<byte[], ? extends RecordCursor<T>> innerFunc,
+                                  @Nonnull BiFunction<Executor, byte[], ? extends RecordCursor<T>> elseFunc,
+                                  @Nullable byte[] continuation) {
+        return new OrElseCursor<>(innerFunc, elseFunc, continuation);
     }
 
     /**
@@ -861,6 +883,24 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     @Nonnull
     static <T> RecordCursor<T> fromFuture(@Nonnull Executor executor, @Nonnull CompletableFuture<T> future) {
         return new FutureCursor<>(executor, future);
+    }
+
+    /**
+     * Get a new cursor that has the contents of the given future as its only record.
+     * If the continuation is nonnull, return an empty cursor since a {@link FutureCursor} returns only a single record.
+     * @param executor an executor for executing the future
+     * @param future a future that completes to the only element of the cursor
+     * @param continuation a continuation from a future cursor to determine whether the cursor has a single element or no elements
+     * @param <T> the result type of the future
+     * @return a new cursor producing the contents of {@code future} if the continuation is nonnull and an empty cursor otherwise
+     */
+    @Nonnull
+    static <T> RecordCursor<T> fromFuture(@Nonnull Executor executor, @Nonnull CompletableFuture<T> future, @Nullable byte[] continuation) {
+        if (continuation == null) {
+            return new FutureCursor<>(executor, future);
+        } else {
+            return RecordCursor.empty();
+        }
     }
 
     /**

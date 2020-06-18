@@ -201,6 +201,21 @@ public class RecordCursorResult<T> {
     }
 
     /**
+     * Return a new result with the given continuation in place of this result's continuation, but the same value or
+     * no-next-reason as this result.
+     * @param newContinuation the new continuation for the result
+     * @return a new result with the same value or no-next-reason, but the given continuation
+     */
+    @Nonnull
+    public RecordCursorResult<T> withContinuation(@Nonnull RecordCursorContinuation newContinuation) {
+        if (hasNext()) {
+            return RecordCursorResult.withNextValue(nextValue, newContinuation);
+        } else {
+            return RecordCursorResult.withoutNextValue(newContinuation, noNextReason);
+        }
+    }
+
+    /**
      * Returns {@code true} if the cursor has reached its end but a continuation is not an end continuation (i.e., the source is not yet exhausted).
      * @return {@code true} if the cursor has reached its end but a continuation is not an end continuation and {@code false} otherwise
      */

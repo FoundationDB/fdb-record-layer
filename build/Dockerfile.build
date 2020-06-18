@@ -1,11 +1,11 @@
 FROM centos:7
-LABEL version=0.0.11
+LABEL version=0.0.14
 
-RUN yum install -y java-1.8.0-openjdk-devel python git unzip wget which time
-RUN yum install -y https://www.foundationdb.org/downloads/6.1.8/rhel6/installers/foundationdb-clients-6.1.8-1.el6.x86_64.rpm nmap
+RUN yum install -y java-11-openjdk-devel python git unzip wget which time
+RUN yum install -y https://www.foundationdb.org/downloads/6.2.7/rhel6/installers/foundationdb-clients-6.2.7-1.el6.x86_64.rpm nmap
 
 RUN mkdir -p /usr/local/bin
 COPY fdb_create_cluster_file.bash /usr/local/bin/fdb_create_cluster_file.bash
 
 ENV PATH="${PATH}:/opt/gradle/gradle-3.4.1/bin:/usr/local/bin"
-ENV JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk

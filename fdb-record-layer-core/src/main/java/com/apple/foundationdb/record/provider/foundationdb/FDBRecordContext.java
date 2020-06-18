@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Utf8;
 import org.apache.commons.lang3.tuple.Pair;
@@ -137,7 +136,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     private AtomicInteger localVersion;
     @Nonnull
-    private ConcurrentNavigableMap<Tuple, Integer> localVersionCache;
+    private ConcurrentNavigableMap<byte[], Integer> localVersionCache;
     @Nonnull
     private ConcurrentNavigableMap<byte[], Pair<MutationType, byte[]>> versionMutationCache;
     @Nullable
@@ -161,7 +160,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         super(fdb, transaction, config.getTimer());
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
-        this.localVersionCache = new ConcurrentSkipListMap<>();
+        this.localVersionCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
         this.versionMutationCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
         this.transactionId = getSanitizedId(config);
 
@@ -1098,36 +1097,43 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Register that a specific primary key used a given local version.
-     * This can then be retrieved from the context using {@link #getLocalVersion(Tuple) getLocalVersion}.
-     * @param primaryKey key to associate with the local version
+     * Register that a record used a given local version.
+     * This can then be retrieved from the context using {@link #getLocalVersion(byte[]) getLocalVersion}.
+     * The key provided should be the full key to the version, including any subspace
+     * prefix bytes.
+     *
+     * @param recordVersionKey key to associate with the local version
      * @param version the local version of the key
      */
-    public void addToLocalVersionCache(@Nonnull Tuple primaryKey, int version) {
-        localVersionCache.put(primaryKey, version);
+    void addToLocalVersionCache(@Nonnull byte[] recordVersionKey, int version) {
+        localVersionCache.put(recordVersionKey, version);
     }
 
     /**
-     * Remove the local version associated with a single primary key.
+     * Remove the local version associated with a single record version key.
+     * The key provided should be the full key to where the version is stored, including any
+     * subspace prefix bytes.
      *
-     * @param primaryKey the key associated with the local version being cleared
+     * @param recordVersionKey the key associated with the local version being cleared
      * @return whether the key was already in the local version cache
      */
-    public boolean removeLocalVersion(@Nonnull Tuple primaryKey) {
-        return localVersionCache.remove(primaryKey) != null;
+    boolean removeLocalVersion(@Nonnull byte[] recordVersionKey) {
+        return localVersionCache.remove(recordVersionKey) != null;
     }
 
     /**
-     * Get a local version assigned to some primary key used within this context.
-     * If the key has not been associated with any version using
-     * {@link #addToLocalVersionCache(Tuple, int) addToLocalVersion}, then this
+     * Get a local version assigned to some record used within this context.
+     * The key provided should be the full key to where the version is stored, including any
+     * subspace prefix bytes. If the key has not been associated with any version using
+     * {@link #addToLocalVersionCache(byte[], int) addToLocalVersion}, then this
      * will return an unset {@link Optional}.
-     * @param primaryKey key to retrieve the local version of
+     *
+     * @param recordVersionKey key to retrieve the local version of
      * @return the associated version or an unset {@link Optional}
      */
     @Nonnull
-    public Optional<Integer> getLocalVersion(@Nonnull Tuple primaryKey) {
-        return Optional.ofNullable(localVersionCache.get(primaryKey));
+    Optional<Integer> getLocalVersion(@Nonnull byte[] recordVersionKey) {
+        return Optional.ofNullable(localVersionCache.get(recordVersionKey));
     }
 
     /**

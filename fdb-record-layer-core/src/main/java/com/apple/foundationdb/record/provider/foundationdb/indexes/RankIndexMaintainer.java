@@ -20,9 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
@@ -49,6 +50,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -115,10 +117,15 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
                                                                           @Nonnull final List<IndexEntry> indexEntries) {
         final int groupPrefixSize = getGroupingCount();
         final Subspace extraSubspace = getSecondarySubspace();
-        final Map<Subspace, CompletableFuture<Void>> futures = Maps.newHashMapWithExpectedSize(indexEntries.size());
+        final List<CompletableFuture<Void>> ordinaryIndexFutures = new ArrayList<>(indexEntries.size());
+        final Map<Subspace, CompletableFuture<Void>> rankFutures = Maps.newHashMapWithExpectedSize(indexEntries.size());
         for (IndexEntry indexEntry : indexEntries) {
-            // First maintain an ordinary B-tree index by score.
-            updateOneKey(savedRecord, remove, indexEntry);
+            // Maintain an ordinary B-tree index by score.
+            CompletableFuture<Void> updateOrdinaryIndex = updateOneKeyAsync(savedRecord, remove, indexEntry);
+            if (!MoreAsyncUtil.isCompletedNormally(updateOrdinaryIndex)) {
+                ordinaryIndexFutures.add(updateOrdinaryIndex);
+            }
+
             final Subspace rankSubspace;
             final Tuple scoreKey;
             if (groupPrefixSize > 0) {
@@ -134,14 +141,14 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
             final Function<Void, CompletableFuture<Void>> futureSupplier = vignore -> RankedSetIndexHelper.updateRankedSet(
                     state, rankSubspace, config, indexEntry.getKey(), scoreKey, remove
             );
-            CompletableFuture<Void> existingFuture = futures.get(rankSubspace);
+            CompletableFuture<Void> existingFuture = rankFutures.get(rankSubspace);
             if (existingFuture == null) {
-                futures.put(rankSubspace, futureSupplier.apply(null));
+                rankFutures.put(rankSubspace, futureSupplier.apply(null));
             } else {
-                futures.put(rankSubspace, existingFuture.thenCompose(futureSupplier));
+                rankFutures.put(rankSubspace, existingFuture.thenCompose(futureSupplier));
             }
         }
-        return AsyncUtil.whenAll(futures.values());
+        return CompletableFuture.allOf(AsyncUtil.whenAll(ordinaryIndexFutures), AsyncUtil.whenAll(rankFutures.values()));
     }
 
     @Override
