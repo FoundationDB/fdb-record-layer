@@ -33,7 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
-/** Tests of the MappedPool.
+/**
+ * Tests of the {@link MappedPool}.
  *
  */
 public class MappedPoolTest {
