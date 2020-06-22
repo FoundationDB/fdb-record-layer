@@ -42,6 +42,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
     // AES with 128 bits key
     protected static final String DEFAULT_CIPHER = "AES/CBC/PKCS5Padding";
     protected static final int IV_SIZE = 16;
+    protected static final MappedPool<String, Cipher, GeneralSecurityException> MAPPED_POOL = new MappedPool<>(Cipher::getInstance);
 
     @Nullable
     protected final String cipherName;
@@ -73,8 +74,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         byte[] ivData = new byte[IV_SIZE];
         secureRandom.nextBytes(ivData);
         IvParameterSpec iv = new IvParameterSpec(ivData);
-
-        Cipher cipher = Cipher.getInstance(cipherName);
+        Cipher cipher = MAPPED_POOL.poll(cipherName);
         cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, iv);
 
         byte[] plainText = state.getDataArray();
@@ -86,7 +86,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         System.arraycopy(cipherText, 0, serialized, IV_SIZE, cipherText.length);
         state.encrypted = true;
         state.setDataArray(serialized);
-
+        MAPPED_POOL.offer(cipherName, cipher);
         if (timer != null) {
             timer.recordSinceNanoTime(Events.ENCRYPT_SERIALIZED_RECORD, startTime);
         }
@@ -105,12 +105,12 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
 
         byte[] cipherText = new byte[state.length - IV_SIZE];
         System.arraycopy(state.data, state.offset + IV_SIZE, cipherText, 0, cipherText.length);
-
-        Cipher cipher = Cipher.getInstance(cipherName);
+        Cipher cipher = MAPPED_POOL.poll(cipherName);
         cipher.init(Cipher.DECRYPT_MODE, encryptionKey, iv);
 
         byte[] plainText = cipher.doFinal(cipherText);
         state.setDataArray(plainText);
+        MAPPED_POOL.offer(cipherName, cipher);
 
         if (timer != null) {
             timer.recordSinceNanoTime(Events.DECRYPT_SERIALIZED_RECORD, startTime);
