@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -137,7 +138,7 @@ public class TupleKeyCountTree {
         count++;
         if (itemPosition < items.size()) {
             final Object childObject = items.get(itemPosition);
-            final int byteSize = childObject == UNPARSEABLE ? bytes.length - bytePosition : Tuple.from(childObject).getPackedSize();
+            final int byteSize = childObject == UNPARSEABLE ? bytes.length - bytePosition : TupleHelpers.packedSizeAsTupleItem(childObject);
             final byte[] childBytes = Arrays.copyOfRange(bytes, bytePosition, bytePosition + byteSize);
             TupleKeyCountTree child = children.computeIfAbsent(childBytes, b -> newChild(b, childObject));
             child.addInternal(items, itemPosition + 1, bytes, bytePosition + byteSize);
