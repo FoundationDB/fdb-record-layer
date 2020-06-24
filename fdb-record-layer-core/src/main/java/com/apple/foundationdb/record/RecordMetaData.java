@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.util.MapUtils;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -40,6 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Meta-data for Record Layer record stores.
@@ -82,6 +84,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nullable
     private final KeyExpression recordCountKey;
     private final boolean usesLocalRecordsDescriptor;
+    private final Map<Index, Collection<RecordType>> recordTypesForIndex;
 
     private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = new Descriptors.FileDescriptor[] {
             RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
@@ -118,6 +121,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.usesSubspaceKeyCounter = usesSubspaceKeyCounter;
         this.recordCountKey = recordCountKey;
         this.usesLocalRecordsDescriptor = usesLocalRecordsDescriptor;
+        this.recordTypesForIndex = new ConcurrentHashMap<>();
     }
 
     /**
@@ -372,25 +376,28 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     @Nonnull
     public Collection<RecordType> recordTypesForIndex(@Nonnull Index index) {
-        if (getUniversalIndexes().contains(index)) {
-            return getRecordTypes().values();
-        }
-        List<RecordType> result = new ArrayList<>();
-        for (RecordType recordType : getRecordTypes().values()) {
-            if (recordType.getIndexes().contains(index)) {
-                return Collections.singletonList(recordType);
-            } else if (recordType.getMultiTypeIndexes().contains(index)) {
-                result.add(recordType);
+        return MapUtils.computeIfAbsent(recordTypesForIndex, index, idx -> {
+            if (hasUniversalIndex(idx.getName())) {
+                return getRecordTypes().values();
+            } else {
+                List<RecordType> result = new ArrayList<>();
+                for (RecordType recordType : getRecordTypes().values()) {
+                    if (recordType.getIndexes().contains(idx)) {
+                        return Collections.singletonList(recordType);
+                    } else if (recordType.getMultiTypeIndexes().contains(idx)) {
+                        result.add(recordType);
+                    }
+                }
+                for (SyntheticRecordType<?> recordType : getSyntheticRecordTypes().values()) {
+                    if (recordType.getIndexes().contains(idx)) {
+                        return Collections.singletonList(recordType);
+                    } else if (recordType.getMultiTypeIndexes().contains(idx)) {
+                        result.add(recordType);
+                    }
+                }
+                return result;
             }
-        }
-        for (SyntheticRecordType<?> recordType : getSyntheticRecordTypes().values()) {
-            if (recordType.getIndexes().contains(index)) {
-                return Collections.singletonList(recordType);
-            } else if (recordType.getMultiTypeIndexes().contains(index)) {
-                result.add(recordType);
-            }
-        }
-        return result;
+        });
     }
 
     @Nullable
