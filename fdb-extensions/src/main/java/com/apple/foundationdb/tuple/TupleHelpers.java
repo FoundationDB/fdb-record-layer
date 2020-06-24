@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.tuple;
 
+import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
@@ -120,6 +121,22 @@ public class TupleHelpers {
             return - number.doubleValue();
         }
         throw new IllegalArgumentException("Not an allowed number type from a Tuple: " + number.getClass());
+    }
+
+    /**
+     * Get the number of bytes that an object would occupy as an element of an encoded {@link Tuple}.
+     * Unlike {@link Tuple#getPackedSize()}, this does not include the extra space an incomplete {@link Versionstamp} would add to the end to record its position.
+     * @param item an item of a tuple
+     * @return the number of bytes in the encoded form of the item
+     */
+    public static int packedSizeAsTupleItem(Object item) {
+        int size = Tuple.from(item).getPackedSize();
+        if (item instanceof Versionstamp) {
+            if (!((Versionstamp)item).isComplete()) {
+                size -= FDB.instance().getAPIVersion() < 520 ? Short.BYTES : Integer.BYTES;
+            }
+        }
+        return size;
     }
 
     private TupleHelpers() {
