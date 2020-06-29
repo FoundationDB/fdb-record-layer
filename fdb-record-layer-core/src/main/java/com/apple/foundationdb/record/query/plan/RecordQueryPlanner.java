@@ -376,16 +376,19 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     private ScoredPlan planFilter(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
-        final InExtractor inExtractor = new InExtractor(filter);
-        ScoredPlan withInAsOr = null;
+        @Nonnull InExtractor inExtractor = InExtractor.fromFilter(filter);
+        final boolean filterHasInClauses = inExtractor.hasInClauses();
+        @Nullable ScoredPlan withInAsOr = null;
         if (planContext.query.getSort() != null) {
-            boolean canSort = inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
-            if (!canSort && getConfiguration().shouldAttemptFailedInJoinAsOr()) {
-                // Can't implement as an in join because of the sort order. Try as an OR instead.
-                withInAsOr = planFilter(planContext, normalizeAndOrForInAsOr(inExtractor.asOr()));
+            inExtractor = inExtractor.withOrderingRequirements(planContext.query.getSort(), planContext.query.isSortReverse());
+            if (filterHasInClauses) {
+                if (getConfiguration().shouldAttemptFailedInJoinAsOr()) {
+                    // Can't implement as an in join because of the sort order. Try as an OR instead.
+                    withInAsOr = planFilter(planContext, normalizeAndOrForInAsOr(inExtractor.cancel().asOr()));
+                }
             }
         } else if (needOrdering) {
-            inExtractor.sortByClauses();
+            inExtractor = inExtractor.orderInfoNeeded();
         }
         final ScoredPlan withInJoin = planFilterWithInJoin(planContext, inExtractor, needOrdering);
         if (withInAsOr != null) {
@@ -397,49 +400,112 @@ public class RecordQueryPlanner implements QueryPlanner {
         return withInJoin;
     }
 
+    @SuppressWarnings({"squid:S135", "squid:S1066"})
     private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
-        final QueryComponent filter = inExtractor.subFilter();
+        @Nonnull final QueryComponent filter = inExtractor.getSubFilter();
         planContext.rankComparisons = new RankComparisons(filter, planContext.indexes);
-        List<ScoredPlan> intersectionCandidates = new ArrayList<>();
-        ScoredPlan bestPlan = null;
-        Index bestIndex = null;
+        final List<ScoredPlan> intersectionCandidates = new ArrayList<>();
+        // keep bestPLan, bestInExtractor and bestIndex for the best plan we have seen so far
+        @Nullable Index bestIndex = null;
+        @Nullable ScoredPlan bestPlan = null;
+        @Nullable InExtractor.PlanDependent bestInExtractor = null;
         if (planContext.commonPrimaryKey != null) {
             bestPlan = planIndex(planContext, filter, null, planContext.commonPrimaryKey, intersectionCandidates);
+            if (bestPlan == null) {
+                // if the plan is null, we should treat all IN-clauses as residuals
+                bestInExtractor = inExtractor.withResidualInClauses();
+            } else {
+                bestInExtractor = inExtractor.withUnsatisfiedFilters(bestPlan.unsatisfiedFilters);
+            }
         }
-        for (Index index : planContext.indexes) {
-            KeyExpression indexKeyExpression = index.getRootExpression();
+        for (final Index candidateIndex : planContext.indexes) {
+            KeyExpression indexKeyExpression = candidateIndex.getRootExpression();
             if (indexKeyExpression instanceof KeyWithValueExpression) {
                 indexKeyExpression = ((KeyWithValueExpression) indexKeyExpression).getKeyExpression();
             }
 
-            ScoredPlan p = planIndex(planContext, filter, index, indexKeyExpression, intersectionCandidates);
-            if (p != null) {
+            ScoredPlan candidatePlan = planIndex(planContext, filter, candidateIndex, indexKeyExpression, intersectionCandidates);
+            if (candidatePlan != null) {
+                final InExtractor.PlanDependent candidateInExtractor =
+                        inExtractor.withUnsatisfiedFilters(candidatePlan.unsatisfiedFilters);
+                
                 // TODO: Consider more organized score / cost:
                 //   * predicates handled / unhandled.
                 //   * size of row.
                 //   * need for type filtering if row scan with multiple types.
-                if (bestPlan == null || p.score > bestPlan.score ||
-                        p.unsatisfiedFilters.size() < bestPlan.unsatisfiedFilters.size() ||
-                        (p.score == bestPlan.score && compareIndexes(planContext, index, bestIndex) > 0)) {
-                    bestPlan = p;
-                    bestIndex = index;
+                if (betterPlan(planContext,
+                        bestIndex,
+                        bestPlan,
+                        bestInExtractor,
+                        candidateIndex,
+                        candidatePlan,
+                        candidateInExtractor)) {
+                    bestIndex = candidateIndex;
+                    bestPlan = candidatePlan;
+                    bestInExtractor = candidateInExtractor;
                 }
             }
         }
         if (bestPlan != null) {
-            if (!bestPlan.unsatisfiedFilters.isEmpty()) {
+            Objects.requireNonNull(bestInExtractor);
+            bestPlan = bestPlan.withUnsatisfiedFilters(bestInExtractor.compensateWithInFilters(bestPlan.unsatisfiedFilters));
+            final List<QueryComponent> unsatisfiedFilters = bestPlan.unsatisfiedFilters;
+
+            if (!unsatisfiedFilters.isEmpty()) {
                 bestPlan = handleUnsatisfiedFilters(bestPlan, intersectionCandidates, planContext);
             }
-            final RecordQueryPlan wrapped = inExtractor.wrap(planContext.rankComparisons.wrap(bestPlan.plan, bestPlan.includedRankComparisons, metaData));
+            final RecordQueryPlan wrapped =
+                    bestInExtractor.wrap(
+                            planContext.rankComparisons.wrap(bestPlan.plan, bestPlan.includedRankComparisons, metaData));
             ScoredPlan scoredPlan = new ScoredPlan(bestPlan.score, wrapped);
             if (needOrdering) {
                 PlanOrderingKey planOrderingKey = PlanOrderingKey.forPlan(metaData, bestPlan.plan, planContext.commonPrimaryKey);
-                planOrderingKey = inExtractor.adjustOrdering(planOrderingKey);
+                planOrderingKey = bestInExtractor.adjustOrdering(planOrderingKey);
                 scoredPlan.planOrderingKey = planOrderingKey;
             }
             return scoredPlan;
         }
         return null;
+    }
+
+    private boolean betterPlan(@Nonnull PlanContext planContext,
+                               @Nullable final Index bestIndex,
+                               @Nullable final ScoredPlan bestPlan,
+                               @Nullable final InExtractor.PlanDependent bestInExtractor,
+                               @Nonnull final Index candidateIndex,
+                               @Nonnull final ScoredPlan candidatePlan,
+                               @Nullable final InExtractor.PlanDependent candidateInExtractor) {
+        if (bestPlan == null) {
+            return true;
+        }
+
+        // score is better
+        if (candidatePlan.score > bestPlan.score) {
+            return true;
+        }
+
+        // fewer unsatisfied filters
+        if (candidatePlan.unsatisfiedFilters.size() < bestPlan.unsatisfiedFilters.size()) {
+            return true;
+        }
+
+        if (candidatePlan.score == bestPlan.score) {
+            // indexes are better
+            final int comparedIndexes = compareIndexes(planContext, candidateIndex, bestIndex);
+            if (comparedIndexes > 0) {
+                return true;
+            }
+
+            if (comparedIndexes == 0) {
+                // more sargable IN-clauses
+                Objects.requireNonNull(candidateInExtractor);
+                Objects.requireNonNull(bestInExtractor);
+                if (candidateInExtractor.getNumSargableInClauses() > bestInExtractor.getNumSargableInClauses()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Nullable
@@ -795,7 +861,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             final ScoredPlan sortOnlyPlan = planSortOnly(candidateScan, index, sort);
             if (sortOnlyPlan != null) {
                 return new ScoredPlan(0, sortOnlyPlan.plan,
-                        Collections.<QueryComponent>singletonList(oneOfThemWithComparison),
+                        Collections.singletonList(oneOfThemWithComparison),
                         sortOnlyPlan.createsDuplicates);
             } else {
                 return null;
@@ -811,12 +877,12 @@ public class RecordQueryPlanner implements QueryPlanner {
                         if (Objects.equals(sortField.getFieldName(), field.getFieldName())) {
                             // everything matches, yay!! Hopefully that comparison can be for tuples
                             return new ScoredPlan(1, planScan(candidateScan, scanComparisons),
-                                    Collections.<QueryComponent>emptyList(), true);
+                                    Collections.emptyList(), true);
                         }
                     }
                 } else {
                     return new ScoredPlan(1, planScan(candidateScan, scanComparisons),
-                            Collections.<QueryComponent>emptyList(), true);
+                            Collections.emptyList(), true);
                 }
             }
             return null;

@@ -135,6 +135,29 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that an IN (with parameter) without an index using the in field is implemented as a filter and not
+     * as a join.
+     */
+    @Test
+    public void testInQueryIncompatibleIndex() throws Exception {
+        complexQuerySetup(NO_HOOK);
+        final QueryComponent num_value_2_in = Query.field("num_value_2").in(asList(0, 2));
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(num_value_2_in, Query.field("num_value_3_indexed").equalsValue(3)))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(num_value_2_in, descendant(indexScan("MySimpleRecord$num_value_3_indexed"))));
+        assertEquals(-295896427, plan.planHash());
+        assertEquals(14, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
+                record -> {
+                    assertThat(record.getNumValue2(), anyOf(is(0), is(2)));
+                    assertThat(record.getNumValue3Indexed(), is(3));
+                },
+                context -> assertDiscardedAtMost(6, context)));
+    }
+
+    /**
      * Verify that an IN with an index is implemented as an index scan, with an IN join.
      */
     @Test
@@ -760,19 +783,82 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 Query.field("num_value_2").in(Arrays.asList(2, 0)))))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        // Without the join, these would be using the same index and so compatible, even though inequalities.
-        // TODO: IN join in filter can prevent index scan merging (https://github.com/FoundationDB/fdb-record-layer/issues/9)
-        assertThat(plan, primaryKeyDistinct(unorderedUnion(
+        // We should not transform the IN on num_value_2 into a join as there is no benefit from it (it causes
+        // the inner to be restarted repeatedly). Therefore the resulting plan should use a regular IN predicate
+        // which in turn should cause UNION to process compatibly-ordered streams which then allows us to use a
+        // regular distinct (merging) UNION.
+        assertThat(plan, union(
                 indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([null],[910])")))),
-                inValues(equalTo(Arrays.asList(0, 2)), filter(any(QueryPredicate.class), indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>"))))))
-        )));
+                filter(any(QueryPredicate.class), indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>")))))
+        ));
         assertEquals(16, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> {
                     assertThat(record.getNumValueUnique(), anyOf(lessThan(910), greaterThan(990)));
                     if (record.getNumValue3Indexed() > 990) {
                         assertThat(record.getNumValue2(), anyOf(is(2), is(0)));
                     }
-                }, context -> TestHelpers.assertDiscardedAtMost(13, context)));
+                }, context -> TestHelpers.assertDiscardedAtMost(6, context)));
+    }
+
+    /**
+     * Verify that an IN requires an unordered union due to incompatible ordering.
+     */
+    @Test
+    public void testInQueryOrDifferentCondition2() throws Exception {
+        complexQuerySetup(NO_HOOK);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("num_value_3_indexed").lessThan(2),
+                        Query.and(
+                                Query.field("num_value_unique").in(Arrays.asList(908, 909)),
+                                Query.field("num_value_3_indexed").greaterThan(1))
+                ))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        // Without the join, these would be using the same index and so compatible, even though inequalities.
+        // TODO: The plan does produce an IN-JOIN on num_value_unique, but in the process destroys the order on
+        // TODO: num_value_3_indexed, hence the order of the IN JOIN is iincompatible to the other UNION leg and we need
+        // TODO: to correct for the obvious incompatibility with distinct(union all(...))
+        // TODO: In the future, we may want to consider the WHERE field IN (...) over the NLJN variant since it may prove
+        // TODO: advantageous on the level where the UNION is planned
+        assertThat(plan, primaryKeyDistinct(unorderedUnion(
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([null],[2])")))),
+                inValues(equalTo(Arrays.asList(908, 909)), filter(any(QueryPredicate.class), indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("[EQUALS $__in_num_value_unique__0]"))))))
+        )));
+        assertEquals(41, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
+                record -> {
+                    if (record.getNumValue3Indexed() > 1) {
+                        assertThat(record.getNumValueUnique(), anyOf(is(908), is(909)));
+                    }
+                }, context -> TestHelpers.assertDiscardedAtMost(1, context)));
+    }
+
+    /**
+     * Verify that an IN requires an unordered union due to incompatible ordering.
+     */
+    @Test
+    public void testInQueryOrSameFieldInJoin() throws Exception {
+        complexQuerySetup(NO_HOOK);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("num_value_unique").greaterThan(990),
+                        Query.field("num_value_unique").in(Arrays.asList(2, 0))
+                ))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        // The IN-join transformation should not destroy the order of the index used for inner and should therefore
+        // contribute a compatible ordering and should therefore cause a regulear UNION(...) to be planned without
+        // the need for a subsequent DISTINCT(...)
+        assertThat(plan, union(
+                indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>")))),
+                inValues(equalTo(Arrays.asList(0, 2)), indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("[EQUALS $__in_num_value_unique__0]")))))
+        ));
+        assertEquals(10, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
+                record -> {
+                    assertThat(record.getNumValueUnique(), anyOf(greaterThan(990), is(0), is(2)));
+                }, context -> TestHelpers.assertDiscardedAtMost(0, context)));
     }
 
     /**
