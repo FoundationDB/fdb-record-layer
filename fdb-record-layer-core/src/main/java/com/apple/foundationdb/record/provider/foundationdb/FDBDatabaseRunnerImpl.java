@@ -57,21 +57,13 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Nonnull
     private final FDBDatabase database;
     @Nonnull
-    private Executor executor;
-
-    @Nullable
-    private FDBStoreTimer timer;
-    @Nullable
-    private Map<String, String> mdcContext;
-    @Nullable
-    private FDBDatabase.WeakReadSemantics weakReadSemantics;
+    private FDBRecordContextConfig.Builder contextConfigBuilder;
     @Nonnull
-    private FDBTransactionPriority priority;
+    private Executor executor;
 
     private int maxAttempts;
     private long maxDelayMillis;
     private long initialDelayMillis;
-    private long transactionTimeoutMillis;
 
     private boolean closed;
     @Nonnull
@@ -80,37 +72,18 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     private final List<CompletableFuture<?>> futuresToCompleteExceptionally;
 
     @API(API.Status.INTERNAL)
-    public FDBDatabaseRunnerImpl(@Nonnull FDBDatabase database,
-                                 @Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
-                                 @Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+    FDBDatabaseRunnerImpl(@Nonnull FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder) {
         this.database = database;
-
-        this.timer = timer;
-        this.mdcContext = mdcContext;
-        this.weakReadSemantics = weakReadSemantics;
-        this.priority = FDBTransactionPriority.DEFAULT;
+        this.contextConfigBuilder = contextConfigBuilder;
+        this.executor = database.newContextExecutor(contextConfigBuilder.getMdcContext());
 
         final FDBDatabaseFactory factory = database.getFactory();
         this.maxAttempts = factory.getMaxAttempts();
         this.maxDelayMillis = factory.getMaxDelayMillis();
         this.initialDelayMillis = factory.getInitialDelayMillis();
-        this.transactionTimeoutMillis = factory.getTransactionTimeoutMillis();
-
-        this.executor = database.newContextExecutor(mdcContext);
 
         contextsToClose = new ArrayList<>();
         futuresToCompleteExceptionally = new ArrayList<>();
-    }
-
-    @API(API.Status.INTERNAL)
-    public FDBDatabaseRunnerImpl(@Nonnull FDBDatabase database,
-                                 @Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext) {
-        this(database, timer, mdcContext, null);
-    }
-
-    @API(API.Status.INTERNAL)
-    public FDBDatabaseRunnerImpl(@Nonnull FDBDatabase database) {
-        this(database, null, null, null);
     }
 
     @Override
@@ -120,53 +93,25 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     @Override
+    @Nonnull
+    public FDBRecordContextConfig.Builder getContextConfigBuilder() {
+        return contextConfigBuilder;
+    }
+
+    @Override
+    public void setContextConfigBuilder(@Nonnull final FDBRecordContextConfig.Builder contextConfigBuilder) {
+        this.contextConfigBuilder = contextConfigBuilder;
+    }
+
+    @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    @Nullable
-    public FDBStoreTimer getTimer() {
-        return timer;
-    }
-
-    @Override
-    public void setTimer(@Nullable FDBStoreTimer timer) {
-        this.timer = timer;
-    }
-
-    @Override
-    @Nullable
-    public Map<String, String> getMdcContext() {
-        return mdcContext;
-    }
-
-    @Override
     public void setMdcContext(@Nullable Map<String, String> mdcContext) {
-        this.mdcContext = mdcContext;
+        FDBDatabaseRunner.super.setMdcContext(mdcContext);
         executor = database.newContextExecutor(mdcContext);
-    }
-
-    @Override
-    @Nullable
-    public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
-        return weakReadSemantics;
-    }
-
-    @Override
-    public void setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
-        this.weakReadSemantics = weakReadSemantics;
-    }
-
-    @Nonnull
-    @Override
-    public FDBTransactionPriority getPriority() {
-        return priority;
-    }
-
-    @Override
-    public void setPriority(@Nonnull FDBTransactionPriority priority) {
-        this.priority = priority;
     }
 
     @Override
@@ -218,16 +163,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     @Override
-    public void setTransactionTimeoutMillis(long transactionTimeoutMillis) {
-        this.transactionTimeoutMillis = transactionTimeoutMillis;
-    }
-
-    @Override
-    public long getTransactionTimeoutMillis() {
-        return transactionTimeoutMillis;
-    }
-
-    @Override
     @Nonnull
     public FDBRecordContext openContext() {
         return openContext(true);
@@ -238,13 +173,13 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         if (closed) {
             throw new RunnerClosed();
         }
-        FDBRecordContextConfig contextConfig = FDBRecordContextConfig.newBuilder()
-                .setMdcContext(mdcContext)
-                .setTimer(timer)
-                .setWeakReadSemantics(initialAttempt ? weakReadSemantics : null)
-                .setPriority(priority)
-                .setTransactionTimeoutMillis(transactionTimeoutMillis)
-                .build();
+        FDBRecordContextConfig contextConfig;
+        if (initialAttempt || contextConfigBuilder.getWeakReadSemantics() == null) {
+            contextConfig = contextConfigBuilder.build();
+        } else {
+            // Clear any weak semantics after first attempt.
+            contextConfig = contextConfigBuilder.copyBuilder().setWeakReadSemantics(null).build();
+        }
         FDBRecordContext context = database.openContext(contextConfig);
         addContextToClose(context);
         return context;
@@ -365,9 +300,9 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                     context = openContext(currAttempt == 0);
                     T ret = retriable.apply(context);
                     context.commit();
-                    again = database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));
+                    again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));
                 } catch (Exception e) {
-                    again = database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(null, e));
+                    again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(null, e));
                 } finally {
                     if (context != null) {
                         context.close();
@@ -402,7 +337,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Override
     @Nullable
     public <T> T asyncToSync(FDBStoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
-        return database.asyncToSync(timer, event, async);
+        return database.asyncToSync(getTimer(), event, async);
     }
 
     @Override

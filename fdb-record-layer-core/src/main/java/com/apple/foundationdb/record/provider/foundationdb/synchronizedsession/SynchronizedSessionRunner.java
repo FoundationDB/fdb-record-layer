@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunnerImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import org.apache.commons.lang3.tuple.Pair;
@@ -36,7 +36,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -206,52 +205,18 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     }
 
     @Override
+    public FDBRecordContextConfig.Builder getContextConfigBuilder() {
+        return underlying.getContextConfigBuilder();
+    }
+
+    @Override
+    public void setContextConfigBuilder(final FDBRecordContextConfig.Builder contextConfigBuilder) {
+        underlying.setContextConfigBuilder(contextConfigBuilder);
+    }
+
+    @Override
     public Executor getExecutor() {
         return underlying.getExecutor();
-    }
-
-    @Override
-    @Nullable
-    public FDBStoreTimer getTimer() {
-        return underlying.getTimer();
-    }
-
-    @Override
-    public void setTimer(@Nullable FDBStoreTimer timer) {
-        underlying.setTimer(timer);
-    }
-
-    @Override
-    @Nullable
-    public Map<String, String> getMdcContext() {
-        return underlying.getMdcContext();
-    }
-
-    @Override
-    public void setMdcContext(@Nullable Map<String, String> mdcContext) {
-        underlying.setMdcContext(mdcContext);
-    }
-
-    @Override
-    @Nullable
-    public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
-        return underlying.getWeakReadSemantics();
-    }
-
-    @Override
-    public void setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
-        underlying.setWeakReadSemantics(weakReadSemantics);
-    }
-
-    @Nonnull
-    @Override
-    public FDBTransactionPriority getPriority() {
-        return underlying.getPriority();
-    }
-
-    @Override
-    public void setPriority(@Nonnull FDBTransactionPriority priority) {
-        underlying.setPriority(priority);
     }
 
     @Override
