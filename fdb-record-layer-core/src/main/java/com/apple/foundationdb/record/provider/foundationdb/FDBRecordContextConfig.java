@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.TransactionOptions;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 
 import javax.annotation.Nonnull;
@@ -44,6 +45,9 @@ public class FDBRecordContextConfig {
     private final String transactionId;
     private final long transactionTimeoutMillis;
     private final boolean enableAssertions;
+    private final boolean logTransaction;
+    private final boolean trackOpen;
+    private final boolean saveOpenStackTrace;
 
     private FDBRecordContextConfig(@Nonnull Builder builder) {
         this.mdcContext = builder.mdcContext;
@@ -53,6 +57,9 @@ public class FDBRecordContextConfig {
         this.transactionId = builder.transactionId;
         this.transactionTimeoutMillis = builder.transactionTimeoutMillis;
         this.enableAssertions = builder.enableAssertions;
+        this.logTransaction = builder.logTransaction;
+        this.trackOpen = builder.trackOpen;
+        this.saveOpenStackTrace = builder.saveOpenStackTrace;
     }
 
     /**
@@ -130,6 +137,30 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Get whether transaction is logged to FDB client logs.
+     * @return {@code true} if transaction is logged.
+     */
+    public boolean isLogTransaction() {
+        return logTransaction;
+    }
+
+    /**
+     * Get whether open context is tracked in the associated {@link FDBDatabase}.
+     * @return {@code true} if context is tracked.
+     */
+    public boolean isTrackOpen() {
+        return trackOpen;
+    }
+
+    /**
+     * Get whether stack trace is recorded when context is opened.
+     * @return {@code true} if stack trace is generated.
+     */
+    public boolean isSaveOpenStackTrace() {
+        return saveOpenStackTrace;
+    }
+
+    /**
      * Get a new builder for this class.
      *
      * @return a new builder for this class
@@ -166,6 +197,9 @@ public class FDBRecordContextConfig {
         private String transactionId = null;
         private long transactionTimeoutMillis = FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS;
         private boolean enableAssertions = false;
+        private boolean logTransaction = false;
+        private boolean trackOpen = false;
+        private boolean saveOpenStackTrace = false;
 
         private Builder() {
         }
@@ -178,6 +212,9 @@ public class FDBRecordContextConfig {
             this.transactionId = config.transactionId;
             this.transactionTimeoutMillis = config.transactionTimeoutMillis;
             this.enableAssertions = config.enableAssertions;
+            this.logTransaction = config.logTransaction;
+            this.trackOpen = config.trackOpen;
+            this.saveOpenStackTrace = config.saveOpenStackTrace;
         }
 
         private Builder(@Nonnull Builder config) {
@@ -188,6 +225,9 @@ public class FDBRecordContextConfig {
             this.transactionId = config.transactionId;
             this.transactionTimeoutMillis = config.transactionTimeoutMillis;
             this.enableAssertions = config.enableAssertions;
+            this.logTransaction = config.logTransaction;
+            this.trackOpen = config.trackOpen;
+            this.saveOpenStackTrace = config.saveOpenStackTrace;
         }
 
         /**
@@ -383,6 +423,63 @@ public class FDBRecordContextConfig {
          */
         public boolean areAssertionsEnabled() {
             return enableAssertions;
+        }
+
+        /**
+         * Get whether transaction is logged to FDB client logs.
+         * @return {@code true} if transaction is logged.
+         */
+        public boolean isLogTransaction() {
+            return logTransaction;
+        }
+
+        /**
+         * Set whether transaction is logged to FDB client logs.
+         * In order to enable logging, {@link #setTransactionId} must also be set or available implicitly in {@link #setMdcContext}.
+         * @param logTransaction {@code true} if transaction is logged.
+         * @return this builder
+         * @see TransactionOptions#setLogTransaction
+         */
+        public Builder setLogTransaction(final boolean logTransaction) {
+            this.logTransaction = logTransaction;
+            return this;
+        }
+
+        /**
+         * Get whether open context is tracked in the associated {@link FDBDatabase}.
+         * @return {@code true} if context is tracked.
+         */
+        public boolean isTrackOpen() {
+            return trackOpen;
+        }
+
+        /**
+         * Set whether open context is tracked in the associated {@link FDBDatabase}.
+         * @param trackOpen {@code true} if context is tracked.
+         * @return this builder
+         */
+        public Builder setTrackOpen(final boolean trackOpen) {
+            this.trackOpen = trackOpen;
+            return this;
+        }
+
+        /**
+         * Get whether stack trace is recorded when context is opened.
+         * @return {@code true} if stack trace is generated.
+         */
+        public boolean isSaveOpenStackTrace() {
+            return saveOpenStackTrace;
+        }
+
+        /**
+         * Set whether stack trace is recorded when context is opened.
+         * Generating the stack trace is relatively expensive, so this should probably only be done for a fraction of contexts.
+         * @param saveOpenStackTrace {@code true} if stack trace is generated.
+         * @return this builder
+         */
+        public Builder setSaveOpenStackTrace(final boolean saveOpenStackTrace) {
+            this.saveOpenStackTrace = saveOpenStackTrace;
+            return this;
         }
 
         /**

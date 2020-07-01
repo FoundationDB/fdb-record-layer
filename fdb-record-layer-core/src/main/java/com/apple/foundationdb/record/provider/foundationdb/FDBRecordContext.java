@@ -130,6 +130,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private long transactionCreateTime;
     @Nullable
     private final String transactionId;
+    @Nullable
+    private final Throwable openStackTrace;
     private boolean logged;
     @Nullable
     private byte[] versionStamp;
@@ -152,22 +154,23 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
+    private long trackOpenTimeNanos;
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
                                @Nonnull Transaction transaction,
-                               @Nonnull FDBRecordContextConfig config,
-                               boolean transactionIsTraced) {
+                               @Nonnull FDBRecordContextConfig config) {
         super(fdb, transaction, config.getTimer());
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
         this.versionMutationCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
         this.transactionId = getSanitizedId(config);
+        this.openStackTrace = config.isSaveOpenStackTrace() ? new Throwable() : null;
 
         @Nonnull Transaction tr = ensureActive();
         if (this.transactionId != null) {
             tr.options().setDebugTransactionIdentifier(this.transactionId);
-            if (transactionIsTraced) {
+            if (config.isLogTransaction()) {
                 logTransaction();
             }
         }
@@ -337,6 +340,34 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return logged;
     }
 
+    /**
+     * Get the nanosecond time at which this context was opened.
+     * @return time opened
+     */
+    @API(API.Status.INTERNAL)
+    public long getTrackOpenTimeNanos() {
+        return trackOpenTimeNanos;
+    }
+
+    /**
+     * Set the nanosecond time at which this context was opened.
+     * @param trackOpenTimeNanos  time opened
+     */
+    @API(API.Status.INTERNAL)
+    public void setTrackOpenTimeNanos(final long trackOpenTimeNanos) {
+        this.trackOpenTimeNanos = trackOpenTimeNanos;
+    }
+
+    /**
+     * Get any stack track generated when this context was opened.
+     * @return stack trace or {@code null}
+     */
+    @API(API.Status.INTERNAL)
+    @Nullable
+    public Throwable getOpenStackTrace() {
+        return openStackTrace;
+    }
+
     public boolean isClosed() {
         return transaction == null;
     }
@@ -352,6 +383,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 transaction.close();
             } finally {
                 transaction = null;
+                if (trackOpenTimeNanos != 0) {
+                    database.untrackOpenContext(this);
+                }
                 if (timer != null) {
                     timer.increment(FDBStoreTimer.Counts.CLOSE_CONTEXT);
                 }
