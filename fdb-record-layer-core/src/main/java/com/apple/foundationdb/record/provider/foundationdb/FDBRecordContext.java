@@ -377,11 +377,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     @Override
-    public synchronized void close() {
-        closeTransaction();
+    public void close() {
+        closeTransaction(false);
     }
 
-    private void closeTransaction() {
+    synchronized void closeTransaction(boolean openTooLong) {
         if (transaction != null) {
             try {
                 transaction.close();
@@ -392,6 +392,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 }
                 if (timer != null) {
                     timer.increment(FDBStoreTimer.Counts.CLOSE_CONTEXT);
+                    if (openTooLong) {
+                        timer.increment(FDBStoreTimer.Counts.CLOSE_CONTEXT_OPEN_TOO_LONG);
+                    }
                 }
             }
         }
@@ -456,7 +459,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     }
                 }
             } finally {
-                closeTransaction();
+                close();
                 if (timer != null) {
                     timer.recordSinceNanoTime(event, startTimeNanos);
                 }

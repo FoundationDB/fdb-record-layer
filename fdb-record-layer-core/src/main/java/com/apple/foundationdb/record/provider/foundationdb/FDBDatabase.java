@@ -1137,6 +1137,7 @@ public class FDBDatabase {
      * @param minAgeSeconds number of seconds above which to warn
      * @return number of such contexts found
      */
+    @VisibleForTesting
     public int warnAndCloseOldTrackedOpenContexts(long minAgeSeconds) {
         long nanoTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(minAgeSeconds);
         if (trackedOpenContexts.isEmpty()) {
@@ -1159,7 +1160,7 @@ public class FDBDatabase {
             } else {
                 LOGGER.warn(msg.toString());
             }
-            context.close();
+            context.closeTransaction(true);
             count++;
         }
         return count;

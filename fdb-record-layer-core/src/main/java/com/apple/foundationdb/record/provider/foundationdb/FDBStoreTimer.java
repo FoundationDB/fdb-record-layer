@@ -439,7 +439,9 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of times a record context is opened. */
         OPEN_CONTEXT("open record context", false),
         /** The number of times a record context is closed. */
-        CLOSE_CONTEXT("open record context", false),
+        CLOSE_CONTEXT("close record context", false),
+        /** The number of times a record context is closed because it has been open for a long time. */
+        CLOSE_CONTEXT_OPEN_TOO_LONG("close record context open too long", false),
         /** The number of times a record store is created in the database. */
         CREATE_RECORD_STORE("create record store", false),
         /** The number of times the store state cache returned a cached result. */
