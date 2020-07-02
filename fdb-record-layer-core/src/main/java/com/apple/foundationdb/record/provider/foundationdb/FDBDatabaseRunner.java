@@ -74,6 +74,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * Any changes made to the returned builder will be reflected in contexts opened by this runner.
      * @return configuration to use
      */
+    @Nonnull
     FDBRecordContextConfig.Builder getContextConfigBuilder();
 
     /**
