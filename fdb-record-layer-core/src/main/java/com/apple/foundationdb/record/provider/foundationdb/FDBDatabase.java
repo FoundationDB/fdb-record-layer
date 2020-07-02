@@ -795,9 +795,7 @@ public class FDBDatabase {
      */
     @Nonnull
     public FDBDatabaseRunner newRunner(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext) {
-        FDBDatabaseRunner runner = newRunner();
-        runner.getContextConfigBuilder().setTimer(timer).setMdcContext(mdcContext);
-        return runner;
+        return newRunner(FDBRecordContextConfig.newBuilder().setTimer(timer).setMdcContext(mdcContext));
     }
 
     /**
@@ -810,9 +808,7 @@ public class FDBDatabase {
     @Nonnull
     public FDBDatabaseRunner newRunner(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                        @Nullable WeakReadSemantics weakReadSemantics) {
-        FDBDatabaseRunner runner = newRunner();
-        runner.getContextConfigBuilder().setTimer(timer).setMdcContext(mdcContext).setWeakReadSemantics(weakReadSemantics);
-        return runner;
+        return newRunner(FDBRecordContextConfig.newBuilder().setTimer(timer).setMdcContext(mdcContext).setWeakReadSemantics(weakReadSemantics));
     }
 
     /**
