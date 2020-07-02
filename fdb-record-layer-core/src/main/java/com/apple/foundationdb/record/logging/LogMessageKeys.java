@@ -52,6 +52,8 @@ public enum LogMessageKeys {
     MAX_ATTEMPTS("max_attempts"),
     DELAY("delay"),
     COMMIT_NAME("commit_name"),
+    TRANSACTION_ID("transaction_id"),
+    AGE_SECONDS("age_seconds"),
     // record splitting/unsplitting
     KEY("key"),
     KEY_TUPLE("key_tuple"),

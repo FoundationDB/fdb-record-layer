@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Utf8;
 import org.apache.commons.lang3.tuple.Pair;
@@ -130,6 +131,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private long transactionCreateTime;
     @Nullable
     private final String transactionId;
+    @Nullable
+    private final Throwable openStackTrace;
     private boolean logged;
     @Nullable
     private byte[] versionStamp;
@@ -152,22 +155,23 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
+    private long trackOpenTimeNanos;
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
                                @Nonnull Transaction transaction,
-                               @Nonnull FDBRecordContextConfig config,
-                               boolean transactionIsTraced) {
+                               @Nonnull FDBRecordContextConfig config) {
         super(fdb, transaction, config.getTimer());
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
         this.versionMutationCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
         this.transactionId = getSanitizedId(config);
+        this.openStackTrace = config.isSaveOpenStackTrace() ? new Throwable("Not really thrown") : null;
 
         @Nonnull Transaction tr = ensureActive();
         if (this.transactionId != null) {
             tr.options().setDebugTransactionIdentifier(this.transactionId);
-            if (transactionIsTraced) {
+            if (config.isLogTransaction()) {
                 logTransaction();
             }
         }
@@ -313,14 +317,18 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * {@link #getTransactionId()} before calling this method.
      * </p>
      *
+     * NOTE: It is generally better to enable logging at open time via the {@link FDBRecordContextConfig}.
+     *
      * @see #getTransactionId()
      * @see FDBDatabaseFactory#setTrace(String, String)
      * @see com.apple.foundationdb.TransactionOptions#setLogTransaction()
+     * @see FDBRecordContextConfig.Builder#setLogTransaction(boolean)
      */
     public final void logTransaction() {
         if (transactionId == null) {
             throw new RecordCoreException("Cannot log transaction as ID is not set");
         }
+        // TODO: Consider deprecating this method and moving this inline.
         ensureActive().options().setLogTransaction();
         logged = true;
     }
@@ -337,23 +345,56 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return logged;
     }
 
+    /**
+     * Get the nanosecond time at which this context was opened.
+     * @return time opened
+     */
+    @API(API.Status.INTERNAL)
+    @VisibleForTesting
+    public long getTrackOpenTimeNanos() {
+        return trackOpenTimeNanos;
+    }
+
+    /**
+     * Set the nanosecond time at which this context was opened.
+     * @param trackOpenTimeNanos  time opened
+     */
+    void setTrackOpenTimeNanos(final long trackOpenTimeNanos) {
+        this.trackOpenTimeNanos = trackOpenTimeNanos;
+    }
+
+    /**
+     * Get any stack track generated when this context was opened.
+     * @return stack trace or {@code null}
+     */
+    @Nullable
+    Throwable getOpenStackTrace() {
+        return openStackTrace;
+    }
+
     public boolean isClosed() {
         return transaction == null;
     }
 
     @Override
-    public synchronized void close() {
-        closeTransaction();
+    public void close() {
+        closeTransaction(false);
     }
 
-    private void closeTransaction() {
+    synchronized void closeTransaction(boolean openTooLong) {
         if (transaction != null) {
             try {
                 transaction.close();
             } finally {
                 transaction = null;
+                if (trackOpenTimeNanos != 0) {
+                    database.untrackOpenContext(this);
+                }
                 if (timer != null) {
                     timer.increment(FDBStoreTimer.Counts.CLOSE_CONTEXT);
+                    if (openTooLong) {
+                        timer.increment(FDBStoreTimer.Counts.CLOSE_CONTEXT_OPEN_TOO_LONG);
+                    }
                 }
             }
         }
@@ -418,7 +459,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     }
                 }
             } finally {
-                closeTransaction();
+                close();
                 if (timer != null) {
                     timer.recordSinceNanoTime(event, startTimeNanos);
                 }

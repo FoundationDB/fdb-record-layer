@@ -121,6 +121,7 @@ public class FDBDatabaseFactory {
      */
     @Nonnull
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
+    private long warnAndCloseOpenContextsAfterSeconds;
     @Nonnull
     private Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = () -> BlockingInAsyncDetection.DISABLED;
     @Nonnull
@@ -463,14 +464,15 @@ public class FDBDatabaseFactory {
         return reverseDirectoryMaxMillisPerTransaction;
     }
 
+    // TODO: Demote these to UNSTABLE and deprecate at some point.
+
     /**
      * Use transactionIsTracedSupplier to control whether a newly created transaction should be traced or not. Traced
      * transactions are used to identify and profile unclosed transactions. In order to trace the source of a leaked
      * transaction, it is necessary to capture a stack trace at the point the transaction is created which is a rather
      * expensive operation, so this should either be disabled in a production environment or the supplier to return
      * true for only a very small subset of transactions.
-     * @param transactionIsTracedSupplier a supplier which should return <code>true</code> for creating {@link
-     * TracedTransaction}s or <code>false</code> for creating normal {@link com.apple.foundationdb.Transaction}s
+     * @param transactionIsTracedSupplier a supplier which should return <code>true</code> for creating traced transactions
      */
     public void setTransactionIsTracedSupplier(Supplier<Boolean> transactionIsTracedSupplier) {
         this.transactionIsTracedSupplier = transactionIsTracedSupplier;
@@ -478,6 +480,22 @@ public class FDBDatabaseFactory {
 
     public Supplier<Boolean> getTransactionIsTracedSupplier() {
         return transactionIsTracedSupplier;
+    }
+
+    /**
+     * Get whether to warn and close record contexts open for too long.
+     * @return number of seconds after which a context and be closed and a warning logged
+     */
+    public long getWarnAndCloseOpenContextsAfterSeconds() {
+        return warnAndCloseOpenContextsAfterSeconds;
+    }
+
+    /**
+     * Set whether to warn and close record contexts open for too long.
+     * @param warnAndCloseOpenContextsAfterSeconds number of seconds after which a context and be closed and a warning logged
+     */
+    public void setWarnAndCloseOpenContextsAfterSeconds(long warnAndCloseOpenContextsAfterSeconds) {
+        this.warnAndCloseOpenContextsAfterSeconds = warnAndCloseOpenContextsAfterSeconds;
     }
 
     /**

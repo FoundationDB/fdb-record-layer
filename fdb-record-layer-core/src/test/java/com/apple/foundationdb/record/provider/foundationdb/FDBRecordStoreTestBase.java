@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.provider.Arguments;
 import org.slf4j.Logger;
@@ -50,7 +51,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -106,8 +106,13 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     public FDBRecordContext openContext() {
-        Map<String, String> mdcContext = ImmutableMap.of("uuid", UUID.randomUUID().toString());
-        return fdb.openContext(mdcContext, timer);
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setTimer(timer)
+                .setMdcContext(ImmutableMap.of("uuid", UUID.randomUUID().toString()))
+                .setTrackOpen(true)
+                .setSaveOpenStackTrace(true)
+                .build();
+        return fdb.openContext(config);
     }
 
     @BeforeEach
@@ -117,6 +122,12 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
             path.deleteAllData(context);
             return null;
         });
+    }
+
+    @AfterEach
+    public void checkForOpenContexts() {
+        int count = fdb.warnAndCloseOldTrackedOpenContexts(0);
+        assertEquals(0, count, "should not have left any contexts open");
     }
 
     public void getFDB() {

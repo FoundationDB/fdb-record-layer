@@ -378,6 +378,25 @@ public class FDBRecordContextTest extends FDBTestBase {
         }
     }
 
+    @ParameterizedTest(name = "setTrIdThroughConfig [logged = {0}]")
+    @BooleanSource
+    public void setTrIdThroughConfig(boolean logged) {
+        for (Pair<String, String> idPair : trIds) {
+            final String trId = idPair.getLeft();
+            final String expectedId = idPair.getRight();
+            final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                    .setTransactionId(trId)
+                    .setLogTransaction(logged)
+                    .build();
+            try (FDBRecordContext context = fdb.openContext(config)) {
+                context.ensureActive().getReadVersion().join();
+                assertEquals(expectedId, context.getTransactionId());
+                assertEquals(logged && expectedId != null, context.isLogged());
+                context.commit();
+            }
+        }
+    }
+
     @ParameterizedTest(name = "setTrIdThroughParameterEvenIfInMdc [logged = {0}]")
     @BooleanSource
     public void setIdThroughParameterEvenIfInMdc(boolean logged) {
@@ -502,6 +521,17 @@ public class FDBRecordContextTest extends FDBTestBase {
             assertEquals(100L, context.getTimeoutMillis());
             assertThrows(FDBExceptions.FDBStoreTransactionTimeoutException.class, context::getReadVersion);
         }
+    }
+
+    @Test
+    public void warnAndCloseOldTrackedOpenContexts() {
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setTransactionId("leaker")
+                .setTrackOpen(true)
+                .build();
+        fdb.openContext(config);
+        int count = fdb.warnAndCloseOldTrackedOpenContexts(0);
+        assertEquals(1, count, "should have left one context open");
     }
 
     @Test

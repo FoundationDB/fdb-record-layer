@@ -27,6 +27,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.AsyncLoadingCache;
 import com.apple.foundationdb.record.LoggableTimeoutException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -49,7 +50,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -129,7 +133,8 @@ public class FDBDatabase {
     @Nonnull
     private FDBRecordStoreStateCache storeStateCache = PassThroughRecordStoreStateCache.instance();
     private final Supplier<Boolean> transactionIsTracedSupplier;
-    /// The number of cache entries to maintain in memory
+    private final long warnAndCloseOpenContextsAfterSeconds;
+    // The number of cache entries to maintain in memory
     public static final int DEFAULT_MAX_REVERSE_CACHE_ENTRIES = 5000;
     // public for javadoc purposes
     public static final int DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS = 30;
@@ -153,6 +158,8 @@ public class FDBDatabase {
     @Nonnull
     private AtomicReference<ImmutablePair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
 
+    private final NavigableMap<Long, FDBRecordContext> trackedOpenContexts = new ConcurrentSkipListMap<>();
+
     @VisibleForTesting
     public FDBDatabase(@Nonnull FDBDatabaseFactory factory, @Nullable String clusterFile) {
         this.factory = factory;
@@ -161,6 +168,7 @@ public class FDBDatabase {
         this.reverseDirectoryMaxRowsPerTransaction = factory.getReverseDirectoryRowsPerTransaction();
         this.reverseDirectoryMaxMillisPerTransaction = factory.getReverseDirectoryMaxMillisPerTransaction();
         this.transactionIsTracedSupplier = factory.getTransactionIsTracedSupplier();
+        this.warnAndCloseOpenContextsAfterSeconds = factory.getWarnAndCloseOpenContextsAfterSeconds();
         this.blockingInAsyncDetectionSupplier = factory.getBlockingInAsyncDetectionSupplier();
         this.reverseDirectoryInMemoryCache = CacheBuilder.newBuilder()
                 .maximumSize(DEFAULT_MAX_REVERSE_CACHE_ENTRIES)
@@ -407,11 +415,19 @@ public class FDBDatabase {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public FDBRecordContext openContext(@Nonnull FDBRecordContextConfig contextConfig) {
         openFDB();
-        final boolean transactionIsTraced = transactionIsTracedSupplier.get();
         final Executor executor = newContextExecutor(contextConfig.getMdcContext());
-        final Transaction transaction = createTransaction(contextConfig, executor, transactionIsTraced);
+        final Transaction transaction = createTransaction(contextConfig, executor);
 
-        FDBRecordContext context = new FDBRecordContext(this, transaction, contextConfig, transactionIsTraced);
+        // TODO: Compatibility with STABLE API.
+        if (transactionIsTracedSupplier.get()) {
+            contextConfig = contextConfig.toBuilder()
+                    .setTrackOpen(true)
+                    .setLogTransaction(true)
+                    .setSaveOpenStackTrace(true)
+                    .build();
+        }
+
+        FDBRecordContext context = new FDBRecordContext(this, transaction, contextConfig);
         final WeakReadSemantics weakReadSemantics = context.getWeakReadSemantics();
         if (isTrackLastSeenVersion() && (weakReadSemantics != null)) {
             Pair<Long, Long> pair = lastSeenFDBVersion.get();
@@ -427,6 +443,14 @@ public class FDBDatabase {
                 }
             }
         }
+
+        if (warnAndCloseOpenContextsAfterSeconds > 0) {
+            warnAndCloseOldTrackedOpenContexts(warnAndCloseOpenContextsAfterSeconds);
+        }
+        if (contextConfig.isTrackOpen()) {
+            trackOpenContext(context);
+        }
+
         return context;
     }
 
@@ -724,8 +748,7 @@ public class FDBDatabase {
      * @param executor the executor to be used for asynchronous operations
      * @param mdcContext if not [@code null} and tracing is enabled, information in the context will be included
      *      in tracing log messages
-     * @param transactionIsTraced if true, the transaction will produce tracing messages (for example, logging when
-     *      the transaction is cleaned up without having been closed)
+     * @param transactionIsTraced unused
      * @return newly created transaction
      * @deprecated use {@link #openContext()} instead
      */
@@ -736,31 +759,22 @@ public class FDBDatabase {
                 FDBRecordContextConfig.newBuilder()
                         .setMdcContext(mdcContext)
                         .build(),
-                executor,
-                transactionIsTraced);
+                executor);
     }
 
     /**
      * Creates a new transaction against the database.
      *
      * @param executor the executor to be used for asynchronous operations
-     * @param transactionIsTraced if true, the transaction will produce tracing messages (for example, logging when
-     *      the transaction is cleaned up without having been closed)
      * @return newly created transaction
      */
-    private Transaction createTransaction(@Nonnull FDBRecordContextConfig config,
-                                          @Nonnull Executor executor,
-                                          boolean transactionIsTraced) {
+    private Transaction createTransaction(@Nonnull FDBRecordContextConfig config, @Nonnull Executor executor) {
         Transaction transaction = database.createTransaction(executor);
 
         if (config.getTimer() != null) {
             transaction = new InstrumentedTransaction(config.getTimer(), transaction, config.areAssertionsEnabled());
         } else if (config.areAssertionsEnabled()) {
             transaction = new InstrumentedTransaction(null, transaction, true);
-        }
-
-        if (transactionIsTraced) {
-            transaction = new TracedTransaction(transaction, config.getMdcContext());
         }
 
         return transaction;
@@ -1116,6 +1130,56 @@ public class FDBDatabase {
     public <T> T get(CompletableFuture<T> future) throws InterruptedException, ExecutionException {
         checkIfBlockingInFuture(future);
         return future.get();
+    }
+
+    /**
+     * Log warning and close tracked contexts that have been open for too long.
+     * @param minAgeSeconds number of seconds above which to warn
+     * @return number of such contexts found
+     */
+    @VisibleForTesting
+    public int warnAndCloseOldTrackedOpenContexts(long minAgeSeconds) {
+        long nanoTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(minAgeSeconds);
+        if (trackedOpenContexts.isEmpty()) {
+            return 0;
+        }
+        try {
+            if (trackedOpenContexts.firstKey() > nanoTime) {
+                return 0;
+            }
+        } catch (NoSuchElementException ex) {
+            return 0;
+        }
+        int count = 0;
+        for (FDBRecordContext context : trackedOpenContexts.headMap(nanoTime, true).values()) {
+            KeyValueLogMessage msg = KeyValueLogMessage.build("context not closed",
+                    LogMessageKeys.AGE_SECONDS, TimeUnit.NANOSECONDS.toSeconds(nanoTime - context.getTrackOpenTimeNanos()),
+                    LogMessageKeys.TRANSACTION_ID, context.getTransactionId());
+            if (context.getOpenStackTrace() != null) {
+                LOGGER.warn(msg.toString(), context.getOpenStackTrace());
+            } else {
+                LOGGER.warn(msg.toString());
+            }
+            context.closeTransaction(true);
+            count++;
+        }
+        return count;
+    }
+
+    protected void trackOpenContext(FDBRecordContext context) {
+        long key = System.nanoTime();
+        while (key == 0 || trackedOpenContexts.putIfAbsent(key, context) != null) {
+            key++;  // Might not have nanosecond resolution and need something non-zero and unique.
+        }
+        context.setTrackOpenTimeNanos(key);
+    }
+
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    protected void untrackOpenContext(FDBRecordContext context) {
+        FDBRecordContext found = trackedOpenContexts.remove(context.getTrackOpenTimeNanos());
+        if (found != context) {
+            throw new RecordCoreException("tracked context does not match");
+        }
     }
 
     @API(API.Status.INTERNAL)
