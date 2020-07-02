@@ -492,7 +492,7 @@ public class FDBDatabaseFactory {
 
     /**
      * Set whether to warn and close record contexts open for too long.
-     * @param warnAndCloseOpenContextsAfterSeconds  number of seconds after which a context and be closed and a warning logged
+     * @param warnAndCloseOpenContextsAfterSeconds number of seconds after which a context and be closed and a warning logged
      */
     public void setWarnAndCloseOpenContextsAfterSeconds(long warnAndCloseOpenContextsAfterSeconds) {
         this.warnAndCloseOpenContextsAfterSeconds = warnAndCloseOpenContextsAfterSeconds;
