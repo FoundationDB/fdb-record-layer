@@ -180,6 +180,16 @@ public class FDBRecordContextConfig {
             this.enableAssertions = config.enableAssertions;
         }
 
+        private Builder(@Nonnull Builder config) {
+            this.mdcContext = config.mdcContext;
+            this.timer = config.timer;
+            this.weakReadSemantics = config.weakReadSemantics;
+            this.priority = config.priority;
+            this.transactionId = config.transactionId;
+            this.transactionTimeoutMillis = config.transactionTimeoutMillis;
+            this.enableAssertions = config.enableAssertions;
+        }
+
         /**
          * Set the MDC context. By default, this will be set to {@code null}, which does not add any additional
          * keys or values to the logs. Additionally, if the "uuid" key of this parameter is set and the
@@ -344,7 +354,13 @@ public class FDBRecordContextConfig {
             return this;
         }
 
-        private long getTransactionTimeoutMillis() {
+        /**
+         * Set the transaction timeout time in milliseconds.
+         * A value of {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS} indicates that a created transaction should inherit its default from the {@link FDBDatabaseFactory}
+         * used to create it. A value of {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS} indicates that no timeout will be imposed on the transaction.
+         * @return the timeout time in milliseconds
+         */
+        public long getTransactionTimeoutMillis() {
             return transactionTimeoutMillis;
         }
 
@@ -377,6 +393,14 @@ public class FDBRecordContextConfig {
         @Nonnull
         public FDBRecordContextConfig build() {
             return new FDBRecordContextConfig(this);
+        }
+
+        /**
+         * Make a copy of this builder.
+         * @return a new builder with the same values as this builder
+         */
+        public Builder copyBuilder() {
+            return new Builder(this);
         }
     }
 }

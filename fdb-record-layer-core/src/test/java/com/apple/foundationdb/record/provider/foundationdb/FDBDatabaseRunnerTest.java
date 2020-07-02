@@ -460,7 +460,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             FDBDatabaseFactory.instance().setExecutor(new ContextRestoringExecutor(
                     new ForkJoinPool(2), ImmutableMap.of("executor", "Water Bear")));
             AtomicInteger attempts = new AtomicInteger(0);
-            final FDBDatabaseRunner runner = new FDBDatabaseRunnerImpl(database, null, restored);
+            final FDBDatabaseRunner runner = database.newRunner(FDBRecordContextConfig.newBuilder().setMdcContext(restored));
             List<Map<String, String>> threadContexts = new Vector<>();
             Consumer<String> saveThreadContext =
                     name -> threadContexts.add(threadContextPlus(name, attempts.get(), ThreadContext.getContext()));

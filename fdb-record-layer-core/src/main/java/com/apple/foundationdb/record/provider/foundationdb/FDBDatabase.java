@@ -766,6 +766,17 @@ public class FDBDatabase {
         return transaction;
     }
 
+    /**
+     * Create an {@link FDBDatabaseRunner} for use against this database.
+     * Changes made to {@code contextConfigBuilder} subsequently will continue to be reflected in contexts opened
+     * by the runner.
+     * @param contextConfigBuilder options for contexts opened by the new runner
+     * @return a new runner
+     */
+    @Nonnull
+    public FDBDatabaseRunner newRunner(@Nonnull FDBRecordContextConfig.Builder contextConfigBuilder) {
+        return new FDBDatabaseRunnerImpl(this, contextConfigBuilder);
+    }
 
     /**
      * Create an {@link FDBDatabaseRunner} for use against this database.
@@ -773,7 +784,7 @@ public class FDBDatabase {
      */
     @Nonnull
     public FDBDatabaseRunner newRunner() {
-        return new FDBDatabaseRunnerImpl(this);
+        return newRunner(FDBRecordContextConfig.newBuilder());
     }
 
     /**
@@ -784,7 +795,7 @@ public class FDBDatabase {
      */
     @Nonnull
     public FDBDatabaseRunner newRunner(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext) {
-        return new FDBDatabaseRunnerImpl(this, timer, mdcContext);
+        return newRunner(FDBRecordContextConfig.newBuilder().setTimer(timer).setMdcContext(mdcContext));
     }
 
     /**
@@ -797,7 +808,7 @@ public class FDBDatabase {
     @Nonnull
     public FDBDatabaseRunner newRunner(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                        @Nullable WeakReadSemantics weakReadSemantics) {
-        return new FDBDatabaseRunnerImpl(this, timer, mdcContext, weakReadSemantics);
+        return newRunner(FDBRecordContextConfig.newBuilder().setTimer(timer).setMdcContext(mdcContext).setWeakReadSemantics(weakReadSemantics));
     }
 
     /**

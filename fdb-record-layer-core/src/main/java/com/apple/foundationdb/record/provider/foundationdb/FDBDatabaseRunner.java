@@ -70,6 +70,20 @@ public interface FDBDatabaseRunner extends AutoCloseable {
     FDBDatabase getDatabase();
 
     /**
+     * Get the configuration used in record contexts opened by this runner.
+     * Any changes made to the returned builder will be reflected in contexts opened by this runner.
+     * @return configuration to use
+     */
+    @Nonnull
+    FDBRecordContextConfig.Builder getContextConfigBuilder();
+
+    /**
+     * Set the configuration used in record contexts opened by this runner.
+     * @param contextConfigBuilder configuration to use
+     */
+    void setContextConfigBuilder(FDBRecordContextConfig.Builder contextConfigBuilder);
+
+    /**
      * Get the executor that will be used for {@link #runAsync}.
      * @return the executor to use
      */
@@ -80,21 +94,27 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return timer to use
      */
     @Nullable
-    FDBStoreTimer getTimer();
+    default FDBStoreTimer getTimer() {
+        return getContextConfigBuilder().getTimer();
+    }
 
     /**
      * Set the timer used in record contexts opened by this runner.
      * @param timer timer to use
      * @see FDBDatabase#openContext(Map,FDBStoreTimer)
      */
-    void setTimer(@Nullable FDBStoreTimer timer);
+    default void setTimer(@Nullable FDBStoreTimer timer) {
+        getContextConfigBuilder().setTimer(timer);
+    }
 
     /**
      * Get the logging context used in record contexts opened by this runner.
      * @return the logging context to use
      */
     @Nullable
-    Map<String, String> getMdcContext();
+    default Map<String, String> getMdcContext() {
+        return getContextConfigBuilder().getMdcContext();
+    }
 
     /**
      * Set the logging context used in record contexts opened by this runner.
@@ -102,14 +122,18 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @param mdcContext the logging context to use
      * @see FDBDatabase#openContext(Map,FDBStoreTimer)
      */
-    void setMdcContext(@Nullable Map<String, String> mdcContext);
+    default void setMdcContext(@Nullable Map<String, String> mdcContext) {
+        getContextConfigBuilder().setMdcContext(mdcContext);
+    }
 
     /**
      * Get the read semantics used in record contexts opened by this runner.
      * @return allowable staleness parameters if caching read versions
      */
     @Nullable
-    FDBDatabase.WeakReadSemantics getWeakReadSemantics();
+    default FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
+        return getContextConfigBuilder().getWeakReadSemantics();
+    }
 
     /**
      * Set the read semantics used in record contexts opened by this runner. Within the retry loops
@@ -124,7 +148,9 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @param weakReadSemantics allowable staleness parameters if caching read versions
      * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)
      */
-    void setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics);
+    default void setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+        getContextConfigBuilder().setWeakReadSemantics(weakReadSemantics);
+    }
 
     /**
      * Get the priority of transactions opened by this runner.
@@ -132,14 +158,48 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @see FDBRecordContext#getPriority()
      */
     @Nonnull
-    FDBTransactionPriority getPriority();
+    default FDBTransactionPriority getPriority() {
+        return getContextConfigBuilder().getPriority();
+    }
 
     /**
      * Set the priority of transactions opened by this runner.
      * @param priority the priority of transactions by this runner
      * @see FDBRecordContext#getPriority()
      */
-    void setPriority(@Nonnull FDBTransactionPriority priority);
+    default void setPriority(@Nonnull FDBTransactionPriority priority) {
+        getContextConfigBuilder().setPriority(priority);
+    }
+
+    /**
+     * Get the transaction timeout for all transactions started by this runner. This will return the value configured
+     * for this runner through {@link #setTransactionTimeoutMillis(long)}. Note, however, that if the transaction timeout
+     * is set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS}, then the actual timeout set for this transaction
+     * will be set to the value in the originating factory.
+     *
+     * @return the configured transacation timeout time in milliseconds
+     * @see #setTransactionTimeoutMillis(long)
+     */
+    default long getTransactionTimeoutMillis() {
+        return getContextConfigBuilder().getTransactionTimeoutMillis();
+    }
+
+    /**
+     * Set the transaction timeout for all transactions started by this runner. If set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS},
+     * then this will use the value as set in the originating database's factory. If set to {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS},
+     * then no timeout will be imposed on transactions used by this runner.
+     *
+     * <p>
+     * Note that the error that the transaction hits, {@link FDBExceptions.FDBStoreTransactionTimeoutException},
+     * is not retriable, so if the runner encounters such an error, it will terminate.
+     * </p>
+     *
+     * @param transactionTimeoutMillis the transaction timeout time in milliseconds
+     * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
+     */
+    default void setTransactionTimeoutMillis(long transactionTimeoutMillis) {
+        getContextConfigBuilder().setTransactionTimeoutMillis(transactionTimeoutMillis);
+    }
 
     /**
      * Gets the maximum number of attempts for a database to make when running a
@@ -208,32 +268,6 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @throws IllegalArgumentException if the value is negative or greater than the maximum delay
      */
     void setInitialDelayMillis(long initialDelayMillis);
-
-    /**
-     * Set the transaction timeout for all transactions started by this runner. If set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS},
-     * then this will use the value of set in the originating database's factory. If set to {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS},
-     * then no timeout will be imposed on transactions used by this runner.
-     *
-     * <p>
-     * Note that the error that the transaction hits, {@link FDBExceptions.FDBStoreTransactionTimeoutException},
-     * is not retriable, so if the runner encounters such an error, it will terminate.
-     * </p>
-     *
-     * @param transactionTimeoutMillis the transaction timeout time in milliseconds
-     * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
-     */
-    void setTransactionTimeoutMillis(long transactionTimeoutMillis);
-
-    /**
-     * Get the transaction timeout for all transactions started by this runner. This will return the value configured
-     * for this runner through {@link #setTransactionTimeoutMillis(long)}. Note, however, that if the transaction timeout
-     * is set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS}, then the actual timeout set for this transaction
-     * will be set to the value in the originating factory.
-     *
-     * @return the configured transacation timeout time in milliseconds
-     * @see #setTransactionTimeoutMillis(long)
-     */
-    long getTransactionTimeoutMillis();
 
     /**
      * Open a new record context.
