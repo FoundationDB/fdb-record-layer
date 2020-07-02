@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.annotation.API;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Set;
@@ -88,7 +86,6 @@ import java.util.Set;
  *
  * @param <S> self type of this. Needed for rebasing to a proper constrained at-least type
  */
-@API(API.Status.EXPERIMENTAL)
 public interface Correlated<S extends Correlated<S>> {
     /**
      * Returns the set of {@link CorrelationIdentifier}s this entity is correlated to.
@@ -148,7 +145,7 @@ public interface Correlated<S extends Correlated<S>> {
      * @return {@code true} if both entities are considered equal using the equivalences passed in, {@code false}
      *         otherwise
      */
-    boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap equivalenceMap);
+    boolean resultEquals(@Nullable Object other, @Nonnull AliasMap equivalenceMap);
 
     /**
      * Return a semantic hash code for this object. The hash code must obey the convention that for any two objects

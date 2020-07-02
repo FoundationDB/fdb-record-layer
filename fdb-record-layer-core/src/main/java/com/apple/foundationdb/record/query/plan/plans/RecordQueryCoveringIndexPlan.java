@@ -172,6 +172,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
         return new RecordQueryCoveringIndexPlan(indexPlan, recordTypeName, availableFields, toRecord);
     }
 
+    @Nonnull
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
