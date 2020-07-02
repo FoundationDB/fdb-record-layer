@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
@@ -43,10 +42,9 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static ExpressionMatcher<ExpressionRef<RelationalExpression>> childMatcher = ReferenceMatcher.anyRef();
+    private static ExpressionMatcher<Quantifier.ForEach> qunMatcher = QuantifierMatcher.forEach(ReferenceMatcher.anyRef());
     private static ExpressionMatcher<LogicalTypeFilterExpression> root =
-            TypeMatcher.of(LogicalTypeFilterExpression.class,
-                    QuantifierMatcher.forEach(childMatcher));
+            TypeMatcher.of(LogicalTypeFilterExpression.class, qunMatcher);
 
     public RemoveRedundantTypeFilterRule() {
         super(root);
@@ -54,20 +52,21 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        LogicalTypeFilterExpression typeFilter = call.get(root);
-        ExpressionRef<RelationalExpression> child = call.get(childMatcher);
+        final LogicalTypeFilterExpression typeFilter = call.get(root);
+        final Quantifier.ForEach qun = call.get(qunMatcher);
 
-        Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), child);
-        Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
+        // TODO add overload
+        final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), qun.getRangesOver());
+        final Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
         if (filterRecordTypes.containsAll(childRecordTypes)) {
             // type filter is completely redundant, so remove it entirely
-            call.yield(child);
+            call.yield(qun.getRangesOver());
         } else {
-            // otherwise, keep a logical filter on record types which the child might produce and are included in the filter
-            Set<String> unsatisfiedTypeFilters = Sets.intersection(childRecordTypes, filterRecordTypes);
+            // otherwise, keep a logical filter on record types which the quantifier might produce and are included in the filter
+            final Set<String> unsatisfiedTypeFilters = Sets.intersection(childRecordTypes, filterRecordTypes);
             if (!unsatisfiedTypeFilters.equals(filterRecordTypes)) {
                 // there were some unnecessary filters, so remove them
-                call.yield(GroupExpressionRef.of(new LogicalTypeFilterExpression(unsatisfiedTypeFilters, child)));
+                call.yield(GroupExpressionRef.of(new LogicalTypeFilterExpression(unsatisfiedTypeFilters, qun)));
             } // otherwise, nothing changes
         }
     }

@@ -21,18 +21,25 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A Cascades-style group expression, representing the members of set of {@link RelationalExpression}s that belong to
@@ -84,73 +91,99 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     @Override
-    public void insert(@Nonnull T newValue) {
+    public boolean insert(@Nonnull T newValue) {
         if (!containsInMemo(newValue)) {
             members.add(newValue);
+            return true;
         }
+        return false;
     }
-
-    public void insertAll(@Nonnull GroupExpressionRef<T> newValues) {
-        for (T member : newValues.members) {
-            insert(member);
-        }
-    }
-
-    public void removeMemberIfPresent(@Nonnull T member) {
-        members.remove(member);
-    }
-
-    public void removeMember(@Nonnull T member) {
-        if (!members.remove(member)) {
-            throw new RecordCoreArgumentException("tried to remove member that isn't present")
-                    .addLogInfo("member", member);
-        }
-    }
-
+    
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean containsExactly(@Nonnull T expression) {
         return members.contains(expression);
     }
 
     @Override
-    public boolean containsAllInMemo(@Nonnull ExpressionRef<? extends RelationalExpression> otherRef) {
-        for (RelationalExpression otherMember : otherRef.getMembers()) {
-            if (!containsInMemo(otherMember)) {
+    public boolean containsAllInMemo(@Nonnull final ExpressionRef<? extends RelationalExpression> otherRef,
+                                     @Nonnull final AliasMap equivalenceMap) {
+        for (final RelationalExpression otherMember : otherRef.getMembers()) {
+            if (!containsInMemo(otherMember, equivalenceMap)) {
                 return false;
             }
         }
         return true;
     }
 
-    public boolean containsInMemo(@Nonnull RelationalExpression expression) {
-        for (RelationalExpression member : members) {
-            if (containsInMember(member, expression)) {
+    public boolean containsInMemo(@Nonnull final RelationalExpression expression) {
+        final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
+        final Set<CorrelationIdentifier> otherCorrelatedTo = expression.getCorrelatedTo();
+
+        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(correlatedTo, otherCorrelatedTo);
+        final AliasMap identityMap = AliasMap.identitiesFor(commonUnbound);
+
+        return containsInMemo(expression, identityMap);
+    }
+
+    private boolean containsInMemo(@Nonnull final RelationalExpression expression,
+                                   @Nonnull final AliasMap equivalenceMap) {
+        for (final RelationalExpression member : members) {
+            if (containsInMember(member, expression, equivalenceMap)) {
                 return true;
             }
         }
         return false;
     }
 
-    private boolean containsInMember(@Nonnull RelationalExpression member, @Nonnull RelationalExpression otherMember) {
-        if (!member.equalsWithoutChildren(otherMember)) {
+    private static boolean containsInMember(@Nonnull RelationalExpression member,
+                                            @Nonnull RelationalExpression otherMember,
+                                            @Nonnull final AliasMap equivalenceMap) {
+        if (member.getClass() != otherMember.getClass()) {
             return false;
         }
 
-        final List<? extends Quantifier> memberQuantifiers = member.getQuantifiers();
-        final List<? extends Quantifier> otherMemberQuantifiers = otherMember.getQuantifiers();
-        if (memberQuantifiers.size() != otherMemberQuantifiers.size()) {
-            return false;
+        Verify.verify(member.canCorrelate() == otherMember.canCorrelate());
+
+        final Iterable<AliasMap> quantifierMapIterable =
+                Quantifiers.match(
+                        member.getQuantifiers(),
+                        otherMember.getQuantifiers(),
+                        member.canCorrelate(),
+                        equivalenceMap,
+                        ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
+                            final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                            final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
+                            return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
+                        }));
+
+        return StreamSupport.stream(quantifierMapIterable.spliterator(), false)
+                .anyMatch(quantifierMap -> member.equalsWithoutChildren(otherMember,
+                        equivalenceMap.compose(quantifierMap)));
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
+        for (final T member : getMembers()) {
+            builder.addAll(member.getCorrelatedTo());
         }
+        return builder.build();
+    }
 
-        for (int i = 0; i < memberQuantifiers.size(); i++) {
-            final ExpressionRef<? extends RelationalExpression> memberRangesOver = memberQuantifiers.get(i).getRangesOver();
-            final ExpressionRef<? extends RelationalExpression> otherMemberRangesOver = otherMemberQuantifiers.get(i).getRangesOver();
-
-            if (!memberRangesOver.containsAllInMemo(otherMemberRangesOver)) {
-                return false;
-            }
-        }
-
-        return true;
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    @Override
+    public GroupExpressionRef<T> rebase(@Nonnull final AliasMap translationMap) {
+        return GroupExpressionRef.from(getMembers()
+                .stream()
+                // The following downcast is necessary since members of this class are of type T
+                // (extends RelationalExpression) but rebases of RelationalExpression are not
+                // Rebaseable of T (extends RelationalExpression) but Correlated<RelationalExpression> in order to
+                // avoid introducing a new type Parameter T. All the o1 = o.rebase(), however, by contract should return
+                // an o1 where o1.getClass() == o.getClass()
+                .map(member -> (T)member.rebase(translationMap))
+                .collect(Collectors.toList()));
     }
 
     public void clear() {
@@ -243,5 +276,37 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         RelationalExpressionPointerSet<T> members = new RelationalExpressionPointerSet<>();
         members.addAll(expressions);
         return new GroupExpressionRef<>(members);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        if (this == other) {
+            return true;
+        }
+
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+
+        final GroupExpressionRef<T> otherRef = (GroupExpressionRef<T>)other;
+
+        final Iterator<T> iterator = members.iterator();
+        final ImmutableMultimap.Builder<Integer, T> expressionsMapBuilder = ImmutableMultimap.builder();
+
+        while (iterator.hasNext()) {
+            final T next = iterator.next();
+            expressionsMapBuilder.put(next.hashCode(), next);
+        }
+
+        final ImmutableMultimap<Integer, T> expressionsMap = expressionsMapBuilder.build();
+
+        for (final T otherMember : otherRef.getMembers()) {
+            if (expressionsMap.get(otherMember.hashCode()).stream().anyMatch(member -> member.resultEquals(otherMember, equivalenceMap))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

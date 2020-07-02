@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * A (relational) expression that has a predicate on it.
@@ -30,4 +31,7 @@ import javax.annotation.Nonnull;
 public interface RelationalExpressionWithPredicate extends RelationalExpression {
     @Nonnull
     QueryPredicate getPredicate();
+
+    @Nonnull
+    RelationalExpression rebaseWithRebasedQuantifiers(final AliasMap translationMap, final List<Quantifier> rebasedQuantifiers);
 }

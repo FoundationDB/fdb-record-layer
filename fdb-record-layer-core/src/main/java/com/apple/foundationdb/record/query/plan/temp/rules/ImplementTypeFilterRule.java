@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -43,11 +44,11 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static ExpressionMatcher<RecordQueryPlan> childMatcher = TypeMatcher.of(RecordQueryPlan.class,
+    private static ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class,
             AnyChildrenMatcher.ANY);
+    private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(innerMatcher);
     private static ExpressionMatcher<LogicalTypeFilterExpression> root =
-            TypeMatcher.of(LogicalTypeFilterExpression.class,
-                    QuantifierMatcher.forEach(childMatcher));
+            TypeMatcher.of(LogicalTypeFilterExpression.class, innerQuantifierMatcher);
 
     public ImplementTypeFilterRule() {
         super(root);
@@ -56,17 +57,23 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalTypeFilterExpression typeFilter = call.get(root);
-        final RecordQueryPlan child = call.get(childMatcher);
+        final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
+        final RecordQueryPlan inner = call.get(innerMatcher);
 
-        Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), child);
-        Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
+        final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), inner);
+        final Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
         if (filterRecordTypes.containsAll(childRecordTypes)) {
             // type filter is completely redundant, so remove it entirely
-            call.yield(call.ref(child));
+            call.yield(call.ref(inner));
         } else {
-            // otherwise, keep a filter on record types which the child might produce and are included in the filter
-            Set<String> unsatisfiedTypeFilters = Sets.intersection(filterRecordTypes, childRecordTypes);
-            call.yield(GroupExpressionRef.of(new RecordQueryTypeFilterPlan(child, unsatisfiedTypeFilters)));
+            // otherwise, keep a filter on record types which the inner might produce and are included in the filter
+            final Set<String> unsatisfiedTypeFilters = Sets.intersection(filterRecordTypes, childRecordTypes);
+            call.yield(GroupExpressionRef.of(
+                    new RecordQueryTypeFilterPlan(
+                            Quantifier.physicalBuilder()
+                                    .morphFrom(innerQuantifier)
+                                    .build(GroupExpressionRef.of(inner)),
+                            unsatisfiedTypeFilters)));
         }
     }
 }

@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -52,6 +54,7 @@ import java.util.function.BiFunction;
  * Query spatial index for points (latitude, longitude) within a given distance (inclusive) of a given center.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQueryPlan {
     @Nonnull
     private final DoubleValueOrParameter centerLatitude;
@@ -122,17 +125,13 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (!super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
             return false;
         }
-        if (!super.equals(o)) {
-            return false;
-        }
-        GeophilePointWithinDistanceQueryPlan that = (GeophilePointWithinDistanceQueryPlan)o;
+
+        GeophilePointWithinDistanceQueryPlan that = (GeophilePointWithinDistanceQueryPlan)otherExpression;
         return covering == that.covering &&
                centerLatitude.equals(that.centerLatitude) &&
                centerLongitude.equals(that.centerLongitude) &&

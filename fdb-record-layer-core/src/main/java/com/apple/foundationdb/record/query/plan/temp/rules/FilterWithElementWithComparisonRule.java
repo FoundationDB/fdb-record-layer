@@ -43,31 +43,57 @@ import java.util.Optional;
  * A rewrite rule that turns a logical filter on the results of a full scan (without a sort) into an index scan on
  * a compatibly ordered index.
  *
+ * <pre>
+ * {@code
+ *      +----------------------------+                               +-------------------------------------+
+ *      |                            |                               |                                     |
+ *      |  LogicalFilterExpression   |                               |  IndexEntrySourceScanExpression     |
+ *      |          element <>= val   |                               |                        scan ranges  |
+ *      |                            |                               |                                     |
+ *      +-------------+--------------+                               +-------------------------------------+
+ *                    |                    +------------------>
+ *                    |
+ *                    |
+ *     +--------------+----------------+
+ *     |                               |
+ *     |  FullUnorderedScanExpression  |
+ *     |                               |
+ *     +-------------------------------+
+ * }
+ * </pre>
+ *
  * Like the {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner}
  */
 @API(API.Status.EXPERIMENTAL)
 public class FilterWithElementWithComparisonRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<ElementPredicate> filterMatcher = TypeMatcher.of(ElementPredicate.class);
     private static final ExpressionMatcher<FullUnorderedScanExpression> scanMatcher = TypeMatcher.of(FullUnorderedScanExpression.class);
-    private static final ExpressionMatcher<LogicalFilterExpression> root =
+    private static final ExpressionMatcher<ElementPredicate> predMatcher = TypeMatcher.of(ElementPredicate.class);
+    private static final ExpressionMatcher<LogicalFilterExpression> rootMatcher =
             TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
-                    filterMatcher,
+                    predMatcher,
                     QuantifierMatcher.forEach(scanMatcher));
 
     public FilterWithElementWithComparisonRule() {
-        super(root);
+        super(rootMatcher);
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final ElementPredicate elementWithComparison = call.get(filterMatcher);
-        if (ScanComparisons.getComparisonType(elementWithComparison.getComparison()).equals(ScanComparisons.ComparisonType.NONE)) {
+        final ElementPredicate pred = call.get(predMatcher);
+        if (ScanComparisons.getComparisonType(pred.getComparison()).equals(ScanComparisons.ComparisonType.NONE)) {
             // This comparison cannot be accomplished with a single scan.
+            return;
+        }
+        final LogicalFilterExpression logicalFilterExpression = call.get(rootMatcher);
+        if (!logicalFilterExpression.getCorrelatedTo().isEmpty()) {
+            // TODO revisit later -- this is too restrictive
+            // LogicalFilterExpressions can express correlations while IndexEntrySourceScanExpressions cannot,
+            // Do not transform if the root is correlated!
             return;
         }
 
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
-            Optional<ViewExpressionComparisons> matchedComparisons = indexEntrySource.getEmptyComparisons().matchWith(elementWithComparison);
+            Optional<ViewExpressionComparisons> matchedComparisons = indexEntrySource.getEmptyComparisons().matchWith(pred);
             if (matchedComparisons.isPresent()) {
                 call.yield(call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
                         matchedComparisons.get(), false)));

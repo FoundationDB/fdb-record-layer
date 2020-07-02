@@ -24,16 +24,20 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,6 +77,24 @@ public class QueryPredicateTest {
         @Override
         public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
             return Stream.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Set<CorrelationIdentifier> getCorrelatedTo() {
+            return ImmutableSet.of();
+        }
+
+        @Nonnull
+        @Override
+        public TestPredicate rebase(@Nonnull final AliasMap translationMap) {
+            // TestPredicate is immutable
+            return this;
+        }
+
+        @Override
+        public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+            return this == other;
         }
     }
 

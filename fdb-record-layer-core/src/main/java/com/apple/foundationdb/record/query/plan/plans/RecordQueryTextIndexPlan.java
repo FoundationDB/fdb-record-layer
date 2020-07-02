@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.TextScan;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
@@ -37,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -132,27 +135,38 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
         return 1;
     }
 
+    @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        if (!(otherExpression instanceof RecordQueryTextIndexPlan)) {
-            return false;
-        }
-        final RecordQueryTextIndexPlan other = (RecordQueryTextIndexPlan) otherExpression;
-        return reverse == other.reverse && indexName.equals(other.indexName) && textScan.equals(other.textScan);
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public RecordQueryTextIndexPlan rebase(@Nonnull final AliasMap translationMap) {
+        return new RecordQueryTextIndexPlan(getIndexName(), getTextScan(), isReverse());
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        } else if (o == null) {
-            return false;
-        } else if (!getClass().isInstance(o)) {
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (!(otherExpression instanceof RecordQueryTextIndexPlan)) {
             return false;
         }
-        RecordQueryTextIndexPlan that = (RecordQueryTextIndexPlan) o;
-        return this.reverse == that.reverse && this.indexName.equals(that.indexName) && this.textScan.equals(that.textScan);
+
+        final RecordQueryTextIndexPlan that = (RecordQueryTextIndexPlan)otherExpression;
+        return this.reverse == that.reverse &&
+               this.indexName.equals(that.indexName) &&
+               this.textScan.equals(that.textScan);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return resultEquals(other);
     }
 
     @Override

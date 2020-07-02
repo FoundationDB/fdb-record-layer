@@ -29,10 +29,9 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -40,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpre
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +60,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryTypeFilterPlan.class);
 
     @Nonnull
-    private final ExpressionRef<RecordQueryPlan> inner;
+    private final Quantifier.Physical inner;
     @Nonnull
     private final Collection<String> recordTypes;
     @Nonnull
@@ -73,10 +73,10 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
     public RecordQueryTypeFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull Collection<String> recordTypes) {
-        this(GroupExpressionRef.of(inner), recordTypes);
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), recordTypes);
     }
 
-    public RecordQueryTypeFilterPlan(@Nonnull ExpressionRef<RecordQueryPlan> inner, @Nonnull Collection<String> recordTypes) {
+    public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes) {
         this.inner = inner;
         this.recordTypes = recordTypes;
     }
@@ -104,7 +104,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Override
     @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(Quantifier.physical(this.inner));
+        return ImmutableList.of(this.inner);
     }
 
     @Nonnull
@@ -113,24 +113,20 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
         return getInner() + " | " + recordTypes;
     }
 
+    @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof RecordQueryTypeFilterPlan &&
-               recordTypes.equals(((RecordQueryTypeFilterPlan)otherExpression).recordTypes);
+    public RecordQueryTypeFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                  @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryTypeFilterPlan(
+                Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
+                getRecordTypes());
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        RecordQueryTypeFilterPlan that = (RecordQueryTypeFilterPlan) o;
-        return Objects.equals(getInner(), that.getInner()) &&
-                Objects.equals(recordTypes, that.recordTypes);
+    public boolean equals(final Object other) {
+        return resultEquals(other);
     }
 
     @Override
@@ -145,7 +141,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
 
     @Nonnull
     public RecordQueryPlan getInner() {
-        return inner.get();
+        return inner.getRangesOverPlan();
     }
 
     @Override
@@ -177,7 +173,6 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      *         to depict the record types this operator filters.
      */
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {

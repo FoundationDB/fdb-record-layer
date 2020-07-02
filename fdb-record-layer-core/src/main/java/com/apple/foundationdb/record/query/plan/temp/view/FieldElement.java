@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp.view;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 import com.google.protobuf.MessageOrBuilder;
@@ -134,5 +135,11 @@ public class FieldElement extends ElementWithSingleSource {
         } else {
             return PlanHashable.iterablePlanHash(fieldNames);
         }
+    }
+
+    @Nonnull
+    @Override
+    public FieldElement rebase(@Nonnull final AliasMap translationMap) {
+        return new FieldElement(getSource(), getFieldNames()); // TODO needs to be rebased
     }
 }

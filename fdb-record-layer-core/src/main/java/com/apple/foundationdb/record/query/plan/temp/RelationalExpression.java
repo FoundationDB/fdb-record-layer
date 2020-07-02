@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
@@ -34,6 +34,10 @@ import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,7 +46,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A relational expression is a {@link RelationalExpression} that represents a stream of records. At all times, the root
@@ -80,11 +86,11 @@ import java.util.stream.Stream;
  * implementations of each.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RelationalExpression extends Bindable {
+public interface RelationalExpression extends Bindable, Correlated<RelationalExpression> {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull RecordQuery query, @Nonnull PlanContext context) {
 
-        RelationalExpression expression = new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet());
+        Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet())));
         final ViewExpression.Builder builder = ViewExpression.builder();
         for (String recordType : context.getRecordTypes()) {
             builder.addRecordType(recordType);
@@ -94,22 +100,24 @@ public interface RelationalExpression extends Bindable {
             List<Element> normalizedSort = query.getSort()
                     .normalizeForPlanner(baseSource, Collections.emptyList())
                     .flattenForPlanner();
-            expression = new LogicalSortExpression(normalizedSort, query.isSortReverse(), expression);
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(Collections.emptyList(), normalizedSort, query.isSortReverse(), quantifier)));
         }
 
         if (query.getFilter() != null) {
             final QueryPredicate normalized = query.getFilter().normalizeForPlanner(baseSource);
-            expression = new LogicalFilterExpression(baseSource, normalized, expression);
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalFilterExpression(baseSource, normalized, quantifier)));
         }
 
         if (!query.getRecordTypes().isEmpty()) {
-            expression = new LogicalTypeFilterExpression(new HashSet<>(query.getRecordTypes()), expression);
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(new HashSet<>(query.getRecordTypes()), quantifier)));
         }
         if (query.removesDuplicates()) {
-            expression = new LogicalDistinctExpression(expression);
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalDistinctExpression(quantifier)));
         }
-        return expression;
+        return Iterables.getOnlyElement(quantifier.getRangesOver().getMembers());
     }
+
+
 
     /**
      * Matches a matcher expression to an expression tree rooted at this node, adding to some existing bindings.
@@ -136,7 +144,106 @@ public interface RelationalExpression extends Bindable {
     @Nonnull
     List<? extends Quantifier> getQuantifiers();
 
-    boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression);
+    /**
+     * Returns if this expression can be the anchor of a correlation.
+     *
+     * A correlation is always formed between three entities:
+     * 1. the {@link Quantifier} that flows data
+     * 2. the anchor (which is a {@link RelationalExpression} that ranges directly over the source
+     * 3. the consumers (or dependents) of the correlation which must be a descendant of the anchor.
+     *
+     * In order for a correlation to be meaningful, the anchor must define how data is bound and used by all
+     * dependents. For most expressions it is not meaningful or even possible to define correlation in such a way.
+     *
+     * For instance, a {@link com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression}
+     * cannot correlate (this method returns {@code false}) because it is not meaningful e.g. to bind a record
+     * from the left child of the union and provide bound values to the evaluation of the right child.
+     *
+     * In another example, a logical select expression can correlate which means that one child of the SELECT expression
+     * can be evaluated and the resulting records can bound individually one after another. For each bound flowing
+     * record along that quantifier the other children of the SELECT expression can be evaluated, potentially causing
+     * more correlation values to be bound, etc. These concepts follow closely to the mechanics of what SQL calls a query
+     * block.
+     *
+     * The existence of a correlation between source, anchor, and dependents may adversely affect planning in a way that
+     * a correlation always imposes order between the evaluated of children of e.g. a select expression. This may or may
+     * not tie the hands of the planner to produce an optimal plan. In certain cases, queries written in a correlated
+     * way can be <em>de-correlated</em> to allow for better optimization techniques.
+     *
+     * @return {@code true} if this expression can be the anchor of a correlation, {@code false} otherwise.
+     */
+    default boolean canCorrelate() {
+        return false;
+    }
+
+    boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap);
+
+    default boolean resultEquals(@Nullable final Object other) {
+        return resultEquals(other, AliasMap.empty());
+    }
+
+    @Override
+    default boolean resultEquals(@Nullable final Object other,
+                                 @Nonnull final AliasMap equivalenceMap) {
+        if (this == other) {
+            return true;
+        }
+
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+
+        final RelationalExpression otherExpression = (RelationalExpression)other;
+
+        Verify.verify(canCorrelate() == otherExpression.canCorrelate());
+
+        final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
+        final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
+
+        Sets.SetView<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, equivalenceMap.sources());
+        Sets.SetView<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, equivalenceMap.targets());
+
+        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(unboundCorrelatedTo, unboundOtherCorrelatedTo);
+        final AliasMap identitiesMap = AliasMap.identitiesFor(commonUnbound);
+        unboundCorrelatedTo = Sets.difference(correlatedTo, commonUnbound);
+        unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, commonUnbound);
+
+        final Iterable<AliasMap> boundCorrelatedReferencesIterable =
+                AliasMap.empty()
+                        .match(unboundCorrelatedTo,
+                                alias -> ImmutableSet.of(),
+                                unboundOtherCorrelatedTo,
+                                otherAlias -> ImmutableSet.of(),
+                                false,
+                                (alias, otherAlias, nestedEquivalencesMap) -> true);
+
+        for (final AliasMap boundCorrelatedReferencesMap : boundCorrelatedReferencesIterable) {
+            final AliasMap.Builder boundEquivalenceMapBuilder = equivalenceMap.derived();
+
+            boundEquivalenceMapBuilder.putAll(identitiesMap);
+            boundEquivalenceMapBuilder.putAll(boundCorrelatedReferencesMap);
+
+            final Iterable<AliasMap> aliasMapIterable =
+                    Quantifiers.match(getQuantifiers(),
+                            otherExpression.getQuantifiers(),
+                            canCorrelate(),
+                            boundEquivalenceMapBuilder.build(),
+                            (quantifier, otherQuantifier, nestedEquivalenceMap) -> {
+                                if (quantifier.hashCode() != otherQuantifier.hashCode()) {
+                                    return false;
+                                }
+                                return quantifier.resultEquals(otherQuantifier, nestedEquivalenceMap);
+                            });
+
+            if (StreamSupport.stream(aliasMapIterable.spliterator(), false)
+                    .anyMatch(aliasMap -> equalsWithoutChildren(otherExpression, equivalenceMap.compose(aliasMap)))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 
     /**
      * Apply the given property visitor to this planner expression and its children. Returns {@code null} if

@@ -20,7 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.temp.view;
 
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.google.common.collect.ImmutableSet;
+
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Set;
 
 /**
@@ -42,5 +47,18 @@ abstract class ElementWithSingleSource implements Element {
     @Override
     public Set<Source> getAncestralSources() {
         return source.getSources();
+    }
+
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        // TODO create the correlation identifier
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        return equals(other); // TODO this should be adapted
     }
 }

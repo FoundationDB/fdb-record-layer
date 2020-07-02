@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * A rule that converts a logical index scan expression to a {@link RecordQueryIndexPlan}. This rule simply converts
@@ -55,7 +56,7 @@ public class LogicalToPhysicalScanRule extends PlannerRule<IndexEntrySourceScanE
             // so that a record that otherwise matches the comparisons would be absent from the index entirely.
             // We only know that we are done matching predicates when we convert to a physical scan, so we check here.
             if (!logical.getComparisons().hasOrderBySourceWithoutComparison()) {
-                call.yield(call.ref(new RecordQueryIndexPlan(indexEntrySource.getIndexName(), logical.getScanType(),
+                call.yield(call.ref(new RecordQueryIndexPlan(Objects.requireNonNull(indexEntrySource.getIndexName()), logical.getScanType(),
                         logical.getComparisons().toScanComparisons(), logical.isReverse())));
             }
         } else {

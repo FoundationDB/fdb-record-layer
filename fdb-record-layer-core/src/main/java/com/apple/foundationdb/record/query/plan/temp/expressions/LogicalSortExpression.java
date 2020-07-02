@@ -21,17 +21,23 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A relational planner expression that represents an unimplemented sort on the records produced by its inner
@@ -45,27 +51,23 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     private final List<Element> sort;
     private final boolean reverse;
     @Nonnull
-    private final Quantifier.ForEach inner;
+    private final Quantifier inner;
 
-    public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalExpression inner) {
-        this(sort, reverse, GroupExpressionRef.of(inner));
+    public LogicalSortExpression(@Nonnull final List<Element> grouping,
+                                 @Nonnull final List<Element> sort,
+                                 final boolean reverse,
+                                 @Nonnull final RelationalExpression inner) {
+        this(grouping, sort, reverse, Quantifier.forEach(GroupExpressionRef.of(inner)));
     }
 
-    public LogicalSortExpression(@Nonnull List<Element> grouping, @Nonnull List<Element> sort, boolean reverse, @Nonnull RelationalExpression inner) {
-        this(grouping, sort, reverse, GroupExpressionRef.of(inner));
-    }
-
-
-    public LogicalSortExpression(@Nonnull List<Element> sort, boolean reverse, @Nonnull ExpressionRef<RelationalExpression> inner) {
-        this(Collections.emptyList(), sort, reverse, inner);
-    }
-
-    public LogicalSortExpression(@Nonnull List<Element> grouping, @Nonnull List<Element> sort, boolean reverse,
-                                 @Nonnull ExpressionRef<RelationalExpression> inner) {
+    public LogicalSortExpression(@Nonnull final List<Element> grouping,
+                                 @Nonnull final List<Element> sort,
+                                 final boolean reverse,
+                                 @Nonnull final Quantifier inner) {
         this.grouping = grouping;
         this.sort = sort;
         this.reverse = reverse;
-        this.inner = Quantifier.forEach(inner);
+        this.inner = inner;
     }
 
     @Nonnull
@@ -111,28 +113,61 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
         return inner;
     }
 
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        if (!(otherExpression instanceof LogicalSortExpression)) {
-            return false;
-        }
-        final LogicalSortExpression other = (LogicalSortExpression) otherExpression;
-        return sort.equals(other.sort) && reverse == other.reverse;
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
     }
 
+    @Nonnull
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
+    public LogicalSortExpression rebase(@Nonnull final AliasMap translationMap) {
+        // we know the following is correct, just Java doesn't
+        return (LogicalSortExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalSortExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                              @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new LogicalSortExpression(
+                getGrouping()
+                        .stream()
+                        .map(element -> element.rebase(translationMap))
+                        .collect(Collectors.toList()),
+                getSort()
+                        .stream()
+                        .map(element -> element.rebase(translationMap))
+                        .collect(Collectors.toList()),
+                isReverse(),
+                Iterables.getOnlyElement(rebasedQuantifiers));
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (!(RelationalExpressionWithChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap))) {
             return false;
         }
-        LogicalSortExpression that = (LogicalSortExpression)o;
-        return isReverse() == that.isReverse() &&
-               Objects.equals(getSort(), that.getSort()) &&
-               Objects.equals(getInner(), that.getInner());
+
+        final LogicalSortExpression other = (LogicalSortExpression) otherExpression;
+
+        final List<Element> otherSort = other.sort;
+        if (reverse != other.reverse || otherSort.size() != this.sort.size()) {
+            return false;
+        }
+
+        return Streams
+                .zip(this.sort.stream(), otherSort.stream(), Pair::of)
+                .allMatch(pair -> pair.getLeft().resultEquals(pair.getRight(), equivalencesMap));
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return resultEquals(other);
     }
 
     @Override

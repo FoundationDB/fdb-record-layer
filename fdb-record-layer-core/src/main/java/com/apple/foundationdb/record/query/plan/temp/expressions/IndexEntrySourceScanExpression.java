@@ -21,17 +21,21 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A logical version of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} that represents
@@ -91,11 +95,31 @@ public class IndexEntrySourceScanExpression implements RelationalExpression {
         return reverse;
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        if (!(otherExpression instanceof IndexEntrySourceScanExpression)) {
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        // TODO this may actually be correlated
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public IndexEntrySourceScanExpression rebase(@Nonnull final AliasMap translationMap) {
+        // TODO this may actually be correlated in this expression and we must rebase() properly here
+        return this;
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
+
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
+
         final IndexEntrySourceScanExpression other = (IndexEntrySourceScanExpression) otherExpression;
         return indexEntrySource.equals(other.indexEntrySource) &&
                scanType.equals(other.scanType) &&
@@ -103,19 +127,10 @@ public class IndexEntrySourceScanExpression implements RelationalExpression {
                reverse == other.reverse;
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        IndexEntrySourceScanExpression that = (IndexEntrySourceScanExpression)o;
-        return reverse == that.reverse &&
-               Objects.equals(indexEntrySource, that.indexEntrySource) &&
-               Objects.equals(scanType, that.scanType) &&
-               Objects.equals(comparisons, that.comparisons);
+    public boolean equals(final Object other) {
+        return resultEquals(other);
     }
 
     @Override

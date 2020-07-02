@@ -22,30 +22,79 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * A rule for implementing a {@link LogicalSortExpression} as a scan of any appropriately-ordered index.
  * The rule's logic mirrors {@link FilterWithElementWithComparisonRule}, but applied to sorts rather than filters.
+ *
+ * <pre>
+ * {@code
+ *       +-----------------------------+                 +---------------------------+
+ *       |                             |                 |                           |
+ *       |  LogicalSortExpression      |                 |  LogicalSortExpression    |
+ *       |            prefix, suffix   |                 |                  suffix   |
+ *       |                             |                 |                           |
+ *       +-------------+---------------+                 +-------------+-------------+
+ *                     |                     +------>                  |
+ *                     | qun                                           | newQun
+ *                     |                                               |
+ *     +---------------+------------------+            +---------------+------------------+
+ *     |                                  |            |                                  |
+ *     |  FullUnorderedScanExpression     |            |  IndexEntrySourceScanExpression  |
+ *     |                                  |            |                     order|prefix |
+ *     +----------------------------------+            |                                  |
+ *                                                     +----------------------------------+
+ * }
+ * </pre>
+ *
+ * or if there is no suffix:
+ *
+ * <pre>
+ * {@code
+ *       +-----------------------------+               +----------------------------------+
+ *       |                             |               |                                  |
+ *       |    LogicalSortExpression    |     +------>  |  IndexEntrySourceScanExpression  |
+ *       |                     prefix  |               |                           orders |
+ *       |                             |               |                                  |
+ *       +-------------+---------------+               +----------------------------------+
+ *                     |
+ *                     | qun
+ *                     |
+ *     +---------------+------------------+
+ *     |                                  |
+ *     |  FullUnorderedScanExpression     |
+ *     |                                  |
+ *     +----------------------------------+
+ * }
+ * </pre>
  */
 @API(API.Status.EXPERIMENTAL)
 public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
     private static final ExpressionMatcher<FullUnorderedScanExpression> innerMatcher = TypeMatcher.of(FullUnorderedScanExpression.class);
+    private static final QuantifierMatcher<Quantifier.ForEach> qunMatcher = QuantifierMatcher.forEach(innerMatcher);
     private static final ExpressionMatcher<LogicalSortExpression> root =
-            TypeMatcher.of(LogicalSortExpression.class, QuantifierMatcher.forEach(innerMatcher));
+            TypeMatcher.of(LogicalSortExpression.class, qunMatcher);
 
     public SortToIndexRule() {
         super(root);
@@ -53,24 +102,43 @@ public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final LogicalSortExpression logicalSort = call.get(root);
+        final LogicalSortExpression sortExpression = call.get(root);
+        final Quantifier.ForEach qun = call.get(qunMatcher);
         final boolean reverse = call.get(root).isReverse();
 
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
-            final ViewExpressionComparisons sortExpression = indexEntrySource.getEmptyComparisons();
-            final Optional<ViewExpressionComparisons> matchedViewExpression = sortExpression.matchWithSort(logicalSort.getSortPrefix());
+            final ViewExpressionComparisons comparisons = indexEntrySource.getEmptyComparisons();
+            final Optional<ViewExpressionComparisons> matchedViewExpression = comparisons.matchWithSort(sortExpression.getSortPrefix());
             if (matchedViewExpression.isPresent()) {
-                RelationalExpression indexScan = new IndexEntrySourceScanExpression(
-                        indexEntrySource, IndexScanType.BY_VALUE, matchedViewExpression.get(), reverse);
-                if (logicalSort.getSortSuffix().isEmpty()) {
-                    call.yield(call.ref(indexScan));
+                final ExpressionRef<? extends RelationalExpression> indexScanRef =
+                        call.ref(new IndexEntrySourceScanExpression(
+                                indexEntrySource,
+                                IndexScanType.BY_VALUE,
+                                matchedViewExpression.get(),
+                                reverse));
+                if (sortExpression.getSortSuffix().isEmpty()) {
+                    call.yield(indexScanRef);
                 } else {
-                    call.yield(call.ref(new LogicalSortExpression(
-                            logicalSort.getSortPrefix(),
-                            logicalSort.getSortSuffix(),
-                            reverse,
-                            indexScan)));
+                    final Quantifier.ForEach newQun = Quantifier.forEach(indexScanRef);
+                    final AliasMap translationMap = Quantifiers.translate(qun, newQun);
 
+                    final List<Element> rebasedPrefix =
+                            sortExpression.getSortPrefix()
+                                    .stream()
+                                    .map(element -> element.rebase(translationMap))
+                                    .collect(Collectors.toList());
+
+                    final List<Element> rebasedSuffix =
+                            sortExpression.getSortSuffix()
+                                    .stream()
+                                    .map(element -> element.rebase(translationMap))
+                                    .collect(Collectors.toList());
+
+                    call.yield(call.ref(new LogicalSortExpression(
+                            rebasedPrefix,
+                            rebasedSuffix,
+                            reverse,
+                            newQun)));
                 }
             }
         }

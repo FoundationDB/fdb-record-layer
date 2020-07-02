@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.temp.view;
 
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,5 +73,22 @@ public class VersionElement implements Element {
     @Override
     public int planHash() {
         return 1;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public Element rebase(@Nonnull final AliasMap translationMap) {
+        return this;
+    }
+
+    @Override
+    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        return this == other; // TODO not sure what to do here
     }
 }

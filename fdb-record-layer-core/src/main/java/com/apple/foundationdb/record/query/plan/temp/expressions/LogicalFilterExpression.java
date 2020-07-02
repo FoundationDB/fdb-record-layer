@@ -21,8 +21,9 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
@@ -35,10 +36,12 @@ import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A relational planner expression that represents an unimplemented filter on the records produced by its inner
@@ -52,13 +55,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     @Nonnull
     private final QueryPredicate filter;
     @Nonnull
-    private final Quantifier.ForEach inner;
-
-    public LogicalFilterExpression(@Nonnull Source baseSource,
-                                   @Nonnull QueryPredicate filter,
-                                   @Nonnull RelationalExpression inner) {
-        this(baseSource, filter, GroupExpressionRef.of(inner));
-    }
+    private final Quantifier inner;
 
     public LogicalFilterExpression(@Nonnull Source baseSource,
                                    @Nonnull QueryPredicate filter,
@@ -66,6 +63,14 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
         this.baseSource = baseSource;
         this.filter = filter;
         this.inner = Quantifier.forEach(inner);
+    }
+
+    public LogicalFilterExpression(@Nonnull Source baseSource,
+                                   @Nonnull QueryPredicate filter,
+                                   @Nonnull Quantifier inner) {
+        this.baseSource = baseSource;
+        this.filter = filter;
+        this.inner = inner;
     }
 
     @Nonnull
@@ -96,22 +101,39 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
         return inner;
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof LogicalFilterExpression && filter.equals(((LogicalFilterExpression)otherExpression).getPredicate());
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return filter.getCorrelatedTo();
+    }
+
+    @Nonnull
+    @Override
+    public LogicalFilterExpression rebase(@Nonnull final AliasMap translationMap) {
+        // we know the following is correct, just Java doesn't
+        return (LogicalFilterExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalFilterExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new LogicalFilterExpression(getBaseSource(),
+                getPredicate().rebase(translationMap),
+                Iterables.getOnlyElement(rebasedQuantifiers));
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        LogicalFilterExpression that = (LogicalFilterExpression)o;
-        return Objects.equals(getPredicate(), that.getPredicate()) &&
-               Objects.equals(getInner(), that.getInner());
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        return RelationalExpressionWithChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
+               filter.resultEquals(((LogicalFilterExpression)otherExpression).getPredicate(), equivalencesMap);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(Object other) {
+        return resultEquals(other);
     }
 
     @Override
@@ -120,6 +142,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     }
 
     @Override
+    @Nonnull
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(

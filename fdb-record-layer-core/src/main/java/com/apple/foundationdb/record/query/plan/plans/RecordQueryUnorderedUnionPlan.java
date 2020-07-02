@@ -27,17 +27,23 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnionCursor;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -49,8 +55,9 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
-    private RecordQueryUnorderedUnionPlan(@Nonnull List<ExpressionRef<RecordQueryPlan>> children, boolean reverse) {
-        super(children, reverse);
+    private RecordQueryUnorderedUnionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                          final boolean reverse) {
+        super(quantifiers, reverse);
     }
 
     @Nonnull
@@ -86,24 +93,27 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
         for (RecordQueryPlan child : children) {
             builder.add(GroupExpressionRef.of(child));
         }
-        return new RecordQueryUnorderedUnionPlan(builder.build(), reverse);
+        return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(builder.build()), reverse);
     }
 
     @Nonnull
     public static RecordQueryUnorderedUnionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right) {
-        return new RecordQueryUnorderedUnionPlan(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right)), left.isReverse());
+        return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right))),
+                left.isReverse());
     }
 
-    @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    public static RecordQueryUnorderedUnionPlan fromRefs(@Nonnull List<ExpressionRef<RecordQueryPlan>> children) {
-        return new RecordQueryUnorderedUnionPlan(children, false);
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
     }
 
-    @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    public static RecordQueryUnorderedUnionPlan fromRefs(@Nonnull ExpressionRef<RecordQueryPlan> left, @Nonnull ExpressionRef<RecordQueryPlan> right) {
-        return new RecordQueryUnorderedUnionPlan(ImmutableList.of(left, right), false);
+    @Override
+    public RecordQueryUnorderedUnionPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                      @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryUnorderedUnionPlan(Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
+                isReverse());
     }
 
     @Nonnull
@@ -113,8 +123,8 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
         return otherExpression instanceof RecordQueryUnorderedUnionPlan &&
                isReverse() == ((RecordQueryUnorderedUnionPlan)otherExpression).isReverse();
     }

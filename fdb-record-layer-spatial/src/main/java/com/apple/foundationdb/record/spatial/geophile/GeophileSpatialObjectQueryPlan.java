@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.tuple.Tuple;
@@ -40,6 +42,7 @@ import com.geophile.z.SpatialIndex;
 import com.geophile.z.SpatialJoin;
 import com.geophile.z.SpatialObject;
 import com.geophile.z.index.RecordWithSpatialObject;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -183,22 +186,36 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
         return Collections.emptyList();
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return equals(otherExpression);
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public GeophileSpatialObjectQueryPlan rebase(@Nonnull final AliasMap translationMap) {
+        return this;
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        GeophileSpatialObjectQueryPlan that = (GeophileSpatialObjectQueryPlan)o;
+        GeophileSpatialObjectQueryPlan that = (GeophileSpatialObjectQueryPlan)otherExpression;
         return indexName.equals(that.indexName) &&
                prefixComparisons.equals(that.prefixComparisons);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return resultEquals(other);
     }
 
     @Override

@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -68,14 +70,30 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         return ImmutableList.of();
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return equals(otherExpression);
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public FullUnorderedScanExpression rebase(@Nonnull final AliasMap translationMap) {
+        return this;
     }
 
     @Override
-    public boolean equals(Object obj) {
-        return obj instanceof FullUnorderedScanExpression;
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
+        return getClass() == otherExpression.getClass();
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return resultEquals(other);
     }
 
     @Override
@@ -88,7 +106,6 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         return "FullUnorderedScan";
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {

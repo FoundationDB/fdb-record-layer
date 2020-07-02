@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.view;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 
@@ -90,6 +91,12 @@ public class RecordTypeElement extends ElementWithSingleSource {
 
     @Override
     public int planHash() {
-        return 2; // To match RecordTypeKeyExpression.planHas()
+        return 2; // To match RecordTypeKeyExpression.planHash()
+    }
+
+    @Nonnull
+    @Override
+    public RecordTypeElement rebase(@Nonnull final AliasMap translationMap) {
+        return new RecordTypeElement(getSource()); // TODO needs to be rebased
     }
 }

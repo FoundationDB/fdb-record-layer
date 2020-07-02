@@ -30,8 +30,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -55,6 +59,7 @@ import java.util.stream.Collectors;
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
 @API(API.Status.MAINTAINED)
+@SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements RecordQueryPlanWithRequiredFields {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlan.class);
 
@@ -77,8 +82,11 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
      */
     @API(API.Status.DEPRECATED)
     @Deprecated
-    public RecordQueryUnionPlan(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
-                                @Nonnull KeyExpression comparisonKey, boolean reverse, boolean showComparisonKey) {
+    public RecordQueryUnionPlan(@Nonnull final RecordQueryPlan left,
+                                @Nonnull final RecordQueryPlan right,
+                                @Nonnull final KeyExpression comparisonKey,
+                                final boolean reverse,
+                                final boolean showComparisonKey) {
         this(ImmutableList.of(left, right), comparisonKey, reverse, showComparisonKey);
     }
 
@@ -94,18 +102,24 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
      */
     @API(API.Status.DEPRECATED)
     @Deprecated
-    public RecordQueryUnionPlan(@Nonnull List<RecordQueryPlan> children,
-                                @Nonnull KeyExpression comparisonKey, boolean reverse, boolean showComparisonKey) {
-        this(children.stream().map(GroupExpressionRef::of).collect(Collectors.toList()), comparisonKey,
-                reverse, showComparisonKey, false);
+    public RecordQueryUnionPlan(@Nonnull final List<RecordQueryPlan> children,
+                                @Nonnull final KeyExpression comparisonKey,
+                                final boolean reverse,
+                                final boolean showComparisonKey) {
+        this(Quantifiers.fromPlans(children.stream().map(GroupExpressionRef::of).collect(Collectors.toList())),
+                comparisonKey,
+                reverse,
+                showComparisonKey,
+                false);
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    private RecordQueryUnionPlan(@Nonnull List<ExpressionRef<RecordQueryPlan>> children,
-                                 @Nonnull KeyExpression comparisonKey,
-                                 boolean reverse, boolean showComparisonKey,
+    private RecordQueryUnionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                 @Nonnull final KeyExpression comparisonKey,
+                                 final boolean reverse,
+                                 final boolean showComparisonKey,
                                  boolean ignoredTemporaryFlag) {
-        super(children, reverse);
+        super(quantifiers, reverse);
         this.comparisonKey = comparisonKey;
         this.showComparisonKey = showComparisonKey;
     }
@@ -129,27 +143,33 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
         return ImmutableSet.copyOf(comparisonKey.normalizeKeyForPositions());
     }
 
+    @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        if (!(otherExpression instanceof RecordQueryUnionPlan)) {
-            return false;
-        }
-        final RecordQueryUnionPlan other = (RecordQueryUnionPlan) otherExpression;
-        return comparisonKey.equals(other.comparisonKey) &&
-               isReverse() == other.isReverse();
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryUnionPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                             @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryUnionPlan(Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
+                getComparisonKey(),
+                isReverse(),
+                showComparisonKey,
+                false);
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
+    @API(API.Status.EXPERIMENTAL)
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (!(super.equalsWithoutChildren(otherExpression, equivalencesMap))) {
             return false;
         }
-        RecordQueryUnionPlan that = (RecordQueryUnionPlan) o;
-        return super.equals(o) && Objects.equals(getComparisonKey(), that.getComparisonKey());
+        final RecordQueryUnionPlan other = (RecordQueryUnionPlan)otherExpression;
+        return comparisonKey.equals(other.comparisonKey);
     }
 
     @Override
@@ -194,7 +214,11 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
         final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right));
-        return new RecordQueryUnionPlan(childRefs, comparisonKey, left.isReverse(), showComparisonKey, false);
+        return new RecordQueryUnionPlan(Quantifiers.fromPlans(childRefs),
+                comparisonKey,
+                left.isReverse(),
+                showComparisonKey,
+                false);
     }
 
     /**
@@ -223,7 +247,11 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
         for (RecordQueryPlan child : children) {
             childRefsBuilder.add(GroupExpressionRef.of(child));
         }
-        return new RecordQueryUnionPlan(childRefsBuilder.build(), comparisonKey, firstReverse, showComparisonKey, false);
+        return new RecordQueryUnionPlan(Quantifiers.fromPlans(childRefsBuilder.build()),
+                comparisonKey,
+                firstReverse,
+                showComparisonKey,
+                false);
     }
 
     @Nonnull

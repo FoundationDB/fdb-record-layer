@@ -29,8 +29,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.tuple.Tuple;
@@ -52,13 +51,18 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @SuppressWarnings("unchecked")
     protected static final Comparator<Object> VALUE_COMPARATOR = (o1, o2) -> ((Comparable)o1).compareTo((Comparable)o2);
 
-    protected final ExpressionRef<RecordQueryPlan> plan;
+    @Nonnull
+    protected final Quantifier.Physical inner;
+    @Nonnull
     protected final String bindingName;
     protected final boolean sortValuesNeeded;
     protected final boolean sortReverse;
 
-    public RecordQueryInJoinPlan(RecordQueryPlan plan, String bindingName, boolean sortValuesNeeded, boolean sortReverse) {
-        this.plan = GroupExpressionRef.of(plan);
+    protected RecordQueryInJoinPlan(@Nonnull final Quantifier.Physical inner,
+                                    @Nonnull final String bindingName,
+                                    final boolean sortValuesNeeded,
+                                    final boolean sortReverse) {
+        this.inner = inner;
         this.bindingName = bindingName;
         this.sortValuesNeeded = sortValuesNeeded;
         this.sortReverse = sortReverse;
@@ -79,7 +83,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                         return RecordCursor.fromList(store.getExecutor(), values, outerContinuation);
                     }
                 },
-                (outerValue, innerContinuation) -> getInner().execute(store, context.withBinding(bindingName, outerValue),
+                (outerValue, innerContinuation) -> getInnerPlan().execute(store, context.withBinding(bindingName, outerValue),
                         innerContinuation, executeProperties.clearSkipAndLimit()),
                 outerObject -> Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack(),
                 continuation,
@@ -88,14 +92,14 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     }
 
     @Nonnull
-    public RecordQueryPlan getInner() {
-        return plan.get();
+    public RecordQueryPlan getInnerPlan() {
+        return inner.getRangesOverPlan();
     }
 
     @Override
     @Nonnull
     public RecordQueryPlan getChild() {
-        return getInner();
+        return getInnerPlan();
     }
 
     public boolean isSorted() {
@@ -106,7 +110,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Override
     @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(Quantifier.physical(plan));
+        return ImmutableList.of(inner);
     }
 
     @Override
@@ -120,8 +124,9 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        if (!(otherExpression instanceof RecordQueryInJoinPlan)) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (!(RecordQueryPlanWithChild.super.equalsWithoutChildren(otherExpression, equivalencesMap))) {
             return false;
         }
         final RecordQueryInJoinPlan other = (RecordQueryInJoinPlan) otherExpression;
@@ -130,19 +135,10 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                sortReverse == other.sortReverse;
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || !(o instanceof RecordQueryInJoinPlan)) {
-            return false;
-        }
-        RecordQueryInJoinPlan that = (RecordQueryInJoinPlan) o;
-        return sortValuesNeeded == that.sortValuesNeeded &&
-                sortReverse == that.sortReverse &&
-                Objects.equals(getChild(), that.getChild()) &&
-                Objects.equals(bindingName, that.bindingName);
+    public boolean equals(final Object other) {
+        return resultEquals(other);
     }
 
     @Override
@@ -152,7 +148,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Override
     public int planHash() {
-        return getInner().planHash() + bindingName.hashCode() + (sortValuesNeeded ? 1 : 0) + (sortReverse ? 1 : 0);
+        return getInnerPlan().planHash() + bindingName.hashCode() + (sortValuesNeeded ? 1 : 0) + (sortReverse ? 1 : 0);
     }
 
     @Nullable
@@ -170,6 +166,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Override
     public int getComplexity() {
-        return 1 + getInner().getComplexity();
+        return 1 + getInnerPlan().getComplexity();
     }
 }

@@ -21,9 +21,12 @@
 package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
@@ -33,6 +36,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -82,16 +86,23 @@ public class NotPredicate implements QueryPredicate {
         return "Not(" + getChild() + ")";
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equals(final Object other) {
+        return resultEquals(other, AliasMap.empty());
+    }
+
+    @Override
+    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        if (this == other) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (other == null || getClass() != other.getClass()) {
             return false;
         }
-        NotPredicate that = (NotPredicate)o;
-        return Objects.equals(getChild(), that.getChild());
+        final NotPredicate that = (NotPredicate)other;
+        return getChild().resultEquals(that.getChild(), equivalenceMap);
     }
 
     @Override
@@ -102,5 +113,17 @@ public class NotPredicate implements QueryPredicate {
     @Override
     public int planHash() {
         return getChild().planHash() + 1;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return getChild().getCorrelatedTo();
+    }
+
+    @Nonnull
+    @Override
+    public NotPredicate rebase(@Nonnull final AliasMap translationMap) {
+        return new NotPredicate(getChild().rebase(translationMap));
     }
 }

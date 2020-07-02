@@ -81,8 +81,7 @@ public class CascadesRuleCall implements PlannerRuleCall {
         if (expression instanceof GroupExpressionRef) {
             GroupExpressionRef<RelationalExpression> groupExpressionRef = (GroupExpressionRef<RelationalExpression>) expression;
             for (RelationalExpression member : groupExpressionRef.getMembers()) {
-                if (!root.containsInMemo(member)) {
-                    root.insert(member);
+                if (root.insert(member)) {
                     newExpressions.add(member);
                 }
             }

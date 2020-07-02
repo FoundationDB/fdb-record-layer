@@ -43,7 +43,7 @@ public class CoveringIndexMatcher extends TypeSafeMatcher<RecordQueryPlan> {
     @Override
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
         return plan instanceof RecordQueryCoveringIndexPlan &&
-                childMatcher.matches(((RecordQueryCoveringIndexPlan)plan).getChild());
+                childMatcher.matches(((RecordQueryCoveringIndexPlan)plan).getIndexPlan());
     }
 
     @Override
