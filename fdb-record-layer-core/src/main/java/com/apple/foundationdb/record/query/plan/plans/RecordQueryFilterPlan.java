@@ -117,6 +117,13 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Nonnull
     @Override
+    @API(API.Status.EXPERIMENTAL)
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
     public RecordQueryFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                               @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryFilterPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),

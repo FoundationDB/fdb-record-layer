@@ -144,6 +144,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
                filter.semanticEquals(otherPlan.getPredicate(), equivalencesMap);
     }
 
+    @Nonnull
     @Override
     public String toString() {
         return getInnerPlan() + " | " + getPredicate();

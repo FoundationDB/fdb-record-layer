@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.annotation.API;
 import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
@@ -158,7 +157,6 @@ import java.util.function.Function;
  * This class is immutable, all perceived "mutations" cause a new object to be created.
  *
  */
-@API(API.Status.EXPERIMENTAL)
 public class AliasMap {
     private final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map;
 
@@ -298,14 +296,14 @@ public class AliasMap {
                             final CorrelationIdentifier alias = ordered.get(i);
                             final CorrelationIdentifier otherAlias = otherOrdered.get(i);
 
-                            if (!predicate.test(alias, otherAlias, equivalenceMapBuilder.build())) {
-                                break;
-                            }
-
                             if (canCorrelate) {
                                 // We now amend the equivalences passed in by adding the already known bound aliases left
                                 // of i and make them equivalent as well
                                 equivalenceMapBuilder.put(alias, otherAlias);
+                            }
+
+                            if (!predicate.test(alias, otherAlias, equivalenceMapBuilder.build())) {
+                                break;
                             }
                         }
 
@@ -350,7 +348,7 @@ public class AliasMap {
     }
 
     @Nonnull
-    public static AliasMap identitiesFor(@Nonnull final Set<CorrelationIdentifier> correlationIdentifiers) {
+    public static AliasMap identitiesFor(final Set<CorrelationIdentifier> correlationIdentifiers) {
         return new AliasMap(correlationIdentifiers.stream()
                 .collect(ImmutableBiMap.toImmutableBiMap(Function.identity(), Function.identity())));
     }
@@ -393,7 +391,6 @@ public class AliasMap {
             return this;
         }
 
-        @Nonnull
         public AliasMap build() {
             return new AliasMap(ImmutableBiMap.copyOf(map));
         }

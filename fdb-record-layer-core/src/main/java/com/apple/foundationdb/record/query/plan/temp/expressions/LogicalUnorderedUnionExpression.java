@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
+import java.util.Set;
 
 /**
  * A relational planner expression that represents an unimplemented unordered union of its children.
