@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Utf8;
 import org.apache.commons.lang3.tuple.Pair;
@@ -165,7 +166,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.localVersionCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
         this.versionMutationCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
         this.transactionId = getSanitizedId(config);
-        this.openStackTrace = config.isSaveOpenStackTrace() ? new Throwable() : null;
+        this.openStackTrace = config.isSaveOpenStackTrace() ? new Throwable("Not really thrown") : null;
 
         @Nonnull Transaction tr = ensureActive();
         if (this.transactionId != null) {
@@ -316,14 +317,18 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * {@link #getTransactionId()} before calling this method.
      * </p>
      *
+     * NOTE: It is generally better to enable logging at open time via the {@link FDBRecordContextConfig}.
+     *
      * @see #getTransactionId()
      * @see FDBDatabaseFactory#setTrace(String, String)
      * @see com.apple.foundationdb.TransactionOptions#setLogTransaction()
+     * @see FDBRecordContextConfig.Builder#setLogTransaction(boolean)
      */
     public final void logTransaction() {
         if (transactionId == null) {
             throw new RecordCoreException("Cannot log transaction as ID is not set");
         }
+        // TODO: Consider deprecating this method and moving this inline.
         ensureActive().options().setLogTransaction();
         logged = true;
     }
@@ -345,6 +350,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return time opened
      */
     @API(API.Status.INTERNAL)
+    @VisibleForTesting
     public long getTrackOpenTimeNanos() {
         return trackOpenTimeNanos;
     }
@@ -353,8 +359,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * Set the nanosecond time at which this context was opened.
      * @param trackOpenTimeNanos  time opened
      */
-    @API(API.Status.INTERNAL)
-    public void setTrackOpenTimeNanos(final long trackOpenTimeNanos) {
+    void setTrackOpenTimeNanos(final long trackOpenTimeNanos) {
         this.trackOpenTimeNanos = trackOpenTimeNanos;
     }
 
@@ -362,9 +367,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * Get any stack track generated when this context was opened.
      * @return stack trace or {@code null}
      */
-    @API(API.Status.INTERNAL)
     @Nullable
-    public Throwable getOpenStackTrace() {
+    Throwable getOpenStackTrace() {
         return openStackTrace;
     }
 
