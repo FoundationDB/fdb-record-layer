@@ -71,6 +71,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Get the configuration used in record contexts opened by this runner.
+     * Any changes made to the returned builder will be reflected in contexts opened by this runner.
      * @return configuration to use
      */
     FDBRecordContextConfig.Builder getContextConfigBuilder();
@@ -184,7 +185,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Set the transaction timeout for all transactions started by this runner. If set to {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS},
-     * then this will use the value of set in the originating database's factory. If set to {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS},
+     * then this will use the value as set in the originating database's factory. If set to {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS},
      * then no timeout will be imposed on transactions used by this runner.
      *
      * <p>

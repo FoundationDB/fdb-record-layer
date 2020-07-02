@@ -354,6 +354,12 @@ public class FDBRecordContextConfig {
             return this;
         }
 
+        /**
+         * Set the transaction timeout time in milliseconds.
+         * A value of {@link FDBDatabaseFactory#DEFAULT_TR_TIMEOUT_MILLIS} indicates that a created transaction should inherit its default from the {@link FDBDatabaseFactory}
+         * used to create it. A value of {@link FDBDatabaseFactory#UNLIMITED_TR_TIMEOUT_MILLIS} indicates that no timeout will be imposed on the transaction.
+         * @return the timeout time in milliseconds
+         */
         public long getTransactionTimeoutMillis() {
             return transactionTimeoutMillis;
         }

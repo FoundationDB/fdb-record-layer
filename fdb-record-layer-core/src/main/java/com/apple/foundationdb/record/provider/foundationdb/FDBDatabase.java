@@ -768,6 +768,8 @@ public class FDBDatabase {
 
     /**
      * Create an {@link FDBDatabaseRunner} for use against this database.
+     * Changes made to {@code contextConfigBuilder} subsequently will continue to be reflected in contexts opened
+     * by the runner.
      * @param contextConfigBuilder options for contexts opened by the new runner
      * @return a new runner
      */
@@ -782,7 +784,7 @@ public class FDBDatabase {
      */
     @Nonnull
     public FDBDatabaseRunner newRunner() {
-        return newRunner(FDBRecordContextConfig.newBuilder().setTransactionTimeoutMillis(factory.getTransactionTimeoutMillis()));
+        return newRunner(FDBRecordContextConfig.newBuilder());
     }
 
     /**
