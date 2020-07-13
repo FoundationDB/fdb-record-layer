@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -697,5 +698,96 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             context.commit();
         }
     }
+    
+    @Test
+    public void testOnlineIndexBuilderMaxWrite() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
+            context.commit();
+        }
 
+        saveManyRecords(BASIC_HOOK, 250, 250);
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertEquals(250, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord").join().intValue());
+            assertEquals(250, recordStore.getSnapshotRecordCountForRecordType("MyOtherRecord").join().intValue());
+        }
+
+        RecordMetaDataHook hook = metaData -> {
+            BASIC_HOOK.apply(metaData);
+            metaData.addIndex("MySimpleRecord", "newIndex", "num_value_2");
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, hook);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertTrue(recordStore.isIndexWriteOnly("newIndex"));
+
+            timer.reset();
+
+            // Build in this transaction.
+            try (OnlineIndexer indexBuilder =
+                         OnlineIndexer.newBuilder()
+                                 .setRecordStore(recordStore)
+                                 .setIndex("newIndex")
+                                 .setLimit(100000)
+                                 .setMaxWriteSize(1)
+                                 .build()) {
+                // this call will "flatten" the staccato iterations to a whole range. Testing compatibility.
+                indexBuilder.rebuildIndex(recordStore);
+            }
+            recordStore.markIndexReadable("newIndex").join();
+
+            assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+            assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+
+            assertEquals(IntStream.range(0, 250).mapToObj(i -> Tuple.from(i, 1, i)).collect(Collectors.toList()),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+            assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_SIZE));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_COUNT));
+
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, hook);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertTrue(recordStore.isIndexReadable("newIndex"));
+
+            recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenSimpleRecordStore(context, hook);
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            assertTrue(recordStore.isIndexWriteOnly("newIndex"));
+
+            timer.reset();
+
+            // verify a single rec with size limit
+            try (OnlineIndexer indexBuilder =
+                         OnlineIndexer.newBuilder()
+                                 .setRecordStore(recordStore)
+                                 .setIndex("newIndex")
+                                 .setLimit(100000)
+                                 .setMaxWriteSize(1)
+                                 .build()) {
+                Key.Evaluated key = indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(25L)).join();
+                assertEquals(1, key.getLong(0));
+                assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_SIZE));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_COUNT));
+
+                context.commit();
+            }
+        }
+    }
 }

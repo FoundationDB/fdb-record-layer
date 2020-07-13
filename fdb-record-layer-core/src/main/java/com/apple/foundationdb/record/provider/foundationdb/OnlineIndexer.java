@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
@@ -126,6 +127,10 @@ public class OnlineIndexer implements AutoCloseable {
      * Default number of records to attempt to run in a single transaction.
      */
     public static final int DEFAULT_LIMIT = 100;
+    /**
+     * Default transaction write size limit. Note that the actual write might be "a little" bigger.
+     */
+    public static final int DEFAULT_WRITE_SIZE = 900 * 1024;
     /**
      * Default limit to the number of records to attempt in a single second.
      */
@@ -558,27 +563,55 @@ public class OnlineIndexer implements AutoCloseable {
         // Note: This runs all of the updates in serial in order to not invoke a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
-        return cursor.forEachResultAsync(result -> {
+
+        final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> holder = new AtomicReference<>(RecordCursorResult.exhausted());
+        final FDBRecordContext context = store.getContext();
+        return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(result -> {
+
+            if (!result.hasNext()) {
+                // end of the cursor list
+                if (timer != null) {
+                    timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_COUNT);
+                }
+                holder.set(result);
+                return AsyncUtil.READY_FALSE;
+            }
+
+            // here: implement forEachResultAsync
             final FDBStoredRecord<Message> rec = result.get();
             empty.set(false);
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
             }
             recordsScannedCounter.incrementAndGet();
-            if (recordTypes.contains(rec.getRecordType())) {
-                if (timer != null) {
-                    timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
-                }
-                if (syntheticPlan == null) {
-                    return maintainer.update(null, rec);
-                } else {
-                    // Pipeline size is 1, since not all maintainers are thread-safe.
-                    return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
-                }
-            } else {
-                return AsyncUtil.DONE;
+            if (!recordTypes.contains(rec.getRecordType())) {
+                // This record is not our type, swipe left
+                return AsyncUtil.READY_TRUE;
             }
-        }).thenCompose(noNextResult -> {
+            // here: add this index to the transaction
+            if (timer != null) {
+                timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+            }
+            return (syntheticPlan == null ?
+                    maintainer.update(null, rec) :
+                    syntheticPlan.execute(store, rec)
+                            .forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1)
+                    ).thenCompose(vignore ->
+                    context.getApproximateTransactionSize().thenCompose(size -> {
+                        if (size >= config.getMaxWriteSize()) {
+                            // the transaction becomes too big - stop iterating
+                            if (timer != null) {
+                                timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_SIZE);
+                            }
+                            holder.set(result);
+                            return AsyncUtil.READY_FALSE;
+                        }
+                        return AsyncUtil.READY_TRUE;
+                    }));
+
+        }), cursor.getExecutor()).thenCompose(vIgnore -> {
+            RecordCursorResult<FDBStoredRecord<Message>> noNextResult = holder.get();
+
             long recordsScannedInTransaction = recordsScannedCounter.get();
             if (recordsScanned != null) {
                 recordsScanned.addAndGet(recordsScannedInTransaction);
@@ -1417,17 +1450,19 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.UNSTABLE)
     public static class Config {
         private final int maxLimit;
+        private final int maxWriteSize;
         private final int maxRetries;
         private final int recordsPerSecond;
         private final long progressLogIntervalMillis;
         private final int increaseLimitAfter;
 
-        private Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter) {
+        private Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter, int maxWriteSize) {
             this.maxLimit = maxLimit;
             this.maxRetries = maxRetries;
             this.recordsPerSecond = recordsPerSecond;
             this.progressLogIntervalMillis = progressLogIntervalMillis;
             this.increaseLimitAfter = increaseLimitAfter;
+            this.maxWriteSize = maxWriteSize;
         }
 
         /**
@@ -1474,6 +1509,16 @@ public class OnlineIndexer implements AutoCloseable {
             return increaseLimitAfter;
         }
 
+        /**
+         * Get the approximate size limit, represents a desired max transaction message size. Note that the actual write
+         * might be "a little" larger than this limit.
+         * @return a the efficient write size. Typically a transaction will be submitted when it becomes bigger than
+         * this value.
+         */
+        public long getMaxWriteSize() {
+            return maxWriteSize;
+        }
+
         @Nonnull
         public static Builder newBuilder() {
             return new Builder();
@@ -1487,6 +1532,7 @@ public class OnlineIndexer implements AutoCloseable {
         public Builder toBuilder() {
             return Config.newBuilder()
                     .setMaxLimit(this.maxLimit)
+                    .setWriteSize(this.maxWriteSize)
                     .setIncreaseLimitAfter(this.increaseLimitAfter)
                     .setProgressLogIntervalMillis(this.progressLogIntervalMillis)
                     .setRecordsPerSecond(this.recordsPerSecond)
@@ -1500,6 +1546,7 @@ public class OnlineIndexer implements AutoCloseable {
         @API(API.Status.UNSTABLE)
         public static class Builder {
             private int maxLimit = DEFAULT_LIMIT;
+            private int maxWriteSize = DEFAULT_WRITE_SIZE;
             private int maxRetries = DEFAULT_MAX_RETRIES;
             private int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
             private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
@@ -1519,6 +1566,19 @@ public class OnlineIndexer implements AutoCloseable {
             @Nonnull
             public Builder setMaxLimit(int limit) {
                 this.maxLimit = limit;
+                return this;
+            }
+
+            /**
+             * Set the maximum transaction size in a single transaction.
+             *
+             * The default limit is {@link #DEFAULT_WRITE_SIZE} = {@value #DEFAULT_WRITE_SIZE}.
+             * @param limit the approximate maximum write size in one transaction
+             * @return this builder
+             */
+            @Nonnull
+            public Builder setWriteSize(int limit) {
+                this.maxWriteSize = limit;
                 return this;
             }
 
@@ -1582,7 +1642,7 @@ public class OnlineIndexer implements AutoCloseable {
              */
             @Nonnull
             public Config build() {
-                return new Config(maxLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
+                return new Config(maxLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteSize);
             }
         }
     }
@@ -1613,6 +1673,7 @@ public class OnlineIndexer implements AutoCloseable {
         @Nonnull
         protected Function<Config, Config> configLoader = old -> old;
         protected int limit = DEFAULT_LIMIT;
+        protected int maxWriteSize = DEFAULT_WRITE_SIZE;
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
         private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
@@ -1804,6 +1865,28 @@ public class OnlineIndexer implements AutoCloseable {
         @Nonnull
         public Builder setLimit(int limit) {
             this.limit = limit;
+            return this;
+        }
+
+        /**
+         * Get the approximate maximum transaction write size. Note that the actual size might be "a little" bigger.
+         * @return the requested write size. Index iteration stops when exceeding this size.
+         */
+        @Nonnull
+        public int getMaxWriteSize() {
+            return maxWriteSize;
+        }
+
+        /**
+         * Set the approximate maximum transaction write size. Note that the actual size might be "a little" bigger.
+         * he default limit is {@link #DEFAULT_WRITE_SIZE} = {@value #DEFAULT_WRITE_SIZE}.
+         * @param max the desired max write size
+         * @return this builder
+         */
+
+        @Nonnull
+        public Builder setMaxWriteSize(int max) {
+            this.maxWriteSize = max;
             return this;
         }
 
@@ -2304,7 +2387,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public OnlineIndexer build() {
             validate();
-            Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter);
+            Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteSize);
             return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex,
                     indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress);
         }

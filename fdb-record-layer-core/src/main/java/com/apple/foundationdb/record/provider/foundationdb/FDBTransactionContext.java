@@ -73,6 +73,11 @@ public class FDBTransactionContext {
         return executor;
     }
 
+    @Nonnull
+    public CompletableFuture<Long> getApproximateTransactionSize() {
+        return transaction.getApproximateSize();
+    }
+
     @Nullable
     public FDBStoreTimer getTimer() {
         return timer;
