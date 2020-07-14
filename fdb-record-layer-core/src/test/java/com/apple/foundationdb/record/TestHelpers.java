@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.util.LoggableException;
@@ -276,6 +277,12 @@ public class TestHelpers {
         assertNotNull(context.getTimer());
         int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded <= expected, "discarded too many records\nExpected maximum: " + expected + "\nActual discarded: " + discarded);
+    }
+
+    public static void assertLoadRecord(int expected, @Nonnull FDBRecordContext context) {
+        assertNotNull(context.getTimer());
+        int loads = context.getTimer().getCount(FDBStoreTimer.Events.LOAD_RECORD);
+        assertTrue(loads <= expected, "loaded too many records\nExpected maximum: " + expected + "\nActual loaded: " + loads);
     }
 
     public static void assertDiscardedAtLeast(int expected, @Nonnull FDBRecordContext context) {

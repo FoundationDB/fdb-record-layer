@@ -64,7 +64,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
 
     public RecordQueryCoveringIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse,
                                         @Nonnull final String recordTypeName, @Nonnull IndexKeyValueToPartialRecord toRecord) {
-        this(new RecordQueryIndexPlan(indexName, scanType, comparisons, reverse), recordTypeName, toRecord);
+        this(new RecordQueryIndexPlan(indexName, scanType, comparisons, reverse, toRecord), recordTypeName, toRecord);
     }
 
     public RecordQueryCoveringIndexPlan(@Nonnull RecordQueryPlanWithIndex indexPlan,

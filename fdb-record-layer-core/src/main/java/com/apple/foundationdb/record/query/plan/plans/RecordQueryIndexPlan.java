@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -61,12 +62,25 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     protected final ScanComparisons comparisons;
     protected final boolean reverse;
+    protected final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord;
+    protected boolean isIndexFetch = true;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse) {
+        this(indexName, scanType, comparisons, reverse, null);
+    }
+
+    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse, IndexKeyValueToPartialRecord indexKeyValueToPartialRecord) {
         this.indexName = indexName;
         this.scanType = scanType;
         this.comparisons = comparisons;
         this.reverse = reverse;
+        this.indexKeyValueToPartialRecord = indexKeyValueToPartialRecord;
+    }
+
+    @Nonnull
+    @Override
+    public IndexKeyValueToPartialRecord getIndexKeyValueToPartialRecord() {
+        return indexKeyValueToPartialRecord;
     }
 
     @Nonnull
@@ -239,5 +253,16 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                         PlannerGraph.fromNodeAndChildGraphs(
                                 new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.copyOf(getUsedIndexes())),
                                 ImmutableList.of())));
+    }
+
+    @Nonnull
+    @Override
+    public boolean isIndexFetch() {
+        return isIndexFetch;
+    }
+
+    @Override
+    public void setIsIndexFetch(final boolean isIndexFetch) {
+        this.isIndexFetch = isIndexFetch;
     }
 }

@@ -33,6 +33,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -229,6 +230,27 @@ public interface KeyExpression extends PlanHashable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
+
+    /**
+     *
+     * Grab the key fields for an expression.
+     *
+     * @return KeyExpressions
+     */
+    @API(API.Status.EXPERIMENTAL)
+    default List<KeyExpression> getKeyFields() {
+        return new ArrayList<>(normalizeKeyForPositions());
+    }
+
+    /**
+     * Grab the value fields for an expression
+     *
+     * @return KeyExpressions
+     */
+    @API(API.Status.EXPERIMENTAL)
+    default List<KeyExpression> getValueFields() {
+        return Collections.singletonList(EmptyKeyExpression.EMPTY);
+    }
 
     /**
      * Returns the number of version columns produced by this key expression.

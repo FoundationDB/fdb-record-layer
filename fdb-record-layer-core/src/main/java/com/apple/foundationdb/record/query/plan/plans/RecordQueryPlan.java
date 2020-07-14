@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.plans.visitor.Visitable;
+import com.apple.foundationdb.record.query.plan.plans.visitor.Visitor;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.google.protobuf.Message;
 
@@ -46,7 +48,7 @@ import java.util.List;
  *
  */
 @API(API.Status.STABLE)
-public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, PlannerGraphRewritable {
+public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, PlannerGraphRewritable, Visitable {
 
     /**
      * Execute this query plan.
@@ -117,4 +119,41 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
     default List<? extends QueryPlan<?>> getQueryPlanChildren() {
         return getChildren();
     }
+
+    @Nonnull
+    @Override
+    default Visitable accept(Visitor visitor) {
+        return accept(visitor, null);
+
+    }
+
+    @Nonnull
+    @Override
+    default Visitable accept(Visitor visitor, RecordQueryPlan parentRecordQueryPlan) {
+        if (visitor.stopTraversal()) {
+            return this;
+        }
+        if (visitor.skipChildren(this)) {
+            return visitor.visit(this, parentRecordQueryPlan);
+        }
+
+        if (visitor.visitChildrenFirst(this)) {
+            getChildren().forEach(children -> children.accept(visitor, this));
+        }
+        Visitable visitable = visitor.visit(this, parentRecordQueryPlan);
+        if (!visitor.visitChildrenFirst(this)) {
+            getChildren().forEach(children -> children.accept(visitor, this));
+        }
+        return visitable;
+    }
+
+    @Nonnull
+    default boolean isIndexFetch() {
+        return false;
+    }
+
+    default void setIsIndexFetch(boolean isIndexFetch) {
+
+    }
+
 }

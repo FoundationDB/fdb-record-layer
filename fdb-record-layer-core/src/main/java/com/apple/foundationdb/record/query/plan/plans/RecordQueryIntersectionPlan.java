@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
@@ -73,6 +74,8 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     private final KeyExpression comparisonKey;
 
     private boolean reverse;
+
+    private boolean isIndexFetch;
 
     /**
      * Construct a new intersection of two compatibly-ordered plans. This constructor has been deprecated in favor
@@ -124,12 +127,18 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
         final ExecuteProperties childExecuteProperties = executeProperties.clearSkipAndLimit();
-        return IntersectionCursor.create(store, getComparisonKey(), reverse,
+        final RecordCursor<FDBQueriedRecord<M>> entryRecordCursor = IntersectionCursor.create(store, getComparisonKey(), reverse,
                 children.stream()
                         .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
                                 ((byte[] childContinuation) -> childPlan.get().execute(store, context, childContinuation, childExecuteProperties)))
                         .collect(Collectors.toList()),
-                continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+                continuation);
+        return isIndexFetch() ? store.
+                fetchIndexRecords(
+                        entryRecordCursor.
+                map( mfdbQueriedRecord -> mfdbQueriedRecord.getIndexEntry())
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit()), IndexOrphanBehavior.ERROR, executeProperties.getState())
+                .map(store::queriedRecord) : entryRecordCursor.skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override
@@ -275,4 +284,16 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.INTERSECTION_OPERATOR),
                 childGraphs);
     }
+
+    @Nonnull
+    @Override
+    public boolean isIndexFetch() {
+        return isIndexFetch;
+    }
+
+    @Override
+    public void setIsIndexFetch(final boolean isIndexFetch) {
+        this.isIndexFetch = isIndexFetch;
+    }
+
 }

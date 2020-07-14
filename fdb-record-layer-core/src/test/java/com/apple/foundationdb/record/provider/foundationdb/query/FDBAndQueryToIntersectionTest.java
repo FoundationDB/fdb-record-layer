@@ -43,6 +43,7 @@ import static com.apple.foundationdb.record.ExecuteProperties.newBuilder;
 import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedExactly;
+import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
@@ -105,6 +106,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(10, i);
             assertDiscardedExactly(50, context);
+            assertLoadRecord(10, context);
         }
     }
 
@@ -151,6 +153,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(4, i);
             assertDiscardedAtMost(90, context);
+            assertLoadRecord(4, context);
         }
     }
 
@@ -191,6 +194,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(10, i);
             assertDiscardedExactly(40, context);
+            assertLoadRecord(50, context);
         }
     }
 
@@ -238,6 +242,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(3, i);
             assertDiscardedAtMost(42, context);
+            assertLoadRecord(7, context);
         }
     }
 
@@ -281,6 +286,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(10, i);
             assertDiscardedExactly(10, context);
+            assertLoadRecord(20, context);
         }
     }
 
@@ -319,6 +325,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(5, i);
             assertDiscardedAtMost(23, context);
+            assertLoadRecord(5, context);
         }
     }
 
@@ -360,6 +367,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(3, i);
             assertDiscardedAtMost(19, context);
+            assertLoadRecord(3, context);
         }
     }
 
@@ -430,6 +438,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(3, i);
             assertDiscardedAtMost(10, context);
+            assertLoadRecord(3, context);
         }
     }
 
@@ -474,6 +483,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(2, i);
             assertDiscardedAtMost(4, context);
+            assertLoadRecord(2, context);
         }
     }
 

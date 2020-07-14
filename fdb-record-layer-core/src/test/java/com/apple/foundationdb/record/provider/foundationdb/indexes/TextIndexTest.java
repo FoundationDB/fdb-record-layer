@@ -1654,7 +1654,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                                     Query.field("text").text().containsAll("civil unclean blood", 4),
                                     Query.field("text").text().containsAll("king was 1016")
                             )
-                    ), 1313228370));
+                    ), -956995376));
 
             assertEquals(ImmutableSet.of(0L, 2L),
                     ImmutableSet.copyOf(querySimpleDocumentsWithIndex(Query.and(
@@ -1663,7 +1663,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                                     Query.field("text").text().containsAll("civil unclean blood", 4),
                                     Query.field("text").text().containsPrefix("ency")
                             )
-                    ), 578771303)));
+                    ), -1691452443)));
 
             // Just a not. There's not a lot this could query could do to be performed because it can return
             // a lot of results by its very nature.

@@ -124,6 +124,9 @@ public class IndexKeyValueToPartialRecord {
                 case MESSAGE:
                     value = TupleFieldsHelper.toProto(value, fieldDescriptor.getMessageType());
                     break;
+                case ENUM:
+                    value = fieldDescriptor.getEnumType().findValueByNumber(((Long)value).intValue());
+                    break;
                 default:
                     break;
             }

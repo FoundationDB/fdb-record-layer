@@ -73,6 +73,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.visitor.Visitor;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -258,8 +259,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             logger.trace(KeyValueLogMessage.of("explain of plan",
                     "explain", PlannerGraphProperty.explain(plan)));
         }
-
-        return plan;
+        return Visitor.applyVisitors(plan,metaData);
     }
 
     @Nullable
@@ -1010,7 +1010,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             final Comparisons.Comparison comparison = filter.getComparison();
             final ScanComparisons comparisons = ScanComparisons.from(comparison);
             if (sort == null || sort.equals(VersionKeyExpression.VERSION)) {
-                RecordQueryPlan plan = new RecordQueryIndexPlan(candidateScan.index.getName(), IndexScanType.BY_VALUE, comparisons, candidateScan.reverse);
+                RecordQueryPlan plan = new RecordQueryIndexPlan(candidateScan.index.getName(), IndexScanType.BY_VALUE, comparisons, candidateScan.reverse, candidateScan.generateIndexKeyValueToPartialRecord(metaData));
                 return new ScoredPlan(1, plan, Collections.emptyList(), false);
             }
         } else if (index instanceof ThenKeyExpression) {
@@ -1099,7 +1099,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
         // TODO: Check the rest of the fields of the text index expression to see if the sort and unsatisfied filters can be helped.
-        RecordQueryPlan plan = new RecordQueryTextIndexPlan(index.getName(), scan, candidateScan.reverse);
+        RecordQueryPlan plan = new RecordQueryTextIndexPlan(index.getName(), scan, candidateScan.reverse, candidateScan.generateIndexKeyValueToPartialRecord(metaData));
         // Add a type filter if the index is over more types than those the query specifies
         Set<String> possibleTypes = getPossibleTypes(index);
         plan = addTypeFilterIfNeeded(candidateScan, plan, possibleTypes);
@@ -1149,7 +1149,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (scanType == null) {
                 scanType = IndexScanType.BY_VALUE;
             }
-            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanType, scanComparisons, candidateScan.reverse);
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanType, scanComparisons, candidateScan.reverse, candidateScan.generateIndexKeyValueToPartialRecord(metaData));
             possibleTypes = getPossibleTypes(candidateScan.index);
         }
         // Add a type filter if the query plan might return records of more types than the query specified
@@ -1382,22 +1382,13 @@ public class RecordQueryPlanner implements QueryPlanner {
             return chosenPlan;
         }
         final RecordType recordType = recordTypes.iterator().next();
-        final List<KeyExpression> resultFields = new ArrayList<>(context.query.getRequiredResults().size());
+        List<KeyExpression> resultFields = new ArrayList<>(context.query.getRequiredResults().size());
         for (KeyExpression resultField : context.query.getRequiredResults()) {
             resultFields.addAll(resultField.normalizeKeyForPositions());
         }
         final KeyExpression rootExpression = index.getRootExpression();
-        final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
-        final List<KeyExpression> keyFields;
-        final List<KeyExpression> valueFields;
-        if (rootExpression instanceof KeyWithValueExpression) {
-            final KeyWithValueExpression keyWithValue = (KeyWithValueExpression) rootExpression;
-            keyFields = new ArrayList<>(normalizedKeys.subList(0, keyWithValue.getSplitPoint()));
-            valueFields = new ArrayList<>(normalizedKeys.subList(keyWithValue.getSplitPoint(), normalizedKeys.size()));
-        } else {
-            keyFields = new ArrayList<>(normalizedKeys);
-            valueFields = Collections.singletonList(EmptyKeyExpression.EMPTY);
-        }
+        final List<KeyExpression> keyFields = rootExpression.getKeyFields();
+        final List<KeyExpression> valueFields = rootExpression.getValueFields();
 
         // Like FDBRecordStoreBase.indexEntryKey(), but with key expressions instead of actual values.
         final List<KeyExpression> primaryKeys = context.commonPrimaryKey == null
@@ -1431,7 +1422,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
+    private static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
                                      @Nonnull IndexKeyValueToPartialRecord.Builder builder,
                                      @Nonnull List<KeyExpression> keyFields,
                                      @Nonnull List<KeyExpression> valueFields) {
@@ -1510,7 +1501,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         RecordQueryIndexPlan plan = (RecordQueryIndexPlan)scoredPlan.plan;
-        plan = new RecordQueryIndexPlan(plan.getIndexName(), IndexScanType.BY_GROUP, plan.getComparisons(), plan.isReverse());
+        plan = new RecordQueryIndexPlan(plan.getIndexName(), IndexScanType.BY_GROUP, plan.getComparisons(), plan.isReverse(), plan.getIndexKeyValueToPartialRecord());
         return new RecordQueryCoveringIndexPlan(plan, recordType.getName(), builder.build());
     }
 
@@ -1543,6 +1534,44 @@ public class RecordQueryPlanner implements QueryPlanner {
             this.index = index;
             this.reverse = reverse;
         }
+
+        @Nonnull
+        private IndexKeyValueToPartialRecord generateIndexKeyValueToPartialRecord(RecordMetaData metaData) {
+            Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
+            if (recordTypes.size() != 1) {
+                return null;
+            }
+            final RecordType recordType = recordTypes.iterator().next();
+
+            final KeyExpression rootExpression = index.getRootExpression();
+            final List<KeyExpression> keyFields = rootExpression.getKeyFields();
+            final List<KeyExpression> valueFields = rootExpression.getValueFields();
+
+            // Like FDBRecordStoreBase.indexEntryKey(), but with key expressions instead of actual values.
+            final List<KeyExpression> primaryKeys = planContext.commonPrimaryKey == null
+                                                    ? Collections.emptyList()
+                                                    : new ArrayList<>(planContext.commonPrimaryKey.normalizeKeyForPositions());
+            index.trimPrimaryKey(primaryKeys);
+            keyFields.addAll(primaryKeys);
+
+            final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType.getDescriptor());
+
+            if (planContext.commonPrimaryKey != null) {
+                for (KeyExpression primaryKeyField : keyFields) {
+                    try {
+                        addCoveringField(primaryKeyField, builder, keyFields, valueFields);
+                    } catch (Exception e) {
+                        logger.warn("duplicate field -> " + primaryKeyField);
+                        return null;
+                    }
+                }
+            }
+            if (!builder.isValid()) {
+                return null;
+            }
+            return builder.build();
+        }
+
     }
 
     protected static class ScoredPlan {

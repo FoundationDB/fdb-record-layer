@@ -52,6 +52,7 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedExactly;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
+import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
@@ -119,6 +120,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(60, i);
             assertDiscardedAtMost(10, context);
+            assertLoadRecord(60, context);
         }
     }
 
@@ -160,6 +162,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 } while (continuation != null);
                 assertEquals(60, i);
                 assertDiscardedExactly(10, context);
+                assertLoadRecord(60, context);
             }
         }
     }
@@ -202,6 +205,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(20 + 20 + 20, i);
             assertDiscardedNone(context);
+            assertLoadRecord(60, context);
         }
     }
 
@@ -331,6 +335,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(50 + 10 + 10, i);
             assertDiscardedAtMost(20, context);
+            assertLoadRecord(50 + 10 + 10, context);
         }
     }
 
@@ -547,6 +552,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             if (removesDuplicates) {
                 assertEquals(40, i);
                 assertDiscardedAtMost(13, context);
+                assertLoadRecord(53, context);
             } else {
                 assertEquals(53, i);
                 assertDiscardedNone(context);
@@ -686,6 +692,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(60, i);
             assertDiscardedAtMost(20, context);
+            assertLoadRecord(120, context);
         }
     }
 
@@ -734,6 +741,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(70, i);
             assertDiscardedAtMost(40, context);
+            assertLoadRecord(140, context);
         }
     }
 
@@ -774,6 +782,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(5, i);
             assertDiscardedAtMost(1, context);
+            assertLoadRecord(5, context);
         }
     }
 

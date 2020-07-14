@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -60,15 +61,30 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
     @Nonnull
     private final DoubleValueOrParameter distance;
     private final boolean covering;
+    private final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord;
 
     public GeophilePointWithinDistanceQueryPlan(@Nonnull DoubleValueOrParameter centerLatitude, @Nonnull DoubleValueOrParameter centerLongitude,
                                                 @Nonnull DoubleValueOrParameter distance,
                                                 @Nonnull String indexName, @Nonnull ScanComparisons prefixComparisons, boolean covering) {
+        this(centerLatitude, centerLongitude, distance, indexName, prefixComparisons, covering, null);
+    }
+
+    public GeophilePointWithinDistanceQueryPlan(@Nonnull DoubleValueOrParameter centerLatitude, @Nonnull DoubleValueOrParameter centerLongitude,
+                                                @Nonnull DoubleValueOrParameter distance,
+                                                @Nonnull String indexName, @Nonnull ScanComparisons prefixComparisons, boolean covering,
+                                                IndexKeyValueToPartialRecord indexKeyValueToPartialRecord) {
         super(indexName, prefixComparisons);
         this.centerLatitude = centerLatitude;
         this.centerLongitude = centerLongitude;
         this.distance = distance;
         this.covering = covering;
+        this.indexKeyValueToPartialRecord = indexKeyValueToPartialRecord;
+    }
+
+    @Nonnull
+    @Override
+    public IndexKeyValueToPartialRecord getIndexKeyValueToPartialRecord() {
+        return indexKeyValueToPartialRecord;
     }
 
     @Nullable

@@ -23,11 +23,13 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -47,7 +49,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @API(API.Status.INTERNAL)
-abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
+public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlanBase.class);
 
     protected static final String UNION = "∪";    // U+222A
@@ -57,8 +59,9 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
      * be valid); if this ever changes, equals() and hashCode() must be updated.
      */
     @Nonnull
-    private final List<ExpressionRef<RecordQueryPlan>> children;
+    private List<ExpressionRef<RecordQueryPlan>> children;
     private final boolean reverse;
+    private boolean isIndexFetch;
 
     public RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
         this(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right)), reverse);
@@ -92,7 +95,17 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
                 .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
                         ((byte[] childContinuation) -> childPlan.execute(store, context, childContinuation, childExecuteProperties)))
                 .collect(Collectors.toList());
-        return createUnionCursor(store, childCursorFunctions, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        if (isIndexFetch) {
+            final RecordCursor<IndexEntry> entryRecordCursor = createUnionCursor(store, childCursorFunctions, continuation)
+                    .map(mfdbQueriedRecord -> mfdbQueriedRecord.getIndexEntry())
+                    .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+            return store.
+                    fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
+                    .map(store::queriedRecord);
+        } else {
+            return createUnionCursor(store, childCursorFunctions, continuation)
+                    .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        }
     }
 
     @Override
@@ -109,6 +122,10 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     @Nonnull
     public List<RecordQueryPlan> getChildren() {
         return getChildStream().collect(Collectors.toList());
+    }
+
+    public void setChildren(List<RecordQueryPlan> recordQueryPlans) {
+        this.children = recordQueryPlans.stream().map(plan -> GroupExpressionRef.of(plan)).collect(Collectors.toList());
     }
 
     @Nonnull
@@ -173,5 +190,16 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     @Override
     public int getRelationalChildCount() {
         return children.size();
+    }
+
+    @Nonnull
+    @Override
+    public boolean isIndexFetch() {
+        return isIndexFetch;
+    }
+
+    @Override
+    public void setIsIndexFetch(final boolean isIndexFetch) {
+        this.isIndexFetch = isIndexFetch;
     }
 }

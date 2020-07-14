@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -57,7 +58,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnorderedPrimaryKeyDistinctPlan.class);
 
     @Nonnull
-    private final ExpressionRef<RecordQueryPlan> inner;
+    private ExpressionRef<RecordQueryPlan> inner;
     @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_PK_DISTINCT);
     @Nonnull
@@ -65,6 +66,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     @Nonnull
     private static final Set<StoreTimer.Count> duplicateCounts =
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_PK_DISTINCT_PLAN_DUPLICATES, FDBStoreTimer.Counts.QUERY_DISCARDED);
+    private boolean isIndexFetch;
 
     public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull RecordQueryPlan inner) {
         this(GroupExpressionRef.of(inner));
@@ -81,10 +83,16 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
         final Set<Tuple> seen = new HashSet<>();
-        return getInner().execute(store, context, continuation, executeProperties.clearSkipAndLimit())
+        RecordCursor<FDBQueriedRecord<M>> recordCursor = getInner().execute(store, context, continuation, executeProperties.clearSkipAndLimit())
             .filterInstrumented(record -> seen.add(record.getPrimaryKey()), store.getTimer(),
                 Collections.emptySet(), duringEvents, uniqueCounts, duplicateCounts)
             .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+                 return isIndexFetch() ? store.
+                    fetchIndexRecords(
+                            recordCursor.
+                                    map( mfdbQueriedRecord -> mfdbQueriedRecord.getIndexEntry())
+                                    .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit()), IndexOrphanBehavior.ERROR, executeProperties.getState())
+                    .map(store::queriedRecord) : recordCursor;
     }
 
     @Override
@@ -101,6 +109,10 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     @Nonnull
     public RecordQueryPlan getChild() {
         return getInner();
+    }
+
+    public void setChild(RecordQueryPlan recordQueryPlan) {
+        this.inner = GroupExpressionRef.of(recordQueryPlan);
     }
 
     @Nonnull
@@ -161,4 +173,16 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNORDERED_PRIMARY_KEY_DISTINCT_OPERATOR),
                 childGraphs);
     }
+
+    @Nonnull
+    @Override
+    public boolean isIndexFetch() {
+        return isIndexFetch;
+    }
+
+    @Override
+    public void setIsIndexFetch(final boolean isIndexFetch) {
+        this.isIndexFetch = isIndexFetch;
+    }
+
 }

@@ -30,6 +30,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -228,5 +229,15 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     @Override
     public int planHash() {
         return getInnerKey().planHash() + splitPoint;
+    }
+
+    @Override
+    public List<KeyExpression> getKeyFields() {
+       return new ArrayList<>(normalizedKeys.subList(0, getSplitPoint()));
+    }
+
+    @Override
+    public List<KeyExpression> getValueFields() {
+        return new ArrayList<>(normalizedKeys.subList(getSplitPoint(), normalizedKeys.size()));
     }
 }
