@@ -26,6 +26,7 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.TransactionOptions;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -46,10 +48,13 @@ import java.util.function.Function;
  *
  * @param <T> the type of transaction to be instrumented
  */
+@API(API.Status.INTERNAL)
 abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements ReadTransaction {
 
     protected static final int MAX_KEY_LENGTH = 10_000;
     protected static final int MAX_VALUE_LENGTH = 100_000;
+
+    private static final int MAX_LOGGED_BYTES = 400;
 
     @Nullable
     protected StoreTimer timer;
@@ -244,19 +249,33 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         if (enableAssertions && key.length > MAX_KEY_LENGTH) {
             throw new FDBExceptions.FDBStoreKeySizeException("Key length exceeds limit",
                     LogMessageKeys.KEY_SIZE, key.length,
-                    LogMessageKeys.KEY, ByteArrayUtil2.loggable(key));
+                    LogMessageKeys.KEY, loggable(key));
         }
         return key;
     }
 
     @Nonnull
-    protected byte[] checkValue(@Nonnull byte[] value) {
+    protected byte[] checkValue(@Nonnull byte[] key, @Nonnull byte[] value) {
         if (enableAssertions && value.length > MAX_VALUE_LENGTH) {
             throw new FDBExceptions.FDBStoreValueSizeException("Value length exceeds limit",
                     LogMessageKeys.VALUE_SIZE, value.length,
-                    LogMessageKeys.VALUE, ByteArrayUtil2.loggable(value));
+                    LogMessageKeys.KEY, loggable(key),
+                    LogMessageKeys.VALUE, loggable(value));
         }
         return value;
+    }
+
+    @Nonnull
+    protected String loggable(@Nonnull byte[] value) {
+        if (value.length <= MAX_LOGGED_BYTES + 20) {
+            return ByteArrayUtil2.loggable(value);
+        }
+
+        byte[] portion = Arrays.copyOfRange(value, 0, MAX_LOGGED_BYTES);
+        return ByteArrayUtil2.loggable(portion)
+                + "+"
+                + (value.length - MAX_LOGGED_BYTES)
+                + " bytes";
     }
 
     private class ByteCountingAsyncIterable implements AsyncIterable<KeyValue> {
