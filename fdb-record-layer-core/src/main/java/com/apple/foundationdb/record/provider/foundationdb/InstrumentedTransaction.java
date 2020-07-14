@@ -71,7 +71,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     @Override
     public void set(byte[] key, byte[] value) {
-        underlying.set(checkKey(key), checkValue(value));
+        underlying.set(checkKey(key), checkValue(key, value));
         increment(FDBStoreTimer.Counts.WRITES);
         increment(FDBStoreTimer.Counts.BYTES_WRITTEN, key.length + value.length);
     }
