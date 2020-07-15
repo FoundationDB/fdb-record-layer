@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -89,6 +90,15 @@ public class BooleanNormalizer {
             return DEFAULT;
         }
         return new BooleanNormalizer(sizeLimit);
+    }
+
+    /**
+     * Obtain a normalizer for the given planner configuration.
+     * @param configuration a a planner configuration specifying the DNF limit that this normalizer will produce
+     * @return a normalizer for the given planner configuration
+     */
+    public static BooleanNormalizer forConfiguration(RecordQueryPlannerConfiguration configuration) {
+        return withLimit(configuration.getComplexityThreshold());
     }
 
     /**
