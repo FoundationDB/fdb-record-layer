@@ -53,7 +53,7 @@ public interface QueryableKeyExpression extends KeyExpression {
             throw new RecordCoreException("Should evaluate to single key only");
         }
         Key.Evaluated key = keys.get(0);
-        if (keys.size() != 1) {
+        if (key.size() != 1) {
             throw new RecordCoreException("Should evaluate to single key only");
         }
         return key.getObject(0);
