@@ -53,17 +53,24 @@ public interface QueryableKeyExpression extends KeyExpression {
             throw new RecordCoreException("Should evaluate to single key only");
         }
         Key.Evaluated key = keys.get(0);
+        if (evalForQueryAsTuple()) {
+            return key.toTuple();
+        }
         if (key.size() != 1) {
             throw new RecordCoreException("Should evaluate to single key only");
         }
         return key.getObject(0);
     }
 
+    default boolean evalForQueryAsTuple() {
+        return getColumnSize() > 1;
+    }
+
     @Nonnull
     Element toElement(@Nonnull Source rootSource);
 
     /**
-     * Get a function to be applied to the comparison operand before compairing it with the application of the key expression
+     * Get a function to be applied to the comparison operand before comparing it with the application of the key expression
      * to the record.
      * @return a conversion function or {@code null} for no conversion
      */
