@@ -700,7 +700,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
     }
     
     @Test
-    public void testOnlineIndexBuilderMaxWrite() throws Exception {
+    public void testOnlineIndexBuilderWriteLimitBytes() throws Exception {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
@@ -731,15 +731,15 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             timer.reset();
 
             // Build in this transaction.
-            try (OnlineIndexer indexBuilder =
+            try (OnlineIndexer indexer =
                          OnlineIndexer.newBuilder()
                                  .setRecordStore(recordStore)
                                  .setIndex("newIndex")
                                  .setLimit(100000)
-                                 .setMaxWriteSize(1)
+                                 .setMaxWriteLimitBytes(1)
                                  .build()) {
                 // this call will "flatten" the staccato iterations to a whole range. Testing compatibility.
-                indexBuilder.rebuildIndex(recordStore);
+                indexer.rebuildIndex(recordStore);
             }
             recordStore.markIndexReadable("newIndex").join();
 
@@ -774,14 +774,14 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             timer.reset();
 
             // verify a single rec with size limit
-            try (OnlineIndexer indexBuilder =
+            try (OnlineIndexer indexer =
                          OnlineIndexer.newBuilder()
                                  .setRecordStore(recordStore)
                                  .setIndex("newIndex")
                                  .setLimit(100000)
-                                 .setMaxWriteSize(1)
+                                 .setMaxWriteLimitBytes(1)
                                  .build()) {
-                Key.Evaluated key = indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(25L)).join();
+                Key.Evaluated key = indexer.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(25L)).join();
                 assertEquals(1, key.getLong(0));
                 assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_SIZE));
                 assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_COUNT));
