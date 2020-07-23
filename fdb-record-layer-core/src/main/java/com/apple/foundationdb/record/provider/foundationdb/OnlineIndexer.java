@@ -561,7 +561,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         AtomicLong recordsScannedCounter = new AtomicLong();
         // Note: This runs all of the updates in serial in order to not invoke a race condition
-        // in the rank code that was causing incorrect results.
+        // in the rank code that was causing incorrect results. If everything were thread safe,
+        // a larger pipeline size would be possible.
 
         final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
         final FDBRecordContext context = store.getContext();
@@ -590,14 +591,16 @@ public class OnlineIndexer implements AutoCloseable {
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
             }
-            return (syntheticPlan == null ?
-                    // case 1: simple
-                    maintainer.update(null, rec) :
-                    // case 2: synatheticPlan - note that Pipeline size is 1, since not all maintainers are thread-safe.
-                    syntheticPlan.execute(store, rec
-                    ).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1)
-                    // both cases provide a CompletableFuture<Void>
-                    ).thenCompose(vignore ->
+
+            final CompletableFuture<Void> updateMaintainer;
+            if (syntheticPlan == null) {
+                updateMaintainer = maintainer.update(null, rec);
+            } else {
+                // Pipeline size is 1, since not all maintainers are thread-safe.
+                updateMaintainer = syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
+            }
+
+            return updateMaintainer.thenCompose(vignore ->
                     context.getApproximateTransactionSize().thenCompose(size -> {
                         if (size >= config.getMaxWriteLimitBytes()) {
                             // the transaction becomes too big - stop iterating

@@ -883,4 +883,88 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             assertThat("Should have done several transactions in a few seconds", pass, lessThan(100));
         }
     }
+
+    @Test
+    public void testOnlineIndexerBuilderWriteLimitBytes() {
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 200).mapToObj( val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
+        ).collect(Collectors.toList());
+        Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
+        List<String> indexTypes = Collections.singletonList("MySimpleRecord");
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+
+        final Supplier<Tuple> getAggregate = () -> {
+            Tuple ret;
+            try (FDBRecordContext context = openContext()) {
+                assertTrue(recordStore.uncheckedMarkIndexReadable(index.getName()).join());
+                FDBRecordStore recordStore2 = recordStore.asBuilder().setContext(context).uncheckedOpen();
+                ret = recordStore2.evaluateAggregateFunction(indexTypes, aggregateFunction, TupleRange.ALL, IsolationLevel.SERIALIZABLE).join();
+                // Do NOT commit changes
+            }
+            return ret;
+        };
+
+        openSimpleMetaData(hook);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            timer.reset();
+
+            // Build in this transaction.
+            try (OnlineIndexer indexer =
+                         OnlineIndexer.newBuilder()
+                                 .setRecordStore(recordStore)
+                                 .setTimer(timer)
+                                 .setIndex("newIndex")
+                                 .setLimit(100000)
+                                 .setMaxWriteLimitBytes(1)
+                                 .build()) {
+                // this call will "flatten" the staccato iterations to a whole range. Testing compatibility.
+                indexer.rebuildIndex(recordStore);
+            }
+            recordStore.markIndexReadable("newIndex").join();
+
+            assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+            assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+
+            assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_SIZE));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_COUNT));
+
+            recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+
+            timer.reset();
+
+            // Build in this transaction.
+            try (OnlineIndexer indexer =
+                         OnlineIndexer.newBuilder()
+                                 .setRecordStore(recordStore)
+                                 .setTimer(timer)
+                                 .setIndex("newIndex")
+                                 .setLimit(100000)
+                                 .setMaxWriteLimitBytes(1)
+                                 .build()) {
+
+                Key.Evaluated key = indexer.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(25L)).join();
+                assertEquals(1, key.getLong(0));
+                assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_SIZE));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_COUNT));
+            }
+            recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
+            context.commit();
+        }
+    }
 }
