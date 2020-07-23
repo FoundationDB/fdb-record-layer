@@ -299,7 +299,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
         }
 
         @Nonnull
-        abstract FunctionKeyExpression build(@Nonnull KeyExpression arguments);
+        public abstract FunctionKeyExpression build(@Nonnull KeyExpression arguments);
     }
 
     /**
