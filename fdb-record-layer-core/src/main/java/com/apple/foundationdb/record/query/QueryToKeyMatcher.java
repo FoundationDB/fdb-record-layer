@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.google.common.collect.ImmutableList;
@@ -294,11 +295,6 @@ public class QueryToKeyMatcher {
                 return Match.none();
             }
         }
-        // Both of these COULD be used for matching by the planner, but they aren't today, so...
-        if (key instanceof FunctionKeyExpression
-                || key instanceof LiteralKeyExpression) {
-            return Match.none();
-        }
         if (query instanceof NestedField) {
             return matches(((NestedField) query), key, matchingMode, filterMask);
         }
@@ -316,6 +312,9 @@ public class QueryToKeyMatcher {
         }
         if (query instanceof RecordTypeKeyComparison) {
             return matches((RecordTypeKeyComparison)query, key, matchingMode, filterMask);
+        }
+        if (query instanceof QueryKeyExpressionWithComparison) {
+            return matches((QueryKeyExpressionWithComparison)query, key, filterMask);
         }
         // Other component types (e.g., Or and Not components) are not handled by this
         // matcher and just return Match.none()
@@ -470,6 +469,18 @@ public class QueryToKeyMatcher {
         if (!(key instanceof RecordTypeKeyExpression ||
                 (matchingMode.equals(MatchingMode.SATISFY_QUERY) && key instanceof ThenKeyExpression && ((ThenKeyExpression)key).getChildren().get(0) instanceof RecordTypeKeyExpression))) {
             return noMatchOrUnexpected(key);
+        }
+        if (filterMask != null) {
+            filterMask.setSatisfied(true);
+            filterMask.setExpression(key);
+        }
+        return new Match(query.getComparison());
+    }
+
+    @Nonnull
+    private Match matches(@Nonnull QueryKeyExpressionWithComparison query, @Nonnull KeyExpression key, @Nullable FilterSatisfiedMask filterMask) {
+        if (!Objects.equals(query.getKeyExpression(), key)) {
+            return Match.none();
         }
         if (filterMask != null) {
             filterMask.setSatisfied(true);
