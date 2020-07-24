@@ -571,7 +571,7 @@ public class OnlineIndexer implements AutoCloseable {
             if (!result.hasNext()) {
                 // end of the cursor list
                 if (timer != null) {
-                    timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_COUNT);
+                    timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
                 }
                 lastResult.set(result);
                 return AsyncUtil.READY_FALSE;
@@ -605,7 +605,7 @@ public class OnlineIndexer implements AutoCloseable {
                         if (size >= config.getMaxWriteLimitBytes()) {
                             // the transaction becomes too big - stop iterating
                             if (timer != null) {
-                                timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_SIZE);
+                                timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
                             }
                             lastResult.set(result);
                             return false;
