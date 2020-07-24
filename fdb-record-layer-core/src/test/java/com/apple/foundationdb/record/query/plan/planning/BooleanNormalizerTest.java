@@ -179,6 +179,8 @@ public class BooleanNormalizerTest {
         if (!normalizer.isCheckForDuplicateConditions()) {
             assertEquals(numberOfTerms(expected), normalizer.getNormalizedSize(given));
         }
+
+        assertEquals(normalized, normalizer.normalize(normalized), "Normalized form should be stable");
     }
 
     // Query components do not implement equals, but they have distinctive enough printed representations.
