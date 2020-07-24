@@ -570,6 +570,10 @@ public class FDBStoreTimer extends StoreTimer {
         ONLINE_INDEX_BUILDER_RECORDS_SCANNED("number of records scanned by online index build", false),
         /** The number of records indexed by {@link OnlineIndexer}. */
         ONLINE_INDEX_BUILDER_RECORDS_INDEXED("number of records indexed by online index build", false),
+        /** The number of {@link OnlineIndexer} range scans terminated after hitting the scan limit. */
+        ONLINE_INDEX_BUILDER_RANGES_BY_COUNT("number of indexer iterations terminated by scan limit", false),
+        /** The number of {@link OnlineIndexer} range scans terminated after hitting the size limit. */
+        ONLINE_INDEX_BUILDER_RANGES_BY_SIZE("number of indexer iterations terminated by write limit", false),
         /** The number of times that a leaderboard update adds a time window. */
         TIME_WINDOW_LEADERBOARD_ADD_WINDOW("number of leaderboard windows added", false),
         /** The number of times that a leaderboard update deleted a time window. */

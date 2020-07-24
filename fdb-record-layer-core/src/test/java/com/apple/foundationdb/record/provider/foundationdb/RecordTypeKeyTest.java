@@ -697,5 +697,4 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             context.commit();
         }
     }
-
 }
