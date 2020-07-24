@@ -885,7 +885,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testOnlineIndexerBuilderWriteLimitBytes() {
+    public void testOnlineIndexerBuilderWriteLimitBytes() throws Exception {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 200).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
         ).collect(Collectors.toList());

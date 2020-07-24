@@ -601,16 +601,16 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             return updateMaintainer.thenCompose(vignore ->
-                    context.getApproximateTransactionSize().thenCompose(size -> {
+                    context.getApproximateTransactionSize().thenApply(size -> {
                         if (size >= config.getMaxWriteLimitBytes()) {
                             // the transaction becomes too big - stop iterating
                             if (timer != null) {
                                 timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGE_BY_SIZE);
                             }
                             lastResult.set(result);
-                            return AsyncUtil.READY_FALSE;
+                            return false;
                         }
-                        return AsyncUtil.READY_TRUE;
+                        return true;
                     }));
 
         }), cursor.getExecutor()
