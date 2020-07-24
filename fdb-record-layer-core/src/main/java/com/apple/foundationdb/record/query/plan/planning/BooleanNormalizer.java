@@ -30,11 +30,14 @@ import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -61,12 +64,14 @@ public class BooleanNormalizer {
      * The default limit on the size of the DNF that will be produced by the normalizer.
      */
     public static final int DEFAULT_SIZE_LIMIT = 1_000_000;
-    private static final BooleanNormalizer DEFAULT = new BooleanNormalizer(DEFAULT_SIZE_LIMIT);
+    private static final BooleanNormalizer DEFAULT = new BooleanNormalizer(DEFAULT_SIZE_LIMIT, false);
 
     private final int sizeLimit;
+    private boolean checkForDuplicateConditions;
 
-    private BooleanNormalizer(int sizeLimit) {
+    private BooleanNormalizer(int sizeLimit, boolean checkForDuplicateConditions) {
         this.sizeLimit = sizeLimit;
+        this.checkForDuplicateConditions = checkForDuplicateConditions;
     }
 
     /**
@@ -88,7 +93,35 @@ public class BooleanNormalizer {
         if (sizeLimit == DEFAULT_SIZE_LIMIT) {
             return DEFAULT;
         }
-        return new BooleanNormalizer(sizeLimit);
+        return new BooleanNormalizer(sizeLimit, false);
+    }
+
+    /**
+     * Obtain a normalizer for the given planner configuration.
+     * @param configuration a a planner configuration specifying the DNF limit that this normalizer will produce
+     * @return a normalizer for the given planner configuration
+     */
+    public static BooleanNormalizer forConfiguration(RecordQueryPlannerConfiguration configuration) {
+        if (configuration.getComplexityThreshold() == DEFAULT_SIZE_LIMIT && !configuration.shouldCheckForDuplicateConditions()) {
+            return DEFAULT;
+        }
+        return new BooleanNormalizer(configuration.getComplexityThreshold(), configuration.shouldCheckForDuplicateConditions());
+    }
+
+    /**
+     * Get the limit on the size of the DNF that this normalizer will produce.
+     * @return size limit
+     */
+    public int getSizeLimit() {
+        return sizeLimit;
+    }
+
+    /**
+     * Get whether this normalizer attempts to remove redundant conditions.
+     * @return {@code true} if some redundant conditions
+     */
+    public boolean isCheckForDuplicateConditions() {
+        return checkForDuplicateConditions;
     }
 
     /**
@@ -126,6 +159,9 @@ public class BooleanNormalizer {
             }
         } else {
             final List<List<QueryComponent>> orOfAnd = toDNF(predicate, false);
+            if (checkForDuplicateConditions) {
+                removeDuplicateConditions(orOfAnd);
+            }
             return normalOr(orOfAnd.stream().map(this::normalAnd).collect(Collectors.toList()));
         }
     }
@@ -258,6 +294,40 @@ public class BooleanNormalizer {
                     combined.addAll(right);
                     return combined;
                 })).collect(Collectors.toList()));
+    }
+
+    private void removeDuplicateConditions(final List<List<QueryComponent>> orOfAnd) {
+        int size = orOfAnd.size();
+        if (size < 2) {
+            return;
+        }
+        int i = 0;
+        nexti:
+        while (i < size) {
+            Collection<QueryComponent> ci = orOfAnd.get(i);
+            if (ci.size() > 1) {
+                // Should be faster for contains.
+                // If QueryComponent's cached their hashCode, even single element might be faster as Set.
+                ci = new HashSet<>(ci);
+            }
+            // If any other disjunct has conjuncts that are a (not necessarily strict) subset of this one's, then
+            // whenever this one is satisfied, that one will be as well.
+            // There is therefore no need to keep having this one.
+            for (int j = 0; j < size; j++) {
+                if (i == j) {
+                    continue;
+                }
+                Collection<QueryComponent> cj = orOfAnd.get(j);
+                if (ci.size() > cj.size() || (ci.size() == cj.size() && i < j)) {
+                    if (ci.containsAll(cj)) {
+                        orOfAnd.remove(i);
+                        size--;
+                        continue nexti;
+                    }
+                }
+            }
+            i++;
+        }
     }
 
     class DNFTooLargeException extends RecordCoreException {
