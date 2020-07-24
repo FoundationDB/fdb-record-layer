@@ -917,8 +917,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
-            timer.reset();
-
             // Build in this transaction.
             try (OnlineIndexer indexer =
                          OnlineIndexer.newBuilder()
@@ -943,10 +941,9 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             context.commit();
         }
 
+        timer.reset();
         try (FDBRecordContext context = openContext()) {
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
-
-            timer.reset();
 
             // Build in this transaction.
             try (OnlineIndexer indexer =
@@ -966,5 +963,20 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
             context.commit();
         }
+
+        timer.reset();
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setSubspace(subspace)
+                .setTimer(timer)
+                .setIndex(index)
+                .setLimit(100000)
+                .setMaxWriteLimitBytes(1)
+                .setRecordsPerSecond(OnlineIndexer.UNLIMITED)
+                .build()) {
+            indexer.buildIndex();
+        }
+        assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
     }
 }
