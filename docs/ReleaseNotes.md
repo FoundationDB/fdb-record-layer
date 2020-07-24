@@ -21,7 +21,7 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Avoid excessively long keys/values logged during assertion checks [(Issue #989)](https://github.com/FoundationDB/fdb-record-layer/issues/989)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -30,10 +30,10 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** BooleanNormalizer could eliminate some redundant disjuncts [(Issue #993)](https://github.com/FoundationDB/fdb-record-layer/issues/993)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** OnlineIndexer limits amount of work by transaction size [(Issue #703)](https://github.com/FoundationDB/fdb-record-layer/issues/703)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -43,6 +43,12 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 
 // end next release
 -->
+
+### 2.9.130.0
+
+* **Bug fix** Avoid excessively long keys/values logged during assertion checks [(Issue #989)](https://github.com/FoundationDB/fdb-record-layer/issues/989)
+* **Feature** BooleanNormalizer could eliminate some redundant disjuncts [(Issue #993)](https://github.com/FoundationDB/fdb-record-layer/issues/993)
+* **Feature** OnlineIndexer limits amount of work by transaction size [(Issue #703)](https://github.com/FoundationDB/fdb-record-layer/issues/703)
 
 ### 2.9.129.0
 
