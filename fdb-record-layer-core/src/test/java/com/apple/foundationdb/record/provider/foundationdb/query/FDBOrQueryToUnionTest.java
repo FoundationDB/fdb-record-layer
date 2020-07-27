@@ -53,10 +53,13 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedExactly;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
+import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.everyLeaf;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
@@ -85,8 +88,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * Verify that an OR of compatibly-ordered (up to reversal) indexed fields can be implemented as a union.
      */
     @SuppressWarnings("rawtypes") // Bug with raw types and method references: https://bugs.openjdk.java.net/browse/JDK-8063054
-    @Test
-    public void testComplexQuery6() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexQuery6(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -97,12 +101,22 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .setSort(null, true)
                 .setRemoveDuplicates(true)
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, union(
-                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))));
-        assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
-        assertEquals(-2067012572, plan.planHash());
+
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(union(
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))))));
+            assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
+            assertEquals(-1584186103, plan.planHash());
+        } else {
+            assertThat(plan, union(
+                    indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
+                    indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))));
+            assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
+            assertEquals(-2067012572, plan.planHash());
+        }
 
         Set<Long> seen = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
@@ -121,11 +135,15 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(60, i);
             assertDiscardedAtMost(10, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(60, context);
+            }
         }
     }
 
-    @Test
-    public void testComplexQuery6Continuations() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexQuery6Continuations(boolean shouldPushFetchAboveUnionToIntersection) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -135,6 +153,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(0)))
                 .setRemoveDuplicates(true)
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldPushFetchAboveUnionToIntersection);
         RecordQueryPlan plan = planner.plan(query);
 
         try (FDBRecordContext context = openContext()) {
@@ -162,6 +181,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 } while (continuation != null);
                 assertEquals(60, i);
                 assertDiscardedExactly(10, context);
+                if (shouldPushFetchAboveUnionToIntersection) {
+                    assertLoadRecord(60, context);
+                }
             }
         }
     }
@@ -169,8 +191,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that queries with an OR of equality predicates on the same field are implemented using a union of indexes.
      */
-    @Test
-    public void testOrQuery1() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testOrQuery1(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -180,13 +203,24 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(2),
                         Query.field("num_value_3_indexed").equalsValue(4)))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, union(Arrays.asList(
+
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(union(Arrays.asList(
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[4],[4]]")))))
+            ), equalTo(primaryKey("MySimpleRecord")))));
+            assertEquals(1912003491, plan.planHash());
+        } else {
+            assertThat(plan, union(Arrays.asList(
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[4],[4]]"))))
-                ), equalTo(primaryKey("MySimpleRecord"))));
-        assertEquals(273143354, plan.planHash());
+            ), equalTo(primaryKey("MySimpleRecord"))));
+            assertEquals(273143354, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -204,6 +238,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(20 + 20 + 20, i);
             assertDiscardedNone(context);
+            assertLoadRecord(60, context);
         }
     }
 
@@ -211,8 +246,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * Verify that queries with an OR of a mix of equality and inequality predicates on the same field are implemented
      * using a union of indexes.
      */
-    @Test
-    public void testOrQuery2() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testOrQuery2(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -222,15 +258,24 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(2),
                         Query.field("num_value_3_indexed").greaterThan(3)))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        Matcher<RecordQueryPlan> leaf = indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
-                bounds(anyOf(hasTupleString("[[1],[1]]"), hasTupleString("[[2],[2]]"), hasTupleString("([3],>")))));
-        assertThat(plan, union(Arrays.asList(
+
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(union(Arrays.asList(
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>")))))
+            ), equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))))));
+            assertEquals(504228282, plan.planHash());
+        } else {
+            assertThat(plan, union(Arrays.asList(
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>"))))
-                ), equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
-        assertEquals(1299166123, plan.planHash());
+            ), equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
+            assertEquals(1299166123, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -255,8 +300,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * Verify that queries with an OR of non-overlapping range inequalities on the same field are implemented using a union
      * of indexes.
      */
-    @Test
-    public void testOrQuery3() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testOrQuery3(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -265,16 +311,30 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").lessThan(2),
                         Query.field("num_value_3_indexed").greaterThan(3)))
                 .build();
+
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, union(
-                indexScan(allOf(
-                        indexName("MySimpleRecord$num_value_3_indexed"),
-                        bounds(hasTupleString("([null],[2])")))),
-                indexScan(allOf(
-                        indexName("MySimpleRecord$num_value_3_indexed"),
-                        bounds(hasTupleString("([3],>")))),
-                equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
-        assertEquals(-1930405164, plan.planHash());
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(union(
+                    coveringIndexScan(indexScan(allOf(
+                            indexName("MySimpleRecord$num_value_3_indexed"),
+                            bounds(hasTupleString("([null],[2])"))))),
+                    coveringIndexScan(indexScan(allOf(
+                            indexName("MySimpleRecord$num_value_3_indexed"),
+                            bounds(hasTupleString("([3],>"))))),
+                    equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))))));
+            assertEquals(-627934247, plan.planHash());
+        } else {
+            assertThat(plan, union(
+                    indexScan(allOf(
+                            indexName("MySimpleRecord$num_value_3_indexed"),
+                            bounds(hasTupleString("([null],[2])")))),
+                    indexScan(allOf(
+                            indexName("MySimpleRecord$num_value_3_indexed"),
+                            bounds(hasTupleString("([3],>")))),
+                    equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
+            assertEquals(-1930405164, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -298,8 +358,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * Verify that queries with an OR of equality predicates on different fields are implemented using a union of indexes,
      * if all fields are indexed.
      */
-    @Test
-    public void testOrQuery4() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testOrQuery4(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -309,13 +370,25 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(1),
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, union(Arrays.asList(
-                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]")))),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]"))))
-        ), equalTo(primaryKey("MySimpleRecord")))); // ordered by primary key, since the fields are not the same.
-        assertEquals(-673254486, plan.planHash());
+
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(union(Arrays.asList(
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]")))))
+            ), equalTo(primaryKey("MySimpleRecord"))))); // ordered by primary key, since the fields are not the same.
+            assertEquals(-417814093, plan.planHash());
+        } else {
+            assertThat(plan, union(Arrays.asList(
+                    indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]")))),
+                    indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))),
+                    indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]"))))
+            ), equalTo(primaryKey("MySimpleRecord")))); // ordered by primary key, since the fields are not the same.
+            assertEquals(-673254486, plan.planHash());
+
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -333,6 +406,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(50 + 10 + 10, i);
             assertDiscardedAtMost(20, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(50 + 10 + 10, context);
+            }
         }
     }
 
@@ -549,6 +625,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             if (removesDuplicates) {
                 assertEquals(40, i);
                 assertDiscardedAtMost(13, context);
+                assertLoadRecord(53, context);
             } else {
                 assertEquals(53, i);
                 assertDiscardedNone(context);
@@ -642,8 +719,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
-    public void testOrQueryChildReordering() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testOrQueryChildReordering(boolean shouldPushFetchAboveUnionToIntersection) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query1 = RecordQuery.newBuilder()
@@ -654,6 +732,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .setSort(null, true)
                 .setRemoveDuplicates(true)
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldPushFetchAboveUnionToIntersection);
         RecordQueryPlan plan1 = planner.plan(query1);
         RecordQuery query2 = query1.toBuilder()
                 .setFilter(Query.or(
@@ -663,8 +742,14 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan2 = planner.plan(query2);
         assertEquals(plan1.hashCode(), plan2.hashCode());
         assertEquals(plan1, plan2);
-        assertEquals(-2067012572, plan1.planHash());
-        assertEquals(600484528, plan2.planHash());
+        if (shouldPushFetchAboveUnionToIntersection) {
+            assertEquals(-1584186103, plan1.planHash());
+            assertEquals(-91575587, plan2.planHash());
+        } else {
+            assertEquals(-2067012572, plan1.planHash());
+            assertEquals(600484528, plan2.planHash());
+        }
+
 
         Set<Long> seen = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
@@ -688,11 +773,15 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(60, i);
             assertDiscardedAtMost(20, context);
+            if (shouldPushFetchAboveUnionToIntersection) {
+                assertLoadRecord(120, context);
+            }
         }
     }
 
-    @Test
-    public void testOrQueryChildReordering2() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testOrQueryChildReordering2(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query1 = RecordQuery.newBuilder()
@@ -704,6 +793,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .setSort(null, true)
                 .setRemoveDuplicates(true)
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan1 = planner.plan(query1);
         RecordQuery query2 = query1.toBuilder()
                 .setFilter(Query.or(Lists.reverse(((OrComponent)query1.getFilter()).getChildren())))
@@ -711,8 +801,13 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan2 = planner.plan(query2);
         assertEquals(plan1.hashCode(), plan2.hashCode());
         assertEquals(plan1, plan2);
-        assertEquals(723665474, plan1.planHash());
-        assertEquals(184229634, plan2.planHash());
+        if (shouldDeferFetch) {
+            assertEquals(770691035, plan1.planHash());
+            assertEquals(1289607451, plan2.planHash());
+        } else {
+            assertEquals(723665474, plan1.planHash());
+            assertEquals(184229634, plan2.planHash());
+        }
 
         Set<Long> seen = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
@@ -736,6 +831,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(70, i);
             assertDiscardedAtMost(40, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(140, context);
+            }
         }
     }
 
@@ -743,8 +841,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * Verify that an OR on two indexed fields with compatibly ordered indexes is implemented by a union, and that the
      * union cursors works properly with a returned record limit.
      */
-    @Test
-    public void testComplexLimits5() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexLimits5(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -753,11 +852,20 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsValue("odd"),
                         Query.field("num_value_3_indexed").equalsValue(0)))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, union(
-                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))));
-        assertEquals(-2067012605, plan.planHash());
+
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(union(
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))))));
+            assertEquals(-1584186334, plan.planHash());
+        } else {
+            assertThat(plan, union(
+                    indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
+                    indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))));
+            assertEquals(-2067012605, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -776,6 +884,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(5, i);
             assertDiscardedAtMost(1, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(5, context);
+            }
         }
     }
 

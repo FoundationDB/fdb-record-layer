@@ -156,9 +156,6 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        if (!super.equals(o)) {
-            return false;
-        }
         RecordQueryCoveringIndexPlan that = (RecordQueryCoveringIndexPlan) o;
         return Objects.equals(getChild(), that.getChild()) &&
                Objects.equals(recordTypeName, that.recordTypeName) &&

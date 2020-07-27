@@ -124,6 +124,9 @@ public class IndexKeyValueToPartialRecord {
                 case MESSAGE:
                     value = TupleFieldsHelper.toProto(value, fieldDescriptor.getMessageType());
                     break;
+                case ENUM:
+                    value = fieldDescriptor.getEnumType().findValueByNumber(((Long)value).intValue());
+                    break;
                 default:
                     break;
             }
@@ -210,7 +213,10 @@ public class IndexKeyValueToPartialRecord {
         return new Builder(recordDescriptor);
     }
 
-    static class Builder {
+    /**
+     * A builder for {@link IndexKeyValueToPartialRecord}.
+     */
+    public static class Builder {
         @Nonnull
         private final Descriptors.Descriptor recordDescriptor;
         @Nonnull
@@ -272,6 +278,7 @@ public class IndexKeyValueToPartialRecord {
         /**
          * To be valid for covering index use, must set all required fields and not attempt to set repeated fields,
          * for which the index only has a partial view.
+         * @return whether this is a valid use
          */
         public boolean isValid() {
             for (Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {

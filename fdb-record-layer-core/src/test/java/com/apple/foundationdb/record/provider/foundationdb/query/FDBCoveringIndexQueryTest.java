@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -34,8 +35,10 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -48,6 +51,7 @@ import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anyt
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
@@ -539,5 +543,25 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(3, i);
             assertDiscardedNone(context);
         }
+    }
+
+    @Test
+    @Disabled
+    public void nestedRepeatedSplitCoveringIndex() throws Exception {
+        nestedWithAndSetup(metaData -> {
+            metaData.removeIndex("review_rating");
+            metaData.addIndex("RestaurantRecord", "splitCoveringIndex",
+                    keyWithValue(field("reviews", KeyExpression.FanType.FanOut).nest(field("rating"), field("reviewer")), 1));
+        });
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("RestaurantRecord")
+                .setFilter(Query.field("reviews").oneOfThem().matches(Query.field("rating").greaterThan(2)))
+                .setRequiredResults(ImmutableList.of(field("reviews", KeyExpression.FanType.FanOut).nest(field("rating"))))
+                .setRemoveDuplicates(false)
+                .build();
+
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("splitCoveringIndex"), bounds(hasTupleString("([0],>"))))));
     }
 }

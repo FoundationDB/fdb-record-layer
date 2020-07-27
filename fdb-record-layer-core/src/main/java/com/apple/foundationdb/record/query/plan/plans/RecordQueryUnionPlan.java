@@ -220,6 +220,12 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
+    public RecordQueryUnionPlan withChildren(@Nonnull final List<RecordQueryPlan> newChildren) {
+        return RecordQueryUnionPlan.from(newChildren, comparisonKey, showComparisonKey);
+    }
+
+    @Nonnull
+    @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNION_OPERATOR),

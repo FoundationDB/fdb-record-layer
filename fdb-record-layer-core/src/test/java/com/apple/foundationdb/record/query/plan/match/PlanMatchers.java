@@ -179,6 +179,10 @@ public class PlanMatchers {
         return new IntersectionMatcher(childMatchers, comparisonKeyMatcher); // order of arguments does not matter
     }
 
+    public static Matcher<RecordQueryPlan> fetch(@Nonnull Matcher<RecordQueryPlan> childMatcher) {
+        return new FetchMatcher(childMatcher);
+    }
+
     public static Matcher<RecordQueryPlan> inValues(@Nonnull Matcher<Iterable<?>> listMatcher,
                                               @Nonnull Matcher<RecordQueryPlan> childMatcher) {
         return new InValueJoinMatcher(listMatcher, childMatcher);

@@ -77,6 +77,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -260,7 +261,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             logger.trace(KeyValueLogMessage.of("explain of plan",
                     "explain", PlannerGraphProperty.explain(plan)));
         }
-
+        if (configuration.shouldDeferFetchAfterUnionAndIntersection()) {
+            return RecordQueryPlannerSubstitutionVisitor.applyVisitors(plan, metaData, planContext.commonPrimaryKey);
+        }
         return plan;
     }
 
@@ -1439,17 +1442,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
         final KeyExpression rootExpression = index.getRootExpression();
-        final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
-        final List<KeyExpression> keyFields;
-        final List<KeyExpression> valueFields;
-        if (rootExpression instanceof KeyWithValueExpression) {
-            final KeyWithValueExpression keyWithValue = (KeyWithValueExpression) rootExpression;
-            keyFields = new ArrayList<>(normalizedKeys.subList(0, keyWithValue.getSplitPoint()));
-            valueFields = new ArrayList<>(normalizedKeys.subList(keyWithValue.getSplitPoint(), normalizedKeys.size()));
-        } else {
-            keyFields = new ArrayList<>(normalizedKeys);
-            valueFields = Collections.singletonList(EmptyKeyExpression.EMPTY);
-        }
+        final List<KeyExpression> keyFields = KeyExpression.getKeyFields(rootExpression);
+        final List<KeyExpression> valueFields = KeyExpression.getValueFields(rootExpression);
 
         // Like FDBRecordStoreBase.indexEntryKey(), but with key expressions instead of actual values.
         final List<KeyExpression> primaryKeys = context.commonPrimaryKey == null
@@ -1483,7 +1477,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
+    public static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
                                      @Nonnull IndexKeyValueToPartialRecord.Builder builder,
                                      @Nonnull List<KeyExpression> keyFields,
                                      @Nonnull List<KeyExpression> valueFields) {
