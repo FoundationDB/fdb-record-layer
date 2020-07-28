@@ -25,7 +25,7 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Better to scan with OR filter than to Union multiple identical scans with individual filters [(Issue #1004)](https://github.com/FoundationDB/fdb-record-layer/issues/1004)
 * **Performance** Some filters can be performed with covering index scan's partial record [(Issue #1000)](https://github.com/FoundationDB/fdb-record-layer/issues/1000)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

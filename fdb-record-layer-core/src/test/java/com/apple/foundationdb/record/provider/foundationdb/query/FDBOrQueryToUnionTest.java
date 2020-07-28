@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
@@ -56,6 +57,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.everyLeaf;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
@@ -877,4 +879,46 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertDiscardedNone(context);
         }
     }
+
+    /**
+     * Verify that queries with an OR of predicates with a common scan and different filters does not bother with a Union.
+     */
+    @Test
+    public void testOrQueryNoIndex() throws Exception {
+        RecordMetaDataHook hook = metadata -> {
+            metadata.removeIndex("MySimpleRecord$num_value_3_indexed");
+        };
+        complexQuerySetup(hook);
+        QueryComponent orComponent = Query.or(
+                Query.field("num_value_3_indexed").equalsValue(1),
+                Query.field("num_value_3_indexed").equalsValue(2),
+                Query.field("num_value_3_indexed").equalsValue(4));
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(Query.field("str_value_indexed").equalsValue("even"), orComponent))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(orComponent, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]"))))));
+        assertEquals(-1553701984, plan.planHash());
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            int i = 0;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(rec.getRecord());
+                    assertTrue(myrec.getStrValueIndexed().equals("even"));
+                    assertTrue(myrec.getNumValue3Indexed() == 1 ||
+                               myrec.getNumValue3Indexed() == 2 ||
+                               myrec.getNumValue3Indexed() == 4);
+                    i++;
+                }
+            }
+            assertEquals(10 + 10 + 10, i);
+            assertDiscardedExactly(10 + 10, context);
+        }
+    }
+
 }

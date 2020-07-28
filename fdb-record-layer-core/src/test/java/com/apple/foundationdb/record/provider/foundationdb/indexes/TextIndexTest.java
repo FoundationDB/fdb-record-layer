@@ -2141,7 +2141,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.or(
                                     Query.field("tag").oneOfThem().equalsValue("3:2"),
                                     Query.field("tag").oneOfThem().equalsValue("3:0")),
-                            true, 1, 299461731));
+                            true, 1, -27568755));
 
             assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
                     queryComplexDocumentsWithIndex(

@@ -1178,6 +1178,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
         List<ScoredPlan> subplans = new ArrayList<>(filter.getChildren().size());
         boolean allHaveOrderingKey = true;
+        RecordQueryPlan commonFilteredBasePlan = null;
+        boolean allHaveSameBasePlan = true;
         for (QueryComponent subfilter : filter.getChildren()) {
             ScoredPlan subplan = planFilter(planContext, subfilter, true);
             if (subplan == null) {
@@ -1186,7 +1188,32 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (subplan.planOrderingKey == null) {
                 allHaveOrderingKey = false;
             }
+            RecordQueryPlan filteredBasePlan;
+            if (subplan.plan instanceof RecordQueryFilterPlan) {
+                filteredBasePlan = ((RecordQueryFilterPlan)subplan.plan).getInner();
+            } else {
+                filteredBasePlan = null;
+            }
+            if (subplans.isEmpty()) {
+                commonFilteredBasePlan = filteredBasePlan;
+                allHaveSameBasePlan = filteredBasePlan != null;
+            } else if (allHaveSameBasePlan && !Objects.equals(filteredBasePlan, commonFilteredBasePlan)) {
+                allHaveSameBasePlan = false;
+            }
             subplans.add(subplan);
+        }
+        // If the child plans only differ in their filters, then there is no point in repeating the base
+        // scan only to evaluate each of the filters. Just evaluate the scan with an OR filter.
+        // Note that this also improves the _second-best_ plan for planFilterWithInJoin, but an IN filter wins
+        // out there over the equivalent OR(EQUALS) filters.
+        if (allHaveSameBasePlan) {
+            final RecordQueryPlan combinedOrFilter = new RecordQueryFilterPlan(commonFilteredBasePlan,
+                    new OrComponent(subplans.stream()
+                            .map(subplan -> ((RecordQueryFilterPlan)subplan.plan).getFilter())
+                            .collect(Collectors.toList())));
+            ScoredPlan firstSubPlan = subplans.get(0);
+            return new ScoredPlan(firstSubPlan.score, combinedOrFilter, Collections.emptyList(),
+                    firstSubPlan.createsDuplicates, firstSubPlan.includedRankComparisons);
         }
         // If the child plans are compatibly ordered, return a union plan that removes duplicates from the
         // children as they come. If the child plans aren't ordered that way, then try and plan a union that
