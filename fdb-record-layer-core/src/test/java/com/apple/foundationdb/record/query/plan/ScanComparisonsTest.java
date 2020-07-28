@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.tuple.Tuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -145,6 +146,14 @@ public class ScanComparisonsTest {
         comparisons.addInequalityComparison(new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN, "p2"));
         checkRange("([zzz],>", comparisons, context("p1", "xxx", "p2", "zzz"));
         checkRange("[[zzz],>", comparisons, context("p1", "zzz", "p2", "xxx"));
+    }
+
+    @Test
+    public void multiColumn() throws Exception {
+        ScanComparisons.Builder comparisons = new ScanComparisons.Builder();
+        comparisons.addEqualityComparison(new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        comparisons.addInequalityComparison(new Comparisons.MultiColumnComparison(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, Tuple.from("xxx", "yyy"))));
+        checkRange("([null, null],[null, xxx, yyy])", comparisons, context());
     }
 
 }

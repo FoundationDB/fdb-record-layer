@@ -241,7 +241,7 @@ public class ScanComparisons implements PlanHashable {
 
         final List<Object> items = new ArrayList<>(equalityComparisons.size());
         for (Comparisons.Comparison comparison : equalityComparisons) {
-            items.add(toTupleItem(comparison.getComparand(store, context)));
+            addComparandToList(items, comparison, store, context);
         }
         final Tuple baseTuple = Tuple.fromList(items);
         if (inequalityComparisons.isEmpty()) {
@@ -266,6 +266,15 @@ public class ScanComparisons implements PlanHashable {
             return toTupleRange();
         } catch (Comparisons.EvaluationContextRequiredException ex) {
             return null;
+        }
+    }
+
+    protected static void addComparandToList(@Nonnull List<Object> items, @Nonnull Comparisons.Comparison comparison,
+                                             @Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        if (comparison.hasMultiColumnComparand()) {
+            items.addAll(((Tuple)comparison.getComparand(store, context)).getItems());
+        } else {
+            items.add(toTupleItem(comparison.getComparand(store, context)));
         }
     }
 
@@ -320,6 +329,10 @@ public class ScanComparisons implements PlanHashable {
     }
 
     private static class InequalityRangeCombiner {
+        enum EndpointComparison {
+            NONE, VALUE, MULTIPLE
+        }
+
         @Nullable
         FDBRecordStoreBase<?> store;
         @Nullable
@@ -330,8 +343,8 @@ public class ScanComparisons implements PlanHashable {
         private Object highItem = null;
         private EndpointType lowEndpoint;
         private EndpointType highEndpoint;
-        private boolean hasLow = false;
-        private boolean hasHigh = false;
+        private EndpointComparison hasLow = EndpointComparison.NONE;
+        private EndpointComparison hasHigh = EndpointComparison.NONE;
 
         public InequalityRangeCombiner(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context, @Nonnull Tuple baseTuple,
                                        @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
@@ -355,47 +368,48 @@ public class ScanComparisons implements PlanHashable {
             if (comparand == Comparisons.COMPARISON_SKIPPED_BINDING) {
                 return;
             }
+            final EndpointComparison endpointComparison = comparison.hasMultiColumnComparand() ? EndpointComparison.MULTIPLE : EndpointComparison.VALUE;
             switch (comparison.getType()) {
                 case GREATER_THAN:
                     if (lowItem == null || Comparisons.compare(lowItem, comparand) <= 0) {
                         lowItem = comparand;
                         lowEndpoint = EndpointType.RANGE_EXCLUSIVE;
-                        hasLow = true;
+                        hasLow = endpointComparison;
                     }
                     break;
                 case GREATER_THAN_OR_EQUALS:
                     if (lowItem == null || Comparisons.compare(lowItem, comparand) < 0) {
                         lowItem = comparand;
                         lowEndpoint = EndpointType.RANGE_INCLUSIVE;
-                        hasLow = true;
+                        hasLow = endpointComparison;
                     }
                     break;
                 case NOT_NULL:
                     if (lowItem == null) {
                         lowEndpoint = EndpointType.RANGE_EXCLUSIVE;
-                        hasLow = true;
+                        hasLow = endpointComparison;
                     }
                     break;
                 case LESS_THAN:
                     if (highItem == null || Comparisons.compare(highItem, comparand) >= 0) {
                         highItem = comparand;
                         highEndpoint = EndpointType.RANGE_EXCLUSIVE;
-                        hasHigh = true;
+                        hasHigh = endpointComparison;
                     }
                     if (lowItem == null) {
                         lowEndpoint = EndpointType.RANGE_EXCLUSIVE;
-                        hasLow = true;
+                        hasLow = EndpointComparison.VALUE;
                     }
                     break;
                 case LESS_THAN_OR_EQUALS:
                     if (highItem == null || Comparisons.compare(highItem, comparand) > 0) {
                         highItem = comparand;
                         highEndpoint = EndpointType.RANGE_INCLUSIVE;
-                        hasHigh = true;
+                        hasHigh = endpointComparison;
                     }
                     if (lowItem == null) {
                         lowEndpoint = EndpointType.RANGE_EXCLUSIVE;
-                        hasLow = true;
+                        hasLow = EndpointComparison.VALUE;
                     }
                     break;
                 default:
@@ -404,13 +418,19 @@ public class ScanComparisons implements PlanHashable {
         }
 
         @Nullable
-        private Tuple buildEndpointTuple(boolean hasItem, Object item) {
-            if (hasItem) {
-                return baseTuple.addObject(toTupleItem(item));
-            } else if (baseTuple.isEmpty()) {
-                return null;
-            } else {
-                return baseTuple;
+        private Tuple buildEndpointTuple(EndpointComparison hasItem, Object item) {
+            switch (hasItem) {
+                case VALUE:
+                    return baseTuple.addObject(toTupleItem(item));
+                case MULTIPLE:
+                    return baseTuple.addAll((Tuple)item);
+                case NONE:
+                default:
+                    if (baseTuple.isEmpty()) {
+                        return null;
+                    } else {
+                        return baseTuple;
+                    }
             }
         }
 

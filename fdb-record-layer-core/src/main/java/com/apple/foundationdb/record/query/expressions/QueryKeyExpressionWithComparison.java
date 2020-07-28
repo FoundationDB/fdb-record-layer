@@ -48,7 +48,7 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
 
     public QueryKeyExpressionWithComparison(@Nonnull QueryableKeyExpression keyExpression, @Nonnull Comparisons.Comparison comparison) {
         this.keyExpression = keyExpression;
-        this.comparison = comparison;
+        this.comparison = keyExpression.evalForQueryAsTuple() ? new Comparisons.MultiColumnComparison(comparison) : comparison;
     }
 
     @Nonnull

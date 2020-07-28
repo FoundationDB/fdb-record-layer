@@ -672,6 +672,15 @@ public class Comparisons {
         Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context);
 
         /**
+         * Get whether the comparison is with the result of a multi-column key.
+         * If so, {@link #getComparand} will return a {@link com.apple.foundationdb.tuple.Tuple}.
+         * @return {@code true} if the comparand is for multiple key columns
+         */
+        default boolean hasMultiColumnComparand() {
+            return false;
+        }
+
+        /**
          * Get the printed representation of the comparison less the comparison operator itself.
          * @return the typeless string
          */
@@ -1458,6 +1467,85 @@ public class Comparisons {
         @Override
         public String toString() {
             return String.format("%s(%s) %s", getType().name(), strict ? "strictly" : "approximately", typelessString());
+        }
+    }
+
+    /**
+     * Comparison wrapping another one and answering {@code true} to {@link #hasMultiColumnComparand}.
+     */
+    public static class MultiColumnComparison implements Comparison {
+        @Nonnull
+        private final Comparison inner;
+
+        public MultiColumnComparison(@Nonnull final Comparison inner) {
+            this.inner = inner;
+        }
+
+        @Nullable
+        @Override
+        public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+            return inner.eval(store, context, value);
+        }
+
+        @Override
+        public void validate(@Nonnull final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
+            inner.validate(descriptor, fannedOut);
+        }
+
+        @Nonnull
+        @Override
+        public Type getType() {
+            return inner.getType();
+        }
+
+        @Override
+        public int planHash() {
+            return inner.planHash();
+        }
+
+        @Nullable
+        @Override
+        public Object getComparand() {
+            return inner.getComparand();
+        }
+
+        @Nullable
+        @Override
+        public Object getComparand(@Nullable final FDBRecordStoreBase<?> store, @Nullable final EvaluationContext context) {
+            return inner.getComparand(store, context);
+        }
+
+        @Override
+        public boolean hasMultiColumnComparand() {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public String typelessString() {
+            return inner.typelessString();
+        }
+
+        @Override
+        public int hashCode() {
+            return inner.hashCode();
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MultiColumnComparison that = (MultiColumnComparison) o;
+            return this.inner.equals(that.inner);
+        }
+
+        @Override
+        public String toString() {
+            return inner.toString();
         }
     }
 }
