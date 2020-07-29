@@ -1373,6 +1373,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (filterPlan.getChild() instanceof RecordQueryPlanWithIndex) {
                 final RecordQueryPlanWithIndex filteredIndexPlan = (RecordQueryPlanWithIndex) filterPlan.getChild();
                 final Index index = metaData.getIndex(filteredIndexPlan.getIndexName());
+                // A TEXT index, in particular, does not have the actual indexed text in the entry.
                 if (indexTypes.getValueTypes().contains(index.getType())) {
                     final QueryComponent filter = filterPlan.getFilter();
                     final Set<KeyExpression> filterFields = new HashSet<>();
@@ -1538,6 +1539,10 @@ public class RecordQueryPlanner implements QueryPlanner {
         return new RecordQueryCoveringIndexPlan(plan, recordType.getName(), builder.build());
     }
 
+    // Find equivalent key expressions for fields used by the given filter.
+    // Does not attempt to deal with OneOfThemWithComponent, as the repeated nested field will be spread across multiple
+    // index entries. Reconstituting that as a singleton in a partial record might work for the simplest case, but
+    // could not for multiple such filter conditions.
     private boolean findFilterCoveredFields(@Nonnull QueryComponent filter, @Nonnull Set<KeyExpression> filterFields) {
         if (filter instanceof FieldWithComparison) {
             filterFields.add(Key.Expressions.field(((FieldWithComparison)filter).getFieldName()));
