@@ -30,6 +30,8 @@ import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -40,6 +42,8 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -283,6 +287,7 @@ public class RankedSetIndexHelper {
      * A {@link RankedSet} that adds {@link StoreTimer} instrumentation.
      */
     public static class InstrumentedRankedSet extends RankedSet {
+        private static final Logger LOGGER = LoggerFactory.getLogger(InstrumentedRankedSet.class);
         private final FDBTransactionContext context;
 
         public InstrumentedRankedSet(@Nonnull IndexMaintainerState state,
@@ -316,6 +321,18 @@ public class RankedSetIndexHelper {
                 FDBStoreTimer.DetailEvents event = FDBStoreTimer.DetailEvents.RANKED_SET_NEXT_LOOKUP_KEY;
                 context.getTimer().record(event, duration);
             }
+        }
+
+        @Override
+        protected int getKeyHash(final byte[] key) {
+            final int hash = super.getKeyHash(key);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(KeyValueLogMessage.of("Ranked set key hash",
+                        LogMessageKeys.KEY, ByteArrayUtil2.loggable(key),
+                        LogMessageKeys.HASH_FUNCTION, RankedSetHashFunctions.getHashFunctionName(config.getHashFunction()),
+                        LogMessageKeys.HASH, String.format("%08X", hash)));
+            }
+            return hash;
         }
 
         @Override

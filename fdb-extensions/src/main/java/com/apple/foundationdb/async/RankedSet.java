@@ -355,8 +355,7 @@ public class RankedSet {
      */
     public CompletableFuture<Boolean> add(TransactionContext tc, byte[] key) {
         checkKey(key);
-        // Use the hash of the key, instead a p value and randomLevel. The key is likely Tuple-encoded.
-        final long keyHash = config.getHashFunction().hash(key);
+        final int keyHash = getKeyHash(key);
         return tc.runAsync(tr ->
             countCheckedKey(tr, key)
                 .thenCompose(count -> {
@@ -388,6 +387,11 @@ public class RankedSet {
                     }
                     return AsyncUtil.whenAll(futures).thenApply(vignore -> true);
                 }));
+    }
+
+    // Use the hash of the key, instead a p value and randomLevel. The key is likely Tuple-encoded.
+    protected int getKeyHash(final byte[] key) {
+        return config.getHashFunction().hash(key);
     }
 
     protected CompletableFuture<Void> addLevelZeroKey(Transaction tr, byte[] key, int level, boolean increment) {
