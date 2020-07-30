@@ -84,6 +84,11 @@ public class NodeInfo {
             NodeIcon.DATA_ACCESS_OPERATOR,
             "Load By Keys",
             "A load by keys operator loads records from the database that match the given set of primary keys.");
+    public static final NodeInfo FETCH_OPERATOR = new NodeInfo(
+            "FetchOperator",
+            NodeIcon.DATA_ACCESS_OPERATOR,
+            "Fetch Records",
+            "A fetch retrieves records from the primary key store using the provided index entries.");
     public static final NodeInfo PREDICATE_FILTER_OPERATOR = new NodeInfo(
             "PredicateFilterOperator",
             NodeIcon.COMPUTATION_OPERATOR,

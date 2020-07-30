@@ -77,9 +77,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -260,7 +262,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             logger.trace(KeyValueLogMessage.of("explain of plan",
                     "explain", PlannerGraphProperty.explain(plan)));
         }
-
+        if (configuration.shouldDeferFetchAfterUnionAndIntersection()) {
+            return RecordQueryPlannerSubstitutionVisitor.applyVisitors(plan, metaData, planContext.commonPrimaryKey);
+        }
         return plan;
     }
 
@@ -1423,13 +1427,10 @@ public class RecordQueryPlanner implements QueryPlanner {
             // This should already be true when calling, but as a safety precaution, check here anyway.
             return chosenPlan;
         }
+
         final Index index = metaData.getIndex(chosenPlan.getIndexName());
-        Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
-        if (recordTypes.size() != 1) {
-            return chosenPlan;
-        }
-        final RecordType recordType = recordTypes.iterator().next();
-        final List<KeyExpression> resultFields = new ArrayList<>(context.query.getRequiredResults().size());
+
+        final Set<KeyExpression> resultFields = new HashSet<>(context.query.getRequiredResults().size());
         for (KeyExpression resultField : context.query.getRequiredResults()) {
             resultFields.addAll(resultField.normalizeKeyForPositions());
         }
@@ -1438,52 +1439,62 @@ public class RecordQueryPlanner implements QueryPlanner {
                 resultFields.addAll(filterField.normalizeKeyForPositions());
             }
         }
-        final KeyExpression rootExpression = index.getRootExpression();
-        final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
-        final List<KeyExpression> keyFields;
-        final List<KeyExpression> valueFields;
-        if (rootExpression instanceof KeyWithValueExpression) {
-            final KeyWithValueExpression keyWithValue = (KeyWithValueExpression) rootExpression;
-            keyFields = new ArrayList<>(normalizedKeys.subList(0, keyWithValue.getSplitPoint()));
-            valueFields = new ArrayList<>(normalizedKeys.subList(keyWithValue.getSplitPoint(), normalizedKeys.size()));
-        } else {
-            keyFields = new ArrayList<>(normalizedKeys);
-            valueFields = Collections.singletonList(EmptyKeyExpression.EMPTY);
-        }
 
-        // Like FDBRecordStoreBase.indexEntryKey(), but with key expressions instead of actual values.
-        final List<KeyExpression> primaryKeys = context.commonPrimaryKey == null
-                ? Collections.emptyList()
-                : context.commonPrimaryKey.normalizeKeyForPositions();
-        index.trimPrimaryKey(primaryKeys);
-        keyFields.addAll(primaryKeys);
+        @Nullable IndexKeyValueToPartialRecord indexKeyValueToPartialRecord =
+                buildIndexKeyValueToPartialRecord(metaData, index, context.commonPrimaryKey, resultFields);
 
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType.getDescriptor());
-
-        for (KeyExpression resultField : resultFields) {
-            if (!addCoveringField(resultField, builder, keyFields, valueFields)) {
-                return chosenPlan;
+        if (indexKeyValueToPartialRecord != null) {
+            final RecordType recordType = indexKeyValueToPartialRecord.getRecordType();
+            if (recordType != null) {
+                return new RecordQueryCoveringIndexPlan(chosenPlan, recordType.getName(), indexKeyValueToPartialRecord);
             }
         }
-
-        if (context.commonPrimaryKey != null) {
-            for (KeyExpression primaryKeyField : context.commonPrimaryKey.normalizeKeyForPositions()) {
-                // Need the primary key, even if it wasn't one of the explicit result fields.
-                if (!resultFields.contains(primaryKeyField)) {
-                    addCoveringField(primaryKeyField, builder, keyFields, valueFields);
-                }
-            }
-        }
-
-        if (!builder.isValid()) {
-            return chosenPlan;
-        }
-
-        return new RecordQueryCoveringIndexPlan(chosenPlan, recordType.getName(), builder.build());
+        return chosenPlan;
     }
 
     @Nullable
-    private boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
+    public static IndexKeyValueToPartialRecord buildIndexKeyValueToPartialRecord(@Nonnull RecordMetaData metaData,
+                                                                                 @Nonnull Index index,
+                                                                                 @Nullable KeyExpression commonPrimaryKey,
+                                                                                 @Nonnull Set<KeyExpression> requiredFields) {
+        final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
+        if (recordTypes.size() != 1) {
+            return null;
+        }
+        final RecordType recordType = Iterables.getOnlyElement(recordTypes);
+
+        final KeyExpression rootExpression = index.getRootExpression();
+        final List<KeyExpression> keyFields = KeyExpression.getKeyFields(rootExpression);
+        final List<KeyExpression> valueFields = KeyExpression.getValueFields(rootExpression);
+
+        // Like FDBRecordStoreBase.indexEntryKey(), but with key expressions instead of actual values.
+        final List<KeyExpression> primaryKeys = commonPrimaryKey == null
+                                                ? Collections.emptyList()
+                                                : commonPrimaryKey.normalizeKeyForPositions();
+        index.trimPrimaryKey(primaryKeys);
+        keyFields.addAll(primaryKeys);
+
+        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
+
+        Set<KeyExpression> fields = new HashSet<>(requiredFields);
+        if (commonPrimaryKey != null) {
+            // Need the primary key, even if it wasn't one of the explicit result fields.
+            fields.addAll(commonPrimaryKey.normalizeKeyForPositions());
+        }
+        for (KeyExpression field: fields) {
+            if (!addCoveringField(field, builder, keyFields, valueFields)) {
+                return null;
+            }
+        }
+
+        // Validity check ensures that we don't attempt this transformation if there are any repeated fields..
+        if (!builder.isValid()) {
+            return null;
+        }
+        return builder.build();
+    }
+
+    private static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
                                      @Nonnull IndexKeyValueToPartialRecord.Builder builder,
                                      @Nonnull List<KeyExpression> keyFields,
                                      @Nonnull List<KeyExpression> valueFields) {
@@ -1548,7 +1559,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
 
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType.getDescriptor());
+        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final List<KeyExpression> keyFields = index.getRootExpression().normalizeKeyForPositions();
         final List<KeyExpression> valueFields = Collections.emptyList();
         for (KeyExpression resultField : query.getRequiredResults()) {

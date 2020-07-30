@@ -35,15 +35,18 @@ public class RecordQueryPlannerConfiguration {
     private final boolean attemptFailedInJoinAsOr;
     private final int complexityThreshold;
     private boolean checkForDuplicateConditions;
+    private boolean deferFetchAfterUnionAndIntersection;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
                                             int complexityThreshold,
-                                            boolean checkForDuplicateConditions) {
+                                            boolean checkForDuplicateConditions,
+                                            boolean deferFetchAfterUnionAndIntersection) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.complexityThreshold = complexityThreshold;
         this.checkForDuplicateConditions = checkForDuplicateConditions;
+        this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
     }
 
     /**
@@ -91,6 +94,15 @@ public class RecordQueryPlannerConfiguration {
         return checkForDuplicateConditions;
     }
 
+    /*
+     * Get whether the query planner should attempt to delay the fetch of the whole record until after union,
+     * intersection, and primary key distinct operators, as implemented in the various {@link RecordQueryPlannerSubstitutionVisitor}s.
+     * @return whether the planner should delay the fetch of the whole record until after union, intersection, and primary key distinct operators
+     */
+    public boolean shouldDeferFetchAfterUnionAndIntersection() {
+        return deferFetchAfterUnionAndIntersection;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -110,6 +122,7 @@ public class RecordQueryPlannerConfiguration {
         private boolean attemptFailedInJoinAsOr = false;
         private int complexityThreshold = RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD;
         private boolean checkForDuplicateConditions = false;
+        private boolean deferFetchAfterUnionAndIntersection = false;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -141,8 +154,13 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        public Builder setDeferFetchAfterUnionAndIntersection(boolean deferFetchAfterUnionAndIntersection) {
+            this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions);
+            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection);
         }
     }
 }

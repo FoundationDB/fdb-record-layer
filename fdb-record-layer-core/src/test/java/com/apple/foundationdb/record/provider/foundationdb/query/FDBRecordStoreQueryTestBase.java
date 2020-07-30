@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.protobuf.Message;
 
@@ -60,6 +61,7 @@ import java.util.stream.IntStream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A base class for common infrastructure used by tests in {@link com.apple.foundationdb.record.provider.foundationdb.query}.
@@ -373,6 +375,15 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         if (context.getTimer() != null) {
             context.getTimer().reset();
         }
+    }
+
+    protected void setDeferFetchAfterUnionAndIntersection(boolean shouldDeferFetch) {
+        assertTrue(planner instanceof RecordQueryPlanner);
+        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner) planner;
+        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
+                .asBuilder()
+                .setDeferFetchAfterUnionAndIntersection(shouldDeferFetch)
+                .build());
     }
 
     protected static class Holder<T> {

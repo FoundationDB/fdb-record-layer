@@ -106,6 +106,12 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
         return new RecordQueryUnorderedUnionPlan(ImmutableList.of(left, right), false);
     }
 
+    @Nonnull
+    @Override
+    public RecordQueryUnorderedUnionPlan withChildren(@Nonnull final List<RecordQueryPlan> newChildren) {
+        return from(newChildren);
+    }
+
     @Override
     @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {

@@ -46,8 +46,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * Common base class for plans that perform stream union operations.
+ */
 @API(API.Status.INTERNAL)
-abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
+public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlanBase.class);
 
     protected static final String UNION = "∪";    // U+222A
@@ -174,4 +177,7 @@ abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
     public int getRelationalChildCount() {
         return children.size();
     }
+
+    @Nonnull
+    public abstract RecordQueryUnionPlanBase withChildren(@Nonnull List<RecordQueryPlan> newChildren);
 }

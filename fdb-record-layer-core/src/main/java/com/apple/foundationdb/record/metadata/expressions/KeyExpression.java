@@ -33,6 +33,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -229,6 +230,38 @@ public interface KeyExpression extends PlanHashable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
+
+    /**
+     * Return the key fields for an expression.
+     * @param rootExpression a key expression
+     * @return the parts of the key expression that are in the key
+     */
+    @API(API.Status.EXPERIMENTAL)
+    static List<KeyExpression> getKeyFields(@Nonnull KeyExpression rootExpression) {
+        final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
+        if (rootExpression instanceof KeyWithValueExpression) {
+            final KeyWithValueExpression keyWithValue = (KeyWithValueExpression) rootExpression;
+            return new ArrayList<>(normalizedKeys.subList(0, keyWithValue.getSplitPoint()));
+        } else {
+            return new ArrayList<>(normalizedKeys);
+        }
+    }
+
+    /**
+     * Return the value fields for an expression.
+     * @param rootExpression a key expression
+     * @return the parts of the key expression that are in the value
+     */
+    @API(API.Status.EXPERIMENTAL)
+    static List<KeyExpression> getValueFields(@Nonnull KeyExpression rootExpression) {
+        final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
+        if (rootExpression instanceof KeyWithValueExpression) {
+            final KeyWithValueExpression keyWithValue = (KeyWithValueExpression) rootExpression;
+            return new ArrayList<>(normalizedKeys.subList(keyWithValue.getSplitPoint(), normalizedKeys.size()));
+        } else {
+            return Collections.singletonList(EmptyKeyExpression.EMPTY);
+        }
+    }
 
     /**
      * Returns the number of version columns produced by this key expression.

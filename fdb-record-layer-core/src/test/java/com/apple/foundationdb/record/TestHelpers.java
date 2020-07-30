@@ -278,6 +278,12 @@ public class TestHelpers {
         assertTrue(discarded <= expected, "discarded too many records\nExpected maximum: " + expected + "\nActual discarded: " + discarded);
     }
 
+    public static void assertLoadRecord(int expected, @Nonnull FDBRecordContext context) {
+        assertNotNull(context.getTimer());
+        int loads = context.getTimer().getCount(FDBStoreTimer.Events.LOAD_RECORD);
+        assertTrue(loads <= expected, "loaded too many records\nExpected maximum: " + expected + "\nActual loaded: " + loads);
+    }
+
     public static void assertDiscardedAtLeast(int expected, @Nonnull FDBRecordContext context) {
         assertNotNull(context.getTimer());
         int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);

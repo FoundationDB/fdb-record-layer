@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
@@ -31,11 +32,17 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Arrays;
 
@@ -43,10 +50,14 @@ import static com.apple.foundationdb.record.ExecuteProperties.newBuilder;
 import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedExactly;
+import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasNoDescendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
@@ -73,8 +84,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a complex query with an AND of fields with compatibly ordered indexes generates an intersection plan.
      */
-    @Test
-    public void testComplexQueryAndWithTwoChildren() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexQueryAndWithTwoChildren(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -83,12 +95,23 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsValue("even"),
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
+
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, intersection(
-                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]")))),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]")))),
-                equalTo(field("rec_no"))));
-        assertEquals(-1973527173, plan.planHash());
+
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(intersection(
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]"))))),
+                    equalTo(field("rec_no")))));
+            assertEquals(-929788310, plan.planHash());
+        } else {
+            assertThat(plan, intersection(
+                    indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]")))),
+                    indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]")))),
+                    equalTo(field("rec_no"))));
+            assertEquals(-1973527173, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -105,14 +128,18 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(10, i);
             assertDiscardedExactly(50, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(10, context);
+            }
         }
     }
 
     /**
      * Verify that a complex query with an AND of more than two fields with compatibly ordered indexes generates an intersection plan.
      */
-    @Test
-    public void testComplexQueryAndWithMultipleChildren() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexQueryAndWithMultipleChildren(boolean shouldDeferFetch) throws Exception {
         // Add an additional index to use for additional filtering
         RecordMetaDataHook hook = (metaDataBuilder) -> {
             complexQuerySetupHook().apply(metaDataBuilder);
@@ -127,13 +154,24 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(2),
                         Query.field("num_value_2").equalsValue(1)))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, intersection(Arrays.asList(
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(intersection(Arrays.asList(
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_2"), bounds(hasTupleString("[[1],[1]]")))))),
+                    equalTo(field("rec_no")))));
+            assertEquals(946461036, plan.planHash());
+        } else {
+            assertThat(plan, intersection(Arrays.asList(
                     indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_2"), bounds(hasTupleString("[[1],[1]]"))))),
-                equalTo(field("rec_no"))));
-        assertEquals(-478358039, plan.planHash());
+                    equalTo(field("rec_no"))));
+            assertEquals(-478358039, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -151,6 +189,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(4, i);
             assertDiscardedAtMost(90, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(4, context);
+            }
         }
     }
 
@@ -191,6 +232,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(10, i);
             assertDiscardedExactly(40, context);
+            assertLoadRecord(50, context);
         }
     }
 
@@ -198,8 +240,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
      * Verify that a complex query with an AND of fields where some of them are compatibly ordered uses an intersection
      * for only those filters.
      */
-    @Test
-    public void testComplexQueryAndWithSomeIncompatibleFilters() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexQueryAndWithSomeIncompatibleFilters(boolean shouldDeferFetch) throws Exception {
         // Add an additional index to use for additional filtering
         RecordMetaDataHook hook = (metaDataBuilder) -> {
             complexQuerySetupHook().apply(metaDataBuilder);
@@ -214,13 +257,23 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(0),
                         Query.field("num_value_2").equalsValue(2)))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
         // Should only include compatibly-ordered things in the intersection
-        assertThat(plan, filter(Query.field("str_value_indexed").startsWith("e"), intersection(
-                indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_3_indexed")), bounds(hasTupleString("[[0],[0]]")))),
-                indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_2")), bounds(hasTupleString("[[2],[2]]")))),
-                equalTo(field("rec_no")))));
-        assertEquals(1095867174, plan.planHash());
+
+        if (shouldDeferFetch) {
+            assertThat(plan, filter(Query.field("str_value_indexed").startsWith("e"), fetch(intersection(
+                    coveringIndexScan(indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_3_indexed")), bounds(hasTupleString("[[0],[0]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_2")), bounds(hasTupleString("[[2],[2]]"))))),
+                    equalTo(field("rec_no"))))));
+            assertEquals(-1979861885, plan.planHash());
+        } else {
+            assertThat(plan, filter(Query.field("str_value_indexed").startsWith("e"), intersection(
+                    indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_3_indexed")), bounds(hasTupleString("[[0],[0]]")))),
+                    indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_2")), bounds(hasTupleString("[[2],[2]]")))),
+                    equalTo(field("rec_no")))));
+            assertEquals(1095867174, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -238,6 +291,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(3, i);
             assertDiscardedAtMost(42, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(7, context);
+            }
         }
     }
 
@@ -281,6 +337,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(10, i);
             assertDiscardedExactly(10, context);
+            assertLoadRecord(20, context);
         }
     }
 
@@ -288,8 +345,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
      * Verify that an AND on two indexed fields with compatibly ordered indexes is implemented by an intersection, and
      * that the intersection cursor works properly with a returned record limit.
      */
-    @Test
-    public void testComplexLimits4() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexLimits4(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -298,11 +356,20 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsValue("odd"),
                         Query.field("num_value_3_indexed").equalsValue(0)))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, intersection(
-                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))));
-        assertEquals(-2067012605, plan.planHash());
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(intersection(
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))))));
+            assertEquals(-1584186334, plan.planHash());
+        } else {
+            assertThat(plan, intersection(
+                    indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
+                    indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))));
+            assertEquals(-2067012605, plan.planHash());
+        }
+
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -319,6 +386,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(5, i);
             assertDiscardedAtMost(23, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(5, context);
+            }
         }
     }
 
@@ -326,8 +396,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
      * Verify that a complex AND is implemented as an intersection of two multi-field indexes, where the first field of
      * the primary key is also the first field of the two indexes for which there are additional equality predicates.
      */
-    @Test
-    public void testAndQuery7() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testAndQuery7(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexPrimaryKeyHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -337,12 +408,22 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").equalsValue(1),
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, intersection(
-                indexScan(allOf(indexName("str_value_2_index"), bounds(hasTupleString("[[even, 1],[even, 1]]")))),
-                indexScan(allOf(indexName("str_value_3_index"), bounds(hasTupleString("[[even, 3],[even, 3]]")))),
-                equalTo(primaryKey("MySimpleRecord"))));
-        assertEquals(-1785751672, plan.planHash());
+
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(intersection(
+                    coveringIndexScan(indexScan(allOf(indexName("str_value_2_index"), bounds(hasTupleString("[[even, 1],[even, 1]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("str_value_3_index"), bounds(hasTupleString("[[even, 3],[even, 3]]"))))),
+                    equalTo(primaryKey("MySimpleRecord")))));
+            assertEquals(384640197, plan.planHash());
+        } else {
+            assertThat(plan, intersection(
+                    indexScan(allOf(indexName("str_value_2_index"), bounds(hasTupleString("[[even, 1],[even, 1]]")))),
+                    indexScan(allOf(indexName("str_value_3_index"), bounds(hasTupleString("[[even, 3],[even, 3]]")))),
+                    equalTo(primaryKey("MySimpleRecord"))));
+            assertEquals(-1785751672, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -360,6 +441,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(3, i);
             assertDiscardedAtMost(19, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(3, context);
+            }
         }
     }
 
@@ -396,8 +480,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
      * Verify that a query with a sort by primary key and AND clause is implemented as an intersection of index scans,
      * when the primary key is unbounded.
      */
-    @Test
-    public void sortedIntersectionUnbounded() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void sortedIntersectionUnbounded(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = sortingShapesHook();
         setupEnumShapes(hook);
 
@@ -408,11 +493,19 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED)))
                 .setSort(field("rec_no"))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, intersection(
-                indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10],[10]]")))),
-                indexScan(allOf(indexName("shape"), bounds(hasTupleString("[[200],[200]]"))))));
-        assertEquals(-296022647, plan.planHash());
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(intersection(
+                    coveringIndexScan(indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10],[10]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("shape"), bounds(hasTupleString("[[200],[200]]"))))))));
+            assertEquals(-2072158516, plan.planHash());
+        } else {
+            assertThat(plan, intersection(
+                    indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10],[10]]")))),
+                    indexScan(allOf(indexName("shape"), bounds(hasTupleString("[[200],[200]]"))))));
+            assertEquals(-296022647, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openEnumRecordStore(context, hook);
@@ -430,6 +523,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(3, i);
             assertDiscardedAtMost(10, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(3, context);
+            }
         }
     }
 
@@ -437,8 +533,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
      * Verify that a query with a sort by primary key and AND clause (with complex limits) is implemented as an
      * intersection of index scans, when the primary key is bounded.
      */
-    @Test
-    public void sortedIntersectionBounded() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void sortedIntersectionBounded(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = sortingShapesHook();
         setupEnumShapes(hook);
 
@@ -451,11 +548,19 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("rec_no").lessThanOrEquals(11)))
                 .setSort(field("rec_no"))
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, intersection(
-                indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10, 2],[10, 11]]")))),
-                indexScan(allOf(indexName("shape"), bounds(hasTupleString("[[200, 2],[200, 11]]"))))));
-        assertEquals(-942526391, plan.planHash());
+        if (shouldDeferFetch) {
+            assertThat(plan, fetch(intersection(
+                    coveringIndexScan(indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10, 2],[10, 11]]"))))),
+                    coveringIndexScan(indexScan(allOf(indexName("shape"), bounds(hasTupleString("[[200, 2],[200, 11]]"))))))));
+            assertEquals(1992249868, plan.planHash());
+        } else {
+            assertThat(plan, intersection(
+                    indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10, 2],[10, 11]]")))),
+                    indexScan(allOf(indexName("shape"), bounds(hasTupleString("[[200, 2],[200, 11]]"))))));
+            assertEquals(-942526391, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openEnumRecordStore(context, hook);
@@ -474,7 +579,38 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(2, i);
             assertDiscardedAtMost(4, context);
+            if (shouldDeferFetch) {
+                assertLoadRecord(2, context);
+            }
         }
+    }
+
+    /**
+     * Verify that an intersection visitor won't defer a record fetch if the comparison key has fields that the index
+     * entry doesn't.
+     * This sort of plan is never produced by the {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner},
+     * so we have to test the visitor directly.
+     */
+    @Test
+    public void intersectionVisitorOnComplexComparisonKey() throws Exception {
+        complexQuerySetup(null);
+
+        RecordQueryPlan originalPlan1 = RecordQueryIntersectionPlan.from(
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                primaryKey("MySimpleRecord"));
+
+        RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan1, recordStore.getRecordMetaData(), primaryKey("MySimpleRecord"));
+        assertThat(modifiedPlan1, fetch(intersection(
+                coveringIndexScan(indexScan("MySimpleRecord$str_value_indexed")), coveringIndexScan(indexScan("MySimpleRecord$num_value_3_indexed")))));
+
+        RecordQueryPlan originalPlan2 = RecordQueryIntersectionPlan.from(
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                concat(field("num_value_2"), primaryKey("MySimpleRecord")));
+        RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan2, recordStore.getRecordMetaData(), primaryKey("MySimpleRecord"));
+        // Visitor should not perform transformation because of comparison key on num_value_unique
+        assertEquals(originalPlan2, modifiedPlan2);
     }
 
     private RecordMetaDataHook sortingShapesHook() {

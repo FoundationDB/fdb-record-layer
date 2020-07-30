@@ -57,7 +57,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizerFactory;
@@ -141,6 +140,8 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexBunchedSerializerTest.entryOf;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
@@ -189,7 +190,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(TextIndexTest.class);
     private static final BunchedMap<Tuple, List<Integer>> BUNCHED_MAP = new BunchedMap<>(TextIndexBunchedSerializer.instance(), Comparator.naturalOrder(), 20);
     private static final Index COMPLEX_TEXT_BY_GROUP = new Index("Complex$text_by_group", field("text").groupBy(field("group")), IndexTypes.TEXT);
-    private static final String SIMPLE_DEFAULT_NAME = "SimpleDocument$text";
     private static final Index SIMPLE_TEXT_PREFIX = new Index("Simple$text_prefix", field("text"), IndexTypes.TEXT,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "1"));
     private static final Index SIMPLE_TEXT_FILTERING = new Index("Simple$text_filter", field("text"), IndexTypes.TEXT,
@@ -210,9 +210,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     private static final Index MAP_ON_VALUE_PREFIX = new Index("Map$entry-value_prefix", new GroupingKeyExpression(field("entry", FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.TEXT,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "1"));
     private static final Index MAP_ON_VALUE_GROUPED_INDEX = new Index("Map$entry-value_by_group", new GroupingKeyExpression(concat(field("group"), field("entry", FanType.FanOut).nest(concatenateFields("key", "value"))), 1), IndexTypes.TEXT);
-    private static final TransformedRecordSerializer<Message> COMPRESSING_SERIALIZER = TransformedRecordSerializer.newDefaultBuilder().setCompressWhenSerializing(true).build();
-    private static final String SIMPLE_DOC = "SimpleDocument";
-    private static final String COMPLEX_DOC = "ComplexDocument";
     private static final String MAP_DOC = "MapDocument";
 
     @BeforeEach
@@ -229,7 +226,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);
         recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
-                .setSerializer(COMPRESSING_SERIALIZER)
+                .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
                 .uncheckedOpen();
         setupPlanner(null);
     }
@@ -434,7 +431,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
 
-            Index index = recordStore.getRecordMetaData().getIndex(SIMPLE_DEFAULT_NAME);
+            Index index = recordStore.getRecordMetaData().getIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
 
             recordStore.saveRecord(simpleDocument);
             final int firstKeys = getSaveIndexKeyCount(recordStore);
@@ -564,7 +561,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .build();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_PREFIX_LEGACY);
             });
             recordStore.saveRecord(shakespeareDocument);
@@ -581,7 +578,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_PREFIX);
             });
             recordStore.saveRecord(shakespeareDocument);
@@ -604,14 +601,14 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Because missing tokenizer
             assertThrows(MetaDataException.class, () -> openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_FILTERING);
             }));
         }
         TextTokenizerRegistryImpl.instance().register(FILTERING_TOKENIZER);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_FILTERING);
             });
             recordStore.saveRecord(russianDocument);
@@ -639,7 +636,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .build();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             });
             recordStore.saveRecord(germanDocument);
@@ -682,7 +679,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         // Save without positions
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_NO_POSITIONS);
             });
             recordStore.deleteAllRecords();
@@ -910,7 +907,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX);
             });
 
@@ -944,7 +941,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addMultiTypeIndex(
                         Arrays.asList(metaDataBuilder.getRecordType(COMPLEX_DOC), metaDataBuilder.getRecordType(SIMPLE_DOC)),
                         COMBINED_TEXT_BY_GROUP
@@ -1009,9 +1006,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .setText(TextSamples.YIDDISH)
                 .build();
         final RecordMetaDataHook hook = metaDataBuilder -> {
-            final Index oldIndex = metaDataBuilder.getIndex(SIMPLE_DEFAULT_NAME);
-            metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
-            final Index newIndex = new Index(SIMPLE_DEFAULT_NAME + "-new", oldIndex.getRootExpression(), IndexTypes.TEXT,
+            final Index oldIndex = metaDataBuilder.getIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            final Index newIndex = new Index(TextIndexTestUtils.SIMPLE_DEFAULT_NAME + "-new", oldIndex.getRootExpression(), IndexTypes.TEXT,
                     ImmutableMap.of(IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
             metaDataBuilder.addIndex(SIMPLE_DOC, newIndex);
         };
@@ -1058,7 +1055,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Use a version of the prefix filter that only keeps first 3 letters
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_PREFIX_LEGACY);
             });
             recordStore.saveRecord(shakespeareDocument);
@@ -1073,7 +1070,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Use a version of the prefix filter that keeps the first 4 letters instead
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_PREFIX);
             });
             // check saving new document
@@ -1123,7 +1120,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_PREFIX_LEGACY);
             });
             recordStore.saveRecord(map1);
@@ -1138,7 +1135,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_PREFIX);
             });
 
@@ -1276,7 +1273,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             records.forEach(recordStore::saveRecord);
             commit(context);
         }
-        final Index index = recordStore.getRecordMetaData().getIndex(SIMPLE_DEFAULT_NAME);
+        final Index index = recordStore.getRecordMetaData().getIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
 
         scanWithZeroScanRecordLimit(index, "angstrom", false); // existing token
         scanWithZeroScanRecordLimit(index, "angstrom", true); // existing token
@@ -1302,19 +1299,12 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     public void invalidScans() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final Index index = recordStore.getRecordMetaData().getIndex(SIMPLE_DEFAULT_NAME);
+            final Index index = recordStore.getRecordMetaData().getIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             assertThrows(RecordCoreException.class, () -> recordStore.scanIndex(index, BY_VALUE, TupleRange.ALL, null, ScanProperties.REVERSE_SCAN));
             assertThrows(RecordCoreException.class, () -> recordStore.scanIndex(index, BY_GROUP, TupleRange.ALL, null, ScanProperties.REVERSE_SCAN));
             assertThrows(RecordCoreException.class, () -> recordStore.scanIndex(index, BY_RANK, TupleRange.ALL, null, ScanProperties.REVERSE_SCAN));
             assertThrows(RecordCoreException.class, () -> recordStore.scanIndex(index, BY_TIME_WINDOW, TupleRange.ALL, null, ScanProperties.REVERSE_SCAN));
         }
-    }
-
-    @Nonnull
-    private List<SimpleDocument> toSimpleDocuments(@Nonnull List<String> textSamples) {
-        return IntStream.range(0, textSamples.size())
-                .mapToObj(i -> SimpleDocument.newBuilder().setDocId(i).setGroup(i % 2).setText(textSamples.get(i)).build())
-                .collect(Collectors.toList());
     }
 
     @Nonnull
@@ -1372,7 +1362,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash,
                                                      @Nonnull Matcher<? super Comparisons.TextComparison> comparisonMatcher) throws InterruptedException, ExecutionException {
-        return querySimpleDocumentsWithIndex(filter, SIMPLE_DEFAULT_NAME, planHash, comparisonMatcher);
+        return querySimpleDocumentsWithIndex(filter, TextIndexTestUtils.SIMPLE_DEFAULT_NAME, planHash, comparisonMatcher);
     }
 
     @Nullable
@@ -1402,12 +1392,12 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
-        return querySimpleDocumentsWithIndex(filter, SIMPLE_DEFAULT_NAME, planHash);
+        return querySimpleDocumentsWithIndex(filter, TextIndexTestUtils.SIMPLE_DEFAULT_NAME, planHash);
     }
 
     @Test
     public void querySimpleDocuments() throws Exception {
-        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+        final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ANGSTROM,
                 TextSamples.AETHELRED,
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
@@ -1580,7 +1570,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void querySimpleDocumentsWithAdditionalFilters() throws Exception {
-        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+        final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
                 TextSamples.AETHELRED,
@@ -1684,7 +1674,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void querySimpleDocumentsWithDifferentTokenizers() throws Exception {
-        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+        final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
                 TextSamples.RUSSIAN,
                 TextSamples.GERMAN,
@@ -1704,11 +1694,11 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // Filtering tokenizer
             final String filteringTokenizerName = FILTERING_TOKENIZER.getName();
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("weltmeisterschaft"), SIMPLE_DEFAULT_NAME, -1172646540));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("weltmeisterschaft"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, -1172646540));
             assertEquals(Collections.emptyList(),
                     querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).contains("weltmeisterschaft"), SIMPLE_TEXT_FILTERING.getName(), 835135314));
             assertEquals(Collections.singletonList(1L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("достопримечательности"), SIMPLE_DEFAULT_NAME , -1291535616));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("достопримечательности"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME , -1291535616));
             assertEquals(Collections.emptyList(),
                     querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).contains("достопримечательности"), SIMPLE_TEXT_FILTERING.getName(), 716246238));
             assertEquals(Collections.singletonList(2L),
@@ -1716,33 +1706,33 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Collections.emptyList(),
                     querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll(Arrays.asList("weltmeisterschaft", "gewonnen")), SIMPLE_TEXT_FILTERING.getName(), 1945779923));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("Weltmeisterschaft Nationalmannschaft Friedrichstraße"), SIMPLE_DEFAULT_NAME, 625333664));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("Weltmeisterschaft Nationalmannschaft Friedrichstraße"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 625333664));
             assertEquals(Collections.emptyList(),
                     querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll("Weltmeisterschaft Nationalmannschaft Friedrichstraße"), SIMPLE_TEXT_FILTERING.getName(), -1661851778));
 
             // Prefix tokenizer
             final String prefixTokenizerName = PrefixTextTokenizer.NAME;
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAny("civic lover"), SIMPLE_DEFAULT_NAME, 1358697044));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAny("civic lover"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 1358697044));
             assertEquals(Collections.singletonList(0L),
                     querySimpleDocumentsWithIndex(Query.field("text").text(prefixTokenizerName).containsAll("civic lover"), SIMPLE_TEXT_PREFIX.getName(), 2070491434));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("못핵"), SIMPLE_DEFAULT_NAME, -1414597326));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("못핵"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, -1414597326));
             assertEquals(Collections.singletonList(3L),
                     querySimpleDocumentsWithIndex(Query.field("text").text(prefixTokenizerName).containsAll("못핵"), SIMPLE_TEXT_PREFIX.getName(), 1444383389));
 
             // Suffixes tokenizer
             // Note that prefix scans using the suffixes tokenizer are equivalent to infix searches on the original tokens
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsPrefix("meister"), SIMPLE_DEFAULT_NAME, -2049073113));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsPrefix("meister"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, -2049073113));
             assertEquals(Collections.singletonList(2L),
                     querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsPrefix("meister"), SIMPLE_TEXT_SUFFIXES.getName(), -628393471));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAnyPrefix("meister ivi"), SIMPLE_DEFAULT_NAME, 279029713));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAnyPrefix("meister ivi"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 279029713));
             assertEquals(ImmutableSet.of(0L, 2L),
                     new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAnyPrefix("meister ivi"), SIMPLE_TEXT_SUFFIXES.getName(), 1699709355)));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAllPrefixes("meister won", false), SIMPLE_DEFAULT_NAME, 993745490));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAllPrefixes("meister won", false), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 993745490));
             assertEquals(Collections.singletonList(2L),
                     querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAllPrefixes("meister won", false), SIMPLE_TEXT_SUFFIXES.getName(), -1880542164));
             assertEquals(Arrays.asList(0L, 2L),
@@ -1758,7 +1748,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void querySimpleDocumentsMaybeCovering() throws Exception {
-        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+        final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ANGSTROM,
                 TextSamples.AETHELRED,
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
@@ -1780,7 +1770,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter1)
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
+            assertThat(plan, textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
             assertEquals(814602491, plan.planHash());
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Collections.singletonList(2L), primaryKeys);
@@ -1790,7 +1780,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter2)
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, primaryKeyDistinct(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))));
+            assertThat(plan, primaryKeyDistinct(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))));
             assertEquals(1032989149, plan.planHash());
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 1L, 2L, 3L), primaryKeys);
@@ -1802,7 +1792,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter1)
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
+            assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
             assertEquals(814602491, plan.planHash());
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Collections.singletonList(2L), primaryKeys);
@@ -1813,7 +1803,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter2)
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
+            assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
             assertEquals(1032989149, plan.planHash());
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 1L, 2L, 3L), primaryKeys);
@@ -1826,7 +1816,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .build();
             plan = planner.plan(query);
             assertThat(plan, filter(PredicateMatchers.field("group").equalsValue(0L),
-                    textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
+                    textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
             assertEquals(-1328921799, plan.planHash());
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Collections.singletonList(2L), primaryKeys);
@@ -1839,7 +1829,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             plan = planner.plan(query);
             System.out.println(plan.planHash());
             assertThat(plan, filter(Query.field("group").equalsValue(0L),
-                    primaryKeyDistinct(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
+                    primaryKeyDistinct(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
             assertEquals(-1110535141, plan.planHash());
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 2L), primaryKeys);
@@ -1856,7 +1846,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter1)
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
+            assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
             assertEquals(814602491, plan.planHash());
             List<Tuple> idTextTuples = recordStore.executeQuery(plan)
                     .map(record -> {
@@ -1874,7 +1864,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter2)
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
+            assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
             assertEquals(1032989149, plan.planHash());
             idTextTuples = recordStore.executeQuery(plan)
                     .map(record -> {
@@ -1893,7 +1883,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void querySimpleDocumentsWithoutPositions() throws Exception {
-        final List<SimpleDocument> documents = toSimpleDocuments(Arrays.asList(
+        final List<SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
                 TextSamples.ANGSTROM,
                 TextSamples.AETHELRED,
                 TextSamples.ROMEO_AND_JULIET_PROLOGUE,
@@ -1903,7 +1893,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         // Query but make sure
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_NO_POSITIONS);
             });
             documents.forEach(recordStore::saveRecord);
@@ -1932,7 +1922,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         // Upgrade to writing position information
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, new Index(SIMPLE_TEXT_NO_POSITIONS.getName(), SIMPLE_TEXT_NO_POSITIONS.getRootExpression(), IndexTypes.TEXT));
             });
             newDocuments.forEach(recordStore::saveRecord);
@@ -2190,7 +2180,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_TEXT_BY_GROUP);
             });
             documents.forEach(recordStore::saveRecord);
@@ -2303,7 +2293,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(field("doc_id"));
-                metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addMultiTypeIndex(Arrays.asList(
                         metaDataBuilder.getRecordType(SIMPLE_DOC),
                         metaDataBuilder.getRecordType(COMPLEX_DOC)
@@ -2573,8 +2563,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     public static Stream<Arguments> indexArguments() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
-        Index simpleIndex = metaDataBuilder.getIndex(SIMPLE_DEFAULT_NAME);
-        simpleIndex.setSubspaceKey(SIMPLE_DEFAULT_NAME + "-2");
+        Index simpleIndex = metaDataBuilder.getIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+        simpleIndex.setSubspaceKey(TextIndexTestUtils.SIMPLE_DEFAULT_NAME + "-2");
         return Stream.of(simpleIndex, SIMPLE_TEXT_FILTERING, SIMPLE_TEXT_PREFIX, SIMPLE_TEXT_SUFFIXES)
                 .map(Arguments::of);
     }
@@ -2595,7 +2585,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         TextTokenizerRegistryImpl.instance().register(FILTERING_TOKENIZER);
         final TextTokenizer tokenizer = TextIndexMaintainer.getTokenizer(index);
         final RecordMetaDataHook hook = metaDataBuilder -> {
-            metaDataBuilder.removeIndex(SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(SIMPLE_DOC, index);
         };
 
@@ -2727,7 +2717,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             for (RecordQuery query : queries) {
                 try {
                     RecordQueryPlan plan = planner.plan(query);
-                    assertThat(plan.getUsedIndexes(), not(contains(SIMPLE_DEFAULT_NAME)));
+                    assertThat(plan.getUsedIndexes(), not(contains(TextIndexTestUtils.SIMPLE_DEFAULT_NAME)));
                 } catch (RecordCoreException e) {
                     assertThat(e.getMessage(), containsString("Cannot sort without appropriate index"));
                 }
@@ -2875,7 +2865,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     private void printUsage() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            Subspace indexSubspace = recordStore.getIndexMaintainer(recordStore.getRecordMetaData().getIndex(SIMPLE_DEFAULT_NAME)).getIndexSubspace();
+            Subspace indexSubspace = recordStore.getIndexMaintainer(recordStore.getRecordMetaData().getIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME)).getIndexSubspace();
             final int indexSuspaceLength = indexSubspace.getKey().length;
             int subspaceOverhead = 0;
             int keySize = 0;
