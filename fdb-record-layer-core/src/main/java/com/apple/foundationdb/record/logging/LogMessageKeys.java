@@ -230,7 +230,11 @@ public enum LogMessageKeys {
 
     //for logging asyncToSync timeout limits
     TIME_LIMIT("time_limit"),
-    TIME_UNIT("time_unit");
+    TIME_UNIT("time_unit"),
+
+    // ranked set
+    HASH_FUNCTION("hash_function"),
+    HASH("hash");
 
     private final String logKey;
 

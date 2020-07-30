@@ -23,12 +23,12 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 
 import javax.annotation.Nonnull;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Known hash functions available as index options.
@@ -42,16 +42,12 @@ public class RankedSetHashFunctions {
 
     private static final RankedSet.HashFunction MURMUR3_HASH_FUNCTION = new GuavaHashFunction(Hashing.murmur3_32());
 
-    private static final Map<String, RankedSet.HashFunction> extent = buildExtent();
-
-    private static Map<String, RankedSet.HashFunction> buildExtent() {
-        Map<String, RankedSet.HashFunction> result = new HashMap<>();
-        result.put(JDK, RankedSet.JDK_ARRAY_HASH);
-        result.put(CRC, RankedSet.CRC_HASH);
-        result.put(RANDOM, RankedSet.RANDOM_HASH);
-        result.put(MURMUR3, MURMUR3_HASH_FUNCTION);
-        return result;
-    }
+    private static final BiMap<String, RankedSet.HashFunction> extent = ImmutableBiMap.<String, RankedSet.HashFunction>builder()
+            .put(JDK, RankedSet.JDK_ARRAY_HASH)
+            .put(CRC, RankedSet.CRC_HASH)
+            .put(RANDOM, RankedSet.RANDOM_HASH)
+            .put(MURMUR3, MURMUR3_HASH_FUNCTION)
+            .build();
 
     public static RankedSet.HashFunction getHashFunction(@Nonnull String name) {
         RankedSet.HashFunction result = extent.get(name);
@@ -59,6 +55,10 @@ public class RankedSetHashFunctions {
             return result;
         }
         throw new RecordCoreArgumentException("hash function not found: " + name);
+    }
+
+    public static String getHashFunctionName(@Nonnull RankedSet.HashFunction hashFunction) {
+        return extent.inverse().get(hashFunction);
     }
 
     private RankedSetHashFunctions() {
