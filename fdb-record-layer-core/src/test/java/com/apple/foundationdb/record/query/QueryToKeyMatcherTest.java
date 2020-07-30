@@ -26,11 +26,14 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
+import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
+import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
@@ -528,6 +531,15 @@ public class QueryToKeyMatcherTest {
     }
 
     @Test
+    public void testMatchWithQueryableExpression() {
+        final QueryableKeyExpression key = (QueryableKeyExpression)function("nada", concatenateFields("f1", "f2", "f3"));
+        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(Query.keyExpression(key).equalsValue("hello!"));
+        Match match = matcher.matchesSatisfyingQuery(key);
+        assertEquals(MatchType.EQUALITY, match.getType());
+        assertEquals(Key.Evaluated.scalar("hello!"), match.getEquality());
+    }
+
+    @Test
     public void testTemporarilyNoMatch() {
         // This is a holder test to make sure we don't forget to test things when we add support for them, and
         // to make sure they return no match for now
@@ -654,7 +666,7 @@ public class QueryToKeyMatcherTest {
         }
     }
 
-    private static class DoNothingFunction extends FunctionKeyExpression {
+    private static class DoNothingFunction extends FunctionKeyExpression implements QueryableKeyExpression {
 
         public DoNothingFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
@@ -686,6 +698,12 @@ public class QueryToKeyMatcherTest {
         @Override
         public int getColumnSize() {
             return getArguments().getColumnSize();
+        }
+
+        @Nonnull
+        @Override
+        public Element toElement(@Nonnull final Source rootSource) {
+            return normalizeForPlanner(rootSource, Collections.emptyList()).flattenForPlanner().get(0);
         }
     }
 }

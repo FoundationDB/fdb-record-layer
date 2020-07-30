@@ -181,6 +181,29 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that a filter not satisfied by the index scan itself but using fields present in the index
+     * can still allow a covering scan with the filter on the partial records.
+     */
+    @Test
+    public void coveringWithAdditionalFilter() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+            metaData.addIndex("MySimpleRecord", new Index("multi_index", "num_value_3_indexed", "num_value_2"));
+        };
+        complexQuerySetup(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(Query.field("num_value_3_indexed").lessThan(1), Query.field("num_value_2").lessThan(2)))
+                .setRequiredResults(Collections.singletonList(field("num_value_3_indexed")))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
+                coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([null],[1])")))))));
+        assertEquals(-1374002128, plan.planHash());
+    }
+
+    /**
      * Verify that an index can be covering if more than one field is required and they are in the key.
      */
     @Test
